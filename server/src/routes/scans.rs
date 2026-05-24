@@ -80,10 +80,13 @@ async fn create_scan(
                 if frames.len() >= MAX_FRAMES {
                     return Err(AppError::BadRequest("too many frames (max 96)"));
                 }
-                let data = field
-                    .bytes()
-                    .await
-                    .map_err(|_| AppError::BadRequest("could not read frame"))?;
+                let data = field.bytes().await.map_err(|e| {
+                    // Keep the underlying multer error in the server log so
+                    // operators can tell apart "client gave up" vs nginx
+                    // truncation vs malformed multipart.
+                    tracing::warn!(error = ?e, frame_index = frames.len(), "scan frame read failed");
+                    AppError::BadRequest("could not read frame")
+                })?;
                 if data.len() > MAX_FRAME_BYTES {
                     return Err(AppError::BadRequest("frame too large (max 5 MB)"));
                 }

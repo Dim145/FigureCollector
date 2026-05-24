@@ -13,6 +13,7 @@ import SettingsPage from "./pages/SettingsPage.jsx";
 import ActivityPage from "./pages/ActivityPage.jsx";
 import YearInReviewPage from "./pages/YearInReviewPage.jsx";
 import AchievementsPage from "./pages/AchievementsPage.jsx";
+import StatsPage from "./pages/StatsPage.jsx";
 import CommandPalette from "./components/CommandPalette.jsx";
 import LiveSyncProvider from "./components/LiveSyncProvider.jsx";
 import OfflineIndicator from "./components/OfflineIndicator.jsx";
@@ -37,6 +38,7 @@ export default function App() {
           <Route path="/year-in-review/:year" element={<YearInReviewPage />} />
           <Route path="/year-in-review" element={<YearInReviewPage />} />
           <Route path="/achievements" element={<AchievementsPage />} />
+          <Route path="/stats" element={<StatsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/u/:slug" element={<PublicProfilePage />} />
           <Route path="/compare/:slug" element={<ComparePage />} />

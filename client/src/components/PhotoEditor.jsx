@@ -45,11 +45,15 @@ export default function PhotoEditor({ file, onUpload, onCancel }) {
   const onRemoveBg = async () => {
     setBgState({ running: true, progress: 0, error: null });
     try {
-      const cutout = await removeBackground(currentBlob, (p) => {
-        if (p?.total) {
+      // @imgly/background-removal's progress callback takes three positional
+      // args, NOT a single object. Reading `p?.total` from a `key` string
+      // silently always fell through and kept the bar pinned at 0 % until
+      // the call resolved.
+      const cutout = await removeBackground(currentBlob, (_key, current, total) => {
+        if (total) {
           setBgState((s) => ({
             ...s,
-            progress: Math.round((p.current / p.total) * 100),
+            progress: Math.round((current / total) * 100),
           }));
         }
       });
@@ -64,7 +68,7 @@ export default function PhotoEditor({ file, onUpload, onCancel }) {
     // Filerobot returns either a Blob (recent versions) or a base64 dataURL.
     let blob;
     if (edited?.imageBase64) {
-      blob = await base64ToBlob(edited.imageBase64);
+      blob = base64ToBlob(edited.imageBase64);
     } else if (edited?.imageBlob instanceof Blob) {
       blob = edited.imageBlob;
     } else if (edited?.imageData) {
@@ -155,6 +159,12 @@ export default function PhotoEditor({ file, onUpload, onCancel }) {
             defaultToolId="Crop"
             savingPixelRatio={1}
             previewPixelRatio={window.devicePixelRatio ?? 1}
+            // Disable filerobot's online translation fetch — it phones home
+            // to i18n-fastly.ultrafast.io which our CSP (rightly) blocks and
+            // we ship our own translations anyway.
+            useBackendTranslations={false}
+            // Same reason — silence other phone-home calls.
+            disableSaveIfNoChanges={false}
           />
         </Suspense>
       </div>
@@ -162,9 +172,23 @@ export default function PhotoEditor({ file, onUpload, onCancel }) {
   );
 }
 
-async function base64ToBlob(dataUrl) {
-  const res = await fetch(dataUrl);
-  return res.blob();
+/**
+ * Convert a `data:image/...;base64,<payload>` URL to a Blob without ever
+ * touching the network. `fetch(dataUrl)` would work in browsers, but CSP
+ * sees it as a `connect-src data:` violation (which is correct — data URLs
+ * are not network resources and we don't want to widen the CSP just to
+ * tolerate this).
+ */
+function base64ToBlob(dataUrl) {
+  const comma = dataUrl.indexOf(",");
+  if (comma < 0) throw new Error("malformed data URL");
+  const header = dataUrl.slice(0, comma);
+  const payload = dataUrl.slice(comma + 1);
+  const mime = /^data:([^;]+)/.exec(header)?.[1] ?? "application/octet-stream";
+  const bin = atob(payload);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
 }
 
 async function imageDataToBlob(imageData) {

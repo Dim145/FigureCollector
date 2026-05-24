@@ -3,6 +3,10 @@ import { useT } from "../i18n/index.jsx";
 
 const TARGET = 24;
 
+// Match TurntableVideo: server rejects > 2048 px per side, keep a margin.
+// Downscale the longest side so portrait phone sensors (often 4K) fit too.
+const MAX_FRAME_DIM = 1920;
+
 /**
  * Live-camera capture: shoot one frame at a time, the app tells the user how
  * much to rotate the figurine between shots. Phones-first (uses environment
@@ -52,9 +56,12 @@ export default function TurntableCapture({ onComplete }) {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
-    const w = video.videoWidth;
-    const h = video.videoHeight;
-    if (!w || !h) return;
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    if (!vw || !vh) return;
+    const scale = Math.min(1, MAX_FRAME_DIM / Math.max(vw, vh));
+    const w = Math.round(vw * scale);
+    const h = Math.round(vh * scale);
     canvas.width = w;
     canvas.height = h;
     canvas.getContext("2d").drawImage(video, 0, 0, w, h);

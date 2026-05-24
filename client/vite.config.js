@@ -111,6 +111,23 @@ export default defineConfig({
               rangeRequests: true,
             },
           },
+          // @imgly/background-removal data CDN — pinned to a versioned URL
+          // (`/@imgly/background-removal-data/<X.Y.Z>/dist/…`) so CacheFirst
+          // is safe; the model + resources.json are ~80 MB total on first
+          // run, then served from the SW cache forever.
+          {
+            urlPattern: /^https:\/\/staticimgly\.com\/@imgly\/background-removal-data\//,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "fc-imgly-bgrm",
+              expiration: {
+                maxEntries: 20,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+              },
+              cacheableResponse: { statuses: [0, 200] },
+              rangeRequests: true,
+            },
+          },
           // Google Fonts CSS & font files (Direction B typography).
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\//,

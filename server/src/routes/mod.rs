@@ -3,7 +3,7 @@
 //! Composition: a single `/api` nest. Auth-sensitive routes get rate-limited.
 
 use crate::state::AppState;
-use axum::Router;
+use axum::{Router, extract::DefaultBodyLimit};
 use std::sync::Arc;
 use tower_governor::{
     GovernorLayer, governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor,
@@ -22,6 +22,7 @@ pub mod photos;
 pub mod preorders;
 pub mod profile;
 pub mod scans;
+pub mod stats;
 pub mod ws;
 
 pub fn build_router(state: AppState) -> Router {
@@ -39,13 +40,20 @@ pub fn build_router(state: AppState) -> Router {
 
     let auth_routes = auth::router().layer(auth_governor);
 
-    // Multipart photo uploads need a generous body limit (5 MB per file +
-    // multipart framing overhead).
-    let photo_routes = photos::router().layer(RequestBodyLimitLayer::new(8 * 1024 * 1024));
+    // Multipart photo uploads — 5 MB per file + multipart framing.
+    // Both layers are needed: `DefaultBodyLimit::disable()` removes the
+    // 2-MB default that axum applies to every route (otherwise the Multipart
+    // extractor errors out at 2 MB regardless of RequestBodyLimitLayer);
+    // `RequestBodyLimitLayer` then sets the real cap.
+    let photo_routes = photos::router()
+        .layer(DefaultBodyLimit::disable())
+        .layer(RequestBodyLimitLayer::new(16 * 1024 * 1024));
 
-    // 360° scans bundle up to 96 frames in one POST; cap at 64 MB so a phone
-    // batching ~36 frames at 1 MB each fits comfortably.
-    let scan_routes = scans::router().layer(RequestBodyLimitLayer::new(64 * 1024 * 1024));
+    // 360° scans bundle up to 96 frames in one POST. Cap at 96 MB which fits
+    // a typical 48-frame phone capture (≈1-2 MB / frame) with room to spare.
+    let scan_routes = scans::router()
+        .layer(DefaultBodyLimit::disable())
+        .layer(RequestBodyLimitLayer::new(96 * 1024 * 1024));
 
     let api = Router::new()
         .merge(health::router())
@@ -58,6 +66,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(external::router())
         .merge(activity::router())
         .merge(achievements::router())
+        .merge(stats::router())
         .merge(photo_routes)
         .merge(scan_routes)
         .merge(auth_routes);

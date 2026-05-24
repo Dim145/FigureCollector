@@ -45,9 +45,97 @@ services:
       - "3902:3902"   # S3 API
     environment:
       # Generate with: openssl rand -hex 32
-      # Both are dev-only defaults; override in your shell or .env for staging.
+      # Dev-only default; override in your shell or .env for staging.
       GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:-d83d9c0fde54bce93deeee2eef2bbf2f6c01e0d8e7b3b7c2cc7e3fc9b58a64ef}
+    # `garage status` shells out the binary itself (no sh in scratch image).
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 15s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - ip6net
+
+  # ------------------------------------------------------------------
+  # One-shot bootstrap: assigns a layout, creates the bucket, imports
+  # deterministic dev S3 credentials and grants the bucket to that key.
+  # Idempotent — safe to re-run; everything ignores 409s.
+  # ------------------------------------------------------------------
+  garage-init:
+    image: alpine:3.20
+    depends_on:
+      garage:
+        condition: service_started
+    restart: "no"
+    environment:
+      GARAGE_ADMIN: http://garage:3900/v1
       GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:-dev-admin-token-change-me}
+      S3_BUCKET: ${S3_BUCKET:-figurecollector}
+      # Dev creds — pinned so server + gsplat-worker share them out of the box.
+      # Garage format: access key = "GK" + 24 hex chars (12 bytes), secret = 64
+      # hex chars (32 bytes). The values below are dev-only; override in .env
+      # if you want different keys.
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-GKdeadbeefdeadbeefdeadbeef}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef}
+    command:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        apk add --no-cache curl jq >/dev/null
+
+        AUTH="Authorization: Bearer $$GARAGE_ADMIN_TOKEN"
+
+        echo "[init] waiting for garage admin API…"
+        until curl -sf -H "$$AUTH" "$$GARAGE_ADMIN/status" >/dev/null; do sleep 1; done
+
+        # 1. Layout — assign the single node once, then apply.
+        LAYOUT=$$(curl -sf -H "$$AUTH" "$$GARAGE_ADMIN/layout")
+        APPLIED=$$(echo "$$LAYOUT" | jq -r '.version // 0')
+        if [ "$$APPLIED" = "0" ]; then
+          NODE_ID=$$(curl -sf -H "$$AUTH" "$$GARAGE_ADMIN/status" | jq -r '.node')
+          echo "[init] assigning layout for node $$NODE_ID"
+          curl -sf -X POST -H "$$AUTH" -H 'Content-Type: application/json' \
+            -d "[{\"id\":\"$$NODE_ID\",\"zone\":\"dev\",\"capacity\":1000000000,\"tags\":[]}]" \
+            "$$GARAGE_ADMIN/layout" >/dev/null
+          curl -sf -X POST -H "$$AUTH" -H 'Content-Type: application/json' \
+            -d '{"version":1}' "$$GARAGE_ADMIN/layout/apply" >/dev/null
+          echo "[init] layout applied"
+        else
+          echo "[init] layout already at v$$APPLIED — skipping"
+        fi
+
+        # 2. Bucket — create if absent.
+        if ! curl -sf -H "$$AUTH" "$$GARAGE_ADMIN/bucket?globalAlias=$$S3_BUCKET" >/dev/null 2>&1; then
+          echo "[init] creating bucket $$S3_BUCKET"
+          curl -sf -X POST -H "$$AUTH" -H 'Content-Type: application/json' \
+            -d "{\"globalAlias\":\"$$S3_BUCKET\"}" \
+            "$$GARAGE_ADMIN/bucket" >/dev/null
+        else
+          echo "[init] bucket $$S3_BUCKET already exists"
+        fi
+        BUCKET_ID=$$(curl -sf -H "$$AUTH" "$$GARAGE_ADMIN/bucket?globalAlias=$$S3_BUCKET" | jq -r '.id')
+
+        # 3. Key — import the deterministic dev credentials.
+        if ! curl -sf -H "$$AUTH" "$$GARAGE_ADMIN/key?id=$$S3_ACCESS_KEY" >/dev/null 2>&1; then
+          echo "[init] importing dev key $$S3_ACCESS_KEY"
+          curl -sf -X POST -H "$$AUTH" -H 'Content-Type: application/json' \
+            -d "{\"name\":\"figurecollector-dev\",\"accessKeyId\":\"$$S3_ACCESS_KEY\",\"secretAccessKey\":\"$$S3_SECRET_KEY\"}" \
+            "$$GARAGE_ADMIN/key/import" >/dev/null
+        else
+          echo "[init] key $$S3_ACCESS_KEY already present"
+        fi
+
+        # 4. Grant — bucket ↔ key (read/write/owner).
+        echo "[init] granting bucket to key"
+        curl -sf -X POST -H "$$AUTH" -H 'Content-Type: application/json' \
+          -d "{\"bucketId\":\"$$BUCKET_ID\",\"accessKeyId\":\"$$S3_ACCESS_KEY\",\"permissions\":{\"read\":true,\"write\":true,\"owner\":true}}" \
+          "$$GARAGE_ADMIN/bucket/allow" >/dev/null
+
+        echo "[init] garage bootstrap complete."
     security_opt:
       - no-new-privileges:true
     networks:
@@ -64,11 +152,30 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      garage-init:
+        condition: service_completed_successfully
     environment:
       FC_BIND_ADDR: 0.0.0.0:3000
       RUST_LOG: info,figurecollector_server=debug
       DATABASE_URL: postgres://figurecollector:figurecollector_dev@postgres:5432/figurecollector
       FRONTEND_URL: http://localhost:5173
+
+      # S3 / Garage — the values below mirror garage-init's deterministic
+      # dev credentials. Override in your shell / .env for staging.
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://garage:3902}
+      S3_BUCKET: ${S3_BUCKET:-figurecollector}
+      S3_REGION: ${S3_REGION:-garage}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-GKdeadbeefdeadbeefdeadbeef}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+
+      # OIDC providers — leave unset to disable; local username/password
+      # auth still works without them.
+      OIDC_GOOGLE_CLIENT_ID: ${OIDC_GOOGLE_CLIENT_ID:-}
+      OIDC_GOOGLE_CLIENT_SECRET: ${OIDC_GOOGLE_CLIENT_SECRET:-}
+      OIDC_GENERIC_CLIENT_ID: ${OIDC_GENERIC_CLIENT_ID:-}
+      OIDC_GENERIC_CLIENT_SECRET: ${OIDC_GENERIC_CLIENT_SECRET:-}
+      OIDC_GENERIC_ISSUER_URL: ${OIDC_GENERIC_ISSUER_URL:-}
     expose:
       - "3000"
     read_only: true

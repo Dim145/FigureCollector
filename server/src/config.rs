@@ -82,30 +82,30 @@ impl AppConfig {
 fn collect_oidc_providers() -> Vec<OidcProviderConfig> {
     let mut out = Vec::new();
 
-    if let (Ok(client_id), Ok(client_secret)) = (
-        env::var("OIDC_GOOGLE_CLIENT_ID"),
-        env::var("OIDC_GOOGLE_CLIENT_SECRET"),
+    if let (Some(client_id), Some(client_secret)) = (
+        non_empty_var("OIDC_GOOGLE_CLIENT_ID"),
+        non_empty_var("OIDC_GOOGLE_CLIENT_SECRET"),
     ) {
         out.push(OidcProviderConfig {
             id: "google".into(),
-            display_name: env::var("OIDC_GOOGLE_DISPLAY_NAME").unwrap_or_else(|_| "Google".into()),
-            issuer_url: env::var("OIDC_GOOGLE_ISSUER_URL")
-                .unwrap_or_else(|_| "https://accounts.google.com".into()),
+            display_name: non_empty_var("OIDC_GOOGLE_DISPLAY_NAME").unwrap_or_else(|| "Google".into()),
+            issuer_url: non_empty_var("OIDC_GOOGLE_ISSUER_URL")
+                .unwrap_or_else(|| "https://accounts.google.com".into()),
             client_id,
             client_secret,
             scopes: parse_scopes("OIDC_GOOGLE_SCOPES", "openid,email,profile"),
         });
     }
 
-    if let (Ok(client_id), Ok(client_secret), Ok(issuer_url)) = (
-        env::var("OIDC_GENERIC_CLIENT_ID"),
-        env::var("OIDC_GENERIC_CLIENT_SECRET"),
-        env::var("OIDC_GENERIC_ISSUER_URL"),
+    if let (Some(client_id), Some(client_secret), Some(issuer_url)) = (
+        non_empty_var("OIDC_GENERIC_CLIENT_ID"),
+        non_empty_var("OIDC_GENERIC_CLIENT_SECRET"),
+        non_empty_var("OIDC_GENERIC_ISSUER_URL"),
     ) {
         out.push(OidcProviderConfig {
             id: "generic".into(),
-            display_name: env::var("OIDC_GENERIC_DISPLAY_NAME")
-                .unwrap_or_else(|_| "Single sign-on".into()),
+            display_name: non_empty_var("OIDC_GENERIC_DISPLAY_NAME")
+                .unwrap_or_else(|| "Single sign-on".into()),
             issuer_url,
             client_id,
             client_secret,
@@ -114,6 +114,15 @@ fn collect_oidc_providers() -> Vec<OidcProviderConfig> {
     }
 
     out
+}
+
+/// `env::var` but treats empty strings (a common Compose substitution outcome
+/// for `${VAR:-}`) as if the variable were unset.
+fn non_empty_var(name: &str) -> Option<String> {
+    match env::var(name) {
+        Ok(v) if !v.trim().is_empty() => Some(v),
+        _ => None,
+    }
 }
 
 fn parse_scopes(env_var: &str, default: &str) -> Vec<String> {

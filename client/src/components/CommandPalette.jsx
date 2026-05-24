@@ -55,6 +55,7 @@ export default function CommandPalette() {
       { id: "nav-collection", group: "navigation", label: t("nav.collection"), to: "/collection" },
       { id: "nav-preorders", group: "navigation", label: t("nav.preorders"), to: "/preorders" },
       { id: "nav-browse", group: "navigation", label: t("nav.browse"), to: "/browse" },
+      { id: "nav-stats", group: "navigation", label: t("nav.stats"), to: "/stats" },
       { id: "nav-add", group: "navigation", label: t("nav.add_figure"), to: "/figures/new" },
       { id: "nav-settings", group: "navigation", label: t("nav.settings"), to: "/settings" },
     ];

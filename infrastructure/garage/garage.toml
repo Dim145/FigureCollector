@@ -37,8 +37,14 @@ bind_addr   = "[::]:3903"
 root_domain = ".web.garage.localhost"
 index       = "index.html"
 
-# Admin API — used by `garage` CLI for layout assignment, bucket creation, key
-# management. Token supplied via GARAGE_ADMIN_TOKEN env var.
+# Admin API — used by the bootstrap init container (layout assign / bucket
+# create / key import). Garage v1 disables the admin API entirely when
+# `admin_token` is empty, so the token has to be set in this file (env-var
+# override is not supported in v1.0.1).
+#
+# DEV-ONLY default below. For prod, regenerate with `openssl rand -hex 32`
+# and ship a separate garage.toml outside this repo.
 [admin]
 api_bind_addr = "[::]:3900"
+admin_token   = "dev-admin-token-change-me"
 metrics_token = ""

@@ -43,19 +43,33 @@ services:
       RUST_LOG: ${RUST_LOG:-info}
       DATABASE_URL: postgres://${POSTGRES_USER:-figurecollector}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-figurecollector}
       FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required (e.g. https://figures.example.com)}
-      AUTH_MODE: ${AUTH_MODE:-google}
-      AUTH_CLIENT_ID: ${AUTH_CLIENT_ID:?AUTH_CLIENT_ID is required}
-      AUTH_CLIENT_SECRET: ${AUTH_CLIENT_SECRET:?AUTH_CLIENT_SECRET is required}
-      AUTH_ISSUER_URL: ${AUTH_ISSUER_URL:-https://accounts.google.com}
-      AUTH_REDIRECT_URI: ${AUTH_REDIRECT_URI:?AUTH_REDIRECT_URI is required}
-      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required (>=32 base64 bytes)}
-      S3_ENDPOINT: ${S3_ENDPOINT}
+      # OIDC_REDIRECT_BASE defaults to FRONTEND_URL — only set this if the
+      # OAuth callback comes back on a different host than the SPA.
+      OIDC_REDIRECT_BASE: ${OIDC_REDIRECT_BASE:-}
+      ALLOW_LOCAL_SIGNUP: ${ALLOW_LOCAL_SIGNUP:-false}
+
+      # OIDC — at least one provider should be configured; otherwise only
+      # local username/password works (and only if ALLOW_LOCAL_SIGNUP=true).
+      OIDC_GOOGLE_CLIENT_ID: ${OIDC_GOOGLE_CLIENT_ID:-}
+      OIDC_GOOGLE_CLIENT_SECRET: ${OIDC_GOOGLE_CLIENT_SECRET:-}
+      OIDC_GOOGLE_DISPLAY_NAME: ${OIDC_GOOGLE_DISPLAY_NAME:-Google}
+      OIDC_GOOGLE_ISSUER_URL: ${OIDC_GOOGLE_ISSUER_URL:-https://accounts.google.com}
+      OIDC_GENERIC_CLIENT_ID: ${OIDC_GENERIC_CLIENT_ID:-}
+      OIDC_GENERIC_CLIENT_SECRET: ${OIDC_GENERIC_CLIENT_SECRET:-}
+      OIDC_GENERIC_ISSUER_URL: ${OIDC_GENERIC_ISSUER_URL:-}
+      OIDC_GENERIC_DISPLAY_NAME: ${OIDC_GENERIC_DISPLAY_NAME:-SSO}
+
+      # Auth rate limit — values below match the lib defaults.
+      AUTH_RATE_LIMIT_PER_SECOND: ${AUTH_RATE_LIMIT_PER_SECOND:-2}
+      AUTH_RATE_LIMIT_BURST: ${AUTH_RATE_LIMIT_BURST:-5}
+
+      # S3 / Garage — required for photo + scan uploads.
+      S3_ENDPOINT: ${S3_ENDPOINT:?S3_ENDPOINT is required (e.g. https://garage.example.com)}
       S3_BUCKET: ${S3_BUCKET:-figurecollector}
       S3_REGION: ${S3_REGION:-garage}
-      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
-      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
       S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
-      SENTRY_DSN: ${SENTRY_DSN}
     read_only: true
     tmpfs:
       - /tmp:size=16M,mode=1777,noexec,nosuid,nodev

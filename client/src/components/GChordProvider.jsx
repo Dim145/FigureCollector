@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
  *   g a → /activity          (activity)
  *   g y → /year-in-review    (year-in-review)
  *   g x → /achievements      (sceaux)
+ *   g k → /stats             (statistiques / KPI)
  *   g s → /settings          (settings)
  *   g ? → toggles a help overlay listing every chord
  *
@@ -24,6 +25,7 @@ const CHORDS = {
   a: { to: "/activity", label: "Activité" },
   y: { to: () => `/year-in-review/${new Date().getFullYear()}`, label: "Bilan de l'année" },
   x: { to: "/achievements", label: "Sceaux" },
+  k: { to: "/stats", label: "Statistiques" },
   s: { to: "/settings", label: "Paramètres" },
   n: { to: "/figures/new", label: "Nouvelle figurine" },
 };

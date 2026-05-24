@@ -1,10 +1,23 @@
 import { useRef, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 
+// Server rejects frames > 2048 px per side. Keep a safety margin and downscale
+// the *longest* side (so portrait 4K videos round-trip too — clamping width
+// only would leave the height above the server limit).
+const MAX_FRAME_DIM = 1920;
+
 /**
  * Video-to-frames extraction. The user picks a video file (or records one
  * with the system camera). We then sample N evenly-spaced frames via
  * HTMLVideoElement seek + canvas. Everything stays in the browser.
+ *
+ * Two subtleties browsers care about:
+ *  - `loadedmetadata` only gives us dimensions; we need `loadeddata` (first
+ *    frame buffered) before seeks paint anything.
+ *  - A `seeked` event fires before the new frame is composited. We use
+ *    `requestVideoFrameCallback` (well-supported since 2022) to await the
+ *    actual paint — otherwise canvas captures the *previous* frame, or
+ *    black, on iOS Safari and some Chromium builds.
  */
 export default function TurntableVideo({ onComplete }) {
   const t = useT();
@@ -39,23 +52,46 @@ export default function TurntableVideo({ onComplete }) {
     setError(null);
     cleanup();
 
+    let objectUrl = null;
     try {
       const video = videoRef.current;
-      const url = URL.createObjectURL(file);
-      video.src = url;
+      objectUrl = URL.createObjectURL(file);
+      video.muted = true;
+      video.playsInline = true;
+      video.src = objectUrl;
+
+      // `loadeddata` = first frame buffered. `loadedmetadata` alone leaves
+      // the decoder cold and seeks paint black.
       await new Promise((res, rej) => {
-        video.onloadedmetadata = res;
+        video.onloadeddata = res;
         video.onerror = () => rej(new Error("could not decode video"));
       });
+
+      // Prime the decoder. Mobile Safari + some Chromium builds won't paint
+      // seek targets to a `<video>` that's never been played, so briefly
+      // play (muted, so autoplay is allowed) and immediately pause.
+      try {
+        await video.play();
+        video.pause();
+      } catch {
+        /* paused-decode worked on this browser */
+      }
 
       const duration = video.duration;
       if (!Number.isFinite(duration) || duration <= 0) {
         throw new Error("invalid video duration");
       }
 
+      // Downscale the longest side to MAX_FRAME_DIM. Preserves aspect ratio
+      // *and* keeps both dimensions below the server's 2048 px limit.
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      if (!vw || !vh) throw new Error("video has no visible track");
+      const scale = Math.min(1, MAX_FRAME_DIM / Math.max(vw, vh));
+      const w = Math.round(vw * scale);
+      const h = Math.round(vh * scale);
+
       const canvas = canvasRef.current;
-      const w = Math.min(1920, video.videoWidth);
-      const h = Math.round((w / video.videoWidth) * video.videoHeight);
       canvas.width = w;
       canvas.height = h;
       const ctx = canvas.getContext("2d");
@@ -67,11 +103,37 @@ export default function TurntableVideo({ onComplete }) {
       const end = duration * 0.99;
       const step = (end - start) / target;
       for (let i = 0; i < target; i++) {
-        const t = start + step * i;
-        video.currentTime = t;
+        const seekTo = start + step * i;
+
+        // The painted-frame signal MUST be registered *before* mutating
+        // currentTime: the seek will produce a new compositor frame and
+        // fire rVFC, but if we register only after `seeked` the paint has
+        // already happened on a paused video and rVFC will never fire.
         await new Promise((res) => {
-          video.onseeked = res;
+          let settled = false;
+          const finish = () => {
+            if (settled) return;
+            settled = true;
+            res();
+          };
+
+          if (typeof video.requestVideoFrameCallback === "function") {
+            video.requestVideoFrameCallback(() => finish());
+          } else {
+            // Fallback: seeked + two rAFs to let the compositor paint.
+            video.addEventListener(
+              "seeked",
+              () => requestAnimationFrame(() => requestAnimationFrame(finish)),
+              { once: true },
+            );
+          }
+          // Safety net — if neither signal fires (rare browser quirk on
+          // paused videos), don't deadlock the whole extraction.
+          setTimeout(finish, 1200);
+
+          video.currentTime = seekTo;
         });
+
         ctx.drawImage(video, 0, 0, w, h);
         const blob = await new Promise((res) =>
           canvas.toBlob(res, "image/webp", 0.85),
@@ -83,19 +145,42 @@ export default function TurntableVideo({ onComplete }) {
         setProgress(Math.round(((i + 1) / target) * 100));
       }
 
-      URL.revokeObjectURL(url);
       setFrames(blobs);
       setPreviews(urls);
     } catch (e) {
       setError(e?.message ?? "extraction failed");
     } finally {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
       setBusy(false);
     }
   };
 
   return (
     <div className="p-8 h-full overflow-y-auto">
-      <video ref={videoRef} className="hidden" muted playsInline />
+      {/*
+        Keep the <video> in the render tree but visually offscreen. Tailwind
+        `hidden` = display:none, which on Chromium and WebKit lets the browser
+        skip composition entirely — drawImage paints black and
+        requestVideoFrameCallback never fires. Position-absolute + opacity
+        keeps the decoder live.
+      */}
+      <video
+        ref={videoRef}
+        aria-hidden
+        muted
+        playsInline
+        preload="auto"
+        crossOrigin="anonymous"
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          top: 0,
+          width: 1,
+          height: 1,
+          opacity: 0,
+          pointerEvents: "none",
+        }}
+      />
       <canvas ref={canvasRef} className="hidden" />
 
       {!file ? (
