@@ -10,6 +10,8 @@ import BrowsePage from "./pages/BrowsePage.jsx";
 import PublicProfilePage from "./pages/PublicProfilePage.jsx";
 import ComparePage from "./pages/ComparePage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
+import ActivityPage from "./pages/ActivityPage.jsx";
+import YearInReviewPage from "./pages/YearInReviewPage.jsx";
 import CommandPalette from "./components/CommandPalette.jsx";
 import LiveSyncProvider from "./components/LiveSyncProvider.jsx";
 import OfflineIndicator from "./components/OfflineIndicator.jsx";
@@ -28,6 +30,9 @@ export default function App() {
           <Route path="/figures/new" element={<AddFigurePage />} />
           <Route path="/figures/:id" element={<FigureDetailPage />} />
           <Route path="/preorders" element={<PreordersPage />} />
+          <Route path="/activity" element={<ActivityPage />} />
+          <Route path="/year-in-review/:year" element={<YearInReviewPage />} />
+          <Route path="/year-in-review" element={<YearInReviewPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/u/:slug" element={<PublicProfilePage />} />
           <Route path="/compare/:slug" element={<ComparePage />} />

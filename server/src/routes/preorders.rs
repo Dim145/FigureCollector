@@ -1,7 +1,8 @@
 //! `/api/me/preorders/*` — pre-orders with release-date slip history.
 
 use crate::auth;
-use crate::domain::preorder::{self, NewPreorder, PreorderPatch};
+use crate::domain::{activity, preorder};
+use crate::domain::preorder::{NewPreorder, PreorderPatch};
 use crate::error::AppResult;
 use crate::events::Event;
 use crate::state::AppState;
@@ -29,6 +30,20 @@ async fn add_mine(
 ) -> AppResult<(StatusCode, Json<preorder::Preorder>)> {
     let user_id = auth::require_user(&session).await?;
     let po = preorder::create(&state.pool, user_id, input).await?;
+
+    let mut snap = activity::figure_snapshot(&state.pool, po.figure_id).await;
+    if let Some(obj) = snap.as_object_mut() {
+        obj.insert("preorder_id".into(), serde_json::Value::String(po.id.to_string()));
+        obj.insert("status".into(), serde_json::Value::String(po.status.clone()));
+        if let Some(d) = po.release_date_current {
+            obj.insert("release_date".into(), serde_json::Value::String(d.to_string()));
+        }
+        if let Some(s) = &po.store {
+            obj.insert("store".into(), serde_json::Value::String(s.clone()));
+        }
+    }
+    activity::record(&state.pool, user_id, "preorder_created", snap).await;
+
     state.events.publish(
         user_id,
         Event::PreorderCreated {
@@ -46,7 +61,59 @@ async fn patch_mine(
     Json(input): Json<PreorderPatch>,
 ) -> AppResult<Json<preorder::Preorder>> {
     let user_id = auth::require_user(&session).await?;
+
+    // Capture the pre-patch state so we can emit accurate activity events.
+    let before: Option<(Uuid, String, Option<chrono::NaiveDate>)> = sqlx::query_as(
+        "SELECT figure_id, status, release_date_current FROM preorders WHERE id = $1 AND user_id = $2",
+    )
+    .bind(id)
+    .bind(user_id)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+
     let updated = preorder::patch(&state.pool, user_id, id, input).await?;
+
+    if let Some((figure_id, prev_status, prev_date)) = before {
+        let mut snap = activity::figure_snapshot(&state.pool, figure_id).await;
+        if let Some(obj) = snap.as_object_mut() {
+            obj.insert("preorder_id".into(), serde_json::Value::String(id.to_string()));
+        }
+
+        // Status change
+        if prev_status != updated.status {
+            let mut s = snap.clone();
+            if let Some(obj) = s.as_object_mut() {
+                obj.insert("from_status".into(), serde_json::Value::String(prev_status));
+                obj.insert(
+                    "to_status".into(),
+                    serde_json::Value::String(updated.status.clone()),
+                );
+            }
+            let kind = if updated.status == "received" {
+                "preorder_received"
+            } else {
+                "preorder_status_changed"
+            };
+            activity::record(&state.pool, user_id, kind, s).await;
+        }
+
+        // Release-date slip
+        if prev_date != updated.release_date_current {
+            let mut s = snap.clone();
+            if let Some(obj) = s.as_object_mut() {
+                if let Some(d) = prev_date {
+                    obj.insert("from_date".into(), serde_json::Value::String(d.to_string()));
+                }
+                if let Some(d) = updated.release_date_current {
+                    obj.insert("to_date".into(), serde_json::Value::String(d.to_string()));
+                }
+            }
+            activity::record(&state.pool, user_id, "preorder_slipped", s).await;
+        }
+    }
+
     state
         .events
         .publish(user_id, Event::PreorderUpdated { preorder_id: id });

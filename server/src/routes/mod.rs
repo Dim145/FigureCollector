@@ -10,6 +10,7 @@ use tower_governor::{
 };
 use tower_http::limit::RequestBodyLimitLayer;
 
+pub mod activity;
 pub mod auth;
 pub mod external;
 pub mod figures;
@@ -49,6 +50,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(preorders::router())
         .merge(profile::router())
         .merge(external::router())
+        .merge(activity::router())
         .merge(photo_routes)
         .merge(auth_routes);
 

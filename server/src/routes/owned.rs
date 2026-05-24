@@ -1,7 +1,8 @@
 //! `/api/me/owned/*` — the signed-in user's physical collection.
 
 use crate::auth;
-use crate::domain::owned::{self, NewOwnedItem, OwnedPatch};
+use crate::domain::{activity, owned};
+use crate::domain::owned::{NewOwnedItem, OwnedPatch};
 use crate::error::AppResult;
 use crate::events::Event;
 use crate::state::AppState;
@@ -29,6 +30,15 @@ async fn add_mine(
 ) -> AppResult<(StatusCode, Json<owned::OwnedItem>)> {
     let user_id = auth::require_user(&session).await?;
     let item = owned::create(&state.pool, user_id, input).await?;
+
+    // Activity log: snapshot the figure so renames/deletes don't break the feed.
+    let mut snap = activity::figure_snapshot(&state.pool, item.figure_id).await;
+    if let Some(obj) = snap.as_object_mut() {
+        obj.insert("condition".into(), serde_json::Value::String(item.condition.clone()));
+        obj.insert("owned_id".into(), serde_json::Value::String(item.id.to_string()));
+    }
+    activity::record(&state.pool, user_id, "owned_added", snap).await;
+
     state.events.publish(
         user_id,
         Event::OwnedItemCreated {
@@ -60,7 +70,39 @@ async fn delete_mine(
     Path(id): Path<Uuid>,
 ) -> AppResult<StatusCode> {
     let user_id = auth::require_user(&session).await?;
+
+    // Snapshot before deletion so the activity payload still has context.
+    let snapshot: Option<(Uuid, String, Option<String>)> = sqlx::query_as(
+        "SELECT o.figure_id, f.name, m.name
+         FROM owned_items o
+         JOIN figures f         ON f.id = o.figure_id
+         LEFT JOIN manufacturers m ON m.id = f.manufacturer_id
+         WHERE o.id = $1 AND o.user_id = $2",
+    )
+    .bind(id)
+    .bind(user_id)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+
     owned::delete_for_user(&state.pool, user_id, id).await?;
+
+    if let Some((figure_id, figure_name, manufacturer_name)) = snapshot {
+        activity::record(
+            &state.pool,
+            user_id,
+            "owned_removed",
+            serde_json::json!({
+                "owned_id": id,
+                "figure_id": figure_id,
+                "figure_name": figure_name,
+                "manufacturer_name": manufacturer_name,
+            }),
+        )
+        .await;
+    }
+
     state
         .events
         .publish(user_id, Event::OwnedItemDeleted { owned_id: id });

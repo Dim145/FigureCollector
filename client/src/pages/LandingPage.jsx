@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useLogout, useMe } from "../hooks/useMe.js";
+import ActivityStrip from "../components/ActivityStrip.jsx";
 import Button from "../components/Button.jsx";
 import Halo from "../components/Halo.jsx";
 import LocaleSwitcher from "../components/LocaleSwitcher.jsx";
@@ -45,7 +46,7 @@ export default function LandingPage() {
         <div className="gold-rule mx-auto w-48 my-10" />
 
         {authed ? (
-          <div className="space-y-4">
+          <div className="space-y-6">
             <p className="display text-2xl text-[var(--color-ivoire)]">
               {t("landing.greeting", { name: user.display_name })}
             </p>
@@ -57,6 +58,9 @@ export default function LandingPage() {
               <Link to="/preorders">
                 <Button variant="ghost">{t("nav.preorders")}</Button>
               </Link>
+              <Link to={`/year-in-review/${new Date().getFullYear()}`}>
+                <Button variant="ghost">{t("nav.year_in_review")}</Button>
+              </Link>
               <Button
                 variant="ghost"
                 onClick={() => logout.mutate()}
@@ -64,6 +68,9 @@ export default function LandingPage() {
               >
                 {t("nav.signout")}
               </Button>
+            </div>
+            <div className="pt-4">
+              <ActivityStrip limit={5} />
             </div>
           </div>
         ) : (

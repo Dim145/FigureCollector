@@ -4,6 +4,7 @@
 //! with date-slip history. Photo uploads, MFC scraping, and AniList enrichment
 //! ship in Phase 2B.
 
+pub mod activity;
 pub mod figure;
 pub mod owned;
 pub mod photo;

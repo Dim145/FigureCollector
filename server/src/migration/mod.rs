@@ -16,6 +16,7 @@ mod m20260524_000001_initial_schema;
 mod m20260524_000002_figurine_domain;
 mod m20260524_000003_photos_and_social;
 mod m20260524_000004_external_lookups;
+mod m20260524_000005_activity_feed;
 
 pub struct Migrator;
 
@@ -27,6 +28,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260524_000002_figurine_domain::Migration),
             Box::new(m20260524_000003_photos_and_social::Migration),
             Box::new(m20260524_000004_external_lookups::Migration),
+            Box::new(m20260524_000005_activity_feed::Migration),
         ]
     }
 }
