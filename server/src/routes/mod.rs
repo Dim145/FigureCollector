@@ -20,6 +20,7 @@ pub mod owned;
 pub mod photos;
 pub mod preorders;
 pub mod profile;
+pub mod scans;
 pub mod ws;
 
 pub fn build_router(state: AppState) -> Router {
@@ -37,9 +38,13 @@ pub fn build_router(state: AppState) -> Router {
 
     let auth_routes = auth::router().layer(auth_governor);
 
-    // Multipart photo uploads need a generous body limit. 8 MB > the 5 MB
-    // per-file cap so we can capture multipart framing overhead.
+    // Multipart photo uploads need a generous body limit (5 MB per file +
+    // multipart framing overhead).
     let photo_routes = photos::router().layer(RequestBodyLimitLayer::new(8 * 1024 * 1024));
+
+    // 360° scans bundle up to 96 frames in one POST; cap at 64 MB so a phone
+    // batching ~36 frames at 1 MB each fits comfortably.
+    let scan_routes = scans::router().layer(RequestBodyLimitLayer::new(64 * 1024 * 1024));
 
     let api = Router::new()
         .merge(health::router())
@@ -52,6 +57,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(external::router())
         .merge(activity::router())
         .merge(photo_routes)
+        .merge(scan_routes)
         .merge(auth_routes);
 
     Router::new().nest("/api", api).with_state(state)

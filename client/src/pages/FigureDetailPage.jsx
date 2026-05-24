@@ -10,6 +10,7 @@ import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
 import Card from "../components/Card.jsx";
 import PhotoStrip from "../components/PhotoStrip.jsx";
+import TurntableSection from "../components/TurntableSection.jsx";
 
 export default function FigureDetailPage() {
   const { id } = useParams();
@@ -108,9 +109,14 @@ export default function FigureDetailPage() {
         </div>
 
         {ownedRecord ? (
-          <div className="mt-12 pt-8 border-t border-[var(--color-or)]/15">
-            <PhotoStrip ownedId={ownedRecord.id} />
-          </div>
+          <>
+            <div className="mt-12 pt-8 border-t border-[var(--color-or)]/15">
+              <PhotoStrip ownedId={ownedRecord.id} />
+            </div>
+            <div className="mt-10 pt-8 border-t border-[var(--color-or)]/15">
+              <TurntableSection ownedId={ownedRecord.id} />
+            </div>
+          </>
         ) : null}
       </main>
     </AppShell>

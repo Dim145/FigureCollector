@@ -253,4 +253,40 @@ export default {
   "settings.bg_model.small": "Small · 40 MB · fast",
   "settings.bg_model.medium": "Medium · 80 MB · recommended",
   "settings.bg_model.large": "Large · 120 MB · best quality",
+
+  "turntable.section.title": "360° view",
+  "turntable.section.empty": "No 360° scan yet for this piece.",
+  "turntable.section.add_first": "+ Create a 360° scan",
+  "turntable.section.add_more": "+ New scan",
+  "turntable.section.replace": "Replace",
+  "turntable.section.confirm_replace": "Replace the existing scan?",
+  "turntable.section.frame_count": "{n} frames",
+
+  "turntable.wizard.title": "360° scan",
+  "turntable.wizard.subtitle": "Capture the figure from multiple angles",
+  "turntable.wizard.tab.camera": "Camera",
+  "turntable.wizard.tab.video": "Video",
+  "turntable.wizard.tab.import": "Import",
+
+  "turntable.next_angle": "Rotate to ~{deg}°",
+  "turntable.count": "{n} / {target} frames",
+  "turntable.target": "Target:",
+  "turntable.snap": "Capture",
+  "turntable.undo": "Undo last",
+  "turntable.save": "Save scan",
+  "turntable.camera_error": "Could not access the camera.",
+
+  "turntable.import.cta": "+ Pick images",
+  "turntable.import.hint": "Choose 6 to 96 images shot from different angles. They'll be re-encoded as WebP.",
+  "turntable.import.preparing": "Preparing images…",
+  "turntable.import.collected": "{n} images ready",
+
+  "turntable.video.cta": "+ Pick / record a video",
+  "turntable.video.hint": "Rotate around the figure while filming. We sample N evenly-spaced frames.",
+  "turntable.video.picked": "Video: {name}",
+  "turntable.video.extract": "Extract frames",
+  "turntable.video.extracting": "Extracting… {p}%",
+
+  "turntable.uploading": "Uploading scan…",
+  "turntable.uploading_hint": "Keep the app open.",
 };

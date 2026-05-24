@@ -280,4 +280,41 @@ export default {
   "settings.bg_model.small": "Petit · 40 MB · rapide",
   "settings.bg_model.medium": "Moyen · 80 MB · recommandé",
   "settings.bg_model.large": "Grand · 120 MB · qualité max",
+
+  // Turntable (360° scan)
+  "turntable.section.title": "Vue 360°",
+  "turntable.section.empty": "Aucun scan 360° pour cette pièce.",
+  "turntable.section.add_first": "+ Créer un scan 360°",
+  "turntable.section.add_more": "+ Nouveau scan",
+  "turntable.section.replace": "Remplacer",
+  "turntable.section.confirm_replace": "Remplacer le scan existant ?",
+  "turntable.section.frame_count": "{n} images",
+
+  "turntable.wizard.title": "Scan 360°",
+  "turntable.wizard.subtitle": "Capture la figurine sous plusieurs angles",
+  "turntable.wizard.tab.camera": "Caméra",
+  "turntable.wizard.tab.video": "Vidéo",
+  "turntable.wizard.tab.import": "Importer",
+
+  "turntable.next_angle": "Tourner à ~{deg}°",
+  "turntable.count": "{n} / {target} images",
+  "turntable.target": "Cible :",
+  "turntable.snap": "Capturer",
+  "turntable.undo": "Annuler la dernière",
+  "turntable.save": "Enregistrer le scan",
+  "turntable.camera_error": "Impossible d'accéder à la caméra.",
+
+  "turntable.import.cta": "+ Sélectionner des images",
+  "turntable.import.hint": "Choisis 6 à 96 images prises sous différents angles. Elles seront ré-encodées en WebP.",
+  "turntable.import.preparing": "Préparation des images…",
+  "turntable.import.collected": "{n} images prêtes",
+
+  "turntable.video.cta": "+ Choisir / enregistrer une vidéo",
+  "turntable.video.hint": "Tourne autour de la figurine en filmant. On extrait N images à intervalles réguliers.",
+  "turntable.video.picked": "Vidéo : {name}",
+  "turntable.video.extract": "Extraire les images",
+  "turntable.video.extracting": "Extraction… {p}%",
+
+  "turntable.uploading": "Envoi du scan…",
+  "turntable.uploading_hint": "Ne ferme pas l'application.",
 };
