@@ -121,6 +121,8 @@ async fn list_figures(
         manufacturer: q.manufacturer,
         limit: q.limit.or(Some(200)),
         offset: q.offset,
+        // Admin moderation lists everything, regardless of viewer pref.
+        exclude_nsfw: false,
     };
     Ok(Json(figure::list(&state.pool, params).await?))
 }

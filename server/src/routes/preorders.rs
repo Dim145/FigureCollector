@@ -167,6 +167,17 @@ async fn history_mine(
     Ok(Json(preorder::history(&state.pool, user_id, id).await?))
 }
 
+async fn by_owned(
+    State(state): State<AppState>,
+    session: Session,
+    Path(owned_id): Path<Uuid>,
+) -> AppResult<Json<Option<preorder::Preorder>>> {
+    let user_id = auth::require_user(&session).await?;
+    Ok(Json(
+        preorder::find_by_owned_item(&state.pool, user_id, owned_id).await?,
+    ))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/me/preorders", get(list_mine).post(add_mine))
@@ -175,4 +186,5 @@ pub fn router() -> Router<AppState> {
             patch_method(patch_mine).delete(delete_mine),
         )
         .route("/me/preorders/{id}/history", get(history_mine))
+        .route("/me/owned/{owned_id}/preorder", get(by_owned))
 }

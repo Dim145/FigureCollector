@@ -1,8 +1,8 @@
 //! `/api/me/owned/*` — the signed-in user's physical collection.
 
 use crate::auth;
-use crate::domain::owned::{NewOwnedItem, OwnedPatch};
-use crate::domain::{achievement, activity, owned};
+use crate::domain::owned::{CoverPatch, NewOwnedItem, OwnedPatch};
+use crate::domain::{achievement, activity, owned, preorder};
 use crate::error::AppResult;
 use crate::events::Event;
 use crate::state::AppState;
@@ -19,8 +19,11 @@ async fn list_mine(
     State(state): State<AppState>,
     session: Session,
 ) -> AppResult<Json<Vec<owned::OwnedItemWithFigure>>> {
-    let user_id = auth::require_user(&session).await?;
-    Ok(Json(owned::list_for_user(&state.pool, user_id).await?))
+    let user = auth::require_user_full(&session, &state.pool).await?;
+    let exclude = user.nsfw_visibility == "hide";
+    Ok(Json(
+        owned::list_for_user(&state.pool, user.id, exclude).await?,
+    ))
 }
 
 async fn add_mine(
@@ -47,6 +50,44 @@ async fn add_mine(
         },
     );
     tracing::info!(user_id = %user_id, figure_id = %item.figure_id, "owned_item added");
+
+    // Auto-link a preorder row when the figurine isn't out yet. Looks up the
+    // catalog release_date directly to avoid trusting client-supplied input.
+    let release: Option<(Option<chrono::NaiveDate>,)> =
+        sqlx::query_as("SELECT release_date FROM figures WHERE id = $1")
+            .bind(item.figure_id)
+            .fetch_optional(&state.pool)
+            .await?;
+    if let Some((Some(date),)) = release {
+        if date > chrono::Utc::now().date_naive() {
+            match preorder::create_for_owned_item(
+                &state.pool,
+                user_id,
+                item.id,
+                item.figure_id,
+                date,
+            )
+            .await
+            {
+                Ok(po) => {
+                    tracing::info!(
+                        preorder_id = %po.id, owned_id = %item.id, release = %date,
+                        "auto-preorder created"
+                    );
+                    state.events.publish(
+                        user_id,
+                        Event::PreorderCreated {
+                            preorder_id: po.id,
+                            figure_id: item.figure_id,
+                        },
+                    );
+                }
+                Err(e) => {
+                    tracing::warn!(error = ?e, owned_id = %item.id, "auto-preorder failed");
+                }
+            }
+        }
+    }
 
     // Phase 4B: re-evaluate the achievements rules.
     if let Ok(newly) = achievement::check_and_grant(&state.db, &state.pool, user_id).await {
@@ -122,6 +163,20 @@ async fn delete_mine(
     Ok(StatusCode::NO_CONTENT)
 }
 
+async fn patch_cover(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+    Json(input): Json<CoverPatch>,
+) -> AppResult<Json<owned::OwnedItem>> {
+    let user_id = auth::require_user(&session).await?;
+    let updated = owned::set_cover(&state.pool, user_id, id, input).await?;
+    state
+        .events
+        .publish(user_id, Event::OwnedItemUpdated { owned_id: id });
+    Ok(Json(updated))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/me/owned", get(list_mine).post(add_mine))
@@ -129,4 +184,5 @@ pub fn router() -> Router<AppState> {
             "/me/owned/{id}",
             patch_method(patch_mine).delete(delete_mine),
         )
+        .route("/me/owned/{id}/cover", patch_method(patch_cover))
 }

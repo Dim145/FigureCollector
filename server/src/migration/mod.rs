@@ -19,6 +19,9 @@ mod m20260524_000004_external_lookups;
 mod m20260524_000005_activity_feed;
 mod m20260524_000006_scans;
 mod m20260524_000007_achievements;
+mod m20260524_000008_figure_photos_and_covers;
+mod m20260524_000009_preorder_link;
+mod m20260524_000010_nsfw;
 
 pub struct Migrator;
 
@@ -33,6 +36,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20260524_000005_activity_feed::Migration),
             Box::new(m20260524_000006_scans::Migration),
             Box::new(m20260524_000007_achievements::Migration),
+            Box::new(m20260524_000008_figure_photos_and_covers::Migration),
+            Box::new(m20260524_000009_preorder_link::Migration),
+            Box::new(m20260524_000010_nsfw::Migration),
         ]
     }
 }

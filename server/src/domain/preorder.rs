@@ -271,3 +271,60 @@ pub async fn history(
     .fetch_all(pool)
     .await?)
 }
+
+// -----------------------------------------------------------------------------
+// Linked preorder lifecycle
+// -----------------------------------------------------------------------------
+
+/// Auto-create a preorder row tied to an owned_item, fired by the owned-items
+/// route when the figure has a future release_date. Idempotent — the unique
+/// index on (owned_item_id) means re-running this for the same owned_item is
+/// a no-op via ON CONFLICT.
+pub async fn create_for_owned_item(
+    pool: &PgPool,
+    user_id: Uuid,
+    owned_item_id: Uuid,
+    figure_id: Uuid,
+    release_date: NaiveDate,
+) -> AppResult<Preorder> {
+    let id = Uuid::now_v7();
+    let row: Preorder = sqlx::query_as(
+        "INSERT INTO preorders (
+             id, user_id, figure_id, owned_item_id, status,
+             release_date_original, release_date_current
+         ) VALUES ($1, $2, $3, $4, 'preordered', $5, $5)
+         ON CONFLICT (owned_item_id) WHERE owned_item_id IS NOT NULL
+         DO UPDATE SET release_date_current = EXCLUDED.release_date_current
+         RETURNING id, user_id, figure_id, status, store, order_ref,
+                   release_date_original, release_date_current,
+                   price_amount, price_currency, notes, created_at, updated_at",
+    )
+    .bind(id)
+    .bind(user_id)
+    .bind(figure_id)
+    .bind(owned_item_id)
+    .bind(release_date)
+    .fetch_one(pool)
+    .await?;
+    Ok(row)
+}
+
+/// Best-effort: returns the preorder bound to this owned_item, if any. Used
+/// by the figure-detail page to render the "Historique de pré-commande"
+/// section.
+pub async fn find_by_owned_item(
+    pool: &PgPool,
+    user_id: Uuid,
+    owned_item_id: Uuid,
+) -> AppResult<Option<Preorder>> {
+    Ok(sqlx::query_as::<_, Preorder>(
+        "SELECT id, user_id, figure_id, status, store, order_ref,
+                release_date_original, release_date_current,
+                price_amount, price_currency, notes, created_at, updated_at
+         FROM preorders WHERE owned_item_id = $1 AND user_id = $2",
+    )
+    .bind(owned_item_id)
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await?)
+}

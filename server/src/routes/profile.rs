@@ -145,11 +145,13 @@ async fn get_public_profile(
 #[derive(Deserialize)]
 struct ProfilePatch {
     public_profile_enabled: Option<bool>,
+    nsfw_visibility: Option<String>,
 }
 
 #[derive(Serialize)]
 struct ProfileResponse {
     public_profile_enabled: bool,
+    nsfw_visibility: String,
 }
 
 async fn patch_my_profile(
@@ -159,13 +161,23 @@ async fn patch_my_profile(
 ) -> AppResult<Json<ProfileResponse>> {
     let user_id = auth::require_user(&session).await?;
 
-    let row: (bool,) = sqlx::query_as(
+    if let Some(v) = input.nsfw_visibility.as_deref() {
+        if !matches!(v, "hide" | "blur" | "show") {
+            return Err(crate::error::AppError::BadRequest(
+                "nsfw_visibility must be hide, blur or show",
+            ));
+        }
+    }
+
+    let row: (bool, String) = sqlx::query_as(
         "UPDATE users SET
-            public_profile_enabled = COALESCE($1, public_profile_enabled)
-         WHERE id = $2
-         RETURNING public_profile_enabled",
+            public_profile_enabled = COALESCE($1, public_profile_enabled),
+            nsfw_visibility        = COALESCE($2, nsfw_visibility)
+         WHERE id = $3
+         RETURNING public_profile_enabled, nsfw_visibility",
     )
     .bind(input.public_profile_enabled)
+    .bind(input.nsfw_visibility.as_deref())
     .bind(user_id)
     .fetch_one(&state.pool)
     .await?;
@@ -174,6 +186,7 @@ async fn patch_my_profile(
 
     Ok(Json(ProfileResponse {
         public_profile_enabled: row.0,
+        nsfw_visibility: row.1,
     }))
 }
 

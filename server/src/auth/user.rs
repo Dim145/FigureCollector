@@ -15,6 +15,8 @@ pub struct User {
     pub avatar_url: Option<String>,
     pub locale: String,
     pub is_admin: bool,
+    /// "hide" (default) / "blur" / "show" — per-user NSFW visibility.
+    pub nsfw_visibility: String,
     pub created_at: DateTime<Utc>,
     pub last_login_at: Option<DateTime<Utc>>,
 }
@@ -31,6 +33,9 @@ pub struct PublicUser {
     /// an authorisation gate by itself — every admin endpoint re-checks
     /// `is_admin` server-side.
     pub is_admin: bool,
+    /// Drives the SPA's filtering / blur behaviour for NSFW figures.
+    /// The server already filters most queries, this is the SPA mirror.
+    pub nsfw_visibility: String,
 }
 
 impl From<User> for PublicUser {
@@ -42,12 +47,14 @@ impl From<User> for PublicUser {
             avatar_url: u.avatar_url,
             locale: u.locale,
             is_admin: u.is_admin,
+            nsfw_visibility: u.nsfw_visibility,
         }
     }
 }
 
 const USER_COLUMNS: &str =
-    "id, username, email, display_name, avatar_url, locale, is_admin, created_at, last_login_at";
+    "id, username, email, display_name, avatar_url, locale, is_admin, \
+     nsfw_visibility, created_at, last_login_at";
 
 pub async fn create_local(
     pool: &PgPool,

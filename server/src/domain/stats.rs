@@ -178,15 +178,24 @@ pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<Collect
     }
 
     // ----- Spend by currency -------------------------------------------------
+    // Falls back to the catalog MSRP when the user didn't record a personal
+    // price — most collectors don't track every receipt, so without this
+    // fallback the stats page is empty for them. We still let an explicit
+    // owned-side price win when it exists.
     let spend_rows: Vec<(String, Decimal, i64)> = sqlx::query_as(
-        "SELECT price_currency,
-                COALESCE(SUM(price_amount), 0)::numeric,
+        "WITH priced AS (
+             SELECT COALESCE(o.price_currency, f.msrp_currency) AS currency,
+                    COALESCE(o.price_amount, f.msrp_amount)     AS amount
+             FROM owned_items o
+             JOIN figures f ON f.id = o.figure_id
+             WHERE o.user_id = $1
+         )
+         SELECT currency,
+                COALESCE(SUM(amount), 0)::numeric,
                 COUNT(*)::bigint
-         FROM owned_items
-         WHERE user_id = $1
-           AND price_amount IS NOT NULL
-           AND price_currency IS NOT NULL
-         GROUP BY price_currency
+         FROM priced
+         WHERE amount IS NOT NULL AND currency IS NOT NULL
+         GROUP BY currency
          ORDER BY 2 DESC",
     )
     .bind(user_id)
@@ -308,20 +317,25 @@ pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<Collect
         .collect();
 
     // ----- Most expensive piece per currency --------------------------------
+    // Same fallback chain as the spend bucket: prefer the owner's price,
+    // else the catalog MSRP.
     let most_expensive_rows: Vec<(String, Decimal, Uuid, String, Option<NaiveDate>)> =
         sqlx::query_as(
-            "SELECT DISTINCT ON (o.price_currency)
-                    o.price_currency,
-                    o.price_amount,
-                    f.id,
-                    f.name,
-                    o.purchase_date
-             FROM owned_items o
-             JOIN figures f ON f.id = o.figure_id
-             WHERE o.user_id = $1
-               AND o.price_amount IS NOT NULL
-               AND o.price_currency IS NOT NULL
-             ORDER BY o.price_currency, o.price_amount DESC",
+            "WITH priced AS (
+                 SELECT COALESCE(o.price_currency, f.msrp_currency) AS currency,
+                        COALESCE(o.price_amount, f.msrp_amount)     AS amount,
+                        f.id   AS figure_id,
+                        f.name AS figure_name,
+                        o.purchase_date
+                 FROM owned_items o
+                 JOIN figures f ON f.id = o.figure_id
+                 WHERE o.user_id = $1
+             )
+             SELECT DISTINCT ON (currency)
+                    currency, amount, figure_id, figure_name, purchase_date
+             FROM priced
+             WHERE amount IS NOT NULL AND currency IS NOT NULL
+             ORDER BY currency, amount DESC",
         )
         .bind(user_id)
         .fetch_all(pool)
@@ -340,18 +354,24 @@ pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<Collect
         .collect();
 
     // ----- Price distribution (avg, median, min, max) ------------------------
+    // Same fallback chain — see spend_rows above.
     let price_rows: Vec<(String, Decimal, Decimal, Decimal, Decimal)> = sqlx::query_as(
-        "SELECT price_currency,
-                AVG(price_amount)::numeric,
+        "WITH priced AS (
+             SELECT COALESCE(o.price_currency, f.msrp_currency) AS currency,
+                    COALESCE(o.price_amount, f.msrp_amount)     AS amount
+             FROM owned_items o
+             JOIN figures f ON f.id = o.figure_id
+             WHERE o.user_id = $1
+         )
+         SELECT currency,
+                AVG(amount)::numeric,
                 COALESCE(percentile_cont(0.5)
-                  WITHIN GROUP (ORDER BY price_amount), 0)::numeric,
-                MIN(price_amount)::numeric,
-                MAX(price_amount)::numeric
-         FROM owned_items
-         WHERE user_id = $1
-           AND price_amount IS NOT NULL
-           AND price_currency IS NOT NULL
-         GROUP BY price_currency
+                  WITHIN GROUP (ORDER BY amount), 0)::numeric,
+                MIN(amount)::numeric,
+                MAX(amount)::numeric
+         FROM priced
+         WHERE amount IS NOT NULL AND currency IS NOT NULL
+         GROUP BY currency
          ORDER BY 1",
     )
     .bind(user_id)

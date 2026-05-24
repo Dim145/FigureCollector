@@ -11,10 +11,14 @@ import { useDeleteFigure } from "../hooks/useAdmin.js";
 import { ApiError } from "../lib/api.js";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
-import Card from "../components/Card.jsx";
+import CoverPicker from "../components/CoverPicker.jsx";
 import FigureEditDialog from "../components/FigureEditDialog.jsx";
+import FigureHero from "../components/FigureHero.jsx";
+import FigurePhotosSection from "../components/FigurePhotosSection.jsx";
 import PhotoStrip from "../components/PhotoStrip.jsx";
+import PreorderHistory from "../components/PreorderHistory.jsx";
 import TurntableSection from "../components/TurntableSection.jsx";
+import { nsfwBlocked, nsfwClass } from "../lib/nsfw.js";
 
 export default function FigureDetailPage() {
   const { id } = useParams();
@@ -28,6 +32,7 @@ export default function FigureDetailPage() {
   const del = useDeleteFigure();
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [nsfwAcknowledged, setNsfwAcknowledged] = useState(false);
 
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
@@ -51,6 +56,7 @@ export default function FigureDetailPage() {
   const ownedRecord = owned.data?.find((o) => o.figure_id === f.id);
   const alreadyOwned = !!ownedRecord;
   const canEdit = isAdmin || f.created_by === me.data?.user?.id;
+  const nsfwPref = me.data?.user?.nsfw_visibility ?? "hide";
 
   const onAdd = () => {
     addOwned.mutate({ figure_id: f.id });
@@ -62,42 +68,203 @@ export default function FigureDetailPage() {
     navigate("/browse");
   };
 
+  // Direct-URL NSFW interstitial — admins always bypass (moderation),
+  // and the user can choose to override for this session via the button.
+  if (nsfwBlocked(f.is_nsfw, nsfwPref) && !isAdmin && !nsfwAcknowledged) {
+    return (
+      <AppShell>
+        <NsfwInterstitial
+          t={t}
+          figureId={f.id}
+          onAcknowledge={() => setNsfwAcknowledged(true)}
+        />
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell>
-      <main className="max-w-5xl mx-auto px-6 py-12">
-        <header className="mb-8 flex items-start justify-between gap-6">
-          <div className="min-w-0">
-            <p className="micro">{t(`type.${f.figure_type}`)}</p>
-            <h1 className="display text-4xl md:text-5xl mt-2 text-[var(--color-ivoire)] leading-tight">
-              {f.name}
-            </h1>
-            {f.version_name ? (
-              <p className="display-italic text-xl mt-1 text-[var(--color-or)]">
-                {f.version_name}
-              </p>
-            ) : null}
-            <div className="gold-rule w-32 mt-6" />
-          </div>
-          {canEdit ? (
-            <div className="shrink-0 flex flex-col items-end gap-2 text-[11px] uppercase tracking-[0.2em]">
-              <button
-                type="button"
-                onClick={() => setEditing(true)}
-                className="text-[var(--color-or)] hover:text-[var(--color-or-pale)] transition-colors"
-              >
-                ✎ {t("figure.edit.cta")}
-              </button>
-              <button
-                type="button"
-                onClick={() => setConfirming(true)}
-                className="text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] transition-colors"
-              >
-                × {t("figure.edit.delete")}
-              </button>
-            </div>
-          ) : null}
-        </header>
+      <main className="relative pb-24">
+        {/* ───────── Hero band: full-bleed photo with kanji watermark ───────── */}
+        <section className="relative">
+          {/* Ambient kanji backdrop */}
+          <span
+            aria-hidden
+            className="kanji-mark text-[28rem] -top-8 -left-12 hidden md:block"
+          >
+            {kanjiForType(f.figure_type)}
+          </span>
 
+          <div className="relative max-w-7xl mx-auto px-6 pt-16 grid md:grid-cols-[1.05fr_1fr] gap-10 lg:gap-16 items-start">
+            {/* Hero gallery — catalog photos + (if owned) my photos */}
+            <FigureHero
+              figure={f}
+              ownedItemId={ownedRecord?.id ?? null}
+              figureTypeKanji={kanjiForType(f.figure_type)}
+              nsfwBlurClass={nsfwClass(f.is_nsfw, nsfwPref)}
+            />
+
+            {/* Right column: title + specs + CTA */}
+            <div className="relative pt-2">
+              {/* Edit / Delete cluster */}
+              {canEdit ? (
+                <div className="absolute -top-2 right-0 flex flex-col items-end gap-2 text-[10px] uppercase tracking-[0.22em] reveal" style={{ "--i": 1 }}>
+                  <button
+                    type="button"
+                    onClick={() => setEditing(true)}
+                    className="text-[var(--color-or)] hover:text-[var(--color-or-pale)] transition-colors"
+                  >
+                    ✎ {t("figure.edit.cta")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirming(true)}
+                    className="text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] transition-colors"
+                  >
+                    × {t("figure.edit.delete")}
+                  </button>
+                </div>
+              ) : null}
+
+              <p className="micro reveal" style={{ "--i": 2 }}>
+                {t(`type.${f.figure_type}`)}
+              </p>
+              <h1
+                className="display text-5xl md:text-6xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
+                style={{ "--i": 3 }}
+              >
+                {f.name}
+              </h1>
+              {f.version_name ? (
+                <p
+                  className="display-italic text-2xl mt-2 text-[var(--color-or)] reveal"
+                  style={{ "--i": 4 }}
+                >
+                  {f.version_name}
+                </p>
+              ) : null}
+
+              <div className="gold-rule w-32 my-8 reveal" style={{ "--i": 5 }} />
+
+              {/* Description (if any) */}
+              {f.description ? (
+                <p
+                  className="text-[var(--color-ivoire-soft)] leading-relaxed mb-8 reveal"
+                  style={{ "--i": 6 }}
+                >
+                  {f.description}
+                </p>
+              ) : null}
+
+              {/* Museum-label spec list */}
+              <dl className="reveal" style={{ "--i": 7 }}>
+                <MuseumRow label={t("figure.spec.manufacturer")} value={null /* TODO populate once exposed */} />
+                <MuseumRow label={t("figure.spec.scale")} value={f.scale} />
+                <MuseumRow
+                  label={t("figure.spec.height")}
+                  value={f.height_mm ? `${f.height_mm} mm` : null}
+                />
+                <MuseumRow
+                  label={t("figure.spec.materials")}
+                  value={f.materials?.length ? f.materials.join(" · ") : null}
+                />
+                <MuseumRow label={t("figure.spec.release")} value={f.release_date} />
+                <MuseumRow
+                  label={t("figure.spec.msrp")}
+                  value={
+                    f.msrp_amount
+                      ? `${f.msrp_amount} ${f.msrp_currency ?? ""}`.trim()
+                      : null
+                  }
+                />
+                <MuseumRow label={t("figure.spec.jan")} value={f.jan} mono />
+                <MuseumRow label={t("figure.spec.edition")} value={f.edition} />
+                <MuseumRow
+                  label={t("figure.spec.exclusivity")}
+                  value={f.exclusivity}
+                />
+              </dl>
+
+              {/* CTA */}
+              <div className="mt-10 reveal" style={{ "--i": 8 }}>
+                {alreadyOwned ? (
+                  <div className="flex items-center gap-3 px-5 py-4 border border-[var(--color-or)]/40 bg-[var(--color-or)]/5">
+                    <span
+                      aria-hidden
+                      className="w-2 h-2 bg-[var(--color-or)] rotate-45"
+                      style={{ boxShadow: "0 0 10px var(--color-or)" }}
+                    />
+                    <p className="micro">{t("figure.already_owned")}</p>
+                  </div>
+                ) : (
+                  <Button
+                    variant="primary"
+                    onClick={onAdd}
+                    loading={addOwned.isPending}
+                    className="w-full"
+                  >
+                    {t("figure.add_to_collection")}
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ───────── Catalog photos (shared across users) ───────── */}
+        <section className="max-w-7xl mx-auto px-6 mt-16">
+          <FigurePhotosSection
+            figureId={f.id}
+            canEdit={canEdit}
+            uploadDisabled={f.is_nsfw && nsfwPref === "blur"}
+            blurImages={f.is_nsfw && nsfwPref === "blur"}
+          />
+        </section>
+
+        {/* ───────── Owner-only sections ───────── */}
+        {ownedRecord ? (
+          <section className="max-w-7xl mx-auto px-6 mt-20">
+            <div className="ornate-rule mb-12 max-w-md mx-auto">
+              <span aria-hidden className="ornate-rule__diamond" />
+            </div>
+
+            {/* Preorder history — only renders when a linked preorder exists */}
+            <div className="mb-16">
+              <PreorderHistory ownedId={ownedRecord.id} />
+            </div>
+
+            <div className="mb-16">
+              <PhotoStrip
+                ownedId={ownedRecord.id}
+                uploadDisabled={f.is_nsfw && nsfwPref === "blur"}
+                blurImages={f.is_nsfw && nsfwPref === "blur"}
+              />
+            </div>
+
+            {/* Cover picker — feeds the thumbnail shown in CollectionPage */}
+            <div className="mb-16">
+              <header className="flex items-baseline justify-between mb-4">
+                <div>
+                  <p className="micro">{t("collection.cover.eyebrow")}</p>
+                  <h2 className="display text-2xl text-[var(--color-ivoire)] mt-1">
+                    {t("collection.cover.title")}
+                  </h2>
+                </div>
+              </header>
+              <CoverPicker owned={ownedRecord} />
+            </div>
+
+            <div className="ornate-rule mb-12 max-w-md mx-auto">
+              <span aria-hidden className="ornate-rule__diamond" />
+            </div>
+
+            <div>
+              <TurntableSection ownedId={ownedRecord.id} />
+            </div>
+          </section>
+        ) : null}
+
+        {/* ───────── Modals ───────── */}
         {editing ? (
           <FigureEditDialog figure={f} onClose={() => setEditing(false)} />
         ) : null}
@@ -135,98 +302,40 @@ export default function FigureDetailPage() {
             </div>
           </div>
         ) : null}
-
-        <div className="grid md:grid-cols-[1fr_1fr] gap-10">
-          <Card className="aspect-square grid place-items-center p-8">
-            {f.official_image_url ? (
-              <img
-                src={f.official_image_url}
-                alt={f.name}
-                className="w-full h-full object-contain"
-              />
-            ) : (
-              <FigureSilhouette />
-            )}
-          </Card>
-
-          <div>
-            <h2 className="micro mb-4">{t("figure.specs")}</h2>
-            <dl className="space-y-0 text-sm">
-              <SpecRow label={t("figure.spec.scale")} value={f.scale} />
-              <SpecRow
-                label={t("figure.spec.height")}
-                value={f.height_mm ? `${f.height_mm} mm` : null}
-              />
-              <SpecRow
-                label={t("figure.spec.materials")}
-                value={f.materials?.length ? f.materials.join(" · ") : null}
-              />
-              <SpecRow label={t("figure.spec.release")} value={f.release_date} />
-              <SpecRow
-                label={t("figure.spec.msrp")}
-                value={
-                  f.msrp_amount
-                    ? `${f.msrp_amount} ${f.msrp_currency ?? ""}`.trim()
-                    : null
-                }
-              />
-              <SpecRow label={t("figure.spec.jan")} value={f.jan} mono />
-              <SpecRow label={t("figure.spec.edition")} value={f.edition} />
-              <SpecRow label={t("figure.spec.exclusivity")} value={f.exclusivity} />
-            </dl>
-
-            <div className="gold-rule my-8" />
-
-            {alreadyOwned ? (
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-[var(--color-or)] rotate-45" />
-                <p className="micro">{t("figure.already_owned")}</p>
-              </div>
-            ) : (
-              <Button
-                variant="primary"
-                onClick={onAdd}
-                loading={addOwned.isPending}
-                className="w-full"
-              >
-                {t("figure.add_to_collection")}
-              </Button>
-            )}
-          </div>
-        </div>
-
-        {ownedRecord ? (
-          <>
-            <div className="mt-12 pt-8 border-t border-[var(--color-or)]/15">
-              <PhotoStrip ownedId={ownedRecord.id} />
-            </div>
-            <div className="mt-10 pt-8 border-t border-[var(--color-or)]/15">
-              <TurntableSection ownedId={ownedRecord.id} />
-            </div>
-          </>
-        ) : null}
       </main>
     </AppShell>
   );
 }
 
-function SpecRow({ label, value, mono = false }) {
+function MuseumRow({ label, value, mono = false }) {
   if (!value) return null;
   return (
-    <div
-      className="grid grid-cols-[140px_1fr] py-3 border-b border-[var(--color-or)]/15"
-      style={{ alignItems: "baseline" }}
-    >
-      <dt className="micro">{label}</dt>
-      <dd
-        className={`text-[var(--color-ivoire)] ${
-          mono ? "font-mono text-sm tracking-wider" : "display text-lg"
+    <div className="museum-row">
+      <span className="museum-key">{label}</span>
+      <span
+        className={`museum-value ${
+          mono ? "font-mono tracking-wider text-sm" : ""
         }`}
       >
         {value}
-      </dd>
+      </span>
     </div>
   );
+}
+
+function kanjiForType(type) {
+  switch (type) {
+    case "nendoroid":  return "童";
+    case "scale":      return "像";
+    case "figma":      return "動";
+    case "prize":      return "賞";
+    case "trading":    return "交";
+    case "statue":     return "彫";
+    case "plamo":      return "組";
+    case "bishoujo":   return "美";
+    case "dakimakura": return "枕";
+    default:           return "玩";
+  }
 }
 
 function FigureSilhouette() {
@@ -308,5 +417,54 @@ function ErrorState({ t, error, onRetry }) {
         {t("figure.missing.cta_retry")}
       </button>
     </div>
+  );
+}
+
+function NsfwInterstitial({ t, figureId, onAcknowledge }) {
+  return (
+    <main className="relative max-w-xl mx-auto px-6 py-24 text-center">
+      <span
+        aria-hidden
+        className="kanji-mark text-[18rem] -top-12 left-1/2 -translate-x-1/2 select-none"
+      >
+        禁
+      </span>
+      <p className="micro relative">{t("nsfw.gate.eyebrow")}</p>
+      <h1 className="display text-4xl text-[var(--color-ivoire)] mt-3 relative">
+        {t("nsfw.gate.title")}
+      </h1>
+      <p className="mt-4 text-[var(--color-ivoire-soft)] leading-relaxed relative">
+        {t("nsfw.gate.body")}
+      </p>
+      {figureId ? (
+        <p className="mt-3 font-mono text-[10px] tracking-wider text-[var(--color-or-pale)]/50 break-all relative">
+          {figureId}
+        </p>
+      ) : null}
+      <div className="ornate-rule mx-auto w-32 my-8 relative">
+        <span aria-hidden className="ornate-rule__diamond" />
+      </div>
+      <div className="flex flex-col items-stretch gap-3 relative">
+        <button
+          type="button"
+          onClick={onAcknowledge}
+          className="px-5 py-3 bg-[var(--color-or)] text-[var(--color-noir)] text-[11px] uppercase tracking-[0.2em] hover:bg-[var(--color-or-pale)] transition-colors"
+        >
+          {t("nsfw.gate.cta_show")}
+        </button>
+        <Link
+          to="/settings"
+          className="px-5 py-3 border border-[var(--color-or)]/40 text-[var(--color-ivoire)] text-[11px] uppercase tracking-[0.2em] hover:bg-[var(--color-or)]/10 transition-colors"
+        >
+          {t("nsfw.gate.cta_settings")}
+        </Link>
+        <Link
+          to="/browse"
+          className="px-5 py-3 text-[var(--color-ivoire-soft)] text-[10px] uppercase tracking-[0.22em] hover:text-[var(--color-or)] transition-colors"
+        >
+          {t("figure.missing.cta_browse")}
+        </Link>
+      </div>
+    </main>
   );
 }

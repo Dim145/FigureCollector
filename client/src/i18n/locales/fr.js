@@ -18,7 +18,30 @@ export default {
   "landing.welcome_back": "Heureux de te revoir.",
   "landing.cta_signin": "Se connecter",
   "landing.cta_signup": "Créer un compte",
-  "landing.bootstrap_note": "Squelette en place. Backend Rust et client React opérationnels — l'inventaire arrive en Phase 2.",
+  "landing.bootstrap_note": "Le tout premier compte créé devient automatiquement administrateur.",
+  "landing.scroll": "Faire défiler",
+  "landing.recent_activity": "Activité récente",
+  "landing.see_all": "Tout voir",
+
+  "landing.manifesto.label": "Manifeste",
+  "landing.manifesto.title": "Une vitrine privée pour vos figurines.",
+  "landing.manifesto.body": "FigureCollector traite chaque pièce comme un objet d'exposition. Vos photos, vos pré-commandes, vos scans 360° vivent dans une vitrine cohérente — auto-hébergée, sécurisée, taillée pour durer. Pas de tracking. Pas de revente. Juste votre collection, mise en scène.",
+
+  "landing.feat.collect.label": "Catalogage",
+  "landing.feat.collect.title": "Inventaire détaillé",
+  "landing.feat.collect.body": "Nendoroid, scale, figma, prize — toute la diversité figurine couverte. État, prix, lieu, sculpteur, JAN.",
+
+  "landing.feat.track.label": "Pré-commandes",
+  "landing.feat.track.title": "Suivi des dates de sortie",
+  "landing.feat.track.body": "Historique des reports, alertes de glissement, comparaison MSRP / prix payé.",
+
+  "landing.feat.share.label": "Partage",
+  "landing.feat.share.title": "Profils publics curatés",
+  "landing.feat.share.body": "Activez votre vitrine publique, partagez l'URL, ou comparez votre collection avec celle d'un autre collectionneur.",
+
+  "landing.final.label": "Entrée",
+  "landing.final.title": "Ouvrez la vitrine.",
+  "landing.final.title_jp": "扉を開ける",
 
   // Login
   "login.title": "Connexion",
@@ -62,18 +85,38 @@ export default {
 
   // Navigation (in-app)
   "nav.collection": "Ma collection",
+  "nav.collection.short": "Collection",
   "nav.preorders": "Pré-commandes",
+  "nav.preorders.short": "Pré-cmdes",
   "nav.add_figure": "Ajouter une figurine",
+  "nav.add_figure.short": "Ajouter",
   "nav.catalog": "Catalogue",
 
   // Collection
   "collection.title": "Ma collection",
   "collection.subtitle": "Pièce par pièce.",
+  "collection.empty.eyebrow": "Vitrine vide",
   "collection.empty.title": "Aucune figurine pour l'instant",
-  "collection.empty.body": "Crée une fiche dans le catalogue puis ajoute-la à ta collection.",
-  "collection.empty.cta": "Ajouter une figurine",
-  "collection.remove": "Retirer de la collection",
+  "collection.empty.body": "Parcourez le catalogue ou créez votre propre fiche pour démarrer votre vitrine.",
+  "collection.empty.cta": "Créer une fiche",
+  "collection.empty.cta_browse": "Parcourir le catalogue",
+  "collection.remove": "Retirer",
   "collection.count": "{n} pièce(s)",
+  "collection.kpi.pieces": "Pièces",
+  "collection.kpi.manufacturers": "Fabricants",
+  "collection.kpi.types": "Types",
+  "collection.cover.eyebrow": "Vignette de collection",
+  "collection.cover.title": "Choisir la vignette",
+  "collection.cover.empty": "Ajoutez d'abord une photo ou un scan pour pouvoir choisir une vignette personnalisée.",
+  "collection.cover.pinned": "★ vignette",
+  "collection.cover.hint_default": "La vignette catalogue est utilisée par défaut.",
+  "collection.cover.hint_active": "Vignette personnalisée active.",
+  "collection.cover.reset": "Revenir au défaut",
+  "collection.cover.kind.photo": "Photo",
+  "collection.cover.kind.scan": "Scan 360°",
+  "collection.cover.kind.gsplat": "3D",
+  "collection.filter.all": "Toutes",
+  "collection.filter.empty": "Aucune pièce ne correspond à ce filtre.",
 
   // Conditions
   "condition.mib_sealed": "MIB · scellée",
@@ -119,6 +162,32 @@ export default {
   "addfig.lookup_no_results": "Aucun résultat AniList.",
   "addfig.lookup_min": "Au moins 2 caractères.",
 
+  // Shared figure-form labels (used by AddFigurePage and FigureEditDialog)
+  "figure.form.save": "Enregistrer les modifications",
+  "figure.form.section.identity.eyebrow": "Identification",
+  "figure.form.section.identity.title": "Comment l'appeler ?",
+  "figure.form.section.series.eyebrow": "Origine",
+  "figure.form.section.series.title": "Série & personnage",
+  "figure.form.section.typology.eyebrow": "Typologie",
+  "figure.form.section.typology.title": "Format & dimensions",
+  "figure.form.section.production.eyebrow": "Production",
+  "figure.form.section.production.title": "Fabrication & prix",
+  "figure.form.section.catalog.eyebrow": "Catalogue",
+  "figure.form.section.catalog.title": "Image & description",
+  "figure.form.field.image_url": "URL de l'image officielle",
+  "figure.form.field.description": "Description / notes",
+  "figure.form.ph.scale": "1/4, 1/7, non-scale…",
+  "figure.form.ph.version": "Snow Princess Ver., Repaint…",
+  "figure.form.ph.edition": "Standard, Limited, GSC Online…",
+  "figure.form.ph.exclusivity": "GSC Online, Amazon JP, AmiAmi…",
+  "figure.form.ph.materials": "PVC, ABS, polystone",
+  "figure.form.ph.materials_hint": "Séparés par des virgules.",
+  "figure.form.ph.msrp": "5800",
+  "figure.form.ph.jan": "4580590127553",
+  "figure.form.ph.jan_hint": "Code-barres JAN (Japon) ou EAN (Europe).",
+  "figure.form.ph.image_url_hint": "Lien direct vers une image hébergée publiquement. Pour héberger les photos sur cette instance, utilisez la section « Photos officielles » de la fiche.",
+  "figure.form.ph.description": "Posture, sculpteur, événement de sortie, anecdotes…",
+
   // Figure detail
   "figure.add_to_collection": "Ajouter à ma collection",
   "figure.already_owned": "Dans ta collection",
@@ -158,6 +227,32 @@ export default {
   "preorders.bump_note": "Raison du report (optionnel)",
   "preorders.history_title": "Historique des reports",
 
+  // ----- Pre-order badges (cards + figure detail) -----
+  "preorder.badge.preorder": "Pré-cmde",
+  "preorder.badge.imminent": "En livraison",
+  "preorder.badge.cancelled": "Annulée",
+  "preorder.history.eyebrow": "Pré-commande",
+  "preorder.history.title": "Historique de pré-commande",
+  "preorder.history.announced": "Date annoncée à l'origine",
+  "preorder.history.released": "Date de sortie actuelle",
+  "preorder.history.slipped_note": "Repoussée depuis l'annonce.",
+  "preorder.history.store": "Boutique :",
+  "preorder.history.order_ref": "N° :",
+  "preorder.history.slips": "Reports successifs",
+  "preorder.status.announced": "Annoncée",
+  "preorder.status.preorder_open": "Pré-commande ouverte",
+  "preorder.status.preordered": "Pré-commandée",
+  "preorder.status.in_production": "En production",
+  "preorder.status.released": "Sortie en boutique",
+  "preorder.status.shipped": "Expédiée",
+  "preorder.status.received": "Reçue",
+  "preorder.status.cancelled": "Annulée",
+
+  // Hero gallery
+  "figure.hero.aria": "Galerie de la figurine",
+  "figure.hero.mine": "Ma photo",
+  "figure.hero.mine_label": "Mes photos",
+
   // Statuses
   "status.announced": "Annoncée",
   "status.preorder_open": "Pré-commande ouverte",
@@ -178,10 +273,11 @@ export default {
   // Browse
   "browse.title": "Catalogue",
   "browse.subtitle": "Toutes les figurines, qu'on les possède ou non.",
-  "browse.search_placeholder": "Rechercher une figurine…",
+  "browse.search_placeholder": "Rechercher par nom, série, fabricant…",
   "browse.filter_type": "Type",
   "browse.filter_all": "Toutes",
   "browse.empty": "Aucune figurine ne correspond.",
+  "browse.total": "{n} fiche(s) au catalogue",
 
   // Photos
   "photos.upload": "Ajouter une photo",
@@ -192,6 +288,16 @@ export default {
   "photos.view": "Voir en grand",
   "photos.prev": "Photo précédente",
   "photos.next": "Photo suivante",
+
+  // ----- Catalog photos (shared) -----
+  "figure.catalog_photos.eyebrow": "Photothèque catalogue",
+  "figure.catalog_photos.title": "Photos officielles",
+  "figure.catalog_photos.empty": "Aucune photo n'a encore été ajoutée à cette fiche.",
+  "figure.catalog_photos.upload": "Ajouter une photo",
+  "figure.catalog_photos.uploading": "Envoi…",
+  "figure.catalog_photos.primary": "Couverture",
+  "figure.catalog_photos.make_primary": "Définir comme couverture",
+  "figure.catalog_photos.delete": "Retirer du catalogue",
 
   // Profile public
   "profile.public_title": "Profil de {name}",
@@ -286,6 +392,31 @@ export default {
   "settings.bg_model": "Modèle de détourage",
   "settings.bg_model.body": "Choisis la taille du modèle IA chargé dans ton navigateur pour le bouton « Détourer ». Le modèle est mis en cache après le premier téléchargement.",
   "settings.bg_model.hint": "WebGPU est utilisé automatiquement si disponible (Chrome / Edge récents), sinon WebAssembly multi-thread.",
+
+  // ----- NSFW -----
+  "settings.nsfw.title": "Contenu sensible (NSFW)",
+  "settings.nsfw.body": "Les figurines marquées NSFW peuvent contenir de la nudité ou des poses suggestives. Choisissez comment vous souhaitez les voir dans votre vitrine.",
+  "settings.nsfw.hide.title": "Cacher",
+  "settings.nsfw.hide.body": "Les figurines NSFW disparaissent du catalogue et de ma collection. Un avertissement s'affiche sur leur fiche directe.",
+  "settings.nsfw.blur.title": "Flouter",
+  "settings.nsfw.blur.body": "Les images des figurines NSFW restent visibles mais floutées. L'ajout de photos sur ces figurines est désactivé.",
+  "settings.nsfw.show.title": "Afficher",
+  "settings.nsfw.show.body": "Affichage normal, sans filtre ni floutage.",
+
+  "figure.form.section.flags.eyebrow": "Classification",
+  "figure.form.section.flags.title": "Contenu",
+  "figure.form.field.is_nsfw": "Marquer cette figurine comme NSFW",
+  "figure.form.field.is_nsfw_hint": "Drapeau partagé par tous les collectionneurs : nudité, érotisme, ou poses suggestives. La visibilité dépend ensuite de la préférence de chaque utilisateur.",
+
+  "nsfw.warn_on_create": "Cette figurine sera marquée NSFW. Votre préférence actuelle est de les cacher : vous ne la verrez pas dans votre catalogue ni dans votre collection (mais elle restera visible pour les autres utilisateurs qui l'autorisent). Continuer ?",
+  "nsfw.upload_blocked": "✕ Ajout de photo désactivé (NSFW + flouté)",
+  "nsfw.upload_blocked_hint": "Votre préférence NSFW est sur « flouter ». L'ajout de photos pour les figurines NSFW est désactivé tant que vous n'avez pas choisi « afficher ».",
+
+  "nsfw.gate.eyebrow": "Contenu sensible",
+  "nsfw.gate.title": "Cette fiche est marquée NSFW",
+  "nsfw.gate.body": "Votre préférence actuelle est de cacher ces figurines. Vous pouvez l'afficher ponctuellement pour cette session, ou ajuster votre préférence dans les paramètres.",
+  "nsfw.gate.cta_show": "Afficher cette fois",
+  "nsfw.gate.cta_settings": "Modifier ma préférence",
   "settings.bg_model.small": "Petit · 40 MB · rapide",
   "settings.bg_model.medium": "Moyen · 80 MB · recommandé",
   "settings.bg_model.large": "Grand · 120 MB · qualité max",

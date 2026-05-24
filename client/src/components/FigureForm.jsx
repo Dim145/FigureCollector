@@ -1,0 +1,422 @@
+import { useEffect, useMemo, useState } from "react";
+import { useT } from "../i18n/index.jsx";
+import AniListLookup from "./AniListLookup.jsx";
+import Button from "./Button.jsx";
+import FormField from "./FormField.jsx";
+import Select from "./Select.jsx";
+
+const TYPE_OPTIONS = [
+  "nendoroid", "scale", "figma", "prize", "trading",
+  "statue", "plamo", "bishoujo", "dakimakura", "other",
+];
+
+const CURRENCY_OPTIONS = ["JPY", "EUR", "USD", "GBP", "CHF", "CAD"];
+
+/**
+ * Shared form for both creating (AddFigurePage) and editing (FigureEditDialog)
+ * a catalog figure. Same primitives, same input types, same AniList lookup.
+ *
+ * Sections are visually grouped (Identity / Typology / Production / Pricing /
+ * Catalogue) so the form reads like an exhibition object label rather than a
+ * single 12-field dump.
+ *
+ * @param {object} props
+ * @param {"create"|"edit"} props.mode
+ * @param {object} [props.initial]    Starting values (from existing figure or empty).
+ * @param {(payload: object) => Promise<void>} props.onSubmit
+ *        Receives the cleaned + trimmed payload. Throw to surface an error.
+ * @param {() => void} [props.onCancel]
+ * @param {boolean} [props.busy]
+ * @param {string} [props.errorMessage]
+ * @param {object} [props.extras]     Optional render slot below the form
+ *        (e.g. the "also add to my collection" checkbox on the create page).
+ * @param {React.ReactNode} [props.footerExtras] Optional extra buttons.
+ */
+export default function FigureForm({
+  mode = "create",
+  initial,
+  onSubmit,
+  onCancel,
+  busy = false,
+  errorMessage = null,
+  extras = null,
+  footerExtras = null,
+}) {
+  const t = useT();
+
+  const [form, setForm] = useState(() => normalise(initial));
+  // If the caller swaps `initial` (Edit modal jumping to a new figure), we
+  // re-seed the local state — guarded by the figure id so a parent re-render
+  // with the same object doesn't blow away in-progress edits.
+  useEffect(() => {
+    setForm(normalise(initial));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial?.id]);
+
+  const set = (k) => (v) => setForm((s) => ({ ...s, [k]: v }));
+
+  const submitLabel = useMemo(
+    () => (mode === "edit" ? t("figure.form.save") : t("addfig.submit")),
+    [mode, t],
+  );
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const payload = serialise(form, mode);
+    await onSubmit(payload);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-8">
+      {/* ──────────── Identity ──────────── */}
+      <Section
+        eyebrow={t("figure.form.section.identity.eyebrow")}
+        title={t("figure.form.section.identity.title")}
+      >
+        <FormField
+          label={t("addfig.field.name")}
+          value={form.name}
+          onChange={set("name")}
+          required
+          disabled={busy}
+        />
+        <div className="grid sm:grid-cols-2 gap-5">
+          <FormField
+            label={t("addfig.field.version_name")}
+            value={form.version_name}
+            onChange={set("version_name")}
+            placeholder={t("figure.form.ph.version")}
+            disabled={busy}
+          />
+          <FormField
+            label={t("addfig.field.edition")}
+            value={form.edition}
+            onChange={set("edition")}
+            placeholder={t("figure.form.ph.edition")}
+            disabled={busy}
+          />
+        </div>
+      </Section>
+
+      {/* ──────────── Series & character ──────────── */}
+      <Section
+        eyebrow={t("figure.form.section.series.eyebrow")}
+        title={t("figure.form.section.series.title")}
+      >
+        <div className="grid sm:grid-cols-2 gap-5">
+          <div className="sm:col-span-1">
+            <FormField
+              label={t("addfig.field.series")}
+              value={form.series_name}
+              onChange={set("series_name")}
+              disabled={busy}
+            />
+            <AniListLookup
+              initial={form.series_name}
+              onPick={(pick) =>
+                setForm((s) => ({
+                  ...s,
+                  series_name:
+                    pick.romaji ?? pick.english ?? pick.native ?? s.series_name,
+                }))
+              }
+            />
+          </div>
+          <FormField
+            label={t("addfig.field.character")}
+            value={form.character_name}
+            onChange={set("character_name")}
+            disabled={busy}
+          />
+        </div>
+      </Section>
+
+      {/* ──────────── Typology & dimensions ──────────── */}
+      <Section
+        eyebrow={t("figure.form.section.typology.eyebrow")}
+        title={t("figure.form.section.typology.title")}
+      >
+        <div className="grid sm:grid-cols-3 gap-5">
+          <Select
+            label={t("addfig.field.type")}
+            value={form.figure_type}
+            onChange={set("figure_type")}
+            options={TYPE_OPTIONS.map((v) => ({ value: v, label: t(`type.${v}`) }))}
+            disabled={busy}
+          />
+          <FormField
+            label={t("addfig.field.scale")}
+            value={form.scale}
+            onChange={set("scale")}
+            placeholder={t("figure.form.ph.scale")}
+            disabled={busy}
+          />
+          <FormField
+            label={t("addfig.field.height_mm")}
+            type="number"
+            value={form.height_mm}
+            onChange={set("height_mm")}
+            disabled={busy}
+          />
+        </div>
+        <FormField
+          label={t("addfig.field.materials")}
+          value={form.materials}
+          onChange={set("materials")}
+          placeholder={t("figure.form.ph.materials")}
+          hint={t("figure.form.ph.materials_hint")}
+          disabled={busy}
+        />
+      </Section>
+
+      {/* ──────────── Production & pricing ──────────── */}
+      <Section
+        eyebrow={t("figure.form.section.production.eyebrow")}
+        title={t("figure.form.section.production.title")}
+      >
+        <div className="grid sm:grid-cols-2 gap-5">
+          <FormField
+            label={t("addfig.field.manufacturer")}
+            value={form.manufacturer_name}
+            onChange={set("manufacturer_name")}
+            disabled={busy}
+          />
+          <FormField
+            label={t("addfig.field.sculptor")}
+            value={form.sculptor_name}
+            onChange={set("sculptor_name")}
+            disabled={busy}
+          />
+          <FormField
+            label={t("addfig.field.release_date")}
+            type="date"
+            value={form.release_date}
+            onChange={set("release_date")}
+            disabled={busy}
+          />
+          <FormField
+            label={t("figure.spec.exclusivity")}
+            value={form.exclusivity}
+            onChange={set("exclusivity")}
+            placeholder={t("figure.form.ph.exclusivity")}
+            disabled={busy}
+          />
+        </div>
+        <div className="grid sm:grid-cols-3 gap-5">
+          <div className="sm:col-span-2">
+            <FormField
+              label={t("addfig.field.msrp")}
+              type="number"
+              value={form.msrp_amount}
+              onChange={set("msrp_amount")}
+              disabled={busy}
+              placeholder={t("figure.form.ph.msrp")}
+            />
+          </div>
+          <Select
+            label={t("addfig.field.currency")}
+            value={form.msrp_currency}
+            onChange={set("msrp_currency")}
+            options={CURRENCY_OPTIONS.map((c) => ({ value: c, label: c }))}
+            disabled={busy}
+          />
+        </div>
+        <FormField
+          label={t("addfig.field.jan")}
+          value={form.jan}
+          onChange={set("jan")}
+          placeholder={t("figure.form.ph.jan")}
+          hint={t("figure.form.ph.jan_hint")}
+          disabled={busy}
+        />
+      </Section>
+
+      {/* ──────────── Imagery / catalog ──────────── */}
+      <Section
+        eyebrow={t("figure.form.section.catalog.eyebrow")}
+        title={t("figure.form.section.catalog.title")}
+      >
+        <FormField
+          label={t("figure.form.field.image_url")}
+          type="url"
+          value={form.official_image_url}
+          onChange={set("official_image_url")}
+          placeholder="https://…"
+          hint={t("figure.form.ph.image_url_hint")}
+          disabled={busy}
+        />
+        <label className="block">
+          <span className="micro block mb-2">
+            {t("figure.form.field.description")}
+          </span>
+          <textarea
+            value={form.description}
+            onChange={(e) => set("description")(e.target.value)}
+            disabled={busy}
+            rows={4}
+            placeholder={t("figure.form.ph.description")}
+            className="w-full bg-[var(--color-noir)] border border-[var(--color-or)]/30 px-4 py-3 text-[var(--color-ivoire)] outline-none focus:border-[var(--color-or)] transition-colors leading-relaxed"
+            style={{
+              fontFamily: "var(--font-sans)",
+              letterSpacing: "0.005em",
+            }}
+          />
+        </label>
+      </Section>
+
+      {/* ──────────── Content classification ──────────── */}
+      <section className="relative">
+        <header className="mb-4">
+          <p className="micro-tight">{t("figure.form.section.flags.eyebrow")}</p>
+          <h3 className="display text-xl text-[var(--color-ivoire)] mt-1">
+            {t("figure.form.section.flags.title")}
+          </h3>
+          <div className="gold-rule w-12 mt-3 opacity-70" />
+        </header>
+        <label className="flex items-start gap-3 cursor-pointer select-none p-3 border border-[var(--color-or)]/15 bg-[var(--color-noir)]/40 hover:border-[var(--color-or)]/40 transition-colors">
+          <input
+            type="checkbox"
+            checked={!!form.is_nsfw}
+            onChange={(e) => set("is_nsfw")(e.target.checked)}
+            disabled={busy}
+            className="accent-[var(--color-or)] w-4 h-4 mt-0.5"
+          />
+          <span className="flex-1 text-sm text-[var(--color-ivoire)]">
+            <span className="block">{t("figure.form.field.is_nsfw")}</span>
+            <span className="block micro-tight mt-1 opacity-80">
+              {t("figure.form.field.is_nsfw_hint")}
+            </span>
+          </span>
+        </label>
+      </section>
+
+      {extras ? <div className="pt-2">{extras}</div> : null}
+
+      {errorMessage ? (
+        <p
+          role="alert"
+          className="text-sm text-[var(--color-laque-bright)] tracking-wide border-l-2 border-[var(--color-laque-bright)] pl-3 py-1"
+        >
+          {errorMessage}
+        </p>
+      ) : null}
+
+      <div className="flex flex-wrap items-center justify-end gap-3 pt-3 border-t border-[var(--color-or)]/15">
+        {footerExtras}
+        {onCancel ? (
+          <Button variant="ghost" type="button" onClick={onCancel} disabled={busy}>
+            {t("editor.cancel")}
+          </Button>
+        ) : null}
+        <Button type="submit" variant="primary" loading={busy}>
+          {submitLabel}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+
+const EMPTY = {
+  name: "",
+  manufacturer_name: "",
+  sculptor_name: "",
+  series_name: "",
+  character_name: "",
+  figure_type: "nendoroid",
+  scale: "",
+  height_mm: "",
+  materials: "",
+  release_date: "",
+  msrp_amount: "",
+  msrp_currency: "JPY",
+  jan: "",
+  edition: "",
+  exclusivity: "",
+  version_name: "",
+  official_image_url: "",
+  description: "",
+  is_nsfw: false,
+};
+
+/** Seed the form's local state from `initial`, which can be a fresh figure
+ *  (Edit) or undefined (Create). Lists become comma-separated strings; null
+ *  fields become empty strings so React inputs stay controlled. */
+function normalise(initial) {
+  if (!initial) return { ...EMPTY };
+  return {
+    name: initial.name ?? "",
+    manufacturer_name: initial.manufacturer_name ?? "",
+    sculptor_name: initial.sculptor_name ?? "",
+    series_name: initial.series_name ?? "",
+    character_name: initial.character_name ?? "",
+    figure_type: initial.figure_type ?? "nendoroid",
+    scale: initial.scale ?? "",
+    height_mm: initial.height_mm != null ? String(initial.height_mm) : "",
+    materials: Array.isArray(initial.materials)
+      ? initial.materials.join(", ")
+      : (initial.materials ?? ""),
+    release_date: initial.release_date ?? "",
+    msrp_amount: initial.msrp_amount != null ? String(initial.msrp_amount) : "",
+    msrp_currency: initial.msrp_currency ?? "JPY",
+    jan: initial.jan ?? "",
+    edition: initial.edition ?? "",
+    exclusivity: initial.exclusivity ?? "",
+    version_name: initial.version_name ?? "",
+    official_image_url: initial.official_image_url ?? "",
+    description: initial.description ?? "",
+    is_nsfw: !!initial.is_nsfw,
+  };
+}
+
+/** Produce the payload that goes to the backend. Empty strings → undefined
+ *  so the COALESCE-style PATCH on the server side doesn't overwrite real
+ *  values with empties. Numbers are parsed. Materials are split on comma. */
+function serialise(form, _mode) {
+  const trim = (s) => (typeof s === "string" ? s.trim() : s);
+  const nz = (s) => {
+    const v = trim(s);
+    return v ? v : undefined;
+  };
+  const parsedHeight = form.height_mm ? Number.parseInt(form.height_mm, 10) : undefined;
+  const materials = form.materials
+    ? form.materials.split(",").map(trim).filter(Boolean)
+    : [];
+
+  return {
+    name: nz(form.name),
+    manufacturer_name: nz(form.manufacturer_name),
+    sculptor_name: nz(form.sculptor_name),
+    series_name: nz(form.series_name),
+    character_name: nz(form.character_name),
+    figure_type: form.figure_type || undefined,
+    scale: nz(form.scale),
+    height_mm: Number.isFinite(parsedHeight) ? parsedHeight : undefined,
+    materials: materials.length ? materials : undefined,
+    release_date: form.release_date || undefined,
+    msrp_amount: form.msrp_amount || undefined,
+    msrp_currency: form.msrp_amount ? form.msrp_currency : undefined,
+    jan: nz(form.jan),
+    edition: nz(form.edition),
+    exclusivity: nz(form.exclusivity),
+    version_name: nz(form.version_name),
+    official_image_url: nz(form.official_image_url),
+    description: nz(form.description),
+    is_nsfw: !!form.is_nsfw,
+  };
+}
+
+function Section({ eyebrow, title, children }) {
+  return (
+    <section className="relative">
+      <header className="mb-5">
+        <p className="micro-tight">{eyebrow}</p>
+        <h3 className="display text-xl text-[var(--color-ivoire)] mt-1">{title}</h3>
+        <div className="gold-rule w-12 mt-3 opacity-70" />
+      </header>
+      <div className="space-y-5">{children}</div>
+    </section>
+  );
+}

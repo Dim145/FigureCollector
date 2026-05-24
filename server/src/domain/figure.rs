@@ -30,8 +30,15 @@ pub struct Figure {
     pub mfc_id: Option<i32>,
     pub created_by: Option<Uuid>,
     pub is_user_submitted: bool,
+    pub is_nsfw: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
+    /// Resolved catalog cover photo id — only populated by `list()` (which
+    /// joins on `figure_photos`). `find_by_id()` and `create()` leave it
+    /// None; the SPA falls back to fetching `/api/figures/{id}/photos`
+    /// directly for the detail page.
+    #[sqlx(default)]
+    pub primary_photo_id: Option<Uuid>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -56,6 +63,8 @@ pub struct NewFigure {
     pub description: Option<String>,
     pub series_name: Option<String>,
     pub character_name: Option<String>,
+    #[serde(default)]
+    pub is_nsfw: bool,
 }
 
 fn default_type() -> String {
@@ -80,7 +89,7 @@ const ALLOWED_CURRENCIES_LEN: usize = 3;
 const FIGURE_COLUMNS: &str = "id, name, slug, manufacturer_id, sculptor_id, figure_type, scale, \
      height_mm, materials, release_date, msrp_amount, msrp_currency, jan, exclusivity, edition, \
      version_name, official_image_url, description, mfc_id, created_by, is_user_submitted, \
-     created_at, updated_at";
+     is_nsfw, created_at, updated_at";
 
 pub async fn create(pool: &PgPool, created_by: Uuid, input: NewFigure) -> AppResult<Figure> {
     if !ALLOWED_TYPES.contains(&input.figure_type.as_str()) {
@@ -125,8 +134,9 @@ pub async fn create(pool: &PgPool, created_by: Uuid, input: NewFigure) -> AppRes
         "INSERT INTO figures (
             id, name, slug, manufacturer_id, sculptor_id, figure_type, scale, height_mm,
             materials, release_date, msrp_amount, msrp_currency, jan, exclusivity, edition,
-            version_name, official_image_url, description, created_by, is_user_submitted
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,TRUE)
+            version_name, official_image_url, description, created_by, is_user_submitted,
+            is_nsfw
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,TRUE,$20)
          RETURNING {FIGURE_COLUMNS}"
     );
 
@@ -150,6 +160,7 @@ pub async fn create(pool: &PgPool, created_by: Uuid, input: NewFigure) -> AppRes
         .bind(&input.official_image_url)
         .bind(&input.description)
         .bind(created_by)
+        .bind(input.is_nsfw)
         .fetch_one(&mut *tx)
         .await
         .map_err(map_unique_violation)?;
@@ -182,13 +193,31 @@ pub struct ListQuery {
     pub limit: Option<i64>,
     #[serde(default)]
     pub offset: Option<i64>,
+    /// When `true`, NSFW figures are excluded from the result. Routes pass
+    /// this based on the viewer's `nsfw_visibility` preference.
+    #[serde(default, skip_deserializing)]
+    pub exclude_nsfw: bool,
 }
 
 pub async fn list(pool: &PgPool, q: ListQuery) -> AppResult<Vec<Figure>> {
     let limit = q.limit.unwrap_or(50).clamp(1, 200);
     let offset = q.offset.unwrap_or(0).max(0);
 
-    let mut sql = format!("SELECT {FIGURE_COLUMNS} FROM figures WHERE TRUE");
+    // Listing projection adds a correlated subquery for the catalog primary
+    // photo so the SPA can render thumbnails without a follow-up fetch per
+    // row. `is_primary DESC` puts the primary first when one exists, then
+    // falls back to position order.
+    let mut sql = format!(
+        "SELECT {FIGURE_COLUMNS},
+                (SELECT fp.id FROM figure_photos fp
+                 WHERE fp.figure_id = figures.id
+                 ORDER BY fp.is_primary DESC, fp.position ASC, fp.created_at ASC
+                 LIMIT 1) AS primary_photo_id
+         FROM figures WHERE TRUE"
+    );
+    if q.exclude_nsfw {
+        sql.push_str(" AND NOT is_nsfw");
+    }
     let mut binds: Vec<String> = Vec::new();
 
     if q.q.is_some() {
@@ -257,6 +286,7 @@ pub struct FigurePatch {
     pub description: Option<String>,
     pub series_name: Option<String>,
     pub character_name: Option<String>,
+    pub is_nsfw: Option<bool>,
 }
 
 pub async fn patch(pool: &PgPool, id: Uuid, input: FigurePatch) -> AppResult<Figure> {
@@ -308,8 +338,9 @@ pub async fn patch(pool: &PgPool, id: Uuid, input: FigurePatch) -> AppResult<Fig
             edition            = COALESCE($13, edition),
             version_name       = COALESCE($14, version_name),
             official_image_url = COALESCE($15, official_image_url),
-            description        = COALESCE($16, description)
-         WHERE id = $17
+            description        = COALESCE($16, description),
+            is_nsfw            = COALESCE($17, is_nsfw)
+         WHERE id = $18
          RETURNING {FIGURE_COLUMNS}"
     );
 
@@ -330,6 +361,7 @@ pub async fn patch(pool: &PgPool, id: Uuid, input: FigurePatch) -> AppResult<Fig
         .bind(&input.version_name)
         .bind(&input.official_image_url)
         .bind(&input.description)
+        .bind(input.is_nsfw)
         .bind(id)
         .fetch_optional(&mut *tx)
         .await

@@ -109,6 +109,57 @@ export default function SettingsPage() {
             {t("settings.bg_model.hint")}
           </p>
         </Card>
+
+        {/* ---- NSFW visibility ------------------------------------ */}
+        <Card className="p-8">
+          <h2 className="display text-2xl text-[var(--color-ivoire)]">
+            {t("settings.nsfw.title")}
+          </h2>
+          <p className="mt-2 text-sm text-[var(--color-ivoire-soft)] leading-relaxed">
+            {t("settings.nsfw.body")}
+          </p>
+
+          <div className="mt-5 grid sm:grid-cols-3 gap-3">
+            {["hide", "blur", "show"].map((opt) => {
+              const current =
+                update.data?.nsfw_visibility ?? user.nsfw_visibility ?? "hide";
+              const active = current === opt;
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => update.mutate({ nsfw_visibility: opt })}
+                  disabled={update.isPending}
+                  aria-pressed={active}
+                  className={`p-4 text-left border transition-all ${
+                    active
+                      ? "border-[var(--color-or)] bg-[var(--color-or)]/10"
+                      : "border-[var(--color-or)]/15 hover:border-[var(--color-or)]/50"
+                  } disabled:opacity-50`}
+                  style={
+                    active
+                      ? {
+                          boxShadow:
+                            "0 0 0 1px var(--color-or), 0 10px 25px -10px rgba(0,0,0,0.6)",
+                        }
+                      : undefined
+                  }
+                >
+                  <p
+                    className={`display text-lg ${
+                      active ? "text-[var(--color-or)]" : "text-[var(--color-ivoire)]"
+                    }`}
+                  >
+                    {t(`settings.nsfw.${opt}.title`)}
+                  </p>
+                  <p className="text-xs text-[var(--color-ivoire-soft)] mt-2 leading-relaxed">
+                    {t(`settings.nsfw.${opt}.body`)}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </Card>
       </main>
     </AppShell>
   );

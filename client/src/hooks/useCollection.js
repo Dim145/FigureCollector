@@ -115,3 +115,14 @@ export function usePreorderHistory(id) {
     enabled: !!id,
   });
 }
+
+/** Returns the (optional) preorder row auto-linked to a specific owned_item.
+ *  Used by FigureDetailPage to render "Historique de pré-commande" even
+ *  after the piece has been received. */
+export function usePreorderForOwned(ownedId) {
+  return useQuery({
+    queryKey: ["preorder-for-owned", ownedId],
+    queryFn: () => api.get(`/me/owned/${ownedId}/preorder`),
+    enabled: !!ownedId,
+  });
+}

@@ -35,12 +35,29 @@ async fn upload_photo(
     Path(owned_id): Path<Uuid>,
     mut multipart: Multipart,
 ) -> AppResult<(StatusCode, Json<photo::Photo>)> {
-    let user_id = auth::require_user(&session).await?;
-    photo::assert_owned_by(&state.pool, user_id, owned_id).await?;
+    let user = auth::require_user_full(&session, &state.pool).await?;
+    photo::assert_owned_by(&state.pool, user.id, owned_id).await?;
 
     if !state.storage.enabled() {
         return Err(AppError::FeatureDisabled("object storage is not configured"));
     }
+
+    // If the figure is NSFW and the user's pref is `blur`, refuse the upload.
+    // The SPA disables the UI but we re-check server-side for safety.
+    if user.nsfw_visibility == "blur" {
+        let nsfw: Option<(bool,)> = sqlx::query_as(
+            "SELECT f.is_nsfw FROM owned_items o
+             JOIN figures f ON f.id = o.figure_id
+             WHERE o.id = $1",
+        )
+        .bind(owned_id)
+        .fetch_optional(&state.pool)
+        .await?;
+        if matches!(nsfw, Some((true,))) {
+            return Err(AppError::Forbidden);
+        }
+    }
+    let user_id = user.id;
 
     // We expect exactly one `file` field; ignore the rest.
     let mut bytes: Option<Vec<u8>> = None;

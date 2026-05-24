@@ -15,6 +15,7 @@ pub mod activity;
 pub mod admin;
 pub mod auth;
 pub mod external;
+pub mod figure_photos;
 pub mod figures;
 pub mod health;
 pub mod me;
@@ -50,6 +51,12 @@ pub fn build_router(state: AppState) -> Router {
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(16 * 1024 * 1024));
 
+    // Catalog-side figure photos use the same multipart pipeline as per-user
+    // photos — same 16 MB cap.
+    let figure_photo_routes = figure_photos::router()
+        .layer(DefaultBodyLimit::disable())
+        .layer(RequestBodyLimitLayer::new(16 * 1024 * 1024));
+
     // 360° scans bundle up to 96 frames in one POST. Cap at 96 MB which fits
     // a typical 48-frame phone capture (≈1-2 MB / frame) with room to spare.
     let scan_routes = scans::router()
@@ -70,6 +77,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(stats::router())
         .merge(admin::router())
         .merge(photo_routes)
+        .merge(figure_photo_routes)
         .merge(scan_routes)
         .merge(auth_routes);
 

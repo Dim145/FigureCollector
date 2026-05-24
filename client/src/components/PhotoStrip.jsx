@@ -17,7 +17,7 @@ import PhotoEditor from "./PhotoEditor.jsx";
  * The editor itself is lazy-loaded (filerobot + @imgly bg-removal) so this
  * code path never inflates the initial bundle.
  */
-export default function PhotoStrip({ ownedId }) {
+export default function PhotoStrip({ ownedId, uploadDisabled = false, blurImages = false }) {
   const t = useT();
   const photos = usePhotos(ownedId);
   const upload = useUploadPhoto(ownedId);
@@ -47,14 +47,23 @@ export default function PhotoStrip({ ownedId }) {
     <section>
       <header className="flex items-baseline justify-between mb-3">
         <h2 className="micro">{t("photos.title")}</h2>
-        <button
-          type="button"
-          onClick={() => fileInput.current?.click()}
-          disabled={upload.isPending}
-          className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-or)] hover:text-[var(--color-or-pale)] disabled:opacity-50"
-        >
-          {upload.isPending ? t("photos.uploading") : t("photos.upload")}
-        </button>
+        {uploadDisabled ? (
+          <span
+            title={t("nsfw.upload_blocked_hint")}
+            className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)]/50 cursor-not-allowed"
+          >
+            {t("nsfw.upload_blocked")}
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => fileInput.current?.click()}
+            disabled={upload.isPending}
+            className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-or)] hover:text-[var(--color-or-pale)] disabled:opacity-50"
+          >
+            {upload.isPending ? t("photos.uploading") : t("photos.upload")}
+          </button>
+        )}
         <input
           ref={fileInput}
           type="file"
@@ -88,7 +97,7 @@ export default function PhotoStrip({ ownedId }) {
                   alt=""
                   width={p.width}
                   height={p.height}
-                  className="h-32 w-auto object-cover border border-[var(--color-or)]/20 cursor-zoom-in transition-opacity group-hover:opacity-85"
+                  className={`h-32 w-auto object-cover border border-[var(--color-or)]/20 cursor-zoom-in transition-opacity group-hover:opacity-85 ${blurImages ? "nsfw-blur" : ""}`}
                   loading="lazy"
                 />
               </button>

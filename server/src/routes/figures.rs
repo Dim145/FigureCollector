@@ -15,8 +15,19 @@ use uuid::Uuid;
 
 async fn list(
     State(state): State<AppState>,
-    Query(q): Query<figure::ListQuery>,
+    session: Session,
+    Query(mut q): Query<figure::ListQuery>,
 ) -> AppResult<Json<Vec<figure::Figure>>> {
+    // Resolve the viewer's NSFW preference. Anonymous viewers default to
+    // hiding (same baseline as a fresh user). Admins still get the filter
+    // applied to /api/figures — the dedicated /api/admin/figures route is
+    // where moderators look at everything.
+    let viewer = auth::require_user_full(&session, &state.pool).await.ok();
+    let pref = viewer
+        .as_ref()
+        .map(|u| u.nsfw_visibility.as_str())
+        .unwrap_or("hide");
+    q.exclude_nsfw = pref == "hide";
     Ok(Json(figure::list(&state.pool, q).await?))
 }
 
