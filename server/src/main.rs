@@ -9,6 +9,7 @@ mod domain;
 mod error;
 mod events;
 mod external;
+mod migration;
 mod routes;
 mod state;
 mod storage;

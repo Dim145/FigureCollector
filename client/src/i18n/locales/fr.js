@@ -214,4 +214,11 @@ export default {
   "palette.group.navigation": "Navigation",
   "palette.group.collection": "Ma collection",
   "palette.group.catalog": "Catalogue",
+
+  // PWA — update toast + offline indicator
+  "pwa.update.title": "Nouvelle version disponible",
+  "pwa.update.body": "L'application a été mise à jour. Recharge pour profiter des dernières améliorations.",
+  "pwa.update.reload": "Recharger",
+  "pwa.update.later": "Plus tard",
+  "pwa.offline": "Hors-ligne — les écrans déjà visités restent accessibles.",
 };

@@ -8,12 +8,15 @@
 --
 -- The session storage table is managed by tower-sessions-sqlx-store separately
 -- (see `PostgresStore::migrate()` at server startup).
+--
+-- Idempotent — re-running this script on an already-migrated database is a
+-- no-op (every DDL uses IF NOT EXISTS or CREATE OR REPLACE).
 -- =============================================================================
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ---- users ------------------------------------------------------------------
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     username      TEXT        NOT NULL UNIQUE,
     email         TEXT,
@@ -26,12 +29,10 @@ CREATE TABLE users (
     last_login_at TIMESTAMPTZ
 );
 
--- Case-insensitive uniqueness for email (NULL emails are allowed and not unique).
-CREATE UNIQUE INDEX users_email_lower_idx
+CREATE UNIQUE INDEX IF NOT EXISTS users_email_lower_idx
     ON users (LOWER(email))
     WHERE email IS NOT NULL;
 
--- Auto-bump updated_at on row UPDATE.
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = now();
@@ -39,14 +40,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER users_updated_at
+CREATE OR REPLACE TRIGGER users_updated_at
     BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ---- oauth_identities -------------------------------------------------------
--- A given external (provider, subject) maps to exactly one user, but a user
--- can have multiple identities (e.g. Google + a generic OIDC IdP).
-CREATE TABLE oauth_identities (
+CREATE TABLE IF NOT EXISTS oauth_identities (
     provider    TEXT        NOT NULL,
     subject     TEXT        NOT NULL,
     user_id     UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -55,16 +54,15 @@ CREATE TABLE oauth_identities (
     PRIMARY KEY (provider, subject)
 );
 
-CREATE INDEX oauth_identities_user_id_idx ON oauth_identities (user_id);
+CREATE INDEX IF NOT EXISTS oauth_identities_user_id_idx ON oauth_identities (user_id);
 
 -- ---- local_credentials ------------------------------------------------------
--- Optional. Present only for users who registered with username/password.
-CREATE TABLE local_credentials (
+CREATE TABLE IF NOT EXISTS local_credentials (
     user_id        UUID        PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    password_hash  TEXT        NOT NULL,    -- Argon2id PHC string
+    password_hash  TEXT        NOT NULL,
     updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TRIGGER local_credentials_updated_at
+CREATE OR REPLACE TRIGGER local_credentials_updated_at
     BEFORE UPDATE ON local_credentials
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();

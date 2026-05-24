@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
       injectRegister: "script",
       includeAssets: ["favicon.svg", "robots.txt"],
       manifest: {
@@ -37,10 +37,81 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // ---- Precache (hashed build outputs)
         globPatterns: ["**/*.{js,css,html,svg,png,webp,woff2,wasm}"],
         cleanupOutdatedCaches: true,
         navigateFallback: "index.html",
-        navigateFallbackDenylist: [/^\/api\//, /^\/_/],
+        navigateFallbackDenylist: [/^\/api\//, /^\/_/, /^\/photos\//],
+        clientsClaim: true,
+        skipWaiting: false,
+        // ---- Runtime caching strategies
+        runtimeCaching: [
+          // Backend-served photos (immutable; storage_key changes per upload).
+          {
+            urlPattern: ({ url, request }) =>
+              url.pathname.startsWith("/api/photos/") && request.method === "GET",
+            handler: "CacheFirst",
+            options: {
+              cacheName: "fc-photos",
+              expiration: {
+                maxEntries: 400,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // Catalog reads — fresh-but-fast.
+          {
+            urlPattern: ({ url, request }) =>
+              (url.pathname === "/api/figures" ||
+                /^\/api\/figures\/[^/]+$/.test(url.pathname)) &&
+              request.method === "GET",
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "fc-figures",
+              expiration: {
+                maxEntries: 500,
+                maxAgeSeconds: 60 * 60 * 24, // 24h
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // External metadata proxies (AniList / MFC) — long cache, SWR.
+          {
+            urlPattern: ({ url, request }) =>
+              url.pathname.startsWith("/api/external/") && request.method === "GET",
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "fc-external",
+              expiration: {
+                maxEntries: 200,
+                maxAgeSeconds: 60 * 60 * 24, // 24h (matches backend cache)
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // Google Fonts CSS & font files (Direction B typography).
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\//,
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "google-fonts-css",
+              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 7 },
+            },
+          },
+          {
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\//,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-fonts-files",
+              expiration: {
+                maxEntries: 30,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
       devOptions: {
         enabled: false,

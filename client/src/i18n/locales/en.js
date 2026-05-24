@@ -192,4 +192,10 @@ export default {
   "palette.group.navigation": "Navigation",
   "palette.group.collection": "My collection",
   "palette.group.catalog": "Catalog",
+
+  "pwa.update.title": "New version available",
+  "pwa.update.body": "The app has been updated. Reload to get the latest improvements.",
+  "pwa.update.reload": "Reload",
+  "pwa.update.later": "Later",
+  "pwa.offline": "Offline — already-visited pages remain available.",
 };

@@ -12,6 +12,8 @@ import ComparePage from "./pages/ComparePage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 import CommandPalette from "./components/CommandPalette.jsx";
 import LiveSyncProvider from "./components/LiveSyncProvider.jsx";
+import OfflineIndicator from "./components/OfflineIndicator.jsx";
+import UpdateToast from "./components/UpdateToast.jsx";
 
 export default function App() {
   return (
@@ -32,6 +34,8 @@ export default function App() {
           <Route path="*" element={<LandingPage />} />
         </Routes>
         <CommandPalette />
+        <OfflineIndicator />
+        <UpdateToast />
       </LiveSyncProvider>
     </BrowserRouter>
   );

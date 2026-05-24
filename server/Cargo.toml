@@ -29,6 +29,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 anyhow = "1"
 thiserror = "2"
+async-trait = "0.1"
 
 # --- CLI ---
 clap = { version = "4", features = ["derive", "env"] }
@@ -52,6 +53,17 @@ sqlx = { version = "0.8", default-features = false, features = [
 tower-sessions = "0.14"
 tower-sessions-sqlx-store = { version = "0.15", default-features = false, features = ["postgres"] }
 
+# --- Sea-ORM migrations ---
+sea-orm = { version = "1.1", default-features = false, features = [
+    "sqlx-postgres",
+    "runtime-tokio-rustls",
+    "macros",
+] }
+sea-orm-migration = { version = "1.1", default-features = false, features = [
+    "runtime-tokio-rustls",
+    "sqlx-postgres",
+] }
+
 # --- Password hashing (local auth) ---
 argon2 = { version = "0.5", features = ["std"] }
 password-hash = { version = "0.5", features = ["alloc", "std", "rand_core"] }
@@ -61,7 +73,7 @@ rand = "0.8"
 openidconnect = { version = "4", default-features = false, features = ["reqwest", "rustls-tls"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-no-provider", "json", "gzip", "stream"] }
 
-# --- S3 / Garage storage (Phase 2B) ---
+# --- S3 / Garage storage ---
 rust-s3 = { version = "0.36", default-features = false, features = ["tokio-rustls-tls"] }
 
 # --- Image decoding / EXIF-strip via re-encode ---
