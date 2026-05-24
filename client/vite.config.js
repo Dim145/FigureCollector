@@ -38,7 +38,13 @@ export default defineConfig({
       },
       workbox: {
         // ---- Precache (hashed build outputs)
-        globPatterns: ["**/*.{js,css,html,svg,png,webp,woff2,wasm}"],
+        // wasm + onnx artefacts can weigh tens of MB (ONNX Runtime for the
+        // @imgly bg-removal model is ~24 MB on its own). We exclude them from
+        // the precache manifest and cache them at runtime when they're first
+        // requested, so users who never invoke "Détourer" never pay for them.
+        globPatterns: ["**/*.{js,css,html,svg,png,webp,woff2}"],
+        globIgnores: ["**/ort-wasm-*", "**/*.wasm", "**/*.onnx"],
+        maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         cleanupOutdatedCaches: true,
         navigateFallback: "index.html",
         navigateFallbackDenylist: [/^\/api\//, /^\/_/, /^\/photos\//],
@@ -88,6 +94,21 @@ export default defineConfig({
                 maxAgeSeconds: 60 * 60 * 24, // 24h (matches backend cache)
               },
               cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // ONNX Runtime WASM + ML model weights — cache on first use, keep
+          // forever (hashed asset URLs change on rebuild anyway).
+          {
+            urlPattern: ({ url }) => /\.(wasm|onnx)(\?.*)?$/i.test(url.pathname),
+            handler: "CacheFirst",
+            options: {
+              cacheName: "fc-ml-assets",
+              expiration: {
+                maxEntries: 30,
+                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+              },
+              cacheableResponse: { statuses: [0, 200] },
+              rangeRequests: true,
             },
           },
           // Google Fonts CSS & font files (Direction B typography).

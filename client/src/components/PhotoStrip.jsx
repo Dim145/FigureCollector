@@ -1,14 +1,21 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 import {
   useDeletePhoto,
   usePhotos,
   useUploadPhoto,
 } from "../hooks/useProfile.js";
+import PhotoEditor from "./PhotoEditor.jsx";
 
 /**
- * Phase 2B — horizontal photo strip with upload + delete.
- * Shown on FigureDetailPage when the user owns the figure.
+ * Horizontal photo strip with edit-before-upload workflow.
+ *   1. user clicks "Ajouter une photo"
+ *   2. file picker opens
+ *   3. instead of uploading right away, we mount <PhotoEditor> on the file
+ *   4. when the user clicks "Save" inside the editor, we upload the edited blob
+ *
+ * The editor itself is lazy-loaded (filerobot + @imgly bg-removal) so this
+ * code path never inflates the initial bundle.
  */
 export default function PhotoStrip({ ownedId }) {
   const t = useT();
@@ -17,11 +24,22 @@ export default function PhotoStrip({ ownedId }) {
   const remove = useDeletePhoto(ownedId);
   const fileInput = useRef(null);
 
+  const [pickedFile, setPickedFile] = useState(null);
+
   const onFile = (e) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    upload.mutate(file);
     e.target.value = "";
+    if (!file) return;
+    setPickedFile(file);
+  };
+
+  const onUpload = async (editedBlob) => {
+    // wrap the Blob into a File so the multipart name + filename make sense
+    const out = new File([editedBlob], deriveName(pickedFile, editedBlob), {
+      type: editedBlob.type || "image/webp",
+    });
+    await upload.mutateAsync(out);
+    setPickedFile(null);
   };
 
   return (
@@ -83,6 +101,20 @@ export default function PhotoStrip({ ownedId }) {
           {t("photos.empty")}
         </p>
       )}
+
+      {pickedFile ? (
+        <PhotoEditor
+          file={pickedFile}
+          onUpload={onUpload}
+          onCancel={() => setPickedFile(null)}
+        />
+      ) : null}
     </section>
   );
+}
+
+function deriveName(originalFile, blob) {
+  const ext = (blob.type || "").split("/")[1] ?? "webp";
+  const base = (originalFile?.name ?? "photo").replace(/\.[a-z0-9]+$/i, "");
+  return `${base}.${ext}`;
 }

@@ -264,4 +264,20 @@ export default {
   "yir.print": "Imprimer / partager",
   "yir.prev": "Année précédente",
   "yir.next": "Année suivante",
+
+  // Photo editor (filerobot + bg-removal)
+  "editor.title": "Retoucher la photo",
+  "editor.bg_remove": "Détourer",
+  "editor.bg_removing": "Détourage… {p}%",
+  "editor.bg_error": "Échec du détourage",
+  "editor.cancel": "Fermer",
+  "editor.loading_editor": "Chargement de l'éditeur…",
+
+  // Settings — background removal model
+  "settings.bg_model": "Modèle de détourage",
+  "settings.bg_model.body": "Choisis la taille du modèle IA chargé dans ton navigateur pour le bouton « Détourer ». Le modèle est mis en cache après le premier téléchargement.",
+  "settings.bg_model.hint": "WebGPU est utilisé automatiquement si disponible (Chrome / Edge récents), sinon WebAssembly multi-thread.",
+  "settings.bg_model.small": "Petit · 40 MB · rapide",
+  "settings.bg_model.medium": "Moyen · 80 MB · recommandé",
+  "settings.bg_model.large": "Grand · 120 MB · qualité max",
 };

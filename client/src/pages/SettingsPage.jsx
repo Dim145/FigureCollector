@@ -1,22 +1,23 @@
+import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useUpdateProfile } from "../hooks/useProfile.js";
 import AppShell from "../components/AppShell.jsx";
 import Card from "../components/Card.jsx";
+import Select from "../components/Select.jsx";
+import { BG_MODEL_SIZES, getPref, setPref } from "../lib/userPrefs.js";
 
 export default function SettingsPage() {
   const t = useT();
   const me = useMe();
   const update = useUpdateProfile();
+  const [bgModel, setBgModel] = useState(() => getPref("bgModel"));
 
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
 
   const user = me.data.user;
-  // /api/me doesn't currently return public_profile_enabled; we keep a derived
-  // local mirror via the mutation's last result, falling back to the toggle
-  // state (controlled-ish but cheap; full source of truth is the server).
   const flag =
     update.data?.public_profile_enabled ??
     me.data?.user?.public_profile_enabled ??
@@ -33,10 +34,15 @@ export default function SettingsPage() {
     }
   };
 
+  const onBgModel = (value) => {
+    setBgModel(value);
+    setPref("bgModel", value);
+  };
+
   return (
     <AppShell>
-      <main className="max-w-2xl mx-auto px-6 py-12">
-        <header className="text-center mb-10">
+      <main className="max-w-2xl mx-auto px-6 py-12 space-y-6">
+        <header className="text-center mb-4">
           <p className="micro">{user.username}</p>
           <h1 className="display text-5xl mt-2 text-[var(--color-ivoire)]">
             {t("settings.title")}
@@ -44,6 +50,7 @@ export default function SettingsPage() {
           <div className="gold-rule mx-auto w-32 mt-6" />
         </header>
 
+        {/* ---- Public profile -------------------------------------- */}
         <Card className="p-8">
           <div className="flex items-start justify-between gap-6">
             <div className="flex-1">
@@ -77,6 +84,30 @@ export default function SettingsPage() {
               </div>
             </div>
           ) : null}
+        </Card>
+
+        {/* ---- Background-removal model size ----------------------- */}
+        <Card className="p-8">
+          <h2 className="display text-2xl text-[var(--color-ivoire)]">
+            {t("settings.bg_model")}
+          </h2>
+          <p className="mt-2 text-sm text-[var(--color-ivoire-soft)] leading-relaxed">
+            {t("settings.bg_model.body")}
+          </p>
+          <div className="mt-5 max-w-xs">
+            <Select
+              label={t("settings.bg_model")}
+              value={bgModel}
+              onChange={onBgModel}
+              options={BG_MODEL_SIZES.map((size) => ({
+                value: size,
+                label: t(`settings.bg_model.${size}`),
+              }))}
+            />
+          </div>
+          <p className="mt-3 text-xs text-[var(--color-ivoire-soft)]/70">
+            {t("settings.bg_model.hint")}
+          </p>
         </Card>
       </main>
     </AppShell>

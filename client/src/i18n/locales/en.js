@@ -239,4 +239,18 @@ export default {
   "yir.print": "Print / share",
   "yir.prev": "Previous year",
   "yir.next": "Next year",
+
+  "editor.title": "Edit photo",
+  "editor.bg_remove": "Remove background",
+  "editor.bg_removing": "Removing background… {p}%",
+  "editor.bg_error": "Background removal failed",
+  "editor.cancel": "Close",
+  "editor.loading_editor": "Loading editor…",
+
+  "settings.bg_model": "Background-removal model",
+  "settings.bg_model.body": "Pick which AI model size to load in your browser when you tap 'Remove background'. The model is cached after first download.",
+  "settings.bg_model.hint": "WebGPU is used automatically when available (recent Chrome / Edge), otherwise multi-threaded WebAssembly.",
+  "settings.bg_model.small": "Small · 40 MB · fast",
+  "settings.bg_model.medium": "Medium · 80 MB · recommended",
+  "settings.bg_model.large": "Large · 120 MB · best quality",
 };
