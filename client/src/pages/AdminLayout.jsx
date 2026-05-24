@@ -29,6 +29,7 @@ export default function AdminLayout() {
             <SubLink to="/admin">{t("admin.tab.overview")}</SubLink>
             <SubLink to="/admin/users">{t("admin.tab.users")}</SubLink>
             <SubLink to="/admin/figures">{t("admin.tab.figures")}</SubLink>
+            <SubLink to="/admin/catalog">{t("admin.tab.catalog")}</SubLink>
           </nav>
         </div>
       </header>

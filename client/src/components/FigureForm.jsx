@@ -134,6 +134,23 @@ export default function FigureForm({
                   ...s,
                   series_name:
                     pick.romaji ?? pick.english ?? pick.native ?? s.series_name,
+                  // Carry the AniList enrichment through to the server so it
+                  // lands in `series.{anilist_id, mal_id, description, cover_url, …}`
+                  // on first insert. Existing fields are never overwritten —
+                  // the upsert uses COALESCE so admin edits stick.
+                  series_meta: {
+                    ...s.series_meta,
+                    anilist_id: pick.anilistId ?? s.series_meta?.anilist_id,
+                    mal_id: pick.malId ?? s.series_meta?.mal_id,
+                    description:
+                      stripHtmlSafe(pick.description) ??
+                      s.series_meta?.description,
+                    cover_url: pick.coverUrl ?? s.series_meta?.cover_url,
+                    external_url: pick.siteUrl ?? s.series_meta?.external_url,
+                    origin:
+                      anilistTypeToOrigin(pick.mediaType) ??
+                      s.series_meta?.origin,
+                  },
                 }))
               }
             />
@@ -355,6 +372,12 @@ const EMPTY = {
   official_image_url: "",
   description: "",
   is_nsfw: false,
+  // Related-entity enrichment carried alongside the *_name strings.
+  // Lookups (AniList, MAL, orzgk) populate these; the upsert on the server
+  // only persists them when the matching column is currently NULL.
+  manufacturer_meta: {},
+  series_meta: {},
+  character_meta: {},
 };
 
 /** Seed the form's local state from `initial`, which can be a fresh figure
@@ -384,6 +407,9 @@ function normalise(initial) {
     official_image_url: initial.official_image_url ?? "",
     description: initial.description ?? "",
     is_nsfw: !!initial.is_nsfw,
+    manufacturer_meta: initial.manufacturer_meta ?? {},
+    series_meta: initial.series_meta ?? {},
+    character_meta: initial.character_meta ?? {},
   };
 }
 
@@ -421,7 +447,43 @@ function serialise(form, _mode) {
     official_image_url: nz(form.official_image_url),
     description: nz(form.description),
     is_nsfw: !!form.is_nsfw,
+    // Related-entity metadata — only included when there's at least one
+    // populated field so we don't waste bytes on the wire.
+    manufacturer_meta: nonEmptyMeta(form.manufacturer_meta),
+    series_meta: nonEmptyMeta(form.series_meta),
+    character_meta: nonEmptyMeta(form.character_meta),
   };
+}
+
+/** Strip undefined / empty-string keys; return undefined when nothing's
+ *  left so JSON.stringify drops the whole property. */
+function nonEmptyMeta(meta) {
+  if (!meta || typeof meta !== "object") return undefined;
+  const entries = Object.entries(meta).filter(([_, v]) => {
+    if (v === undefined || v === null) return false;
+    if (typeof v === "string" && v.trim() === "") return false;
+    return true;
+  });
+  return entries.length ? Object.fromEntries(entries) : undefined;
+}
+
+/** Map AniList media type → our `series.origin` enum. */
+function anilistTypeToOrigin(mediaType) {
+  if (!mediaType) return undefined;
+  const upper = String(mediaType).toUpperCase();
+  if (upper === "ANIME") return "anime";
+  if (upper === "MANGA") return "manga";
+  return undefined;
+}
+
+/** AniList descriptions sometimes contain `<br>` / `<i>`. Pretty-print
+ *  cheaply for the description column (no DOMPurify dependency). */
+function stripHtmlSafe(s) {
+  if (!s) return undefined;
+  return String(s)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .trim() || undefined;
 }
 
 function Section({ eyebrow, title, children }) {

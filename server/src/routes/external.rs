@@ -4,7 +4,7 @@
 
 use crate::auth;
 use crate::error::{AppError, AppResult};
-use crate::external::{anilist, mfc, orzgk};
+use crate::external::{anilist, mal, mfc, orzgk, tracking};
 use crate::state::AppState;
 use axum::{
     Json, Router,
@@ -47,6 +47,17 @@ async fn anilist_get(
     auth::require_user(&session).await?;
     Ok(Json(
         anilist::get_media_with_characters(&state.pool, &state.http, id).await?,
+    ))
+}
+
+async fn anilist_character_get(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<i64>,
+) -> AppResult<Json<anilist::AniListCharacter>> {
+    auth::require_user(&session).await?;
+    Ok(Json(
+        anilist::get_character(&state.pool, &state.http, id).await?,
     ))
 }
 
@@ -109,12 +120,97 @@ async fn orzgk_detail(
     ))
 }
 
+// ─── MAL via Jikan ──────────────────────────────────────────────────────────
+
+async fn mal_anime_search(
+    State(state): State<AppState>,
+    session: Session,
+    Query(q): Query<SearchQuery>,
+) -> AppResult<Json<Vec<mal::MalAnime>>> {
+    auth::require_user(&session).await?;
+    let query = q.q.unwrap_or_default();
+    if query.trim().len() < 2 {
+        return Err(AppError::BadRequest("query must be at least 2 chars"));
+    }
+    Ok(Json(
+        mal::search_anime(&state.pool, &state.http, &query).await?,
+    ))
+}
+
+async fn mal_anime_get(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<i64>,
+) -> AppResult<Json<mal::MalAnime>> {
+    auth::require_user(&session).await?;
+    Ok(Json(mal::get_anime(&state.pool, &state.http, id).await?))
+}
+
+async fn mal_character_search(
+    State(state): State<AppState>,
+    session: Session,
+    Query(q): Query<SearchQuery>,
+) -> AppResult<Json<Vec<mal::MalCharacter>>> {
+    auth::require_user(&session).await?;
+    let query = q.q.unwrap_or_default();
+    if query.trim().len() < 2 {
+        return Err(AppError::BadRequest("query must be at least 2 chars"));
+    }
+    Ok(Json(
+        mal::search_character(&state.pool, &state.http, &query).await?,
+    ))
+}
+
+async fn mal_character_get(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<i64>,
+) -> AppResult<Json<mal::MalCharacter>> {
+    auth::require_user(&session).await?;
+    Ok(Json(
+        mal::get_character(&state.pool, &state.http, id).await?,
+    ))
+}
+
+// ─── Live shipping tracking proxy ─────────────────────────────────────────
+//
+// Browser → /api/tracking/{carrier}/{number} → server-side fetch against
+// the carrier API using a key from env (CORS + auth makes a direct browser
+// call impossible). Response is normalised + cached.
+
+async fn tracking_get(
+    State(state): State<AppState>,
+    session: Session,
+    Path((carrier, number)): Path<(String, String)>,
+) -> AppResult<Json<tracking::TrackingStatus>> {
+    auth::require_user(&session).await?;
+    Ok(Json(
+        tracking::fetch(
+            &state.pool,
+            &state.http,
+            &state.config.tracking,
+            &carrier,
+            &number,
+        )
+        .await?,
+    ))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
+        .route(
+            "/tracking/{carrier}/{number}",
+            get(tracking_get),
+        )
         .route("/external/anilist/search", get(anilist_search))
         .route("/external/anilist/{id}", get(anilist_get))
+        .route("/external/anilist/character/{id}", get(anilist_character_get))
         .route("/external/mfc/search", get(mfc_search))
         .route("/external/mfc/{id}", get(mfc_get))
         .route("/external/orzgk/search", get(orzgk_search))
         .route("/external/orzgk/detail", get(orzgk_detail))
+        .route("/external/mal/anime/search", get(mal_anime_search))
+        .route("/external/mal/anime/{id}", get(mal_anime_get))
+        .route("/external/mal/character/search", get(mal_character_search))
+        .route("/external/mal/character/{id}", get(mal_character_get))
 }

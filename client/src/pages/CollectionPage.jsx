@@ -15,11 +15,25 @@ const CONDITION_FILTERS = [
   "all", "mib_sealed", "opened_box", "displayed", "loose", "damaged",
 ];
 
+/** One kanji per condition, picked for resonance: 全 (all), 封 (sealed),
+ *  開 (opened), 飾 (displayed), 裸 (loose / bare), 痍 (damaged). */
+const CONDITION_KANJI = {
+  all: "全",
+  mib_sealed: "封",
+  opened_box: "開",
+  displayed: "飾",
+  loose: "裸",
+  damaged: "痍",
+};
+
 /**
- * Personal gallery view.
- *  - Hero with kanji backdrop + inline counters (pieces, manufacturers, types)
- *  - Condition filter chip bar
- *  - Stagger-reveal grid with the redesigned FigureCard
+ * Personal gallery — your collected pieces, with rotating KPI counters,
+ * a kanji-tile condition filter, and the redesigned FigureCard.
+ *
+ * Pairs intentionally with `/browse`:
+ *   - Same artifact badges on cards (brass plaque + status stamp)
+ *   - Same kanji-tile filter rail (different vocabulary)
+ *   - Different hero accent kanji: 蒐 (gather) vs 目 (eye)
  */
 export default function CollectionPage() {
   const t = useT();
@@ -39,6 +53,14 @@ export default function CollectionPage() {
       manufacturers: manufacturers.size,
       types: types.size,
     };
+  }, [owned.data]);
+
+  const countsByCondition = useMemo(() => {
+    const m = new Map();
+    for (const o of owned.data ?? []) {
+      m.set(o.condition, (m.get(o.condition) ?? 0) + 1);
+    }
+    return m;
   }, [owned.data]);
 
   const filtered = useMemo(() => {
@@ -95,9 +117,10 @@ export default function CollectionPage() {
           <EmptyState t={t} />
         ) : (
           <>
+            {/* Condition kanji-tile rail */}
             <nav
               aria-label="filter by condition"
-              className="flex flex-wrap items-center gap-2 mb-8 reveal"
+              className="tile-rail mb-8 reveal"
               style={{ "--i": 4 }}
             >
               {CONDITION_FILTERS.map((c) => {
@@ -105,28 +128,26 @@ export default function CollectionPage() {
                 const count =
                   c === "all"
                     ? owned.data.length
-                    : owned.data.filter((o) => o.condition === c).length;
+                    : countsByCondition.get(c) ?? 0;
                 if (c !== "all" && count === 0) return null;
                 return (
                   <button
                     key={c}
                     type="button"
+                    aria-pressed={active}
                     onClick={() => setConditionFilter(c)}
-                    className={`px-3 py-1.5 text-[10px] uppercase tracking-[0.22em] border transition-colors ${
-                      active
-                        ? "border-[var(--color-or)] bg-[var(--color-or)]/10 text-[var(--color-or)]"
-                        : "border-[var(--color-or)]/20 text-[var(--color-ivoire-soft)] hover:text-[var(--color-or-pale)] hover:border-[var(--color-or)]/50"
-                    }`}
+                    className={`tile ${active ? "is-active" : ""}`}
                   >
-                    {c === "all" ? t("collection.filter.all") : t(`condition.${c}`)}
-                    <span
-                      className={`ml-2 font-mono normal-case tracking-wider text-[9px] ${
-                        active
-                          ? "text-[var(--color-or)]"
-                          : "text-[var(--color-or-pale)]/70"
-                      }`}
-                    >
+                    <span className="tile-count" aria-hidden>
                       {count}
+                    </span>
+                    <span className="tile-kanji" aria-hidden>
+                      {CONDITION_KANJI[c] ?? "・"}
+                    </span>
+                    <span className="tile-romaji">
+                      {c === "all"
+                        ? t("collection.filter.all")
+                        : t(`condition.${c}`)}
                     </span>
                   </button>
                 );
@@ -166,7 +187,10 @@ export default function CollectionPage() {
                         };
                       }
                       if (item.cover_photo_id || item.cover_scan_id) {
-                        return t("collection.cover.pinned");
+                        return {
+                          label: t("collection.cover.pinned"),
+                          tone: "neutral",
+                        };
                       }
                       return null;
                     })()}

@@ -14,10 +14,12 @@ import ActivityPage from "./pages/ActivityPage.jsx";
 import YearInReviewPage from "./pages/YearInReviewPage.jsx";
 import AchievementsPage from "./pages/AchievementsPage.jsx";
 import StatsPage from "./pages/StatsPage.jsx";
+import EntityPage from "./pages/EntityPage.jsx";
 import AdminLayout from "./pages/AdminLayout.jsx";
 import AdminOverviewPage from "./pages/AdminOverviewPage.jsx";
 import AdminUsersPage from "./pages/AdminUsersPage.jsx";
 import AdminFiguresPage from "./pages/AdminFiguresPage.jsx";
+import AdminCatalogPage from "./pages/AdminCatalogPage.jsx";
 import CommandPalette from "./components/CommandPalette.jsx";
 import LiveSyncProvider from "./components/LiveSyncProvider.jsx";
 import OfflineIndicator from "./components/OfflineIndicator.jsx";
@@ -37,6 +39,15 @@ export default function App() {
           <Route path="/browse" element={<BrowsePage />} />
           <Route path="/figures/new" element={<AddFigurePage />} />
           <Route path="/figures/:id" element={<FigureDetailPage />} />
+          <Route
+            path="/manufacturers/:slug"
+            element={<EntityPage kind="manufacturer" />}
+          />
+          <Route path="/series/:slug" element={<EntityPage kind="series" />} />
+          <Route
+            path="/characters/:slug"
+            element={<EntityPage kind="character" />}
+          />
           <Route path="/preorders" element={<PreordersPage />} />
           <Route path="/activity" element={<ActivityPage />} />
           <Route path="/year-in-review/:year" element={<YearInReviewPage />} />
@@ -47,6 +58,7 @@ export default function App() {
             <Route index element={<AdminOverviewPage />} />
             <Route path="users" element={<AdminUsersPage />} />
             <Route path="figures" element={<AdminFiguresPage />} />
+            <Route path="catalog" element={<AdminCatalogPage />} />
           </Route>
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/u/:slug" element={<PublicProfilePage />} />

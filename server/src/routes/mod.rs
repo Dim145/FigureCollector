@@ -14,6 +14,7 @@ pub mod achievements;
 pub mod activity;
 pub mod admin;
 pub mod auth;
+pub mod entities;
 pub mod external;
 pub mod figure_photos;
 pub mod figures;
@@ -63,11 +64,18 @@ pub fn build_router(state: AppState) -> Router {
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(96 * 1024 * 1024));
 
+    // Admin uploads (entity logos / cover / portrait) — 5 MB cap, single
+    // file, gated by `require_admin` inside the handler.
+    let admin_photo_routes = admin::photo_upload_router()
+        .layer(DefaultBodyLimit::disable())
+        .layer(RequestBodyLimitLayer::new(8 * 1024 * 1024));
+
     let api = Router::new()
         .merge(health::router())
         .merge(me::router())
         .merge(ws::router())
         .merge(figures::router())
+        .merge(entities::router())
         .merge(owned::router())
         .merge(preorders::router())
         .merge(profile::router())
@@ -79,6 +87,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(photo_routes)
         .merge(figure_photo_routes)
         .merge(scan_routes)
+        .merge(admin_photo_routes)
         .merge(auth_routes);
 
     Router::new().nest("/api", api).with_state(state)

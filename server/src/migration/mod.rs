@@ -22,6 +22,8 @@ mod m20260524_000007_achievements;
 mod m20260524_000008_figure_photos_and_covers;
 mod m20260524_000009_preorder_link;
 mod m20260524_000010_nsfw;
+mod m20260524_000011_entity_metadata;
+mod m20260524_000012_preorder_tracking;
 
 pub struct Migrator;
 
@@ -39,6 +41,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260524_000008_figure_photos_and_covers::Migration),
             Box::new(m20260524_000009_preorder_link::Migration),
             Box::new(m20260524_000010_nsfw::Migration),
+            Box::new(m20260524_000011_entity_metadata::Migration),
+            Box::new(m20260524_000012_preorder_tracking::Migration),
         ]
     }
 }

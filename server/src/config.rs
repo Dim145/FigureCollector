@@ -8,6 +8,23 @@ pub struct AppConfig {
     pub database_url: String,
     pub frontend_url: String,
     pub auth: AuthConfig,
+    pub tracking: TrackingConfig,
+}
+
+/// Shipping-carrier API credentials. All optional — the corresponding
+/// `/api/tracking/{carrier}/…` routes return `FeatureDisabled` when a key
+/// is missing, and the SPA degrades to "open the carrier page" link only.
+#[derive(Debug, Clone, Default)]
+pub struct TrackingConfig {
+    /// La Poste / Colissimo "okapi" key. Get one at developer.laposte.fr —
+    /// free tier covers personal use comfortably.
+    pub colissimo_key: Option<String>,
+    /// DHL Express tracking API key (DHL-API-Key header).
+    pub dhl_key: Option<String>,
+    /// UPS OAuth2 — both client id and secret are required for the token
+    /// exchange that precedes every tracking call.
+    pub ups_client_id: Option<String>,
+    pub ups_client_secret: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -62,12 +79,30 @@ impl AppConfig {
             oidc_providers,
         };
 
+        let tracking = TrackingConfig {
+            colissimo_key: env_nonempty("COLISSIMO_API_KEY"),
+            dhl_key: env_nonempty("DHL_API_KEY"),
+            ups_client_id: env_nonempty("UPS_CLIENT_ID"),
+            ups_client_secret: env_nonempty("UPS_CLIENT_SECRET"),
+        };
+
         Ok(Self {
             bind_addr,
             database_url,
             frontend_url,
             auth,
+            tracking,
         })
+    }
+}
+
+/// Treat empty / unset env vars uniformly as `None`. The compose stack often
+/// expands missing variables to "" which would otherwise look like a valid
+/// (but unusable) key.
+fn env_nonempty(name: &str) -> Option<String> {
+    match env::var(name) {
+        Ok(v) if !v.trim().is_empty() => Some(v),
+        _ => None,
     }
 }
 

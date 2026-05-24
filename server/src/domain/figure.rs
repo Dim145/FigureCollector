@@ -39,6 +39,35 @@ pub struct Figure {
     /// directly for the detail page.
     #[sqlx(default)]
     pub primary_photo_id: Option<Uuid>,
+
+    // ─── related-entity name + slug projection ───────────────────────────
+    // These are joined by `find_by_id()` / `list()` so the SPA can render
+    // "Manufacturer: GSC", "Series: Hatsune Miku" etc. without a follow-up
+    // fetch. The matching `*_slug` fields let it link straight to the
+    // dedicated entity page (`/manufacturers/:slug` etc.). `#[sqlx(default)]`
+    // keeps the struct compatible with the narrower projections used
+    // elsewhere (slug lookups, admin counts) — those simply leave these as
+    // `None`.
+    #[sqlx(default)]
+    pub manufacturer_name: Option<String>,
+    #[sqlx(default)]
+    pub manufacturer_slug: Option<String>,
+    #[sqlx(default)]
+    pub sculptor_name: Option<String>,
+    #[sqlx(default)]
+    pub sculptor_slug: Option<String>,
+    /// First series associated with the figure (figures can have several;
+    /// we surface the oldest insertion). `None` when no series is linked.
+    #[sqlx(default)]
+    pub series_name: Option<String>,
+    #[sqlx(default)]
+    pub series_slug: Option<String>,
+    /// First character associated with the figure. Same selection rule as
+    /// `series_name`.
+    #[sqlx(default)]
+    pub character_name: Option<String>,
+    #[sqlx(default)]
+    pub character_slug: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -65,6 +94,46 @@ pub struct NewFigure {
     pub character_name: Option<String>,
     #[serde(default)]
     pub is_nsfw: bool,
+
+    // ─── related-entity metadata (auto-fill from AniList / MAL / orzgk) ──
+    // These are nested optional payloads carried alongside the *_name
+    // strings. The upsert helpers persist them with COALESCE so admin edits
+    // stay sticky: an enrichment never overwrites a non-NULL column.
+    #[serde(default)]
+    pub manufacturer_meta: ManufacturerMeta,
+    #[serde(default)]
+    pub series_meta: SeriesMeta,
+    #[serde(default)]
+    pub character_meta: CharacterMeta,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct ManufacturerMeta {
+    pub description: Option<String>,
+    pub logo_url: Option<String>,
+    pub website_url: Option<String>,
+    pub country: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct SeriesMeta {
+    pub anilist_id: Option<i32>,
+    pub mal_id: Option<i32>,
+    pub description: Option<String>,
+    pub cover_url: Option<String>,
+    pub external_url: Option<String>,
+    /// One of `anime` / `manga` / `game` / `vn` / `light_novel` / `original`
+    /// / `other`. Falls back to the table default when omitted.
+    pub origin: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct CharacterMeta {
+    pub anilist_id: Option<i32>,
+    pub mal_id: Option<i32>,
+    pub description: Option<String>,
+    pub portrait_url: Option<String>,
+    pub external_url: Option<String>,
 }
 
 fn default_type() -> String {
@@ -91,6 +160,44 @@ const FIGURE_COLUMNS: &str = "id, name, slug, manufacturer_id, sculptor_id, figu
      version_name, official_image_url, description, mfc_id, created_by, is_user_submitted, \
      is_nsfw, created_at, updated_at";
 
+/// Same columns as `FIGURE_COLUMNS` but each prefixed with the `f.` table
+/// alias, for use in joined SELECTs.
+const FIGURE_COLUMNS_PREFIXED: &str =
+    "f.id, f.name, f.slug, f.manufacturer_id, f.sculptor_id, f.figure_type, f.scale, \
+     f.height_mm, f.materials, f.release_date, f.msrp_amount, f.msrp_currency, f.jan, \
+     f.exclusivity, f.edition, f.version_name, f.official_image_url, f.description, f.mfc_id, \
+     f.created_by, f.is_user_submitted, f.is_nsfw, f.created_at, f.updated_at";
+
+/// LEFT JOINs that pull the human-readable manufacturer / sculptor / series /
+/// character names alongside the figure row.
+///
+/// `series` / `characters` are M2M; we project the first row per figure (by
+/// FK id, which sort by upsert order) — matches the create / patch flow that
+/// only supports a single value of each.
+const FIGURE_NAME_JOINS: &str = "
+    LEFT JOIN manufacturers m  ON m.id  = f.manufacturer_id
+    LEFT JOIN sculptors     sc ON sc.id = f.sculptor_id
+    LEFT JOIN LATERAL (
+        SELECT s.name, s.slug FROM figure_series fs
+        JOIN series s ON s.id = fs.series_id
+        WHERE fs.figure_id = f.id
+        ORDER BY fs.series_id LIMIT 1
+    ) s ON TRUE
+    LEFT JOIN LATERAL (
+        SELECT ch.name, ch.slug FROM figure_characters fc
+        JOIN characters ch ON ch.id = fc.character_id
+        WHERE fc.figure_id = f.id
+        ORDER BY fc.character_id LIMIT 1
+    ) c ON TRUE";
+
+/// Column projection corresponding to [`FIGURE_NAME_JOINS`]. Pair the two
+/// or the row deserialises with `manufacturer_name` etc. left as `None`.
+const FIGURE_NAME_PROJECTION: &str =
+    ", m.name  AS manufacturer_name, m.slug  AS manufacturer_slug, \
+       sc.name AS sculptor_name,     sc.slug AS sculptor_slug, \
+       s.name  AS series_name,       s.slug  AS series_slug, \
+       c.name  AS character_name,    c.slug  AS character_slug";
+
 pub async fn create(pool: &PgPool, created_by: Uuid, input: NewFigure) -> AppResult<Figure> {
     if !ALLOWED_TYPES.contains(&input.figure_type.as_str()) {
         return Err(AppError::BadRequest("invalid figure_type"));
@@ -110,8 +217,13 @@ pub async fn create(pool: &PgPool, created_by: Uuid, input: NewFigure) -> AppRes
     let mut tx = pool.begin().await?;
 
     // Optional FK lookups: create-or-find for manufacturer / sculptor / series / character.
+    // Each upsert receives the matching meta payload so external-lookup
+    // enrichments (AniList, MAL, orzgk) get persisted on first sight without
+    // ever overwriting an admin-edited value.
     let manufacturer_id = match input.manufacturer_name.as_deref().map(str::trim) {
-        Some(n) if !n.is_empty() => Some(upsert_manufacturer(&mut tx, n).await?),
+        Some(n) if !n.is_empty() => {
+            Some(upsert_manufacturer(&mut tx, n, &input.manufacturer_meta).await?)
+        }
         _ => None,
     };
     let sculptor_id = match input.sculptor_name.as_deref().map(str::trim) {
@@ -119,11 +231,13 @@ pub async fn create(pool: &PgPool, created_by: Uuid, input: NewFigure) -> AppRes
         _ => None,
     };
     let series_id = match input.series_name.as_deref().map(str::trim) {
-        Some(n) if !n.is_empty() => Some(upsert_series(&mut tx, n).await?),
+        Some(n) if !n.is_empty() => Some(upsert_series(&mut tx, n, &input.series_meta).await?),
         _ => None,
     };
     let character_id = match (input.character_name.as_deref().map(str::trim), series_id) {
-        (Some(n), sid) if !n.is_empty() => Some(upsert_character(&mut tx, n, sid).await?),
+        (Some(n), sid) if !n.is_empty() => {
+            Some(upsert_character(&mut tx, n, sid, &input.character_meta).await?)
+        }
         _ => None,
     };
 
@@ -181,7 +295,12 @@ pub async fn create(pool: &PgPool, created_by: Uuid, input: NewFigure) -> AppRes
     }
 
     tx.commit().await?;
-    Ok(figure)
+    // Re-fetch via find_by_id so the response carries the joined
+    // manufacturer / sculptor / series / character names (the INSERT itself
+    // returns only the bare figure columns).
+    Ok(find_by_id(pool, figure.id)
+        .await?
+        .expect("figure just inserted should exist"))
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -206,37 +325,40 @@ pub async fn list(pool: &PgPool, q: ListQuery) -> AppResult<Vec<Figure>> {
     // Listing projection adds a correlated subquery for the catalog primary
     // photo so the SPA can render thumbnails without a follow-up fetch per
     // row. `is_primary DESC` puts the primary first when one exists, then
-    // falls back to position order.
+    // falls back to position order. The name projection + joins mirror
+    // `find_by_id()` so list rows carry the same enriched fields the detail
+    // page expects.
     let mut sql = format!(
-        "SELECT {FIGURE_COLUMNS},
+        "SELECT {FIGURE_COLUMNS_PREFIXED}{FIGURE_NAME_PROJECTION},
                 (SELECT fp.id FROM figure_photos fp
-                 WHERE fp.figure_id = figures.id
+                 WHERE fp.figure_id = f.id
                  ORDER BY fp.is_primary DESC, fp.position ASC, fp.created_at ASC
                  LIMIT 1) AS primary_photo_id
-         FROM figures WHERE TRUE"
+         FROM figures f {FIGURE_NAME_JOINS}
+         WHERE TRUE"
     );
     if q.exclude_nsfw {
-        sql.push_str(" AND NOT is_nsfw");
+        sql.push_str(" AND NOT f.is_nsfw");
     }
     let mut binds: Vec<String> = Vec::new();
 
     if q.q.is_some() {
         binds.push("name_ilike".into());
-        sql.push_str(&format!(" AND name ILIKE ${} ", binds.len()));
+        sql.push_str(&format!(" AND f.name ILIKE ${} ", binds.len()));
     }
     if q.figure_type.is_some() {
         binds.push("type".into());
-        sql.push_str(&format!(" AND figure_type = ${} ", binds.len()));
+        sql.push_str(&format!(" AND f.figure_type = ${} ", binds.len()));
     }
     if q.manufacturer.is_some() {
         binds.push("manufacturer".into());
         sql.push_str(&format!(
-            " AND manufacturer_id IN (SELECT id FROM manufacturers WHERE slug = ${} OR LOWER(name) = LOWER(${})) ",
+            " AND f.manufacturer_id IN (SELECT id FROM manufacturers WHERE slug = ${} OR LOWER(name) = LOWER(${})) ",
             binds.len(),
             binds.len()
         ));
     }
-    sql.push_str(" ORDER BY created_at DESC LIMIT ");
+    sql.push_str(" ORDER BY f.created_at DESC LIMIT ");
     binds.push("limit".into());
     sql.push_str(&format!("${} OFFSET ", binds.len()));
     binds.push("offset".into());
@@ -257,7 +379,11 @@ pub async fn list(pool: &PgPool, q: ListQuery) -> AppResult<Vec<Figure>> {
 }
 
 pub async fn find_by_id(pool: &PgPool, id: Uuid) -> AppResult<Option<Figure>> {
-    let sql = format!("SELECT {FIGURE_COLUMNS} FROM figures WHERE id = $1");
+    let sql = format!(
+        "SELECT {FIGURE_COLUMNS_PREFIXED}{FIGURE_NAME_PROJECTION} \
+         FROM figures f {FIGURE_NAME_JOINS} \
+         WHERE f.id = $1"
+    );
     Ok(sqlx::query_as::<_, Figure>(&sql)
         .bind(id)
         .fetch_optional(pool)
@@ -287,6 +413,12 @@ pub struct FigurePatch {
     pub series_name: Option<String>,
     pub character_name: Option<String>,
     pub is_nsfw: Option<bool>,
+    #[serde(default)]
+    pub manufacturer_meta: ManufacturerMeta,
+    #[serde(default)]
+    pub series_meta: SeriesMeta,
+    #[serde(default)]
+    pub character_meta: CharacterMeta,
 }
 
 pub async fn patch(pool: &PgPool, id: Uuid, input: FigurePatch) -> AppResult<Figure> {
@@ -311,9 +443,13 @@ pub async fn patch(pool: &PgPool, id: Uuid, input: FigurePatch) -> AppResult<Fig
 
     let mut tx = pool.begin().await?;
 
-    // Resolve optional FK lookups, same upsert paths as create().
+    // Resolve optional FK lookups, same upsert paths as create() — meta gets
+    // carried through so AniList / MAL / orzgk enrichment lands in the
+    // related rows even on a patch.
     let manufacturer_id = match input.manufacturer_name.as_deref().map(str::trim) {
-        Some(n) if !n.is_empty() => Some(upsert_manufacturer(&mut tx, n).await?),
+        Some(n) if !n.is_empty() => {
+            Some(upsert_manufacturer(&mut tx, n, &input.manufacturer_meta).await?)
+        }
         _ => None,
     };
     let sculptor_id = match input.sculptor_name.as_deref().map(str::trim) {
@@ -372,7 +508,7 @@ pub async fn patch(pool: &PgPool, id: Uuid, input: FigurePatch) -> AppResult<Fig
     // Series / character associations — if the patch passed a value, sync.
     // We don't try to remove old links here; that's a v2 concern.
     let series_id = match input.series_name.as_deref().map(str::trim) {
-        Some(n) if !n.is_empty() => Some(upsert_series(&mut tx, n).await?),
+        Some(n) if !n.is_empty() => Some(upsert_series(&mut tx, n, &input.series_meta).await?),
         _ => None,
     };
     if let Some(sid) = series_id {
@@ -386,7 +522,9 @@ pub async fn patch(pool: &PgPool, id: Uuid, input: FigurePatch) -> AppResult<Fig
         .await?;
     }
     let character_id = match (input.character_name.as_deref().map(str::trim), series_id) {
-        (Some(n), sid) if !n.is_empty() => Some(upsert_character(&mut tx, n, sid).await?),
+        (Some(n), sid) if !n.is_empty() => {
+            Some(upsert_character(&mut tx, n, sid, &input.character_meta).await?)
+        }
         _ => None,
     };
     if let Some(cid) = character_id {
@@ -400,8 +538,14 @@ pub async fn patch(pool: &PgPool, id: Uuid, input: FigurePatch) -> AppResult<Fig
         .await?;
     }
 
+    let figure_id = figure.id;
     tx.commit().await?;
-    Ok(figure)
+    // Same re-fetch as `create()` so the PATCH response includes the joined
+    // names (figure_series / figure_characters get inserted *after* the
+    // UPDATE's RETURNING clause runs).
+    Ok(find_by_id(pool, figure_id)
+        .await?
+        .expect("figure just updated should exist"))
 }
 
 /// Hard-delete a figure. Cascading is handled by the schema:
@@ -424,15 +568,28 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> AppResult<()> {
 async fn upsert_manufacturer(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     name: &str,
+    meta: &ManufacturerMeta,
 ) -> AppResult<Uuid> {
     let slug = slugify(name);
+    // Each metadata column is filled only when currently NULL — admin edits
+    // win over auto-enrichment forever.
     let row = sqlx::query(
-        "INSERT INTO manufacturers (name, slug) VALUES ($1, $2) \
-         ON CONFLICT (slug) DO UPDATE SET name = manufacturers.name \
+        "INSERT INTO manufacturers
+            (name, slug, description, logo_url, website_url, country)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         ON CONFLICT (slug) DO UPDATE SET
+            description = COALESCE(manufacturers.description, EXCLUDED.description),
+            logo_url    = COALESCE(manufacturers.logo_url,    EXCLUDED.logo_url),
+            website_url = COALESCE(manufacturers.website_url, EXCLUDED.website_url),
+            country     = COALESCE(manufacturers.country,     EXCLUDED.country)
          RETURNING id",
     )
     .bind(name)
     .bind(&slug)
+    .bind(&meta.description)
+    .bind(&meta.logo_url)
+    .bind(&meta.website_url)
+    .bind(&meta.country)
     .fetch_one(&mut **tx)
     .await?;
     Ok(row.get(0))
@@ -458,40 +615,176 @@ async fn upsert_sculptor(
 async fn upsert_series(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     name: &str,
+    meta: &SeriesMeta,
 ) -> AppResult<Uuid> {
+    // Prefer matching on AniList / MAL id when present: same upstream entity
+    // → same row, even if the name + slug have drifted slightly.
+    if let Some(aid) = meta.anilist_id {
+        if let Some((id,)) =
+            sqlx::query_as::<_, (Uuid,)>("SELECT id FROM series WHERE anilist_id = $1")
+                .bind(aid)
+                .fetch_optional(&mut **tx)
+                .await?
+        {
+            apply_series_meta(tx, id, name, meta).await?;
+            return Ok(id);
+        }
+    }
+    if let Some(mid) = meta.mal_id {
+        if let Some((id,)) =
+            sqlx::query_as::<_, (Uuid,)>("SELECT id FROM series WHERE mal_id = $1")
+                .bind(mid)
+                .fetch_optional(&mut **tx)
+                .await?
+        {
+            apply_series_meta(tx, id, name, meta).await?;
+            return Ok(id);
+        }
+    }
+
     let slug = slugify(name);
     let row = sqlx::query(
-        "INSERT INTO series (name, slug) VALUES ($1, $2) \
-         ON CONFLICT (slug) DO UPDATE SET name = series.name \
+        "INSERT INTO series
+            (name, slug, origin, anilist_id, mal_id, description, cover_url, external_url)
+         VALUES ($1, $2, COALESCE($3, 'other'), $4, $5, $6, $7, $8)
+         ON CONFLICT (slug) DO UPDATE SET
+            origin       = CASE WHEN series.origin = 'other' THEN COALESCE(EXCLUDED.origin, series.origin) ELSE series.origin END,
+            anilist_id   = COALESCE(series.anilist_id,   EXCLUDED.anilist_id),
+            mal_id       = COALESCE(series.mal_id,       EXCLUDED.mal_id),
+            description  = COALESCE(series.description,  EXCLUDED.description),
+            cover_url    = COALESCE(series.cover_url,    EXCLUDED.cover_url),
+            external_url = COALESCE(series.external_url, EXCLUDED.external_url)
          RETURNING id",
     )
     .bind(name)
     .bind(&slug)
+    .bind(&meta.origin)
+    .bind(meta.anilist_id)
+    .bind(meta.mal_id)
+    .bind(&meta.description)
+    .bind(&meta.cover_url)
+    .bind(&meta.external_url)
     .fetch_one(&mut **tx)
     .await?;
     Ok(row.get(0))
+}
+
+/// Apply `meta` to an existing series row, never overwriting non-NULL values.
+async fn apply_series_meta(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    id: Uuid,
+    _name: &str,
+    meta: &SeriesMeta,
+) -> AppResult<()> {
+    sqlx::query(
+        "UPDATE series SET
+            origin       = CASE WHEN origin = 'other' THEN COALESCE($2, origin) ELSE origin END,
+            anilist_id   = COALESCE(anilist_id,   $3),
+            mal_id       = COALESCE(mal_id,       $4),
+            description  = COALESCE(description,  $5),
+            cover_url    = COALESCE(cover_url,    $6),
+            external_url = COALESCE(external_url, $7)
+         WHERE id = $1",
+    )
+    .bind(id)
+    .bind(&meta.origin)
+    .bind(meta.anilist_id)
+    .bind(meta.mal_id)
+    .bind(&meta.description)
+    .bind(&meta.cover_url)
+    .bind(&meta.external_url)
+    .execute(&mut **tx)
+    .await?;
+    Ok(())
 }
 
 async fn upsert_character(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     name: &str,
     series_id: Option<Uuid>,
+    meta: &CharacterMeta,
 ) -> AppResult<Uuid> {
+    // AniList / MAL id takes precedence over slug — same character across
+    // series associations shouldn't get duplicated.
+    if let Some(aid) = meta.anilist_id {
+        if let Some((id,)) =
+            sqlx::query_as::<_, (Uuid,)>("SELECT id FROM characters WHERE anilist_id = $1")
+                .bind(aid)
+                .fetch_optional(&mut **tx)
+                .await?
+        {
+            apply_character_meta(tx, id, series_id, meta).await?;
+            return Ok(id);
+        }
+    }
+    if let Some(mid) = meta.mal_id {
+        if let Some((id,)) =
+            sqlx::query_as::<_, (Uuid,)>("SELECT id FROM characters WHERE mal_id = $1")
+                .bind(mid)
+                .fetch_optional(&mut **tx)
+                .await?
+        {
+            apply_character_meta(tx, id, series_id, meta).await?;
+            return Ok(id);
+        }
+    }
+
     let slug = match series_id {
         Some(sid) => format!("{}--{}", slugify(name), &sid.to_string()[..8]),
         None => slugify(name),
     };
     let row = sqlx::query(
-        "INSERT INTO characters (name, slug, series_id) VALUES ($1, $2, $3) \
-         ON CONFLICT (slug) DO UPDATE SET name = characters.name \
+        "INSERT INTO characters
+            (name, slug, series_id, anilist_id, mal_id, description, portrait_url, external_url)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (slug) DO UPDATE SET
+            series_id    = COALESCE(characters.series_id,    EXCLUDED.series_id),
+            anilist_id   = COALESCE(characters.anilist_id,   EXCLUDED.anilist_id),
+            mal_id       = COALESCE(characters.mal_id,       EXCLUDED.mal_id),
+            description  = COALESCE(characters.description,  EXCLUDED.description),
+            portrait_url = COALESCE(characters.portrait_url, EXCLUDED.portrait_url),
+            external_url = COALESCE(characters.external_url, EXCLUDED.external_url)
          RETURNING id",
     )
     .bind(name)
     .bind(&slug)
     .bind(series_id)
+    .bind(meta.anilist_id)
+    .bind(meta.mal_id)
+    .bind(&meta.description)
+    .bind(&meta.portrait_url)
+    .bind(&meta.external_url)
     .fetch_one(&mut **tx)
     .await?;
     Ok(row.get(0))
+}
+
+async fn apply_character_meta(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    id: Uuid,
+    series_id: Option<Uuid>,
+    meta: &CharacterMeta,
+) -> AppResult<()> {
+    sqlx::query(
+        "UPDATE characters SET
+            series_id    = COALESCE(series_id,    $2),
+            anilist_id   = COALESCE(anilist_id,   $3),
+            mal_id       = COALESCE(mal_id,       $4),
+            description  = COALESCE(description,  $5),
+            portrait_url = COALESCE(portrait_url, $6),
+            external_url = COALESCE(external_url, $7)
+         WHERE id = $1",
+    )
+    .bind(id)
+    .bind(series_id)
+    .bind(meta.anilist_id)
+    .bind(meta.mal_id)
+    .bind(&meta.description)
+    .bind(&meta.portrait_url)
+    .bind(&meta.external_url)
+    .execute(&mut **tx)
+    .await?;
+    Ok(())
 }
 
 async fn make_unique_slug(

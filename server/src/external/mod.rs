@@ -13,5 +13,7 @@
 
 pub mod anilist;
 pub mod cache;
+pub mod mal;
 pub mod mfc;
 pub mod orzgk;
+pub mod tracking;

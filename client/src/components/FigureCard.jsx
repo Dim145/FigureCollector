@@ -3,12 +3,21 @@ import { Link } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 
 /**
- * Display-pedestal card.
- *  - tall photo well (4:5) with vignette + ambient kanji watermark
- *  - type chip floats top-left
- *  - museum-label catalogue number at the bottom of the photo
+ * Cabinet de curiosités — display-pedestal card.
+ *
+ * The card is a single specimen mounted in a noir vitrine. The photo well is
+ * stage-lit (radial spot upper-left), the type chip is a *brass plaque* with
+ * the kanji glyph engraved beside the romaji, and lifecycle status surfaces
+ * as a *noir stamp* with a red sash. Both artifacts are opaque + weighty so
+ * they stay readable against holographic packaging photos that used to wash
+ * out the old hairline chips.
+ *
+ *  - tall photo well (4:5) with vignette, kanji watermark, paper grain
+ *  - .label-plaque  top-left   — type + kanji glyph
+ *  - .label-stamp   top-right  — pre-order / cover / imminent
+ *  - .specimen-inscription bottom — lot number + scale
  *  - body holds the display title + tight metadata row
- *  - hover lifts the whole card, glows the gold border, follows a spotlight
+ *  - hover lifts the card, glows the gold border, follows a spotlight
  */
 export default function FigureCard({
   figureId, name, type, manufacturer, imageUrl, scale, heightMm, badge, href,
@@ -36,12 +45,12 @@ export default function FigureCard({
           "0 25px 60px -30px rgba(0,0,0,0.85), inset 0 1px 0 oklch(0.92 0.03 75 / 0.05)",
       }}
     >
-      {/* Photo well */}
-      <div className="relative aspect-[4/5] bg-[var(--color-noir-deep)] overflow-hidden vignette">
+      {/* Photo well — stage-lit specimen surface */}
+      <div className="specimen-well relative aspect-[4/5] overflow-hidden">
         {/* Ambient kanji watermark — fades in on hover */}
         <span
           aria-hidden
-          className="ja absolute right-2 bottom-1 text-[7rem] leading-none text-transparent transition-colors duration-700 select-none pointer-events-none group-hover/card:text-[var(--color-or)]/10"
+          className="ja absolute right-2 bottom-8 text-[7rem] leading-none text-transparent transition-colors duration-700 select-none pointer-events-none group-hover/card:text-[var(--color-or)]/12"
         >
           {kanjiForType(type)}
         </span>
@@ -51,37 +60,34 @@ export default function FigureCard({
             src={imageUrl}
             alt={name}
             loading="lazy"
-            className={`absolute inset-0 w-full h-full object-contain p-6 transition-transform duration-700 ease-[var(--ease-curtain)] group-hover/card:scale-[1.04] ${blurImage ? "nsfw-blur" : ""}`}
+            className={`absolute inset-0 w-full h-full object-contain p-6 transition-transform duration-700 ease-[var(--ease-curtain)] group-hover/card:scale-[1.04] z-[1] ${blurImage ? "nsfw-blur" : ""}`}
           />
         ) : (
           <FigurePlaceholder />
         )}
 
-        {/* Type chip */}
-        <div className="absolute top-3 left-3">
-          <span className="chip">{t(`type.${type ?? "other"}`)}</span>
+        {/* Brass plaque — type with kanji */}
+        <div className="absolute top-3 left-3 z-[3]">
+          <span className="label-plaque">
+            <span className="label-plaque-kanji" aria-hidden>
+              {kanjiForType(type)}
+            </span>
+            <span>{t(`type.${type ?? "other"}`)}</span>
+          </span>
         </div>
 
-        {/* Status badge — could be preorder phase, cover indicator, etc. */}
+        {/* Stamp — lifecycle / status, when present */}
         {badge ? (
-          <div className="absolute top-3 right-3">
-            <span
-              className={`chip ${
-                badge.tone === "preorder"
-                  ? "chip--laque"
-                  : badge.tone === "imminent"
-                    ? "chip--solid"
-                    : ""
-              }`}
-            >
-              {typeof badge === "string" ? badge : badge.label}
-            </span>
+          <div className="absolute top-3 right-3 z-[3]">
+            <StatusStamp badge={badge} />
           </div>
         ) : null}
 
-        {/* Museum-label footer over the photo */}
-        <div className="absolute bottom-2 left-3 right-3 flex items-baseline justify-between text-[9px] font-mono uppercase tracking-[0.25em] text-[var(--color-or-pale)]/60">
-          <span>n° {String(figureId ?? "").slice(0, 8) || "—"}</span>
+        {/* Catalogue inscription — sits over a fade-up gradient at the well's foot */}
+        <div className="specimen-inscription">
+          <span>
+            n<sup>o</sup> {String(figureId ?? "").slice(0, 8) || "—"}
+          </span>
           {scale ? <span>{scale}</span> : null}
         </div>
       </div>
@@ -116,6 +122,28 @@ export default function FigureCard({
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-components
+
+function StatusStamp({ badge }) {
+  // `badge` is either a string (legacy) or an object { label, tone }
+  const label = typeof badge === "string" ? badge : badge.label;
+  const tone = typeof badge === "string" ? "default" : badge.tone ?? "default";
+  // Sash colour follows the tone: red for preorder, gold for imminent (a
+  // priority signal), ivoire for neutral markers like "pinned cover".
+  const sashClass =
+    tone === "imminent"
+      ? "label-stamp--gold"
+      : tone === "preorder"
+        ? ""
+        : "label-stamp--ivory";
+  return (
+    <span className={`label-stamp ${sashClass}`}>
+      <span>{label}</span>
+    </span>
+  );
+}
+
 function Row({ label, value }) {
   return (
     <div className="flex justify-between gap-3 items-baseline">
@@ -127,7 +155,7 @@ function Row({ label, value }) {
 
 function FigurePlaceholder() {
   return (
-    <div className="absolute inset-0 grid place-items-center">
+    <div className="absolute inset-0 grid place-items-center z-[1]">
       <svg
         viewBox="0 0 120 160"
         className="w-1/2 h-1/2 text-[var(--color-or)]/25"
@@ -151,7 +179,8 @@ function FigurePlaceholder() {
   );
 }
 
-/** Maps a figure_type to one evocative kanji used as ambient watermark. */
+/** Maps a figure_type to one evocative kanji used as ambient watermark
+ *  and engraved on the brass plaque. */
 function kanjiForType(type) {
   switch (type) {
     case "nendoroid":  return "童";

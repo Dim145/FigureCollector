@@ -3,6 +3,7 @@
 pub mod achievement;
 pub mod activity;
 pub mod admin;
+pub mod entity;
 pub mod figure;
 pub mod figure_photo;
 pub mod owned;

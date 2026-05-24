@@ -176,6 +176,17 @@ services:
       OIDC_GENERIC_CLIENT_ID: ${OIDC_GENERIC_CLIENT_ID:-}
       OIDC_GENERIC_CLIENT_SECRET: ${OIDC_GENERIC_CLIENT_SECRET:-}
       OIDC_GENERIC_ISSUER_URL: ${OIDC_GENERIC_ISSUER_URL:-}
+
+      # Shipping tracking API keys — optional. When unset the corresponding
+      # /api/tracking/{carrier}/… route returns FeatureDisabled and the SPA
+      # falls back to a plain "open carrier page" link.
+      #   - Colissimo: free okapi key at https://developer.laposte.fr
+      #   - DHL Express: register at https://developer.dhl.com
+      #   - UPS: OAuth2 credentials at https://developer.ups.com
+      COLISSIMO_API_KEY: ${COLISSIMO_API_KEY:-}
+      DHL_API_KEY: ${DHL_API_KEY:-}
+      UPS_CLIENT_ID: ${UPS_CLIENT_ID:-}
+      UPS_CLIENT_SECRET: ${UPS_CLIENT_SECRET:-}
     expose:
       - "3000"
     read_only: true

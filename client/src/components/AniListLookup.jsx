@@ -74,12 +74,14 @@ export default function AniListLookup({ onPick, initial = "" }) {
                   // (type / coverImage / siteUrl), so we read camelCase here.
                   onPick({
                     anilistId: m.id,
+                    malId: m.idMal,
                     romaji: m.title?.romaji,
                     english: m.title?.english,
                     native: m.title?.native,
-                    coverUrl: m.coverImage?.medium ?? m.coverImage?.large,
+                    coverUrl: m.coverImage?.large ?? m.coverImage?.medium,
                     mediaType: m.type,
                     siteUrl: m.siteUrl,
+                    description: m.description,
                   });
                   setOpen(false);
                 }}

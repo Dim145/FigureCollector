@@ -18,6 +18,9 @@ pub struct Preorder {
     pub status: String,
     pub store: Option<String>,
     pub order_ref: Option<String>,
+    /// Optional tracking URL — the carrier + tracking number are parsed
+    /// from this URL client-side (UPS, DHL, Colissimo, …).
+    pub tracking_url: Option<String>,
     pub release_date_original: Option<NaiveDate>,
     pub release_date_current: Option<NaiveDate>,
     pub price_amount: Option<Decimal>,
@@ -34,6 +37,7 @@ pub struct PreorderWithFigure {
     pub status: String,
     pub store: Option<String>,
     pub order_ref: Option<String>,
+    pub tracking_url: Option<String>,
     pub release_date_original: Option<NaiveDate>,
     pub release_date_current: Option<NaiveDate>,
     pub price_amount: Option<Decimal>,
@@ -56,6 +60,7 @@ pub struct NewPreorder {
     pub status: String,
     pub store: Option<String>,
     pub order_ref: Option<String>,
+    pub tracking_url: Option<String>,
     pub release_date: Option<NaiveDate>,
     pub price_amount: Option<Decimal>,
     pub price_currency: Option<String>,
@@ -67,6 +72,7 @@ pub struct PreorderPatch {
     pub status: Option<String>,
     pub store: Option<String>,
     pub order_ref: Option<String>,
+    pub tracking_url: Option<String>,
     pub release_date: Option<NaiveDate>,
     pub release_date_note: Option<String>,
     pub price_amount: Option<Decimal>,
@@ -98,11 +104,11 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewPreorder) -> AppResu
 
     sqlx::query_as::<_, Preorder>(
         "INSERT INTO preorders (
-            id, user_id, figure_id, status, store, order_ref,
+            id, user_id, figure_id, status, store, order_ref, tracking_url,
             release_date_original, release_date_current,
             price_amount, price_currency, notes
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$7,$8,$9,$10)
-         RETURNING id, user_id, figure_id, status, store, order_ref,
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10,$11)
+         RETURNING id, user_id, figure_id, status, store, order_ref, tracking_url,
                    release_date_original, release_date_current,
                    price_amount, price_currency, notes, created_at, updated_at",
     )
@@ -112,6 +118,7 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewPreorder) -> AppResu
     .bind(&input.status)
     .bind(&input.store)
     .bind(&input.order_ref)
+    .bind(&input.tracking_url)
     .bind(input.release_date)
     .bind(input.price_amount)
     .bind(&input.price_currency)
@@ -129,7 +136,7 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewPreorder) -> AppResu
 pub async fn list_for_user(pool: &PgPool, user_id: Uuid) -> AppResult<Vec<PreorderWithFigure>> {
     Ok(sqlx::query_as::<_, PreorderWithFigure>(
         "SELECT
-            p.id, p.figure_id, p.status, p.store, p.order_ref,
+            p.id, p.figure_id, p.status, p.store, p.order_ref, p.tracking_url,
             p.release_date_original, p.release_date_current,
             p.price_amount, p.price_currency, p.notes, p.created_at,
             f.name AS figure_name, f.slug AS figure_slug, f.figure_type,
@@ -165,7 +172,7 @@ pub async fn patch(
     let mut tx = pool.begin().await?;
 
     let current: Option<Preorder> = sqlx::query_as(
-        "SELECT id, user_id, figure_id, status, store, order_ref,
+        "SELECT id, user_id, figure_id, status, store, order_ref, tracking_url,
                 release_date_original, release_date_current,
                 price_amount, price_currency, notes, created_at, updated_at
          FROM preorders WHERE id = $1 AND user_id = $2",
@@ -198,18 +205,20 @@ pub async fn patch(
             status               = COALESCE($1, status),
             store                = COALESCE($2, store),
             order_ref            = COALESCE($3, order_ref),
-            release_date_current = COALESCE($4, release_date_current),
-            price_amount         = COALESCE($5, price_amount),
-            price_currency       = COALESCE($6, price_currency),
-            notes                = COALESCE($7, notes)
-         WHERE id = $8 AND user_id = $9
-         RETURNING id, user_id, figure_id, status, store, order_ref,
+            tracking_url         = COALESCE($4, tracking_url),
+            release_date_current = COALESCE($5, release_date_current),
+            price_amount         = COALESCE($6, price_amount),
+            price_currency       = COALESCE($7, price_currency),
+            notes                = COALESCE($8, notes)
+         WHERE id = $9 AND user_id = $10
+         RETURNING id, user_id, figure_id, status, store, order_ref, tracking_url,
                    release_date_original, release_date_current,
                    price_amount, price_currency, notes, created_at, updated_at",
     )
     .bind(&input.status)
     .bind(&input.store)
     .bind(&input.order_ref)
+    .bind(&input.tracking_url)
     .bind(input.release_date)
     .bind(input.price_amount)
     .bind(&input.price_currency)
@@ -295,7 +304,7 @@ pub async fn create_for_owned_item(
          ) VALUES ($1, $2, $3, $4, 'preordered', $5, $5)
          ON CONFLICT (owned_item_id) WHERE owned_item_id IS NOT NULL
          DO UPDATE SET release_date_current = EXCLUDED.release_date_current
-         RETURNING id, user_id, figure_id, status, store, order_ref,
+         RETURNING id, user_id, figure_id, status, store, order_ref, tracking_url,
                    release_date_original, release_date_current,
                    price_amount, price_currency, notes, created_at, updated_at",
     )
@@ -318,7 +327,7 @@ pub async fn find_by_owned_item(
     owned_item_id: Uuid,
 ) -> AppResult<Option<Preorder>> {
     Ok(sqlx::query_as::<_, Preorder>(
-        "SELECT id, user_id, figure_id, status, store, order_ref,
+        "SELECT id, user_id, figure_id, status, store, order_ref, tracking_url,
                 release_date_original, release_date_current,
                 price_amount, price_currency, notes, created_at, updated_at
          FROM preorders WHERE owned_item_id = $1 AND user_id = $2",

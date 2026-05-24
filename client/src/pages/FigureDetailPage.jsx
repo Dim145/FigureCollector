@@ -158,7 +158,31 @@ export default function FigureDetailPage() {
 
               {/* Museum-label spec list */}
               <dl className="reveal" style={{ "--i": 7 }}>
-                <MuseumRow label={t("figure.spec.manufacturer")} value={null /* TODO populate once exposed */} />
+                <MuseumRow
+                  label={t("figure.spec.manufacturer")}
+                  value={f.manufacturer_name}
+                  href={
+                    f.manufacturer_slug
+                      ? `/manufacturers/${f.manufacturer_slug}`
+                      : null
+                  }
+                />
+                <MuseumRow
+                  label={t("figure.spec.sculptor")}
+                  value={f.sculptor_name}
+                />
+                <MuseumRow
+                  label={t("figure.spec.series")}
+                  value={f.series_name}
+                  href={f.series_slug ? `/series/${f.series_slug}` : null}
+                />
+                <MuseumRow
+                  label={t("figure.spec.character")}
+                  value={f.character_name}
+                  href={
+                    f.character_slug ? `/characters/${f.character_slug}` : null
+                  }
+                />
                 <MuseumRow label={t("figure.spec.scale")} value={f.scale} />
                 <MuseumRow
                   label={t("figure.spec.height")}
@@ -182,6 +206,10 @@ export default function FigureDetailPage() {
                 <MuseumRow
                   label={t("figure.spec.exclusivity")}
                   value={f.exclusivity}
+                />
+                <MuseumRow
+                  label={t("figure.spec.version")}
+                  value={f.version_name}
                 />
               </dl>
 
@@ -307,8 +335,18 @@ export default function FigureDetailPage() {
   );
 }
 
-function MuseumRow({ label, value, mono = false }) {
+function MuseumRow({ label, value, mono = false, href = null }) {
   if (!value) return null;
+  const inner = href ? (
+    <Link
+      to={href}
+      className="text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors underline decoration-[var(--color-or)]/30 underline-offset-4 hover:decoration-[var(--color-or)]"
+    >
+      {value}
+    </Link>
+  ) : (
+    value
+  );
   return (
     <div className="museum-row">
       <span className="museum-key">{label}</span>
@@ -317,7 +355,7 @@ function MuseumRow({ label, value, mono = false }) {
           mono ? "font-mono tracking-wider text-sm" : ""
         }`}
       >
-        {value}
+        {inner}
       </span>
     </div>
   );

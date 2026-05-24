@@ -21,6 +21,10 @@ const PROVIDER: &str = "anilist";
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AniListMedia {
     pub id: i64,
+    /// MAL id, when AniList knows it. Surfacing this lets us pre-fill the
+    /// `mal_id` column on `series` without an extra Jikan round-trip.
+    #[serde(rename = "idMal")]
+    pub id_mal: Option<i64>,
     pub title: AniListTitle,
     #[serde(rename = "type")]
     pub media_type: Option<String>, // ANIME | MANGA
@@ -51,6 +55,12 @@ pub struct AniListCharacter {
     pub id: i64,
     pub name: AniListCharacterName,
     pub image: Option<AniListImage>,
+    /// Long-form description. Populated by [`get_character`]; the embedded
+    /// list inside `MediaDetail` leaves this `None` to keep payloads small.
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(rename = "siteUrl", default)]
+    pub site_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,6 +113,7 @@ pub async fn search_media(
                         Page(perPage: 12) {
                             media(search: $q, sort: SEARCH_MATCH) {
                                 id
+                                idMal
                                 title { romaji english native }
                                 type
                                 format
@@ -167,6 +178,8 @@ pub async fn get_media_with_characters(
             #[derive(Deserialize)]
             struct MediaPayload {
                 id: i64,
+                #[serde(rename = "idMal")]
+                id_mal: Option<i64>,
                 title: AniListTitle,
                 #[serde(rename = "type")]
                 media_type: Option<String>,
@@ -189,6 +202,7 @@ pub async fn get_media_with_characters(
                     query ($id: Int) {
                         Media(id: $id) {
                             id
+                            idMal
                             title { romaji english native }
                             type
                             format
@@ -232,6 +246,7 @@ pub async fn get_media_with_characters(
             Ok(MediaDetail {
                 media: AniListMedia {
                     id: m.id,
+                    id_mal: m.id_mal,
                     title: m.title,
                     media_type: m.media_type,
                     format: m.format,
@@ -251,6 +266,70 @@ pub async fn get_media_with_characters(
 pub struct MediaDetail {
     pub media: AniListMedia,
     pub characters: Vec<AniListCharacter>,
+}
+
+/// Fetch a single AniList character by id. Cached for 24h.
+///
+/// Surfaces the full character — name + image + long-form description +
+/// site URL. Used by the admin "Refetch from AniList" button to overwrite
+/// stale local copies.
+pub async fn get_character(
+    pool: &PgPool,
+    http: &reqwest::Client,
+    anilist_id: i64,
+) -> AppResult<AniListCharacter> {
+    cache::cached_fetch(
+        pool,
+        PROVIDER,
+        "character",
+        &anilist_id.to_string(),
+        Duration::hours(CACHE_TTL_HOURS),
+        || async {
+            #[derive(Deserialize)]
+            struct Resp {
+                data: Option<Data>,
+                errors: Option<Vec<serde_json::Value>>,
+            }
+            #[derive(Deserialize)]
+            struct Data {
+                #[serde(rename = "Character")]
+                character: AniListCharacter,
+            }
+
+            let body = serde_json::json!({
+                "query": r#"
+                    query ($id: Int) {
+                        Character(id: $id) {
+                            id
+                            name { full native }
+                            image { large medium }
+                            description(asHtml: false)
+                            siteUrl
+                        }
+                    }
+                "#,
+                "variables": { "id": anilist_id },
+            });
+
+            let resp: Resp = http
+                .post(ANILIST_ENDPOINT)
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| AppError::Internal(anyhow::anyhow!("AniList request failed: {e}")))?
+                .json()
+                .await
+                .map_err(|e| AppError::Internal(anyhow::anyhow!("AniList JSON parse failed: {e}")))?;
+
+            if let Some(errs) = resp.errors {
+                return Err(AppError::Internal(anyhow::anyhow!(
+                    "AniList errors: {errs:?}"
+                )));
+            }
+            resp.data.map(|d| d.character).ok_or(AppError::NotFound)
+        },
+    )
+    .await
 }
 
 // -----------------------------------------------------------------------------
