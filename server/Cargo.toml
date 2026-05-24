@@ -1,0 +1,78 @@
+[package]
+name = "figurecollector-server"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "AGPL-3.0-or-later"
+description = "FigureCollector backend — hardened Rust/Axum API for self-hosted figurine collection management"
+repository = "https://github.com/Dim145/FigureCollector"
+publish = false
+
+[[bin]]
+name = "figurecollector-server"
+path = "src/main.rs"
+
+[dependencies]
+# --- Web stack ---
+axum = { version = "0.8", features = ["macros", "ws", "multipart"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "net", "sync", "time"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["trace", "cors", "compression-gzip", "limit", "request-id"] }
+tower_governor = "0.7"
+
+# --- Observability ---
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"] }
+
+# --- Serialization & errors ---
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+thiserror = "2"
+
+# --- CLI ---
+clap = { version = "4", features = ["derive", "env"] }
+
+# --- Misc utilities ---
+url = { version = "2", features = ["serde"] }
+uuid = { version = "1", features = ["v7", "serde"] }
+chrono = { version = "0.4", default-features = false, features = ["serde", "clock"] }
+time = { version = "0.3", features = ["serde"] }
+rust_decimal = { version = "1", features = ["serde-with-str"] }
+bytes = "1"
+futures = "0.3"
+
+# --- Database (sqlx with rustls / aws-lc-rs — NO OpenSSL) ---
+sqlx = { version = "0.8", default-features = false, features = [
+    "postgres", "runtime-tokio", "tls-rustls-aws-lc-rs",
+    "chrono", "uuid", "json", "macros", "migrate", "rust_decimal",
+] }
+
+# --- Sessions (Postgres-backed) ---
+tower-sessions = "0.14"
+tower-sessions-sqlx-store = { version = "0.15", default-features = false, features = ["postgres"] }
+
+# --- Password hashing (local auth) ---
+argon2 = { version = "0.5", features = ["std"] }
+password-hash = { version = "0.5", features = ["alloc", "std", "rand_core"] }
+rand = "0.8"
+
+# --- OIDC ---
+openidconnect = { version = "4", default-features = false, features = ["reqwest", "rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-no-provider", "json", "gzip", "stream"] }
+
+# --- S3 / Garage storage (Phase 2B) ---
+rust-s3 = { version = "0.36", default-features = false, features = ["tokio-rustls-tls"] }
+
+# --- Image decoding / EXIF-strip via re-encode ---
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+
+# --- TLS provider (installed as rustls default at startup) ---
+rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs", "tls12"] }
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+opt-level = "z"
+strip = "symbols"
+panic = "abort"

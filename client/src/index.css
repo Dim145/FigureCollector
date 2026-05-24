@@ -1,0 +1,127 @@
+@import "tailwindcss";
+
+/* ============================================================================
+ * FigureCollector — Direction B "Vitrine privée"
+ *
+ *   Noir profond + laque rouge japonaise + or antique + ivoire
+ *   Cormorant Garamond (display) · Inter (body) · Noto Serif JP (kanji)
+ *
+ * Single dramatic light source. Catalog-like spec rows. Gold-leaf dividers.
+ * Dark-first; no light theme in Phase 1.
+ * ============================================================================ */
+
+@theme {
+  /* Type families */
+  --font-display: "Cormorant Garamond", "Times New Roman", Georgia, serif;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-ja: "Noto Serif JP", "Yu Mincho", "MS PMincho", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  /* Vitrine palette (OKLCH for predictable hue rotations & alpha mixing) */
+  --color-noir: oklch(0.16 0.005 50);            /* #0a0807 — body bg */
+  --color-noir-soft: oklch(0.20 0.008 50);       /* #15110f — cards */
+  --color-laque: oklch(0.42 0.16 25);            /* #8c1e1e — accent red */
+  --color-laque-bright: oklch(0.55 0.20 25);     /* #c0252a — hover red */
+  --color-or: oklch(0.78 0.10 80);               /* #c9a85c — gold lines */
+  --color-or-pale: oklch(0.88 0.06 80);          /* #e8d09a — gold text */
+  --color-ivoire: oklch(0.92 0.03 75);           /* #ece1c8 — primary text */
+  --color-ivoire-soft: oklch(0.92 0.03 75 / 0.65);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-noir);
+  color: var(--color-ivoire);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* Layered halos for the gallery-room feel; fixed so the light source stays
+     anchored as the user scrolls. */
+  background-image:
+    radial-gradient(60% 50% at 35% 30%, oklch(0.78 0.10 80 / 0.07), transparent 70%),
+    radial-gradient(45% 40% at 75% 75%, oklch(0.42 0.16 25 / 0.04), transparent 70%);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: var(--color-or);
+  color: var(--color-noir);
+}
+
+/* Subtle film-grain over everything — prevents flat-black banding on OLED. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: radial-gradient(circle at 1px 1px, oklch(0.92 0.03 75 / 0.04) 1px, transparent 0);
+  background-size: 4px 4px;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/* --- Reusable typographic utilities (Direction B) ----------------------- */
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 300;
+  letter-spacing: -0.01em;
+}
+
+.display-italic {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.005em;
+}
+
+.ja {
+  font-family: var(--font-ja);
+}
+
+.micro {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+}
+
+/* Gold-leaf line dividers */
+.gold-rule {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--color-or) 30%,
+    var(--color-or) 70%,
+    transparent
+  );
+}
+
+.gold-rule-vertical {
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--color-or) 30%,
+    var(--color-or) 70%,
+    transparent
+  );
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  color: var(--color-or-pale);
+}

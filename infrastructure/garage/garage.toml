@@ -1,0 +1,44 @@
+# =============================================================================
+# FigureCollector — Garage (Deuxfleurs) configuration · dev single-node
+#
+# Reference: https://garagehq.deuxfleurs.fr/documentation/reference-manual/configuration/
+# Source:    https://git.deuxfleurs.fr/Deuxfleurs/garage
+#
+# For prod, run Garage as a separate cluster (≥3 nodes, replication_factor=3)
+# outside this compose project and only configure the S3_* env vars on the
+# server side — see docker-compose.prod.yml.
+# =============================================================================
+
+metadata_dir = "/var/lib/garage/meta"
+data_dir     = "/var/lib/garage/data"
+db_engine    = "lmdb"
+
+# Single-node dev cluster, no replication.
+replication_factor = 1
+consistency_mode   = "consistent"
+
+# Inline compression of stored objects.
+compression_level = 1
+
+# RPC (internal cluster communication; irrelevant for single-node dev but required).
+rpc_bind_addr   = "[::]:3901"
+rpc_public_addr = "garage:3901"
+# rpc_secret is supplied via the GARAGE_RPC_SECRET env var at runtime.
+
+# S3 API — this is what the backend's aws-sdk-s3 talks to.
+[s3_api]
+api_bind_addr = "[::]:3902"
+s3_region     = "garage"
+root_domain   = ".s3.garage.localhost"
+
+# S3 web (bucket-as-static-website) — left enabled but unused by FigureCollector.
+[s3_web]
+bind_addr   = "[::]:3903"
+root_domain = ".web.garage.localhost"
+index       = "index.html"
+
+# Admin API — used by `garage` CLI for layout assignment, bucket creation, key
+# management. Token supplied via GARAGE_ADMIN_TOKEN env var.
+[admin]
+api_bind_addr = "[::]:3900"
+metrics_token = ""

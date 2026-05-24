@@ -1,0 +1,111 @@
+# ============================================================================
+# FigureCollector — production stack (behind Traefik)
+#
+# This compose file expects:
+#   - A `traefik_edge` external network created by your reverse proxy stack
+#   - All secrets supplied via the environment (no defaults; missing ones fail)
+#   - DNS records pointing at the Traefik node for ${WEB_DOMAIN} and ${API_DOMAIN}
+# ============================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-figurecollector}
+      POSTGRES_USER: ${POSTGRES_USER:-figurecollector}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-figurecollector}"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - internal
+
+  # ------------------------------------------------------------------
+  # `server` is internal-only in prod. The `client` nginx in front of it
+  # reverse-proxies /api/* + /api/ws; Traefik only knows about the client.
+  # ------------------------------------------------------------------
+  server:
+    image: ghcr.io/dim145/figurecollector-server:${TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      FC_BIND_ADDR: 0.0.0.0:3000
+      RUST_LOG: ${RUST_LOG:-info}
+      DATABASE_URL: postgres://${POSTGRES_USER:-figurecollector}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-figurecollector}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required (e.g. https://figures.example.com)}
+      AUTH_MODE: ${AUTH_MODE:-google}
+      AUTH_CLIENT_ID: ${AUTH_CLIENT_ID:?AUTH_CLIENT_ID is required}
+      AUTH_CLIENT_SECRET: ${AUTH_CLIENT_SECRET:?AUTH_CLIENT_SECRET is required}
+      AUTH_ISSUER_URL: ${AUTH_ISSUER_URL:-https://accounts.google.com}
+      AUTH_REDIRECT_URI: ${AUTH_REDIRECT_URI:?AUTH_REDIRECT_URI is required}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET is required (>=32 base64 bytes)}
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_BUCKET: ${S3_BUCKET:-figurecollector}
+      S3_REGION: ${S3_REGION:-garage}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+      SENTRY_DSN: ${SENTRY_DSN}
+    read_only: true
+    tmpfs:
+      - /tmp:size=16M,mode=1777,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "65532:65532"
+    expose:
+      - "3000"
+    networks:
+      - internal
+
+  # ------------------------------------------------------------------
+  # `client` is the unified web ingress (nginx serves static + proxies
+  # /api/* + /api/ws). Traefik terminates TLS in front of it.
+  # ------------------------------------------------------------------
+  client:
+    image: ghcr.io/dim145/figurecollector-client:${TAG:-latest}
+    restart: unless-stopped
+    depends_on:
+      - server
+    read_only: true
+    tmpfs:
+      - /tmp:size=32M,mode=1777,noexec,nosuid,nodev
+      - /tmp/nginx:size=8M,mode=1777,noexec,nosuid,nodev
+      - /var/cache/nginx:size=16M,mode=1777,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - internal
+      - edge
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_edge"
+      - "traefik.http.routers.fc-web.rule=Host(`${WEB_DOMAIN:?WEB_DOMAIN is required}`)"
+      - "traefik.http.routers.fc-web.entrypoints=websecure"
+      - "traefik.http.routers.fc-web.tls=true"
+      - "traefik.http.routers.fc-web.tls.certresolver=letsencrypt"
+      - "traefik.http.services.fc-web.loadbalancer.server.port=8080"
+
+volumes:
+  postgres_data:
+
+networks:
+  internal:
+    driver: bridge
+    internal: true
+  edge:
+    external: true
+    name: traefik_edge

@@ -1,0 +1,263 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useT } from "../i18n/index.jsx";
+import { useFigures, useOwnedItems } from "../hooks/useCollection.js";
+
+/**
+ * Direction B — command palette opened with ⌘K / Ctrl+K.
+ *
+ * Lightweight fuzzy match (subsequence + token-prefix) over three groups:
+ *   - Navigation (static routes)
+ *   - My collection (owned items)
+ *   - Catalog (all figures)
+ *
+ * No external fuse.js dependency: keeps the bundle slim and the matching
+ * behaviour fully under our control.
+ */
+export default function CommandPalette() {
+  const t = useT();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState(0);
+  const inputRef = useRef(null);
+
+  const owned = useOwnedItems();
+  const figures = useFigures();
+
+  // Global ⌘K / Ctrl+K toggle
+  useEffect(() => {
+    const onKey = (e) => {
+      const k = e.key?.toLowerCase();
+      if ((e.metaKey || e.ctrlKey) && k === "k") {
+        e.preventDefault();
+        setOpen((x) => !x);
+      } else if (k === "escape" && open) {
+        setOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  // Auto-focus on open + reset selection
+  useEffect(() => {
+    if (open) {
+      setQuery("");
+      setSelected(0);
+      setTimeout(() => inputRef.current?.focus(), 0);
+    }
+  }, [open]);
+
+  const items = useMemo(() => {
+    const navigation = [
+      { id: "nav-home", group: "navigation", label: t("nav.home"), to: "/" },
+      { id: "nav-collection", group: "navigation", label: t("nav.collection"), to: "/collection" },
+      { id: "nav-preorders", group: "navigation", label: t("nav.preorders"), to: "/preorders" },
+      { id: "nav-browse", group: "navigation", label: t("nav.browse"), to: "/browse" },
+      { id: "nav-add", group: "navigation", label: t("nav.add_figure"), to: "/figures/new" },
+      { id: "nav-settings", group: "navigation", label: t("nav.settings"), to: "/settings" },
+    ];
+
+    const collectionItems =
+      owned.data?.map((o) => ({
+        id: `owned-${o.id}`,
+        group: "collection",
+        label: o.figure_name,
+        meta: o.manufacturer_name,
+        to: `/figures/${o.figure_id}`,
+      })) ?? [];
+
+    const catalogItems =
+      figures.data?.map((f) => ({
+        id: `figure-${f.id}`,
+        group: "catalog",
+        label: f.name,
+        meta: t(`type.${f.figure_type}`),
+        to: `/figures/${f.id}`,
+      })) ?? [];
+
+    return [...navigation, ...collectionItems, ...catalogItems];
+  }, [t, owned.data, figures.data]);
+
+  const filtered = useMemo(() => {
+    if (!query) return items;
+    const needle = query.trim().toLowerCase();
+    return items
+      .map((it) => ({ ...it, _score: score(it.label, needle) }))
+      .filter((it) => it._score > 0)
+      .sort((a, b) => b._score - a._score)
+      .slice(0, 40);
+  }, [items, query]);
+
+  const groups = useMemo(() => {
+    const out = { navigation: [], collection: [], catalog: [] };
+    filtered.forEach((it) => out[it.group]?.push(it));
+    return out;
+  }, [filtered]);
+
+  // Keep selected index in range
+  useEffect(() => {
+    if (selected >= filtered.length) setSelected(0);
+  }, [filtered, selected]);
+
+  const onKeyDown = (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setSelected((s) => Math.min(filtered.length - 1, s + 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setSelected((s) => Math.max(0, s - 1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const item = filtered[selected];
+      if (item) {
+        navigate(item.to);
+        setOpen(false);
+      }
+    }
+  };
+
+  if (!open) return null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal
+      className="fixed inset-0 z-50 grid place-items-start pt-[12vh] px-4"
+      onClick={() => setOpen(false)}
+    >
+      <div
+        className="absolute inset-0 bg-[var(--color-noir)]/85 backdrop-blur-sm"
+        aria-hidden
+      />
+
+      <div
+        className="relative w-full max-w-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div
+          className="bg-[var(--color-noir-soft)] border border-[var(--color-or)]/40"
+          style={{ boxShadow: "0 40px 90px -40px rgba(0,0,0,0.85)" }}
+        >
+          <div className="flex items-center gap-3 border-b border-[var(--color-or)]/20 px-5 py-4">
+            <span className="text-[var(--color-or)]" aria-hidden>
+              ⌘K
+            </span>
+            <input
+              ref={inputRef}
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder={t("palette.placeholder")}
+              className="flex-1 bg-transparent text-[var(--color-ivoire)] outline-none placeholder:text-[var(--color-ivoire-soft)]"
+              style={{ fontFamily: "var(--font-sans)" }}
+            />
+          </div>
+
+          <div className="max-h-[60vh] overflow-y-auto py-2">
+            {filtered.length === 0 ? (
+              <p className="text-center text-[var(--color-ivoire-soft)] py-8 text-sm">
+                {t("palette.no_results")}
+              </p>
+            ) : (
+              <>
+                <Group
+                  title={t("palette.group.navigation")}
+                  items={groups.navigation}
+                  filtered={filtered}
+                  selected={selected}
+                  onSelect={(it) => {
+                    navigate(it.to);
+                    setOpen(false);
+                  }}
+                />
+                <Group
+                  title={t("palette.group.collection")}
+                  items={groups.collection}
+                  filtered={filtered}
+                  selected={selected}
+                  onSelect={(it) => {
+                    navigate(it.to);
+                    setOpen(false);
+                  }}
+                />
+                <Group
+                  title={t("palette.group.catalog")}
+                  items={groups.catalog}
+                  filtered={filtered}
+                  selected={selected}
+                  onSelect={(it) => {
+                    navigate(it.to);
+                    setOpen(false);
+                  }}
+                />
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Group({ title, items, filtered, selected, onSelect }) {
+  if (items.length === 0) return null;
+  return (
+    <div className="pb-2">
+      <p className="micro px-5 pt-3 pb-2">{title}</p>
+      <ul>
+        {items.map((it) => {
+          const idx = filtered.indexOf(it);
+          const isActive = idx === selected;
+          return (
+            <li key={it.id}>
+              <button
+                type="button"
+                onClick={() => onSelect(it)}
+                onMouseEnter={() => {
+                  /* no-op; keyboard owns selection */
+                }}
+                className={`w-full flex items-center justify-between gap-4 px-5 py-2 text-left transition-colors ${
+                  isActive
+                    ? "bg-[var(--color-or)]/10 text-[var(--color-ivoire)]"
+                    : "text-[var(--color-ivoire-soft)] hover:text-[var(--color-ivoire)]"
+                }`}
+              >
+                <span className="truncate">
+                  <span className={isActive ? "text-[var(--color-or)] mr-2" : "mr-2 opacity-40"}>
+                    ›
+                  </span>
+                  {it.label}
+                </span>
+                {it.meta ? (
+                  <span className="micro shrink-0 opacity-70">{it.meta}</span>
+                ) : null}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+/** Lightweight fuzzy score. Higher = better match. */
+function score(haystack, needle) {
+  if (!needle) return 1;
+  const h = haystack.toLowerCase();
+  if (h === needle) return 1000;
+  if (h.startsWith(needle)) return 800;
+  if (h.includes(needle)) return 500;
+
+  // Subsequence match: every char of needle in order somewhere in haystack.
+  let hi = 0;
+  let matches = 0;
+  for (const c of needle) {
+    const found = h.indexOf(c, hi);
+    if (found === -1) return 0;
+    hi = found + 1;
+    matches += 1;
+  }
+  return 100 + matches * 5;
+}

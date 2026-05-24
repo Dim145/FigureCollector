@@ -1,0 +1,273 @@
+//! Pre-orders + release date slip history.
+//!
+//! When the user revises `release_date_current`, the previous value lands in
+//! `preorder_date_history` automatically (in the same transaction).
+
+use crate::error::{AppError, AppResult};
+use chrono::{DateTime, NaiveDate, Utc};
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
+use sqlx::{FromRow, PgPool};
+use uuid::Uuid;
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+pub struct Preorder {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub figure_id: Uuid,
+    pub status: String,
+    pub store: Option<String>,
+    pub order_ref: Option<String>,
+    pub release_date_original: Option<NaiveDate>,
+    pub release_date_current: Option<NaiveDate>,
+    pub price_amount: Option<Decimal>,
+    pub price_currency: Option<String>,
+    pub notes: Option<String>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+pub struct PreorderWithFigure {
+    pub id: Uuid,
+    pub figure_id: Uuid,
+    pub status: String,
+    pub store: Option<String>,
+    pub order_ref: Option<String>,
+    pub release_date_original: Option<NaiveDate>,
+    pub release_date_current: Option<NaiveDate>,
+    pub price_amount: Option<Decimal>,
+    pub price_currency: Option<String>,
+    pub notes: Option<String>,
+    pub created_at: DateTime<Utc>,
+
+    pub figure_name: String,
+    pub figure_slug: String,
+    pub figure_type: String,
+    pub figure_image: Option<String>,
+    pub manufacturer_name: Option<String>,
+    pub slip_count: i64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct NewPreorder {
+    pub figure_id: Uuid,
+    #[serde(default = "default_status")]
+    pub status: String,
+    pub store: Option<String>,
+    pub order_ref: Option<String>,
+    pub release_date: Option<NaiveDate>,
+    pub price_amount: Option<Decimal>,
+    pub price_currency: Option<String>,
+    pub notes: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct PreorderPatch {
+    pub status: Option<String>,
+    pub store: Option<String>,
+    pub order_ref: Option<String>,
+    pub release_date: Option<NaiveDate>,
+    pub release_date_note: Option<String>,
+    pub price_amount: Option<Decimal>,
+    pub price_currency: Option<String>,
+    pub notes: Option<String>,
+}
+
+fn default_status() -> String {
+    "preordered".to_string()
+}
+
+const ALLOWED_STATUS: &[&str] = &[
+    "announced",
+    "preorder_open",
+    "preordered",
+    "in_production",
+    "released",
+    "shipped",
+    "received",
+    "cancelled",
+];
+
+pub async fn create(pool: &PgPool, user_id: Uuid, input: NewPreorder) -> AppResult<Preorder> {
+    if !ALLOWED_STATUS.contains(&input.status.as_str()) {
+        return Err(AppError::BadRequest("invalid status"));
+    }
+
+    let id = Uuid::now_v7();
+
+    sqlx::query_as::<_, Preorder>(
+        "INSERT INTO preorders (
+            id, user_id, figure_id, status, store, order_ref,
+            release_date_original, release_date_current,
+            price_amount, price_currency, notes
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$7,$8,$9,$10)
+         RETURNING id, user_id, figure_id, status, store, order_ref,
+                   release_date_original, release_date_current,
+                   price_amount, price_currency, notes, created_at, updated_at",
+    )
+    .bind(id)
+    .bind(user_id)
+    .bind(input.figure_id)
+    .bind(&input.status)
+    .bind(&input.store)
+    .bind(&input.order_ref)
+    .bind(input.release_date)
+    .bind(input.price_amount)
+    .bind(&input.price_currency)
+    .bind(&input.notes)
+    .fetch_one(pool)
+    .await
+    .map_err(|e| match e {
+        sqlx::Error::Database(ref db) if db.is_foreign_key_violation() => {
+            AppError::BadRequest("figure_id does not exist")
+        }
+        other => AppError::Db(other),
+    })
+}
+
+pub async fn list_for_user(pool: &PgPool, user_id: Uuid) -> AppResult<Vec<PreorderWithFigure>> {
+    Ok(sqlx::query_as::<_, PreorderWithFigure>(
+        "SELECT
+            p.id, p.figure_id, p.status, p.store, p.order_ref,
+            p.release_date_original, p.release_date_current,
+            p.price_amount, p.price_currency, p.notes, p.created_at,
+            f.name AS figure_name, f.slug AS figure_slug, f.figure_type,
+            f.official_image_url AS figure_image,
+            m.name AS manufacturer_name,
+            COALESCE((SELECT COUNT(*) FROM preorder_date_history h WHERE h.preorder_id = p.id), 0) AS slip_count
+         FROM preorders p
+         JOIN figures f         ON f.id = p.figure_id
+         LEFT JOIN manufacturers m ON m.id = f.manufacturer_id
+         WHERE p.user_id = $1
+         ORDER BY
+            CASE WHEN p.status IN ('received','cancelled') THEN 1 ELSE 0 END,
+            p.release_date_current ASC NULLS LAST,
+            p.created_at DESC",
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?)
+}
+
+pub async fn patch(
+    pool: &PgPool,
+    user_id: Uuid,
+    id: Uuid,
+    input: PreorderPatch,
+) -> AppResult<Preorder> {
+    if let Some(s) = &input.status {
+        if !ALLOWED_STATUS.contains(&s.as_str()) {
+            return Err(AppError::BadRequest("invalid status"));
+        }
+    }
+
+    let mut tx = pool.begin().await?;
+
+    let current: Option<Preorder> = sqlx::query_as(
+        "SELECT id, user_id, figure_id, status, store, order_ref,
+                release_date_original, release_date_current,
+                price_amount, price_currency, notes, created_at, updated_at
+         FROM preorders WHERE id = $1 AND user_id = $2",
+    )
+    .bind(id)
+    .bind(user_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+
+    let current = current.ok_or(AppError::NotFound)?;
+
+    // If release_date changed, log it.
+    if let Some(new_date) = input.release_date {
+        if Some(new_date) != current.release_date_current {
+            sqlx::query(
+                "INSERT INTO preorder_date_history (preorder_id, previous_date, new_date, source, note)
+                 VALUES ($1, $2, $3, 'user', $4)",
+            )
+            .bind(id)
+            .bind(current.release_date_current)
+            .bind(new_date)
+            .bind(&input.release_date_note)
+            .execute(&mut *tx)
+            .await?;
+        }
+    }
+
+    let updated: Preorder = sqlx::query_as(
+        "UPDATE preorders SET
+            status               = COALESCE($1, status),
+            store                = COALESCE($2, store),
+            order_ref            = COALESCE($3, order_ref),
+            release_date_current = COALESCE($4, release_date_current),
+            price_amount         = COALESCE($5, price_amount),
+            price_currency       = COALESCE($6, price_currency),
+            notes                = COALESCE($7, notes)
+         WHERE id = $8 AND user_id = $9
+         RETURNING id, user_id, figure_id, status, store, order_ref,
+                   release_date_original, release_date_current,
+                   price_amount, price_currency, notes, created_at, updated_at",
+    )
+    .bind(&input.status)
+    .bind(&input.store)
+    .bind(&input.order_ref)
+    .bind(input.release_date)
+    .bind(input.price_amount)
+    .bind(&input.price_currency)
+    .bind(&input.notes)
+    .bind(id)
+    .bind(user_id)
+    .fetch_one(&mut *tx)
+    .await?;
+
+    tx.commit().await?;
+    Ok(updated)
+}
+
+pub async fn delete_for_user(pool: &PgPool, user_id: Uuid, id: Uuid) -> AppResult<()> {
+    let res = sqlx::query("DELETE FROM preorders WHERE id = $1 AND user_id = $2")
+        .bind(id)
+        .bind(user_id)
+        .execute(pool)
+        .await?;
+    if res.rows_affected() == 0 {
+        return Err(AppError::NotFound);
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+pub struct DateHistoryEntry {
+    pub id: Uuid,
+    pub previous_date: Option<NaiveDate>,
+    pub new_date: Option<NaiveDate>,
+    pub source: String,
+    pub note: Option<String>,
+    pub noted_at: DateTime<Utc>,
+}
+
+pub async fn history(
+    pool: &PgPool,
+    user_id: Uuid,
+    id: Uuid,
+) -> AppResult<Vec<DateHistoryEntry>> {
+    // Make sure the preorder belongs to this user before returning history.
+    let owned: Option<(Uuid,)> =
+        sqlx::query_as("SELECT id FROM preorders WHERE id = $1 AND user_id = $2")
+            .bind(id)
+            .bind(user_id)
+            .fetch_optional(pool)
+            .await?;
+    if owned.is_none() {
+        return Err(AppError::NotFound);
+    }
+
+    Ok(sqlx::query_as::<_, DateHistoryEntry>(
+        "SELECT id, previous_date, new_date, source, note, noted_at
+         FROM preorder_date_history
+         WHERE preorder_id = $1
+         ORDER BY noted_at DESC",
+    )
+    .bind(id)
+    .fetch_all(pool)
+    .await?)
+}

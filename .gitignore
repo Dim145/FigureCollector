@@ -1,0 +1,29 @@
+.idea
+.claude
+.remember
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Editors (project-local) ---
+.vscode/
+*.swp
+*.swo
+
+# --- Env ---
+.env
+.env.local
+.env.*.local
+.env.prod
+
+# --- Build / cache ---
+node_modules/
+dist/
+dev-dist/
+target/
+
+# --- Logs / scratch ---
+*.log
+*.tmp
+*.bak

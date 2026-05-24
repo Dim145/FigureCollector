@@ -1,0 +1,119 @@
+# ============================================================================
+# FigureCollector — local development stack
+#
+# Layout:
+#   - postgres / garage run in containers (with light hardening)
+#   - server + client are built from local source with full hardening
+#     (read-only rootfs, cap_drop ALL, no-new-privileges, tmpfs noexec/nosuid)
+#
+# For fast iteration you can also run `cargo run` and `pnpm dev` directly on
+# the host and only use `docker compose up postgres garage` from here.
+# ============================================================================
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: figurecollector
+      POSTGRES_USER: figurecollector
+      POSTGRES_PASSWORD: figurecollector_dev
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U figurecollector"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - ip6net
+
+  garage:
+    image: dxflrs/garage:v1.0.1
+    restart: unless-stopped
+    volumes:
+      - ./infrastructure/garage/garage.toml:/etc/garage.toml:ro
+      - garage_meta:/var/lib/garage/meta
+      - garage_data:/var/lib/garage/data
+    ports:
+      - "3900:3900"   # admin API (for `garage` CLI)
+      - "3902:3902"   # S3 API
+    environment:
+      # Generate with: openssl rand -hex 32
+      # Both are dev-only defaults; override in your shell or .env for staging.
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:-d83d9c0fde54bce93deeee2eef2bbf2f6c01e0d8e7b3b7c2cc7e3fc9b58a64ef}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:-dev-admin-token-change-me}
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - ip6net
+
+  server:
+    # No host port mapping — the API is only reachable through the `client`
+    # nginx reverse proxy at http://localhost:5173/api/*. For direct debugging
+    # use `docker compose exec server …` or run `cargo run` on the host.
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      FC_BIND_ADDR: 0.0.0.0:3000
+      RUST_LOG: info,figurecollector_server=debug
+      DATABASE_URL: postgres://figurecollector:figurecollector_dev@postgres:5432/figurecollector
+      FRONTEND_URL: http://localhost:5173
+    expose:
+      - "3000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16M,mode=1777,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "65532:65532"
+    networks:
+      - ip6net
+
+  # ------------------------------------------------------------------
+  # `client` is the unified web ingress: nginx serves the React PWA
+  # AND reverse-proxies /api/* and /api/ws to the Rust backend.
+  # It is the ONLY service exposing a host port for the app itself.
+  # ------------------------------------------------------------------
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "5173:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:size=32M,mode=1777,noexec,nosuid,nodev
+      - /tmp/nginx:size=8M,mode=1777,noexec,nosuid,nodev
+      - /var/cache/nginx:size=16M,mode=1777,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - ip6net
+
+volumes:
+  postgres_data:
+  garage_meta:
+  garage_data:
+
+networks:
+  ip6net:
+    driver: bridge
+    enable_ipv6: true

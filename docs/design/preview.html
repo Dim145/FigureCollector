@@ -1,0 +1,1016 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FigureCollector — 3 directions visuelles</title>
+    <meta name="description" content="Comparaison de 3 directions visuelles distinctes pour la page détail d'une figurine — à arbitrer avant Phase 1." />
+
+    <!-- Tailwind Play CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts (loaded once for all 3 sections) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=Cormorant+Garamond:ital,wght@0,300..700;1,300..600&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;700&family=Noto+Serif+JP:wght@200;400;500;700&family=Space+Grotesk:wght@300;400;500;600;700&family=Special+Elite&display=swap" rel="stylesheet">
+
+    <style>
+      /* ====================================================================
+         GLOBAL — shared bones across the 3 directions
+      ==================================================================== */
+      html { scroll-behavior: smooth; }
+      body { margin: 0; }
+
+      /* Sticky nav — neutral, unbiased toward any direction */
+      .navchip { transition: all .25s ease; }
+
+      /* ====================================================================
+         DIRECTION A — ATELIER
+         Kraft paper + blueprint + terracotta
+         Type: Bricolage Grotesque (display), JetBrains Mono (mono / specs)
+         Vibe: factory drawing-board, dimension callouts, hand-stamped revisions
+      ==================================================================== */
+      .atelier {
+        --kraft: #ede2c8;
+        --kraft-deep: #d9c89e;
+        --blueprint: #1f3a5f;
+        --blueprint-soft: #4b6f9b;
+        --terracotta: #b85c38;
+        --ink: #1a1a1a;
+        --grid: #c5d3e3;
+        background-color: var(--kraft);
+        color: var(--ink);
+        font-family: "Bricolage Grotesque", system-ui, sans-serif;
+        position: relative;
+        overflow: hidden;
+      }
+      /* Graph-paper grid (faint blueprint lines) layered over kraft */
+      .atelier::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(to right, rgba(31,58,95,.08) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(31,58,95,.08) 1px, transparent 1px),
+          linear-gradient(to right, rgba(31,58,95,.18) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(31,58,95,.18) 1px, transparent 1px);
+        background-size: 12px 12px, 12px 12px, 60px 60px, 60px 60px;
+        background-position: -1px -1px;
+        pointer-events: none;
+        z-index: 0;
+      }
+      /* Paper grain (subtle noise via repeating gradients) */
+      .atelier::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(ellipse at top left, rgba(184,92,56,.06), transparent 60%),
+                    radial-gradient(ellipse at bottom right, rgba(31,58,95,.05), transparent 70%);
+        pointer-events: none;
+        z-index: 0;
+      }
+      .atelier > * { position: relative; z-index: 1; }
+      .atelier .mono { font-family: "JetBrains Mono", monospace; }
+      .atelier .titre { font-family: "Bricolage Grotesque", sans-serif; font-stretch: 75%; letter-spacing: -.02em; }
+      .atelier .stamp {
+        font-family: "JetBrains Mono", monospace;
+        border: 2px solid var(--terracotta);
+        color: var(--terracotta);
+        padding: .5rem 1rem;
+        text-transform: uppercase;
+        letter-spacing: .15em;
+        font-weight: 700;
+        transform: rotate(-7deg);
+        background: rgba(237,226,200,.6);
+        position: relative;
+      }
+      .atelier .stamp::before, .atelier .stamp::after {
+        content: "";
+        position: absolute;
+        inset: 4px;
+        border: 1px dashed var(--terracotta);
+        opacity: .4;
+      }
+      .atelier .leader {
+        stroke: var(--blueprint);
+        stroke-width: 1;
+        fill: none;
+      }
+      .atelier .dim {
+        stroke: var(--terracotta);
+        stroke-width: 1;
+        fill: none;
+      }
+      .atelier .callout-num {
+        background: var(--terracotta);
+        color: var(--kraft);
+        border-radius: 50%;
+        width: 22px;
+        height: 22px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        font-weight: 700;
+      }
+      .atelier .spec-row {
+        display: grid;
+        grid-template-columns: 130px 1fr;
+        padding: .55rem 0;
+        border-bottom: 1px dashed rgba(31,58,95,.25);
+        font-size: 13px;
+      }
+      .atelier .spec-row dt {
+        font-family: "JetBrains Mono", monospace;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+        color: var(--blueprint-soft);
+        font-size: 11px;
+      }
+      .atelier .spec-row dd { margin: 0; font-weight: 500; }
+      .atelier .tab {
+        background: var(--blueprint);
+        color: var(--kraft);
+        padding: .15rem .55rem;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: .1em;
+        display: inline-block;
+      }
+      .atelier .corner-mark {
+        position: absolute;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        color: var(--blueprint-soft);
+        letter-spacing: .08em;
+      }
+
+      /* ====================================================================
+         DIRECTION B — VITRINE PRIVÉE
+         Deep matte black + Japanese laque red + antique gold + ivory
+         Type: Cormorant Garamond (display, italic chapter), Inter (body — narrow tracking)
+         Vibe: auction catalog, single light source, gold-leaf rules
+      ==================================================================== */
+      .vitrine {
+        --noir: #0a0807;
+        --noir-soft: #15110f;
+        --laque: #8c1e1e;
+        --laque-bright: #c0252a;
+        --or: #c9a85c;
+        --or-pale: #e8d09a;
+        --ivoire: #ece1c8;
+        --ivoire-soft: rgba(236,225,200,.65);
+        background-color: var(--noir);
+        color: var(--ivoire);
+        font-family: "Inter", sans-serif;
+        position: relative;
+        overflow: hidden;
+      }
+      .vitrine::before {
+        /* Single dramatic spotlight in the upper-left third */
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(60% 50% at 35% 40%, rgba(201,168,92,.18), transparent 70%),
+          radial-gradient(35% 30% at 35% 40%, rgba(232,208,154,.10), transparent 70%);
+        pointer-events: none;
+      }
+      .vitrine::after {
+        /* Subtle grain over the whole panel */
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image: radial-gradient(circle at 1px 1px, rgba(236,225,200,.04) 1px, transparent 0);
+        background-size: 4px 4px;
+        pointer-events: none;
+      }
+      .vitrine > * { position: relative; z-index: 1; }
+      .vitrine .display { font-family: "Cormorant Garamond", serif; font-weight: 300; letter-spacing: -.01em; }
+      .vitrine .display-italic { font-family: "Cormorant Garamond", serif; font-style: italic; font-weight: 400; }
+      .vitrine .ja { font-family: "Noto Serif JP", serif; }
+      .vitrine .micro {
+        font-family: "Inter", sans-serif;
+        font-size: 10.5px;
+        letter-spacing: .35em;
+        text-transform: uppercase;
+        color: var(--or-pale);
+      }
+      .vitrine .gold-rule {
+        height: 1px;
+        background: linear-gradient(to right, transparent, var(--or) 30%, var(--or) 70%, transparent);
+      }
+      .vitrine .gold-rule-vertical {
+        width: 1px;
+        background: linear-gradient(to bottom, transparent, var(--or) 30%, var(--or) 70%, transparent);
+      }
+      .vitrine .halo {
+        position: absolute;
+        inset: -10%;
+        background: radial-gradient(closest-side, rgba(201,168,92,.45), rgba(201,168,92,.12) 50%, transparent 75%);
+        filter: blur(2px);
+        pointer-events: none;
+      }
+      .vitrine .spec-row {
+        display: grid;
+        grid-template-columns: 130px 1fr;
+        padding: .9rem 0;
+        border-bottom: 1px solid rgba(201,168,92,.18);
+      }
+      .vitrine .spec-row dt {
+        font-family: "Inter", sans-serif;
+        text-transform: uppercase;
+        letter-spacing: .28em;
+        font-size: 10px;
+        color: var(--or-pale);
+        font-weight: 400;
+        padding-top: 2px;
+      }
+      .vitrine .spec-row dd {
+        margin: 0;
+        font-family: "Cormorant Garamond", serif;
+        font-size: 18px;
+        font-weight: 400;
+        color: var(--ivoire);
+      }
+      .vitrine .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .55rem;
+        border: 1px solid var(--or);
+        color: var(--or-pale);
+        padding: .35rem .9rem;
+        font-size: 10.5px;
+        letter-spacing: .3em;
+        text-transform: uppercase;
+      }
+      .vitrine .chip::before {
+        content: "";
+        width: 4px; height: 4px;
+        background: var(--or);
+        display: inline-block;
+        transform: rotate(45deg);
+      }
+
+      /* ====================================================================
+         DIRECTION C — CARTON D'IMPORT
+         Kraft brown + cinabre/hanko red + indigo + off-white sticker
+         Type: Space Grotesk (display), JetBrains Mono (codes), Special Elite (stencil/typewriter)
+         Vibe: unboxing, customs declaration, hanko stamps, packing tape
+      ==================================================================== */
+      .carton {
+        --kraft-box: #9a7a4f;
+        --kraft-box-deep: #7d5e36;
+        --kraft-tape: #c8a877;
+        --cinabre: #c8202a;
+        --cinabre-deep: #9d1820;
+        --indigo: #1e2f6b;
+        --sticker: #f5efe0;
+        --sticker-edge: #e8dec5;
+        --ink: #14110d;
+        background-color: var(--kraft-box);
+        color: var(--ink);
+        font-family: "Space Grotesk", sans-serif;
+        position: relative;
+        overflow: hidden;
+      }
+      /* Corrugated cardboard texture (alternating soft stripes) */
+      .carton::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-image:
+          repeating-linear-gradient(
+            90deg,
+            rgba(0,0,0,.04) 0px,
+            rgba(0,0,0,.04) 1px,
+            transparent 1px,
+            transparent 6px
+          ),
+          radial-gradient(ellipse at center, rgba(255,235,200,.10), transparent 70%);
+        pointer-events: none;
+      }
+      .carton > * { position: relative; z-index: 1; }
+      .carton .mono { font-family: "JetBrains Mono", monospace; }
+      .carton .typer { font-family: "Special Elite", "Courier New", monospace; }
+      .carton .display { font-family: "Space Grotesk", sans-serif; letter-spacing: -.025em; }
+      .carton .sticker {
+        background: var(--sticker);
+        border: 1px solid var(--sticker-edge);
+        box-shadow:
+          0 1px 0 rgba(0,0,0,.12),
+          0 12px 22px -16px rgba(0,0,0,.45),
+          inset 0 1px 0 rgba(255,255,255,.6);
+        position: relative;
+      }
+      .carton .sticker::before {
+        /* Top-edge curl */
+        content: "";
+        position: absolute;
+        top: -2px; left: 8px; right: 8px;
+        height: 4px;
+        background: linear-gradient(to bottom, rgba(0,0,0,.18), transparent);
+        border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+        opacity: .35;
+      }
+      .carton .tape {
+        background:
+          repeating-linear-gradient(45deg, rgba(255,255,255,.04) 0 6px, transparent 6px 12px),
+          linear-gradient(to bottom, rgba(200,168,119,.92), rgba(170,138,90,.94));
+        box-shadow:
+          0 4px 14px rgba(0,0,0,.18),
+          inset 0 0 0 1px rgba(0,0,0,.08);
+      }
+      .carton .stencil-warn {
+        font-family: "Special Elite", monospace;
+        color: var(--cinabre-deep);
+        letter-spacing: .25em;
+        text-transform: uppercase;
+        opacity: .35;
+        font-size: 4.5rem;
+        font-weight: 400;
+        line-height: .9;
+        pointer-events: none;
+        user-select: none;
+      }
+      .carton .hanko {
+        width: 130px;
+        height: 130px;
+        border: 4px solid var(--cinabre);
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        color: var(--cinabre);
+        position: relative;
+        background:
+          radial-gradient(circle at 30% 30%, rgba(245,239,224,.0) 60%, rgba(0,0,0,.04) 100%);
+        transform: rotate(-12deg);
+        box-shadow:
+          inset 0 0 0 2px rgba(200,32,42,.25),
+          0 0 0 1px rgba(200,32,42,.10);
+        opacity: .92;
+      }
+      .carton .hanko::before {
+        /* Inner ring of dots */
+        content: "";
+        position: absolute;
+        inset: 8px;
+        border: 1px dashed var(--cinabre);
+        border-radius: 50%;
+        opacity: .55;
+      }
+      .carton .hanko .hk-jp {
+        font-family: "Noto Serif JP", serif;
+        font-size: 30px;
+        font-weight: 700;
+        line-height: 1;
+      }
+      .carton .hanko .hk-en {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 9px;
+        letter-spacing: .2em;
+        margin-top: 4px;
+        text-transform: uppercase;
+      }
+      .carton .barcode {
+        display: inline-flex;
+        align-items: end;
+        gap: 2px;
+        height: 56px;
+      }
+      .carton .barcode span {
+        display: inline-block;
+        background: #14110d;
+        width: 2px;
+        height: 100%;
+      }
+      .carton .barcode span:nth-child(3n)   { width: 1px; }
+      .carton .barcode span:nth-child(4n)   { width: 3px; }
+      .carton .barcode span:nth-child(5n+1) { width: 2px; height: 92%; }
+      .carton .barcode span:nth-child(7n)   { width: 4px; }
+      .carton .barcode span:nth-child(11n)  { width: 1px; height: 86%; }
+      .carton .field-label {
+        font-family: "JetBrains Mono", monospace;
+        text-transform: uppercase;
+        letter-spacing: .15em;
+        font-size: 9.5px;
+        color: var(--indigo);
+        opacity: .8;
+      }
+
+      /* Hide horizontal overflow */
+      section { overflow-x: hidden; }
+    </style>
+  </head>
+
+  <body class="bg-zinc-100">
+    <!-- ============================================================
+         STICKY COMPARISON NAV
+    ============================================================ -->
+    <nav class="sticky top-0 z-50 backdrop-blur bg-white/85 border-b border-zinc-200">
+      <div class="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-md bg-zinc-900 grid place-items-center text-amber-100 font-bold tracking-tight">FC</div>
+          <div>
+            <p class="text-[11px] uppercase tracking-[0.18em] text-zinc-500">FigureCollector · Phase 0</p>
+            <p class="text-sm font-semibold text-zinc-800">3 directions visuelles à arbitrer</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 text-[12px] font-medium">
+          <a href="#atelier"  class="navchip px-3 py-1.5 rounded-full border border-amber-700/40 text-amber-800 hover:bg-amber-50">A · Atelier</a>
+          <a href="#vitrine"  class="navchip px-3 py-1.5 rounded-full border border-zinc-900 text-zinc-900 hover:bg-zinc-900 hover:text-amber-100">B · Vitrine</a>
+          <a href="#carton"   class="navchip px-3 py-1.5 rounded-full border border-red-700/50 text-red-800 hover:bg-red-50">C · Carton</a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ============================================================
+         INTRO
+    ============================================================ -->
+    <section class="bg-white border-b border-zinc-200">
+      <div class="max-w-7xl mx-auto px-6 py-10">
+        <p class="text-[11px] font-mono uppercase tracking-[0.25em] text-zinc-500">comparaison de directions · 2026</p>
+        <h1 class="mt-2 text-4xl md:text-5xl font-semibold tracking-tight text-zinc-900">
+          La même figurine. <span class="text-zinc-400">Trois personnalités.</span>
+        </h1>
+        <p class="mt-4 max-w-2xl text-zinc-600 leading-relaxed">
+          Chaque section présente la page détail de la même fausse figurine —
+          <em>Nendoroid № 1856, Hatsune Miku: Snow Princess Ver.</em> — dans une
+          direction graphique radicalement différente. Choisis celle qui te
+          parle le plus, on en fait l'identité de l'app.
+        </p>
+        <div class="mt-6 flex flex-wrap gap-3 text-xs">
+          <span class="px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200">A — fiche technique d'atelier</span>
+          <span class="px-3 py-1 rounded-full bg-zinc-900 text-amber-100 border border-zinc-900">B — vitrine privée éclairée</span>
+          <span class="px-3 py-1 rounded-full bg-red-50 text-red-900 border border-red-200">C — carton d'import déballé</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         ═══ DIRECTION A — ATELIER ═══
+    ================================================================ -->
+    <section id="atelier" class="atelier min-h-screen py-16 px-6 md:px-10">
+      <div class="absolute top-6 left-6 corner-mark">DOC. FC-2024-1856 · REV.A · 1 / 1</div>
+      <div class="absolute top-6 right-6 corner-mark">SCALE 1:1 · MM</div>
+      <div class="absolute bottom-6 left-6 corner-mark">© ATELIER FC · DRAWN BY: D.D.</div>
+      <div class="absolute bottom-6 right-6 corner-mark">SHEET A · MATERIAL: KRAFT 80g/m²</div>
+
+      <div class="max-w-7xl mx-auto">
+        <!-- Header band -->
+        <header class="grid grid-cols-12 gap-4 items-end mb-10 pb-6 border-b-2 border-[var(--blueprint)]">
+          <div class="col-span-12 md:col-span-8">
+            <span class="tab">№ 1856 / NENDOROID / GSC</span>
+            <h2 class="titre text-5xl md:text-7xl font-bold mt-3 leading-[0.95]">
+              Hatsune Miku<br><span class="text-[var(--terracotta)]">Snow Princess Ver.</span>
+            </h2>
+            <p class="mono text-xs mt-3 text-[var(--blueprint-soft)] uppercase tracking-[0.15em]">
+              Drawing № FC-2024-1856 · Issued 2024-12-04 · Approved by 6moN
+            </p>
+          </div>
+          <div class="col-span-12 md:col-span-4 text-right">
+            <div class="inline-block stamp">Pre-Order · AmiAmi</div>
+            <p class="mono text-[10px] mt-3 text-[var(--blueprint-soft)]">EXPECTED 2024-12 · LEAD T. 4 MO.</p>
+          </div>
+        </header>
+
+        <!-- Technical drawing + spec block -->
+        <div class="grid grid-cols-12 gap-8">
+          <!-- Technical drawing column -->
+          <div class="col-span-12 lg:col-span-7">
+            <div class="bg-white/40 border-2 border-[var(--blueprint)] p-6 relative">
+              <div class="absolute -top-3 left-4 bg-[var(--kraft)] px-2 mono text-[10px] uppercase tracking-[0.15em] text-[var(--blueprint)]">FIG. 01 — front elevation</div>
+              <svg viewBox="0 0 520 460" class="w-full">
+                <!-- Vertical dimension line on the left -->
+                <g class="dim">
+                  <line x1="60"  y1="60"  x2="60"  y2="400"/>
+                  <line x1="50"  y1="60"  x2="70"  y2="60"/>
+                  <line x1="50"  y1="400" x2="70"  y2="400"/>
+                </g>
+                <text x="35" y="240" fill="#b85c38" font-family="JetBrains Mono" font-size="11" transform="rotate(-90 35 240)">H = 100 mm ± 2</text>
+
+                <!-- Horizontal dimension at the top (head Ø) -->
+                <g class="dim">
+                  <line x1="220" y1="40"  x2="320" y2="40"/>
+                  <line x1="220" y1="32"  x2="220" y2="48"/>
+                  <line x1="320" y1="32"  x2="320" y2="48"/>
+                </g>
+                <text x="270" y="30" fill="#b85c38" font-family="JetBrains Mono" font-size="11" text-anchor="middle">Ø 60 mm</text>
+
+                <!-- The figure (Nendoroid silhouette, blueprint outline) -->
+                <g class="leader" stroke="#1f3a5f" stroke-width="1.4" fill="none">
+                  <!-- Base -->
+                  <ellipse cx="270" cy="400" rx="58" ry="6"/>
+                  <ellipse cx="270" cy="395" rx="58" ry="6"/>
+                  <line x1="212" y1="395" x2="212" y2="400"/>
+                  <line x1="328" y1="395" x2="328" y2="400"/>
+                  <!-- Dress (snow princess bell) -->
+                  <path d="M 220 310 Q 270 295 320 310 L 340 392 Q 270 400 200 392 Z"/>
+                  <!-- Dress folds -->
+                  <path d="M 240 320 L 252 388"/>
+                  <path d="M 270 318 L 270 390"/>
+                  <path d="M 300 320 L 288 388"/>
+                  <!-- Cape collar -->
+                  <path d="M 240 290 Q 270 280 300 290 L 305 312 Q 270 305 235 312 Z"/>
+                  <!-- Arms (hidden, gloves outline) -->
+                  <path d="M 232 290 Q 215 320 220 350"/>
+                  <path d="M 308 290 Q 325 320 320 350"/>
+                  <!-- Head (big circle for Nendoroid) -->
+                  <circle cx="270" cy="170" r="100"/>
+                  <!-- Hair top wave -->
+                  <path d="M 175 180 Q 175 90 270 70 Q 365 90 365 180 Q 345 140 270 145 Q 195 140 175 180 Z" fill="#1f3a5f" fill-opacity=".06"/>
+                  <!-- Side bangs -->
+                  <path d="M 195 175 Q 215 200 225 220"/>
+                  <path d="M 345 175 Q 325 200 315 220"/>
+                  <!-- Pigtails -->
+                  <path d="M 180 175 Q 130 220 145 320"/>
+                  <path d="M 145 320 Q 155 340 175 335"/>
+                  <path d="M 360 175 Q 410 220 395 320"/>
+                  <path d="M 395 320 Q 385 340 365 335"/>
+                  <!-- Tiara crown -->
+                  <path d="M 230 95 L 240 78 L 250 95 L 260 75 L 270 95 L 280 75 L 290 95 L 300 78 L 310 95"/>
+                  <!-- Eyes -->
+                  <ellipse cx="240" cy="190" rx="11" ry="14" fill="#1f3a5f"/>
+                  <ellipse cx="300" cy="190" rx="11" ry="14" fill="#1f3a5f"/>
+                  <!-- Mouth -->
+                  <path d="M 260 220 Q 270 226 280 220"/>
+                  <!-- Snow rose in hand -->
+                  <circle cx="218" cy="345" r="8"/>
+                  <path d="M 218 337 L 218 320" />
+                </g>
+
+                <!-- Callouts with leader lines -->
+                <g class="leader" stroke="#b85c38" stroke-width="1">
+                  <line x1="380" y1="170" x2="445" y2="120"/>
+                  <line x1="170" y1="320" x2="100" y2="290"/>
+                  <line x1="270" y1="395" x2="380" y2="430"/>
+                  <line x1="290" y1="80"  x2="420" y2="60"/>
+                </g>
+
+                <foreignObject x="438" y="100" width="80" height="40">
+                  <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: JetBrains Mono; font-size:10px; color:#b85c38; line-height:1.3;">
+                    <span class="callout-num" style="background:#b85c38;color:#ede2c8;width:18px;height:18px;font-size:10px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;">1</span><br>
+                    PVC head<br>(painted)
+                  </div>
+                </foreignObject>
+                <foreignObject x="20" y="265" width="90" height="40">
+                  <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: JetBrains Mono; font-size:10px; color:#b85c38; line-height:1.3;">
+                    <span style="background:#b85c38;color:#ede2c8;width:18px;height:18px;font-size:10px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;">2</span><br>
+                    Cast ABS<br>twintail spine
+                  </div>
+                </foreignObject>
+                <foreignObject x="382" y="424" width="120" height="40">
+                  <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: JetBrains Mono; font-size:10px; color:#b85c38; line-height:1.3;">
+                    <span style="background:#b85c38;color:#ede2c8;width:18px;height:18px;font-size:10px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;">3</span><br>
+                    Acrylic base<br>w/ peg
+                  </div>
+                </foreignObject>
+                <foreignObject x="418" y="40" width="100" height="40">
+                  <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: JetBrains Mono; font-size:10px; color:#b85c38; line-height:1.3;">
+                    <span style="background:#b85c38;color:#ede2c8;width:18px;height:18px;font-size:10px;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;">4</span><br>
+                    Silver tiara<br>(snowflake)
+                  </div>
+                </foreignObject>
+              </svg>
+            </div>
+
+            <!-- Auxiliary thumbnails (rear / 3⁄4) -->
+            <div class="grid grid-cols-3 gap-3 mt-4">
+              <div class="bg-white/40 border border-[var(--blueprint)] p-3 text-center">
+                <div class="aspect-square grid place-items-center text-[var(--blueprint-soft)]">
+                  <svg viewBox="0 0 100 100" class="w-3/4 h-3/4"><circle cx="50" cy="40" r="22" fill="none" stroke="#1f3a5f"/><path d="M 28 65 Q 50 55 72 65 L 78 92 Q 50 96 22 92 Z" fill="none" stroke="#1f3a5f"/></svg>
+                </div>
+                <p class="mono text-[10px] uppercase tracking-[0.1em] text-[var(--blueprint-soft)]">Fig.02 · Rear</p>
+              </div>
+              <div class="bg-white/40 border border-[var(--blueprint)] p-3 text-center">
+                <div class="aspect-square grid place-items-center text-[var(--blueprint-soft)]">
+                  <svg viewBox="0 0 100 100" class="w-3/4 h-3/4"><circle cx="55" cy="38" r="22" fill="none" stroke="#1f3a5f"/><path d="M 32 65 L 55 55 L 78 70 L 80 92 L 35 95 Z" fill="none" stroke="#1f3a5f"/></svg>
+                </div>
+                <p class="mono text-[10px] uppercase tracking-[0.1em] text-[var(--blueprint-soft)]">Fig.03 · 3⁄4 R</p>
+              </div>
+              <div class="bg-white/40 border border-[var(--blueprint)] p-3 text-center">
+                <div class="aspect-square grid place-items-center text-[var(--blueprint-soft)]">
+                  <svg viewBox="0 0 100 100" class="w-3/4 h-3/4"><ellipse cx="50" cy="85" rx="32" ry="6" fill="none" stroke="#1f3a5f"/><ellipse cx="50" cy="78" rx="26" ry="5" fill="none" stroke="#1f3a5f"/></svg>
+                </div>
+                <p class="mono text-[10px] uppercase tracking-[0.1em] text-[var(--blueprint-soft)]">Fig.04 · Top</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Spec sheet column -->
+          <aside class="col-span-12 lg:col-span-5">
+            <div class="border-2 border-[var(--blueprint)] bg-white/40 p-6">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="mono text-xs uppercase tracking-[0.2em] text-[var(--blueprint)]">Bill of Materials</h3>
+                <span class="mono text-[10px] text-[var(--blueprint-soft)]">Sheet B / 2 of 2</span>
+              </div>
+              <dl class="text-sm">
+                <div class="spec-row"><dt>Catalog №</dt><dd class="mono">1856</dd></div>
+                <div class="spec-row"><dt>Manufacturer</dt><dd>Good Smile Company</dd></div>
+                <div class="spec-row"><dt>Series</dt><dd>Vocaloid</dd></div>
+                <div class="spec-row"><dt>Sculpted by</dt><dd>Toytec D.T.C</dd></div>
+                <div class="spec-row"><dt>Materials</dt><dd>PVC · ABS</dd></div>
+                <div class="spec-row"><dt>Height</dt><dd class="mono">100 mm <span class="text-[var(--blueprint-soft)]">(non-scale)</span></dd></div>
+                <div class="spec-row"><dt>MSRP</dt><dd>¥5,800 <span class="text-[var(--blueprint-soft)]">JPY</span></dd></div>
+                <div class="spec-row"><dt>JAN / EAN</dt><dd class="mono">4580590127553</dd></div>
+                <div class="spec-row"><dt>Release</dt><dd class="mono">2024-12</dd></div>
+                <div class="spec-row"><dt>Lead time</dt><dd>4 months from order</dd></div>
+                <div class="spec-row"><dt>Condition</dt><dd>MIB <span class="text-[var(--blueprint-soft)]">— mint in box</span></dd></div>
+              </dl>
+            </div>
+
+            <!-- Notes block -->
+            <div class="mt-4 border-2 border-dashed border-[var(--terracotta)] p-5 bg-[var(--terracotta)]/5">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="callout-num">N</span>
+                <h4 class="mono text-xs uppercase tracking-[0.15em] text-[var(--terracotta)]">Field notes</h4>
+              </div>
+              <p class="text-sm italic leading-relaxed text-[var(--ink)]">
+                Christmas gift to self. Display in winter shelf, left of Yuki Miku 2023.
+                Check tiara peg on arrival — known QC issue on the late lot.
+              </p>
+            </div>
+
+            <!-- Direction signature -->
+            <div class="mt-6 flex items-end justify-between border-t-2 border-[var(--blueprint)] pt-4">
+              <div>
+                <p class="mono text-[10px] uppercase tracking-[0.18em] text-[var(--blueprint-soft)]">Direction A</p>
+                <p class="titre text-2xl font-bold leading-none mt-1">Atelier</p>
+              </div>
+              <div class="text-right mono text-[10px] text-[var(--blueprint-soft)] leading-tight">
+                Bricolage Grotesque<br>JetBrains Mono<br>Kraft + Blueprint + Terracotta
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         ═══ DIRECTION B — VITRINE PRIVÉE ═══
+    ================================================================ -->
+    <section id="vitrine" class="vitrine min-h-screen py-20 px-6 md:px-12">
+      <div class="max-w-7xl mx-auto">
+        <!-- Top thin band: catalog header -->
+        <header class="flex items-center justify-between mb-16">
+          <div class="flex items-center gap-4">
+            <span class="ja text-2xl text-[var(--or)]">壱</span>
+            <div>
+              <p class="micro">Catalogue privé · MMXXVI</p>
+              <p class="display text-lg leading-none mt-1 text-[var(--ivoire)]">Pièce № 1856</p>
+            </div>
+          </div>
+          <div class="chip">Acquis · AmiAmi · pre-order</div>
+        </header>
+
+        <!-- Hero: figure + halo on the left, chapter title on the right -->
+        <div class="grid grid-cols-12 gap-10 items-center">
+          <!-- Halo + figure -->
+          <div class="col-span-12 lg:col-span-6 relative h-[520px]">
+            <div class="halo"></div>
+            <svg viewBox="0 0 520 600" class="relative h-full w-full">
+              <defs>
+                <radialGradient id="ivoryFill" cx="50%" cy="35%" r="65%">
+                  <stop offset="0%" stop-color="#f4e8cf"/>
+                  <stop offset="55%" stop-color="#c7b88e"/>
+                  <stop offset="100%" stop-color="#5b4a2b"/>
+                </radialGradient>
+                <linearGradient id="goldRim" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#e8d09a"/>
+                  <stop offset="100%" stop-color="#8c7035"/>
+                </linearGradient>
+              </defs>
+              <!-- Pedestal -->
+              <ellipse cx="260" cy="555" rx="120" ry="14" fill="#1a1310"/>
+              <ellipse cx="260" cy="548" rx="120" ry="14" fill="url(#goldRim)" opacity=".7"/>
+              <ellipse cx="260" cy="545" rx="115" ry="11" fill="#0a0807"/>
+              <!-- Figure silhouette (filled, monumental) -->
+              <g fill="url(#ivoryFill)">
+                <!-- Dress -->
+                <path d="M 200 380 Q 260 360 320 380 L 350 540 Q 260 552 170 540 Z"/>
+                <!-- Cape -->
+                <path d="M 215 360 Q 260 345 305 360 L 312 388 Q 260 380 208 388 Z"/>
+                <!-- Body (hidden) -->
+                <rect x="245" y="335" width="30" height="50"/>
+                <!-- Pigtails -->
+                <path d="M 175 250 Q 130 310 145 420 Q 152 445 175 442 Q 162 415 168 360 Q 172 305 195 270 Z"/>
+                <path d="M 345 250 Q 390 310 375 420 Q 368 445 345 442 Q 358 415 352 360 Q 348 305 325 270 Z"/>
+                <!-- Head -->
+                <circle cx="260" cy="220" r="100"/>
+                <!-- Tiara -->
+                <path d="M 215 145 L 225 130 L 234 145 L 244 128 L 254 145 L 264 128 L 274 145 L 284 130 L 294 145 L 304 128 L 314 145 Z" fill="#e8d09a"/>
+              </g>
+              <!-- Eyes (gold) -->
+              <ellipse cx="232" cy="240" rx="10" ry="14" fill="#0a0807"/>
+              <ellipse cx="288" cy="240" rx="10" ry="14" fill="#0a0807"/>
+              <ellipse cx="234" cy="237" rx="3" ry="4" fill="#e8d09a"/>
+              <ellipse cx="290" cy="237" rx="3" ry="4" fill="#e8d09a"/>
+              <!-- Snow rose (small accent in red laque) -->
+              <circle cx="195" cy="430" r="14" fill="#8c1e1e"/>
+              <circle cx="195" cy="430" r="6" fill="#c0252a"/>
+            </svg>
+
+            <!-- Floating folio number -->
+            <div class="absolute top-4 left-4 text-[var(--or)] ja text-7xl opacity-40 font-thin">幻</div>
+          </div>
+
+          <!-- Chapter + specs -->
+          <div class="col-span-12 lg:col-span-6 pl-0 lg:pl-10 relative">
+            <span class="gold-rule-vertical absolute left-0 top-0 bottom-0 hidden lg:block"></span>
+            <p class="micro mb-6">Chapitre III · Vocaloid · Édition d'hiver</p>
+            <h2 class="display text-5xl md:text-6xl leading-[1.05] text-[var(--ivoire)]">
+              Hatsune Miku
+            </h2>
+            <h3 class="display-italic text-3xl md:text-4xl text-[var(--or)] mt-1 leading-tight">
+              Snow Princess Ver.
+            </h3>
+            <p class="ja text-[var(--or-pale)] text-lg mt-3 tracking-widest">雪の姫君</p>
+
+            <div class="gold-rule my-8"></div>
+
+            <p class="text-[var(--ivoire-soft)] leading-relaxed text-[15px] max-w-md">
+              Nendoroid de prestige sculpté par Toytec D.T.C, présenté en robe
+              d'hiver. Corolle en PVC peint à la main, socle acrylique signé. Une
+              pièce de 100 millimètres conçue pour être éclairée par-dessus.
+            </p>
+
+            <!-- Spec grid (two columns of one) -->
+            <dl class="mt-10 max-w-md">
+              <div class="spec-row"><dt>Manufacturer</dt><dd>Good Smile Company</dd></div>
+              <div class="spec-row"><dt>Catalog</dt><dd>Nendoroid № 1856</dd></div>
+              <div class="spec-row"><dt>Materials</dt><dd>PVC · ABS</dd></div>
+              <div class="spec-row"><dt>Height</dt><dd>100 mm</dd></div>
+              <div class="spec-row"><dt>MSRP</dt><dd>¥5,800</dd></div>
+              <div class="spec-row"><dt>Release</dt><dd>Décembre 2024</dd></div>
+              <div class="spec-row"><dt>Condition</dt><dd>MIB · scellée d'origine</dd></div>
+              <div class="spec-row"><dt>JAN</dt><dd class="text-sm tracking-widest" style="font-family: 'Inter', sans-serif;">4580590127553</dd></div>
+            </dl>
+
+            <div class="gold-rule my-8"></div>
+
+            <!-- Pull-quote -->
+            <blockquote class="display-italic text-2xl text-[var(--or)] leading-snug max-w-md relative pl-6">
+              <span class="absolute -left-1 top-0 text-5xl leading-none text-[var(--laque)]">“</span>
+              The future is what we make of it —
+              <span class="text-[var(--ivoire)] not-italic text-base block mt-2 tracking-wider uppercase">— acquired 04 / XII / 24</span>
+            </blockquote>
+
+            <!-- Direction signature -->
+            <div class="mt-12 flex items-end justify-between max-w-md">
+              <div>
+                <p class="micro">Direction B</p>
+                <p class="display text-3xl font-light mt-1">Vitrine privée</p>
+              </div>
+              <div class="text-right micro leading-relaxed">
+                Cormorant Garamond<br>Inter · Noto Serif JP<br>Noir · Laque · Or
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================================================================
+         ═══ DIRECTION C — CARTON D'IMPORT ═══
+    ================================================================ -->
+    <section id="carton" class="carton min-h-screen py-16 px-6 md:px-10">
+      <!-- Tape strip across the top corners of the section (faux box flap) -->
+      <div class="tape absolute top-0 left-0 right-0 h-8"></div>
+      <div class="tape absolute top-10 -left-8 w-48 h-6 -rotate-12 opacity-90"></div>
+      <div class="tape absolute top-10 -right-8 w-48 h-6 rotate-12 opacity-90"></div>
+
+      <!-- FRAGILE stencil watermark -->
+      <div class="absolute top-32 right-8 stencil-warn">FRAGILE</div>
+      <div class="absolute bottom-40 left-4 stencil-warn rotate-90 origin-bottom-left">THIS SIDE UP</div>
+
+      <div class="max-w-7xl mx-auto pt-8">
+        <!-- Header strip: customs declaration label -->
+        <div class="grid grid-cols-12 gap-6 items-start">
+          <!-- Customs sticker -->
+          <div class="col-span-12 lg:col-span-7 sticker p-6 rounded-sm rotate-[-0.4deg]">
+            <div class="flex items-start justify-between gap-4 border-b border-dashed border-[var(--indigo)]/40 pb-4">
+              <div>
+                <p class="field-label">customs declaration · CN22</p>
+                <h2 class="display text-4xl md:text-5xl font-semibold leading-tight mt-2 text-[var(--indigo)]">
+                  Nendoroid № 1856
+                </h2>
+                <p class="typer text-lg mt-1 text-[var(--ink)]/85">Hatsune Miku — Snow Princess Ver.</p>
+              </div>
+              <div class="text-right shrink-0">
+                <p class="field-label">origin → destination</p>
+                <p class="mono text-2xl font-bold mt-1 text-[var(--ink)]">JP <span class="text-[var(--cinabre)]">→</span> FR</p>
+                <p class="mono text-[10px] mt-1 text-[var(--ink)]/60">SAITAMA · 60min ✈ TYO · 12h ✈ CDG</p>
+              </div>
+            </div>
+
+            <!-- Declaration grid -->
+            <div class="mt-5 grid grid-cols-2 md:grid-cols-4 gap-4 gap-y-5">
+              <div>
+                <p class="field-label">Sender</p>
+                <p class="typer text-[13px] leading-tight mt-1">Good Smile<br>Company, Ltd.<br>Akihabara, Tokyo</p>
+              </div>
+              <div>
+                <p class="field-label">Recipient</p>
+                <p class="typer text-[13px] leading-tight mt-1">D. Dubois<br>— shelf #3 —<br>FR</p>
+              </div>
+              <div>
+                <p class="field-label">HS code · Goods</p>
+                <p class="mono text-[13px] mt-1">9503.00.95<br>Doll w/ accessories</p>
+              </div>
+              <div>
+                <p class="field-label">Declared value</p>
+                <p class="mono text-[13px] mt-1">¥5,800 JPY<br>≈ <strong>€36.40</strong> EUR</p>
+              </div>
+            </div>
+
+            <!-- Barcode strip -->
+            <div class="mt-5 flex items-end justify-between gap-4 pt-4 border-t border-dashed border-[var(--indigo)]/40">
+              <div>
+                <p class="field-label">tracking</p>
+                <div class="barcode mt-2">
+                  <!-- 64 bars -->
+                  <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                </div>
+                <p class="mono text-[11px] mt-1 tracking-[0.2em]">JP · 4580590127553 · FC1856</p>
+              </div>
+              <div class="text-right">
+                <p class="field-label">JAN</p>
+                <p class="mono text-2xl font-bold leading-none mt-1 text-[var(--ink)]">4580590127553</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hanko + figure thumb (right column) -->
+          <div class="col-span-12 lg:col-span-5">
+            <!-- Figure mugshot (taped to box) -->
+            <div class="relative sticker p-5 rounded-sm rotate-[1.2deg]">
+              <div class="tape absolute -top-3 -left-4 w-20 h-5 -rotate-[18deg]"></div>
+              <div class="tape absolute -top-3 -right-4 w-20 h-5 rotate-[18deg]"></div>
+              <p class="field-label">item photo · GSC official</p>
+              <div class="mt-3 aspect-square bg-gradient-to-br from-[#1a1b2e] via-[#2a3a52] to-[#5a8aa8] grid place-items-center rounded-sm overflow-hidden relative">
+                <svg viewBox="0 0 320 320" class="w-3/4 h-3/4">
+                  <!-- Snowflakes background -->
+                  <g fill="rgba(255,255,255,0.4)">
+                    <circle cx="40" cy="50" r="2"/>
+                    <circle cx="280" cy="80" r="2"/>
+                    <circle cx="60" cy="200" r="1.5"/>
+                    <circle cx="270" cy="240" r="1.5"/>
+                    <circle cx="150" cy="30" r="1"/>
+                    <circle cx="200" cy="180" r="1"/>
+                  </g>
+                  <!-- Miku silhouette -->
+                  <g>
+                    <ellipse cx="160" cy="295" rx="65" ry="6" fill="#0d1421"/>
+                    <path d="M 115 215 Q 160 200 205 215 L 220 290 Q 160 297 100 290 Z" fill="#e8e8f0"/>
+                    <path d="M 125 200 Q 160 188 195 200 L 200 217 Q 160 210 120 217 Z" fill="#c0d4e8"/>
+                    <path d="M 105 145 Q 75 200 88 270 Q 92 282 105 280 Q 100 250 105 200 Z" fill="#67dabb"/>
+                    <path d="M 215 145 Q 245 200 232 270 Q 228 282 215 280 Q 220 250 215 200 Z" fill="#67dabb"/>
+                    <circle cx="160" cy="135" r="62" fill="#fce6cc"/>
+                    <path d="M 100 130 Q 100 75 160 65 Q 220 75 220 130 Q 205 105 160 110 Q 115 105 100 130 Z" fill="#67dabb"/>
+                    <path d="M 130 88 L 138 78 L 146 88 L 154 76 L 162 88 L 170 76 L 178 88 L 186 78 L 194 88" fill="none" stroke="#e8d09a" stroke-width="3"/>
+                    <ellipse cx="140" cy="148" rx="7" ry="9" fill="#0d3a5b"/>
+                    <ellipse cx="180" cy="148" rx="7" ry="9" fill="#0d3a5b"/>
+                  </g>
+                </svg>
+              </div>
+            </div>
+
+            <!-- Hanko stamp + small slip -->
+            <div class="mt-6 flex items-start gap-4">
+              <div class="hanko shrink-0">
+                <div class="text-center">
+                  <div class="hk-jp">認可</div>
+                  <div class="hk-en">GSC · approved</div>
+                </div>
+              </div>
+              <div class="sticker rounded-sm p-4 flex-1 -rotate-[1.5deg]">
+                <p class="field-label">pre-order receipt</p>
+                <p class="typer text-sm leading-tight mt-2">
+                  AmiAmi · Order #58A23-9981<br>
+                  Placed: 2024-07-12 · 03:14 JST<br>
+                  Charge: ¥5,800 (¥0 paid · invoice on ship)<br>
+                  ETA: <strong>2024-12-?? (4 mo)</strong>
+                </p>
+                <p class="field-label mt-3">status</p>
+                <div class="flex items-center gap-2 mt-1">
+                  <span class="inline-block w-2 h-2 rounded-full bg-[var(--cinabre)] animate-pulse"></span>
+                  <span class="typer text-sm">awaiting production lot · slipped 1×</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lower row: specs + notes -->
+        <div class="grid grid-cols-12 gap-6 mt-10">
+          <!-- Spec sticker -->
+          <div class="col-span-12 lg:col-span-7 sticker p-6 rounded-sm rotate-[0.3deg]">
+            <div class="flex items-center justify-between mb-4 pb-3 border-b border-dashed border-[var(--indigo)]/40">
+              <div>
+                <p class="field-label">product specifications</p>
+                <p class="display text-2xl font-semibold mt-1 text-[var(--indigo)]">Spec sheet · 仕様書</p>
+              </div>
+              <span class="mono text-xs px-2 py-1 border border-[var(--cinabre)] text-[var(--cinabre)] rounded-sm">MIB</span>
+            </div>
+            <dl class="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
+              <div class="flex justify-between border-b border-dotted border-[var(--ink)]/20 pb-2">
+                <dt class="field-label">Manufacturer</dt>
+                <dd class="typer">Good Smile Co.</dd>
+              </div>
+              <div class="flex justify-between border-b border-dotted border-[var(--ink)]/20 pb-2">
+                <dt class="field-label">Series</dt>
+                <dd class="typer">Vocaloid</dd>
+              </div>
+              <div class="flex justify-between border-b border-dotted border-[var(--ink)]/20 pb-2">
+                <dt class="field-label">Type</dt>
+                <dd class="typer">Nendoroid · non-scale</dd>
+              </div>
+              <div class="flex justify-between border-b border-dotted border-[var(--ink)]/20 pb-2">
+                <dt class="field-label">Sculpt</dt>
+                <dd class="typer">Toytec D.T.C</dd>
+              </div>
+              <div class="flex justify-between border-b border-dotted border-[var(--ink)]/20 pb-2">
+                <dt class="field-label">Material</dt>
+                <dd class="typer">PVC · ABS</dd>
+              </div>
+              <div class="flex justify-between border-b border-dotted border-[var(--ink)]/20 pb-2">
+                <dt class="field-label">Height</dt>
+                <dd class="mono">100 mm</dd>
+              </div>
+              <div class="flex justify-between border-b border-dotted border-[var(--ink)]/20 pb-2">
+                <dt class="field-label">MSRP</dt>
+                <dd class="mono">¥5,800</dd>
+              </div>
+              <div class="flex justify-between border-b border-dotted border-[var(--ink)]/20 pb-2">
+                <dt class="field-label">Release</dt>
+                <dd class="mono">2024-12</dd>
+              </div>
+            </dl>
+          </div>
+
+          <!-- Handwritten note -->
+          <div class="col-span-12 lg:col-span-5 sticker p-5 rounded-sm rotate-[-1.4deg]">
+            <p class="field-label">handwritten note</p>
+            <p class="typer mt-3 text-[15px] leading-relaxed text-[var(--ink)]">
+              Cadeau de Noël perso. À installer sur l'étagère
+              d'hiver, à gauche de Yuki Miku 2023.<br><br>
+              <span class="text-[var(--cinabre)]">⚠ vérifier le peg de la tiare</span>
+              à l'ouverture — défaut connu sur le lot tardif.
+            </p>
+            <div class="mt-5 flex items-center justify-between border-t border-dashed border-[var(--ink)]/20 pt-3">
+              <p class="field-label">— D.D.</p>
+              <p class="mono text-[10px] opacity-60">04 / 07 / 24 · 23:51 CEST</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Direction signature -->
+        <div class="mt-10 flex items-end justify-between border-t-2 border-dashed border-[var(--ink)]/40 pt-5">
+          <div>
+            <p class="field-label">Direction C</p>
+            <p class="display text-3xl font-semibold mt-1 text-[var(--ink)]">Carton d'import</p>
+          </div>
+          <div class="text-right field-label leading-relaxed">
+            Space Grotesk<br>JetBrains Mono · Special Elite<br>Kraft · Cinabre · Indigo
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         PICK CTA
+    ============================================================ -->
+    <footer class="bg-zinc-50 border-t border-zinc-200">
+      <div class="max-w-3xl mx-auto px-6 py-16 text-center">
+        <p class="text-[11px] font-mono uppercase tracking-[0.25em] text-zinc-500">verdict</p>
+        <h2 class="mt-3 text-3xl md:text-4xl font-semibold tracking-tight text-zinc-900">
+          Une fois choisie, on en fait l'identité de l'app
+        </h2>
+        <p class="mt-3 text-zinc-600 max-w-xl mx-auto leading-relaxed">
+          La direction retenue pilote la palette OKLCH, les fonts, les
+          textures de fond, l'allure des composants partagés (cartes,
+          tableaux, états) — et donne le ton à l'écran d'accueil PWA.
+        </p>
+        <div class="mt-8 flex flex-wrap justify-center gap-3 text-sm font-medium">
+          <span class="px-4 py-2 rounded-full bg-amber-50 text-amber-900 border border-amber-300">A — Atelier</span>
+          <span class="px-4 py-2 rounded-full bg-zinc-900 text-amber-100 border border-zinc-900">B — Vitrine</span>
+          <span class="px-4 py-2 rounded-full bg-red-50 text-red-900 border border-red-300">C — Carton</span>
+        </div>
+        <p class="mt-6 text-xs text-zinc-500">
+          Dis simplement <code class="font-mono bg-zinc-200/70 px-1.5 py-0.5 rounded">A</code>,
+          <code class="font-mono bg-zinc-200/70 px-1.5 py-0.5 rounded">B</code> ou
+          <code class="font-mono bg-zinc-200/70 px-1.5 py-0.5 rounded">C</code> à Claude.
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
