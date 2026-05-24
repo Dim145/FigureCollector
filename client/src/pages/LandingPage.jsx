@@ -5,6 +5,7 @@ import ActivityStrip from "../components/ActivityStrip.jsx";
 import Button from "../components/Button.jsx";
 import Halo from "../components/Halo.jsx";
 import LocaleSwitcher from "../components/LocaleSwitcher.jsx";
+import Marquee from "../components/Marquee.jsx";
 
 /**
  * Editorial landing. Three movements:
@@ -127,6 +128,38 @@ export default function LandingPage() {
         ) : null}
       </section>
 
+      {/* ─── Marquee — ambient vocabulary ─── */}
+      {!authed ? (
+        <div className="relative border-y border-[var(--color-or)]/10 py-6 bg-[var(--color-noir-deep)]/30">
+          <Marquee durationSeconds={70}>
+            {[
+              "蒐集",
+              "Nendoroid",
+              "1/7 scale",
+              "限定",
+              "Vitrine privée",
+              "Pré-commande",
+              "Good Smile Company",
+              "GSC Online",
+              "Édition limitée",
+              "再販",
+              "Hatsune Miku",
+              "ALTER",
+              "Phat!",
+              "Kotobukiya",
+            ].map((word, i) => (
+              <span
+                key={`${word}-${i}`}
+                className="display-italic text-3xl md:text-4xl text-[var(--color-or-pale)]/40 px-10 whitespace-nowrap"
+              >
+                {word}
+                <span className="ja text-[var(--color-or)]/30 ml-10">◆</span>
+              </span>
+            ))}
+          </Marquee>
+        </div>
+      ) : null}
+
       {/* If authenticated, show recent activity below the hero */}
       {authed ? (
         <section className="relative max-w-4xl mx-auto px-6 pb-24">
@@ -241,15 +274,15 @@ function AuthedActions({ t, userName }) {
 
 function Feature({ kanji, label, title, body }) {
   return (
-    <li className="relative spotlight p-7 border border-[var(--color-or)]/15 bg-[var(--color-noir-soft)]/40 frame-corners card-lift overflow-hidden">
+    <li className="relative spotlight glass shimmer magnetic frame-corners p-7 overflow-hidden">
       <span
         aria-hidden
         className="ja text-[7rem] text-[var(--color-or)]/12 absolute -top-6 -right-2 leading-none select-none"
       >
         {kanji}
       </span>
-      <p className="micro relative">{label}</p>
-      <h3 className="display text-2xl mt-3 text-[var(--color-ivoire)] relative">
+      <p className="label-mono relative">{label}</p>
+      <h3 className="display-tight text-3xl mt-3 text-[var(--color-ivoire)] relative">
         {title}
       </h3>
       <div className="gold-rule w-12 my-5" />

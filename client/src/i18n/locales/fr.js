@@ -162,6 +162,42 @@ export default {
   "addfig.lookup_no_results": "Aucun résultat AniList.",
   "addfig.lookup_min": "Au moins 2 caractères.",
 
+  // External figurine search (orzgk + MFC)
+  "lookup.figure.open": "Chercher cette figurine sur orzgk / MFC",
+  "lookup.figure.placeholder": "Nendoroid Miku, Asuka 1/6, Saber Alter… ou colle un lien orzgk",
+  "lookup.figure.paste_hint": "Astuce — colle un lien orzgk.com/product/… pour importer directement",
+  "lookup.figure.url_detected": "Lien détecté — ouverture de la fiche…",
+  "lookup.figure.hint_min": "Tape au moins 2 caractères pour lancer la recherche.",
+  "lookup.figure.no_results": "Aucun résultat. Essaie un autre mot-clé.",
+  "lookup.figure.source_prefix": "Source :",
+
+  // Detail modal (orzgk product page import)
+  "lookup.figure.detail.eyebrow": "Import orzgk",
+  "lookup.figure.detail.loading": "Chargement de la fiche…",
+  "lookup.figure.detail.images_count": "visuels disponibles",
+  "lookup.figure.detail.step_version": "Choisis la version",
+  "lookup.figure.detail.step_price": "Choisis le prix",
+  "lookup.figure.detail.no_prices": "Aucun prix renseigné sur cette fiche.",
+  "lookup.figure.detail.apply": "Appliquer",
+  "lookup.figure.detail.payment.deposit": "Acompte",
+  "lookup.figure.detail.payment.full": "Paiement complet",
+  // Spec field labels — mirror the orzgk page headers.
+  "lookup.figure.detail.field.brand": "Marque",
+  "lookup.figure.detail.field.origin": "Origine",
+  "lookup.figure.detail.field.character": "Personnage",
+  "lookup.figure.detail.field.kind": "Type",
+  "lookup.figure.detail.field.scale": "Échelle",
+  "lookup.figure.detail.field.size": "Dimensions",
+  "lookup.figure.detail.field.height_mm": "Hauteur (mm)",
+  "lookup.figure.detail.field.height_range": "Plage de hauteur",
+  "lookup.figure.detail.field.material": "Matière",
+  "lookup.figure.detail.field.feature": "Spécificité",
+  "lookup.figure.detail.field.limited_units": "Édition limitée",
+  "lookup.figure.detail.field.preorder_start_date": "Précommande",
+  "lookup.figure.detail.field.est_completion": "Sortie estimée",
+  "lookup.figure.detail.field.est_released_time": "Sortie estimée",
+  "lookup.figure.detail.field.special_description": "Particularité",
+
   // Shared figure-form labels (used by AddFigurePage and FigureEditDialog)
   "figure.form.save": "Enregistrer les modifications",
   "figure.form.section.identity.eyebrow": "Identification",

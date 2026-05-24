@@ -4,6 +4,7 @@ import { useMe } from "../hooks/useMe.js";
 import { useMyStats } from "../hooks/useStats.js";
 import AppShell from "../components/AppShell.jsx";
 import Card from "../components/Card.jsx";
+import CountUp from "../components/CountUp.jsx";
 
 /**
  * Direction B — Statistics page. Whole-collection breakdowns inspired by
@@ -145,11 +146,14 @@ function Headlines({ data, t }) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
       {items.map((it) => (
-        <Card key={it.label} className="p-5 text-center">
-          <p className="display text-4xl md:text-5xl text-[var(--color-or)] leading-none">
-            {Number(it.value).toLocaleString()}
+        <Card
+          key={it.label}
+          className="p-5 text-center magnetic shimmer glass"
+        >
+          <p className="figural-xl text-5xl md:text-6xl text-[var(--color-or)]">
+            <CountUp value={Number(it.value) || 0} />
           </p>
-          <p className="micro mt-3">{it.label}</p>
+          <p className="label-mono mt-3">{it.label}</p>
         </Card>
       ))}
     </div>

@@ -490,3 +490,290 @@ textarea.vitrine-textarea:focus {
   border-color: var(--color-or);
   outline: none;
 }
+
+/* ============================================================================
+ * Édition 2026 — modernization layer
+ *
+ * Glass surfaces, light sweeps, magnetic interactions, animated counters,
+ * marquee atmospherics, headline contrast. Layered ON TOP of the existing
+ * Direction B vocabulary — old `.card-lift`, `.spotlight`, `.gold-rule`,
+ * etc. still work and are still used. These primitives just give every
+ * page a sharper, more contemporary edge.
+ * ============================================================================ */
+
+/* ---- Glass surfaces ------------------------------------------------------ */
+
+/* Frosted glass card — modern alternative to the matte noir-soft Card.
+   The pseudo-element layers an interior gold-tinted highlight so the
+   surface still reads as luxe-dark, not generic Apple-glass. */
+.glass {
+  position: relative;
+  background: linear-gradient(
+    160deg,
+    oklch(0.19 0.008 50 / 0.6),
+    oklch(0.14 0.005 50 / 0.4)
+  );
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  border: 1px solid oklch(0.78 0.10 80 / 0.18);
+  box-shadow:
+    0 20px 60px -30px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 oklch(0.92 0.03 75 / 0.08);
+  isolation: isolate;
+}
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    oklch(0.78 0.10 80 / 0.05) 0%,
+    transparent 30%
+  );
+  z-index: -1;
+}
+
+/* Even glassier surface for floating UI (popovers, drawers). */
+.glass-strong {
+  background: oklch(0.14 0.005 50 / 0.72);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  border: 1px solid oklch(0.78 0.10 80 / 0.22);
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.95);
+}
+
+/* ---- Headline display tweaks --------------------------------------------- */
+
+/* Slightly tighter, bolder Cormorant for hero numbers / KPIs — looks more
+   like a 2026 luxury product than a museum docent. Uses the variable-axis
+   wght available on the loaded family. */
+.display-tight {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 0.92;
+  font-feature-settings: "ss01", "ss02";
+}
+
+/* Hero-scale numerals with oldstyle figures. Used by <CountUp>. */
+.figural-xl {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-variant-numeric: oldstyle-nums tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 0.9;
+}
+
+/* Modern uppercase label, denser than .micro. Use for KPI captions and the
+   eyebrow row of hero sections. */
+.label-mono {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+}
+
+/* ---- Light sweep across gold elements (hover only) ----------------------- */
+
+/* Apply on a parent that contains a gold border/text element. On hover the
+   gold catches a diagonal sweep of light — subtle, but anchors the luxury
+   feel and signals interactivity. */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    oklch(0.92 0.03 75 / 0.12) 50%,
+    transparent 70%
+  );
+  transform: translateX(-130%);
+  transition: transform 700ms var(--ease-curtain);
+  z-index: 1;
+}
+.shimmer:hover::after {
+  transform: translateX(130%);
+}
+
+/* ---- Magnetic-feel buttons / tappable surfaces --------------------------- */
+
+/* CSS-only pseudo-magnetism: hover scales the element up subtly, the inside
+   border glows a tad brighter. Combine with `.shimmer` for the full feel. */
+.magnetic {
+  transition:
+    transform 260ms var(--ease-curtain),
+    box-shadow 300ms var(--ease-quick),
+    border-color 200ms var(--ease-quick),
+    background-color 200ms var(--ease-quick);
+  will-change: transform;
+}
+.magnetic:hover {
+  transform: translateY(-2px) scale(1.012);
+}
+.magnetic:active {
+  transform: translateY(0) scale(0.995);
+}
+
+/* ---- Bento grids --------------------------------------------------------- */
+
+/* Modern dashboard layout — mix of tile sizes that reads more like a 2026
+   product page than a uniform grid. Use grid-area names from the parent. */
+.bento {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-rows: minmax(120px, auto);
+}
+@media (max-width: 768px) {
+  .bento {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+/* ---- Marquee — ambient infinite scroll ---------------------------------- */
+
+@keyframes marquee-scroll {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+
+.marquee {
+  position: relative;
+  overflow: hidden;
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 8%,
+    black 92%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 8%,
+    black 92%,
+    transparent 100%
+  );
+}
+.marquee__track {
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll var(--marquee-duration, 60s) linear infinite;
+}
+.marquee:hover .marquee__track,
+.marquee:focus-within .marquee__track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee__track {
+    animation: none;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ---- Cross-fade hero stack (used by CountUp + image rotators) ----------- */
+
+@keyframes count-flicker {
+  0%   { opacity: 0; transform: translateY(8px) rotateX(-30deg); }
+  100% { opacity: 1; transform: translateY(0)   rotateX(0); }
+}
+.count-digit {
+  display: inline-block;
+  animation: count-flicker 480ms var(--ease-curtain) backwards;
+}
+
+/* ---- Refined gold link (used in nav + inline links) --------------------- */
+
+.gold-link {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4em;
+  color: var(--color-or-pale);
+  transition: color 180ms var(--ease-quick);
+}
+.gold-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  height: 1px;
+  width: 100%;
+  background: var(--color-or);
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 380ms var(--ease-curtain);
+}
+.gold-link:hover {
+  color: var(--color-or);
+}
+.gold-link:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+/* ---- 2026 ribbon divider (alt to gold-rule, with kanji slot) ------------- */
+
+.ribbon-rule {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  color: var(--color-or);
+}
+.ribbon-rule::before,
+.ribbon-rule::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    oklch(0.78 0.10 80 / 0.5) 30%,
+    oklch(0.78 0.10 80 / 0.5) 70%,
+    transparent
+  );
+}
+.ribbon-rule__glyph {
+  font-family: var(--font-ja);
+  font-size: 1.4rem;
+  letter-spacing: 0.5em;
+  color: var(--color-or);
+  opacity: 0.6;
+}
+
+/* ---- Tasteful selection (slightly warmer than the default ::selection) -- */
+
+::selection {
+  background: oklch(0.78 0.10 80 / 0.85);
+  color: var(--color-noir);
+}
+
+/* ---- Smooth scroll on hash links ---------------------------------------- */
+
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+
+/* ---- Hover-glow for inline interactive icons (the avatar, the +CTA, ⌘K) - */
+
+.glow-on-hover {
+  transition: filter 250ms var(--ease-quick), color 200ms var(--ease-quick);
+}
+.glow-on-hover:hover {
+  filter: drop-shadow(0 0 12px oklch(0.78 0.10 80 / 0.5));
+}

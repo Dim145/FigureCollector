@@ -6,6 +6,7 @@ import { useOwnedItems, useRemoveOwnedItem } from "../hooks/useCollection.js";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
 import Card from "../components/Card.jsx";
+import CountUp from "../components/CountUp.jsx";
 import FigureCard from "../components/FigureCard.jsx";
 import { resolveOwnedCover } from "../lib/coverUrl.js";
 import { preorderBadgeLabel, preorderPhase } from "../lib/preorderStatus.js";
@@ -206,9 +207,9 @@ export default function CollectionPage() {
 function Counter({ label, value }) {
   return (
     <div>
-      <dt className="micro-tight">{label}</dt>
-      <dd className="figural text-5xl text-[var(--color-or)] leading-none mt-1">
-        {value}
+      <dt className="label-mono">{label}</dt>
+      <dd className="figural-xl text-6xl text-[var(--color-or)] mt-1">
+        <CountUp value={value} />
       </dd>
     </div>
   );

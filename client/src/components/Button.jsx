@@ -13,11 +13,11 @@ export default function Button({
   ...props
 }) {
   const base =
-    "inline-flex items-center justify-center gap-2 px-6 py-3 font-medium tracking-wide transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed";
+    "relative overflow-hidden inline-flex items-center justify-center gap-2 px-6 py-3 font-medium tracking-wide magnetic shimmer disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none";
 
   const variants = {
     primary:
-      "bg-[var(--color-or)] text-[var(--color-noir)] hover:bg-[var(--color-or-pale)] active:bg-[var(--color-or)]",
+      "bg-[var(--color-or)] text-[var(--color-noir)] hover:bg-[var(--color-or-pale)] active:bg-[var(--color-or)] shadow-[0_10px_25px_-12px_oklch(0.78_0.10_80_/_0.6)]",
     ghost:
       "border border-[var(--color-or)]/40 text-[var(--color-ivoire)] hover:border-[var(--color-or)] hover:bg-[var(--color-or)]/5",
   };

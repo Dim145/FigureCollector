@@ -150,6 +150,42 @@ export default {
   "addfig.lookup_no_results": "No AniList results.",
   "addfig.lookup_min": "At least 2 characters.",
 
+  // External figurine search (orzgk + MFC)
+  "lookup.figure.open": "Search this figure on orzgk / MFC",
+  "lookup.figure.placeholder": "Nendoroid Miku, Asuka 1/6, Saber Alter… or paste an orzgk link",
+  "lookup.figure.paste_hint": "Tip — paste an orzgk.com/product/… URL to import directly",
+  "lookup.figure.url_detected": "Link detected — opening the listing…",
+  "lookup.figure.hint_min": "Type at least 2 characters to start the search.",
+  "lookup.figure.no_results": "No results. Try a different keyword.",
+  "lookup.figure.source_prefix": "Source:",
+
+  // Detail modal (orzgk product page import)
+  "lookup.figure.detail.eyebrow": "Import from orzgk",
+  "lookup.figure.detail.loading": "Loading product page…",
+  "lookup.figure.detail.images_count": "images available",
+  "lookup.figure.detail.step_version": "Pick a version",
+  "lookup.figure.detail.step_price": "Pick a tariff",
+  "lookup.figure.detail.no_prices": "No price information on this listing.",
+  "lookup.figure.detail.apply": "Apply",
+  "lookup.figure.detail.payment.deposit": "Deposit",
+  "lookup.figure.detail.payment.full": "Full payment",
+  // Spec field labels — mirror the orzgk page headers.
+  "lookup.figure.detail.field.brand": "Brand",
+  "lookup.figure.detail.field.origin": "From",
+  "lookup.figure.detail.field.character": "Character",
+  "lookup.figure.detail.field.kind": "Type",
+  "lookup.figure.detail.field.scale": "Scale",
+  "lookup.figure.detail.field.size": "Dimensions",
+  "lookup.figure.detail.field.height_mm": "Height (mm)",
+  "lookup.figure.detail.field.height_range": "Height range",
+  "lookup.figure.detail.field.material": "Material",
+  "lookup.figure.detail.field.feature": "Feature",
+  "lookup.figure.detail.field.limited_units": "Limited run",
+  "lookup.figure.detail.field.preorder_start_date": "Pre-order start",
+  "lookup.figure.detail.field.est_completion": "Estimated release",
+  "lookup.figure.detail.field.est_released_time": "Estimated release",
+  "lookup.figure.detail.field.special_description": "Notes",
+
   // Shared figure-form labels (used by AddFigurePage and FigureEditDialog)
   "figure.form.save": "Save changes",
   "figure.form.section.identity.eyebrow": "Identification",

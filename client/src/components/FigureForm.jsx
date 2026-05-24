@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 import AniListLookup from "./AniListLookup.jsx";
 import Button from "./Button.jsx";
+import FigureLookup from "./FigureLookup.jsx";
 import FormField from "./FormField.jsx";
 import Select from "./Select.jsx";
 
@@ -79,6 +80,21 @@ export default function FigureForm({
           onChange={set("name")}
           required
           disabled={busy}
+        />
+        {/* External lookup — searches orzgk + MFC and pre-fills the form on pick. */}
+        <FigureLookup
+          initial={form.name}
+          onPick={(pick) =>
+            setForm((s) => ({
+              ...s,
+              // Only overwrite fields the lookup actually returned; leave
+              // anything the user has already typed alone if the lookup
+              // didn't fill that slot.
+              ...Object.fromEntries(
+                Object.entries(pick).filter(([_, v]) => v !== undefined && v !== ""),
+              ),
+            }))
+          }
         />
         <div className="grid sm:grid-cols-2 gap-5">
           <FormField
