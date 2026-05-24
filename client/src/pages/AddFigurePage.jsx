@@ -4,6 +4,7 @@ import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useAddOwnedItem, useCreateFigure } from "../hooks/useCollection.js";
 import AppShell from "../components/AppShell.jsx";
+import AniListLookup from "../components/AniListLookup.jsx";
 import Button from "../components/Button.jsx";
 import Card from "../components/Card.jsx";
 import FormField from "../components/FormField.jsx";
@@ -131,12 +132,23 @@ export default function AddFigurePage() {
                 onChange={set("sculptor_name")}
                 disabled={isPending}
               />
-              <FormField
-                label={t("addfig.field.series")}
-                value={form.series_name}
-                onChange={set("series_name")}
-                disabled={isPending}
-              />
+              <div>
+                <FormField
+                  label={t("addfig.field.series")}
+                  value={form.series_name}
+                  onChange={set("series_name")}
+                  disabled={isPending}
+                />
+                <AniListLookup
+                  initial={form.series_name}
+                  onPick={(pick) => {
+                    setForm((s) => ({
+                      ...s,
+                      series_name: pick.romaji ?? pick.english ?? pick.native ?? s.series_name,
+                    }));
+                  }}
+                />
+              </div>
               <FormField
                 label={t("addfig.field.character")}
                 value={form.character_name}

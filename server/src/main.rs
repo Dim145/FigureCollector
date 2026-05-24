@@ -8,6 +8,7 @@ mod db;
 mod domain;
 mod error;
 mod events;
+mod external;
 mod routes;
 mod state;
 mod storage;

@@ -67,6 +67,9 @@ rust-s3 = { version = "0.36", default-features = false, features = ["tokio-rustl
 # --- Image decoding / EXIF-strip via re-encode ---
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 
+# --- HTML scraping (MFC parser; the live fetcher is gated behind Cloudflare) ---
+scraper = { version = "0.20", default-features = false }
+
 # --- TLS provider (installed as rustls default at startup) ---
 rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs", "tls12"] }
 

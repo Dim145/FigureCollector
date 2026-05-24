@@ -101,6 +101,11 @@ export default {
   "addfig.field.version_name": "Version",
   "addfig.submit": "Create entry",
   "addfig.also_add": "Also add to my collection",
+  "addfig.lookup_anilist": "Search this series on AniList",
+  "addfig.lookup_placeholder": "Vocaloid, Demon Slayer, FF VII…",
+  "addfig.lookup_apply": "Use this result",
+  "addfig.lookup_no_results": "No AniList results.",
+  "addfig.lookup_min": "At least 2 characters.",
 
   "figure.add_to_collection": "Add to my collection",
   "figure.already_owned": "In your collection",
