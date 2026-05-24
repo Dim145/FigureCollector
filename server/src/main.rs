@@ -66,7 +66,7 @@ async fn main() -> anyhow::Result<()> {
     )
     .await;
 
-    let pool = db::connect_and_migrate(&config).await?;
+    let (pool, db) = db::connect_and_migrate(&config).await?;
     let session_layer = auth::sessions::build(&pool).await?;
     let storage = Storage::from_env()?;
     let events = EventBus::new();
@@ -89,6 +89,7 @@ async fn main() -> anyhow::Result<()> {
 
     let state = AppState {
         pool,
+        db,
         config: config.clone(),
         oidc,
         http: http_client,
