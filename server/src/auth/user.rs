@@ -27,6 +27,10 @@ pub struct PublicUser {
     pub display_name: String,
     pub avatar_url: Option<String>,
     pub locale: String,
+    /// Exposed so the SPA can show or hide admin entry points. Not used as
+    /// an authorisation gate by itself — every admin endpoint re-checks
+    /// `is_admin` server-side.
+    pub is_admin: bool,
 }
 
 impl From<User> for PublicUser {
@@ -37,6 +41,7 @@ impl From<User> for PublicUser {
             display_name: u.display_name,
             avatar_url: u.avatar_url,
             locale: u.locale,
+            is_admin: u.is_admin,
         }
     }
 }
@@ -54,9 +59,13 @@ pub async fn create_local(
     let mut tx = pool.begin().await?;
     let user_id = Uuid::now_v7();
 
+    // Bootstrap: the very first user on a fresh DB gets admin. Computed
+    // *inside* the transaction so two simultaneous signups can't both win.
+    let is_admin = should_bootstrap_admin(&mut tx).await?;
+
     let insert_sql = format!(
-        "INSERT INTO users (id, username, email, display_name, locale) \
-         VALUES ($1, $2, $3, $4, 'fr') \
+        "INSERT INTO users (id, username, email, display_name, locale, is_admin) \
+         VALUES ($1, $2, $3, $4, 'fr', $5) \
          RETURNING {USER_COLUMNS}"
     );
     let row: User = match sqlx::query_as(&insert_sql)
@@ -64,6 +73,7 @@ pub async fn create_local(
         .bind(username)
         .bind(email)
         .bind(display_name)
+        .bind(is_admin)
         .fetch_one(&mut *tx)
         .await
     {
@@ -81,7 +91,22 @@ pub async fn create_local(
         .await?;
 
     tx.commit().await?;
+    if row.is_admin {
+        tracing::info!(user_id = %row.id, username, "first user promoted to admin");
+    }
     Ok(row)
+}
+
+/// Promote the first ever user to admin. Called inside a transaction so two
+/// simultaneous signups can't both flip to true (the `SELECT COUNT(*)` runs
+/// in the same row-locking context as the subsequent INSERT).
+async fn should_bootstrap_admin(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+) -> AppResult<bool> {
+    let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*)::bigint FROM users")
+        .fetch_one(&mut **tx)
+        .await?;
+    Ok(count == 0)
 }
 
 pub async fn find_by_username(pool: &PgPool, username: &str) -> AppResult<Option<User>> {
@@ -185,10 +210,13 @@ pub async fn upsert_oauth_user(
     let user_id = Uuid::now_v7();
     let mut attempted = candidate.clone();
 
+    // Same bootstrap as create_local: the first user on a clean DB is admin.
+    let is_admin = should_bootstrap_admin(&mut tx).await?;
+
     let user: User = loop {
         let insert_sql = format!(
-            "INSERT INTO users (id, username, email, display_name, avatar_url, locale) \
-             VALUES ($1, $2, $3, $4, $5, 'fr') \
+            "INSERT INTO users (id, username, email, display_name, avatar_url, locale, is_admin) \
+             VALUES ($1, $2, $3, $4, $5, 'fr', $6) \
              RETURNING {USER_COLUMNS}"
         );
         let result = sqlx::query_as::<_, User>(&insert_sql)
@@ -197,6 +225,7 @@ pub async fn upsert_oauth_user(
             .bind(email)
             .bind(&display_name)
             .bind(avatar_url)
+            .bind(is_admin)
             .fetch_one(&mut *tx)
             .await;
 

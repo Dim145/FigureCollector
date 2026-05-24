@@ -235,6 +235,158 @@ pub async fn find_by_id(pool: &PgPool, id: Uuid) -> AppResult<Option<Figure>> {
         .await?)
 }
 
+/// Partial update on the catalog row. Used by `PATCH /api/figures/{id}`,
+/// gated by the route to admins + the figure's creator.
+#[derive(Debug, Clone, Deserialize, Default)]
+pub struct FigurePatch {
+    pub name: Option<String>,
+    pub manufacturer_name: Option<String>,
+    pub sculptor_name: Option<String>,
+    pub figure_type: Option<String>,
+    pub scale: Option<String>,
+    pub height_mm: Option<i32>,
+    pub materials: Option<Vec<String>>,
+    pub release_date: Option<NaiveDate>,
+    pub msrp_amount: Option<Decimal>,
+    pub msrp_currency: Option<String>,
+    pub jan: Option<String>,
+    pub exclusivity: Option<String>,
+    pub edition: Option<String>,
+    pub version_name: Option<String>,
+    pub official_image_url: Option<String>,
+    pub description: Option<String>,
+    pub series_name: Option<String>,
+    pub character_name: Option<String>,
+}
+
+pub async fn patch(pool: &PgPool, id: Uuid, input: FigurePatch) -> AppResult<Figure> {
+    if let Some(ft) = &input.figure_type {
+        if !ALLOWED_TYPES.contains(&ft.as_str()) {
+            return Err(AppError::BadRequest("invalid figure_type"));
+        }
+    }
+    if let Some(c) = &input.msrp_currency {
+        if c.len() != ALLOWED_CURRENCIES_LEN {
+            return Err(AppError::BadRequest("msrp_currency must be ISO 4217 (3 chars)"));
+        }
+    }
+    if let Some(n) = &input.name {
+        if n.trim().is_empty() {
+            return Err(AppError::BadRequest("name cannot be blank"));
+        }
+        if n.len() > 256 {
+            return Err(AppError::BadRequest("name too long (max 256)"));
+        }
+    }
+
+    let mut tx = pool.begin().await?;
+
+    // Resolve optional FK lookups, same upsert paths as create().
+    let manufacturer_id = match input.manufacturer_name.as_deref().map(str::trim) {
+        Some(n) if !n.is_empty() => Some(upsert_manufacturer(&mut tx, n).await?),
+        _ => None,
+    };
+    let sculptor_id = match input.sculptor_name.as_deref().map(str::trim) {
+        Some(n) if !n.is_empty() => Some(upsert_sculptor(&mut tx, n).await?),
+        _ => None,
+    };
+
+    let update_sql = format!(
+        "UPDATE figures SET
+            name               = COALESCE($1, name),
+            manufacturer_id    = COALESCE($2, manufacturer_id),
+            sculptor_id        = COALESCE($3, sculptor_id),
+            figure_type        = COALESCE($4, figure_type),
+            scale              = COALESCE($5, scale),
+            height_mm          = COALESCE($6, height_mm),
+            materials          = COALESCE($7, materials),
+            release_date       = COALESCE($8, release_date),
+            msrp_amount        = COALESCE($9, msrp_amount),
+            msrp_currency      = COALESCE($10, msrp_currency),
+            jan                = COALESCE($11, jan),
+            exclusivity        = COALESCE($12, exclusivity),
+            edition            = COALESCE($13, edition),
+            version_name       = COALESCE($14, version_name),
+            official_image_url = COALESCE($15, official_image_url),
+            description        = COALESCE($16, description)
+         WHERE id = $17
+         RETURNING {FIGURE_COLUMNS}"
+    );
+
+    let updated: Option<Figure> = sqlx::query_as(&update_sql)
+        .bind(&input.name)
+        .bind(manufacturer_id)
+        .bind(sculptor_id)
+        .bind(&input.figure_type)
+        .bind(&input.scale)
+        .bind(input.height_mm)
+        .bind(&input.materials)
+        .bind(input.release_date)
+        .bind(input.msrp_amount)
+        .bind(&input.msrp_currency)
+        .bind(&input.jan)
+        .bind(&input.exclusivity)
+        .bind(&input.edition)
+        .bind(&input.version_name)
+        .bind(&input.official_image_url)
+        .bind(&input.description)
+        .bind(id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(map_unique_violation)?;
+
+    let figure = updated.ok_or(AppError::NotFound)?;
+
+    // Series / character associations — if the patch passed a value, sync.
+    // We don't try to remove old links here; that's a v2 concern.
+    let series_id = match input.series_name.as_deref().map(str::trim) {
+        Some(n) if !n.is_empty() => Some(upsert_series(&mut tx, n).await?),
+        _ => None,
+    };
+    if let Some(sid) = series_id {
+        sqlx::query(
+            "INSERT INTO figure_series (figure_id, series_id) VALUES ($1, $2) \
+             ON CONFLICT DO NOTHING",
+        )
+        .bind(figure.id)
+        .bind(sid)
+        .execute(&mut *tx)
+        .await?;
+    }
+    let character_id = match (input.character_name.as_deref().map(str::trim), series_id) {
+        (Some(n), sid) if !n.is_empty() => Some(upsert_character(&mut tx, n, sid).await?),
+        _ => None,
+    };
+    if let Some(cid) = character_id {
+        sqlx::query(
+            "INSERT INTO figure_characters (figure_id, character_id) VALUES ($1, $2) \
+             ON CONFLICT DO NOTHING",
+        )
+        .bind(figure.id)
+        .bind(cid)
+        .execute(&mut *tx)
+        .await?;
+    }
+
+    tx.commit().await?;
+    Ok(figure)
+}
+
+/// Hard-delete a figure. Cascading is handled by the schema:
+/// owned_items.figure_id has `ON DELETE CASCADE`, so this also removes any
+/// user's instance of the figure. Admin endpoints must double-check that
+/// the caller really wants this.
+pub async fn delete(pool: &PgPool, id: Uuid) -> AppResult<()> {
+    let result = sqlx::query("DELETE FROM figures WHERE id = $1")
+        .bind(id)
+        .execute(pool)
+        .await?;
+    if result.rows_affected() == 0 {
+        return Err(AppError::NotFound);
+    }
+    Ok(())
+}
+
 // ----- Helpers ---------------------------------------------------------------
 
 async fn upsert_manufacturer(

@@ -1,5 +1,6 @@
+import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "../lib/api.js";
+import { ApiError, api } from "../lib/api.js";
 
 // ----- Figures (catalog) -----------------------------------------------------
 
@@ -12,15 +13,30 @@ export function useFigures(params = {}) {
   return useQuery({
     queryKey: ["figures", params],
     queryFn: () => api.get(`/figures${qs ? `?${qs}` : ""}`),
+    // The service worker is configured StaleWhileRevalidate on /api/figures
+    // so the SW will serve the in-cache list immediately. Force TanStack to
+    // refetch on mount so a deleted figure doesn't linger as a clickable
+    // card after the SW snapshot has gone stale.
+    refetchOnMount: "always",
   });
 }
 
 export function useFigure(id) {
-  return useQuery({
+  const qc = useQueryClient();
+  const query = useQuery({
     queryKey: ["figure", id],
     queryFn: () => api.get(`/figures/${id}`),
     enabled: !!id,
   });
+  // When a figure detail returns 404, the catalog list very likely has a
+  // stale card pointing at the vanished figure. Drop the listing cache so
+  // the next visit to /browse refetches and the dangling card disappears.
+  useEffect(() => {
+    if (query.error instanceof ApiError && query.error.status === 404) {
+      qc.invalidateQueries({ queryKey: ["figures"] });
+    }
+  }, [query.error, qc]);
+  return query;
 }
 
 export function useCreateFigure() {

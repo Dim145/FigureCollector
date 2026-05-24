@@ -2,6 +2,7 @@
 
 pub mod achievement;
 pub mod activity;
+pub mod admin;
 pub mod figure;
 pub mod owned;
 pub mod photo;

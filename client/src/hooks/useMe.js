@@ -53,3 +53,9 @@ export function useAuthProviders() {
     staleTime: Infinity,
   });
 }
+
+/** Convenience: true iff the signed-in user has the admin flag set. */
+export function useIsAdmin() {
+  const me = useMe();
+  return !!me.data?.user?.is_admin;
+}

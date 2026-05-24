@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 import {
   useDeletePhoto,
@@ -25,6 +25,7 @@ export default function PhotoStrip({ ownedId }) {
   const fileInput = useRef(null);
 
   const [pickedFile, setPickedFile] = useState(null);
+  const [lightboxIndex, setLightboxIndex] = useState(null);
 
   const onFile = (e) => {
     const file = e.target.files?.[0];
@@ -74,16 +75,23 @@ export default function PhotoStrip({ ownedId }) {
 
       {photos.data?.length ? (
         <ul className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
-          {photos.data.map((p) => (
+          {photos.data.map((p, i) => (
             <li key={p.id} className="shrink-0 group relative">
-              <img
-                src={`/api/photos/${p.id}`}
-                alt=""
-                width={p.width}
-                height={p.height}
-                className="h-32 w-auto object-cover border border-[var(--color-or)]/20"
-                loading="lazy"
-              />
+              <button
+                type="button"
+                onClick={() => setLightboxIndex(i)}
+                aria-label={t("photos.view")}
+                className="block focus:outline-none focus:ring-2 focus:ring-[var(--color-or)]/60"
+              >
+                <img
+                  src={`/api/photos/${p.id}`}
+                  alt=""
+                  width={p.width}
+                  height={p.height}
+                  className="h-32 w-auto object-cover border border-[var(--color-or)]/20 cursor-zoom-in transition-opacity group-hover:opacity-85"
+                  loading="lazy"
+                />
+              </button>
               <button
                 type="button"
                 onClick={() => remove.mutate(p.id)}
@@ -109,7 +117,107 @@ export default function PhotoStrip({ ownedId }) {
           onCancel={() => setPickedFile(null)}
         />
       ) : null}
+
+      {lightboxIndex !== null && photos.data ? (
+        <PhotoLightbox
+          photos={photos.data}
+          index={lightboxIndex}
+          onChange={setLightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
+      ) : null}
     </section>
+  );
+}
+
+/**
+ * Fullscreen photo viewer. ←/→ navigate, Esc closes, click outside the
+ * image closes too. The image is sized via `object-contain` so portrait
+ * and landscape originals both fit without cropping.
+ */
+function PhotoLightbox({ photos, index, onChange, onClose }) {
+  const t = useT();
+  const photo = photos[index];
+
+  const go = useCallback(
+    (delta) => {
+      const next = (index + delta + photos.length) % photos.length;
+      onChange(next);
+    },
+    [index, photos.length, onChange],
+  );
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft") go(-1);
+      else if (e.key === "ArrowRight") go(1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [go, onClose]);
+
+  if (!photo) return null;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal
+      aria-label={t("photos.view")}
+      onClick={onClose}
+      className="fixed inset-0 z-50 grid place-items-center bg-[var(--color-noir)]/95 backdrop-blur-sm"
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label={t("editor.cancel")}
+        className="absolute top-4 right-4 text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] text-3xl leading-none transition-colors"
+      >
+        ×
+      </button>
+
+      {photos.length > 1 ? (
+        <>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              go(-1);
+            }}
+            aria-label={t("photos.prev")}
+            className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] text-4xl leading-none transition-colors"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              go(1);
+            }}
+            aria-label={t("photos.next")}
+            className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] text-4xl leading-none transition-colors"
+          >
+            ›
+          </button>
+        </>
+      ) : null}
+
+      <img
+        key={photo.id}
+        src={`/api/photos/${photo.id}`}
+        alt=""
+        onClick={(e) => e.stopPropagation()}
+        className="max-w-[92vw] max-h-[88vh] object-contain border border-[var(--color-or)]/30 cursor-default"
+        style={{ boxShadow: "0 60px 120px -60px rgba(0,0,0,0.85)" }}
+      />
+
+      {photos.length > 1 ? (
+        <p className="absolute bottom-4 left-1/2 -translate-x-1/2 font-mono text-[11px] tracking-wider text-[var(--color-or-pale)]">
+          {index + 1} / {photos.length}
+        </p>
+      ) : null}
+    </div>
   );
 }
 

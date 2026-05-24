@@ -1,28 +1,80 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * Drag-to-rotate viewer for a 360° turntable scan.
  *
- * Implementation note: all frames are preloaded as <img> elements so the
- * GPU has them decoded. Switching frames is a single visibility toggle —
- * no flicker, no re-decode.
+ * Frames flow in two phases:
+ *   1. boot — we kick off `Image()` preloads for every frame and count
+ *      onload's. The visible <img> tags don't mount yet (so the viewport
+ *      stays on a holding state rather than flashing half-decoded frames).
+ *   2. ready — once every frame has either loaded or errored, we mount the
+ *      <img> stack and start the auto-spin.
+ *
+ * This kills the "first-load flicker" where auto-spin would step into a
+ * still-fetching frame and blank the viewer for a tick.
  */
 export default function TurntableViewer({ scanId, frameCount }) {
   const containerRef = useRef(null);
   const [current, setCurrent] = useState(0);
   const drag = useRef(null);
 
-  // Auto-spin when not interacting (gentle showcase).
+  // -- Preload phase --------------------------------------------------------
+  const urls = useMemo(
+    () =>
+      Array.from({ length: frameCount }, (_, i) => `/api/scans/${scanId}/frames/${i}`),
+    [scanId, frameCount],
+  );
+  const [loaded, setLoaded] = useState(0);
+
+  useEffect(() => {
+    if (frameCount === 0) return;
+    setLoaded(0);
+    let cancelled = false;
+    const imgs = urls.map((src) => {
+      const im = new Image();
+      // Force decode in browsers that support it so the GPU upload is done
+      // before we ever paint. Best-effort: fall back to onload if decode()
+      // is missing or rejects (some old WebP edge cases).
+      const done = () => {
+        if (cancelled) return;
+        setLoaded((n) => n + 1);
+      };
+      im.onload = () => {
+        if (cancelled) return;
+        if (typeof im.decode === "function") im.decode().finally(done);
+        else done();
+      };
+      im.onerror = done;
+      im.src = src;
+      return im;
+    });
+    return () => {
+      cancelled = true;
+      // Help the GC release the decoded pixels if the user nav'd away
+      // before completion.
+      imgs.forEach((im) => {
+        im.onload = null;
+        im.onerror = null;
+        im.src = "";
+      });
+    };
+  }, [urls, frameCount]);
+
+  const ready = frameCount > 0 && loaded >= frameCount;
+
+  // -- Auto-spin (only when ready) -----------------------------------------
   const [autoSpin, setAutoSpin] = useState(true);
   useEffect(() => {
-    if (!autoSpin || frameCount === 0) return;
+    if (!autoSpin || !ready) return;
     const id = setInterval(() => {
       setCurrent((c) => (c + 1) % frameCount);
     }, 80);
     return () => clearInterval(id);
-  }, [autoSpin, frameCount]);
+  }, [autoSpin, ready, frameCount]);
 
+  // -- Pointer drag ---------------------------------------------------------
   const onPointerDown = (e) => {
+    if (!ready) return;
     setAutoSpin(false);
     drag.current = { startX: e.clientX, startFrame: current };
     containerRef.current?.setPointerCapture(e.pointerId);
@@ -41,6 +93,8 @@ export default function TurntableViewer({ scanId, frameCount }) {
     containerRef.current?.releasePointerCapture(e.pointerId);
   };
 
+  const pct = frameCount > 0 ? Math.round((loaded / frameCount) * 100) : 0;
+
   return (
     <div
       ref={containerRef}
@@ -49,34 +103,66 @@ export default function TurntableViewer({ scanId, frameCount }) {
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
       onDoubleClick={() => setAutoSpin((x) => !x)}
-      className="relative bg-[var(--color-noir)] border border-[var(--color-or)]/20 cursor-grab active:cursor-grabbing select-none touch-none aspect-square"
+      className={`relative bg-[var(--color-noir)] border border-[var(--color-or)]/20 select-none touch-none aspect-square ${
+        ready ? "cursor-grab active:cursor-grabbing" : "cursor-progress"
+      }`}
       role="img"
       aria-label="360° turntable viewer"
     >
-      {/* All frames mounted, visibility toggled — preserves decoded state */}
-      {Array.from({ length: frameCount }, (_, i) => (
-        <img
-          key={i}
-          src={`/api/scans/${scanId}/frames/${i}`}
-          alt=""
-          draggable={false}
-          loading="eager"
-          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
-          style={{ visibility: i === current ? "visible" : "hidden" }}
-        />
-      ))}
+      {ready
+        ? // All frames mounted, visibility toggled — preserves decoded state
+          urls.map((src, i) => (
+            <img
+              key={i}
+              src={src}
+              alt=""
+              draggable={false}
+              loading="eager"
+              className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+              style={{ visibility: i === current ? "visible" : "hidden" }}
+            />
+          ))
+        : (
+          // Holding state — gold ring + percentage so the viewer never paints
+          // a half-decoded frame.
+          <div className="absolute inset-0 grid place-items-center pointer-events-none">
+            <div className="text-center">
+              <div
+                aria-hidden
+                className="relative mx-auto w-16 h-16 rounded-full border border-[var(--color-or)]/20"
+              >
+                <div
+                  className="absolute inset-0 rounded-full border border-transparent border-t-[var(--color-or)]"
+                  style={{ animation: "spin 1.2s linear infinite" }}
+                />
+              </div>
+              <p className="micro mt-4 font-mono">
+                {loaded}/{frameCount}
+              </p>
+              <p className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-ivoire-soft)] mt-1">
+                {pct}%
+              </p>
+            </div>
+          </div>
+        )}
 
       {/* Progress ring at the bottom */}
       <div className="absolute bottom-3 left-3 right-3 pointer-events-none">
         <div className="h-px bg-[var(--color-or)]/15">
           <div
             className="h-px bg-[var(--color-or)] transition-[width] duration-75"
-            style={{ width: `${((current + 1) / frameCount) * 100}%` }}
+            style={{
+              width: ready
+                ? `${((current + 1) / frameCount) * 100}%`
+                : `${pct}%`,
+            }}
           />
         </div>
         <div className="mt-1.5 flex justify-between text-[10px] font-mono tracking-wider text-[var(--color-or-pale)] opacity-80">
-          <span>{current + 1}/{frameCount}</span>
-          <span>{autoSpin ? "↻ auto" : "✋ drag"}</span>
+          <span>
+            {ready ? `${current + 1}/${frameCount}` : `${loaded}/${frameCount}`}
+          </span>
+          <span>{ready ? (autoSpin ? "↻ auto" : "✋ drag") : "⌛ load"}</span>
         </div>
       </div>
     </div>

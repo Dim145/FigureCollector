@@ -1,11 +1,12 @@
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
-import { useLogout, useMe } from "../hooks/useMe.js";
+import { useIsAdmin, useLogout, useMe } from "../hooks/useMe.js";
 import LocaleSwitcher from "./LocaleSwitcher.jsx";
 
 export default function AppShell({ children }) {
   const t = useT();
   const me = useMe();
+  const isAdmin = useIsAdmin();
   const navigate = useNavigate();
   const logout = useLogout();
 
@@ -33,6 +34,7 @@ export default function AppShell({ children }) {
             <NavItem to="/stats">{t("nav.stats")}</NavItem>
             <NavItem to="/activity">{t("activity.title")}</NavItem>
             <NavItem to="/figures/new">{t("nav.add_figure")}</NavItem>
+            {isAdmin ? <NavItem to="/admin">{t("nav.admin")}</NavItem> : null}
             <NavItem to="/settings">{t("nav.settings")}</NavItem>
           </nav>
 
