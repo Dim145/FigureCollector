@@ -289,4 +289,14 @@ export default {
 
   "turntable.uploading": "Uploading scan…",
   "turntable.uploading_hint": "Keep the app open.",
+
+  "turntable.wizard.generate_3d": "3D model (Gaussian Splatting)",
+  "turntable.wizard.gsplat_hint": "The 3D model will be trained on your GPU sidecar (~10-30 minutes after upload). The 2D scan remains usable in the meantime.",
+  "gsplat.loading": "Loading 3D model…",
+  "gsplat.viewer_label": "3D model — click-drag to orbit, scroll to zoom",
+  "gsplat.processing": "Training the 3D model…",
+  "gsplat.pending": "Queued…",
+  "gsplat.processing_hint": "The Gaussian Splatting sidecar is crunching on GPU. Allow ~10-30 minutes depending on frame count and figure complexity. Nothing to do on your side.",
+  "gsplat.failed": "3D training failed",
+  "gsplat.retry": "Start another scan",
 };

@@ -7,17 +7,18 @@ import TurntableVideo from "./TurntableVideo.jsx";
 const TABS = ["camera", "video", "import"];
 
 /**
- * Fullscreen wizard with three capture modes. Each mode hands back an array
- * of Blob frames; this wraps them in the upload callback supplied by the
- * caller (PhotoStrip / TurntableSection).
+ * Fullscreen wizard with three capture modes plus a Phase 5B toggle for
+ * "Generate full 3D model (Gaussian Splatting)". Same capture flows in
+ * either mode — the toggle only flips `kind` on submit.
  */
 export default function TurntableWizard({ onUpload, onCancel, busy }) {
   const t = useT();
   const [tab, setTab] = useState("camera");
+  const [generate3d, setGenerate3d] = useState(false);
 
   const handle = async (frames) => {
     if (!frames || frames.length < 6) return;
-    await onUpload(frames);
+    await onUpload(frames, generate3d ? "gsplat" : "turntable");
   };
 
   return (
@@ -26,13 +27,14 @@ export default function TurntableWizard({ onUpload, onCancel, busy }) {
       aria-modal
       className="fixed inset-0 z-50 bg-[var(--color-noir)]/95 backdrop-blur-sm flex flex-col"
     >
-      <header className="flex items-center justify-between px-6 py-3 border-b border-[var(--color-or)]/20 bg-[var(--color-noir-soft)]/80">
-        <div>
+      <header className="flex items-center justify-between gap-4 px-6 py-3 border-b border-[var(--color-or)]/20 bg-[var(--color-noir-soft)]/80">
+        <div className="min-w-0">
           <p className="micro">{t("turntable.wizard.subtitle")}</p>
-          <h2 className="display text-xl text-[var(--color-ivoire)] mt-0.5">
+          <h2 className="display text-xl text-[var(--color-ivoire)] mt-0.5 truncate">
             {t("turntable.wizard.title")}
           </h2>
         </div>
+
         <nav className="flex items-center gap-1 text-[11px] uppercase tracking-[0.18em]">
           {TABS.map((key) => (
             <button
@@ -49,16 +51,65 @@ export default function TurntableWizard({ onUpload, onCancel, busy }) {
             </button>
           ))}
         </nav>
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={busy}
-          aria-label={t("editor.cancel")}
-          className="text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] text-2xl leading-none transition-colors"
-        >
-          ×
-        </button>
+
+        <div className="flex items-center gap-4">
+          <label className="hidden md:flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={generate3d}
+              onChange={(e) => setGenerate3d(e.target.checked)}
+              className="accent-[var(--color-or)] w-4 h-4"
+            />
+            <span
+              className={
+                generate3d
+                  ? "text-[var(--color-or)]"
+                  : "text-[var(--color-ivoire-soft)]"
+              }
+            >
+              🧊 {t("turntable.wizard.generate_3d")}
+            </span>
+          </label>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            aria-label={t("editor.cancel")}
+            className="text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] text-2xl leading-none transition-colors"
+          >
+            ×
+          </button>
+        </div>
       </header>
+
+      {/* Mobile-only toggle row */}
+      <div className="md:hidden flex items-center justify-end gap-2 px-6 py-2 border-b border-[var(--color-or)]/15 text-[10px] uppercase tracking-[0.18em]">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={generate3d}
+            onChange={(e) => setGenerate3d(e.target.checked)}
+            className="accent-[var(--color-or)] w-4 h-4"
+          />
+          <span
+            className={
+              generate3d
+                ? "text-[var(--color-or)]"
+                : "text-[var(--color-ivoire-soft)]"
+            }
+          >
+            🧊 {t("turntable.wizard.generate_3d")}
+          </span>
+        </label>
+      </div>
+
+      {generate3d ? (
+        <div className="px-6 py-2 bg-[var(--color-or)]/10 border-b border-[var(--color-or)]/20">
+          <p className="text-xs text-[var(--color-or-pale)] text-center">
+            {t("turntable.wizard.gsplat_hint")}
+          </p>
+        </div>
+      ) : null}
 
       <div className="flex-1 overflow-hidden">
         {tab === "camera" && <TurntableCapture onComplete={handle} />}

@@ -5,13 +5,18 @@ import {
   useDeleteScan,
   useScans,
 } from "../hooks/useScans.js";
+import GsplatViewer from "./GsplatViewer.jsx";
 import TurntableViewer from "./TurntableViewer.jsx";
 import TurntableWizard from "./TurntableWizard.jsx";
 
 /**
  * Section rendered on FigureDetailPage when the user owns the figure.
- *   - no scan yet → "Add 360° scan" button → opens wizard
- *   - one or more scans → display the latest viewer + replace / delete actions
+ * Phase 5A: turntable viewer. Phase 5B: branches on the latest scan's kind
+ * and state to render either:
+ *   - turntable + ready                → drag-to-rotate viewer
+ *   - gsplat   + ready + result_key    → Gaussian Splatting WebGL viewer
+ *   - gsplat   + pending / processing  → "Training in progress" state
+ *   - gsplat   + failed                → error + retry button
  */
 export default function TurntableSection({ ownedId }) {
   const t = useT();
@@ -20,17 +25,30 @@ export default function TurntableSection({ ownedId }) {
   const remove = useDeleteScan(ownedId);
   const [wizardOpen, setWizardOpen] = useState(false);
 
-  const ready = (scans.data ?? []).filter((s) => s.state === "ready");
-  const latest = ready[0];
+  const all = scans.data ?? [];
+  const readyGsplat = all.find(
+    (s) => s.kind === "gsplat" && s.state === "ready" && s.result_key,
+  );
+  const inFlightGsplat = all.find(
+    (s) => s.kind === "gsplat" && (s.state === "pending" || s.state === "processing"),
+  );
+  const failedGsplat = all.find((s) => s.kind === "gsplat" && s.state === "failed");
+  const latestTurntable = all.find((s) => s.kind === "turntable" && s.state === "ready");
 
-  const onUpload = async (frames) => {
+  const onUpload = async (frames, kind) => {
     try {
-      await create.mutateAsync({ frames, kind: "turntable" });
+      await create.mutateAsync({ frames, kind });
       setWizardOpen(false);
     } catch (e) {
-      // Error surfaced via mutation state; keep wizard open so user can retry.
       // eslint-disable-next-line no-console
-      console.warn("[turntable] upload failed", e);
+      console.warn("[scan] upload failed", e);
+    }
+  };
+
+  const replaceLatest = (scanId) => {
+    if (!scanId) return;
+    if (confirm(t("turntable.section.confirm_replace"))) {
+      remove.mutate(scanId);
     }
   };
 
@@ -39,14 +57,12 @@ export default function TurntableSection({ ownedId }) {
       <header className="flex items-baseline justify-between mb-3">
         <h2 className="micro">{t("turntable.section.title")}</h2>
         <div className="flex items-center gap-3">
-          {latest ? (
+          {readyGsplat || latestTurntable ? (
             <button
               type="button"
-              onClick={() => {
-                if (confirm(t("turntable.section.confirm_replace"))) {
-                  remove.mutate(latest.id);
-                }
-              }}
+              onClick={() =>
+                replaceLatest(readyGsplat?.id ?? latestTurntable?.id)
+              }
               className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] transition-colors"
             >
               {t("turntable.section.replace")}
@@ -57,7 +73,7 @@ export default function TurntableSection({ ownedId }) {
             onClick={() => setWizardOpen(true)}
             className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-or)] hover:text-[var(--color-or-pale)]"
           >
-            {latest
+            {readyGsplat || latestTurntable
               ? t("turntable.section.add_more")
               : t("turntable.section.add_first")}
           </button>
@@ -65,23 +81,50 @@ export default function TurntableSection({ ownedId }) {
       </header>
 
       {create.error ? (
-        <p role="alert" className="text-xs text-[var(--color-laque-bright)] border-l-2 border-[var(--color-laque-bright)] pl-2 py-1 mb-3">
+        <p
+          role="alert"
+          className="text-xs text-[var(--color-laque-bright)] border-l-2 border-[var(--color-laque-bright)] pl-2 py-1 mb-3"
+        >
           {create.error.message}
         </p>
       ) : null}
 
-      {latest ? (
-        <div className="max-w-md">
-          <TurntableViewer scanId={latest.id} frameCount={latest.frame_count} />
-          <p className="micro mt-2">
-            {t("turntable.section.frame_count", { n: latest.frame_count })}
+      <div className="max-w-md">
+        {readyGsplat ? (
+          <>
+            <GsplatViewer scanId={readyGsplat.id} />
+            <p className="micro mt-2">{t("gsplat.viewer_label")}</p>
+          </>
+        ) : inFlightGsplat ? (
+          <ProcessingNotice
+            state={inFlightGsplat.state}
+            fallback={latestTurntable}
+            t={t}
+          />
+        ) : failedGsplat ? (
+          <FailureNotice
+            scan={failedGsplat}
+            t={t}
+            onRetry={() => setWizardOpen(true)}
+          />
+        ) : latestTurntable ? (
+          <>
+            <TurntableViewer
+              scanId={latestTurntable.id}
+              frameCount={latestTurntable.frame_count}
+            />
+            <p className="micro mt-2">
+              {t("turntable.section.frame_count", {
+                n: latestTurntable.frame_count,
+              })}
+            </p>
+          </>
+        ) : (
+          <p className="text-sm text-[var(--color-ivoire-soft)] italic">
+            {t("turntable.section.empty")}
           </p>
-        </div>
-      ) : (
-        <p className="text-sm text-[var(--color-ivoire-soft)] italic">
-          {t("turntable.section.empty")}
-        </p>
-      )}
+        )}
+      </div>
 
       {wizardOpen ? (
         <TurntableWizard
@@ -91,5 +134,52 @@ export default function TurntableSection({ ownedId }) {
         />
       ) : null}
     </section>
+  );
+}
+
+function ProcessingNotice({ state, fallback, t }) {
+  return (
+    <div className="space-y-3">
+      {fallback ? (
+        <TurntableViewer scanId={fallback.id} frameCount={fallback.frame_count} />
+      ) : (
+        <div className="aspect-square w-full bg-[var(--color-noir)] border border-[var(--color-or)]/15 grid place-items-center">
+          <p className="ja text-6xl text-[var(--color-or)]/30 animate-pulse">処理中</p>
+        </div>
+      )}
+      <div className="flex items-center gap-2 text-[var(--color-or-pale)]">
+        <span className="inline-block w-2 h-2 bg-[var(--color-or)] animate-pulse rounded-full" />
+        <span className="micro">
+          {state === "processing"
+            ? t("gsplat.processing")
+            : t("gsplat.pending")}
+        </span>
+      </div>
+      <p className="text-xs text-[var(--color-ivoire-soft)]">
+        {t("gsplat.processing_hint")}
+      </p>
+    </div>
+  );
+}
+
+function FailureNotice({ scan, t, onRetry }) {
+  return (
+    <div className="border border-[var(--color-laque-bright)]/40 bg-[var(--color-laque)]/10 p-4 space-y-3">
+      <p className="display text-base text-[var(--color-laque-bright)]">
+        {t("gsplat.failed")}
+      </p>
+      {scan.error_message ? (
+        <pre className="text-xs text-[var(--color-ivoire-soft)] whitespace-pre-wrap overflow-auto max-h-40 font-mono">
+          {scan.error_message.slice(0, 600)}
+        </pre>
+      ) : null}
+      <button
+        type="button"
+        onClick={onRetry}
+        className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-or)] hover:text-[var(--color-or-pale)]"
+      >
+        {t("gsplat.retry")}
+      </button>
+    </div>
   );
 }

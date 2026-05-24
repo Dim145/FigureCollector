@@ -317,4 +317,15 @@ export default {
 
   "turntable.uploading": "Envoi du scan…",
   "turntable.uploading_hint": "Ne ferme pas l'application.",
+
+  // Phase 5B — Gaussian Splatting
+  "turntable.wizard.generate_3d": "Modèle 3D (Gaussian Splatting)",
+  "turntable.wizard.gsplat_hint": "Le modèle 3D sera entraîné sur ton serveur GPU (env. 10-30 minutes après upload). Le scan 2D reste utilisable en attendant.",
+  "gsplat.loading": "Chargement du modèle 3D…",
+  "gsplat.viewer_label": "Modèle 3D — clique-glisse pour orbiter, molette pour zoomer",
+  "gsplat.processing": "Entraînement du modèle 3D…",
+  "gsplat.pending": "En file d'attente…",
+  "gsplat.processing_hint": "Le sidecar Gaussian Splatting tourne sur GPU. Compte ~10-30 minutes selon le nombre d'images et la complexité de la figurine. Aucune action de ta part.",
+  "gsplat.failed": "Échec de l'entraînement 3D",
+  "gsplat.retry": "Relancer un scan",
 };

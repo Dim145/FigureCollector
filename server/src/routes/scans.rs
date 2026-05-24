@@ -226,9 +226,45 @@ async fn fetch_frame(
     Ok((headers, Body::from(bytes)).into_response())
 }
 
+/// Phase 5B: stream the trained Gaussian Splat (`result.ply`) back through
+/// the backend so Garage can stay private.
+async fn fetch_splat(
+    State(state): State<AppState>,
+    session: Session,
+    Path(scan_id): Path<Uuid>,
+) -> AppResult<Response> {
+    let scan_row = scan::find_by_id(&state.pool, scan_id)
+        .await?
+        .ok_or(AppError::NotFound)?;
+    let viewer: Option<Uuid> = session.get("user_id").await?;
+    scan::assert_visible(&state.pool, viewer, &scan_row).await?;
+
+    if scan_row.state != "ready" {
+        return Err(AppError::NotFound);
+    }
+    let result_key = scan_row
+        .result_key
+        .as_deref()
+        .ok_or(AppError::NotFound)?;
+
+    let (bytes, mime) = state.storage.get(result_key).await?;
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_str(mime.as_deref().unwrap_or("model/ply"))
+            .unwrap_or_else(|_| HeaderValue::from_static("model/ply")),
+    );
+    headers.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=31536000, immutable"),
+    );
+    Ok((headers, Body::from(bytes)).into_response())
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/me/owned/{id}/scans", get(list_scans).post(create_scan))
         .route("/me/owned/{owned_id}/scans/{scan_id}", delete(delete_scan))
         .route("/scans/{scan_id}/frames/{idx}", get(fetch_frame))
+        .route("/scans/{scan_id}/splat", get(fetch_splat))
 }
