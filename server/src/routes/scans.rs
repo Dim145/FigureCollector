@@ -15,6 +15,7 @@
 //! otherwise only the owner.
 
 use crate::auth;
+use crate::domain::achievement;
 use crate::domain::scan::{self, ALLOWED_KINDS};
 use crate::error::{AppError, AppResult};
 use crate::events::Event;
@@ -149,6 +150,17 @@ async fn create_scan(
     state
         .events
         .publish(user_id, Event::OwnedItemPhotosChanged { owned_id });
+
+    if let Ok(newly) = achievement::check_and_grant(&state.db, &state.pool, user_id).await {
+        if !newly.is_empty() {
+            state.events.publish(
+                user_id,
+                Event::AchievementsUnlocked {
+                    codes: newly.iter().map(|a| a.code.clone()).collect(),
+                },
+            );
+        }
+    }
 
     tracing::info!(
         user_id = %user_id,

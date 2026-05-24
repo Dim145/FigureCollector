@@ -21,36 +21,11 @@ pub struct Model {
     pub last_login_at: Option<DateTime<Utc>>,
 }
 
+// No relations declared on the parent side — sea-orm only needs them when we
+// actively join from `users::Entity` via `find_with_related`. Adding them
+// later is purely additive. The child entities (oauth_identities, owned_items,
+// etc.) carry the `belongs_to` declarations they need.
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {
-    #[sea_orm(has_many = "super::oauth_identities::Entity")]
-    OauthIdentities,
-    #[sea_orm(has_one = "super::local_credentials::Entity")]
-    LocalCredentials,
-    #[sea_orm(has_many = "super::owned_items::Entity")]
-    OwnedItems,
-    #[sea_orm(has_many = "super::preorders::Entity")]
-    Preorders,
-    #[sea_orm(has_many = "super::activity_events::Entity")]
-    ActivityEvents,
-}
-
-impl Related<super::oauth_identities::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::OauthIdentities.def()
-    }
-}
-
-impl Related<super::local_credentials::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::LocalCredentials.def()
-    }
-}
-
-impl Related<super::owned_items::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::OwnedItems.def()
-    }
-}
+pub enum Relation {}
 
 impl ActiveModelBehavior for ActiveModel {}

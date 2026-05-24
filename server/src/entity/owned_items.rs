@@ -37,28 +37,6 @@ pub enum Relation {
         on_delete = "Restrict"
     )]
     Figure,
-    #[sea_orm(has_many = "super::photos::Entity")]
-    Photos,
-    #[sea_orm(has_many = "super::scans::Entity")]
-    Scans,
-}
-
-impl Related<super::figures::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Figure.def()
-    }
-}
-
-impl Related<super::photos::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Photos.def()
-    }
-}
-
-impl Related<super::scans::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Scans.def()
-    }
 }
 
 impl ActiveModelBehavior for ActiveModel {}

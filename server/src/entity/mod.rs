@@ -9,6 +9,7 @@
 //! the rest still query through `state.pool`. Both paths share the same
 //! underlying connection (sea-orm wraps the sqlx PgPool).
 
+pub mod achievements;
 pub mod activity_events;
 pub mod characters;
 pub mod external_lookups;
@@ -25,5 +26,6 @@ pub mod preorders;
 pub mod scans;
 pub mod sculptors;
 pub mod series;
+pub mod user_achievements;
 pub mod users;
 pub mod wishlist_items;

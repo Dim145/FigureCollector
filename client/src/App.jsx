@@ -12,10 +12,13 @@ import ComparePage from "./pages/ComparePage.jsx";
 import SettingsPage from "./pages/SettingsPage.jsx";
 import ActivityPage from "./pages/ActivityPage.jsx";
 import YearInReviewPage from "./pages/YearInReviewPage.jsx";
+import AchievementsPage from "./pages/AchievementsPage.jsx";
 import CommandPalette from "./components/CommandPalette.jsx";
 import LiveSyncProvider from "./components/LiveSyncProvider.jsx";
 import OfflineIndicator from "./components/OfflineIndicator.jsx";
 import UpdateToast from "./components/UpdateToast.jsx";
+import GChordProvider from "./components/GChordProvider.jsx";
+import AchievementCeremony from "./components/AchievementCeremony.jsx";
 
 export default function App() {
   return (
@@ -33,6 +36,7 @@ export default function App() {
           <Route path="/activity" element={<ActivityPage />} />
           <Route path="/year-in-review/:year" element={<YearInReviewPage />} />
           <Route path="/year-in-review" element={<YearInReviewPage />} />
+          <Route path="/achievements" element={<AchievementsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/u/:slug" element={<PublicProfilePage />} />
           <Route path="/compare/:slug" element={<ComparePage />} />
@@ -41,6 +45,8 @@ export default function App() {
         <CommandPalette />
         <OfflineIndicator />
         <UpdateToast />
+        <GChordProvider />
+        <AchievementCeremony />
       </LiveSyncProvider>
     </BrowserRouter>
   );

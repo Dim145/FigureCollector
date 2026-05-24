@@ -1,8 +1,8 @@
 //! `/api/me/preorders/*` — pre-orders with release-date slip history.
 
 use crate::auth;
-use crate::domain::{activity, preorder};
 use crate::domain::preorder::{NewPreorder, PreorderPatch};
+use crate::domain::{achievement, activity, preorder};
 use crate::error::AppResult;
 use crate::events::Event;
 use crate::state::AppState;
@@ -51,6 +51,18 @@ async fn add_mine(
             figure_id: po.figure_id,
         },
     );
+
+    if let Ok(newly) = achievement::check_and_grant(&state.db, &state.pool, user_id).await {
+        if !newly.is_empty() {
+            state.events.publish(
+                user_id,
+                Event::AchievementsUnlocked {
+                    codes: newly.iter().map(|a| a.code.clone()).collect(),
+                },
+            );
+        }
+    }
+
     Ok((StatusCode::CREATED, Json(po)))
 }
 
@@ -117,6 +129,19 @@ async fn patch_mine(
     state
         .events
         .publish(user_id, Event::PreorderUpdated { preorder_id: id });
+
+    // Status changes can flip "preorders_received" — re-evaluate.
+    if let Ok(newly) = achievement::check_and_grant(&state.db, &state.pool, user_id).await {
+        if !newly.is_empty() {
+            state.events.publish(
+                user_id,
+                Event::AchievementsUnlocked {
+                    codes: newly.iter().map(|a| a.code.clone()).collect(),
+                },
+            );
+        }
+    }
+
     Ok(Json(updated))
 }
 

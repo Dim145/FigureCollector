@@ -28,6 +28,7 @@ pub enum Event {
     PreorderUpdated { preorder_id: Uuid },
     PreorderDeleted { preorder_id: Uuid },
     ProfileUpdated,
+    AchievementsUnlocked { codes: Vec<String> },
 }
 
 #[derive(Clone, Default)]

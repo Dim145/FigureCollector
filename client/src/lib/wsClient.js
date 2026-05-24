@@ -96,6 +96,15 @@ function handleEvent(msg, qc) {
         qc.invalidateQueries({ queryKey: ["preorder-history", msg.preorder_id] });
       }
       return;
+    case "achievements_unlocked":
+      qc.invalidateQueries({ queryKey: ["me", "achievements"] });
+      // Surface a soft, non-blocking ceremony for each newly-unlocked code.
+      if (Array.isArray(msg.codes)) {
+        window.dispatchEvent(
+          new CustomEvent("fc:achievements-unlocked", { detail: msg.codes }),
+        );
+      }
+      return;
     case "profile_updated":
       qc.invalidateQueries({ queryKey: ["me"] });
       qc.invalidateQueries({ queryKey: ["public-profile"] });

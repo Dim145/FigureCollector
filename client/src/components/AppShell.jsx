@@ -29,6 +29,7 @@ export default function AppShell({ children }) {
             <NavItem to="/collection">{t("nav.collection")}</NavItem>
             <NavItem to="/preorders">{t("nav.preorders")}</NavItem>
             <NavItem to="/browse">{t("nav.browse")}</NavItem>
+            <NavItem to="/achievements">{t("achievements.title")}</NavItem>
             <NavItem to="/activity">{t("activity.title")}</NavItem>
             <NavItem to="/figures/new">{t("nav.add_figure")}</NavItem>
             <NavItem to="/settings">{t("nav.settings")}</NavItem>

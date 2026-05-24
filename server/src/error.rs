@@ -16,6 +16,9 @@ pub enum AppError {
     #[error("database error: {0}")]
     Db(#[from] sqlx::Error),
 
+    #[error("orm error: {0}")]
+    Orm(#[from] sea_orm::DbErr),
+
     #[error("session error: {0}")]
     Session(#[from] tower_sessions::session::Error),
 
@@ -52,6 +55,7 @@ impl AppError {
         match self {
             AppError::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "internal"),
             AppError::Db(_) => (StatusCode::INTERNAL_SERVER_ERROR, "db"),
+            AppError::Orm(_) => (StatusCode::INTERNAL_SERVER_ERROR, "orm"),
             AppError::Session(_) => (StatusCode::INTERNAL_SERVER_ERROR, "session"),
             AppError::PasswordHash(_) => (StatusCode::INTERNAL_SERVER_ERROR, "password_hash"),
             AppError::NotFound => (StatusCode::NOT_FOUND, "not_found"),

@@ -3,6 +3,12 @@ use rust_decimal::Decimal;
 use sea_orm::entity::prelude::*;
 use uuid::Uuid;
 
+// NOTE: the `materials TEXT[]` column is intentionally omitted here. Sea-orm's
+// derive macro doesn't have a clean `Vec<String>` mapping for Postgres native
+// arrays without extra column_type wrangling, and the only consumer of
+// `materials` today is `domain::figure` which still talks to PG via raw sqlx.
+// If sea-orm queries ever need to surface materials, we can add a custom
+// column type or split the table into a 1:N child.
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
 #[sea_orm(table_name = "figures")]
 pub struct Model {
@@ -16,8 +22,6 @@ pub struct Model {
     pub figure_type: String,
     pub scale: Option<String>,
     pub height_mm: Option<i32>,
-    #[sea_orm(column_type = "Custom(\"TEXT[]\".to_owned())")]
-    pub materials: Vec<String>,
     pub release_date: Option<NaiveDate>,
     pub msrp_amount: Option<Decimal>,
     pub msrp_currency: Option<String>,
@@ -50,22 +54,6 @@ pub enum Relation {
         on_delete = "SetNull"
     )]
     Sculptor,
-    #[sea_orm(has_many = "super::owned_items::Entity")]
-    OwnedItems,
-    #[sea_orm(has_many = "super::preorders::Entity")]
-    Preorders,
-}
-
-impl Related<super::manufacturers::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Manufacturer.def()
-    }
-}
-
-impl Related<super::sculptors::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Sculptor.def()
-    }
 }
 
 impl ActiveModelBehavior for ActiveModel {}

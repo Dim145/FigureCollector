@@ -1,8 +1,8 @@
 //! `/api/me/owned/*` — the signed-in user's physical collection.
 
 use crate::auth;
-use crate::domain::{activity, owned};
 use crate::domain::owned::{NewOwnedItem, OwnedPatch};
+use crate::domain::{achievement, activity, owned};
 use crate::error::AppResult;
 use crate::events::Event;
 use crate::state::AppState;
@@ -47,6 +47,19 @@ async fn add_mine(
         },
     );
     tracing::info!(user_id = %user_id, figure_id = %item.figure_id, "owned_item added");
+
+    // Phase 4B: re-evaluate the achievements rules.
+    if let Ok(newly) = achievement::check_and_grant(&state.db, &state.pool, user_id).await {
+        if !newly.is_empty() {
+            state.events.publish(
+                user_id,
+                Event::AchievementsUnlocked {
+                    codes: newly.iter().map(|a| a.code.clone()).collect(),
+                },
+            );
+        }
+    }
+
     Ok((StatusCode::CREATED, Json(item)))
 }
 

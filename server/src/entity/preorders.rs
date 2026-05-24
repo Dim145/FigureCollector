@@ -38,14 +38,6 @@ pub enum Relation {
         on_delete = "Restrict"
     )]
     Figure,
-    #[sea_orm(has_many = "super::preorder_date_history::Entity")]
-    History,
-}
-
-impl Related<super::preorder_date_history::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::History.def()
-    }
 }
 
 impl ActiveModelBehavior for ActiveModel {}
