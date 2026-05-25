@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 import { useDefaultCurrency } from "../hooks/useMe.js";
 import AniListLookup from "./AniListLookup.jsx";
@@ -55,6 +55,34 @@ export default function FigureForm({
     setForm(normalise(initial, defaultCurrency));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial?.id]);
+
+  // `useDefaultCurrency()` is backed by `useMe()` and starts as JPY (the
+  // built-in fallback) until /api/me resolves and the user's stored
+  // preference lands. Without the effect below, a user whose preference is
+  // EUR would see a JPY-defaulted form on every cold page load.
+  //
+  // We track the last-applied default in a ref: while the field still holds
+  // *that exact value*, we treat it as untouched and swap to the new
+  // default. Once the user picks anything else (or the form is in Edit
+  // mode where `initial.msrp_currency` is already set), the swap stops.
+  const lastAppliedDefaultRef = useRef(defaultCurrency);
+  useEffect(() => {
+    if (!defaultCurrency) return;
+    if (initial?.msrp_currency) return; // edit mode — never override
+    setForm((s) => {
+      // Field is the previous default → user hasn't touched it → re-seed.
+      if (s.msrp_currency === lastAppliedDefaultRef.current) {
+        lastAppliedDefaultRef.current = defaultCurrency;
+        if (s.msrp_currency === defaultCurrency) return s;
+        return { ...s, msrp_currency: defaultCurrency };
+      }
+      // User-modified — leave it alone but update the tracked default so
+      // any future change to `defaultCurrency` is correctly bypassed.
+      lastAppliedDefaultRef.current = defaultCurrency;
+      return s;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultCurrency, initial?.id]);
 
   const set = (k) => (v) => setForm((s) => ({ ...s, [k]: v }));
 

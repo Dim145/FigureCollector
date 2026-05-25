@@ -5,6 +5,7 @@ import {
   useDeleteScan,
   useScans,
 } from "../hooks/useScans.js";
+import ConfirmDialog from "./ConfirmDialog.jsx";
 import GsplatViewer from "./GsplatViewer.jsx";
 import TurntableViewer from "./TurntableViewer.jsx";
 import TurntableWizard from "./TurntableWizard.jsx";
@@ -24,6 +25,9 @@ export default function TurntableSection({ ownedId }) {
   const create = useCreateScan(ownedId);
   const remove = useDeleteScan(ownedId);
   const [wizardOpen, setWizardOpen] = useState(false);
+  // Scan-id queued for confirmation; null when the dialog is closed.
+  // Replaces a `window.confirm()` that couldn't be styled or focus-trapped.
+  const [pendingReplaceId, setPendingReplaceId] = useState(null);
 
   const all = scans.data ?? [];
   const readyGsplat = all.find(
@@ -47,9 +51,7 @@ export default function TurntableSection({ ownedId }) {
 
   const replaceLatest = (scanId) => {
     if (!scanId) return;
-    if (confirm(t("turntable.section.confirm_replace"))) {
-      remove.mutate(scanId);
-    }
+    setPendingReplaceId(scanId);
   };
 
   return (
@@ -133,6 +135,22 @@ export default function TurntableSection({ ownedId }) {
           busy={create.isPending}
         />
       ) : null}
+
+      <ConfirmDialog
+        open={!!pendingReplaceId}
+        title={t("turntable.section.replace")}
+        body={t("turntable.section.confirm_replace")}
+        destructive
+        busy={remove.isPending}
+        onCancel={() => setPendingReplaceId(null)}
+        onConfirm={() => {
+          if (pendingReplaceId) {
+            remove.mutate(pendingReplaceId, {
+              onSettled: () => setPendingReplaceId(null),
+            });
+          }
+        }}
+      />
     </section>
   );
 }

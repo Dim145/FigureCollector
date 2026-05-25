@@ -70,6 +70,16 @@ export default function AppShell({ children }) {
 
   return (
     <div className="min-h-dvh flex flex-col">
+      {/* Skip link — hidden until focused, then jumps the user past the
+          nav directly to <main>. Critical for keyboard users on a
+          multi-row top bar. The styling is intentionally aggressive
+          (gold pill, top-left) so it's unmissable when it appears. */}
+      <a
+        href="#fc-main"
+        className="sr-only-focusable focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:bg-[var(--color-or)] focus:text-[var(--color-noir)] focus:px-3 focus:py-2 focus:text-[11px] focus:uppercase focus:tracking-[0.22em]"
+      >
+        {t("a11y.skip_to_content", { default: "Skip to content" })}
+      </a>
       <header
         className={`sticky top-0 z-40 transition-all duration-300 ${
           scrolled
@@ -205,7 +215,7 @@ export default function AppShell({ children }) {
         ) : null}
       </header>
 
-      <main ref={mainRef} tabIndex={-1} className="flex-1 relative focus:outline-none">
+      <main id="fc-main" ref={mainRef} tabIndex={-1} className="flex-1 relative focus:outline-none">
         {children}
       </main>
 

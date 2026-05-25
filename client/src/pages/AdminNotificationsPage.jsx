@@ -5,6 +5,7 @@ import {
   useAdminUpdateChannel,
   useGenerateVapid,
 } from "../hooks/useNotifications.js";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 
 /**
  * Admin · Notifications channels.
@@ -113,6 +114,9 @@ function AdminChannelCard({ channel, t }) {
   const [config, setConfig] = useState(channel.config ?? {});
   const [dirty, setDirty] = useState(false);
   const [vapidNotice, setVapidNotice] = useState(null);
+  // True while the "overwrite existing VAPID keypair?" dialog is open.
+  // Replaces a `window.confirm()` — same UX, but styled + focus-trapped.
+  const [vapidOverwriteOpen, setVapidOverwriteOpen] = useState(false);
 
   useEffect(() => {
     setConfig(channel.config ?? {});
@@ -128,13 +132,7 @@ function AdminChannelCard({ channel, t }) {
    *  flag the form as dirty. Existing keys (if any) are overwritten — we
    *  warn first since users with active push subscriptions will need to
    *  re-subscribe after a key rotation. */
-  const onGenerateVapid = () => {
-    const hasExisting =
-      !!config.vapid_public_key || !!config.vapid_private_key;
-    if (hasExisting) {
-      const ok = window.confirm(t("admin.notif.vapid.confirm_overwrite"));
-      if (!ok) return;
-    }
+  const runGenerateVapid = () => {
     generateVapid.mutate(undefined, {
       onSuccess: (data) => {
         setConfig({
@@ -153,6 +151,17 @@ function AdminChannelCard({ channel, t }) {
         setVapidNotice(`✗ ${err?.message ?? "Generation failed"}`);
       },
     });
+  };
+
+  const onGenerateVapid = () => {
+    const hasExisting =
+      !!config.vapid_public_key || !!config.vapid_private_key;
+    if (hasExisting) {
+      // Defer the actual mutation until the confirmation dialog accepts.
+      setVapidOverwriteOpen(true);
+      return;
+    }
+    runGenerateVapid();
   };
 
   const onToggle = () => {
@@ -241,6 +250,19 @@ function AdminChannelCard({ channel, t }) {
           </div>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={vapidOverwriteOpen}
+        title={t("admin.notif.vapid.generate")}
+        body={t("admin.notif.vapid.confirm_overwrite")}
+        destructive
+        busy={generateVapid.isPending}
+        onCancel={() => setVapidOverwriteOpen(false)}
+        onConfirm={() => {
+          setVapidOverwriteOpen(false);
+          runGenerateVapid();
+        }}
+      />
     </article>
   );
 }

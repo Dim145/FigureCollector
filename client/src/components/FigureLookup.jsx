@@ -117,7 +117,15 @@ export default function FigureLookup({ initial = "", onPick }) {
     setTimeout(() => inputRef.current?.focus(), 30);
   };
 
+  // Monotonically-incrementing token: each `openDetail` call captures the
+  // current token + bumps it. When the fetch resolves, we only write to
+  // state if our token is still the latest. This invalidates stale
+  // completions when the user types/clears around a URL fast enough to
+  // chain calls — without it, a slow earlier fetch could clobber a fresh
+  // later one and re-render the dialog with the wrong product.
+  const detailReqRef = useRef(0);
   const openDetail = (url) => {
+    const myReq = ++detailReqRef.current;
     setDetailFor(url);
     setDetail(null);
     setDetailError(null);
@@ -125,10 +133,12 @@ export default function FigureLookup({ initial = "", onPick }) {
     api
       .get(`/external/orzgk/detail?url=${encodeURIComponent(url)}`)
       .then((d) => {
+        if (detailReqRef.current !== myReq) return; // a newer call superseded us
         setDetail(d);
         setDetailBusy(false);
       })
       .catch((e) => {
+        if (detailReqRef.current !== myReq) return;
         setDetailError(e?.message ?? "Detail fetch failed");
         setDetailBusy(false);
       });

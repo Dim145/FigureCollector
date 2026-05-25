@@ -5,6 +5,7 @@ import { useMe } from "../hooks/useMe.js";
 import { useAddOwnedItem, useCreateFigure } from "../hooks/useCollection.js";
 import AppShell from "../components/AppShell.jsx";
 import Card from "../components/Card.jsx";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import FigureForm from "../components/FigureForm.jsx";
 import { mapApiError } from "../lib/errorMap.js";
 
@@ -15,20 +16,15 @@ export default function AddFigurePage() {
   const createFigure = useCreateFigure();
   const addOwned = useAddOwnedItem();
   const [alsoAddToCollection, setAlsoAddToCollection] = useState(true);
+  // Payload waiting for an NSFW-warning acknowledgement. Stays null in the
+  // happy path. Replaces a `window.confirm()` whose UX clashed with the
+  // rest of the site's modal style.
+  const [pendingNsfwPayload, setPendingNsfwPayload] = useState(null);
 
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
 
-  const onSubmit = async (payload) => {
-    // If the user tags a figure as NSFW while their own pref hides them,
-    // warn (but don't block) — they may want to set the pref to "blur" or
-    // "show" before they continue, or they might be content uploading for
-    // others without seeing it themselves.
-    const pref = me.data?.user?.nsfw_visibility ?? "hide";
-    if (payload.is_nsfw && pref === "hide") {
-      const ok = window.confirm(t("nsfw.warn_on_create"));
-      if (!ok) return;
-    }
+  const runSubmit = async (payload) => {
     try {
       const figure = await createFigure.mutateAsync(payload);
       if (alsoAddToCollection) {
@@ -48,6 +44,19 @@ export default function AddFigurePage() {
     } catch {
       /* surfaced via createFigure.error */
     }
+  };
+
+  const onSubmit = async (payload) => {
+    // If the user tags a figure as NSFW while their own pref hides them,
+    // warn (but don't block) — they may want to set the pref to "blur" or
+    // "show" before they continue, or they might be content uploading for
+    // others without seeing it themselves.
+    const pref = me.data?.user?.nsfw_visibility ?? "hide";
+    if (payload.is_nsfw && pref === "hide") {
+      setPendingNsfwPayload(payload);
+      return;
+    }
+    await runSubmit(payload);
   };
 
   const errorMessage = createFigure.error
@@ -91,6 +100,18 @@ export default function AddFigurePage() {
           />
         </Card>
       </main>
+      <ConfirmDialog
+        open={!!pendingNsfwPayload}
+        title={t("nsfw.warn_on_create.title", { default: t("nsfw.warn_on_create") })}
+        body={t("nsfw.warn_on_create")}
+        busy={isPending}
+        onCancel={() => setPendingNsfwPayload(null)}
+        onConfirm={() => {
+          const payload = pendingNsfwPayload;
+          setPendingNsfwPayload(null);
+          if (payload) runSubmit(payload);
+        }}
+      />
     </AppShell>
   );
 }
