@@ -64,6 +64,15 @@ export default function TurntableVideo({ onComplete }) {
       objectUrl = URL.createObjectURL(file);
       video.muted = true;
       video.playsInline = true;
+      // Belt-and-braces: `URL.createObjectURL` only ever returns `blob:`
+      // URLs, but the explicit prefix check (a) is a meaningful guard if
+      // future code ever feeds a different source into `objectUrl`, and
+      // (b) acts as a sanitizer that CodeQL's `js/xss-through-dom` rule
+      // recognises — without it the rule treats `file` (from the picker)
+      // as DOM-sourced and flags this assignment.
+      if (!objectUrl.startsWith("blob:")) {
+        throw new Error("createObjectURL did not return a blob URL");
+      }
       video.src = objectUrl;
 
       // `loadeddata` = first frame buffered. `loadedmetadata` alone leaves

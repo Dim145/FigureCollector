@@ -170,12 +170,17 @@ function Header({ entity, kind, t }) {
         ) : null}
 
         {entity.description ? (
-          <p
-            className="text-sm text-[var(--color-ivoire)] leading-relaxed max-w-prose whitespace-pre-wrap"
-            // AniList sometimes returns descriptions with inline HTML — we
-            // already passed `asHtml: false` server-side but be defensive.
-            dangerouslySetInnerHTML={{ __html: stripHtml(entity.description) }}
-          />
+          // Render as a TEXT node, never as HTML. The previous wiring used
+          // `dangerouslySetInnerHTML={{ __html: stripHtml(...) }}` which
+          // (a) had nothing to gain — `stripHtml` already removed every
+          // tag — and (b) left a residual XSS vector if `stripHtml` ever
+          // failed to neutralise a smuggled `<scr<script>ipt>` payload.
+          // React auto-escapes text content, so this is unconditionally
+          // safe. The `whitespace-pre-wrap` class preserves the `\n` that
+          // `stripHtml` produces in place of `<br>` tags.
+          <p className="text-sm text-[var(--color-ivoire)] leading-relaxed max-w-prose whitespace-pre-wrap">
+            {stripHtml(entity.description)}
+          </p>
         ) : null}
 
         <MetaRows entity={entity} kind={kind} t={t} />
@@ -266,10 +271,20 @@ function kindToApiPath(kind) {
 }
 
 /** AniList descriptions occasionally arrive with `<br>` / `<i>` despite our
- *  `asHtml: false` hint. Strip every angle bracket pair just to be safe. */
+ *  `asHtml: false` hint. We do TWO passes:
+ *
+ *   1. `<br>` → `\n` so paragraph breaks survive (consumers use
+ *      `whitespace-pre-wrap` to render them).
+ *   2. Drop every `<` and `>` outright with a single-character pattern.
+ *      The previous broad `/<[^>]+>/g` strip was multi-character and
+ *      therefore smuggleable per CodeQL's
+ *      `js/incomplete-multi-character-sanitization`: input like
+ *      `<scr<script>ipt>` would yield `<script>` after one pass. The
+ *      single-char strip below can't be smuggled.
+ */
 function stripHtml(s) {
   return String(s ?? "")
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
+    .replace(/[<>]/g, "")
     .trim();
 }

@@ -611,12 +611,16 @@ function anilistTypeToOrigin(mediaType) {
 }
 
 /** Cheap AniList HTML stripper — descriptions occasionally include `<br>`
- *  / `<i>` even with `asHtml: false`. */
+ *  / `<i>` even with `asHtml: false`. The `[<>]` single-character pass is
+ *  what CodeQL recommends for `js/incomplete-multi-character-sanitization`:
+ *  a broad `/<[^>]+>/g` is smuggleable by nested `<scr<script>ipt>` style
+ *  payloads, the bracket-strip can't be. We also keep `<br>` → `\n` first
+ *  so paragraph breaks aren't lost. */
 function stripHtml(s) {
   if (s == null) return undefined;
   const out = String(s)
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
+    .replace(/[<>]/g, "")
     .trim();
   return out || undefined;
 }

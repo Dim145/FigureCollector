@@ -509,12 +509,15 @@ function anilistTypeToOrigin(mediaType) {
 }
 
 /** AniList descriptions sometimes contain `<br>` / `<i>`. Pretty-print
- *  cheaply for the description column (no DOMPurify dependency). */
+ *  cheaply for the description column (no DOMPurify dependency). Uses a
+ *  single-character bracket strip — the multi-character pattern
+ *  `/<[^>]+>/g` is smuggleable (`<scr<script>ipt>` → `<script>` after one
+ *  pass) per CodeQL's `js/incomplete-multi-character-sanitization` rule. */
 function stripHtmlSafe(s) {
   if (!s) return undefined;
   return String(s)
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
+    .replace(/[<>]/g, "")
     .trim() || undefined;
 }
 
