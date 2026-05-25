@@ -1,32 +1,34 @@
-//! OrzGK search scraper.
+//! Detail subpage: `/product/<slug>/` → full [`super::OrzgkDetail`].
 //!
-//! OrzGK is a WordPress-powered e-commerce site for collectible figures and
-//! GK statues. Its default search endpoint is `/?s=<query>` and returns a
-//! fully server-rendered results grid — exactly what we need.
+//! The parser leans on three signal sources, in decreasing reliability:
 //!
-//! The parser is intentionally lenient: anything OrzGK doesn't show ends up
-//! as `None`, never breaks the request. Results are cached in `external_lookups`
-//! for 24h, keyed by the lowercased query, so a rate-limit hit on the upstream
-//! is extremely unlikely.
+//!   1. **WooCommerce variations JSON** — `data-product_variations` on
+//!      the form element. This is what orzgk's own JS consumes, so the
+//!      structure is stable: a single array of variant rows with
+//!      `attributes`, `display_price`, `price_html`, `image`.
+//!   2. **Side-panel spec rows** — short anchor / span pairs like
+//!      `Brand: CROWN Studio`. We walk every element and pick the
+//!      *shortest* candidate so leaf cells beat the parent container's
+//!      concatenated text.
+//!   3. **Free-form description block** — orzgk repeats most of the
+//!      side-panel data here as a `Label: Value` text stream. Useful for
+//!      cleaner copies (`Product IP` vs `From`) and extra fields the
+//!      side-panel doesn't surface (`Size`, `Material`, `Limited No Of Unit`).
 //!
-//! All values surfaced are display-only (raw text + an image URL): we don't
-//! attempt to parse "€53.28 – €133.21" into numeric ranges or convert
-//! currencies — that's domain logic the user does manually when picking a
-//! result to import.
+//! Helpers for each layer live in this file. The split between this and
+//! [`super::search`] keeps each parser at a manageable size; the shared
+//! `collapse_ws` + `extract_scale` live in [`super::common`].
 
+use super::common::{collapse_ws, extract_scale};
+use super::{
+    CACHE_TTL_HOURS, OrzgkDetail, OrzgkPrice, OrzgkVersion, PROVIDER, REQUEST_TIMEOUT_SECS,
+};
 use crate::error::{AppError, AppResult};
 use crate::external::cache;
 use chrono::Duration;
 use scraper::{Html, Selector};
-use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::collections::BTreeMap;
-
-const PROVIDER: &str = "orzgk";
-const CACHE_TTL_HOURS: i64 = 24;
-const SEARCH_TIMEOUT_SECS: u64 = 30;
-/// Soft cap on the number of cards we parse from a single search.
-const MAX_RESULTS: usize = 24;
 
 /// Spec labels we surface from the product detail page. Order matters: it's
 /// the order we walk to pick the *deepest* matching element, and the order
@@ -42,372 +44,6 @@ const DETAIL_LABELS: &[&str] = &[
     "Pre-order Start Date:",
     "Est Released Time:",
 ];
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OrzgkItem {
-    /// Title as it appears on the card. The studio is usually prefixed
-    /// ("GSC - …", "ALTER - …"), see `studio` below.
-    pub title: String,
-    /// Studio name parsed out of the `<studio> - <name>` prefix when present.
-    pub studio: Option<String>,
-    /// "pre-order" / "released" / "pre-order close" / "sold out" — raw.
-    pub status: Option<String>,
-    /// Display string from the card, e.g. "€53.28 – €133.21". Currency
-    /// conversion is intentionally out of scope.
-    pub price_range: Option<String>,
-    /// Best-effort scale extracted from the title ("1/4", "1/7", "non-scale").
-    pub scale: Option<String>,
-    /// Best resolution we can salvage from the lazy-loaded `<img>` (real
-    /// `src` if non-placeholder, else `data-src`, else `srcset` first url).
-    pub image_url: Option<String>,
-    pub detail_url: String,
-}
-
-/// Search OrzGK for `query`, returning up to [`MAX_RESULTS`] cards.
-/// Cached in `external_lookups` for 24h per lowercased query.
-pub async fn search(
-    pool: &PgPool,
-    http: &reqwest::Client,
-    query: &str,
-) -> AppResult<Vec<OrzgkItem>> {
-    let q = query.trim();
-    if q.len() < 2 {
-        return Ok(Vec::new());
-    }
-    let key = q.to_lowercase();
-    let http = http.clone();
-    let q = q.to_string();
-
-    cache::cached_fetch::<Vec<OrzgkItem>, _, _>(
-        pool,
-        PROVIDER,
-        "search",
-        &key,
-        Duration::hours(CACHE_TTL_HOURS),
-        move || async move {
-            // Build the search URL via reqwest's URL helper so we don't
-            // hand-roll the percent-encoding for the query.
-            let mut url = reqwest::Url::parse("https://www.orzgk.com/")
-                .map_err(|e| AppError::Internal(anyhow::anyhow!("orzgk url: {e}")))?;
-            url.query_pairs_mut().append_pair("s", &q);
-            let resp = http
-                .get(url.clone())
-                .header(
-                    reqwest::header::USER_AGENT,
-                    // Pretend to be a regular browser — orzgk is behind
-                    // Cloudflare, which sometimes refuses unknown UAs. We
-                    // identify FigureCollector inside the UA token so server
-                    // logs still see who's hitting them.
-                    "Mozilla/5.0 (compatible; FigureCollector/0.1; +https://github.com/Dim145/FigureCollector)",
-                )
-                .header(reqwest::header::ACCEPT, "text/html,application/xhtml+xml")
-                .header(reqwest::header::ACCEPT_LANGUAGE, "en-US,en;q=0.9,fr;q=0.8")
-                // Be explicit: only gzip; we don't have brotli compiled into
-                // reqwest, so let Cloudflare know it can't send br.
-                .header(reqwest::header::ACCEPT_ENCODING, "gzip, identity")
-                .timeout(std::time::Duration::from_secs(SEARCH_TIMEOUT_SECS))
-                .send()
-                .await
-                .map_err(|e| {
-                    AppError::Internal(anyhow::anyhow!("orzgk fetch failed: {e}"))
-                })?;
-
-            if !resp.status().is_success() {
-                return Err(AppError::Internal(anyhow::anyhow!(
-                    "orzgk returned HTTP {}",
-                    resp.status()
-                )));
-            }
-            let html = resp.text().await.map_err(|e| {
-                AppError::Internal(anyhow::anyhow!("orzgk body read failed: {e}"))
-            })?;
-            Ok(parse_search_html(&html))
-        },
-    )
-    .await
-}
-
-/// Pure parser, public so it can be unit-tested against a fixture without a
-/// live HTTP roundtrip.
-///
-/// Anchors on `.product-small.product` cards (Flatsome theme + WooCommerce).
-/// Inside each card:
-///   - title link:  `.woocommerce-loop-product__title a` (or fall back to
-///                  `.woocommerce-LoopProduct-link` with text content)
-///   - status:      `.awl-label-text` (Advanced Woo Labels plugin)
-///   - price:       `.price-wrapper` (concatenated text — WooCommerce
-///                  renders ranges as multiple `.amount` spans)
-///   - image:       `img` inside the card, with lazy-load fallbacks
-///
-/// Class names like `.product-small`, `.woocommerce-LoopProduct-link`,
-/// `.price-wrapper` are stable parts of the Flatsome theme + WooCommerce
-/// (used across tens of thousands of shops); much less likely to churn
-/// than orzgk's specific layout.
-pub fn parse_search_html(html: &str) -> Vec<OrzgkItem> {
-    let doc = Html::parse_document(html);
-
-    let card_sel = match Selector::parse("div.product-small.product") {
-        Ok(s) => s,
-        Err(_) => return Vec::new(),
-    };
-    let title_text_sel = Selector::parse(".woocommerce-loop-product__title a").unwrap();
-    let loop_link_sel = Selector::parse(".woocommerce-LoopProduct-link").unwrap();
-    let status_sel = Selector::parse(".awl-label-text").unwrap();
-    let price_sel = Selector::parse(".price-wrapper").unwrap();
-    let img_sel = Selector::parse("img").unwrap();
-
-    let mut out: Vec<OrzgkItem> = Vec::new();
-    let mut seen = std::collections::HashSet::new();
-
-    for card in doc.select(&card_sel) {
-        if out.len() >= MAX_RESULTS {
-            break;
-        }
-
-        // ---- detail URL + title ----
-        let anchor = card
-            .select(&title_text_sel)
-            .next()
-            .or_else(|| card.select(&loop_link_sel).next());
-        let (detail_url, title) = match anchor {
-            Some(a) => {
-                let href = a.value().attr("href").unwrap_or("").to_string();
-                let text = a.text().collect::<String>().trim().to_string();
-                (href, text)
-            }
-            None => continue,
-        };
-        if detail_url.is_empty() || title.is_empty() {
-            continue;
-        }
-        let canonical = detail_url
-            .split(['?', '#'])
-            .next()
-            .unwrap_or(&detail_url)
-            .to_string();
-        if !canonical.contains("/product/") {
-            continue;
-        }
-        if !seen.insert(canonical.clone()) {
-            continue;
-        }
-
-        // ---- status (Advanced Woo Labels) ----
-        let status = card
-            .select(&status_sel)
-            .next()
-            .map(|n| n.text().collect::<String>().trim().to_string())
-            .filter(|s| !s.is_empty());
-
-        // ---- price (WooCommerce range or single value) ----
-        // WooCommerce duplicates the price with a `.screen-reader-text` span
-        // ("Price range: …"). We strip everything from that marker on so the
-        // visible "€53.28 – €133.21" stays clean.
-        let price_range = card.select(&price_sel).next().map(|n| {
-            let raw = n.text().collect::<String>();
-            let cleaned = collapse_ws(&raw);
-            cleaned
-                .split("Price range")
-                .next()
-                .unwrap_or(&cleaned)
-                .split("Original price was")
-                .next()
-                .unwrap_or(&cleaned)
-                .trim()
-                .to_string()
-        }).filter(|s| !s.is_empty());
-
-        // ---- studio prefix ----
-        let (studio, clean_title) = match title.split_once(" - ") {
-            Some((prefix, rest))
-                if prefix.len() <= 24 && !prefix.chars().any(|c| c.is_ascii_digit()) =>
-            {
-                (Some(prefix.trim().to_string()), rest.trim().to_string())
-            }
-            _ => (None, title.clone()),
-        };
-
-        let scale = extract_scale(&clean_title);
-
-        // ---- image (lazy-load aware) ----
-        let image_url = card.select(&img_sel).next().and_then(|img| {
-            for k in ["data-src", "data-lazy-src", "data-original", "src"] {
-                if let Some(v) = img.value().attr(k) {
-                    if !v.starts_with("data:") && !v.is_empty() {
-                        return Some(v.to_string());
-                    }
-                }
-            }
-            img.value().attr("srcset").and_then(|set| {
-                set.split(',').next().map(|s| {
-                    s.trim()
-                        .split_whitespace()
-                        .next()
-                        .unwrap_or("")
-                        .to_string()
-                })
-            })
-        });
-
-        out.push(OrzgkItem {
-            title: clean_title,
-            studio,
-            status,
-            price_range,
-            scale,
-            image_url,
-            detail_url: canonical,
-        });
-    }
-
-    out
-}
-
-/// Collapse all whitespace runs into a single space, trim ends. Used so
-/// "  €53.28  –  €133.21\n  " comes out as "€53.28 – €133.21".
-fn collapse_ws(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    let mut prev_space = false;
-    for c in s.chars() {
-        if c.is_whitespace() {
-            if !prev_space {
-                out.push(' ');
-            }
-            prev_space = true;
-        } else {
-            out.push(c);
-            prev_space = false;
-        }
-    }
-    out.trim().to_string()
-}
-
-/// Look for "1/4", "1/6", "1/7", "1/8", "1/10", "1/12", "non-scale" in a
-/// title. First match wins; case-insensitive.
-fn extract_scale(title: &str) -> Option<String> {
-    let lower = title.to_lowercase();
-    if lower.contains("non-scale") || lower.contains("non scale") {
-        return Some("non-scale".into());
-    }
-    // 1/N up to a couple digits — handles "1/4 scale", "1/7 …", etc.
-    for n in [4u8, 5, 6, 7, 8, 10, 12, 16, 24, 144] {
-        let needle = format!("1/{n}");
-        if title.contains(&needle) {
-            return Some(needle);
-        }
-    }
-    None
-}
-
-// =============================================================================
-// Detail page (single product) — used by the "import" modal once the user has
-// picked a card or pasted a `/product/<slug>/` URL directly.
-// =============================================================================
-
-/// A single price line for an orzgk product (or one of its variants). Orzgk
-/// uses WooCommerce variable products where the variation matrix is `version`
-/// × `payment` (e.g. *Standard Version × deposit*, *Standard Version × full
-/// payment*). Each entry of that matrix is one [`OrzgkPrice`].
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OrzgkPrice {
-    /// `"deposit"`, `"full"`, `"full_payment"` — slug from the variation's
-    /// payment attribute, lowercased. `"full"` when the product is a simple
-    /// (non-variable) WooCommerce product.
-    pub label: String,
-    /// Numeric price in the listed currency. We expose this so the SPA can
-    /// store it into `msrp_amount` without re-parsing the display string.
-    pub amount: f64,
-    /// Rendered display value, e.g. `"€53.28"`. Carried alongside `amount`
-    /// because orzgk has both euro and dollar mirrors depending on the
-    /// visitor's region.
-    pub display: String,
-    /// ISO 4217 code derived from the currency symbol on the page. `None`
-    /// when we can't recognise the symbol.
-    pub currency: Option<String>,
-}
-
-/// One named version of an orzgk product. For example *Standard Version* and
-/// *Pregnancy Version* of a single Tatsumaki listing.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OrzgkVersion {
-    /// Lowercased slug used as the form key. Stable across renders so the
-    /// SPA can identify a re-clicked option.
-    pub key: String,
-    /// Human-readable label as it appears on orzgk, e.g. `"Standard Version"`.
-    pub label: String,
-    /// Variant-specific image when WooCommerce returns one in the variations
-    /// JSON (it usually does — that's what swap-on-click uses).
-    pub image_url: Option<String>,
-    /// Every payment-plan price for this version. Always non-empty when the
-    /// version comes from the variations JSON; a single full-price entry when
-    /// the parser had to fall back.
-    pub prices: Vec<OrzgkPrice>,
-}
-
-/// Everything we extract from a product detail page. Optional fields mean
-/// *the page didn't surface them*, never "unknown" — the SPA can rely on the
-/// presence of a value to drive its UI.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OrzgkDetail {
-    /// Canonical URL we fetched (no query, no fragment).
-    pub url: String,
-    pub title: String,
-    /// `Brand:` row — typically the manufacturer / studio.
-    pub brand: Option<String>,
-    /// `From:` row — usually the source franchise ("One Punch Man", "Anime Figure").
-    pub origin: Option<String>,
-    pub character: Option<String>,
-    /// `Type:` row — orzgk's free-form category ("GK Statue", "PVC Figure"…).
-    pub kind: Option<String>,
-    pub height_range: Option<String>,
-    pub scale: Option<String>,
-    /// `Feature:` row — useful for NSFW detection (`"18+"`) and other flags.
-    pub feature: Option<String>,
-    pub preorder_start_date: Option<String>,
-    pub est_released_time: Option<String>,
-    /// Up to a handful of high-res product images, biggest first when we can
-    /// tell. The SPA picks the first as `official_image_url`.
-    pub images: Vec<String>,
-    /// Convenience shortcut — same as `images.first().cloned()`.
-    pub primary_image_url: Option<String>,
-    pub description: Option<String>,
-    /// Non-empty iff the product has WooCommerce variations. When empty the
-    /// SPA skips the "pick a version" step and goes straight to the price
-    /// chooser using [`Self::prices`].
-    pub versions: Vec<OrzgkVersion>,
-    /// Prices when no variations exist. Almost always either a single entry
-    /// (simple product) or two entries (deposit + full when payment plans
-    /// are exposed as plain rows rather than variations).
-    pub prices: Vec<OrzgkPrice>,
-    /// Single ISO code applicable to all prices — orzgk only renders one
-    /// currency per page.
-    pub currency: Option<String>,
-
-    // ─── extracted from the long-form description block ──────────────────
-    // Orzgk repeats most of the side-panel data inside the description as a
-    // `Label: Value` text block. The duplication is genuinely useful: the
-    // description block is cleaner ("One Punch Man" vs `From:` returning
-    // "Anime Figure - One Punch Man"), and surfaces extra fields the
-    // side-panel doesn't (size, material, edition count, etc).
-    /// `Product IP:` — cleaner alternative to `From:` (just the franchise).
-    pub product_ip: Option<String>,
-    /// `Product Role:` — usually identical to `Character:`, kept separate so
-    /// the SPA can choose which one to use.
-    pub product_role: Option<String>,
-    /// `Product Material:` — comma-separated list ("Imported PU, high-grade resin").
-    pub product_material: Option<String>,
-    /// `Size:` raw string, e.g. `"(H)17 cm x (W)29 cm x (D)13.6 cm"`.
-    pub size: Option<String>,
-    /// Height in millimeters, parsed from the `(H)nn cm` token of `Size:`.
-    pub height_mm: Option<i32>,
-    /// `Est. Completion:` — sometimes year+quarter (`"2027 Q4"`), often more
-    /// useful than `Est Released Time` for the release date field.
-    pub est_completion: Option<String>,
-    /// `Limited No Of Unit:` — empty for open editions, a number for limited.
-    pub limited_units: Option<String>,
-    /// `Special Description:` — free-form, often empty (`"-"`).
-    pub special_description: Option<String>,
-}
 
 /// Fetch + cache an orzgk product detail page. Cached for [`CACHE_TTL_HOURS`]
 /// per canonical URL. Idempotent: re-calling with `?ref=…` or `#anchor` hits
@@ -437,7 +73,7 @@ pub async fn detail(
                 .header(reqwest::header::ACCEPT, "text/html,application/xhtml+xml")
                 .header(reqwest::header::ACCEPT_LANGUAGE, "en-US,en;q=0.9,fr;q=0.8")
                 .header(reqwest::header::ACCEPT_ENCODING, "gzip, identity")
-                .timeout(std::time::Duration::from_secs(SEARCH_TIMEOUT_SECS))
+                .timeout(std::time::Duration::from_secs(REQUEST_TIMEOUT_SECS))
                 .send()
                 .await
                 .map_err(|e| {
@@ -467,9 +103,7 @@ pub fn canonical_product_url(input: &str) -> AppResult<String> {
         .map_err(|_| AppError::BadRequest("not a valid URL"))?;
     let host = parsed.host_str().unwrap_or("");
     if host != "www.orzgk.com" && host != "orzgk.com" {
-        return Err(AppError::BadRequest(
-            "URL must point to www.orzgk.com",
-        ));
+        return Err(AppError::BadRequest("URL must point to www.orzgk.com"));
     }
     if !parsed.path().contains("/product/") {
         return Err(AppError::BadRequest(
@@ -567,7 +201,7 @@ pub fn parse_detail_html(url: &str, html: &str) -> OrzgkDetail {
 /// Values consisting of just `"-"` are dropped (orzgk's placeholder for
 /// "no entry"). Returns labels with the trailing colon preserved so callers
 /// match the same string they look up.
-pub(crate) fn parse_description_specs(desc: &str) -> BTreeMap<String, String> {
+fn parse_description_specs(desc: &str) -> BTreeMap<String, String> {
     // Order matters only to disambiguate prefixes (none currently), but we
     // sort positions below anyway.
     const LABELS: &[&str] = &[
@@ -621,7 +255,7 @@ pub(crate) fn parse_description_specs(desc: &str) -> BTreeMap<String, String> {
 /// Parse `"(H)17 cm x (W)29 cm x (D)13.6 cm"` → `170` (mm).
 /// The `H` (height) component is the only one we surface — height_mm is what
 /// the figure form stores.
-pub(crate) fn extract_height_mm(size: &str) -> Option<i32> {
+fn extract_height_mm(size: &str) -> Option<i32> {
     // We look for `(H)<num> cm` (case-insensitive, optional space).
     let lower = size.to_lowercase();
     let h_marker = lower.find("(h)")?;
@@ -846,7 +480,8 @@ fn build_versions_from_json(
     // Preserve declaration order so the SPA shows versions in the same order
     // orzgk's own JS would.
     let mut order: Vec<String> = Vec::new();
-    let mut groups: std::collections::HashMap<String, OrzgkVersion> = std::collections::HashMap::new();
+    let mut groups: std::collections::HashMap<String, OrzgkVersion> =
+        std::collections::HashMap::new();
     let mut single_currency: Option<String> = None;
 
     for v in arr {
@@ -856,8 +491,7 @@ fn build_versions_from_json(
         // `attribute_pa_version`, or just `attribute_<custom>`. Anything that
         // isn't a payment attribute counts as the version axis.
         let (version_label_opt, payment_label_opt) = split_version_and_payment(attrs);
-        let version_label = version_label_opt
-            .unwrap_or_else(|| "Default".to_string());
+        let version_label = version_label_opt.unwrap_or_else(|| "Default".to_string());
         let payment_raw = payment_label_opt.unwrap_or_else(|| "full".to_string());
 
         // Amount + currency: prefer the JSON's structured `display_price` over
@@ -934,7 +568,11 @@ fn build_versions_from_json(
     if versions.len() == 1 {
         let only = &versions[0];
         if only.label.eq_ignore_ascii_case("Default") || only.label.is_empty() {
-            let prices = versions.into_iter().next().map(|v| v.prices).unwrap_or_default();
+            let prices = versions
+                .into_iter()
+                .next()
+                .map(|v| v.prices)
+                .unwrap_or_default();
             return Some((Vec::new(), prices, single_currency));
         }
     }
@@ -1003,16 +641,18 @@ fn extract_price_from_html(html: &str, amount: f64) -> (String, Option<String>) 
 /// handful of symbols we actually see on orzgk + sibling shops.
 fn currency_code_from_symbol(sym: &str) -> Option<String> {
     let s = sym.trim();
-    Some(match s {
-        "€" | "EUR" => "EUR",
-        "$" | "US$" | "USD" => "USD",
-        "£" | "GBP" => "GBP",
-        "¥" | "JP¥" | "JPY" => "JPY",
-        "CHF" => "CHF",
-        "CA$" | "CAD" => "CAD",
-        _ => return None,
-    }
-    .to_string())
+    Some(
+        match s {
+            "€" | "EUR" => "EUR",
+            "$" | "US$" | "USD" => "USD",
+            "£" | "GBP" => "GBP",
+            "¥" | "JP¥" | "JPY" => "JPY",
+            "CHF" => "CHF",
+            "CA$" | "CAD" => "CAD",
+            _ => return None,
+        }
+        .to_string(),
+    )
 }
 
 /// Best-effort numeric + currency extraction from a display string like
@@ -1105,97 +745,6 @@ fn payment_sort_key(label: &str) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// Trimmed-down fixture mirroring WooCommerce + Flatsome's actual DOM
-    /// (`div.product-small.product` cards with `.woocommerce-loop-product__title a`
-    /// for the link, `.awl-label-text` for the status, `.price-wrapper` for
-    /// price ranges).
-    const FIXTURE: &str = r##"
-        <div class="results">
-          <div class="product-small col product type-product post-1 product-type-variable">
-            <div class="box-image">
-              <a class="woocommerce-LoopProduct-link" href="https://www.orzgk.com/product/gsc-miku-snow-1-7/">
-                <img src="data:image/svg+xml,placeholder" data-src="https://img.orzgk.com/wp-content/uploads/m1.jpg">
-              </a>
-            </div>
-            <div class="box-text">
-              <div class="title-wrapper">
-                <p class="name product-title woocommerce-loop-product__title">
-                  <a href="https://www.orzgk.com/product/gsc-miku-snow-1-7/">GSC - Hatsune Miku Snow Princess 1/7 Complete Figure (Licensed)</a>
-                </p>
-                <span class="awl-product-label"><span class="awl-label-text">pre-order</span></span>
-              </div>
-              <div class="price-wrapper">
-                <span class="amount">€53.28</span>
-                <span> – </span>
-                <span class="amount">€133.21</span>
-              </div>
-            </div>
-          </div>
-          <div class="product-small col product type-product post-2 product-type-variable">
-            <div class="box-image">
-              <a class="woocommerce-LoopProduct-link" href="https://www.orzgk.com/product/alter-asuka-1-6/?ref=foo">
-                <img data-lazy-src="https://img.orzgk.com/wp-content/uploads/a1.jpg">
-              </a>
-            </div>
-            <div class="box-text">
-              <p class="name product-title woocommerce-loop-product__title">
-                <a href="https://www.orzgk.com/product/alter-asuka-1-6/">ALTER - Asuka Plug Suit Ver. 1/6</a>
-              </p>
-              <span class="awl-product-label"><span class="awl-label-text">released</span></span>
-              <div class="price-wrapper"><span class="amount">€280.00</span></div>
-            </div>
-          </div>
-          <div class="product-small col product type-product post-3">
-            <!-- duplicate canonical URL → should dedupe out -->
-            <a class="woocommerce-LoopProduct-link" href="https://www.orzgk.com/product/gsc-miku-snow-1-7/?ref=duplicate"></a>
-            <p class="name product-title woocommerce-loop-product__title">
-              <a href="https://www.orzgk.com/product/gsc-miku-snow-1-7/">GSC - Hatsune Miku Snow Princess 1/7 Complete Figure (Licensed)</a>
-            </p>
-          </div>
-          <a href="https://www.orzgk.com/about">unrelated link, no card → ignored</a>
-        </div>
-    "##;
-
-    #[test]
-    fn parses_two_unique_cards() {
-        let items = parse_search_html(FIXTURE);
-        assert_eq!(items.len(), 2, "expected dedupe to 2 cards, got {:?}", items);
-
-        let miku = &items[0];
-        assert_eq!(miku.studio.as_deref(), Some("GSC"));
-        assert!(miku.title.contains("Hatsune Miku Snow Princess"));
-        assert_eq!(miku.scale.as_deref(), Some("1/7"));
-        assert_eq!(miku.status.as_deref(), Some("pre-order"));
-        assert_eq!(miku.price_range.as_deref(), Some("€53.28 – €133.21"));
-        assert_eq!(
-            miku.image_url.as_deref(),
-            Some("https://img.orzgk.com/wp-content/uploads/m1.jpg"),
-        );
-        assert_eq!(miku.detail_url, "https://www.orzgk.com/product/gsc-miku-snow-1-7/");
-
-        let asuka = &items[1];
-        assert_eq!(asuka.studio.as_deref(), Some("ALTER"));
-        assert_eq!(asuka.scale.as_deref(), Some("1/6"));
-        assert_eq!(asuka.status.as_deref(), Some("released"));
-        assert_eq!(asuka.price_range.as_deref(), Some("€280.00"));
-        assert_eq!(
-            asuka.image_url.as_deref(),
-            Some("https://img.orzgk.com/wp-content/uploads/a1.jpg"),
-        );
-    }
-
-    #[test]
-    fn empty_query_returns_empty() {
-        // search() returns empty early before any HTTP call; we can't unit-test
-        // that without a pool, but the parser handles empty input gracefully.
-        let items = parse_search_html("");
-        assert!(items.is_empty());
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Detail-page parser
-    // ─────────────────────────────────────────────────────────────────────
 
     /// Trimmed-down fixture mirroring an orzgk product page with both
     /// variations + spec rows + gallery + description block. Inspired by the
@@ -1383,18 +932,18 @@ mod tests {
 
     #[test]
     fn slugify_handles_punctuation() {
-        assert_eq!(super::slugify("Standard Version"), "standard-version");
-        assert_eq!(super::slugify("Pregnancy Version"), "pregnancy-version");
-        assert_eq!(super::slugify("  Mixed --- chars!"), "mixed-chars");
+        assert_eq!(slugify("Standard Version"), "standard-version");
+        assert_eq!(slugify("Pregnancy Version"), "pregnancy-version");
+        assert_eq!(slugify("  Mixed --- chars!"), "mixed-chars");
     }
 
     #[test]
     fn currency_codes_recognised() {
-        assert_eq!(super::currency_code_from_symbol("€"), Some("EUR".into()));
-        assert_eq!(super::currency_code_from_symbol("$"), Some("USD".into()));
-        assert_eq!(super::currency_code_from_symbol("CA$"), Some("CAD".into()));
-        assert_eq!(super::currency_code_from_symbol("¥"), Some("JPY".into()));
-        assert_eq!(super::currency_code_from_symbol("???"), None);
+        assert_eq!(currency_code_from_symbol("€"), Some("EUR".into()));
+        assert_eq!(currency_code_from_symbol("$"), Some("USD".into()));
+        assert_eq!(currency_code_from_symbol("CA$"), Some("CAD".into()));
+        assert_eq!(currency_code_from_symbol("¥"), Some("JPY".into()));
+        assert_eq!(currency_code_from_symbol("???"), None);
     }
 
     #[test]
