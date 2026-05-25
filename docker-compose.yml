@@ -65,7 +65,7 @@ services:
   # Idempotent — safe to re-run; everything ignores 409s.
   # ------------------------------------------------------------------
   garage-init:
-    image: alpine:3.20
+    image: alpine:3.23
     depends_on:
       garage:
         condition: service_started

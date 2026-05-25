@@ -8,7 +8,7 @@ FROM node:24-alpine AS builder
 WORKDIR /build
 
 # Enable pnpm via corepack (shipped with Node 24+).
-RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+RUN corepack enable && corepack prepare pnpm@10.33.4 --activate
 
 COPY package.json pnpm-lock.yaml* .npmrc ./
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \

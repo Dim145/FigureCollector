@@ -40,9 +40,9 @@ pub fn build_router(state: AppState) -> Router {
             .finish()
             .expect("valid governor configuration"),
     );
-    let auth_governor = GovernorLayer {
-        config: governor_conf,
-    };
+    // tower_governor 0.8 made GovernorLayer's fields private; use the
+    // `new` constructor (Arc is built via the Into bound).
+    let auth_governor = GovernorLayer::new(governor_conf);
 
     let auth_routes = auth::router().layer(auth_governor);
 

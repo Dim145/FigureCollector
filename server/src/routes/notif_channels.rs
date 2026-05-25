@@ -300,7 +300,11 @@ async fn admin_generate_vapid(
 
     auth::require_admin(&session, &state.pool).await?;
 
-    let secret = p256::SecretKey::random(&mut rand::thread_rng());
+    // Use the rand_core 0.6 OsRng re-exported by p256 — the crate's
+    // SecretKey::random bound is `CryptoRngCore` from rand_core 0.6, which the
+    // top-level rand 0.10 ThreadRng (rand_core 0.9) does not satisfy yet.
+    // OsRng is the right choice for keypair generation anyway.
+    let secret = p256::SecretKey::random(&mut p256::elliptic_curve::rand_core::OsRng);
     let pem = secret
         .to_pkcs8_pem(LineEnding::LF)
         .map_err(|e| crate::error::AppError::Internal(anyhow::anyhow!("pem encode: {e}")))?

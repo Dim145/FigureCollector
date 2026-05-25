@@ -2,7 +2,7 @@
 name = "figurecollector-server"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.87"
+rust-version = "1.95"
 license = "AGPL-3.0-or-later"
 description = "FigureCollector backend — hardened Rust/Axum API for self-hosted figurine collection management"
 repository = "https://github.com/Dim145/FigureCollector"
@@ -18,7 +18,7 @@ axum = { version = "0.8", features = ["macros", "ws", "multipart"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "net", "sync", "time"] }
 tower = "0.5"
 tower-http = { version = "0.6", features = ["trace", "cors", "compression-gzip", "limit", "request-id"] }
-tower_governor = "0.7"
+tower_governor = "0.8"
 
 # --- Observability ---
 tracing = "0.1"
@@ -50,6 +50,10 @@ sqlx = { version = "0.8", default-features = false, features = [
 ] }
 
 # --- Sessions (Postgres-backed) ---
+# Pinned to 0.14 because `tower-sessions-sqlx-store` 0.15 (the latest released
+# at this writing) was published against tower-sessions 0.14 — there is no
+# sqlx-store release that satisfies SessionStore for tower-sessions 0.15 yet.
+# Revisit when tower-sessions-sqlx-store ships a matching bump.
 tower-sessions = "0.14"
 tower-sessions-sqlx-store = { version = "0.15", default-features = false, features = ["postgres"] }
 
@@ -71,20 +75,24 @@ sea-orm-migration = { version = "1.1", default-features = false, features = [
 # --- Password hashing (local auth) ---
 argon2 = { version = "0.5", features = ["std"] }
 password-hash = { version = "0.5", features = ["alloc", "std", "rand_core"] }
-rand = "0.8"
+rand = "0.10"
 
 # --- OIDC ---
 openidconnect = { version = "4", default-features = false, features = ["reqwest", "rustls-tls"] }
+# Pinned to 0.12 because `openidconnect` 4 transitively depends on
+# reqwest ^0.12 (its `AsyncHttpClient` impl). Bumping to 0.13 here would
+# create two reqwest majors in the graph and break OIDC discovery/token
+# exchange. Revisit when openidconnect releases against reqwest 0.13.
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-no-provider", "json", "gzip", "stream"] }
 
 # --- S3 / Garage storage ---
-rust-s3 = { version = "0.36", default-features = false, features = ["tokio-rustls-tls"] }
+rust-s3 = { version = "0.37", default-features = false, features = ["tokio-rustls-tls"] }
 
 # --- Image decoding / EXIF-strip via re-encode ---
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 
 # --- HTML scraping (MFC parser; the live fetcher is gated behind Cloudflare) ---
-scraper = { version = "0.20", default-features = false }
+scraper = { version = "0.27", default-features = false }
 
 # --- TLS provider (installed as rustls default at startup) ---
 rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs", "tls12"] }
