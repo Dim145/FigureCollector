@@ -11,13 +11,38 @@ import CoverPicker from "../components/CoverPicker.jsx";
 import FigureEditDialog from "../components/FigureEditDialog.jsx";
 import FigureHero from "../components/FigureHero.jsx";
 import AddToCollectionForm from "../components/AddToCollectionForm.jsx";
+import BarcodeDialog from "../components/BarcodeDialog.jsx";
 import FigurePhotosSection from "../components/FigurePhotosSection.jsx";
+import Foldable from "../components/Foldable.jsx";
 import OwnedItemEditor from "../components/OwnedItemEditor.jsx";
 import PhotoStrip from "../components/PhotoStrip.jsx";
 import PreorderHistory from "../components/PreorderHistory.jsx";
+import ShareDialog from "../components/ShareDialog.jsx";
 import TurntableSection from "../components/TurntableSection.jsx";
 import { nsfwBlocked, nsfwClass } from "../lib/nsfw.js";
 
+/**
+ * "La fiche d'une pièce" — single-object exhibition page.
+ *
+ * No tabs — long scroll all the way down (mobile-friendly). The page reads:
+ *   I.   Hero: gallery + caption + lot stamp + actions + headline specs +
+ *        description + add-to-collection CTA
+ *   II.  Cartouche: every spec NOT already shown in the hero, grouped in
+ *        two sub-blocks (Production / Marché). No information repeats.
+ *   III. Catalog gallery: the shared figure-photos surface.
+ *   IV.  (owned only) Ma pièce — vertical stack of owner blocks:
+ *          · Mes informations  (OwnedItemEditor)
+ *          · Couverture        (CoverPicker)
+ *          · Pré-commande      (PreorderHistory, when set)
+ *          · Mes photos        (PhotoStrip — opens PhotoEditor fullscreen
+ *                               internally when adding/editing a shot)
+ *          · Vue 360°          (TurntableSection — opens TurntableWizard
+ *                               fullscreen internally when capturing)
+ *
+ * The photo gallery + 360° viewer sit directly on the page. Only the heavy
+ * *interactive* surfaces (PhotoEditor + TurntableWizard) take over the
+ * viewport — and they handle that themselves via `fixed inset-0 z-50`.
+ */
 export default function FigureDetailPage() {
   const { id } = useParams();
   const t = useT();
@@ -27,8 +52,11 @@ export default function FigureDetailPage() {
   const figure = useFigure(id);
   const owned = useOwnedItems();
   const del = useDeleteFigure();
+
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [scanCode, setScanCode] = useState(false);
   const [nsfwAcknowledged, setNsfwAcknowledged] = useState(false);
 
   if (me.isLoading) return null;
@@ -55,14 +83,6 @@ export default function FigureDetailPage() {
   const canEdit = isAdmin || f.created_by === me.data?.user?.id;
   const nsfwPref = me.data?.user?.nsfw_visibility ?? "hide";
 
-  const onDelete = async () => {
-    await del.mutateAsync(f.id);
-    setConfirming(false);
-    navigate("/browse");
-  };
-
-  // Direct-URL NSFW interstitial — admins always bypass (moderation),
-  // and the user can choose to override for this session via the button.
   if (nsfwBlocked(f.is_nsfw, nsfwPref) && !isAdmin && !nsfwAcknowledged) {
     return (
       <AppShell>
@@ -75,287 +95,501 @@ export default function FigureDetailPage() {
     );
   }
 
+  const onDelete = async () => {
+    await del.mutateAsync(f.id);
+    setConfirming(false);
+    navigate("/browse");
+  };
+
   return (
     <AppShell>
       <main className="relative pb-24">
-        {/* ───────── Hero band: full-bleed photo with kanji watermark ───────── */}
-        <section className="relative">
-          {/* Ambient kanji backdrop */}
-          <span
-            aria-hidden
-            className="kanji-mark text-[28rem] -top-8 -left-12 hidden md:block"
+        <HeroSection
+          f={f}
+          ownedRecord={ownedRecord}
+          alreadyOwned={alreadyOwned}
+          canEdit={canEdit}
+          nsfwPref={nsfwPref}
+          t={t}
+          onEdit={() => setEditing(true)}
+          onDelete={() => setConfirming(true)}
+          onShare={() => setSharing(true)}
+        />
+
+        {/* "La fiche" — catalog data + shared gallery, wrapped in a single
+         *  foldable. Defaults OPEN when the viewer doesn't own the piece
+         *  (they need to see everything to decide); defaults CLOSED when
+         *  they do own it (their own data is the focus then). */}
+        <section className="max-w-7xl mx-auto px-6">
+          <Foldable
+            size="major"
+            label={t("figure.section.cartouche")}
+            defaultOpen={!alreadyOwned}
           >
-            {kanjiForType(f.figure_type)}
-          </span>
-
-          <div className="relative max-w-7xl mx-auto px-6 pt-16 grid md:grid-cols-[1.05fr_1fr] gap-10 lg:gap-16 items-start">
-            {/* Hero gallery — catalog photos + (if owned) my photos */}
-            <FigureHero
-              figure={f}
-              ownedItemId={ownedRecord?.id ?? null}
-              figureTypeKanji={kanjiForType(f.figure_type)}
-              nsfwBlurClass={nsfwClass(f.is_nsfw, nsfwPref)}
-            />
-
-            {/* Right column: title + specs + CTA */}
-            <div className="relative pt-2">
-              {/* Edit / Delete cluster */}
-              {canEdit ? (
-                <div className="absolute -top-2 right-0 flex flex-col items-end gap-2 text-[10px] uppercase tracking-[0.22em] reveal" style={{ "--i": 1 }}>
-                  <button
-                    type="button"
-                    onClick={() => setEditing(true)}
-                    className="text-[var(--color-or)] hover:text-[var(--color-or-pale)] transition-colors"
-                  >
-                    ✎ {t("figure.edit.cta")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfirming(true)}
-                    className="text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] transition-colors"
-                  >
-                    × {t("figure.edit.delete")}
-                  </button>
-                </div>
-              ) : null}
-
-              <p className="micro reveal" style={{ "--i": 2 }}>
-                {t(`type.${f.figure_type}`)}
-              </p>
-              <h1
-                className="display text-5xl md:text-6xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
-                style={{ "--i": 3 }}
-              >
-                {f.name}
-              </h1>
-              {f.version_name ? (
-                <p
-                  className="display-italic text-2xl mt-2 text-[var(--color-or)] reveal"
-                  style={{ "--i": 4 }}
-                >
-                  {f.version_name}
-                </p>
-              ) : null}
-
-              <div className="gold-rule w-32 my-8 reveal" style={{ "--i": 5 }} />
-
-              {/* Description (if any) */}
-              {f.description ? (
-                <p
-                  className="text-[var(--color-ivoire-soft)] leading-relaxed mb-8 reveal"
-                  style={{ "--i": 6 }}
-                >
-                  {f.description}
-                </p>
-              ) : null}
-
-              {/* Museum-label spec list */}
-              <dl className="reveal" style={{ "--i": 7 }}>
-                <MuseumRow
-                  label={t("figure.spec.manufacturer")}
-                  value={f.manufacturer_name}
-                  href={
-                    f.manufacturer_slug
-                      ? `/manufacturers/${f.manufacturer_slug}`
-                      : null
-                  }
-                />
-                <MuseumRow
-                  label={t("figure.spec.sculptor")}
-                  value={f.sculptor_name}
-                />
-                <MuseumRow
-                  label={t("figure.spec.series")}
-                  value={f.series_name}
-                  href={f.series_slug ? `/series/${f.series_slug}` : null}
-                />
-                <MuseumRow
-                  label={t("figure.spec.character")}
-                  value={f.character_name}
-                  href={
-                    f.character_slug ? `/characters/${f.character_slug}` : null
-                  }
-                />
-                <MuseumRow label={t("figure.spec.scale")} value={f.scale} />
-                <MuseumRow
-                  label={t("figure.spec.height")}
-                  value={f.height_mm ? `${f.height_mm} mm` : null}
-                />
-                <MuseumRow
-                  label={t("figure.spec.materials")}
-                  value={f.materials?.length ? f.materials.join(" · ") : null}
-                />
-                <MuseumRow label={t("figure.spec.release")} value={f.release_date} />
-                <MuseumRow
-                  label={t("figure.spec.msrp")}
-                  value={
-                    f.msrp_amount
-                      ? `${f.msrp_amount} ${f.msrp_currency ?? ""}`.trim()
-                      : null
-                  }
-                />
-                <MuseumRow label={t("figure.spec.jan")} value={f.jan} mono />
-                <MuseumRow label={t("figure.spec.edition")} value={f.edition} />
-                <MuseumRow
-                  label={t("figure.spec.exclusivity")}
-                  value={f.exclusivity}
-                />
-                <MuseumRow
-                  label={t("figure.spec.version")}
-                  value={f.version_name}
-                />
-              </dl>
-
-              {/* CTA */}
-              <div className="mt-10 reveal" style={{ "--i": 8 }}>
-                {alreadyOwned ? (
-                  <div className="flex items-center gap-3 px-5 py-4 border border-[var(--color-or)]/40 bg-[var(--color-or)]/5">
-                    <span
-                      aria-hidden
-                      className="w-2 h-2 bg-[var(--color-or)] rotate-45"
-                      style={{ boxShadow: "0 0 10px var(--color-or)" }}
-                    />
-                    <p className="micro">{t("figure.already_owned")}</p>
-                  </div>
-                ) : (
-                  <AddToCollectionForm
-                    figureId={f.id}
-                    catalogMsrp={f.msrp_amount}
-                    catalogCurrency={f.msrp_currency}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ───────── Catalog photos (shared across users) ───────── */}
-        <section className="max-w-7xl mx-auto px-6 mt-16">
-          <FigurePhotosSection
-            figureId={f.id}
-            canEdit={canEdit}
-            uploadDisabled={f.is_nsfw && nsfwPref === "blur"}
-            blurImages={f.is_nsfw && nsfwPref === "blur"}
-          />
-        </section>
-
-        {/* ───────── Owner-only sections ───────── */}
-        {ownedRecord ? (
-          <section className="max-w-7xl mx-auto px-6 mt-20">
-            <div className="ornate-rule mb-12 max-w-md mx-auto">
-              <span aria-hidden className="ornate-rule__diamond" />
-            </div>
-
-            {/* Owner-only metadata editor — condition, price, store, notes, … */}
-            <div className="mb-16">
-              <OwnedItemEditor
-                owned={ownedRecord}
-                catalogMsrp={f.msrp_amount}
-                catalogCurrency={f.msrp_currency}
-              />
-            </div>
-
-            {/* Preorder history — only renders when a linked preorder exists */}
-            <div className="mb-16">
-              <PreorderHistory ownedId={ownedRecord.id} />
-            </div>
-
-            <div className="mb-16">
-              <PhotoStrip
-                ownedId={ownedRecord.id}
+            <Cartouche f={f} t={t} onScanJan={() => setScanCode(true)} />
+            <div className="mt-12">
+              <FigurePhotosSection
+                figureId={f.id}
+                canEdit={canEdit}
                 uploadDisabled={f.is_nsfw && nsfwPref === "blur"}
                 blurImages={f.is_nsfw && nsfwPref === "blur"}
               />
             </div>
+          </Foldable>
+        </section>
 
-            {/* Cover picker — feeds the thumbnail shown in CollectionPage */}
-            <div className="mb-16">
-              <header className="flex items-baseline justify-between mb-4">
-                <div>
-                  <p className="micro">{t("collection.cover.eyebrow")}</p>
-                  <h2 className="display text-2xl text-[var(--color-ivoire)] mt-1">
-                    {t("collection.cover.title")}
-                  </h2>
-                </div>
-              </header>
-              <CoverPicker owned={ownedRecord} />
-            </div>
-
-            <div className="ornate-rule mb-12 max-w-md mx-auto">
-              <span aria-hidden className="ornate-rule__diamond" />
-            </div>
-
-            <div>
-              <TurntableSection ownedId={ownedRecord.id} />
-            </div>
-          </section>
+        {/* Owner-only stack — each block is independently foldable */}
+        {ownedRecord ? (
+          <OwnerStack f={f} owned={ownedRecord} nsfwPref={nsfwPref} t={t} />
         ) : null}
 
-        {/* ───────── Modals ───────── */}
+        {/* ─── Modals + fullscreen overlays ─── */}
         {editing ? (
           <FigureEditDialog figure={f} onClose={() => setEditing(false)} />
         ) : null}
 
         {confirming ? (
-          <div
-            role="dialog"
-            aria-modal
-            onClick={() => setConfirming(false)}
-            className="fixed inset-0 z-50 grid place-items-center bg-[var(--color-noir)]/85 backdrop-blur-sm"
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="bg-[var(--color-noir-soft)] border border-[var(--color-or)]/40 p-8 w-[92vw] max-w-md"
-            >
-              <h2 className="display text-xl text-[var(--color-ivoire)]">
-                {t("figure.edit.confirm_delete.title", { name: f.name })}
-              </h2>
-              <p className="mt-3 text-[var(--color-ivoire-soft)]">
-                {t("figure.edit.confirm_delete.body")}
-              </p>
-              <div className="flex items-center gap-3 justify-end mt-6">
-                <Button variant="ghost" onClick={() => setConfirming(false)}>
-                  {t("editor.cancel")}
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={onDelete}
-                  loading={del.isPending}
-                  className="!bg-[var(--color-laque-bright)] hover:!bg-[var(--color-laque)] !text-[var(--color-ivoire)]"
-                >
-                  {t("admin.users.confirm_delete.confirm")}
-                </Button>
-              </div>
-            </div>
-          </div>
+          <DeleteConfirm
+            name={f.name}
+            t={t}
+            busy={del.isPending}
+            onCancel={() => setConfirming(false)}
+            onConfirm={onDelete}
+          />
         ) : null}
+
+        {sharing ? (
+          <ShareDialog
+            url={typeof window !== "undefined" ? window.location.href : ""}
+            title={f.name}
+            onClose={() => setSharing(false)}
+          />
+        ) : null}
+
+        {scanCode && f.jan ? (
+          <BarcodeDialog
+            code={f.jan}
+            label={f.name}
+            onClose={() => setScanCode(false)}
+          />
+        ) : null}
+
       </main>
     </AppShell>
   );
 }
 
-function MuseumRow({ label, value, mono = false, href = null }) {
-  if (!value) return null;
-  const inner = href ? (
-    <Link
-      to={href}
-      className="text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors underline decoration-[var(--color-or)]/30 underline-offset-4 hover:decoration-[var(--color-or)]"
-    >
-      {value}
-    </Link>
-  ) : (
-    value
-  );
+// =============================================================================
+// HERO
+// =============================================================================
+
+function HeroSection({
+  f,
+  ownedRecord,
+  alreadyOwned,
+  canEdit,
+  nsfwPref,
+  t,
+  onEdit,
+  onDelete,
+  onShare,
+}) {
   return (
-    <div className="museum-row">
-      <span className="museum-key">{label}</span>
+    <section className="relative">
       <span
-        className={`museum-value ${
-          mono ? "font-mono tracking-wider text-sm" : ""
-        }`}
+        aria-hidden
+        className="kanji-mark text-[32rem] -top-16 -left-16 hidden md:block opacity-[0.07]"
       >
-        {inner}
+        {kanjiForType(f.figure_type)}
       </span>
+
+      <div className="relative max-w-7xl mx-auto px-6 pt-12 md:pt-16 grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-14 items-start">
+        <FigureHero
+          figure={f}
+          ownedItemId={ownedRecord?.id ?? null}
+          figureTypeKanji={kanjiForType(f.figure_type)}
+          nsfwBlurClass={nsfwClass(f.is_nsfw, nsfwPref)}
+        />
+
+        <div className="relative pt-2">
+          {/* Lot stamp + action cluster */}
+          <div
+            className="flex items-start justify-between gap-3 reveal"
+            style={{ "--i": 1 }}
+          >
+            <div className="fig-lot">
+              <span className="fig-lot-label">{t("figure.lot.eyebrow")}</span>
+              <span className="fig-lot-value">
+                Nº {String(f.id ?? "").slice(0, 8).toUpperCase()}
+              </span>
+              <span className="fig-lot-label">{t("figure.lot.kind")}</span>
+              <span className="fig-lot-value">
+                {t(`type.${f.figure_type ?? "other"}`)}
+              </span>
+            </div>
+
+            <ActionCluster
+              canEdit={canEdit}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onShare={onShare}
+              t={t}
+            />
+          </div>
+
+          <h1 className="fig-title mt-7 reveal" style={{ "--i": 3 }}>
+            {f.name}
+            {f.version_name ? (
+              <span className="fig-title-version">{f.version_name}</span>
+            ) : null}
+          </h1>
+
+          <div className="gold-rule w-32 my-7 reveal" style={{ "--i": 4 }} />
+
+          {f.description ? (
+            <DescriptionBlock text={f.description} t={t} delay={5} />
+          ) : null}
+
+          <HeadlineSpecs f={f} t={t} delay={6} />
+
+          <div className="mt-9 reveal" style={{ "--i": 7 }}>
+            {alreadyOwned ? (
+              <OwnedConfirmation t={t} />
+            ) : (
+              <AddToCollectionForm
+                figureId={f.id}
+                catalogMsrp={f.msrp_amount}
+                catalogCurrency={f.msrp_currency}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ActionCluster({ canEdit, onEdit, onDelete, onShare, t }) {
+  return (
+    <div className="fig-actions reveal" style={{ "--i": 2 }}>
+      <button type="button" onClick={onShare} title={t("figure.action.share")}>
+        <span className="fig-actions-icon" aria-hidden>↗</span>
+      </button>
+      {canEdit ? (
+        <>
+          <button type="button" onClick={onEdit} title={t("figure.edit.cta")}>
+            <span className="fig-actions-icon" aria-hidden>✎</span>
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            className="danger"
+            title={t("figure.edit.delete")}
+          >
+            <span className="fig-actions-icon" aria-hidden>×</span>
+          </button>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function DescriptionBlock({ text, t, delay = 5 }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = text.length > 240;
+  const display = !isLong || expanded ? text : text.slice(0, 220).trimEnd() + "…";
+  return (
+    <div className="reveal mb-7" style={{ "--i": delay }}>
+      <p className="text-[var(--color-ivoire-soft)] leading-relaxed whitespace-pre-wrap">
+        {display}
+      </p>
+      {isLong ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((x) => !x)}
+          className="mt-2 text-[10px] uppercase tracking-[0.22em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors"
+        >
+          {expanded
+            ? "− " + t("figure.description.collapse")
+            : "+ " + t("figure.description.expand")}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function HeadlineSpecs({ f, t, delay = 6 }) {
+  // These four are the ONLY place the rows below appear on the page. The
+  // cartouche below intentionally skips them — duplication is the enemy.
+  const rows = [
+    {
+      label: t("figure.spec.manufacturer"),
+      value: f.manufacturer_name,
+      href: f.manufacturer_slug ? `/manufacturers/${f.manufacturer_slug}` : null,
+    },
+    {
+      label: t("figure.spec.series"),
+      value: f.series_name,
+      href: f.series_slug ? `/series/${f.series_slug}` : null,
+    },
+    {
+      label: t("figure.spec.character"),
+      value: f.character_name,
+      href: f.character_slug ? `/characters/${f.character_slug}` : null,
+    },
+    {
+      label: t("figure.spec.scale"),
+      value: f.scale,
+    },
+  ].filter((r) => !!r.value);
+  if (rows.length === 0) return null;
+  return (
+    <dl
+      className="grid grid-cols-2 gap-x-6 gap-y-1.5 reveal"
+      style={{ "--i": delay }}
+    >
+      {rows.map((r) => (
+        <div
+          key={r.label}
+          className="border-l-2 border-[var(--color-or)]/30 pl-3 py-1"
+        >
+          <dt className="text-[9.5px] uppercase tracking-[0.28em] text-[var(--color-or-pale)]/70">
+            {r.label}
+          </dt>
+          <dd className="display text-base text-[var(--color-ivoire)] mt-0.5 leading-tight truncate">
+            {r.href ? (
+              <Link
+                to={r.href}
+                className="hover:text-[var(--color-or-pale)] transition-colors underline decoration-[var(--color-or)]/30 underline-offset-4 hover:decoration-[var(--color-or)]"
+              >
+                {r.value}
+              </Link>
+            ) : (
+              r.value
+            )}
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function OwnedConfirmation({ t }) {
+  return (
+    <div className="flex items-center gap-3 px-5 py-4 border border-[var(--color-or)]/40 bg-[var(--color-or)]/5">
+      <span
+        aria-hidden
+        className="w-2 h-2 bg-[var(--color-or)] rotate-45"
+        style={{ boxShadow: "0 0 10px var(--color-or)" }}
+      />
+      <p className="micro">{t("figure.already_owned")}</p>
+    </div>
+  );
+}
+
+// =============================================================================
+// CARTOUCHE — Production + Marché blocks. NO duplication with hero specs.
+// =============================================================================
+
+function Cartouche({ f, t, onScanJan }) {
+  // Decide whether each block has any content; skip empty blocks entirely
+  // so the page never shows a header with an empty body underneath. The
+  // version_name is omitted on purpose — it already appears as the italic
+  // subtitle right under the giant figure name, and the brief said "no
+  // duplication".
+  const production = [
+    f.sculptor_name,
+    f.materials?.length ? f.materials.join(" · ") : null,
+    f.release_date,
+    f.height_mm ? `${f.height_mm} mm` : null,
+    f.edition,
+    f.exclusivity,
+  ].some(Boolean);
+
+  const market = [f.msrp_amount, f.jan, f.is_nsfw, f.is_user_submitted].some(Boolean);
+
+  if (!production && !market) return null;
+
+  return (
+    <div className="fig-cartouche">
+      {production ? (
+        <div className="fig-cartouche-block">
+          <header className="fig-cartouche-heading">
+              <span className="fig-cartouche-heading-kanji" aria-hidden>作</span>
+              <span className="fig-cartouche-heading-label">
+                {t("figure.cartouche.production")}
+              </span>
+              <span className="fig-cartouche-heading-rule" />
+            </header>
+            <dl>
+              <Row label={t("figure.spec.sculptor")} value={f.sculptor_name} />
+              <Row
+                label={t("figure.spec.materials")}
+                value={f.materials?.length ? f.materials.join(" · ") : null}
+              />
+              <Row label={t("figure.spec.release")} value={f.release_date} />
+              <Row
+                label={t("figure.spec.height")}
+                value={f.height_mm ? `${f.height_mm} mm` : null}
+              />
+              <Row label={t("figure.spec.edition")} value={f.edition} />
+              <Row label={t("figure.spec.exclusivity")} value={f.exclusivity} />
+            </dl>
+          </div>
+        ) : null}
+
+      {market ? (
+        <div className="fig-cartouche-block">
+          <header className="fig-cartouche-heading">
+            <span className="fig-cartouche-heading-kanji" aria-hidden>市</span>
+            <span className="fig-cartouche-heading-label">
+              {t("figure.cartouche.market")}
+            </span>
+            <span className="fig-cartouche-heading-rule" />
+          </header>
+          <dl>
+            <Row
+              label={t("figure.spec.msrp")}
+              value={
+                f.msrp_amount
+                  ? `${f.msrp_amount} ${f.msrp_currency ?? ""}`.trim()
+                  : null
+              }
+            />
+            <Row
+              label={t("figure.spec.jan")}
+              value={f.jan}
+              mono
+              action={
+                f.jan ? (
+                  <button
+                    type="button"
+                    onClick={onScanJan}
+                    title={t("figure.spec.jan_scan")}
+                    className="ml-2 inline-flex items-center text-[10px] uppercase tracking-[0.22em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] border border-[var(--color-or)]/40 hover:border-[var(--color-or)] px-2 py-0.5 transition-all"
+                  >
+                    ▦ {t("figure.spec.jan_scan_cta")}
+                  </button>
+                ) : null
+              }
+            />
+            {f.is_nsfw ? (
+              <Row label={t("figure.spec.nsfw")} value={t("figure.spec.nsfw_yes")} />
+            ) : null}
+            {f.is_user_submitted ? (
+              <Row
+                label={t("figure.spec.source")}
+                value={t("figure.spec.source_user")}
+              />
+            ) : null}
+          </dl>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function Row({ label, value, mono = false, href = null, action = null }) {
+  return (
+    <div className="fig-spec">
+      <span className="fig-spec-key">{label}</span>
+      <span className={`fig-spec-value ${mono ? "mono" : ""}`}>
+        {value ? (
+          <>
+            {href ? <Link to={href}>{value}</Link> : value}
+            {action ? <> {action}</> : null}
+          </>
+        ) : (
+          <span className="fig-spec-empty">—</span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+// =============================================================================
+// OWNER STACK — vertical sequence (no tabs). Heavies go behind teaser cards.
+// =============================================================================
+
+function OwnerStack({ f, owned, nsfwPref, t }) {
+  return (
+    <section className="max-w-7xl mx-auto px-6 mt-16 fig-owner-shell">
+      <header className="text-center mb-2">
+        <p className="micro">{t("figure.owner.eyebrow")}</p>
+        <h2 className="display text-3xl md:text-4xl text-[var(--color-ivoire)] mt-1">
+          {t("figure.owner.title")}
+        </h2>
+      </header>
+
+      <Foldable
+        size="minor"
+        kanji="情"
+        label={t("figure.owner.tab.info")}
+      >
+        <OwnedItemEditor
+          owned={owned}
+          catalogMsrp={f.msrp_amount}
+          catalogCurrency={f.msrp_currency}
+        />
+      </Foldable>
+
+      <Foldable
+        size="minor"
+        kanji="扉"
+        label={t("figure.owner.tab.cover")}
+      >
+        <CoverPicker owned={owned} />
+      </Foldable>
+
+      {/* Pre-order block: only when the figure has a release date (the inner
+       *  component renders nothing when no linked preorder exists). */}
+      {f.release_date ? (
+        <Foldable
+          size="minor"
+          kanji="予"
+          label={t("figure.owner.tab.preorder")}
+        >
+          <PreorderHistory ownedId={owned.id} />
+        </Foldable>
+      ) : null}
+
+      {/* Photo gallery — rendered inline on the page. The internal photo
+       *  *editor* (PhotoEditor) and lightbox both render as their own
+       *  fullscreen overlays via `fixed inset-0 z-50` when triggered. */}
+      <Foldable
+        size="minor"
+        kanji="影"
+        label={t("figure.owner.tab.photos")}
+      >
+        <PhotoStrip
+          ownedId={owned.id}
+          uploadDisabled={f.is_nsfw && nsfwPref === "blur"}
+          blurImages={f.is_nsfw && nsfwPref === "blur"}
+        />
+      </Foldable>
+
+      {/* 360° viewer — rendered inline. The capture wizard (TurntableWizard)
+       *  is the only heavy interactive surface; it opens itself fullscreen. */}
+      <Foldable
+        size="minor"
+        kanji="巡"
+        label={t("figure.owner.tab.scan")}
+      >
+        <TurntableSection ownedId={owned.id} />
+      </Foldable>
+    </section>
+  );
+}
+
+// =============================================================================
+// Misc helpers + states
+// =============================================================================
+
+function SectionRule({ label }) {
+  return (
+    <div className="fig-section-rule reveal" style={{ "--i": 0 }}>
+      <span className="fig-section-rule-label">{label}</span>
+      <span className="fig-section-rule-line" aria-hidden />
     </div>
   );
 }
@@ -375,23 +609,31 @@ function kanjiForType(type) {
   }
 }
 
-function FigureSilhouette() {
+function DeleteConfirm({ name, t, busy, onCancel, onConfirm }) {
   return (
-    <svg viewBox="0 0 200 280" className="w-2/3 h-2/3 text-[var(--color-or)]/40" aria-hidden>
-      <ellipse cx="100" cy="262" rx="60" ry="6" fill="currentColor" />
-      <path
-        d="M 62 175 Q 100 162 138 175 L 150 250 Q 100 258 50 250 Z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-      />
-      <circle cx="100" cy="95" r="50" fill="none" stroke="currentColor" strokeWidth="1.4" />
-      <path
-        d="M 50 100 Q 50 42 100 36 Q 150 42 150 100 Q 130 70 100 72 Q 70 70 50 100 Z"
-        fill="currentColor"
-        opacity="0.4"
-      />
-    </svg>
+    <div role="dialog" aria-modal onClick={onCancel} className="fig-pop">
+      <div onClick={(e) => e.stopPropagation()} className="fig-pop-card">
+        <h2 className="display text-xl text-[var(--color-ivoire)]">
+          {t("figure.edit.confirm_delete.title", { name })}
+        </h2>
+        <p className="mt-3 text-[var(--color-ivoire-soft)]">
+          {t("figure.edit.confirm_delete.body")}
+        </p>
+        <div className="flex items-center gap-3 justify-end mt-6">
+          <Button variant="ghost" onClick={onCancel} disabled={busy}>
+            {t("editor.cancel")}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={onConfirm}
+            loading={busy}
+            className="!bg-[var(--color-laque-bright)] hover:!bg-[var(--color-laque)] !text-[var(--color-ivoire)]"
+          >
+            {t("admin.users.confirm_delete.confirm")}
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -536,6 +536,8 @@ export default {
   "editor.bg_removing": "Détourage… {p}%",
   "editor.bg_error": "Échec du détourage",
   "editor.cancel": "Fermer",
+  "section.fold": "Replier",
+  "section.unfold": "Déplier",
   "editor.loading_editor": "Chargement de l'éditeur…",
 
   // Settings — background removal model
@@ -801,6 +803,46 @@ export default {
   "admin.figures.confirm_delete.body": "Toutes les collections référençant cette fiche perdront leur pièce associée. Action irréversible.",
 
   "figure.edit.cta": "Modifier",
+
+  // Detail-page new chrome
+  "figure.lot.eyebrow": "Lot",
+  "figure.lot.kind": "Type",
+  "figure.action.share": "Partager",
+  "figure.section.cartouche": "La fiche",
+  "figure.section.gallery": "Galerie",
+  "figure.description.expand": "Lire la suite",
+  "figure.description.collapse": "Réduire",
+  "figure.cartouche.identity": "Identité",
+  "figure.cartouche.production": "Production",
+  "figure.cartouche.market": "Marché",
+  "figure.spec.type": "Type",
+  "figure.spec.nsfw": "Catégorie",
+  "figure.spec.nsfw_yes": "18 +",
+  "figure.spec.source": "Source",
+  "figure.spec.source_user": "Soumise par un utilisateur",
+  "figure.spec.jan_scan": "Voir le code-barres",
+  "figure.spec.jan_scan_cta": "Scanner",
+  "figure.owner.eyebrow": "Ma pièce",
+  "figure.owner.title": "Ma fiche personnelle",
+  "figure.owner.tab.info": "Mes infos",
+  "figure.owner.tab.photos": "Mes photos",
+  "figure.owner.tab.scan": "Vue 360°",
+  "figure.owner.tab.cover": "Couverture",
+  "figure.owner.tab.preorder": "Pré-commande",
+
+  // Share dialog
+  "share.eyebrow": "Partager",
+  "share.title": "Partager cette fiche",
+  "share.body": "Copie le lien ci-dessous ou utilise le partage natif de ton système.",
+  "share.field.url": "Adresse de la fiche",
+  "share.copy": "Copier",
+  "share.copied": "Copié",
+  "share.native": "Partager…",
+
+  // Barcode dialog
+  "barcode.eyebrow": "Code-barres",
+  "barcode.title": "JAN / EAN-13",
+  "barcode.not_ean": "Ce code n'est pas un EAN-13 valide — affichage textuel.",
   "figure.edit.delete": "Retirer",
   "figure.edit.title": "Modifier la fiche",
   "figure.edit.subtitle": "Toute mise à jour sera visible par les autres collectionneurs.",

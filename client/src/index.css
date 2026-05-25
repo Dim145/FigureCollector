@@ -1954,3 +1954,679 @@ html {
   border: 1px solid oklch(0.78 0.10 80 / 0.7);
   border-radius: 50%;
 }
+
+/* ============================================================================
+ * Figure detail page — La fiche d'une pièce
+ *
+ * Editorial single-object exhibition spread. Big asymmetric typography,
+ * lot-numbered stamp, cartouche-tabbed spec block, owner-tabbed surface.
+ *
+ * All names scoped to `.fig-*` so they can't bleed into other pages.
+ * ============================================================================ */
+
+/* ─── Lot stamp — the little "Nº ABCDEF · Vitrine collection" cartouche in
+ *     the hero corner. Mono digits, hairline gold frame, dotted serif rule
+ *     underneath. */
+.fig-lot {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  align-items: baseline;
+  gap: 0.5rem 0.7rem;
+  padding: 0.5rem 0.85rem 0.55rem;
+  border: 1px solid oklch(0.78 0.10 80 / 0.45);
+  background: oklch(0.10 0.004 50 / 0.7);
+  position: relative;
+}
+.fig-lot::before {
+  /* tiny perforation along the top edge — the "torn from a register" feel */
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: 12%;
+  right: 12%;
+  height: 3px;
+  background:
+    radial-gradient(circle, oklch(0.10 0.004 50 / 0.7) 1px, transparent 1.5px) 0 0 / 6px 3px;
+}
+.fig-lot-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.75;
+}
+.fig-lot-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--color-ivoire);
+}
+
+/* ─── Massive title — the figure name set big enough to break out of its
+ *     column on desktop. Gold gradient text + faint kanji watermark behind. */
+.fig-title {
+  font-family: var(--font-display);
+  font-weight: 300;
+  letter-spacing: -0.025em;
+  line-height: 0.92;
+  font-size: clamp(2.6rem, 6vw, 4.8rem);
+  color: var(--color-ivoire);
+  margin: 0;
+}
+.fig-title-version {
+  display: block;
+  margin-top: 0.6rem;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  letter-spacing: 0.005em;
+  color: var(--color-or);
+  font-size: clamp(1.1rem, 2.2vw, 1.65rem);
+  line-height: 1.15;
+}
+
+/* ─── Action cluster — share, edit, delete, "..." menu in the hero corner.
+ *     Small icon buttons in a horizontal row with a thin gold frame. */
+.fig-actions {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid oklch(0.78 0.10 80 / 0.25);
+  background: oklch(0.10 0.004 50 / 0.7);
+  backdrop-filter: blur(8px);
+}
+.fig-actions > button,
+.fig-actions > a {
+  display: grid;
+  place-items: center;
+  padding: 0.55rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  border-left: 1px solid oklch(0.78 0.10 80 / 0.15);
+  cursor: pointer;
+  transition: color 200ms var(--ease-quick), background 200ms var(--ease-quick);
+}
+.fig-actions > button:first-child,
+.fig-actions > a:first-child {
+  border-left: 0;
+}
+.fig-actions > button:hover,
+.fig-actions > a:hover {
+  color: var(--color-or);
+  background: oklch(0.78 0.10 80 / 0.08);
+}
+.fig-actions .danger {
+  color: oklch(0.85 0.10 25 / 0.75);
+}
+.fig-actions .danger:hover {
+  color: oklch(0.95 0.15 25);
+  background: oklch(0.55 0.20 25 / 0.12);
+}
+.fig-actions-icon {
+  font-size: 13px;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+/* ─── Cartouche — tabbed spec block. Replaces the old long museum-row dl.
+ *     Three tabs (Identité, Production, Marché), each holding 4-6 rows of
+ *     terse key/value pairs with the museum-row treatment but tighter. */
+.fig-cartouche {
+  position: relative;
+  border: 1px solid oklch(0.78 0.10 80 / 0.22);
+  background:
+    linear-gradient(180deg,
+      oklch(0.19 0.008 50 / 0.45) 0%,
+      oklch(0.13 0.005 50 / 0.55) 100%);
+  padding: 0;
+}
+
+/* New layout — no tabs. Sub-blocks divided by an ornate gold rule with a
+ * heading row (kanji + label) at the top of each block. */
+.fig-cartouche-block {
+  padding: 1.6rem 1.75rem;
+}
+.fig-cartouche-block + .fig-cartouche-block {
+  border-top: 1px solid oklch(0.78 0.10 80 / 0.18);
+}
+.fig-cartouche-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 0.9rem;
+}
+.fig-cartouche-heading-kanji {
+  font-family: var(--font-ja);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--color-or);
+  opacity: 0.92;
+}
+.fig-cartouche-heading-label {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+}
+.fig-cartouche-heading-rule {
+  flex: 1;
+  height: 1px;
+  background:
+    linear-gradient(90deg, oklch(0.78 0.10 80 / 0.5), transparent);
+}
+.fig-cartouche-tabs {
+  display: flex;
+  border-bottom: 1px solid oklch(0.78 0.10 80 / 0.22);
+}
+.fig-cartouche-tab {
+  flex: 1;
+  padding: 1rem 0.8rem 0.95rem;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 12.5px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: oklch(0.92 0.03 75 / 0.55);
+  text-align: center;
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  transition: color 250ms var(--ease-quick);
+  border-right: 1px solid oklch(0.78 0.10 80 / 0.15);
+}
+.fig-cartouche-tab:last-child {
+  border-right: 0;
+}
+.fig-cartouche-tab:hover {
+  color: var(--color-or-pale);
+}
+.fig-cartouche-tab.is-active {
+  color: var(--color-or);
+}
+.fig-cartouche-tab.is-active::after {
+  /* gold foil underline that grows from the centre */
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: -1px;
+  height: 2px;
+  background:
+    linear-gradient(90deg, transparent, var(--color-or), transparent);
+}
+.fig-cartouche-tab-kanji {
+  display: block;
+  font-family: var(--font-ja);
+  font-size: 18px;
+  letter-spacing: 0;
+  color: var(--color-or-pale);
+  opacity: 0.55;
+  margin-bottom: 0.25rem;
+  transition: opacity 250ms var(--ease-quick);
+}
+.fig-cartouche-tab.is-active .fig-cartouche-tab-kanji {
+  opacity: 1;
+  color: var(--color-or);
+}
+.fig-cartouche-body {
+  padding: 1.5rem 1.75rem 1.75rem;
+}
+
+/* ─── Spec row inside the cartouche — tighter than .museum-row, key on the
+ *     left in mono caps, value on the right in display serif. */
+.fig-spec {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 1.5rem;
+  align-items: baseline;
+  padding: 0.85rem 0;
+  border-bottom: 1px dashed oklch(0.78 0.10 80 / 0.14);
+}
+.fig-spec:last-child {
+  border-bottom: 0;
+}
+.fig-spec-key {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: oklch(0.92 0.03 75 / 0.55);
+}
+.fig-spec-value {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.05rem;
+  color: var(--color-ivoire);
+}
+.fig-spec-value.mono {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+}
+.fig-spec-value a {
+  color: var(--color-or-pale);
+  text-decoration-line: underline;
+  text-decoration-color: oklch(0.78 0.10 80 / 0.3);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  transition: color 200ms var(--ease-quick), text-decoration-color 200ms var(--ease-quick);
+}
+.fig-spec-value a:hover {
+  color: var(--color-or);
+  text-decoration-color: var(--color-or);
+}
+.fig-spec-empty {
+  color: oklch(0.92 0.03 75 / 0.25);
+  font-style: italic;
+}
+
+/* ─── Owner-only tabs — second tabbed surface, below the hero, used when
+ *     the viewer owns this figurine. Same visual language as the cartouche
+ *     but full-width and with photo / scan / preorder content tabs. */
+.fig-owner-shell {
+  position: relative;
+  margin-top: 4rem;
+  padding-top: 3rem;
+  border-top: 1px solid oklch(0.78 0.10 80 / 0.2);
+}
+.fig-owner-shell::before {
+  /* center fleuron at the top of the border line */
+  content: "❦";
+  position: absolute;
+  top: -0.6em;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-noir);
+  padding: 0 0.6em;
+  color: var(--color-or);
+  font-size: 14px;
+}
+.fig-owner-tabs {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid oklch(0.78 0.10 80 / 0.18);
+  margin-bottom: 2rem;
+}
+.fig-owner-tabs::-webkit-scrollbar { display: none; }
+.fig-owner-tab {
+  position: relative;
+  flex-shrink: 0;
+  padding: 0.85rem 1.2rem;
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: oklch(0.92 0.03 75 / 0.55);
+  background: transparent;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 220ms var(--ease-quick), border-color 250ms var(--ease-curtain);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+.fig-owner-tab:hover {
+  color: var(--color-or-pale);
+}
+.fig-owner-tab.is-active {
+  color: var(--color-or);
+  border-bottom-color: var(--color-or);
+}
+.fig-owner-tab-glyph {
+  font-family: var(--font-ja);
+  font-size: 18px;
+  letter-spacing: 0;
+  line-height: 1;
+  opacity: 0.55;
+  transition: opacity 220ms var(--ease-quick);
+}
+.fig-owner-tab.is-active .fig-owner-tab-glyph {
+  opacity: 1;
+}
+.fig-owner-tab-badge {
+  /* small pill showing a count or a "•" presence dot when the tab has
+   * content worth highlighting (preorder open, photos > 0, etc.) */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 0.4em;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  background: oklch(0.78 0.10 80 / 0.18);
+  border: 1px solid oklch(0.78 0.10 80 / 0.5);
+  color: var(--color-or-pale);
+}
+.fig-owner-tab.is-active .fig-owner-tab-badge {
+  background: oklch(0.78 0.10 80 / 0.35);
+  color: var(--color-or);
+}
+
+/* ─── Inline pop dialogs — slimmer than the existing FigureEditDialog modal
+ *     pattern; used for Share + JAN barcode. */
+.fig-pop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: oklch(0.10 0.004 50 / 0.85);
+  backdrop-filter: blur(6px);
+  padding: 1rem;
+  animation: fig-pop-in 220ms var(--ease-curtain);
+}
+.fig-pop-card {
+  background: var(--color-noir-soft);
+  border: 1px solid oklch(0.78 0.10 80 / 0.4);
+  width: 95vw;
+  max-width: 28rem;
+  padding: 1.75rem;
+  position: relative;
+  box-shadow:
+    0 60px 120px -50px rgba(0,0,0,0.85),
+    inset 0 1px 0 oklch(0.92 0.08 80 / 0.1);
+}
+@keyframes fig-pop-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ─── EAN-13 / JAN barcode — pure SVG via rect bars. Set as a backdrop
+ *     for the share / barcode dialog with chunky high-contrast bars. */
+.fig-barcode {
+  display: block;
+  width: 100%;
+  height: 100px;
+  background: oklch(0.96 0.02 75);
+  padding: 0.6rem;
+}
+.fig-barcode rect {
+  fill: oklch(0.12 0.005 50);
+}
+.fig-barcode text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  fill: oklch(0.12 0.005 50);
+}
+
+/* ─── Quiet section header — used between the hero and the cartouche, and
+ *     before each major section. A thin gold rule + tiny eyebrow label. */
+.fig-section-rule {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 1rem;
+  margin: 4rem 0 1.5rem;
+}
+.fig-section-rule-label {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-style: italic;
+  font-size: 13px;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+}
+.fig-section-rule-line {
+  height: 1px;
+  background:
+    linear-gradient(90deg, oklch(0.78 0.10 80 / 0.45), transparent);
+}
+
+/* ============================================================================
+ * Figure detail — owner blocks + teaser cards + fullscreen overlay
+ * ============================================================================ */
+
+/* Owner shell — a long scroll instead of tabs. Each major block sits in an
+ * .fig-owner-block with a heading row and ornate top rule that fades into
+ * the page background. */
+.fig-owner-block {
+  position: relative;
+  padding-top: 3rem;
+  margin-top: 3rem;
+}
+.fig-owner-block:first-of-type {
+  margin-top: 0;
+  padding-top: 1.25rem;
+}
+.fig-owner-block::before {
+  /* top divider rule — only on subsequent blocks */
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background:
+    linear-gradient(90deg,
+      transparent,
+      oklch(0.78 0.10 80 / 0.35) 35%,
+      oklch(0.78 0.10 80 / 0.35) 65%,
+      transparent);
+}
+.fig-owner-block:first-of-type::before {
+  display: none;
+}
+.fig-owner-block-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+.fig-owner-block-glyph {
+  font-family: var(--font-ja);
+  font-size: 26px;
+  line-height: 1;
+  color: var(--color-or);
+  flex-shrink: 0;
+}
+.fig-owner-block-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.25rem, 2.2vw, 1.75rem);
+  letter-spacing: 0.005em;
+  color: var(--color-ivoire);
+  margin: 0;
+}
+.fig-owner-block-eyebrow {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.7;
+  margin-bottom: 0.35rem;
+}
+
+/* ============================================================================
+ * Foldable section — used on /figures/:id to roll up the catalog block when
+ * the viewer owns the figure (so their own data is the focus) and to give
+ * every owner sub-section a click-to-collapse affordance.
+ *
+ * Animation: CSS Grid `grid-template-rows: 0fr ↔ 1fr` so we can transition
+ * smoothly even when the inner content has dynamic height. Supported in
+ * Chrome 117+, Safari 17+, Firefox 121+ — the rest of the app already
+ * needs evergreens for `oklch()` and the WebGL viewers, so this is fine.
+ *
+ * Two size variants share the same machinery:
+ *   .foldable--major  → "La fiche", "Galerie" — matches .fig-section-rule
+ *   .foldable--minor  → owner sub-blocks       — matches .fig-owner-block-header
+ * ============================================================================ */
+
+.foldable {
+  margin: 2rem 0 0;
+}
+.foldable + .foldable {
+  /* Soft divider between adjacent foldables so the page stays rhythmic
+   * even when several sit collapsed in a row. */
+  position: relative;
+  margin-top: 2rem;
+  padding-top: 2rem;
+}
+.foldable + .foldable::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 8%;
+  right: 8%;
+  height: 1px;
+  background:
+    linear-gradient(90deg,
+      transparent,
+      oklch(0.78 0.10 80 / 0.3) 35%,
+      oklch(0.78 0.10 80 / 0.3) 65%,
+      transparent);
+}
+
+.foldable-header {
+  display: grid;
+  /* default (minor): kanji + title + rule + toggle. Major drops the kanji
+   * slot via the variant rule below. */
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding: 0.4rem 0;
+  background: transparent;
+  text-align: left;
+  border: 0;
+  cursor: pointer;
+  color: inherit;
+  transition: opacity 220ms var(--ease-quick);
+}
+.foldable--major .foldable-header {
+  /* No glyph in the major variant — three columns only. */
+  grid-template-columns: auto 1fr auto;
+}
+.foldable-header:hover {
+  opacity: 0.92;
+}
+.foldable-header:focus-visible {
+  outline: 1px dashed oklch(0.78 0.10 80 / 0.6);
+  outline-offset: 6px;
+}
+
+.foldable-glyph {
+  font-family: var(--font-ja);
+  line-height: 1;
+  color: var(--color-or);
+  flex-shrink: 0;
+}
+.foldable-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.foldable-rule {
+  height: 1px;
+  background: linear-gradient(90deg, oklch(0.78 0.10 80 / 0.45), transparent);
+}
+.foldable-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  white-space: nowrap;
+  transition: color 220ms var(--ease-quick);
+}
+.foldable-header:hover .foldable-toggle {
+  color: var(--color-or);
+}
+.foldable-chevron {
+  display: inline-block;
+  font-size: 11px;
+  transition: transform 380ms var(--ease-curtain);
+}
+.foldable.is-open .foldable-chevron {
+  transform: rotate(180deg);
+}
+
+/* Body — animates between 0fr and 1fr. The inner `.foldable-content`
+ * holds the actual children with `min-height: 0` + `overflow: hidden`
+ * so they get clipped while the row collapses. */
+.foldable-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 380ms var(--ease-curtain);
+}
+.foldable.is-open .foldable-body {
+  grid-template-rows: 1fr;
+}
+.foldable-content {
+  overflow: hidden;
+  min-height: 0;
+}
+.foldable.is-open .foldable-content {
+  /* Small breathing room between the header and the body when open. */
+  padding-top: 1.25rem;
+}
+
+/* ───── Major variant — section-rule sized, top-level. No kanji glyph;
+ *      the title is set in the same italic display caps as the existing
+ *      .fig-section-rule pattern. ───── */
+.foldable--major .foldable-title-label {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-style: italic;
+  font-size: 13px;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+}
+.foldable--major .foldable-title-sub {
+  display: none;
+}
+.foldable--major.foldable {
+  /* Major sections kill the `+` divider rule above so the page doesn't
+   * stack two rules (the section's own gold line + the divider). */
+  margin-top: 4rem;
+}
+.foldable--major + .foldable::before {
+  display: none;
+}
+
+/* ───── Minor variant — owner sub-block, kanji + display serif title. ───── */
+.foldable--minor .foldable-glyph {
+  font-size: 26px;
+  align-self: center;
+}
+.foldable--minor .foldable-title-label {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.15rem, 2vw, 1.55rem);
+  letter-spacing: 0.005em;
+  color: var(--color-ivoire);
+  line-height: 1.15;
+}
+.foldable--minor .foldable-title-sub {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.7;
+}
+.foldable--minor .foldable-rule {
+  /* Owner blocks keep a hairline but it's quieter than the major's. */
+  background: linear-gradient(90deg, oklch(0.78 0.10 80 / 0.25), transparent);
+}
+
+/* tail marker — append-only
+ * keep this block last to anchor tail-append patches */
