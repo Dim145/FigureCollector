@@ -29,6 +29,8 @@ pub enum Event {
     PreorderDeleted { preorder_id: Uuid },
     ProfileUpdated,
     AchievementsUnlocked { codes: Vec<String> },
+    /// A new in-app notification was dropped — bell badges should refresh.
+    NotificationCreated { id: Uuid },
 }
 
 #[derive(Clone, Default)]

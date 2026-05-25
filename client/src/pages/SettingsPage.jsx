@@ -4,6 +4,7 @@ import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useUpdateProfile } from "../hooks/useProfile.js";
 import AppShell from "../components/AppShell.jsx";
+import NotificationSettings from "../components/NotificationSettings.jsx";
 import Select from "../components/Select.jsx";
 import { BG_MODEL_SIZES, getPref, setPref } from "../lib/userPrefs.js";
 
@@ -31,10 +32,11 @@ import { BG_MODEL_SIZES, getPref, setPref } from "../lib/userPrefs.js";
 // nav label key. Order here drives the visual order of both the nav and
 // the drawers.
 const SECTIONS = [
-  { id: "profile",   kanji: "公", tone: "var(--color-or)",          toneSoft: "oklch(0.78 0.10 80 / 0.18)" },
-  { id: "currency",  kanji: "銭", tone: "var(--color-or)",          toneSoft: "oklch(0.78 0.10 80 / 0.18)" },
-  { id: "bg_model",  kanji: "影", tone: "var(--atelier-jade)",      toneSoft: "var(--atelier-jade-soft)" },
-  { id: "nsfw",      kanji: "禁", tone: "var(--atelier-laque)",     toneSoft: "var(--atelier-laque-soft)" },
+  { id: "profile",    kanji: "公", tone: "var(--color-or)",       toneSoft: "oklch(0.78 0.10 80 / 0.18)" },
+  { id: "currency",   kanji: "銭", tone: "var(--color-or)",       toneSoft: "oklch(0.78 0.10 80 / 0.18)" },
+  { id: "bg_model",   kanji: "影", tone: "var(--atelier-jade)",   toneSoft: "var(--atelier-jade-soft)" },
+  { id: "notif_chan", kanji: "鈴", tone: "var(--color-or)",       toneSoft: "oklch(0.78 0.10 80 / 0.18)" },
+  { id: "nsfw",       kanji: "禁", tone: "var(--atelier-laque)",  toneSoft: "var(--atelier-laque-soft)" },
 ];
 
 export default function SettingsPage() {
@@ -233,13 +235,25 @@ export default function SettingsPage() {
             <p className="atelier-select-hint">{t("settings.bg_model.hint")}</p>
           </Drawer>
 
+          {/* Notifications — channels + per-event routing */}
+          <Drawer
+            id="notif_chan"
+            kanji="鈴"
+            title={t("notif.channels.title")}
+            tone={SECTIONS[3].tone}
+            toneSoft={SECTIONS[3].toneSoft}
+            refMap={drawerRefs}
+          >
+            <NotificationSettings t={t} />
+          </Drawer>
+
           {/* NSFW visibility */}
           <Drawer
             id="nsfw"
             kanji="禁"
             title={t("settings.nsfw.title")}
-            tone={SECTIONS[3].tone}
-            toneSoft={SECTIONS[3].toneSoft}
+            tone={SECTIONS[4].tone}
+            toneSoft={SECTIONS[4].toneSoft}
             refMap={drawerRefs}
           >
             <p className="atelier-drawer-desc">{t("settings.nsfw.body")}</p>

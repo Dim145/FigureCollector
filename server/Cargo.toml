@@ -89,6 +89,25 @@ scraper = { version = "0.20", default-features = false }
 # --- TLS provider (installed as rustls default at startup) ---
 rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs", "tls12"] }
 
+# --- Notifications: SMTP outbound. Strictly rustls (no OpenSSL). ---
+lettre = { version = "0.11", default-features = false, features = [
+    "smtp-transport", "tokio1", "tokio1-rustls", "aws-lc-rs",
+    "rustls-native-certs", "builder", "hostname",
+] }
+
+# --- Notifications: Web Push.
+#
+# `web-push` 0.10 transitively pulls in `openssl-sys` via the `ece`
+# crate, which violates the project's no-OpenSSL constraint. The push
+# subscription endpoints + service-worker + permission-flow are wired
+# end-to-end, but the server-side adapter is stubbed pending a swap to
+# a pure-rust web-push crate (or a manual VAPID + RFC 8291 implementation
+# on top of aws-lc-rs). Tracking issue: add a follow-up to wire up Web
+# Push outbound delivery using `web-push-native` or `rust-vapid` + a
+# hand-rolled aes128gcm encryptor.
+#
+# web-push = { version = "0.10", default-features = false, features = ["hyper-client"] }
+
 [profile.release]
 lto = "fat"
 codegen-units = 1

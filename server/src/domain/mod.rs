@@ -6,6 +6,7 @@ pub mod admin;
 pub mod entity;
 pub mod figure;
 pub mod figure_photo;
+pub mod notification;
 pub mod owned;
 pub mod photo;
 pub mod preorder;

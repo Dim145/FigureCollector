@@ -13,6 +13,7 @@ import SettingsPage from "./pages/SettingsPage.jsx";
 import ActivityPage from "./pages/ActivityPage.jsx";
 import YearInReviewPage from "./pages/YearInReviewPage.jsx";
 import AchievementsPage from "./pages/AchievementsPage.jsx";
+import NotificationsPage from "./pages/NotificationsPage.jsx";
 import StatsPage from "./pages/StatsPage.jsx";
 import EntityPage from "./pages/EntityPage.jsx";
 import AdminLayout from "./pages/AdminLayout.jsx";
@@ -20,6 +21,7 @@ import AdminOverviewPage from "./pages/AdminOverviewPage.jsx";
 import AdminUsersPage from "./pages/AdminUsersPage.jsx";
 import AdminFiguresPage from "./pages/AdminFiguresPage.jsx";
 import AdminCatalogPage from "./pages/AdminCatalogPage.jsx";
+import AdminNotificationsPage from "./pages/AdminNotificationsPage.jsx";
 import CommandPalette from "./components/CommandPalette.jsx";
 import LiveSyncProvider from "./components/LiveSyncProvider.jsx";
 import OfflineIndicator from "./components/OfflineIndicator.jsx";
@@ -52,6 +54,7 @@ export default function App() {
           <Route path="/activity" element={<ActivityPage />} />
           <Route path="/year-in-review/:year" element={<YearInReviewPage />} />
           <Route path="/year-in-review" element={<YearInReviewPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/achievements" element={<AchievementsPage />} />
           <Route path="/stats" element={<StatsPage />} />
           <Route path="/admin" element={<AdminLayout />}>
@@ -59,6 +62,7 @@ export default function App() {
             <Route path="users" element={<AdminUsersPage />} />
             <Route path="figures" element={<AdminFiguresPage />} />
             <Route path="catalog" element={<AdminCatalogPage />} />
+            <Route path="notifications" element={<AdminNotificationsPage />} />
           </Route>
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/u/:slug" element={<PublicProfilePage />} />

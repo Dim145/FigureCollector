@@ -28,6 +28,7 @@ mod m20260524_000013_owned_shipping;
 mod m20260524_000014_user_preferred_currency;
 mod m20260524_000015_achievement_trigger_figure;
 mod m20260524_000016_public_profile_show_nsfw;
+mod m20260524_000017_notifications;
 
 pub struct Migrator;
 
@@ -51,6 +52,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260524_000014_user_preferred_currency::Migration),
             Box::new(m20260524_000015_achievement_trigger_figure::Migration),
             Box::new(m20260524_000016_public_profile_show_nsfw::Migration),
+            Box::new(m20260524_000017_notifications::Migration),
         ]
     }
 }

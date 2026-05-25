@@ -20,12 +20,15 @@ pub mod figure_photos;
 pub mod figures;
 pub mod health;
 pub mod me;
+pub mod notif_channels;
+pub mod notifications;
 pub mod owned;
 pub mod photos;
 pub mod preorders;
 pub mod profile;
 pub mod scans;
 pub mod stats;
+pub mod web_push;
 pub mod ws;
 
 pub fn build_router(state: AppState) -> Router {
@@ -82,6 +85,9 @@ pub fn build_router(state: AppState) -> Router {
         .merge(external::router())
         .merge(activity::router())
         .merge(achievements::router())
+        .merge(notifications::router())
+        .merge(notif_channels::router())
+        .merge(web_push::router())
         .merge(stats::router())
         .merge(admin::router())
         .merge(photo_routes)

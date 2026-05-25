@@ -3,6 +3,7 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useIsAdmin, useLogout, useMe } from "../hooks/useMe.js";
 import LocaleSwitcher from "./LocaleSwitcher.jsx";
+import NotificationBell from "./NotificationBell.jsx";
 
 /**
  * Compact exhibition-style header.
@@ -119,6 +120,8 @@ export default function AppShell({ children }) {
                 <span className="hidden md:inline">{t("nav.add_figure.short")}</span>
               </Link>
             ) : null}
+
+            {authed ? <NotificationBell /> : null}
 
             <LocaleSwitcher />
 

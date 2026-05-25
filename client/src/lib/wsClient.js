@@ -112,6 +112,16 @@ function handleEvent(msg, qc) {
       qc.invalidateQueries({ queryKey: ["me"] });
       qc.invalidateQueries({ queryKey: ["public-profile"] });
       return;
+    case "notification_created":
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+      // Fire a DOM event so any consumer (bell badge, toast surface)
+      // can react beyond the React Query cache.
+      window.dispatchEvent(
+        new CustomEvent("fc:notification-created", {
+          detail: { id: msg.id },
+        }),
+      );
+      return;
     default:
       return;
   }

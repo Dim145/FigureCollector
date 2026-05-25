@@ -100,6 +100,7 @@ async fn add_mine(
                     codes: newly.iter().map(|a| a.code.clone()).collect(),
                 },
             );
+            crate::services::notify::dispatch_achievements(&state, user_id, &newly).await;
         }
     }
 

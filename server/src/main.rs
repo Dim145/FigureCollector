@@ -12,6 +12,7 @@ mod events;
 mod external;
 mod migration;
 mod routes;
+mod services;
 mod state;
 mod storage;
 
@@ -97,6 +98,11 @@ async fn main() -> anyhow::Result<()> {
         storage,
         events,
     };
+
+    // Daily release-date scheduler — fires J-day + J-7 notifications on
+    // preorders that hit their release date.
+    services::release_cron::spawn(state.clone());
+
     let app = routes::build_router(state).layer(session_layer);
 
     let addr: SocketAddr = config.bind_addr.parse()?;

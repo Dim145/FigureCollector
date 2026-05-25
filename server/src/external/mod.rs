@@ -15,5 +15,6 @@ pub mod anilist;
 pub mod cache;
 pub mod mal;
 pub mod mfc;
+pub mod notify_channel;
 pub mod orzgk;
 pub mod tracking;

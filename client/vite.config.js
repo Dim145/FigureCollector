@@ -50,6 +50,10 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api\//, /^\/_/, /^\/photos\//],
         clientsClaim: true,
         skipWaiting: false,
+        // Inject the push event handler into the generated SW so a
+        // single service worker registration handles both precaching
+        // and Web Push delivery.
+        importScripts: ["/push-handler.js"],
         // ---- Runtime caching strategies
         runtimeCaching: [
           // Backend-served photos (immutable; storage_key changes per upload).
