@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
@@ -7,14 +8,20 @@ import Card from "../components/Card.jsx";
 import CountUp from "../components/CountUp.jsx";
 
 /**
- * Direction B — Statistics page. Whole-collection breakdowns inspired by
- * MangaCollector's "Profile / Statistics": spend by currency, distribution
- * by type / condition, top manufacturers / series / sculptors, acquisitions
- * timeline by year, most expensive piece, price distribution.
+ * Le Grand Livre — the user's annual inventory ledger.
  *
- * Charts are CSS-only (horizontal bar segments + a vertical year bar chart),
- * keeping the bundle slim and the aesthetic restrained — gold leaf, ivory,
- * laque accents only.
+ * Aesthetic moves:
+ *   - Hero ledger spread (vertical tag + huge embossed figural)
+ *   - Roman-numeral chapter dividers with kanji subtitle
+ *   - Brass-tabbed ledger rows for spend per currency (+ sparkline)
+ *   - Polar dial charts for type + condition breakdowns (CSS-only SVG)
+ *   - Podium for top-3 manufacturers/series/sculptors (lists below)
+ *   - Press-strip year timeline with letterpress numbers above each bar
+ *   - "Pièce de la couronne" feature card for the most expensive piece
+ *   - Thermometer rule for the price distribution
+ *
+ * No charting library — every chart is hand-drawn SVG or CSS so the bundle
+ * stays slim and the look stays cohesive with the rest of the Vitrine.
  */
 export default function StatsPage() {
   const t = useT();
@@ -27,7 +34,9 @@ export default function StatsPage() {
   if (stats.isLoading) {
     return (
       <AppShell>
-        <div className="text-center py-16 text-[var(--color-ivoire-soft)]">…</div>
+        <div className="text-center py-32 text-[var(--color-ivoire-soft)] italic">
+          …
+        </div>
       </AppShell>
     );
   }
@@ -37,74 +46,95 @@ export default function StatsPage() {
 
   return (
     <AppShell>
-      <main className="max-w-6xl mx-auto px-6 py-12">
-        <Header t={t} />
-
+      <main className="relative max-w-6xl mx-auto px-6 py-12">
         {empty ? (
-          <Card className="p-10 text-center">
-            <p className="text-[var(--color-ivoire-soft)]">{t("stats.empty")}</p>
-          </Card>
+          <>
+            <TitlePage data={null} t={t} year={new Date().getFullYear()} />
+            <Card className="p-10 text-center mt-12">
+              <p className="text-[var(--color-ivoire-soft)] italic">
+                {t("stats.empty")}
+              </p>
+            </Card>
+          </>
         ) : (
           <>
-            <Headlines data={data} t={t} />
+            {/* I — Title page */}
+            <TitlePage data={data} t={t} year={new Date().getFullYear()} />
 
-            <div className="gold-rule mx-auto w-56 my-12" />
-
-            <div className="grid md:grid-cols-2 gap-6">
-              <SpendTile data={data} t={t} />
-              <PreordersTile data={data} t={t} />
+            {/* II — Dépenses */}
+            <ChapterRule roman="II" label={t("stats.ch.spend")} kanji="財" />
+            <div className="grid lg:grid-cols-[1.4fr_1fr] gap-8 items-start">
+              <SpendLedger data={data} t={t} />
+              <PreorderDial data={data} t={t} />
             </div>
 
-            <div className="gold-rule mx-auto w-56 my-12" />
-
-            <div className="grid md:grid-cols-2 gap-6">
-              <BarsTile
+            {/* III — Répartition */}
+            <ChapterRule roman="III" label={t("stats.ch.allocation")} kanji="分" />
+            <div className="grid lg:grid-cols-2 gap-8">
+              <PolarBreakdown
                 title={t("stats.by_type.title")}
+                kanji="像"
                 rows={data.by_type.map((r) => ({
                   key: r.figure_type,
                   label: t(`type.${r.figure_type}`, { default: r.figure_type }),
-                  count: r.count,
+                  count: Number(r.count) || 0,
                 }))}
-                total={data.total_pieces}
               />
-              <BarsTile
+              <PolarBreakdown
                 title={t("stats.by_condition.title")}
+                kanji="態"
                 rows={data.by_condition.map((r) => ({
                   key: r.condition,
                   label: t(`condition.${r.condition}`, { default: r.condition }),
-                  count: r.count,
+                  count: Number(r.count) || 0,
                 }))}
-                total={data.total_pieces}
               />
             </div>
 
-            <div className="gold-rule mx-auto w-56 my-12" />
-
-            <div className="grid md:grid-cols-3 gap-6">
-              <TopTile title={t("stats.top_manufacturers.title")} rows={data.top_manufacturers} t={t} />
-              <TopTile title={t("stats.top_series.title")} rows={data.top_series} t={t} />
-              <TopTile title={t("stats.top_sculptors.title")} rows={data.top_sculptors} t={t} />
+            {/* IV — Palmarès */}
+            <ChapterRule roman="IV" label={t("stats.ch.tops")} kanji="冠" />
+            <div className="grid lg:grid-cols-3 gap-8">
+              <PodiumColumn
+                title={t("stats.top_manufacturers.title")}
+                rows={data.top_manufacturers}
+                t={t}
+              />
+              <PodiumColumn
+                title={t("stats.top_series.title")}
+                rows={data.top_series}
+                t={t}
+              />
+              <PodiumColumn
+                title={t("stats.top_sculptors.title")}
+                rows={data.top_sculptors}
+                t={t}
+              />
             </div>
 
-            <div className="gold-rule mx-auto w-56 my-12" />
+            {/* V — Chronique */}
+            <ChapterRule roman="V" label={t("stats.ch.timeline")} kanji="暦" />
+            {data.acquisitions_by_year.length === 0 ? (
+              <p className="text-center text-[var(--color-ivoire-soft)] py-12 italic">
+                {t("stats.timeline.empty")}
+              </p>
+            ) : (
+              <PressStrip data={data.acquisitions_by_year} t={t} />
+            )}
 
-            <section>
-              <h3 className="micro mb-4 text-center">{t("stats.timeline.title")}</h3>
-              {data.acquisitions_by_year.length === 0 ? (
-                <p className="text-center text-[var(--color-ivoire-soft)]">
-                  {t("stats.timeline.empty")}
-                </p>
-              ) : (
-                <YearTimeline data={data.acquisitions_by_year} />
-              )}
-            </section>
+            {/* VI — Pièces majeures */}
+            <ChapterRule roman="VI" label={t("stats.ch.crown")} kanji="王" />
+            <CrownPieces data={data} t={t} />
 
-            <div className="gold-rule mx-auto w-56 my-12" />
+            {/* VII — Échelle des prix */}
+            {data.price_distribution.length > 0 ? (
+              <>
+                <ChapterRule roman="VII" label={t("stats.ch.scale")} kanji="幅" />
+                <PriceThermometers data={data} t={t} />
+              </>
+            ) : null}
 
-            <div className="grid md:grid-cols-2 gap-6">
-              <MostExpensiveTile data={data} t={t} />
-              <PriceDistTile data={data} t={t} />
-            </div>
+            {/* Colophon — printed-book footer */}
+            <Colophon t={t} pieces={data.total_pieces} year={new Date().getFullYear()} />
           </>
         )}
       </main>
@@ -112,75 +142,142 @@ export default function StatsPage() {
   );
 }
 
-// -----------------------------------------------------------------------------
+// =============================================================================
+// Chapter rule — Roman numeral + label + kanji separator
+// =============================================================================
 
-function Header({ t }) {
+function ChapterRule({ roman, label, kanji }) {
   return (
-    <header className="text-center mb-10 relative">
-      <p className="micro">{t("stats.subtitle")}</p>
-      <div className="relative inline-block mt-3">
-        <p
-          aria-hidden
-          className="absolute inset-0 ja text-[10rem] md:text-[14rem] leading-none text-[var(--color-or)]/12 select-none -translate-y-6 md:-translate-y-12"
-          style={{ filter: "blur(0.4px)" }}
-        >
-          数
-        </p>
-        <h1 className="relative display text-5xl md:text-6xl text-[var(--color-ivoire)]">
-          {t("stats.title")}
-        </h1>
-      </div>
-      <div className="gold-rule mx-auto w-32 mt-6" />
-    </header>
-  );
-}
-
-function Headlines({ data, t }) {
-  const items = [
-    { value: data.total_pieces, label: t("stats.headline.pieces") },
-    { value: data.distinct_types, label: t("stats.headline.types") },
-    { value: data.distinct_manufacturers, label: t("stats.headline.manufacturers") },
-    { value: data.distinct_series, label: t("stats.headline.series") },
-    { value: data.total_scans, label: t("stats.headline.scans") },
-  ];
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
-      {items.map((it) => (
-        <Card
-          key={it.label}
-          className="p-5 text-center magnetic shimmer glass"
-        >
-          <p className="figural-xl text-5xl md:text-6xl text-[var(--color-or)]">
-            <CountUp value={Number(it.value) || 0} />
-          </p>
-          <p className="label-mono mt-3">{it.label}</p>
-        </Card>
-      ))}
+    <div
+      className="chapter-rule reveal"
+      style={{ "--i": 1 }}
+      role="separator"
+      aria-label={label}
+    >
+      <span className="chapter-rule-roman">{roman}.</span>
+      <span className="chapter-rule-line" aria-hidden />
+      <span className="chapter-rule-label">{label}</span>
+      <span className="chapter-rule-line" aria-hidden />
+      <span className="chapter-rule-kanji" aria-hidden>
+        {kanji}
+      </span>
     </div>
   );
 }
 
-function SpendTile({ data, t }) {
+// =============================================================================
+// I — Title page
+// =============================================================================
+
+function TitlePage({ data, t, year }) {
+  const pieces = data?.total_pieces ?? 0;
   return (
-    <Card className="p-6">
-      <p className="micro mb-4">{t("stats.spend.title")}</p>
+    <header className="relative grid grid-cols-[auto_1fr] gap-6 md:gap-12 items-center mb-6 min-h-[36vh]">
+      {/* Backdrop kanji 数 (numbers / count) */}
+      <span
+        aria-hidden
+        className="ja absolute right-0 -top-12 text-[26rem] leading-none text-[var(--color-or)]/8 select-none pointer-events-none hidden md:block"
+      >
+        数
+      </span>
+
+      <div className="vertical-tag reveal hidden md:block" style={{ "--i": 0 }}>
+        {t("stats.vertical_tag")}
+      </div>
+
+      <div className="relative">
+        <p className="micro reveal" style={{ "--i": 0 }}>
+          {t("stats.subtitle")} · {t("stats.edition", { year })}
+        </p>
+        <h1
+          className="display text-5xl md:text-7xl mt-4 text-[var(--color-ivoire)] leading-[0.9] reveal"
+          style={{ "--i": 1 }}
+        >
+          {t("stats.title")}
+        </h1>
+        <p
+          className="display italic text-xl md:text-2xl text-[var(--color-or-pale)]/80 mt-3 reveal"
+          style={{ "--i": 2 }}
+        >
+          {t("stats.kicker")}
+        </p>
+
+        {/* The hero figure — massive embossed total piece count */}
+        <div className="mt-8 reveal" style={{ "--i": 3 }}>
+          <p className="label-mono mb-2">{t("stats.headline.pieces")}</p>
+          <p className="figural-massive" data-value={pieces}>
+            <CountUp value={pieces} duration={1400} />
+          </p>
+        </div>
+
+        {/* Headline satellites — secondary counters in a tight row */}
+        {data ? (
+          <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-4 reveal" style={{ "--i": 4 }}>
+            <Satellite kanji="種" label={t("stats.headline.types")} value={data.distinct_types} />
+            <Satellite kanji="社" label={t("stats.headline.manufacturers")} value={data.distinct_manufacturers} />
+            <Satellite kanji="作" label={t("stats.headline.series")} value={data.distinct_series} />
+            <Satellite kanji="影" label={t("stats.headline.scans")} value={data.total_scans} />
+          </div>
+        ) : null}
+      </div>
+    </header>
+  );
+}
+
+function Satellite({ kanji, label, value }) {
+  return (
+    <div className="relative border-l border-[var(--color-or)]/30 pl-4 py-1">
+      <span
+        aria-hidden
+        className="ja absolute -top-2 right-2 text-3xl text-[var(--color-or)]/15 leading-none select-none"
+      >
+        {kanji}
+      </span>
+      <p className="label-mono">{label}</p>
+      <p className="display text-3xl md:text-4xl text-[var(--color-or)] mt-1.5 leading-none">
+        <CountUp value={Number(value) || 0} />
+      </p>
+    </div>
+  );
+}
+
+// =============================================================================
+// II — Spend ledger + Preorder dial
+// =============================================================================
+
+function SpendLedger({ data, t }) {
+  // We have acquisitions_by_year but not spend-by-year. The sparkline below
+  // uses the year acquisition shape (clipped to the last ~8 years) as a soft
+  // proxy for "buying intensity" — labelled as such, not as money over time.
+  const yearProxy = useMemo(
+    () => (data.acquisitions_by_year ?? []).slice(-8),
+    [data.acquisitions_by_year],
+  );
+  return (
+    <Card className="relative p-7">
+      <p className="micro mb-1">{t("stats.spend.title")}</p>
+      <p className="display italic text-[var(--color-or-pale)] text-lg mb-5">
+        {t("stats.spend.kicker")}
+      </p>
+
       {data.spend_by_currency.length === 0 ? (
-        <p className="text-[var(--color-ivoire-soft)]">{t("stats.spend.empty")}</p>
+        <p className="text-[var(--color-ivoire-soft)] italic">
+          {t("stats.spend.empty")}
+        </p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="-mt-1">
           {data.spend_by_currency.map((s) => (
-            <li key={s.currency} className="flex justify-between items-baseline">
-              <span className="font-mono text-[var(--color-ivoire-soft)] tracking-wider text-sm">
-                {s.currency}
-              </span>
-              <span className="text-right">
-                <span className="display text-2xl text-[var(--color-or-pale)]">
-                  {fmtMoney(s.total, s.currency)}
-                </span>
-                <span className="block micro opacity-70">
+            <li key={s.currency} className="ledger-row">
+              <span className="brass-tab">{s.currency}</span>
+              <div className="min-w-0">
+                <p className="ledger-figure">{fmtMoney(s.total, s.currency)}</p>
+                <p className="ledger-caption mt-1">
                   {t("stats.spend.priced_pieces", { count: s.pieces_priced })}
-                </span>
-              </span>
+                </p>
+              </div>
+              <div className="w-28 hidden md:block">
+                {yearProxy.length > 1 ? <Sparkline data={yearProxy} /> : null}
+              </div>
             </li>
           ))}
         </ul>
@@ -189,200 +286,490 @@ function SpendTile({ data, t }) {
   );
 }
 
-function PreordersTile({ data, t }) {
-  const p = data.preorders;
+function Sparkline({ data }) {
+  const w = 110;
+  const h = 28;
+  const max = Math.max(1, ...data.map((d) => Number(d.count) || 0));
+  const min = 0;
+  const stepX = data.length > 1 ? w / (data.length - 1) : 0;
+  const points = data.map((d, i) => {
+    const x = i * stepX;
+    const y = h - ((Number(d.count) - min) / (max - min || 1)) * h;
+    return [x, y];
+  });
+  const path = points
+    .map((p, i) => `${i === 0 ? "M" : "L"} ${p[0].toFixed(1)} ${p[1].toFixed(1)}`)
+    .join(" ");
+  const last = points[points.length - 1];
   return (
-    <Card className="p-6">
-      <p className="micro mb-4">{t("stats.preorders.title")}</p>
-      <ul className="grid grid-cols-2 gap-4">
-        <Stat label={t("stats.preorders.placed")} value={p.placed} accent="ivoire" />
-        <Stat label={t("stats.preorders.open")} value={p.open} accent="or" />
-        <Stat label={t("stats.preorders.received")} value={p.received} accent="or-pale" />
-        <Stat label={t("stats.preorders.cancelled")} value={p.cancelled} accent="dim" />
+    <svg className="sparkline" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
+      <path d={path} />
+      {last ? <circle cx={last[0]} cy={last[1]} r="2" /> : null}
+    </svg>
+  );
+}
+
+function PreorderDial({ data, t }) {
+  const p = data.preorders;
+  const total = (p.placed || 0) + (p.received || 0) + (p.cancelled || 0);
+  // four-row inventory table style — same brass tab, terse caption.
+  const rows = [
+    { kanji: "予", label: t("stats.preorders.placed"), value: p.placed, tone: "ivory" },
+    { kanji: "途", label: t("stats.preorders.open"), value: p.open, tone: "gold" },
+    { kanji: "受", label: t("stats.preorders.received"), value: p.received, tone: "gold-pale" },
+    { kanji: "棄", label: t("stats.preorders.cancelled"), value: p.cancelled, tone: "dim" },
+  ];
+  return (
+    <Card className="relative p-7 overflow-hidden">
+      <p className="micro mb-1">{t("stats.preorders.title")}</p>
+      <p className="display italic text-[var(--color-or-pale)] text-lg mb-5">
+        {t("stats.preorders.kicker")}
+      </p>
+
+      <ul className="space-y-3">
+        {rows.map((r) => (
+          <li
+            key={r.label}
+            className="flex items-baseline gap-4 py-2 border-b border-dashed border-[var(--color-or)]/15 last:border-b-0"
+          >
+            <span
+              aria-hidden
+              className="ja text-2xl leading-none text-[var(--color-or)]/40 w-8 shrink-0"
+            >
+              {r.kanji}
+            </span>
+            <span className="display text-3xl leading-none tracking-tight">
+              <span className={toneColor(r.tone)}>
+                <CountUp value={Number(r.value) || 0} />
+              </span>
+            </span>
+            <span className="micro flex-1 text-right truncate">{r.label}</span>
+          </li>
+        ))}
       </ul>
+      {total > 0 ? (
+        <p className="micro-tight mt-5 text-center opacity-70">
+          {t("stats.preorders.cumul", { n: total })}
+        </p>
+      ) : null}
     </Card>
   );
 }
 
-function Stat({ label, value, accent }) {
-  const colors = {
-    ivoire: "text-[var(--color-ivoire)]",
-    or: "text-[var(--color-or)]",
-    "or-pale": "text-[var(--color-or-pale)]",
-    dim: "text-[var(--color-ivoire-soft)]/70",
-  };
-  return (
-    <li>
-      <p className={`display text-3xl leading-none ${colors[accent] ?? colors.ivoire}`}>{value}</p>
-      <p className="micro mt-1">{label}</p>
-    </li>
-  );
+function toneColor(tone) {
+  switch (tone) {
+    case "gold": return "text-[var(--color-or)]";
+    case "gold-pale": return "text-[var(--color-or-pale)]";
+    case "dim": return "text-[var(--color-ivoire-soft)]/60";
+    case "ivory":
+    default: return "text-[var(--color-ivoire)]";
+  }
 }
 
-function BarsTile({ title, rows, total }) {
-  const max = Math.max(1, ...rows.map((r) => r.count));
+// =============================================================================
+// III — Polar breakdown (donut + radial bars)
+// =============================================================================
+
+function PolarBreakdown({ title, kanji, rows }) {
+  const total = rows.reduce((s, r) => s + r.count, 0);
+  const top = [...rows].sort((a, b) => b.count - a.count)[0];
+  if (rows.length === 0) {
+    return (
+      <Card className="p-7">
+        <p className="micro mb-4">{title}</p>
+        <p className="text-[var(--color-ivoire-soft)] italic">—</p>
+      </Card>
+    );
+  }
   return (
-    <Card className="p-6">
-      <p className="micro mb-4">{title}</p>
-      {rows.length === 0 ? (
-        <p className="text-[var(--color-ivoire-soft)]">—</p>
-      ) : (
-        <ul className="space-y-3">
-          {rows.map((r) => {
-            const pct = (r.count / max) * 100;
-            const share = total > 0 ? ((r.count / total) * 100).toFixed(1) : "0";
+    <Card className="relative p-7">
+      <p className="micro mb-5">{title}</p>
+      <div className="grid grid-cols-[170px_1fr] gap-7 items-center">
+        <PolarChart rows={rows} kanji={kanji} />
+        <ol className="space-y-2.5">
+          {rows.map((r, i) => {
+            const share = total > 0 ? (r.count / total) * 100 : 0;
             return (
-              <li key={r.key}>
-                <div className="flex justify-between items-baseline mb-1">
-                  <span className="text-sm text-[var(--color-ivoire)]">{r.label}</span>
-                  <span className="font-mono text-[11px] text-[var(--color-or-pale)]">
-                    {r.count} <span className="opacity-50">· {share}%</span>
-                  </span>
-                </div>
-                <div className="h-1.5 bg-[var(--color-or)]/10 relative overflow-hidden">
-                  <div
-                    className="absolute inset-y-0 left-0 bg-[var(--color-or)]/70 transition-all"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
+              <li key={r.key} className="flex items-baseline gap-3 text-sm">
+                <span
+                  className="block w-2 h-2 shrink-0 mt-1"
+                  style={{
+                    background: segmentColor(i, rows.length),
+                  }}
+                />
+                <span className="flex-1 text-[var(--color-ivoire)] truncate">
+                  {r.label}
+                </span>
+                <span className="font-mono text-[11px] text-[var(--color-or-pale)] tracking-wider">
+                  {r.count}
+                </span>
+                <span className="font-mono text-[10px] text-[var(--color-ivoire-soft)]/60 w-10 text-right">
+                  {share.toFixed(0)}%
+                </span>
               </li>
             );
           })}
-        </ul>
-      )}
+        </ol>
+      </div>
+      {top ? (
+        <p className="absolute top-7 right-7 text-right">
+          <span className="micro-tight block">{rows.length > 1 ? "Dominant" : "Unique"}</span>
+          <span className="display italic text-base text-[var(--color-or-pale)]">
+            {top.label}
+          </span>
+        </p>
+      ) : null}
     </Card>
   );
 }
 
-function TopTile({ title, rows, t }) {
+/** Inline SVG polar / radial chart (Nightingale rose).
+ *
+ * Each segment is a wedge with angle proportional to its share of total,
+ * radius proportional to its share of MAX. We use angle for proportion +
+ * radius for emphasis — pieces with the most representation jut out the
+ * furthest, those with the least are shorter wedges at the same angle.
+ */
+function PolarChart({ rows, kanji }) {
+  const size = 170;
+  const cx = size / 2;
+  const cy = size / 2;
+  const innerR = 26;
+  const maxR = size / 2 - 8;
+  const max = Math.max(1, ...rows.map((r) => r.count));
+  const totalAngle = 360;
+  // distribute equal angles per segment so each label has a slot; vary radius
+  // to encode magnitude. This reads "all the categories at a glance" — not
+  // strict % of pie.
+  const sweep = totalAngle / rows.length;
+
   return (
-    <Card className="p-6">
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg
+        className="polar-svg"
+        viewBox={`0 0 ${size} ${size}`}
+        aria-hidden
+      >
+        {/* Centre kanji */}
+        <text
+          x={cx}
+          y={cy + 8}
+          textAnchor="middle"
+          fontFamily="Noto Serif JP, serif"
+          fontSize="22"
+          fill="var(--color-or)"
+          opacity="0.85"
+        >
+          {kanji}
+        </text>
+        {/* concentric guide rings */}
+        {[0.33, 0.66, 1].map((t, i) => (
+          <circle
+            key={i}
+            cx={cx}
+            cy={cy}
+            r={innerR + (maxR - innerR) * t}
+            fill="none"
+            stroke="oklch(0.78 0.10 80 / 0.10)"
+            strokeWidth="0.75"
+            strokeDasharray="2 3"
+          />
+        ))}
+        {rows.map((r, i) => {
+          const a0 = -90 + i * sweep;
+          const a1 = a0 + sweep * 0.86; // 14% gap between wedges
+          const radius = innerR + (r.count / max) * (maxR - innerR);
+          const d = wedgePath(cx, cy, innerR, radius, a0, a1);
+          return (
+            <path
+              key={r.key}
+              className="seg"
+              d={d}
+              fill={segmentColor(i, rows.length)}
+              style={{
+                filter: "drop-shadow(0 2px 4px oklch(0.78 0.10 80 / 0.3))",
+              }}
+            >
+              <title>{`${r.label}: ${r.count}`}</title>
+            </path>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
+/** Build an SVG path for an annular wedge (donut slice). */
+function wedgePath(cx, cy, r0, r1, a0deg, a1deg) {
+  const a0 = (a0deg * Math.PI) / 180;
+  const a1 = (a1deg * Math.PI) / 180;
+  const large = a1 - a0 > Math.PI ? 1 : 0;
+  const x0o = cx + r1 * Math.cos(a0);
+  const y0o = cy + r1 * Math.sin(a0);
+  const x1o = cx + r1 * Math.cos(a1);
+  const y1o = cy + r1 * Math.sin(a1);
+  const x0i = cx + r0 * Math.cos(a1);
+  const y0i = cy + r0 * Math.sin(a1);
+  const x1i = cx + r0 * Math.cos(a0);
+  const y1i = cy + r0 * Math.sin(a0);
+  return [
+    `M ${x0o} ${y0o}`,
+    `A ${r1} ${r1} 0 ${large} 1 ${x1o} ${y1o}`,
+    `L ${x0i} ${y0i}`,
+    `A ${r0} ${r0} 0 ${large} 0 ${x1i} ${y1i}`,
+    "Z",
+  ].join(" ");
+}
+
+/** Six tiers of gold opacity so each segment is distinguishable without
+ *  introducing colour outside the Vitrine palette. */
+function segmentColor(i, n) {
+  const opacities = [0.95, 0.78, 0.62, 0.48, 0.36, 0.26, 0.20, 0.16, 0.13, 0.10];
+  const o = opacities[i] ?? 0.1;
+  return `oklch(0.78 0.10 80 / ${o})`;
+}
+
+// =============================================================================
+// IV — Podium of tops
+// =============================================================================
+
+function PodiumColumn({ title, rows, t }) {
+  if (!rows || rows.length === 0) {
+    return (
+      <Card className="p-7">
+        <p className="micro mb-4">{title}</p>
+        <p className="text-[var(--color-ivoire-soft)] italic">
+          {t("stats.top.empty")}
+        </p>
+      </Card>
+    );
+  }
+  const podium = rows.slice(0, 3);
+  const rest = rows.slice(3, 10);
+  return (
+    <div>
       <p className="micro mb-4">{title}</p>
-      {rows.length === 0 ? (
-        <p className="text-[var(--color-ivoire-soft)]">{t("stats.top.empty")}</p>
-      ) : (
-        <ol className="space-y-2">
-          {rows.map((r, i) => (
-            <li key={`${r.name}-${i}`} className="flex items-baseline gap-3">
-              <span className="font-mono text-[10px] text-[var(--color-or)]/60 w-4 shrink-0">
-                {String(i + 1).padStart(2, "0")}
+      <div className="grid grid-cols-3 gap-1.5 items-end">
+        {/* Reorder for visual hierarchy: 2 · 1 · 3 (silver in the middle of
+         *  the screen looks weird; we keep 1·2·3 left-to-right so it reads
+         *  like a list, with #1 visually elevated through extra padding) */}
+        {podium.map((r, i) => (
+          <div
+            key={`${r.name}-${i}`}
+            className={`podium-tier ${i === 0 ? "podium-tier--gold" : ""}`}
+            style={{
+              transform: i === 0 ? "translateY(-8px)" : "translateY(0)",
+            }}
+          >
+            <span className="podium-rank">{String(i + 1).padStart(2, "0")}</span>
+            <span className="podium-name" title={r.name}>
+              {truncate(r.name, 36)}
+            </span>
+            <span className="podium-count">
+              {r.count} {r.count === 1 ? "fig." : "fig."}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {rest.length > 0 ? (
+        <ol className="mt-5 space-y-1.5">
+          {rest.map((r, idx) => (
+            <li
+              key={`${r.name}-${idx}`}
+              className="flex items-baseline gap-3 text-[13px]"
+            >
+              <span className="font-mono text-[10px] text-[var(--color-or)]/40 w-5 shrink-0">
+                {String(idx + 4).padStart(2, "0")}
               </span>
-              <span className="flex-1 text-[var(--color-ivoire)] truncate" title={r.name}>
+              <span className="flex-1 text-[var(--color-ivoire-soft)] truncate">
                 {r.name}
               </span>
-              <span className="font-mono text-[11px] text-[var(--color-or-pale)] shrink-0">
+              <span className="font-mono text-[10.5px] text-[var(--color-or-pale)] shrink-0">
                 {r.count}
               </span>
             </li>
           ))}
         </ol>
-      )}
-    </Card>
+      ) : null}
+    </div>
   );
 }
 
-function YearTimeline({ data }) {
-  const max = Math.max(1, ...data.map((d) => d.count));
+function truncate(s, max) {
+  if (!s || s.length <= max) return s;
+  return s.slice(0, max - 1) + "…";
+}
+
+// =============================================================================
+// V — Press strip (year timeline)
+// =============================================================================
+
+function PressStrip({ data, t }) {
+  const max = Math.max(1, ...data.map((d) => Number(d.count) || 0));
   return (
-    <div
-      className="grid gap-2 h-40 items-end"
-      style={{ gridTemplateColumns: `repeat(${data.length}, minmax(0, 1fr))` }}
-    >
-      {data.map((d) => (
-        <div key={d.year} className="flex flex-col items-center justify-end h-full">
-          <div className="relative w-full" style={{ height: `${(d.count / max) * 100}%` }}>
-            <div className="absolute inset-x-0 bottom-0 top-0 bg-[var(--color-or)]/70 hover:bg-[var(--color-or)] transition-colors" />
-            <span className="absolute -top-5 left-1/2 -translate-x-1/2 font-mono text-[10px] text-[var(--color-or-pale)]">
-              {d.count}
+    <div className="press-strip reveal" style={{ "--i": 1 }}>
+      <div
+        className="press-grid"
+        style={{
+          gridTemplateColumns: `repeat(${data.length}, minmax(0, 1fr))`,
+        }}
+      >
+        {data.map((d, i) => {
+          const h = ((Number(d.count) || 0) / max) * 100;
+          return (
+            <div key={d.year} className="press-col">
+              <span className="press-count">{d.count}</span>
+              <div
+                className="press-bar"
+                style={{
+                  height: `${h}%`,
+                  animationDelay: `${i * 60}ms`,
+                }}
+              />
+              <span className="press-year">{d.year}</span>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-12 text-center text-[10px] uppercase tracking-[0.32em] text-[var(--color-or-pale)]/70">
+        {t("stats.timeline.caption")}
+      </p>
+    </div>
+  );
+}
+
+// =============================================================================
+// VI — Crown piece (most expensive)
+// =============================================================================
+
+function CrownPieces({ data, t }) {
+  if (data.most_expensive.length === 0) {
+    return (
+      <p className="text-center text-[var(--color-ivoire-soft)] italic py-8">
+        {t("stats.most_expensive.empty")}
+      </p>
+    );
+  }
+  return (
+    <div className="grid lg:grid-cols-2 gap-6">
+      {data.most_expensive.map((m, i) => (
+        <article key={`${m.currency}-${m.figure_id}`} className="crown-card">
+          <p className="crown-eyebrow">
+            {t("stats.most_expensive.eyebrow")} · {m.currency}
+          </p>
+          <h3 className="display text-3xl md:text-4xl text-[var(--color-ivoire)] mt-3 leading-tight">
+            <Link
+              to={`/figures/${m.figure_id}`}
+              className="hover:text-[var(--color-or-pale)] transition-colors"
+            >
+              {m.figure_name}
+            </Link>
+          </h3>
+          <div className="gold-rule w-12 mt-5 mb-4 opacity-70" />
+          <p className="display font-light text-4xl md:text-5xl text-[var(--color-or)]">
+            {fmtMoney(m.price, m.currency)}
+            <span className="font-mono text-base text-[var(--color-or-pale)]/70 ml-3 align-baseline">
+              {m.currency}
             </span>
-          </div>
-          <span className="micro mt-2 opacity-70">{d.year}</span>
-        </div>
+          </p>
+          {m.purchase_date ? (
+            <p className="micro-tight mt-5">
+              {t("stats.most_expensive.acquired")} ·{" "}
+              <time dateTime={m.purchase_date}>
+                {new Date(m.purchase_date).toLocaleDateString(undefined, {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </time>
+            </p>
+          ) : null}
+          <span
+            aria-hidden
+            className="absolute bottom-4 right-5 font-mono text-[9px] tracking-[0.3em] uppercase text-[var(--color-or-pale)]/40"
+          >
+            n<sup>o</sup> {i + 1}
+          </span>
+        </article>
       ))}
     </div>
   );
 }
 
-function MostExpensiveTile({ data, t }) {
-  return (
-    <Card className="p-6">
-      <p className="micro mb-4">{t("stats.most_expensive.title")}</p>
-      {data.most_expensive.length === 0 ? (
-        <p className="text-[var(--color-ivoire-soft)]">{t("stats.most_expensive.empty")}</p>
-      ) : (
-        <ul className="space-y-4">
-          {data.most_expensive.map((m) => (
-            <li
-              key={`${m.currency}-${m.figure_id}`}
-              className="border-l-2 border-[var(--color-or)]/40 pl-4"
-            >
-              <p className="display text-xl text-[var(--color-ivoire)] leading-tight">
-                <Link
-                  to={`/figures/${m.figure_id}`}
-                  className="hover:text-[var(--color-or-pale)] transition-colors"
-                >
-                  {m.figure_name}
-                </Link>
-              </p>
-              <p className="font-mono text-sm text-[var(--color-or)] mt-1">
-                {fmtMoney(m.price, m.currency)}{" "}
-                <span className="text-[var(--color-ivoire-soft)] tracking-wider">
-                  {m.currency}
-                </span>
-              </p>
-              {m.purchase_date ? (
-                <p className="micro mt-1 opacity-70">
-                  {new Date(m.purchase_date).toLocaleDateString()}
-                </p>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
-  );
-}
+// =============================================================================
+// VII — Thermomètre (price distribution)
+// =============================================================================
 
-function PriceDistTile({ data, t }) {
+function PriceThermometers({ data, t }) {
   return (
-    <Card className="p-6">
-      <p className="micro mb-4">{t("stats.price_dist.title")}</p>
-      {data.price_distribution.length === 0 ? (
-        <p className="text-[var(--color-ivoire-soft)]">—</p>
-      ) : (
-        <div className="space-y-5">
-          {data.price_distribution.map((p) => (
-            <div key={p.currency}>
-              <p className="font-mono text-xs tracking-wider text-[var(--color-or-pale)] mb-2">
-                {p.currency}
-              </p>
-              <dl className="grid grid-cols-4 gap-2 text-center">
-                <PriceCell label={t("stats.price_dist.min")} value={fmtMoney(p.min, p.currency)} />
-                <PriceCell
-                  label={t("stats.price_dist.median")}
-                  value={fmtMoney(p.median, p.currency)}
-                />
-                <PriceCell label={t("stats.price_dist.avg")} value={fmtMoney(p.avg, p.currency)} />
-                <PriceCell label={t("stats.price_dist.max")} value={fmtMoney(p.max, p.currency)} />
-              </dl>
-            </div>
-          ))}
-        </div>
-      )}
-    </Card>
-  );
-}
-
-function PriceCell({ label, value }) {
-  return (
-    <div>
-      <dt className="micro text-[10px]">{label}</dt>
-      <dd className="font-mono text-sm text-[var(--color-ivoire)] mt-1">{value}</dd>
+    <div className="space-y-12">
+      {data.price_distribution.map((p) => (
+        <PriceThermometer key={p.currency} dist={p} t={t} />
+      ))}
     </div>
   );
 }
 
-// -----------------------------------------------------------------------------
+function PriceThermometer({ dist, t }) {
+  const min = Number(dist.min) || 0;
+  const max = Number(dist.max) || 1;
+  const med = Number(dist.median) || 0;
+  const avg = Number(dist.avg) || 0;
+  const span = max - min || 1;
+  const pos = (v) => ((v - min) / span) * 100;
+
+  const marks = [
+    { key: "min", value: min, x: 0, label: t("stats.price_dist.min") },
+    { key: "median", value: med, x: pos(med), label: t("stats.price_dist.median") },
+    { key: "avg", value: avg, x: pos(avg), label: t("stats.price_dist.avg") },
+    { key: "max", value: max, x: 100, label: t("stats.price_dist.max") },
+  ];
+
+  return (
+    <Card className="p-7">
+      <div className="flex items-baseline justify-between mb-2">
+        <p className="micro">{t("stats.price_dist.title")}</p>
+        <span className="brass-tab">{dist.currency}</span>
+      </div>
+      <div className="thermo">
+        <span className="thermo-rule" aria-hidden />
+        {marks.map((m) => (
+          <span
+            key={m.key}
+            className="thermo-mark"
+            style={{ left: `${m.x}%` }}
+          >
+            <span className="thermo-mark-value">
+              {fmtMoney(m.value, dist.currency)}
+            </span>
+            <span className="thermo-mark-dot" aria-hidden />
+            <span className="thermo-mark-label">{m.label}</span>
+          </span>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+// =============================================================================
+// Colophon — printed-book footer
+// =============================================================================
+
+function Colophon({ t, pieces, year }) {
+  return (
+    <footer className="mt-20 pt-8 border-t border-[var(--color-or)]/15 text-center">
+      <p className="display italic text-sm text-[var(--color-or-pale)]/60">
+        {t("stats.colophon.composed", { pieces, year })}
+      </p>
+      <p className="micro-tight mt-2 opacity-70">{t("stats.colophon.signoff")}</p>
+    </footer>
+  );
+}
+
+// =============================================================================
+// Helpers
+// =============================================================================
 
 const ZERO_DECIMALS = new Set(["JPY", "KRW", "VND", "IDR"]);
 
