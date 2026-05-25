@@ -11,6 +11,7 @@ mod error;
 mod events;
 mod external;
 mod migration;
+mod photo;
 mod routes;
 mod services;
 mod state;

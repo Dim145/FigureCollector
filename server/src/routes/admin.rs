@@ -13,9 +13,7 @@ use axum::{
     http::StatusCode,
     routing::{get, patch, post},
 };
-use image::ImageFormat;
 use serde::Deserialize;
-use std::io::Cursor;
 use tower_sessions::Session;
 use uuid::Uuid;
 
@@ -288,22 +286,10 @@ async fn process_and_store(
     }
     let raw = bytes.ok_or(AppError::BadRequest("missing 'file' multipart field"))?;
 
-    let format = image::guess_format(&raw)
-        .map_err(|_| AppError::BadRequest("unrecognised image format"))?;
-    match format {
-        ImageFormat::Jpeg | ImageFormat::Png | ImageFormat::WebP => {}
-        _ => return Err(AppError::BadRequest("unsupported image format (use JPEG, PNG or WebP)")),
-    }
-    let img = image::load_from_memory_with_format(&raw, format)
-        .map_err(|_| AppError::BadRequest("could not decode image"))?;
-    if img.width() > MAX_ENTITY_PHOTO_DIM || img.height() > MAX_ENTITY_PHOTO_DIM {
-        return Err(AppError::BadRequest(
-            "image dimensions too large (max 2048px per side)",
-        ));
-    }
-    let mut cleaned = Vec::with_capacity(raw.len() / 2);
-    img.write_to(&mut Cursor::new(&mut cleaned), ImageFormat::WebP)
-        .map_err(|e| AppError::Internal(anyhow::anyhow!("WebP encode failed: {e}")))?;
+    // Shared pipeline: format whitelist + dimension cap + EXIF-stripping
+    // WebP re-encode, off the runtime worker via `spawn_blocking`.
+    let (cleaned, _w, _h) =
+        crate::photo::sanitize_to_webp(raw, MAX_ENTITY_PHOTO_DIM).await?;
 
     let key = format!("entities/{kind}/{id}/{}.webp", Uuid::now_v7());
     state.storage.put(&key, &cleaned, "image/webp").await?;

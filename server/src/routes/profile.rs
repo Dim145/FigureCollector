@@ -283,9 +283,70 @@ async fn compare(
         return Err(AppError::BadRequest("cannot compare against yourself"));
     }
 
-    let common = compare_query(&state.pool, viewer, them.id, "intersect").await?;
-    let yours_only = compare_query(&state.pool, viewer, them.id, "yours").await?;
-    let theirs_only = compare_query(&state.pool, viewer, them.id, "theirs").await?;
+    // Single-pass diff: materialise the two user-id sets once, FULL OUTER
+    // JOIN them on figure_id, then label each row as 'common' / 'yours' /
+    // 'theirs' via a CASE over (yours.figure_id IS NULL, theirs.figure_id
+    // IS NULL). Previously the route fired three separate queries each
+    // with TWO sub-queries on `owned_items` — six scans of the parent
+    // table per /compare hit. The composite index added in
+    // 20260525000001_perf_indexes makes the two CTE scans index-only.
+    #[derive(FromRow)]
+    struct CompareRow {
+        bucket: String,
+        figure_id: Uuid,
+        figure_name: String,
+        figure_slug: String,
+        figure_type: String,
+        figure_image: Option<String>,
+        manufacturer_name: Option<String>,
+    }
+
+    let rows: Vec<CompareRow> = sqlx::query_as(
+        "WITH
+            yours  AS (SELECT DISTINCT figure_id FROM owned_items WHERE user_id = $1),
+            theirs AS (SELECT DISTINCT figure_id FROM owned_items WHERE user_id = $2),
+            both   AS (
+                SELECT COALESCE(y.figure_id, t.figure_id) AS figure_id,
+                       CASE
+                           WHEN y.figure_id IS NULL THEN 'theirs'
+                           WHEN t.figure_id IS NULL THEN 'yours'
+                           ELSE 'common'
+                       END AS bucket
+                FROM yours y FULL OUTER JOIN theirs t ON t.figure_id = y.figure_id
+            )
+         SELECT b.bucket,
+                f.id AS figure_id, f.name AS figure_name, f.slug AS figure_slug,
+                f.figure_type, f.official_image_url AS figure_image,
+                m.name AS manufacturer_name
+         FROM both b
+         JOIN figures f ON f.id = b.figure_id
+         LEFT JOIN manufacturers m ON m.id = f.manufacturer_id
+         ORDER BY f.name",
+    )
+    .bind(viewer)
+    .bind(them.id)
+    .fetch_all(&state.pool)
+    .await?;
+
+    let mut common = Vec::new();
+    let mut yours_only = Vec::new();
+    let mut theirs_only = Vec::new();
+    for r in rows {
+        let entry = CompareEntry {
+            figure_id: r.figure_id,
+            figure_name: r.figure_name,
+            figure_slug: r.figure_slug,
+            figure_type: r.figure_type,
+            figure_image: r.figure_image,
+            manufacturer_name: r.manufacturer_name,
+        };
+        match r.bucket.as_str() {
+            "common" => common.push(entry),
+            "yours" => yours_only.push(entry),
+            "theirs" => theirs_only.push(entry),
+            _ => {}
+        }
+    }
 
     Ok(Json(CompareResponse {
         them: PublicUserCard {
@@ -300,37 +361,6 @@ async fn compare(
         yours_only,
         theirs_only,
     }))
-}
-
-async fn compare_query(
-    pool: &PgPool,
-    viewer: Uuid,
-    them: Uuid,
-    bucket: &str,
-) -> AppResult<Vec<CompareEntry>> {
-    let condition = match bucket {
-        "intersect" => "f.id IN (SELECT figure_id FROM owned_items WHERE user_id = $1) \
-                        AND f.id IN (SELECT figure_id FROM owned_items WHERE user_id = $2)",
-        "yours"     => "f.id IN (SELECT figure_id FROM owned_items WHERE user_id = $1) \
-                        AND f.id NOT IN (SELECT figure_id FROM owned_items WHERE user_id = $2)",
-        "theirs"    => "f.id IN (SELECT figure_id FROM owned_items WHERE user_id = $2) \
-                        AND f.id NOT IN (SELECT figure_id FROM owned_items WHERE user_id = $1)",
-        _ => unreachable!(),
-    };
-    let sql = format!(
-        "SELECT DISTINCT f.id AS figure_id, f.name AS figure_name, f.slug AS figure_slug,
-                f.figure_type, f.official_image_url AS figure_image,
-                m.name AS manufacturer_name
-         FROM figures f
-         LEFT JOIN manufacturers m ON m.id = f.manufacturer_id
-         WHERE {condition}
-         ORDER BY f.name"
-    );
-    Ok(sqlx::query_as::<_, CompareEntry>(&sql)
-        .bind(viewer)
-        .bind(them)
-        .fetch_all(pool)
-        .await?)
 }
 
 // --- router ------------------------------------------------------------------

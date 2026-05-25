@@ -14,6 +14,7 @@
 use crate::auth;
 use crate::domain::{figure, figure_photo};
 use crate::error::{AppError, AppResult};
+use crate::photo as photo_pipeline;
 use crate::state::AppState;
 use axum::{
     Json, Router,
@@ -23,9 +24,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
-use image::ImageFormat;
 use serde::Deserialize;
-use std::io::Cursor;
 use tower_sessions::Session;
 use uuid::Uuid;
 
@@ -83,27 +82,9 @@ async fn upload_photo(
     }
     let raw = bytes.ok_or(AppError::BadRequest("missing 'file' multipart field"))?;
 
-    let format = image::guess_format(&raw)
-        .map_err(|_| AppError::BadRequest("unrecognised image format"))?;
-    match format {
-        ImageFormat::Jpeg | ImageFormat::Png | ImageFormat::WebP => {}
-        _ => {
-            return Err(AppError::BadRequest(
-                "unsupported image format (use JPEG, PNG or WebP)",
-            ));
-        }
-    }
-    let img = image::load_from_memory_with_format(&raw, format)
-        .map_err(|_| AppError::BadRequest("could not decode image"))?;
-    let (w, h) = (img.width(), img.height());
-    if w > MAX_PHOTO_DIM || h > MAX_PHOTO_DIM {
-        return Err(AppError::BadRequest(
-            "image dimensions too large (max 4096px per side)",
-        ));
-    }
-    let mut cleaned = Vec::with_capacity(raw.len() / 2);
-    img.write_to(&mut Cursor::new(&mut cleaned), ImageFormat::WebP)
-        .map_err(|e| AppError::Internal(anyhow::anyhow!("WebP encode failed: {e}")))?;
+    // Shared pipeline: format whitelist + dimension cap + EXIF-stripping
+    // WebP re-encode, off the runtime worker via `spawn_blocking`.
+    let (cleaned, w, h) = photo_pipeline::sanitize_to_webp(raw, MAX_PHOTO_DIM).await?;
 
     // Push to Garage and persist the row. On INSERT failure, run a compensating
     // delete on the blob so Garage doesn't accumulate orphan WebPs with no

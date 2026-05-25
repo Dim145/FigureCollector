@@ -19,6 +19,7 @@ use crate::domain::achievement;
 use crate::domain::scan::{self, ALLOWED_KINDS};
 use crate::error::{AppError, AppResult};
 use crate::events::Event;
+use crate::photo as photo_pipeline;
 use crate::state::AppState;
 use axum::{
     Json, Router,
@@ -28,8 +29,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::{delete, get},
 };
-use image::ImageFormat;
-use std::io::Cursor;
+use futures::stream::StreamExt;
 use tower_sessions::Session;
 use uuid::Uuid;
 
@@ -90,25 +90,11 @@ async fn create_scan(
                 if data.len() > MAX_FRAME_BYTES {
                     return Err(AppError::BadRequest("frame too large (max 5 MB)"));
                 }
-                let format = image::guess_format(&data)
-                    .map_err(|_| AppError::BadRequest("unrecognised frame format"))?;
-                match format {
-                    ImageFormat::Jpeg | ImageFormat::Png | ImageFormat::WebP => {}
-                    _ => return Err(AppError::BadRequest("unsupported frame format")),
-                }
-                let img = image::load_from_memory_with_format(&data, format)
-                    .map_err(|_| AppError::BadRequest("could not decode frame"))?;
-                let (w, h) = (img.width(), img.height());
-                if w > MAX_FRAME_DIM || h > MAX_FRAME_DIM {
-                    return Err(AppError::BadRequest(
-                        "frame dimensions too large (max 2048px per side)",
-                    ));
-                }
-                let mut cleaned = Vec::with_capacity(data.len() / 2);
-                img.write_to(&mut Cursor::new(&mut cleaned), ImageFormat::WebP)
-                    .map_err(|e| {
-                        AppError::Internal(anyhow::anyhow!("WebP encode failed: {e}"))
-                    })?;
+                // Shared pipeline (off the runtime worker via spawn_blocking).
+                // 96 frames × ~80 ms of CPU each would otherwise pin a single
+                // tokio worker for ~8 s with this one upload.
+                let (cleaned, _w, _h) =
+                    photo_pipeline::sanitize_to_webp(data.to_vec(), MAX_FRAME_DIM).await?;
                 frames.push(cleaned);
             }
             _ => {}
@@ -126,22 +112,51 @@ async fn create_scan(
 
     let scan_row = scan::create(&state.pool, owned_id, &kind, &storage_prefix, initial_state).await?;
 
-    let mut uploaded = 0usize;
-    for (idx, bytes) in frames.iter().enumerate() {
-        let key = format!("{storage_prefix}frame_{idx:03}.webp");
-        if let Err(e) = state.storage.put(&key, bytes, "image/webp").await {
-            // Cleanup what we managed to upload, then mark scan failed.
-            for cleanup_idx in 0..uploaded {
-                let _ = state
-                    .storage
-                    .delete(&format!("{storage_prefix}frame_{cleanup_idx:03}.webp"))
-                    .await;
+    // Upload frames CONCURRENTLY to Garage. Sequentially this spent ~50 ms
+    // of RTT per put × 96 frames ≈ 5 s of pure wall-clock waiting on the
+    // network. With a window of 8 in-flight puts the same upload finishes
+    // in ~600 ms RTT-bound. Errors short-circuit the whole batch and we
+    // clean up the frames that did land.
+    //
+    // We `into_iter()` the frames Vec so each future owns its bytes
+    // (the alternative — borrowing — runs into the "closure with
+    // signature `for<'a>` is not general enough" lifetime gymnastics
+    // that `buffer_unordered` doesn't compose with).
+    const UPLOAD_CONCURRENCY: usize = 8;
+    let frame_count = frames.len();
+    let upload_result = futures::stream::iter(frames.into_iter().enumerate())
+        .map(|(idx, bytes)| {
+            let storage = state.storage.clone();
+            let prefix = storage_prefix.clone();
+            async move {
+                let key = format!("{prefix}frame_{idx:03}.webp");
+                storage.put(&key, &bytes, "image/webp").await.map(|_| idx)
             }
-            let _ = scan::mark_failed(&state.pool, scan_row.id, &format!("upload failed: {e}")).await;
-            return Err(e);
+        })
+        .buffer_unordered(UPLOAD_CONCURRENCY)
+        .collect::<Vec<_>>()
+        .await;
+
+    let mut uploaded_indices: Vec<usize> = Vec::with_capacity(frame_count);
+    let mut first_err: Option<AppError> = None;
+    for r in upload_result {
+        match r {
+            Ok(idx) => uploaded_indices.push(idx),
+            Err(e) if first_err.is_none() => first_err = Some(e),
+            Err(_) => {}
         }
-        uploaded += 1;
     }
+    if let Some(e) = first_err {
+        for idx in &uploaded_indices {
+            let _ = state
+                .storage
+                .delete(&format!("{storage_prefix}frame_{idx:03}.webp"))
+                .await;
+        }
+        let _ = scan::mark_failed(&state.pool, scan_row.id, &format!("upload failed: {e}")).await;
+        return Err(e);
+    }
+    let uploaded = uploaded_indices.len();
 
     // If the UPDATE or the refresh SELECT fails after every frame is already
     // in Garage we need to wipe the frames + mark the scan as failed; the
@@ -156,7 +171,7 @@ async fn create_scan(
         }
     };
 
-    if let Err(e) = scan::set_frame_count(&state.pool, scan_row.id, frames.len() as i32).await {
+    if let Err(e) = scan::set_frame_count(&state.pool, scan_row.id, frame_count as i32).await {
         cleanup_frames(state.clone(), storage_prefix.clone(), uploaded).await;
         let _ = scan::mark_failed(&state.pool, scan_row.id, &format!("frame_count update failed: {e}")).await;
         return Err(e);
