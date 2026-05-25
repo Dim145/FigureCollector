@@ -1,0 +1,141 @@
+# ─────────────────────────────────────────────────────────────────────
+# Release containers — build + push to ghcr.io on every published release.
+#
+# Triggers
+#   - release: published — fires when a GitHub release is created or a
+#     draft is promoted to published.
+#   - workflow_dispatch  — manual override for testing the pipeline
+#     without cutting a real release. When invoked manually you must
+#     supply a `tag` input (e.g. `v0.0.0-test`).
+#
+# Output
+#   ghcr.io/<owner-lower>/figurecollector-server:<tags>
+#   ghcr.io/<owner-lower>/figurecollector-client:<tags>
+#
+# Tag set (computed by docker/metadata-action):
+#   - the raw release tag                       (e.g. `v0.1.0`)
+#   - the semver `{{version}}`                  (e.g. `0.1.0`)
+#   - the semver `{{major}}.{{minor}}`          (e.g. `0.1`)
+#   - `latest`                                  — only on non-prerelease
+#                                                 published releases
+#
+# Build cache uses `type=gha` so subsequent runs reuse layers and the
+# cargo registry / pnpm store between releases. Two images build in
+# parallel via a job matrix; one failing doesn't cancel the other
+# (fail-fast: false) so an issue isolated to the client doesn't waste
+# the server's compile time and vice versa.
+# ─────────────────────────────────────────────────────────────────────
+name: Release containers
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag to publish (e.g. v0.0.0-test)."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+# Only one release publish at a time per tag — never cancel an in-flight
+# build (cancel-in-progress: false) because half-pushed images would
+# leave the registry in a confusing state.
+concurrency:
+  group: release-${{ github.event.release.tag_name || inputs.tag || github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  build-push:
+    name: build & push ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: server
+            context: ./server
+            dockerfile: ./server/Dockerfile
+          - image: client
+            context: ./client
+            dockerfile: ./client/Dockerfile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # BuildKit-backed builder, required for cache mounts (the server
+      # Dockerfile uses `--mount=type=cache` for the cargo registry, git,
+      # and target dir).
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Compute the full tag set + the OCI labels from the release event.
+      # `images:` is lowercased by the action so an upper-case repo owner
+      # ("Dim145") still produces a valid registry path.
+      - name: Compute metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/figurecollector-${{ matrix.image }}
+          tags: |
+            # Match GitHub release tag verbatim (e.g. `v0.1.0`).
+            type=ref,event=tag
+            # Drop the leading `v` for semver-clean consumers.
+            type=semver,pattern={{version}}
+            # Major.minor track lets ops pin to `0.1` and pick up patches.
+            type=semver,pattern={{major}}.{{minor}}
+            # Major alone, useful once we hit 1.x.
+            type=semver,pattern={{major}}
+            # `latest` only on stable, non-prerelease releases — and on
+            # manual workflow_dispatch we DON'T tag latest (the user
+            # passed a specific tag for a reason).
+            type=raw,value=latest,enable=${{ github.event_name == 'release' && github.event.release.prerelease == false }}
+            # Manual dispatch: just the literal tag the user supplied.
+            type=raw,value=${{ inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
+          labels: |
+            org.opencontainers.image.title=FigureCollector ${{ matrix.image }}
+            org.opencontainers.image.description=Hardened ${{ matrix.image == 'server' && 'Rust/Axum API (FROM scratch)' || 'distroless nginx serving the FigureCollector PWA' }}
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+
+      - name: Build & push ${{ matrix.image }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # GHA-backed BuildKit cache. Scoped by image so server and
+          # client don't fight over the same cache key (their layer
+          # sets are disjoint anyway).
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+          # linux/amd64 only for now. Adding linux/arm64 needs QEMU and
+          # roughly doubles wall-clock; left as a follow-up. The cargo
+          # toolchain inside the Dockerfile is musl-native so both
+          # arches are buildable with QEMU when we want them.
+          platforms: linux/amd64
+          # Don't pollute the registry with provenance attestation
+          # files; signed releases are nice-to-have but each adds 2-3
+          # extra OCI artifacts per image and isn't currently consumed.
+          provenance: false
+
+      - name: Summary
+        run: |
+          echo "### ${{ matrix.image }} pushed" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ steps.meta.outputs.tags }}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
