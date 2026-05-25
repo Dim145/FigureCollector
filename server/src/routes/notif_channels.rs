@@ -112,6 +112,91 @@ async fn patch_user_channel(
     Ok(Json(row))
 }
 
+#[derive(serde::Serialize)]
+struct TestResult {
+    ok: bool,
+    error: Option<String>,
+}
+
+/// POST /me/notification-channels/{channel_type}/test
+///
+/// Fires a synthetic "test" event through ONE specific channel adapter
+/// (bypassing the routing matrix) so the user can verify their
+/// destination + the admin's system config without waiting for a real
+/// achievement / preorder event.
+///
+/// Always returns 200 with a JSON body — `{ ok: true }` on success,
+/// `{ ok: false, error: "<reason>" }` if either the configuration is
+/// incomplete or the channel adapter reported an upstream failure. The
+/// SPA shows the error inline so the user can fix their destination.
+async fn test_user_channel(
+    State(state): State<AppState>,
+    session: Session,
+    Path(channel_type): Path<String>,
+) -> AppResult<Json<TestResult>> {
+    use crate::external::notify_channel::dispatch_to_channel;
+
+    let user_id = auth::require_user(&session).await?;
+
+    // Both admin + user must have enabled the channel, and the user must
+    // have populated a destination (where appropriate).
+    let sys = match notification::get_channel(&state.pool, &channel_type).await? {
+        Some(s) if s.enabled => s,
+        Some(_) => {
+            return Ok(Json(TestResult {
+                ok: false,
+                error: Some("channel disabled by admin".to_string()),
+            }));
+        }
+        None => {
+            return Ok(Json(TestResult {
+                ok: false,
+                error: Some("unknown channel".to_string()),
+            }));
+        }
+    };
+
+    let mine = match notification::list_user_channels(&state.pool, user_id)
+        .await?
+        .into_iter()
+        .find(|c| c.channel_type == channel_type)
+    {
+        Some(m) if m.enabled => m,
+        Some(_) => {
+            return Ok(Json(TestResult {
+                ok: false,
+                error: Some("channel disabled by user".to_string()),
+            }));
+        }
+        None => {
+            return Ok(Json(TestResult {
+                ok: false,
+                error: Some("channel not configured".to_string()),
+            }));
+        }
+    };
+
+    let payload = serde_json::json!({ "kind": "test" });
+    let result = dispatch_to_channel(
+        &state,
+        user_id,
+        &channel_type,
+        &sys.config,
+        &mine.destination,
+        "test",
+        &payload,
+    )
+    .await;
+
+    Ok(Json(match result {
+        Ok(_) => TestResult { ok: true, error: None },
+        Err(e) => TestResult {
+            ok: false,
+            error: Some(format!("{e}")),
+        },
+    }))
+}
+
 // =============================================================================
 // Per-event routing
 // =============================================================================
@@ -187,6 +272,51 @@ async fn admin_patch_channel(
 }
 
 // =============================================================================
+// Admin: VAPID keypair generator
+// =============================================================================
+
+#[derive(Debug, serde::Serialize)]
+struct VapidKeypair {
+    /// Base64URL-encoded uncompressed P-256 public key (65 bytes) — the
+    /// SPA passes this to `pushManager.subscribe({ applicationServerKey })`.
+    public_key: String,
+    /// PEM-encoded PKCS#8 EC private key. Most web-push libraries accept
+    /// PEM out of the box; the format is portable across implementations.
+    private_key: String,
+}
+
+/// Generate a fresh ECDSA P-256 keypair for VAPID. The admin then pastes
+/// the returned values into the browser_push channel config and saves.
+/// We don't auto-save here so the admin can see + back up the keys before
+/// committing — keys can't be recovered if lost.
+async fn admin_generate_vapid(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<VapidKeypair>> {
+    use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+    use p256::elliptic_curve::sec1::ToEncodedPoint;
+    use p256::pkcs8::EncodePrivateKey;
+    use p256::pkcs8::LineEnding;
+
+    auth::require_admin(&session, &state.pool).await?;
+
+    let secret = p256::SecretKey::random(&mut rand::thread_rng());
+    let pem = secret
+        .to_pkcs8_pem(LineEnding::LF)
+        .map_err(|e| crate::error::AppError::Internal(anyhow::anyhow!("pem encode: {e}")))?
+        .to_string();
+    // Uncompressed SEC1 encoding: 0x04 || X (32) || Y (32) = 65 bytes.
+    // That's exactly what `applicationServerKey` expects.
+    let public_point = secret.public_key().to_encoded_point(false);
+    let public_b64 = URL_SAFE_NO_PAD.encode(public_point.as_bytes());
+
+    Ok(Json(VapidKeypair {
+        public_key: public_b64,
+        private_key: pem,
+    }))
+}
+
+// =============================================================================
 // Router
 // =============================================================================
 
@@ -200,6 +330,10 @@ pub fn router() -> Router<AppState> {
             "/me/notification-channels/{channel_type}",
             patch_method(patch_user_channel),
         )
+        .route(
+            "/me/notification-channels/{channel_type}/test",
+            axum::routing::post(test_user_channel),
+        )
         .route("/me/notification-routes", get(list_routes).put(put_routes))
         .route(
             "/admin/notification-channels",
@@ -208,5 +342,9 @@ pub fn router() -> Router<AppState> {
         .route(
             "/admin/notification-channels/{channel_type}",
             patch_method(admin_patch_channel),
+        )
+        .route(
+            "/admin/notification-channels/browser_push/generate-vapid",
+            axum::routing::post(admin_generate_vapid),
         )
 }

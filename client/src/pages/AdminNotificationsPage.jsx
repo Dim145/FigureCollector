@@ -3,6 +3,7 @@ import { useT } from "../i18n/index.jsx";
 import {
   useAdminChannels,
   useAdminUpdateChannel,
+  useGenerateVapid,
 } from "../hooks/useNotifications.js";
 
 /**
@@ -108,8 +109,10 @@ function AdminChannelCard({ channel, t }) {
     fields: [],
   };
   const update = useAdminUpdateChannel();
+  const generateVapid = useGenerateVapid();
   const [config, setConfig] = useState(channel.config ?? {});
   const [dirty, setDirty] = useState(false);
+  const [vapidNotice, setVapidNotice] = useState(null);
 
   useEffect(() => {
     setConfig(channel.config ?? {});
@@ -119,6 +122,37 @@ function AdminChannelCard({ channel, t }) {
   const onChange = (key, value) => {
     setConfig({ ...config, [key]: value });
     setDirty(true);
+  };
+
+  /** Mint a new VAPID keypair, drop the values into the form fields, and
+   *  flag the form as dirty. Existing keys (if any) are overwritten — we
+   *  warn first since users with active push subscriptions will need to
+   *  re-subscribe after a key rotation. */
+  const onGenerateVapid = () => {
+    const hasExisting =
+      !!config.vapid_public_key || !!config.vapid_private_key;
+    if (hasExisting) {
+      const ok = window.confirm(t("admin.notif.vapid.confirm_overwrite"));
+      if (!ok) return;
+    }
+    generateVapid.mutate(undefined, {
+      onSuccess: (data) => {
+        setConfig({
+          ...config,
+          vapid_public_key: data.public_key,
+          vapid_private_key: data.private_key,
+          // Seed the subject with a sensible mailto: default unless the
+          // admin already set one — VAPID requires a `sub` claim.
+          vapid_subject:
+            config.vapid_subject ?? "mailto:admin@figurecollector.local",
+        });
+        setDirty(true);
+        setVapidNotice(t("admin.notif.vapid.generated_save"));
+      },
+      onError: (err) => {
+        setVapidNotice(`✗ ${err?.message ?? "Generation failed"}`);
+      },
+    });
   };
 
   const onToggle = () => {
@@ -165,6 +199,26 @@ function AdminChannelCard({ channel, t }) {
 
       {meta.fields.length > 0 ? (
         <div className="notif-channel-body">
+          {channel.channel_type === "browser_push" ? (
+            <div className="notif-vapid-toolbar">
+              <button
+                type="button"
+                className="notif-channel-form-btn is-save"
+                onClick={onGenerateVapid}
+                disabled={generateVapid.isPending}
+              >
+                {generateVapid.isPending
+                  ? t("admin.notif.vapid.generating")
+                  : `🔑 ${t("admin.notif.vapid.generate")}`}
+              </button>
+              <p className="notif-vapid-hint">
+                {t("admin.notif.vapid.hint")}
+              </p>
+              {vapidNotice ? (
+                <p className="notif-vapid-notice">{vapidNotice}</p>
+              ) : null}
+            </div>
+          ) : null}
           <div className="notif-channel-form">
             {meta.fields.map((f) => (
               <ConfigField

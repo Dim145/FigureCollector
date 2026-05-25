@@ -6,7 +6,9 @@
 # crates like clap_derive). The final scratch image carries no libc, no shell,
 # and no package manager.
 # -----------------------------------------------------------------------------
-FROM rust:1.85-alpine AS builder
+# NOTE: 1.87+ is required because web-push-native's transitive dep
+# `aes-keywrap` 0.9.0 uses `unsigned_is_multiple_of` (stable in 1.87).
+FROM rust:1.87-alpine AS builder
 
 # Tooling needed by aws-lc-rs (used by rustls via sqlx's tls-rustls-aws-lc-rs):
 #   - musl-dev / build-base : C runtime + compiler for the FFI shim

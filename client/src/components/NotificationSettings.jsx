@@ -6,6 +6,7 @@ import {
   useChannels,
   useRoutes,
   useSaveRoutes,
+  useTestChannel,
   useUpdateChannel,
 } from "../hooks/useNotifications.js";
 
@@ -62,10 +63,12 @@ function ChannelsBlock({ t }) {
   const { system = [], mine = [] } = channels.data;
   const mineByType = new Map(mine.map((m) => [m.channel_type, m]));
 
-  // The admin-enabled channels come first; admin-disabled appear below as
-  // greyed cards.
+  // Only show channels the admin has explicitly enabled. Disabled-by-admin
+  // channels are hidden entirely from this surface — surfacing them would
+  // just be noise the user can't act on.
   const enabled = system.filter((s) => s.enabled);
-  const disabled = system.filter((s) => !s.enabled);
+
+  if (enabled.length === 0) return null;
 
   return (
     <div>
@@ -80,22 +83,6 @@ function ChannelsBlock({ t }) {
             t={t}
           />
         ))}
-        {disabled.length > 0 ? (
-          <>
-            <p className="notif-channel-disabled-heading">
-              {t("notif.channels.disabled_by_admin")}
-            </p>
-            {disabled.map((ch) => (
-              <ChannelCard
-                key={ch.channel_type}
-                system={ch}
-                mine={mineByType.get(ch.channel_type)}
-                t={t}
-                disabled
-              />
-            ))}
-          </>
-        ) : null}
       </div>
     </div>
   );
@@ -213,7 +200,70 @@ function ChannelCard({ system, mine, t, disabled = false }) {
           )}
         </div>
       ) : null}
+
+      {/* Send-test affordance — only meaningful when the channel is fully
+        * configured + enabled. Lives in its own row beneath the
+        * destination summary. */}
+      {!disabled && isEnabled && !editing ? (
+        <TestRow channelType={system.channel_type} t={t} />
+      ) : null}
     </article>
+  );
+}
+
+/** One-row "send test" button + inline status. */
+function TestRow({ channelType, t }) {
+  const test = useTestChannel();
+  const [notice, setNotice] = useState(null);
+
+  const onClick = () => {
+    setNotice(null);
+    test.mutate(channelType, {
+      onSuccess: (data) => {
+        if (data?.ok) {
+          setNotice({ kind: "ok", text: t("notif.channel.test.ok") });
+        } else {
+          setNotice({
+            kind: "err",
+            text: t("notif.channel.test.failed", {
+              error: data?.error ?? "unknown",
+            }),
+          });
+        }
+      },
+      onError: (err) => {
+        setNotice({
+          kind: "err",
+          text: t("notif.channel.test.failed", {
+            error: err?.message ?? "request failed",
+          }),
+        });
+      },
+    });
+  };
+
+  return (
+    <div className="notif-channel-test">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={test.isPending}
+        className="notif-channel-test-btn"
+      >
+        {test.isPending
+          ? t("notif.channel.test.sending")
+          : `📨 ${t("notif.channel.test.send")}`}
+      </button>
+      {notice ? (
+        <span
+          className={`notif-channel-test-notice ${
+            notice.kind === "ok" ? "is-ok" : "is-err"
+          }`}
+        >
+          {notice.text}
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -489,6 +539,7 @@ function BrowserPushControls({ system, mine, t }) {
 
 function RoutingBlock({ t }) {
   const routes = useRoutes();
+  const channelsQ = useChannels();
   const save = useSaveRoutes();
   const [local, setLocal] = useState(null);
 
@@ -503,12 +554,24 @@ function RoutingBlock({ t }) {
     }
   }, [routes.data]);
 
-  if (routes.isLoading || !local) {
+  if (routes.isLoading || channelsQ.isLoading || !local) {
     return <p className="atelier-drawer-desc">…</p>;
   }
 
   const events = routes.data.events ?? [];
-  const channels = routes.data.channels ?? [];
+  // Only include channels the admin has enabled — the matrix columns
+  // would otherwise show toggles for channels the user can never use.
+  const adminEnabled = new Set(
+    (channelsQ.data?.system ?? [])
+      .filter((c) => c.enabled)
+      .map((c) => c.channel_type),
+  );
+  const channels = (routes.data.channels ?? []).filter((c) =>
+    adminEnabled.has(c),
+  );
+
+  // No admin-enabled channels → nothing to route.
+  if (channels.length === 0) return null;
 
   const toggle = (event, channel) => {
     const key = `${event}|${channel}`;

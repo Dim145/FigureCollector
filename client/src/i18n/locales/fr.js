@@ -538,6 +538,10 @@ export default {
 
   "notif.routes.body": "Choisis quels évènements vont vers quels canaux. La cloche interne reçoit tout, indépendamment de ces réglages.",
   "notif.routes.save": "Enregistrer le routage",
+  "notif.channel.test.send": "Envoyer un test",
+  "notif.channel.test.sending": "Envoi en cours…",
+  "notif.channel.test.ok": "✓ Test envoyé — vérifie ta destination.",
+  "notif.channel.test.failed": "✗ Échec : {error}",
 
   "editor.save": "Enregistrer",
 
@@ -857,6 +861,11 @@ export default {
   "admin.notif.subtitle": "GESTION SYSTÈME",
   "admin.notif.body": "Active et configure les canaux qui seront proposés aux utilisateurs. Les secrets (SMTP, VAPID, ntfy auth) restent ici — chaque utilisateur ne renseigne que sa propre destination.",
   "admin.notif.save": "Enregistrer les secrets",
+  "admin.notif.vapid.generate": "Générer une nouvelle paire VAPID",
+  "admin.notif.vapid.generating": "Génération…",
+  "admin.notif.vapid.hint": "Génère une paire de clés ECDSA P-256 côté serveur. Les valeurs sont injectées dans les champs ci-dessous — pense à cliquer sur « Enregistrer » ensuite.",
+  "admin.notif.vapid.confirm_overwrite": "Une paire VAPID existe déjà. La régénérer invalidera toutes les souscriptions actuelles — les utilisateurs devront se ré-abonner depuis chacun de leurs navigateurs. Continuer ?",
+  "admin.notif.vapid.generated_save": "✓ Paire générée — vérifie les valeurs et clique sur « Enregistrer les secrets ».",
   "admin.catalog.title": "Fabricants, séries et personnages",
   "admin.catalog.intro": "Édite la description, l'image et les identifiants AniList / MAL. Les champs laissés vides ne sont pas modifiés ; pour effacer une valeur, il faut le faire directement en base.",
   "admin.catalog.tab.manufacturers": "Fabricants",

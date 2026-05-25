@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
+import { useChannels } from "../hooks/useNotifications.js";
 import { useUpdateProfile } from "../hooks/useProfile.js";
 import AppShell from "../components/AppShell.jsx";
 import NotificationSettings from "../components/NotificationSettings.jsx";
@@ -31,7 +32,9 @@ import { BG_MODEL_SIZES, getPref, setPref } from "../lib/userPrefs.js";
 // Each section's identity: kanji + the accent colour for highlight + the
 // nav label key. Order here drives the visual order of both the nav and
 // the drawers.
-const SECTIONS = [
+/// All possible drawers. The Notifications drawer is excluded at render
+/// time when the admin has zero channels enabled — see `sections` below.
+const ALL_SECTIONS = [
   { id: "profile",    kanji: "公", tone: "var(--color-or)",       toneSoft: "oklch(0.78 0.10 80 / 0.18)" },
   { id: "currency",   kanji: "銭", tone: "var(--color-or)",       toneSoft: "oklch(0.78 0.10 80 / 0.18)" },
   { id: "bg_model",   kanji: "影", tone: "var(--atelier-jade)",   toneSoft: "var(--atelier-jade-soft)" },
@@ -43,6 +46,7 @@ export default function SettingsPage() {
   const t = useT();
   const me = useMe();
   const update = useUpdateProfile();
+  const channels = useChannels();
   const [bgModel, setBgModel] = useState(() => getPref("bgModel"));
   const [active, setActive] = useState("profile");
   const [copied, setCopied] = useState(false);
@@ -50,7 +54,18 @@ export default function SettingsPage() {
   // ALL hooks must run on every render — keep them above any early return
   // so the hook ordering stays stable when auth state changes.
   const drawerRefs = useRef({});
-  useScrollSpy(SECTIONS, setActive, drawerRefs);
+  // Hide the Notifications section entirely when the admin hasn't enabled
+  // any channel. We can't act on what isn't there, so don't even show
+  // the drawer / nav entry.
+  const hasAnyChannel = useMemo(
+    () => (channels.data?.system ?? []).some((c) => c.enabled),
+    [channels.data],
+  );
+  const sections = useMemo(
+    () => ALL_SECTIONS.filter((s) => s.id !== "notif_chan" || hasAnyChannel),
+    [hasAnyChannel],
+  );
+  useScrollSpy(sections, setActive, drawerRefs);
 
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
@@ -88,12 +103,16 @@ export default function SettingsPage() {
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  // Stable tone lookup by section id — the filtered `sections` array shifts
+  // indices when notif_chan is hidden, so we resolve from ALL_SECTIONS.
+  const toneOf = (id) => ALL_SECTIONS.find((s) => s.id === id) ?? ALL_SECTIONS[0];
+
   return (
     <AppShell>
       <main className="atelier max-w-6xl mx-auto px-6 pt-4 pb-20">
         <Hero username={user.username} t={t} />
 
-        <Nav active={active} onClick={onNavClick} t={t} />
+        <Nav sections={sections} active={active} onClick={onNavClick} t={t} />
 
         <div className="atelier-content">
           {/* Public profile */}
@@ -101,8 +120,8 @@ export default function SettingsPage() {
             id="profile"
             kanji="公"
             title={t("settings.public_profile")}
-            tone={SECTIONS[0].tone}
-            toneSoft={SECTIONS[0].toneSoft}
+            tone={toneOf("profile").tone}
+            toneSoft={toneOf("profile").toneSoft}
             refMap={drawerRefs}
           >
             <p className="atelier-drawer-desc">
@@ -181,8 +200,8 @@ export default function SettingsPage() {
             id="currency"
             kanji="銭"
             title={t("settings.currency.title")}
-            tone={SECTIONS[1].tone}
-            toneSoft={SECTIONS[1].toneSoft}
+            tone={toneOf("currency").tone}
+            toneSoft={toneOf("currency").toneSoft}
             refMap={drawerRefs}
           >
             <p className="atelier-drawer-desc">{t("settings.currency.body")}</p>
@@ -216,8 +235,8 @@ export default function SettingsPage() {
             id="bg_model"
             kanji="影"
             title={t("settings.bg_model")}
-            tone={SECTIONS[2].tone}
-            toneSoft={SECTIONS[2].toneSoft}
+            tone={toneOf("bg_model").tone}
+            toneSoft={toneOf("bg_model").toneSoft}
             refMap={drawerRefs}
           >
             <p className="atelier-drawer-desc">{t("settings.bg_model.body")}</p>
@@ -235,25 +254,29 @@ export default function SettingsPage() {
             <p className="atelier-select-hint">{t("settings.bg_model.hint")}</p>
           </Drawer>
 
-          {/* Notifications — channels + per-event routing */}
-          <Drawer
-            id="notif_chan"
-            kanji="鈴"
-            title={t("notif.channels.title")}
-            tone={SECTIONS[3].tone}
-            toneSoft={SECTIONS[3].toneSoft}
-            refMap={drawerRefs}
-          >
-            <NotificationSettings t={t} />
-          </Drawer>
+          {/* Notifications — only rendered when the admin has enabled
+            * at least one channel. Otherwise the entire section vanishes
+            * (the nav entry is also filtered out, see `sections`). */}
+          {hasAnyChannel ? (
+            <Drawer
+              id="notif_chan"
+              kanji="鈴"
+              title={t("notif.channels.title")}
+              tone={toneOf("notif_chan").tone}
+              toneSoft={toneOf("notif_chan").toneSoft}
+              refMap={drawerRefs}
+            >
+              <NotificationSettings t={t} />
+            </Drawer>
+          ) : null}
 
           {/* NSFW visibility */}
           <Drawer
             id="nsfw"
             kanji="禁"
             title={t("settings.nsfw.title")}
-            tone={SECTIONS[4].tone}
-            toneSoft={SECTIONS[4].toneSoft}
+            tone={toneOf("nsfw").tone}
+            toneSoft={toneOf("nsfw").toneSoft}
             refMap={drawerRefs}
           >
             <p className="atelier-drawer-desc">{t("settings.nsfw.body")}</p>
@@ -319,12 +342,12 @@ function Hero({ username, t }) {
 // Sticky nav rail (desktop) / chip strip (mobile)
 // =============================================================================
 
-function Nav({ active, onClick, t }) {
+function Nav({ sections, active, onClick, t }) {
   return (
     <nav className="atelier-nav" aria-label={t("settings.title")}>
       <p className="atelier-nav-heading">{t("settings.nav.heading")}</p>
       <ul className="atelier-nav-list">
-        {SECTIONS.map((s) => (
+        {sections.map((s) => (
           <li key={s.id} className="atelier-nav-item">
             <a
               href={`#${s.id}`}

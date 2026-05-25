@@ -517,6 +517,10 @@ export default {
 
   "notif.routes.body": "Pick which events go to which channels. The in-app bell receives everything regardless.",
   "notif.routes.save": "Save routing",
+  "notif.channel.test.send": "Send a test",
+  "notif.channel.test.sending": "Sending…",
+  "notif.channel.test.ok": "✓ Test sent — check your destination.",
+  "notif.channel.test.failed": "✗ Failed: {error}",
 
   "editor.save": "Save",
 
@@ -827,6 +831,11 @@ export default {
   "admin.notif.subtitle": "SYSTEM CONFIG",
   "admin.notif.body": "Enable and configure the channels offered to users. Secrets (SMTP, VAPID, ntfy auth) live here — each user only supplies their own destination.",
   "admin.notif.save": "Save secrets",
+  "admin.notif.vapid.generate": "Generate a new VAPID keypair",
+  "admin.notif.vapid.generating": "Generating…",
+  "admin.notif.vapid.hint": "Generates an ECDSA P-256 keypair on the server. Values are filled into the form below — don't forget to click \"Save\" after.",
+  "admin.notif.vapid.confirm_overwrite": "A VAPID keypair already exists. Regenerating will invalidate every existing subscription — users will have to re-subscribe from each of their browsers. Proceed?",
+  "admin.notif.vapid.generated_save": "✓ Keypair generated — review the values and click \"Save secrets\".",
   "admin.catalog.title": "Manufacturers, series & characters",
   "admin.catalog.intro": "Edit description, image, and AniList / MAL ids. Blank fields are left untouched; clearing a value has to be done in the database.",
   "admin.catalog.tab.manufacturers": "Manufacturers",

@@ -99,6 +99,16 @@ export function useUpdateChannel() {
   });
 }
 
+/** Fire a synthetic "test" event through a single channel. The endpoint
+ *  always returns 200 — the body holds `{ ok, error? }` so the UI can
+ *  display the upstream failure inline without throwing. */
+export function useTestChannel() {
+  return useMutation({
+    mutationFn: (channel_type) =>
+      api.post(`/me/notification-channels/${channel_type}/test`, {}),
+  });
+}
+
 /** Per-event x per-channel routing matrix. */
 export function useRoutes() {
   return useQuery({
@@ -141,6 +151,16 @@ export function useAdminUpdateChannel() {
       qc.invalidateQueries({ queryKey: ["admin", "notification-channels"] });
       qc.invalidateQueries({ queryKey: ["notification-channels"] });
     },
+  });
+}
+
+/** Server-side ECDSA P-256 VAPID keypair generation. Does NOT auto-save —
+ *  the admin still needs to review + click "Save secrets". Caller is
+ *  expected to drop the result into the config form fields. */
+export function useGenerateVapid() {
+  return useMutation({
+    mutationFn: () =>
+      api.post("/admin/notification-channels/browser_push/generate-vapid", {}),
   });
 }
 

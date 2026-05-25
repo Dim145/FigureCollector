@@ -94,6 +94,10 @@ fn render_message(event_type: &str, payload: &serde_json::Value) -> RenderedMess
             .to_string()
     };
     match event_type {
+        "test" => RenderedMessage {
+            title: "FigureCollector — test de notification".to_string(),
+            body: "Si tu peux lire ce message, ton canal de notifications est correctement configuré. Tu peux fermer ce test.".to_string(),
+        },
         notification::EVENT_ACHIEVEMENT_UNLOCKED => {
             let code = get_str("code");
             let tier = get_str("tier");
@@ -361,21 +365,176 @@ async fn send_apprise(
 // =============================================================================
 
 async fn send_browser_push(
-    _state: &AppState,
-    _user_id: Uuid,
-    _system: &serde_json::Value,
-    _event_type: &str,
-    _payload: &serde_json::Value,
-    _msg: &RenderedMessage,
+    state: &AppState,
+    user_id: Uuid,
+    system: &serde_json::Value,
+    event_type: &str,
+    payload: &serde_json::Value,
+    msg: &RenderedMessage,
 ) -> ChannelResult {
-    // Server-side VAPID delivery is stubbed pending a no-OpenSSL Web Push
-    // implementation — the `web-push` crate transitively pulls in
-    // openssl-sys via the `ece` crate (RFC 8291 aes128gcm). The
-    // subscription endpoint + service worker + frontend permission flow
-    // are all wired so a future replacement only needs to fill in this
-    // function. Until then, fans-out through this adapter are a no-op;
-    // users who subscribe via the SPA still get the in-app bell + any
-    // other channels they've enabled.
-    tracing::debug!("browser_push outbound delivery not yet implemented");
+    use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+    use web_push_native::{
+        Auth, WebPushBuilder,
+        jwt_simple::algorithms::ES256KeyPair,
+        p256::PublicKey,
+    };
+
+    // ----- Load admin-supplied VAPID config -----
+    let pem = system
+        .get("vapid_private_key")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| ChannelError::Misconfigured("missing VAPID private key".into()))?;
+    let subject = system
+        .get("vapid_subject")
+        .and_then(|v| v.as_str())
+        .unwrap_or("mailto:admin@figurecollector.local");
+
+    // jwt-simple's PEM parser accepts both PKCS#8 ("BEGIN PRIVATE KEY")
+    // and SEC1 ("BEGIN EC PRIVATE KEY") — our admin generator emits
+    // PKCS#8 so the happy path is direct.
+    let keypair = ES256KeyPair::from_pem(pem)
+        .map_err(|e| ChannelError::Misconfigured(format!("VAPID PEM parse: {e}")))?;
+
+    // ----- Load every push subscription the user has registered -----
+    let subs = notification::list_push_subs(&state.pool, user_id)
+        .await
+        .map_err(|e| ChannelError::Upstream(format!("list subs: {e}")))?;
+    if subs.is_empty() {
+        return Ok(());
+    }
+
+    // ----- Compose the payload the SW receives -----
+    let body_json = serde_json::to_vec(&serde_json::json!({
+        "event_type": event_type,
+        "title": msg.title,
+        "body":  msg.body,
+        "payload": payload,
+    }))
+    .map_err(|e| ChannelError::Upstream(format!("payload encode: {e}")))?;
+
+    // ----- Fan out to each device endpoint -----
+    for sub in &subs {
+        // Browser-sent p256dh / auth are base64url-no-pad (per the Push
+        // API spec). web-push-native takes raw bytes — decode here.
+        let p256dh_bytes = match URL_SAFE_NO_PAD.decode(&sub.p256dh) {
+            Ok(b) => b,
+            Err(e) => {
+                tracing::warn!(error = ?e, sub_id = %sub.id, "bad p256dh in subscription, deleting");
+                let _ = notification::delete_push(&state.pool, user_id, sub.id).await;
+                continue;
+            }
+        };
+        let auth_bytes = match URL_SAFE_NO_PAD.decode(&sub.auth) {
+            Ok(b) => b,
+            Err(e) => {
+                tracing::warn!(error = ?e, sub_id = %sub.id, "bad auth in subscription, deleting");
+                let _ = notification::delete_push(&state.pool, user_id, sub.id).await;
+                continue;
+            }
+        };
+        let pubkey = match PublicKey::from_sec1_bytes(&p256dh_bytes) {
+            Ok(k) => k,
+            Err(e) => {
+                tracing::warn!(error = ?e, sub_id = %sub.id, "p256dh not on curve, deleting");
+                let _ = notification::delete_push(&state.pool, user_id, sub.id).await;
+                continue;
+            }
+        };
+        if auth_bytes.len() < 12 {
+            tracing::warn!(sub_id = %sub.id, "auth shared secret too short, deleting");
+            let _ = notification::delete_push(&state.pool, user_id, sub.id).await;
+            continue;
+        }
+
+        // The endpoint URL is what the browser handed us; parse to http::Uri.
+        // web-push-native uses the `http` crate's Uri type — we depend on
+        // `http` directly to access it without reaching into the private
+        // re-export.
+        use std::str::FromStr;
+        let uri = match http::Uri::from_str(&sub.endpoint) {
+            Ok(u) => u,
+            Err(e) => {
+                tracing::warn!(error = ?e, sub_id = %sub.id, "bad endpoint URL, deleting");
+                let _ = notification::delete_push(&state.pool, user_id, sub.id).await;
+                continue;
+            }
+        };
+
+        // Build the HTTP request — handles aes128gcm + VAPID JWT internally.
+        let auth_arr = match try_to_auth(&auth_bytes) {
+            Some(a) => a,
+            None => continue,
+        };
+        let req = match WebPushBuilder::new(uri, pubkey, auth_arr)
+            .with_vapid(&keypair, subject)
+            .build(body_json.clone())
+        {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::warn!(error = ?e, sub_id = %sub.id, "web-push build failed");
+                continue;
+            }
+        };
+        let (parts, body) = req.into_parts();
+
+        // Reuse the shared reqwest client (rustls / aws-lc-rs).
+        let resp = match state
+            .http
+            .request(parts.method, parts.uri.to_string())
+            .headers(parts.headers)
+            .body(body)
+            .send()
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::warn!(error = ?e, sub_id = %sub.id, "web-push send failed");
+                continue;
+            }
+        };
+
+        let status = resp.status();
+        // 404 / 410 mean the subscription is dead on the push service's
+        // side — clean it up so we don't keep retrying.
+        if status == reqwest::StatusCode::NOT_FOUND || status == reqwest::StatusCode::GONE {
+            tracing::info!(
+                endpoint = sub.endpoint,
+                status = status.as_u16(),
+                "stale push subscription, removing"
+            );
+            let _ = notification::delete_push(&state.pool, user_id, sub.id).await;
+        } else if !status.is_success() {
+            let detail = resp
+                .text()
+                .await
+                .unwrap_or_else(|_| "<no body>".to_string());
+            tracing::warn!(
+                status = status.as_u16(),
+                detail = %detail,
+                endpoint = sub.endpoint,
+                "web-push delivery non-2xx"
+            );
+        } else {
+            tracing::info!(
+                status = status.as_u16(),
+                endpoint = sub.endpoint,
+                "web-push delivered"
+            );
+        }
+    }
+
     Ok(())
+}
+
+/// web-push-native's `Auth` is `[u8; 16]` and the shared secret should
+/// be exactly 16 bytes per RFC 8291. Some browsers historically sent
+/// shorter / longer; we tolerate ≥16 by taking the first 16, but reject
+/// anything shorter (caller already filtered <12).
+fn try_to_auth(bytes: &[u8]) -> Option<web_push_native::Auth> {
+    if bytes.len() < 16 {
+        return None;
+    }
+    let mut a = [0u8; 16];
+    a.copy_from_slice(&bytes[..16]);
+    Some(web_push_native::Auth::clone_from_slice(&a))
 }
