@@ -139,16 +139,36 @@ export default function PriceWithBreakdown({
       {open ? (
         <div
           role="dialog"
-          className="absolute right-0 top-full mt-2 z-30 min-w-[16rem] max-w-[20rem] p-3.5 border border-[var(--color-or)]/40 bg-[var(--color-noir-soft)]"
+          className="price-breakdown-popup absolute right-0 top-full mt-3 z-30 w-[min(20rem,calc(100vw-1.5rem))] p-3.5 border bg-[var(--color-noir-soft)]"
           style={{
+            // Stronger gold border than the previous /40 so the popup
+            // actually separates from the dl card behind it.
+            borderColor: "oklch(0.78 0.10 80 / 0.7)",
+            // Two-layer shadow: a tight outer halo to lift the card off
+            // the page + a soft drop for depth. The inset top-edge gold
+            // glint is what makes the surface read as a polished plaque.
             boxShadow:
-              "0 25px 50px -20px rgba(0,0,0,0.85), inset 0 1px 0 oklch(0.92 0.08 80 / 0.12)",
+              "0 0 0 1px oklch(0.10 0.004 50 / 0.6), 0 18px 40px -12px rgba(0,0,0,0.95), 0 6px 14px -6px rgba(0,0,0,0.7), inset 0 1px 0 oklch(0.92 0.08 80 / 0.18)",
           }}
           onMouseEnter={() => setOpen(true)}
           onMouseLeave={() => {
             if (!locked) setOpen(false);
           }}
         >
+          {/* Upward-pointing arrow tab — anchors the popup to its trigger
+              visually. Two stacked triangles: the outer one matches the gold
+              border, the inner one masks it with the popup's own background
+              so the line reads as continuous with the card edge. Hidden when
+              the popup detaches as a bottom sheet on narrow viewports. */}
+          <span
+            aria-hidden
+            className="price-breakdown-arrow absolute -top-[7px] right-4 w-[12px] h-[7px]"
+            style={{
+              background: "var(--color-noir-soft)",
+              clipPath: "polygon(50% 0, 0 100%, 100% 100%)",
+              boxShadow: "0 -1px 0 oklch(0.78 0.10 80 / 0.7)",
+            }}
+          />
           <p className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-or-pale)]/70 mb-2.5">
             {t("price.breakdown.title")}
           </p>

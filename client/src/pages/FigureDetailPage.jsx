@@ -212,9 +212,10 @@ function HeroSection({
         />
 
         <div className="relative pt-2">
-          {/* Lot stamp + action cluster */}
+          {/* Lot stamp + action cluster — allow wrap on narrow viewports so
+           *  neither overflows when both are present. */}
           <div
-            className="flex items-start justify-between gap-3 reveal"
+            className="flex flex-wrap items-start justify-between gap-3 reveal"
             style={{ "--i": 1 }}
           >
             <div className="fig-lot">

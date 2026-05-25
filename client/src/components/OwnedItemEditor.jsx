@@ -47,7 +47,7 @@ export default function OwnedItemEditor({ owned, catalogMsrp, catalogCurrency })
 
   return (
     <section>
-      <header className="flex items-baseline justify-between gap-3 mb-4">
+      <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-2 mb-4">
         <div>
           <p className="micro">{t("owned.editor.eyebrow")}</p>
           <h2 className="display text-2xl text-[var(--color-ivoire)] mt-1">
@@ -131,8 +131,12 @@ function ReadMode({ owned, catalogMsrp, catalogCurrency, t }) {
 }
 
 function Row({ label, children }) {
+  // Drop the dashed underline on both bottom-row cells when the dl renders
+  // as a 2-column grid (sm+) — otherwise the bottom-left cell keeps a stray
+  // hairline while the bottom-right doesn't, breaking the rhythm. The
+  // 1-col layout still respects `last:`.
   return (
-    <div className="flex items-baseline gap-4 py-2.5 border-b border-dashed border-[var(--color-or)]/12 last:border-b-0">
+    <div className="flex items-baseline gap-4 py-2.5 border-b border-dashed border-[var(--color-or)]/12 last:border-b-0 sm:[&:nth-last-child(2)]:border-b-0">
       <dt className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-or-pale)]/80 w-[110px] shrink-0">
         {label}
       </dt>

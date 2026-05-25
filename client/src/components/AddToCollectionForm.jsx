@@ -88,7 +88,7 @@ export default function AddToCollectionForm({
       onSubmit={submit}
       className="border border-[var(--color-or)]/30 bg-[var(--color-or)]/3 p-5 space-y-4"
     >
-      <header className="flex items-baseline justify-between gap-3 mb-1">
+      <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 mb-1">
         <p className="micro">{t("addowned.eyebrow")}</p>
         {catalogMsrp != null && catalogMsrp !== "" ? (
           <button

@@ -435,7 +435,13 @@ kbd {
   gap: 0.5rem;
   overflow-x: auto;
   scrollbar-width: none;
-  padding-bottom: 0.25rem; /* leave room for the active underline */
+  /* Padding on BOTH vertical edges so neither the active tile's foil
+   * underline nor the hover lift (translateY(-2px)) gets clipped. The
+   * implicit `overflow-y: auto` (forced by overflow-x: auto per spec)
+   * would otherwise shear off the top 2px of any hovered tile — visibly
+   * removing its top border. */
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
   scroll-snap-type: x mandatory;
 }
 .tile-rail::-webkit-scrollbar { display: none; }
@@ -460,10 +466,34 @@ kbd {
     color 250ms var(--ease-quick);
   scroll-snap-align: start;
 }
-.tile:hover {
-  border-color: oklch(0.78 0.10 80 / 0.55);
-  color: var(--color-or-pale);
-  transform: translateY(-2px);
+/* Hover ≠ active. On these small dark tiles the gold border is the dominant
+ * visual cue, so *any* brightening of it reads as "selected". The fix:
+ * leave the border completely alone on hover. The active state owns the
+ * gold-border treatment exclusively. Hover signals interactivity through
+ * non-border cues only:
+ *   - kanji shifts from /0.85 to full opacity + a small warm glow
+ *   - tile lifts 2px with a dark depth-drop shadow (no gold, no glow)
+ *   - label color warms to or-pale
+ * No background change either — a brighter bg on hover started to look like
+ * a faint version of active's gold wash. Pure motion + color, no surface
+ * change.
+ *
+ * `@media (hover: hover)` so touch devices never latch into hover from a
+ * sticky :focus and look "selected" when they aren't. */
+@media (hover: hover) {
+  .tile:hover {
+    color: var(--color-or-pale);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 22px -10px oklch(0.05 0.003 50 / 0.75);
+  }
+  .tile:hover .tile-kanji {
+    opacity: 1;
+    text-shadow: 0 0 14px oklch(0.78 0.10 80 / 0.28);
+  }
+}
+.tile:focus-visible {
+  outline: 1px dashed oklch(0.78 0.10 80 / 0.7);
+  outline-offset: 3px;
 }
 .tile-kanji {
   display: block;
@@ -483,13 +513,36 @@ kbd {
 }
 .tile-count {
   position: absolute;
-  top: 4px;
-  right: 5px;
+  top: 6px;
+  right: 7px;
+  min-width: 14px;
+  padding: 1px 4px 0;
   font-family: var(--font-mono);
   font-size: 8.5px;
+  line-height: 1.2;
   letter-spacing: 0.05em;
+  text-align: center;
   color: var(--color-or-pale);
-  opacity: 0.55;
+  background: oklch(0.78 0.10 80 / 0.08);
+  border: 1px solid oklch(0.78 0.10 80 / 0.22);
+  border-radius: 1px;
+  /* Quiet by default so it doesn't compete with the kanji glyph below. */
+  opacity: 0.7;
+  transition: opacity 220ms var(--ease-quick),
+    background 220ms var(--ease-quick),
+    border-color 220ms var(--ease-quick),
+    color 220ms var(--ease-quick);
+}
+.tile:hover .tile-count {
+  opacity: 1;
+}
+.tile.is-active .tile-count {
+  /* Active tile: brighter pill so the count reads as part of the
+   * selected state. */
+  opacity: 1;
+  color: var(--color-or);
+  background: oklch(0.78 0.10 80 / 0.2);
+  border-color: oklch(0.78 0.10 80 / 0.6);
 }
 .tile.is-active {
   color: var(--color-or);
@@ -2092,6 +2145,13 @@ html {
 .fig-cartouche-block + .fig-cartouche-block {
   border-top: 1px solid oklch(0.78 0.10 80 / 0.18);
 }
+/* Tighten the horizontal padding on narrow viewports — 1.75rem inside an
+ * already-padded parent leaves too little real estate for spec values. */
+@media (max-width: 520px) {
+  .fig-cartouche-block {
+    padding: 1.2rem 1.1rem;
+  }
+}
 .fig-cartouche-heading {
   display: flex;
   align-items: center;
@@ -2190,6 +2250,15 @@ html {
 }
 .fig-spec:last-child {
   border-bottom: 0;
+}
+/* On narrow viewports the 140px key column starves the value of room — stack
+ * instead so long manufacturer names + sculptor credits never get clipped. */
+@media (max-width: 520px) {
+  .fig-spec {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+    padding: 0.7rem 0;
+  }
 }
 .fig-spec-key {
   font-family: var(--font-mono);
@@ -2546,6 +2615,13 @@ html {
   white-space: nowrap;
   transition: color 220ms var(--ease-quick);
 }
+/* On narrow viewports the "Replier / Déplier" word eats space that the
+ * title needs; drop it and let the chevron carry the affordance alone. */
+@media (max-width: 520px) {
+  .foldable-toggle > span:not(.foldable-chevron) {
+    display: none;
+  }
+}
 .foldable-header:hover .foldable-toggle {
   color: var(--color-or);
 }
@@ -2576,6 +2652,16 @@ html {
 .foldable.is-open .foldable-content {
   /* Small breathing room between the header and the body when open. */
   padding-top: 1.25rem;
+  /* Once the open transition finishes, switch to `overflow: visible` so
+   * absolutely-positioned children (e.g. PriceWithBreakdown's popover, or
+   * dropdowns) can escape the section box. `allow-discrete` makes the
+   * discrete `hidden → visible` change wait out the row-resize transition
+   * before snapping. When closing, the .is-open rule no longer applies and
+   * overflow snaps back to `hidden` immediately, so the closing animation
+   * still clips its content as expected. */
+  overflow: visible;
+  transition: overflow 0s 380ms;
+  transition-behavior: allow-discrete;
 }
 
 /* ───── Major variant — section-rule sized, top-level. No kanji glyph;
@@ -2626,6 +2712,30 @@ html {
 .foldable--minor .foldable-rule {
   /* Owner blocks keep a hairline but it's quieter than the major's. */
   background: linear-gradient(90deg, oklch(0.78 0.10 80 / 0.25), transparent);
+}
+
+/* ─── PriceWithBreakdown popover — on narrow viewports anchor it as a
+ *     bottom sheet so it never overflows when the trigger sits near the
+ *     right edge of the viewport (the desktop `right-0` would push the
+ *     popup past x=0). The arrow tab is hidden in bottom-sheet mode since
+ *     it no longer connects to the trigger. */
+@media (max-width: 520px) {
+  .price-breakdown-popup {
+    position: fixed !important;
+    inset: auto 0.75rem 0.75rem 0.75rem !important;
+    width: auto !important;
+    margin-top: 0 !important;
+    /* Slightly stronger shadow since it floats over the whole page rather
+     * than tethering to the trigger. */
+    box-shadow:
+      0 0 0 1px oklch(0.10 0.004 50 / 0.6),
+      0 -8px 30px -6px rgba(0, 0, 0, 0.85),
+      0 -2px 8px -2px rgba(0, 0, 0, 0.7),
+      inset 0 1px 0 oklch(0.92 0.08 80 / 0.18) !important;
+  }
+  .price-breakdown-arrow {
+    display: none;
+  }
 }
 
 /* tail marker — append-only
