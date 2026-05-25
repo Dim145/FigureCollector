@@ -11,6 +11,9 @@ pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub achievement_code: String,
     pub unlocked_at: DateTime<Utc>,
+    /// The figurine that pushed the user over the threshold, when known.
+    /// Drives the photo shown on the seal in the redesigned achievements page.
+    pub trigger_figure_id: Option<Uuid>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

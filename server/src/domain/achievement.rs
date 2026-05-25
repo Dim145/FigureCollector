@@ -63,10 +63,18 @@ async fn counters_for(pool: &PgPool, user_id: Uuid) -> AppResult<Counters> {
 /// Run the rules engine for `user_id`. Grants any newly-met achievements
 /// (writes via sea-orm) and returns them so the caller can fan them out
 /// over the WebSocket.
+///
+/// `trigger_figure_id` is the figurine the calling mutation revolved around
+/// (e.g. the figure that was just added to the collection, or the preorder's
+/// figure). It's stored on the user_achievements row so the /achievements
+/// page can show the actual figurine photo on the seal — a far more
+/// meaningful trophy than a generic kanji glyph. Pass `None` for triggers
+/// that aren't tied to a single figure.
 pub async fn check_and_grant(
     db: &DatabaseConnection,
     pool: &PgPool,
     user_id: Uuid,
+    trigger_figure_id: Option<Uuid>,
 ) -> AppResult<Vec<achievements::Model>> {
     let counters = counters_for(pool, user_id).await?;
 
@@ -103,6 +111,7 @@ pub async fn check_and_grant(
             user_id: Set(user_id),
             achievement_code: Set(a.code.clone()),
             unlocked_at: Set(Utc::now()),
+            trigger_figure_id: Set(trigger_figure_id),
         }
         .insert(db)
         .await;
@@ -131,34 +140,74 @@ pub async fn list_catalog(db: &DatabaseConnection) -> AppResult<Vec<achievements
         .await?)
 }
 
-/// `(achievement, unlocked_at)` for everything `user_id` has unlocked, newest first.
+/// `(achievement, unlocked_at, trigger_figure)` for everything `user_id`
+/// has unlocked, newest first. Goes through raw sqlx instead of sea-orm so
+/// we can resolve the trigger figurine + its preferred cover image in a
+/// single query.
+///
+/// The cover-resolution priority is the same as elsewhere in the app:
+///   1. The user's own cover photo (`owned_items.cover_photo_id`)
+///   2. The catalog's primary figure photo
+///   3. The figure's `official_image_url` (legacy/external)
+/// The frontend treats every URL as opaque — the backend already knows
+/// which photos endpoint to hit.
 pub async fn list_for_user(
-    db: &DatabaseConnection,
+    pool: &PgPool,
     user_id: Uuid,
 ) -> AppResult<Vec<UnlockedAchievement>> {
-    use sea_orm::QueryOrder;
-    let rows = user_achievements::Entity::find()
-        .filter(user_achievements::Column::UserId.eq(user_id))
-        .order_by_desc(user_achievements::Column::UnlockedAt)
-        .find_also_related(achievements::Entity)
-        .all(db)
-        .await?;
-    Ok(rows
-        .into_iter()
-        .filter_map(|(ua, a)| {
-            a.map(|a| UnlockedAchievement {
-                code: ua.achievement_code,
-                unlocked_at: ua.unlocked_at,
-                category: a.category,
-                tier: a.tier,
-                kind: a.kind,
-                threshold: a.threshold,
-            })
-        })
-        .collect())
+    Ok(sqlx::query_as::<_, UnlockedAchievement>(
+        "SELECT
+            ua.achievement_code             AS code,
+            ua.unlocked_at                  AS unlocked_at,
+            a.category                      AS category,
+            a.tier                          AS tier,
+            a.kind                          AS kind,
+            a.threshold                     AS threshold,
+            ua.trigger_figure_id            AS trigger_figure_id,
+            f.name                          AS trigger_figure_name,
+            f.slug                          AS trigger_figure_slug,
+            f.figure_type                   AS trigger_figure_type,
+            -- Cover URL: prefer the user's own cover photo, then the
+            -- catalog's primary figure photo, then the legacy
+            -- official_image_url field. NULL when nothing's available.
+            COALESCE(
+                CASE WHEN owned_cover.cover_photo_id IS NOT NULL
+                     THEN '/api/photos/' || owned_cover.cover_photo_id::text
+                END,
+                CASE WHEN catalog_photo.id IS NOT NULL
+                     THEN '/api/figure-photos/' || catalog_photo.id::text
+                END,
+                f.official_image_url
+            ) AS trigger_image_url
+         FROM user_achievements ua
+         JOIN achievements a ON a.code = ua.achievement_code
+         LEFT JOIN figures   f ON f.id = ua.trigger_figure_id
+         -- The viewer's own cover preference for that figure, if they own it.
+         LEFT JOIN LATERAL (
+             SELECT cover_photo_id
+             FROM owned_items o
+             WHERE o.user_id = ua.user_id
+               AND o.figure_id = ua.trigger_figure_id
+               AND o.cover_photo_id IS NOT NULL
+             LIMIT 1
+         ) owned_cover ON TRUE
+         -- The catalog's primary photo for that figure, if any.
+         LEFT JOIN LATERAL (
+             SELECT fp.id
+             FROM figure_photos fp
+             WHERE fp.figure_id = ua.trigger_figure_id
+             ORDER BY fp.is_primary DESC, fp.position ASC, fp.created_at ASC
+             LIMIT 1
+         ) catalog_photo ON TRUE
+         WHERE ua.user_id = $1
+         ORDER BY ua.unlocked_at DESC",
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?)
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, sqlx::FromRow)]
 pub struct UnlockedAchievement {
     pub code: String,
     pub unlocked_at: chrono::DateTime<chrono::Utc>,
@@ -166,4 +215,10 @@ pub struct UnlockedAchievement {
     pub tier: String,
     pub kind: String,
     pub threshold: i32,
+    /// The figurine that pushed the user over the threshold, when known.
+    pub trigger_figure_id: Option<Uuid>,
+    pub trigger_figure_name: Option<String>,
+    pub trigger_figure_slug: Option<String>,
+    pub trigger_figure_type: Option<String>,
+    pub trigger_image_url: Option<String>,
 }

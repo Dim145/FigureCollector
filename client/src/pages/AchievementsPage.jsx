@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { Navigate } from "react-router-dom";
+import { useMemo, useRef } from "react";
+import { Link, Navigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import {
@@ -7,161 +7,374 @@ import {
   useMyAchievements,
 } from "../hooks/useAchievements.js";
 import AppShell from "../components/AppShell.jsx";
-import Card from "../components/Card.jsx";
 
 /**
- * Direction-B sceaux page: every catalog seal as a stamp tile, gold-leafed
- * when unlocked, washed out and locked when not. Grouped by category, sorted
- * by sort_order. Hover/focus shows the threshold + (when unlocked) the date.
+ * /achievements — the Cabinet de Curiosités.
+ *
+ * This is the one page in the app that lets restraint go. Unlocked seals
+ * feature the actual figurine that pushed the user over the threshold —
+ * the user's own custom cover when set, otherwise the catalog photo —
+ * framed in a metallic foil ring (gold / silver / bronze) that gleams via
+ * a continuous conic-gradient sweep. Hover tilts the card in 3D, follows
+ * the cursor with a category-coloured spotlight, and (for gold tiers)
+ * dusts in five sparkles.
+ *
+ * Locked cards stay mysterious: the photo well shows a giant tier kanji
+ * silhouette, the card is dimmed, and a "Verrouillé" pill names the
+ * locked state without giving away what the threshold reveals.
+ *
+ * The hero pairs a SVG progress ring (animated stroke on mount) with a
+ * large italic title, and a "Récemment apposés" rail surfaces the three
+ * most recent unlocks as round-photo chips.
  */
+
+// Each category gets its own accent kanji + colour theme — drives the
+// inline custom property used by .ach-category-* styles and cards.
+const CATEGORY_META = {
+  collection: {
+    kanji: "集",
+    tone: "var(--ach-collection-tone)",
+    toneSoft: "var(--ach-collection-soft)",
+  },
+  preorder: {
+    kanji: "予",
+    tone: "var(--ach-preorder-tone)",
+    toneSoft: "var(--ach-preorder-soft)",
+  },
+  curator: {
+    kanji: "画",
+    tone: "var(--ach-curator-tone)",
+    toneSoft: "var(--ach-curator-soft)",
+  },
+};
+
+const TIER_KANJI = { gold: "金", silver: "銀", bronze: "銅" };
+
 export default function AchievementsPage() {
   const t = useT();
   const me = useMe();
   const catalog = useAchievementsCatalog();
   const mine = useMyAchievements();
 
-  const grouped = useMemo(() => {
-    if (!catalog.data) return {};
-    const unlocked = new Map(
-      (mine.data ?? []).map((a) => [a.code, a.unlocked_at]),
+  // Merge catalog + per-user data by code. Catalog is the source of truth
+  // for what exists; mine just adds unlock metadata.
+  const merged = useMemo(() => {
+    if (!catalog.data) return [];
+    const unlockedByCode = new Map(
+      (mine.data ?? []).map((a) => [a.code, a]),
     );
-    const by = {};
-    [...catalog.data]
+    return [...catalog.data]
       .sort((a, b) => a.sort_order - b.sort_order)
-      .forEach((a) => {
-        by[a.category] ??= [];
-        by[a.category].push({ ...a, unlocked_at: unlocked.get(a.code) ?? null });
-      });
-    return by;
+      .map((a) => ({
+        ...a,
+        unlock: unlockedByCode.get(a.code) ?? null,
+      }));
   }, [catalog.data, mine.data]);
+
+  const grouped = useMemo(() => {
+    const by = {};
+    for (const a of merged) {
+      by[a.category] ??= [];
+      by[a.category].push(a);
+    }
+    return by;
+  }, [merged]);
+
+  const recent = useMemo(() => {
+    return [...(mine.data ?? [])]
+      .sort((a, b) => new Date(b.unlocked_at) - new Date(a.unlocked_at))
+      .slice(0, 5);
+  }, [mine.data]);
 
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
 
   const unlockedCount = mine.data?.length ?? 0;
   const totalCount = catalog.data?.length ?? 0;
+  const pct =
+    totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0;
 
   return (
     <AppShell>
-      <main className="max-w-5xl mx-auto px-6 py-12">
-        <header className="text-center mb-12 relative">
-          <p className="micro">{t("achievements.subtitle")}</p>
-          <h1 className="display text-5xl mt-2 text-[var(--color-ivoire)]">
-            {t("achievements.title")}
-          </h1>
-          <div className="gold-rule mx-auto w-32 mt-6" />
-          <p className="mt-6 micro">
-            {t("achievements.progress", { unlocked: unlockedCount, total: totalCount })}
-          </p>
-        </header>
+      <main className="ach-page max-w-6xl mx-auto px-6 pt-8 pb-20">
+        <Hero
+          unlocked={unlockedCount}
+          total={totalCount}
+          percent={pct}
+          t={t}
+        />
 
-        {Object.keys(grouped).length === 0 ? (
-          <Card className="p-10 text-center">
-            <p className="text-[var(--color-ivoire-soft)]">{t("achievements.empty")}</p>
-          </Card>
-        ) : (
-          <div className="space-y-12">
-            {Object.entries(grouped).map(([category, items]) => (
-              <section key={category}>
-                <h2 className="micro mb-5">
-                  {t(`achievements.category.${category}`)} · {items.filter((i) => i.unlocked_at).length}/{items.length}
-                </h2>
-                <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  {items.map((a) => (
-                    <Seal key={a.code} a={a} t={t} />
-                  ))}
-                </ul>
-              </section>
-            ))}
-          </div>
-        )}
+        {recent.length > 0 ? <RecentStrip recent={recent} t={t} /> : null}
+
+        {Object.entries(grouped).map(([category, items]) => (
+          <CategorySection
+            key={category}
+            category={category}
+            items={items}
+            t={t}
+          />
+        ))}
       </main>
     </AppShell>
   );
 }
 
-function Seal({ a, t }) {
-  const locked = !a.unlocked_at;
-  const tier = a.tier;
-  const ringColour =
-    tier === "gold"
-      ? "var(--color-or)"
-      : tier === "silver"
-        ? "var(--color-or-pale)"
-        : "var(--color-or)/60";
+// =============================================================================
+// Hero — animated progress ring + title
+// =============================================================================
+
+function Hero({ unlocked, total, percent, t }) {
+  // SVG ring math — circumference of a circle is 2πr. The stroke-dasharray
+  // makes the visible arc proportional to the percentage.
+  const r = 64;
+  const c = 2 * Math.PI * r;
+  const dash = (percent / 100) * c;
+
   return (
-    <li className="relative group">
-      <div
-        className={`aspect-square relative grid place-items-center border-2 transition-all ${
-          locked
-            ? "border-[var(--color-or)]/15 bg-[var(--color-noir)]"
-            : "border-[var(--color-or)] bg-[var(--color-noir-soft)]"
-        }`}
-        style={{
-          boxShadow: locked
-            ? undefined
-            : "0 20px 40px -20px rgba(0,0,0,0.7), inset 0 0 0 1px oklch(0.78 0.10 80 / 0.18)",
-        }}
-      >
-        {/* Inner stamp ring */}
-        <div
-          aria-hidden
-          className={`absolute inset-3 border rounded-full transition-all ${
-            locked ? "border-[var(--color-or)]/10" : "border-dashed"
-          }`}
-          style={{ borderColor: ringColour }}
-        />
-        <div className="text-center">
-          <p
-            className={`ja text-3xl ${
-              locked
-                ? "text-[var(--color-or)]/15"
-                : tier === "gold"
-                  ? "text-[var(--color-or)]"
-                  : tier === "silver"
-                    ? "text-[var(--color-or-pale)]"
-                    : "text-[var(--color-or)]/70"
-            }`}
-          >
-            {tierKanji(tier)}
-          </p>
-          <p
-            className={`mt-2 micro ${locked ? "text-[var(--color-ivoire-soft)]/40" : "text-[var(--color-or-pale)]"}`}
-          >
-            {a.threshold}
-          </p>
+    <header className="ach-hero">
+      <div className="ach-hero-ring" aria-hidden>
+        <svg className="ach-hero-ring-svg" viewBox="0 0 144 144">
+          <circle className="ach-hero-ring-track" cx="72" cy="72" r={r} />
+          <circle
+            className="ach-hero-ring-fill"
+            cx="72"
+            cy="72"
+            r={r}
+            style={{ strokeDasharray: `${dash} ${c}` }}
+          />
+        </svg>
+        <div className="ach-hero-ring-text">
+          <div>
+            <span className="ach-hero-ring-num">{unlocked}</span>
+            <span className="ach-hero-ring-total">/ {total}</span>
+          </div>
         </div>
       </div>
 
-      <p
-        className={`mt-2 text-center text-xs tracking-wide leading-tight ${
-          locked
-            ? "text-[var(--color-ivoire-soft)]/60"
-            : "text-[var(--color-ivoire)]"
-        }`}
-      >
-        {t(`achievements.label.${a.code}`, {
-          default: a.code,
-          threshold: a.threshold,
-        })}
-      </p>
-
-      {!locked ? (
-        <p className="text-center text-[10px] mt-0.5 text-[var(--color-or)]/70 font-mono">
-          {new Date(a.unlocked_at).toLocaleDateString()}
+      <div className="ach-hero-text">
+        <p className="ach-hero-eyebrow">{t("achievements.subtitle")}</p>
+        <h1 className="ach-hero-title">{t("achievements.title")}</h1>
+        <p className="ach-hero-percent">
+          {percent === 100
+            ? t("achievements.progress.complete")
+            : t("achievements.progress.percent", { n: percent })}
         </p>
-      ) : null}
-    </li>
+      </div>
+    </header>
   );
 }
 
-function tierKanji(tier) {
-  switch (tier) {
-    case "gold":
-      return "金";
-    case "silver":
-      return "銀";
-    default:
-      return "銅";
+// =============================================================================
+// Recently unlocked strip
+// =============================================================================
+
+function RecentStrip({ recent, t }) {
+  return (
+    <section className="ach-recent">
+      <p className="ach-recent-heading">{t("achievements.recent")}</p>
+      <div className="ach-recent-rail">
+        {recent.map((a) => (
+          <RecentChip key={a.code} unlock={a} t={t} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RecentChip({ unlock, t }) {
+  const tone =
+    CATEGORY_META[unlock.category]?.tone ?? "var(--color-or)";
+  return (
+    <Link
+      to={unlock.trigger_figure_slug ? `/figures/${unlock.trigger_figure_id}` : "#"}
+      className="ach-recent-chip"
+      style={{ "--ach-tone": tone }}
+    >
+      <span className="ach-recent-chip-img">
+        {unlock.trigger_image_url ? (
+          <img
+            src={unlock.trigger_image_url}
+            alt={unlock.trigger_figure_name ?? unlock.code}
+            loading="lazy"
+          />
+        ) : (
+          <span className="ach-recent-chip-img-fallback" aria-hidden>
+            {TIER_KANJI[unlock.tier] ?? "印"}
+          </span>
+        )}
+      </span>
+      <span className="ach-recent-chip-body">
+        <span className="ach-recent-chip-label">
+          {t(`achievements.label.${unlock.code}`, { default: unlock.code })}
+        </span>
+        <span className="ach-recent-chip-date">
+          {new Date(unlock.unlocked_at).toLocaleDateString()}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
+// =============================================================================
+// Category section
+// =============================================================================
+
+function CategorySection({ category, items, t }) {
+  const meta = CATEGORY_META[category] ?? CATEGORY_META.collection;
+  const unlockedCount = items.filter((i) => i.unlock).length;
+  return (
+    <section
+      className="ach-category"
+      style={{
+        "--ach-tone": meta.tone,
+        "--ach-tone-soft": meta.toneSoft,
+      }}
+    >
+      <header className="ach-category-header">
+        <span className="ach-category-kanji" aria-hidden>
+          {meta.kanji}
+        </span>
+        <div className="ach-category-text">
+          <h2 className="ach-category-title">
+            {t(`achievements.category.${category}`)}
+          </h2>
+          <p className="ach-category-desc">
+            {t(`achievements.category.${category}.desc`, {
+              default: "",
+            })}
+          </p>
+        </div>
+        <span className="ach-category-count">
+          {unlockedCount} / {items.length}
+        </span>
+      </header>
+
+      <ul className="ach-grid">
+        {items.map((a, i) => (
+          <AchCard key={a.code} achievement={a} index={i} t={t} />
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+// =============================================================================
+// Achievement card
+// =============================================================================
+
+function AchCard({ achievement: a, index, t }) {
+  const ref = useRef(null);
+  const unlocked = !!a.unlock;
+  const u = a.unlock;
+
+  // Mouse tracking for the spotlight — only meaningful on unlocked cards.
+  const onMove = (e) => {
+    if (!unlocked) return;
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty(
+      "--spotlight-x",
+      `${((e.clientX - r.left) / r.width) * 100}%`,
+    );
+    el.style.setProperty(
+      "--spotlight-y",
+      `${((e.clientY - r.top) / r.height) * 100}%`,
+    );
+  };
+
+  const inner = (
+    <>
+      <div className="ach-card-photo">
+        <span className="ach-card-foil" aria-hidden />
+        {unlocked && u.trigger_image_url ? (
+          <img
+            src={u.trigger_image_url}
+            alt={u.trigger_figure_name ?? a.code}
+            loading="lazy"
+          />
+        ) : (
+          <span className="ach-card-photo-kanji" aria-hidden>
+            {TIER_KANJI[a.tier]}
+          </span>
+        )}
+        <span className="ach-card-tier-badge" aria-hidden>
+          {TIER_KANJI[a.tier]}
+        </span>
+      </div>
+
+      <div className="ach-card-body">
+        <span className="ach-card-label">
+          {t(`achievements.label.${a.code}`, {
+            default: a.code,
+            threshold: a.threshold,
+          })}
+        </span>
+        <span className="ach-card-threshold">
+          {t(`achievements.threshold.${a.kind}`, {
+            n: a.threshold,
+            default: `× ${a.threshold}`,
+          })}
+        </span>
+
+        {unlocked ? (
+          <>
+            <span className="ach-card-meta">
+              {t("achievements.unlocked_on", {
+                date: new Date(u.unlocked_at).toLocaleDateString(),
+              })}
+            </span>
+            {u.trigger_figure_name ? (
+              <span
+                className="ach-card-trigger"
+                title={u.trigger_figure_name}
+              >
+                ↳ {u.trigger_figure_name}
+              </span>
+            ) : null}
+          </>
+        ) : (
+          <span className="ach-card-locked-pill">
+            <span aria-hidden>🔒</span>
+            {t("achievements.locked")}
+          </span>
+        )}
+      </div>
+    </>
+  );
+
+  const className = `ach-card tier-${a.tier} ${
+    unlocked ? "is-unlocked" : "is-locked"
+  }`;
+  const style = { "--i": index };
+
+  // Unlocked cards with a known figure link to the figure page; otherwise
+  // the card is just a presentational tile.
+  if (unlocked && u.trigger_figure_id) {
+    return (
+      <li>
+        <Link
+          ref={ref}
+          to={`/figures/${u.trigger_figure_id}`}
+          onMouseMove={onMove}
+          className={className}
+          style={style}
+        >
+          {inner}
+        </Link>
+      </li>
+    );
   }
+  return (
+    <li>
+      <div
+        ref={ref}
+        onMouseMove={onMove}
+        className={className}
+        style={style}
+      >
+        {inner}
+      </div>
+    </li>
+  );
 }

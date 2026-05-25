@@ -52,7 +52,9 @@ async fn add_mine(
         },
     );
 
-    if let Ok(newly) = achievement::check_and_grant(&state.db, &state.pool, user_id).await {
+    if let Ok(newly) =
+        achievement::check_and_grant(&state.db, &state.pool, user_id, Some(po.figure_id)).await
+    {
         if !newly.is_empty() {
             state.events.publish(
                 user_id,
@@ -131,7 +133,15 @@ async fn patch_mine(
         .publish(user_id, Event::PreorderUpdated { preorder_id: id });
 
     // Status changes can flip "preorders_received" — re-evaluate.
-    if let Ok(newly) = achievement::check_and_grant(&state.db, &state.pool, user_id).await {
+    // The patched preorder's figure is the natural trigger.
+    if let Ok(newly) = achievement::check_and_grant(
+        &state.db,
+        &state.pool,
+        user_id,
+        Some(updated.figure_id),
+    )
+    .await
+    {
         if !newly.is_empty() {
             state.events.publish(
                 user_id,

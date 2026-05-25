@@ -18,7 +18,7 @@ async fn list_mine(
     session: Session,
 ) -> AppResult<Json<Vec<achievement::UnlockedAchievement>>> {
     let user_id = auth::require_user(&session).await?;
-    Ok(Json(achievement::list_for_user(&state.db, user_id).await?))
+    Ok(Json(achievement::list_for_user(&state.pool, user_id).await?))
 }
 
 pub fn router() -> Router<AppState> {

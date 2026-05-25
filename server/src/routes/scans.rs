@@ -154,7 +154,19 @@ async fn create_scan(
         .events
         .publish(user_id, Event::OwnedItemPhotosChanged { owned_id });
 
-    if let Ok(newly) = achievement::check_and_grant(&state.db, &state.pool, user_id).await {
+    // The scan's owned-item points at a figure — resolve and pass it so the
+    // achievement seal shows that piece's photo.
+    let trigger_figure_id: Option<Uuid> = sqlx::query_scalar(
+        "SELECT figure_id FROM owned_items WHERE id = $1 LIMIT 1",
+    )
+    .bind(owned_id)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    if let Ok(newly) =
+        achievement::check_and_grant(&state.db, &state.pool, user_id, trigger_figure_id).await
+    {
         if !newly.is_empty() {
             state.events.publish(
                 user_id,

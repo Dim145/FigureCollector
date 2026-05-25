@@ -90,7 +90,9 @@ async fn add_mine(
     }
 
     // Phase 4B: re-evaluate the achievements rules.
-    if let Ok(newly) = achievement::check_and_grant(&state.db, &state.pool, user_id).await {
+    if let Ok(newly) =
+        achievement::check_and_grant(&state.db, &state.pool, user_id, Some(item.figure_id)).await
+    {
         if !newly.is_empty() {
             state.events.publish(
                 user_id,
