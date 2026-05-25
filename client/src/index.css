@@ -5434,18 +5434,247 @@ a.horarium-entry-title:hover {
   background: oklch(0.78 0.10 80 / 0.08);
 }
 
-/* ─── Print mode — flatten + fade decorations ─── */
+/* ─── Print mode — "Paper Almanach"
+ *
+ * Recasts the page from dark-on-noir to dark-ink-on-cream so it prints
+ * the way a real almanac would: ivory paper, dark indigo body type,
+ * antique-gold accent rules + numbers, oxblood lacquer for the slip
+ * cell and the Nº stamp. Background colours are forced via
+ * `print-color-adjust: exact` so Chrome / Safari don't strip them.
+ *
+ * What hides in print:
+ *   - the AppShell sticky header (logo + nav + add button + lang chip)
+ *   - the year navigation footer (prev / print / next)
+ *   - any other site chrome
+ * What stays:
+ *   - masthead, opening sentence, tableau, ledger, bookends
+ *   - kanji watermarks (recoloured to gold-on-cream so they print at
+ *     ~10% rather than vanishing)
+ * ============================================================================ */
 @media print {
-  .almanac-masthead::before,
-  .almanac-masthead::after,
-  .almanac-bookend--first::before,
-  .almanac-bookend--last::before,
-  .almanac-cell::before {
-    display: none;
+  /* Force colour printing on every visual element on the page. Without
+   * this Chrome strips backgrounds + saturated fills to save toner. */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+    color-adjust: exact !important;
   }
-  .almanac-nav { display: none; }
-  .almanac-cell, .almanac-bookend {
+
+  /* Reset the body to ivory paper. The AppShell normally paints dark
+   * noir behind everything — we override on the html/body level. */
+  html,
+  body {
+    background: #f5efe2 !important;  /* warm cream paper */
+    color: #1a1714 !important;
+  }
+
+  /* Hide AppShell chrome — header + footer + any global nav. */
+  body > div > header,
+  body > div > footer,
+  header[class*="sticky"],
+  .pwa-update-toast,
+  [role="status"][aria-live] {
+    display: none !important;
+  }
+
+  /* Hide all the side animations + transforms — they're irrelevant on
+   * paper and can produce shadow artefacts. */
+  .almanac-reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+  .almanac-masthead-year,
+  .almanac-masthead-eyebrow,
+  .almanac-masthead-sub,
+  .almanac-masthead-right {
+    animation: none !important;
+  }
+  .almanac-ledger-bar {
+    animation: none !important;
+    transform: none !important;
+  }
+  .almanac-opening-rule {
+    transform: scaleX(1) !important;
+    transition: none !important;
+  }
+
+  /* Page chrome — recolour the entire almanac for paper. */
+  .almanac {
+    color: #1a1714 !important;
+  }
+
+  /* Masthead */
+  .almanac-masthead {
+    border-bottom-color: #c8a04d !important;
+    padding-top: 1rem;
+    padding-bottom: 2rem;
+  }
+  .almanac-masthead::before {
+    /* big 年 watermark → keep but recolour to a faint gold on cream */
+    display: block !important;
+    color: rgba(200, 160, 77, 0.10) !important;
+    font-size: clamp(16rem, 28vw, 22rem) !important;
+  }
+  .almanac-masthead::after {
+    /* 録 watermark → faint oxblood on cream */
+    display: block !important;
+    color: rgba(122, 33, 36, 0.07) !important;
+    font-size: clamp(8rem, 14vw, 12rem) !important;
+  }
+  .almanac-masthead-eyebrow {
+    color: #8a6f2f !important;        /* deeper gold for ink */
+  }
+  .almanac-masthead-eyebrow::before {
+    background: #8a6f2f !important;
+  }
+  .almanac-masthead-stamp {
+    border-color: #7a2124 !important;
+    background: rgba(122, 33, 36, 0.10) !important;
+    color: #7a2124 !important;
+  }
+  .almanac-masthead-year {
+    color: #1a1714 !important;
+  }
+  .almanac-masthead-sub {
+    color: #5a504a !important;
+  }
+  .almanac-masthead-right {
+    color: #8a6f2f !important;
+  }
+
+  /* Opening sentence */
+  .almanac-opening-line {
+    color: #2a2520 !important;
+  }
+  .almanac-opening-count {
+    color: #8a6f2f !important;
+  }
+  .almanac-opening-rule {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      #c8a04d 50%,
+      transparent
+    ) !important;
+  }
+
+  /* Stat tableau — cream cells, gold border, dark ink */
+  .almanac-cell {
+    background: #faf5e8 !important;
+    border-color: #c8a04d !important;
+    color: #1a1714 !important;
+    /* keep break-inside: avoid so cells don't get sliced across pages */
     break-inside: avoid;
+  }
+  .almanac-cell::before {
+    /* re-show kanji watermarks in faint gold */
+    display: block !important;
+    color: rgba(200, 160, 77, 0.16) !important;
+  }
+  .almanac-cell-label {
+    color: #8a6f2f !important;
+  }
+  .almanac-cell-headline {
+    color: #1a1714 !important;
+  }
+  .almanac-cell-headline.is-muted {
+    color: #999088 !important;
+  }
+  .almanac-cell-aside {
+    color: #8a6f2f !important;
+  }
+  .almanac-spend-currency {
+    color: #8a6f2f !important;
+  }
+  .almanac-spend-total {
+    color: #1a1714 !important;
+  }
+  .almanac-spend-row {
+    border-bottom-color: rgba(200, 160, 77, 0.4) !important;
+  }
+
+  /* Longest slip — keep the lacquer accent in print */
+  .almanac-cell.almanac-slip {
+    background: rgba(122, 33, 36, 0.06) !important;
+    border-color: #7a2124 !important;
+  }
+  .almanac-cell.almanac-slip::before {
+    color: rgba(122, 33, 36, 0.14) !important;
+  }
+  .almanac-slip-detail {
+    color: #7a2124 !important;
+  }
+
+  /* Monthly ledger — gold bars on cream, peak month in deeper gold */
+  .almanac-ledger {
+    break-inside: avoid;
+  }
+  .almanac-ledger-head {
+    border-bottom-color: #c8a04d !important;
+  }
+  .almanac-ledger-title {
+    color: #1a1714 !important;
+  }
+  .almanac-ledger-meta {
+    color: #8a6f2f !important;
+  }
+  .almanac-ledger-meta-value {
+    color: #1a1714 !important;
+  }
+  .almanac-ledger-bar {
+    background: linear-gradient(180deg, #c8a04d 0%, #8a6f2f 100%) !important;
+    box-shadow: none !important;
+  }
+  .almanac-ledger-bar.is-peak {
+    background: linear-gradient(180deg, #d4af37 0%, #7a2124 100%) !important;
+  }
+  .almanac-ledger-bar.is-empty {
+    background: rgba(200, 160, 77, 0.2) !important;
+  }
+  .almanac-ledger-count {
+    color: #8a6f2f !important;
+  }
+  .almanac-ledger-label {
+    color: #5a504a !important;
+  }
+  .almanac-ledger-month.is-peak .almanac-ledger-label {
+    color: #7a2124 !important;
+  }
+
+  /* Bookends */
+  .almanac-bookends-head {
+    border-bottom-color: #c8a04d !important;
+  }
+  .almanac-bookend {
+    background: #faf5e8 !important;
+    border-top-color: #c8a04d !important;
+    break-inside: avoid;
+  }
+  .almanac-bookend--first::before,
+  .almanac-bookend--last::before {
+    display: block !important;
+    color: rgba(200, 160, 77, 0.15) !important;
+  }
+  .almanac-bookend-eyebrow {
+    color: #8a6f2f !important;
+  }
+  .almanac-bookend-name {
+    color: #1a1714 !important;
+  }
+  .almanac-bookend-date {
+    color: #7a2124 !important;
+    border-color: #7a2124 !important;
+  }
+
+  /* Suppress the year nav (already hidden by print:hidden but be defensive) */
+  .almanac-nav { display: none !important; }
+
+  /* Page setup — narrow margins, no headers from the browser */
+  @page {
+    margin: 1.5cm;
   }
 }
 
