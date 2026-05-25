@@ -62,8 +62,20 @@ pub struct PreorderSummary {
 #[derive(Debug, Clone, Serialize)]
 pub struct SpendBucket {
     pub currency: String,
+    /// Sum of `price_amount` (item cost only) — kept as `total` for
+    /// backward compatibility with the SPA; semantically equal to
+    /// "what I paid for the figures themselves".
     pub total: Decimal,
     pub pieces_priced: i64,
+    /// Sum of `shipping_amount` across the same priced rows.
+    pub shipping_total: Decimal,
+    /// Sum of `figures.msrp_amount` across the same priced rows — the
+    /// reference "catalog cost" for everything the user has actually paid
+    /// a recorded price for. Lets the SPA show savings / overpay deltas.
+    pub catalog_total: Decimal,
+    /// Sum of item cost + shipping cost. The headline figure most users
+    /// actually want — "how much did this collection drain my wallet".
+    pub grand_total: Decimal,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -182,32 +194,50 @@ pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<Collect
     // price — most collectors don't track every receipt, so without this
     // fallback the stats page is empty for them. We still let an explicit
     // owned-side price win when it exists.
-    let spend_rows: Vec<(String, Decimal, i64)> = sqlx::query_as(
+    //
+    // We also compute alongside it:
+    //   - shipping_total : sum of explicit shipping cost (NULL ↦ 0)
+    //   - catalog_total  : sum of the figure's MSRP at the same currency —
+    //                      lets the SPA show "spent vs catalog" deltas
+    //   - grand_total    : sum of paid + shipping (the headline figure)
+    let spend_rows: Vec<(String, Decimal, i64, Decimal, Decimal, Decimal)> = sqlx::query_as(
         "WITH priced AS (
              SELECT COALESCE(o.price_currency, f.msrp_currency) AS currency,
-                    COALESCE(o.price_amount, f.msrp_amount)     AS amount
+                    COALESCE(o.price_amount, f.msrp_amount)     AS amount,
+                    COALESCE(o.shipping_amount, 0)              AS shipping,
+                    f.msrp_amount                                AS catalog
              FROM owned_items o
              JOIN figures f ON f.id = o.figure_id
              WHERE o.user_id = $1
          )
          SELECT currency,
-                COALESCE(SUM(amount), 0)::numeric,
-                COUNT(*)::bigint
+                COALESCE(SUM(amount), 0)::numeric                   AS total,
+                COUNT(*)::bigint                                    AS pieces_priced,
+                COALESCE(SUM(shipping), 0)::numeric                 AS shipping_total,
+                COALESCE(SUM(catalog), 0)::numeric                  AS catalog_total,
+                COALESCE(SUM(amount + shipping), 0)::numeric        AS grand_total
          FROM priced
          WHERE amount IS NOT NULL AND currency IS NOT NULL
          GROUP BY currency
-         ORDER BY 2 DESC",
+         ORDER BY 6 DESC",
     )
     .bind(user_id)
     .fetch_all(pool)
     .await?;
     let spend_by_currency = spend_rows
         .into_iter()
-        .map(|(currency, total, pieces_priced)| SpendBucket {
-            currency,
-            total,
-            pieces_priced,
-        })
+        .map(
+            |(currency, total, pieces_priced, shipping_total, catalog_total, grand_total)| {
+                SpendBucket {
+                    currency,
+                    total,
+                    pieces_priced,
+                    shipping_total,
+                    catalog_total,
+                    grand_total,
+                }
+            },
+        )
         .collect();
 
     // ----- by_type -----------------------------------------------------------

@@ -2,11 +2,7 @@ import { useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useIsAdmin, useMe } from "../hooks/useMe.js";
-import {
-  useAddOwnedItem,
-  useFigure,
-  useOwnedItems,
-} from "../hooks/useCollection.js";
+import { useFigure, useOwnedItems } from "../hooks/useCollection.js";
 import { useDeleteFigure } from "../hooks/useAdmin.js";
 import { ApiError } from "../lib/api.js";
 import AppShell from "../components/AppShell.jsx";
@@ -14,6 +10,7 @@ import Button from "../components/Button.jsx";
 import CoverPicker from "../components/CoverPicker.jsx";
 import FigureEditDialog from "../components/FigureEditDialog.jsx";
 import FigureHero from "../components/FigureHero.jsx";
+import AddToCollectionForm from "../components/AddToCollectionForm.jsx";
 import FigurePhotosSection from "../components/FigurePhotosSection.jsx";
 import OwnedItemEditor from "../components/OwnedItemEditor.jsx";
 import PhotoStrip from "../components/PhotoStrip.jsx";
@@ -29,7 +26,6 @@ export default function FigureDetailPage() {
   const navigate = useNavigate();
   const figure = useFigure(id);
   const owned = useOwnedItems();
-  const addOwned = useAddOwnedItem();
   const del = useDeleteFigure();
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -58,10 +54,6 @@ export default function FigureDetailPage() {
   const alreadyOwned = !!ownedRecord;
   const canEdit = isAdmin || f.created_by === me.data?.user?.id;
   const nsfwPref = me.data?.user?.nsfw_visibility ?? "hide";
-
-  const onAdd = () => {
-    addOwned.mutate({ figure_id: f.id });
-  };
 
   const onDelete = async () => {
     await del.mutateAsync(f.id);
@@ -226,14 +218,11 @@ export default function FigureDetailPage() {
                     <p className="micro">{t("figure.already_owned")}</p>
                   </div>
                 ) : (
-                  <Button
-                    variant="primary"
-                    onClick={onAdd}
-                    loading={addOwned.isPending}
-                    className="w-full"
-                  >
-                    {t("figure.add_to_collection")}
-                  </Button>
+                  <AddToCollectionForm
+                    figureId={f.id}
+                    catalogMsrp={f.msrp_amount}
+                    catalogCurrency={f.msrp_currency}
+                  />
                 )}
               </div>
             </div>
@@ -259,7 +248,11 @@ export default function FigureDetailPage() {
 
             {/* Owner-only metadata editor — condition, price, store, notes, … */}
             <div className="mb-16">
-              <OwnedItemEditor owned={ownedRecord} />
+              <OwnedItemEditor
+                owned={ownedRecord}
+                catalogMsrp={f.msrp_amount}
+                catalogCurrency={f.msrp_currency}
+              />
             </div>
 
             {/* Preorder history — only renders when a linked preorder exists */}

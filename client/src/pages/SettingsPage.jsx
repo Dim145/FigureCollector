@@ -86,6 +86,41 @@ export default function SettingsPage() {
           ) : null}
         </Card>
 
+        {/* ---- Preferred currency --------------------------------- */}
+        <Card className="p-8">
+          <h2 className="display text-2xl text-[var(--color-ivoire)]">
+            {t("settings.currency.title")}
+          </h2>
+          <p className="mt-2 text-sm text-[var(--color-ivoire-soft)] leading-relaxed">
+            {t("settings.currency.body")}
+          </p>
+          <div className="mt-5 max-w-xs">
+            <Select
+              label={t("settings.currency.field")}
+              value={
+                update.data?.preferred_currency ??
+                user.preferred_currency ??
+                ""
+              }
+              onChange={(v) =>
+                update.mutate({ preferred_currency: v === "" ? "" : v })
+              }
+              options={[
+                { value: "", label: t("settings.currency.none") },
+                { value: "JPY", label: "JPY · Yen" },
+                { value: "EUR", label: "EUR · Euro" },
+                { value: "USD", label: "USD · US Dollar" },
+                { value: "GBP", label: "GBP · British Pound" },
+                { value: "CHF", label: "CHF · Swiss Franc" },
+                { value: "CAD", label: "CAD · Canadian Dollar" },
+              ]}
+            />
+          </div>
+          <p className="mt-3 text-xs text-[var(--color-ivoire-soft)]/70">
+            {t("settings.currency.hint")}
+          </p>
+        </Card>
+
         {/* ---- Background-removal model size ----------------------- */}
         <Card className="p-8">
           <h2 className="display text-2xl text-[var(--color-ivoire)]">

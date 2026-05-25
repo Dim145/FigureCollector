@@ -147,13 +147,23 @@ async fn get_public_profile(
 struct ProfilePatch {
     public_profile_enabled: Option<bool>,
     nsfw_visibility: Option<String>,
+    /// `Some("")` is treated as "clear the value" (revert to no preference).
+    /// `Some("EUR")` etc. enforces the supported-currency whitelist below.
+    /// `None` leaves the existing value untouched.
+    preferred_currency: Option<String>,
 }
 
 #[derive(Serialize)]
 struct ProfileResponse {
     public_profile_enabled: bool,
     nsfw_visibility: String,
+    preferred_currency: Option<String>,
 }
+
+/// Currencies the SPA actually surfaces in its dropdowns. Anything else
+/// would be selectable in the user's row but invisible in the UI — keep
+/// the two sides in sync.
+const SUPPORTED_CURRENCIES: &[&str] = &["JPY", "EUR", "USD", "GBP", "CHF", "CAD"];
 
 async fn patch_my_profile(
     State(state): State<AppState>,
@@ -169,16 +179,39 @@ async fn patch_my_profile(
             ));
         }
     }
+    // Empty-string → explicit clear; anything else must be in the whitelist.
+    let preferred_currency = match input.preferred_currency.as_deref() {
+        None => None,                 // leave untouched
+        Some("") => Some(None),       // clear back to "no preference"
+        Some(code) => {
+            if !SUPPORTED_CURRENCIES.contains(&code) {
+                return Err(crate::error::AppError::BadRequest(
+                    "preferred_currency must be one of: JPY, EUR, USD, GBP, CHF, CAD",
+                ));
+            }
+            Some(Some(code.to_string()))
+        }
+    };
+    // Flatten the double-Option for SQL binding: NULL stays NULL (= COALESCE
+    // keeps the existing value); Some(None) means "clear" — we send NULL but
+    // bypass COALESCE with a CASE expression so the SQL actually clears.
+    let (set_currency, currency_value): (bool, Option<String>) = match preferred_currency {
+        None => (false, None),
+        Some(v) => (true, v),
+    };
 
-    let row: (bool, String) = sqlx::query_as(
+    let row: (bool, String, Option<String>) = sqlx::query_as(
         "UPDATE users SET
             public_profile_enabled = COALESCE($1, public_profile_enabled),
-            nsfw_visibility        = COALESCE($2, nsfw_visibility)
-         WHERE id = $3
-         RETURNING public_profile_enabled, nsfw_visibility",
+            nsfw_visibility        = COALESCE($2, nsfw_visibility),
+            preferred_currency     = CASE WHEN $3 THEN $4 ELSE preferred_currency END
+         WHERE id = $5
+         RETURNING public_profile_enabled, nsfw_visibility, preferred_currency",
     )
     .bind(input.public_profile_enabled)
     .bind(input.nsfw_visibility.as_deref())
+    .bind(set_currency)
+    .bind(currency_value.as_deref())
     .bind(user_id)
     .fetch_one(&state.pool)
     .await?;
@@ -188,6 +221,7 @@ async fn patch_my_profile(
     Ok(Json(ProfileResponse {
         public_profile_enabled: row.0,
         nsfw_visibility: row.1,
+        preferred_currency: row.2,
     }))
 }
 

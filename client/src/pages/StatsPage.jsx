@@ -267,22 +267,107 @@ function SpendLedger({ data, t }) {
       ) : (
         <ul className="-mt-1">
           {data.spend_by_currency.map((s) => (
-            <li key={s.currency} className="ledger-row">
-              <span className="brass-tab">{s.currency}</span>
-              <div className="min-w-0">
-                <p className="ledger-figure">{fmtMoney(s.total, s.currency)}</p>
-                <p className="ledger-caption mt-1">
-                  {t("stats.spend.priced_pieces", { count: s.pieces_priced })}
-                </p>
-              </div>
-              <div className="w-28 hidden md:block">
-                {yearProxy.length > 1 ? <Sparkline data={yearProxy} /> : null}
-              </div>
-            </li>
+            <SpendRow
+              key={s.currency}
+              row={s}
+              yearProxy={yearProxy}
+              t={t}
+            />
           ))}
         </ul>
       )}
     </Card>
+  );
+}
+
+/** One ledger row: brass tab, big grand-total figure, breakdown captions
+ *  (item vs shipping), and a delta-vs-catalog tag when the difference is
+ *  large enough to be interesting. */
+function SpendRow({ row, yearProxy, t }) {
+  const grand = Number(row.grand_total ?? row.total) || 0;
+  const item = Number(row.total) || 0;
+  const shipping = Number(row.shipping_total) || 0;
+  const catalog = Number(row.catalog_total) || 0;
+  const hasShipping = shipping > 0.005;
+  const hasCatalog = catalog > 0.005;
+  // Delta compares the *figure cost only* (`item`) against the catalog
+  // MSRP. Mixing in shipping here would always look like overpaying
+  // since shipping is non-negative — the user would never see a "saved"
+  // chip even when they grabbed a piece on promo.
+  const delta = hasCatalog ? item - catalog : 0;
+  const deltaPct = hasCatalog && catalog > 0 ? (delta / catalog) * 100 : 0;
+  const showDelta = hasCatalog && Math.abs(delta) > 0.01;
+
+  return (
+    <li className="ledger-row">
+      <span className="brass-tab">{row.currency}</span>
+      <div className="min-w-0">
+        <p className="ledger-figure">{fmtMoney(grand, row.currency)}</p>
+        <p className="ledger-caption mt-1">
+          {t("stats.spend.priced_pieces", { count: row.pieces_priced })}
+        </p>
+        {/* Breakdown — item + shipping + catalog reference */}
+        {hasShipping || hasCatalog ? (
+          <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 max-w-xs text-[10.5px]">
+            <Bd label={t("stats.spend.row.item")} value={fmtMoney(item, row.currency)} currency={row.currency} />
+            {hasShipping ? (
+              <Bd label={t("stats.spend.row.shipping")} value={fmtMoney(shipping, row.currency)} currency={row.currency} />
+            ) : null}
+            {hasCatalog ? (
+              <Bd label={t("stats.spend.row.catalog")} value={fmtMoney(catalog, row.currency)} currency={row.currency} dim />
+            ) : null}
+          </dl>
+        ) : null}
+        {showDelta ? (
+          <p
+            className={`mt-2 inline-flex items-center text-[10px] uppercase tracking-[0.22em] border px-2 py-0.5 ${
+              delta > 0
+                ? "border-[var(--color-laque-bright)]/60 text-[var(--color-laque-bright)]"
+                : "border-[var(--color-or)]/60 text-[var(--color-or)]"
+            }`}
+          >
+            {delta > 0
+              ? t("stats.spend.over_catalog", {
+                  amount: fmtMoney(Math.abs(delta), row.currency),
+                  currency: row.currency,
+                  pct: deltaPct.toFixed(0),
+                })
+              : t("stats.spend.under_catalog", {
+                  amount: fmtMoney(Math.abs(delta), row.currency),
+                  currency: row.currency,
+                  pct: Math.abs(deltaPct).toFixed(0),
+                })}
+          </p>
+        ) : null}
+      </div>
+      <div className="w-28 hidden md:block">
+        {yearProxy.length > 1 ? <Sparkline data={yearProxy} /> : null}
+      </div>
+    </li>
+  );
+}
+
+/** Tiny breakdown row inside the ledger entry */
+function Bd({ label, value, currency, dim = false }) {
+  return (
+    <>
+      <dt
+        className={`uppercase tracking-[0.18em] text-[9.5px] ${
+          dim ? "text-[var(--color-ivoire-soft)]/55" : "text-[var(--color-or-pale)]/80"
+        }`}
+      >
+        {label}
+      </dt>
+      <dd
+        className={`font-mono ${
+          dim
+            ? "text-[var(--color-ivoire-soft)]/70"
+            : "text-[var(--color-ivoire)]"
+        }`}
+      >
+        {value} <span className="text-[var(--color-or-pale)]/50">{currency}</span>
+      </dd>
+    </>
   );
 }
 

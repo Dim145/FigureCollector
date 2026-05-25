@@ -11,6 +11,15 @@ export function useMe() {
   });
 }
 
+/** The currency every price input should default to. Reads the user's
+ *  `preferred_currency` setting, falling back to JPY when none is set
+ *  (which matches the hard-coded baseline the server still uses for new
+ *  rows that don't specify one). */
+export function useDefaultCurrency() {
+  const me = useMe();
+  return me.data?.user?.preferred_currency ?? "JPY";
+}
+
 /** POST /api/auth/login. On success, refresh `useMe`. */
 export function useLogin() {
   const qc = useQueryClient();

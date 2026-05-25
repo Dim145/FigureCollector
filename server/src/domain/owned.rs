@@ -15,6 +15,10 @@ pub struct OwnedItem {
     pub condition: String,
     pub price_amount: Option<Decimal>,
     pub price_currency: Option<String>,
+    /// Shipping/handling cost in the same currency as `price_amount`.
+    /// Stored separately so the figure cost stays comparable to the
+    /// catalog MSRP; total paid = `price_amount + shipping_amount`.
+    pub shipping_amount: Option<Decimal>,
     pub store: Option<String>,
     pub purchase_date: Option<NaiveDate>,
     pub location: Option<String>,
@@ -32,6 +36,7 @@ pub struct OwnedItemWithFigure {
     pub condition: String,
     pub price_amount: Option<Decimal>,
     pub price_currency: Option<String>,
+    pub shipping_amount: Option<Decimal>,
     pub store: Option<String>,
     pub purchase_date: Option<NaiveDate>,
     pub location: Option<String>,
@@ -76,6 +81,7 @@ pub struct NewOwnedItem {
     pub condition: String,
     pub price_amount: Option<Decimal>,
     pub price_currency: Option<String>,
+    pub shipping_amount: Option<Decimal>,
     pub store: Option<String>,
     pub purchase_date: Option<NaiveDate>,
     pub location: Option<String>,
@@ -87,6 +93,7 @@ pub struct OwnedPatch {
     pub condition: Option<String>,
     pub price_amount: Option<Decimal>,
     pub price_currency: Option<String>,
+    pub shipping_amount: Option<Decimal>,
     pub store: Option<String>,
     pub purchase_date: Option<NaiveDate>,
     pub location: Option<String>,
@@ -100,7 +107,7 @@ fn default_condition() -> String {
 const ALLOWED_CONDITIONS: &[&str] = &["mib_sealed", "opened_box", "displayed", "loose", "damaged"];
 
 const OWNED_RETURNING: &str =
-    "id, user_id, figure_id, condition, price_amount, price_currency, \
+    "id, user_id, figure_id, condition, price_amount, price_currency, shipping_amount, \
      store, purchase_date, location, notes, cover_photo_id, cover_scan_id, \
      created_at, updated_at";
 
@@ -120,9 +127,9 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewOwnedItem) -> AppRes
     let id = Uuid::now_v7();
     let sql = format!(
         "INSERT INTO owned_items (
-            id, user_id, figure_id, condition, price_amount, price_currency,
+            id, user_id, figure_id, condition, price_amount, price_currency, shipping_amount,
             store, purchase_date, location, notes
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
          RETURNING {OWNED_RETURNING}"
     );
 
@@ -133,6 +140,7 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewOwnedItem) -> AppRes
         .bind(&input.condition)
         .bind(input.price_amount)
         .bind(&input.price_currency)
+        .bind(input.shipping_amount)
         .bind(&input.store)
         .bind(input.purchase_date)
         .bind(&input.location)
@@ -161,14 +169,15 @@ pub async fn patch(
 
     let sql = format!(
         "UPDATE owned_items SET
-            condition      = COALESCE($1, condition),
-            price_amount   = COALESCE($2, price_amount),
-            price_currency = COALESCE($3, price_currency),
-            store          = COALESCE($4, store),
-            purchase_date  = COALESCE($5, purchase_date),
-            location       = COALESCE($6, location),
-            notes          = COALESCE($7, notes)
-         WHERE id = $8 AND user_id = $9
+            condition        = COALESCE($1, condition),
+            price_amount     = COALESCE($2, price_amount),
+            price_currency   = COALESCE($3, price_currency),
+            shipping_amount  = COALESCE($4, shipping_amount),
+            store            = COALESCE($5, store),
+            purchase_date    = COALESCE($6, purchase_date),
+            location         = COALESCE($7, location),
+            notes            = COALESCE($8, notes)
+         WHERE id = $9 AND user_id = $10
          RETURNING {OWNED_RETURNING}"
     );
 
@@ -176,6 +185,7 @@ pub async fn patch(
         .bind(&input.condition)
         .bind(input.price_amount)
         .bind(&input.price_currency)
+        .bind(input.shipping_amount)
         .bind(&input.store)
         .bind(input.purchase_date)
         .bind(&input.location)
@@ -200,6 +210,7 @@ pub async fn list_for_user(
     let mut sql = String::from(
         "SELECT
             o.id, o.figure_id, o.condition, o.price_amount, o.price_currency,
+            o.shipping_amount,
             o.store, o.purchase_date, o.location, o.notes, o.created_at,
             f.name AS figure_name, f.slug AS figure_slug, f.figure_type,
             f.official_image_url AS figure_image,

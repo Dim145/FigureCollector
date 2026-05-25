@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 import { useUpdateOwnedItem } from "../hooks/useCollection.js";
+import { useDefaultCurrency } from "../hooks/useMe.js";
 import Button from "./Button.jsx";
 import FormField from "./FormField.jsx";
+import PriceWithBreakdown from "./PriceWithBreakdown.jsx";
 import Select from "./Select.jsx";
 
 /** Allowed condition values, mirrored from the server's allow-list. */
@@ -31,8 +33,13 @@ const CURRENCY_OPTIONS = ["JPY", "EUR", "USD", "GBP", "CHF", "CAD"];
  *
  * @param {object} props
  * @param {object} props.owned     The owned-item row returned by /me/owned.
+ * @param {number|string|null} [props.catalogMsrp]   Catalog reference price.
+ *        When set, the editor renders an extra line under the "Prix payé"
+ *        field showing the MSRP + a +N%/-N% delta when the user's price
+ *        differs from it.
+ * @param {string|null} [props.catalogCurrency]
  */
-export default function OwnedItemEditor({ owned }) {
+export default function OwnedItemEditor({ owned, catalogMsrp, catalogCurrency }) {
   const t = useT();
   const [editing, setEditing] = useState(false);
 
@@ -59,9 +66,20 @@ export default function OwnedItemEditor({ owned }) {
       </header>
 
       {editing ? (
-        <EditMode owned={owned} onClose={() => setEditing(false)} t={t} />
+        <EditMode
+          owned={owned}
+          catalogMsrp={catalogMsrp}
+          catalogCurrency={catalogCurrency}
+          onClose={() => setEditing(false)}
+          t={t}
+        />
       ) : (
-        <ReadMode owned={owned} t={t} />
+        <ReadMode
+          owned={owned}
+          catalogMsrp={catalogMsrp}
+          catalogCurrency={catalogCurrency}
+          t={t}
+        />
       )}
     </section>
   );
@@ -70,7 +88,7 @@ export default function OwnedItemEditor({ owned }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Read mode
 
-function ReadMode({ owned, t }) {
+function ReadMode({ owned, catalogMsrp, catalogCurrency, t }) {
   return (
     <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-1 border border-[var(--color-or)]/15 bg-[var(--color-noir)]/40 px-5 py-4">
       <Row label={t("owned.editor.field.condition")}>
@@ -83,9 +101,18 @@ function ReadMode({ owned, t }) {
       </Row>
       <Row label={t("owned.editor.field.store")}>{owned.store ?? "—"}</Row>
       <Row label={t("owned.editor.field.price")}>
-        {owned.price_amount
-          ? `${owned.price_amount} ${owned.price_currency ?? ""}`.trim()
-          : "—"}
+        {owned.price_amount || owned.shipping_amount ? (
+          <PriceWithBreakdown
+            price={owned.price_amount}
+            shipping={owned.shipping_amount}
+            currency={owned.price_currency}
+            catalog={catalogMsrp}
+            catalogCurrency={catalogCurrency}
+            size="sm"
+          />
+        ) : (
+          "—"
+        )}
       </Row>
       <Row label={t("owned.editor.field.location")}>
         {owned.location ?? "—"}
@@ -135,13 +162,16 @@ function ConditionChip({ code, t }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Edit mode
 
-function EditMode({ owned, onClose, t }) {
-  const [form, setForm] = useState(() => seedFromOwned(owned));
+function EditMode({ owned, catalogMsrp, catalogCurrency, onClose, t }) {
+  const defaultCurrency = useDefaultCurrency();
+  const [form, setForm] = useState(() => seedFromOwned(owned, defaultCurrency));
   const update = useUpdateOwnedItem();
+  const delta = priceDelta(form.price_amount, catalogMsrp);
 
   // Re-seed when the parent loads a different owned item (defensive).
   useEffect(() => {
-    setForm(seedFromOwned(owned));
+    setForm(seedFromOwned(owned, defaultCurrency));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [owned?.id]);
 
   const set = (k) => (v) => setForm((s) => ({ ...s, [k]: v }));
@@ -169,6 +199,7 @@ function EditMode({ owned, onClose, t }) {
       condition: form.condition,
       price_amount: num(form.price_amount),
       price_currency: form.price_amount ? form.price_currency : null,
+      shipping_amount: num(form.shipping_amount),
       store: nz(form.store),
       purchase_date: form.purchase_date || null,
       location: nz(form.location),
@@ -239,13 +270,59 @@ function EditMode({ owned, onClose, t }) {
         />
       </div>
 
-      <div className="grid sm:grid-cols-[2fr_1fr] gap-4">
+      <div className="grid sm:grid-cols-[2fr_1.4fr_1fr] gap-4 items-start">
+        <div>
+          <FormField
+            label={t("owned.editor.field.price")}
+            type="number"
+            value={form.price_amount}
+            onChange={set("price_amount")}
+            placeholder={t("owned.editor.ph.price")}
+          />
+          {catalogMsrp != null && catalogMsrp !== "" ? (
+            <p className="mt-1 flex items-baseline gap-2 text-[10px] uppercase tracking-[0.22em] text-[var(--color-ivoire-soft)]/70">
+              <button
+                type="button"
+                onClick={() => {
+                  set("price_amount")(String(catalogMsrp));
+                  if (catalogCurrency) set("price_currency")(catalogCurrency);
+                }}
+                title={t("addowned.fill_msrp")}
+                className="group/msrp inline-flex items-baseline gap-1 cursor-pointer hover:text-[var(--color-or-pale)] transition-colors focus:outline-none focus-visible:text-[var(--color-or)]"
+              >
+                <span>
+                  {t("addowned.msrp_ref")}:{" "}
+                  <span className="font-mono text-[var(--color-or-pale)] group-hover/msrp:text-[var(--color-or)] underline decoration-dotted decoration-[var(--color-or)]/40 underline-offset-4 group-hover/msrp:decoration-[var(--color-or)] transition-colors">
+                    {fmtMoney(catalogMsrp)} {catalogCurrency ?? ""}
+                  </span>
+                </span>
+                <span
+                  aria-hidden
+                  className="text-[var(--color-or)]/0 group-hover/msrp:text-[var(--color-or)]/80 transition-colors text-[9px]"
+                >
+                  ↩
+                </span>
+              </button>
+              {delta ? (
+                <span
+                  className={
+                    delta.direction === "above"
+                      ? "text-[var(--color-laque-bright)]"
+                      : "text-[var(--color-or)]"
+                  }
+                >
+                  · {delta.label}
+                </span>
+              ) : null}
+            </p>
+          ) : null}
+        </div>
         <FormField
-          label={t("owned.editor.field.price")}
+          label={t("owned.editor.field.shipping")}
           type="number"
-          value={form.price_amount}
-          onChange={set("price_amount")}
-          placeholder={t("owned.editor.ph.price")}
+          value={form.shipping_amount}
+          onChange={set("shipping_amount")}
+          placeholder={t("owned.editor.ph.shipping")}
         />
         <Select
           label={t("owned.editor.field.currency")}
@@ -295,14 +372,45 @@ function EditMode({ owned, onClose, t }) {
   );
 }
 
-function seedFromOwned(owned) {
+function seedFromOwned(owned, defaultCurrency = "JPY") {
   return {
     condition: owned.condition ?? "mib_sealed",
     price_amount: owned.price_amount != null ? String(owned.price_amount) : "",
-    price_currency: owned.price_currency ?? "JPY",
+    price_currency: owned.price_currency ?? defaultCurrency,
+    shipping_amount:
+      owned.shipping_amount != null ? String(owned.shipping_amount) : "",
     store: owned.store ?? "",
-    purchase_date: owned.purchase_date ?? "",
+    // Fall back to the date the row was added when no explicit purchase
+    // date was ever set — for most collectors those are the same day.
+    purchase_date:
+      owned.purchase_date ??
+      (owned.created_at ? String(owned.created_at).slice(0, 10) : ""),
     location: owned.location ?? "",
     notes: owned.notes ?? "",
   };
+}
+
+/** Compare paid vs catalog MSRP. Returns null when either is missing or the
+ *  two values are within 1 cent of each other; otherwise returns
+ *  { direction: "above" | "below", label: "+12%" | "-8%" }. */
+function priceDelta(paidRaw, msrpRaw) {
+  const paid = Number(paidRaw);
+  const msrp = Number(msrpRaw);
+  if (!Number.isFinite(paid) || !Number.isFinite(msrp) || msrp === 0) return null;
+  if (Math.abs(paid - msrp) < 0.01) return null;
+  const diff = paid - msrp;
+  const pct = ((diff / msrp) * 100).toFixed(0);
+  return {
+    direction: diff > 0 ? "above" : "below",
+    label: `${diff > 0 ? "+" : ""}${pct}%`,
+  };
+}
+
+function fmtMoney(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return "—";
+  return n.toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
 }

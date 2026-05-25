@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useT } from "../i18n/index.jsx";
+import { useDefaultCurrency } from "../hooks/useMe.js";
 import AniListLookup from "./AniListLookup.jsx";
 import Button from "./Button.jsx";
 import FigureLookup from "./FigureLookup.jsx";
@@ -44,13 +45,14 @@ export default function FigureForm({
   footerExtras = null,
 }) {
   const t = useT();
+  const defaultCurrency = useDefaultCurrency();
 
-  const [form, setForm] = useState(() => normalise(initial));
+  const [form, setForm] = useState(() => normalise(initial, defaultCurrency));
   // If the caller swaps `initial` (Edit modal jumping to a new figure), we
   // re-seed the local state — guarded by the figure id so a parent re-render
   // with the same object doesn't blow away in-progress edits.
   useEffect(() => {
-    setForm(normalise(initial));
+    setForm(normalise(initial, defaultCurrency));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial?.id]);
 
@@ -383,8 +385,10 @@ const EMPTY = {
 /** Seed the form's local state from `initial`, which can be a fresh figure
  *  (Edit) or undefined (Create). Lists become comma-separated strings; null
  *  fields become empty strings so React inputs stay controlled. */
-function normalise(initial) {
-  if (!initial) return { ...EMPTY };
+function normalise(initial, defaultCurrency = "JPY") {
+  if (!initial) {
+    return { ...EMPTY, msrp_currency: defaultCurrency };
+  }
   return {
     name: initial.name ?? "",
     manufacturer_name: initial.manufacturer_name ?? "",
@@ -399,7 +403,7 @@ function normalise(initial) {
       : (initial.materials ?? ""),
     release_date: initial.release_date ?? "",
     msrp_amount: initial.msrp_amount != null ? String(initial.msrp_amount) : "",
-    msrp_currency: initial.msrp_currency ?? "JPY",
+    msrp_currency: initial.msrp_currency ?? defaultCurrency,
     jan: initial.jan ?? "",
     edition: initial.edition ?? "",
     exclusivity: initial.exclusivity ?? "",

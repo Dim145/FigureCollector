@@ -17,6 +17,9 @@ pub struct User {
     pub is_admin: bool,
     /// "hide" (default) / "blur" / "show" — per-user NSFW visibility.
     pub nsfw_visibility: String,
+    /// ISO 4217 default currency for every form that asks for a price.
+    /// `None` ↦ SPA falls back to its built-in default (JPY).
+    pub preferred_currency: Option<String>,
     pub created_at: DateTime<Utc>,
     pub last_login_at: Option<DateTime<Utc>>,
 }
@@ -36,6 +39,9 @@ pub struct PublicUser {
     /// Drives the SPA's filtering / blur behaviour for NSFW figures.
     /// The server already filters most queries, this is the SPA mirror.
     pub nsfw_visibility: String,
+    /// Default currency the SPA pre-fills in every price input. `None`
+    /// means "use the SPA's built-in default" (currently JPY).
+    pub preferred_currency: Option<String>,
 }
 
 impl From<User> for PublicUser {
@@ -48,13 +54,14 @@ impl From<User> for PublicUser {
             locale: u.locale,
             is_admin: u.is_admin,
             nsfw_visibility: u.nsfw_visibility,
+            preferred_currency: u.preferred_currency,
         }
     }
 }
 
 const USER_COLUMNS: &str =
     "id, username, email, display_name, avatar_url, locale, is_admin, \
-     nsfw_visibility, created_at, last_login_at";
+     nsfw_visibility, preferred_currency, created_at, last_login_at";
 
 pub async fn create_local(
     pool: &PgPool,

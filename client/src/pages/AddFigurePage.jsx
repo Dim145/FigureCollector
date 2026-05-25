@@ -32,7 +32,17 @@ export default function AddFigurePage() {
     try {
       const figure = await createFigure.mutateAsync(payload);
       if (alsoAddToCollection) {
-        await addOwned.mutateAsync({ figure_id: figure.id });
+        // When the user is also adding the freshly-created figure to their
+        // collection, seed the owned-item's purchase price + currency from
+        // the catalog MSRP they just typed. They can override later via the
+        // owned-item editor on the figure detail page. Empty MSRP =
+        // payload.msrp_amount undefined → owned row created with NULL price.
+        await addOwned.mutateAsync({
+          figure_id: figure.id,
+          price_amount: payload.msrp_amount,
+          price_currency: payload.msrp_amount ? payload.msrp_currency : undefined,
+          purchase_date: new Date().toISOString().slice(0, 10),
+        });
       }
       navigate(alsoAddToCollection ? "/collection" : `/figures/${figure.id}`);
     } catch {
