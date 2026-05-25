@@ -57,17 +57,24 @@ self.addEventListener("notificationclick", (event) => {
   event.waitUntil(
     self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
-      .then((clients) => {
-        // If we already have a tab open, focus + navigate it.
+      .then(async (clients) => {
+        // If we already have a tab open, focus + navigate it. The
+        // previous version returned synchronously without awaiting the
+        // focus/navigate promises, so cross-origin clients could
+        // short-circuit before `openWindow` ever ran — the click looked
+        // dead. Await each candidate and only fall through to
+        // openWindow if none of them accept focus.
         for (const client of clients) {
           try {
-            if ("focus" in client) {
-              client.focus();
-              if ("navigate" in client) client.navigate(targetUrl);
-              return;
+            if (typeof client.focus === "function") {
+              await client.focus();
+              if (typeof client.navigate === "function") {
+                await client.navigate(targetUrl);
+              }
+              return; // success — bail out of the loop AND skip openWindow
             }
-          } catch (e) {
-            /* cross-origin focus may fail — fall through to openWindow */
+          } catch {
+            /* cross-origin focus may fail — try the next client */
           }
         }
         if (self.clients.openWindow) {

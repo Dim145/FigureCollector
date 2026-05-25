@@ -22,8 +22,14 @@ export default function CommandPalette() {
   const [selected, setSelected] = useState(0);
   const inputRef = useRef(null);
 
-  const owned = useOwnedItems();
-  const figures = useFigures();
+  // The palette is mounted on every page (App.jsx) so eagerly firing
+  // `useOwnedItems()` + `useFigures()` would fan out two queries on every
+  // route change — even though the palette stays closed 99 % of the time.
+  // Gate them on `open` so the cost is paid only when the user actually
+  // hits ⌘K. Once the data lands the cache keeps it hot for subsequent
+  // openings; TanStack Query won't refetch unless its staleTime expired.
+  const owned = useOwnedItems({ enabled: open });
+  const figures = useFigures({}, { enabled: open });
 
   // Global ⌘K / Ctrl+K toggle
   useEffect(() => {

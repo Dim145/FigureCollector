@@ -68,6 +68,13 @@ export function useDeletePhoto(ownedId) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (photoId) => api.delete(`/me/owned/${ownedId}/photos/${photoId}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["photos", ownedId] }),
+    onSuccess: () => {
+      // Deleting a photo can change the cover (the SPA falls back to the
+      // catalog image when the user's pinned cover vanishes). Invalidate
+      // both the per-item photo list AND the parent owned collection so
+      // the grid tile picks up the new cover without a manual refresh.
+      qc.invalidateQueries({ queryKey: ["photos", ownedId] });
+      qc.invalidateQueries({ queryKey: ["owned"] });
+    },
   });
 }

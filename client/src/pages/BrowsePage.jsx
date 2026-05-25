@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
@@ -47,8 +47,17 @@ export default function BrowsePage() {
   const [type, setType] = useState("");
   const [sort, setSort] = useState("recent");
 
+  // 250 ms debounce on the catalog query. The previous wiring re-fired
+  // `useFigures()` on every keystroke, producing one network roundtrip
+  // per character + a fresh TanStack Query cache key per call.
+  const [debouncedQ, setDebouncedQ] = useState("");
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedQ(q), 250);
+    return () => clearTimeout(id);
+  }, [q]);
+
   const figures = useFigures({
-    q: q.trim() || undefined,
+    q: debouncedQ.trim() || undefined,
     figure_type: type || undefined,
   });
 

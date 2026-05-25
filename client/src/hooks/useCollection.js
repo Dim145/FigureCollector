@@ -4,7 +4,7 @@ import { ApiError, api } from "../lib/api.js";
 
 // ----- Figures (catalog) -----------------------------------------------------
 
-export function useFigures(params = {}) {
+export function useFigures(params = {}, { enabled = true } = {}) {
   const search = new URLSearchParams();
   if (params.q) search.set("q", params.q);
   if (params.figure_type) search.set("figure_type", params.figure_type);
@@ -18,6 +18,7 @@ export function useFigures(params = {}) {
     // refetch on mount so a deleted figure doesn't linger as a clickable
     // card after the SW snapshot has gone stale.
     refetchOnMount: "always",
+    enabled,
   });
 }
 
@@ -49,10 +50,11 @@ export function useCreateFigure() {
 
 // ----- Owned items (collection) ---------------------------------------------
 
-export function useOwnedItems() {
+export function useOwnedItems({ enabled = true } = {}) {
   return useQuery({
     queryKey: ["owned"],
     queryFn: () => api.get("/me/owned"),
+    enabled,
   });
 }
 

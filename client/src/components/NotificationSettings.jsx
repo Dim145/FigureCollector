@@ -451,14 +451,35 @@ function Field({ label, hint, type = "text", textarea = false, value, onChange }
 function BrowserPushControls({ system, mine, t }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  // Mirror the *real* subscription state from the service worker. The
+  // previous wiring read `Notification.permission` at render time — that
+  // value is reactive to nothing AND stays "granted" after `unsubscribe()`,
+  // so the UI would show "Unsubscribe" even when no subscription existed.
+  // We hydrate on mount + after every subscribe/unsubscribe.
+  const [subscribed, setSubscribed] = useState(false);
   const update = useUpdateChannel();
   const vapidPublicKey =
     system.config?.vapid_public_key ?? null;
   const isEnabled = mine?.enabled ?? false;
 
-  const subscribed =
-    typeof Notification !== "undefined" &&
-    Notification.permission === "granted";
+  // Refresh the "is there a live subscription right now?" check.
+  const refreshSubscribed = async () => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
+      setSubscribed(false);
+      return;
+    }
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      setSubscribed(!!sub);
+    } catch {
+      setSubscribed(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshSubscribed();
+  }, []);
 
   const subscribe = async () => {
     setBusy(true);
@@ -474,6 +495,7 @@ function BrowserPushControls({ system, mine, t }) {
         enabled: true,
         destination: {},
       });
+      await refreshSubscribed();
     } catch (e) {
       setError(e.message);
     } finally {
@@ -491,6 +513,7 @@ function BrowserPushControls({ system, mine, t }) {
         enabled: false,
         destination: {},
       });
+      await refreshSubscribed();
     } catch (e) {
       setError(e.message);
     } finally {
