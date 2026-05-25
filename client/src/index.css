@@ -4771,6 +4771,30 @@ a.horarium-entry-title:hover {
   position: relative;
 }
 
+/* ─── Scroll-triggered reveal — every section starts at opacity 0 +
+ *     translateY(20px) and transitions when IntersectionObserver flips
+ *     the .is-revealed class. The stagger comes from --i set inline.
+ *     Respects prefers-reduced-motion: reduce. */
+.almanac-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 720ms var(--ease-curtain),
+    transform 720ms var(--ease-curtain);
+  transition-delay: calc(var(--i, 0) * 80ms);
+}
+.almanac-reveal.is-revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .almanac-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 /* ─── Masthead — "Nº 2026 · L'ALMANACH" + huge year ─── */
 .almanac-masthead {
   position: relative;
@@ -4851,6 +4875,43 @@ a.horarium-entry-title:hover {
   line-height: 0.85;
   color: var(--color-ivoire);
   margin: 0;
+  /* Kinetic entrance — letter-spacing tightens + scale settles. */
+  animation: almanac-year-in 1300ms var(--ease-curtain) both;
+  animation-delay: 200ms;
+}
+@keyframes almanac-year-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+    letter-spacing: 0.04em;
+    filter: blur(6px);
+  }
+  60% {
+    filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    letter-spacing: -0.04em;
+    filter: blur(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .almanac-masthead-year { animation: none; }
+}
+.almanac-masthead-eyebrow {
+  animation: almanac-fade-up 800ms var(--ease-curtain) both;
+}
+.almanac-masthead-sub {
+  animation: almanac-fade-up 800ms var(--ease-curtain) both;
+  animation-delay: 600ms;
+}
+.almanac-masthead-right {
+  animation: almanac-fade-up 800ms var(--ease-curtain) both;
+  animation-delay: 800ms;
+}
+@keyframes almanac-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
 }
 .almanac-masthead-sub {
   margin-top: 0.7rem;
@@ -4903,6 +4964,7 @@ a.horarium-entry-title:hover {
   font-weight: 400;
 }
 .almanac-opening-rule {
+  display: block;
   margin: 2.5rem auto 0;
   width: 18rem;
   height: 1px;
@@ -4912,6 +4974,16 @@ a.horarium-entry-title:hover {
     oklch(0.78 0.10 80 / 0.6),
     transparent
   );
+  /* Draws from centre outward when the parent reveals. */
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 1000ms var(--ease-curtain) 320ms;
+}
+.almanac-reveal.is-revealed .almanac-opening-rule {
+  transform: scaleX(1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .almanac-opening-rule { transform: scaleX(1); transition: none; }
 }
 
 /* ─── Stat tableau — three cells across a single row, slip spans full width
@@ -4944,6 +5016,27 @@ a.horarium-entry-title:hover {
       oklch(0.15 0.005 50 / 0.85) 0%,
       oklch(0.10 0.004 50 / 0.95) 100%);
   overflow: hidden;
+  transition:
+    transform 380ms var(--ease-curtain),
+    border-color 280ms var(--ease-quick),
+    box-shadow 380ms var(--ease-curtain);
+}
+@media (hover: hover) {
+  .almanac-cell:hover {
+    border-color: oklch(0.78 0.10 80 / 0.4);
+    transform: translateY(-3px);
+    box-shadow:
+      0 14px 32px -16px oklch(0.78 0.10 80 / 0.35);
+  }
+  .almanac-cell.almanac-slip:hover {
+    border-color: oklch(0.55 0.16 28 / 0.6);
+    box-shadow:
+      0 14px 32px -16px oklch(0.55 0.16 28 / 0.45);
+  }
+  .almanac-cell:hover::before {
+    color: oklch(0.78 0.10 80 / 0.10);
+    transition: color 480ms var(--ease-quick);
+  }
 }
 /* Variants:
  *   --wide  → Dépenses (col 1) — naturally taller when the user paid in
@@ -5166,11 +5259,28 @@ a.horarium-entry-title:hover {
   height: 2px !important;
 }
 @media (hover: hover) {
+  .almanac-ledger-bar {
+    transition:
+      background 280ms var(--ease-quick),
+      transform 280ms var(--ease-curtain),
+      box-shadow 280ms var(--ease-curtain);
+    transform-origin: bottom;
+  }
   .almanac-ledger-bar:hover {
     background:
       linear-gradient(180deg,
         oklch(0.92 0.13 80) 0%,
         oklch(0.78 0.14 65) 100%);
+    box-shadow: 0 -10px 24px -8px oklch(0.78 0.13 80 / 0.55);
+  }
+  .almanac-ledger-month:hover .almanac-ledger-label {
+    color: var(--color-or);
+    opacity: 1;
+  }
+  .almanac-ledger-month:hover .almanac-ledger-count {
+    color: var(--color-or);
+    transform: translateX(-50%) translateY(-2px);
+    transition: transform 280ms var(--ease-curtain);
   }
 }
 .almanac-ledger-count {

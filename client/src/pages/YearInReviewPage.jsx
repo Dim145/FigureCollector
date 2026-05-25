@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
@@ -132,14 +133,16 @@ function Opening({ count, t }) {
   // hero block. The pattern "Cette année, X pièce(s)..." → wrap "X".
   const parts = phrase.split(String(count));
   return (
-    <section className="almanac-opening">
+    <Reveal as="section" className="almanac-opening" i={0}>
       <p className="almanac-opening-line">
         {parts[0]}
-        <span className="almanac-opening-count">{count}</span>
+        <span className="almanac-opening-count">
+          <Counter value={count} />
+        </span>
         {parts[1]}
       </p>
       <span className="almanac-opening-rule" aria-hidden />
-    </section>
+    </Reveal>
   );
 }
 
@@ -152,8 +155,8 @@ function Tableau({ data, t }) {
 
   return (
     <section className="almanac-tableau">
-      {/* DÉPENSES — tall left column */}
-      <div className="almanac-cell almanac-cell--wide" data-mark="銭">
+      {/* DÉPENSES — wider left cell, count-up animation per currency */}
+      <Reveal className="almanac-cell almanac-cell--wide" data-mark="銭" i={0}>
         <span className="almanac-cell-label">{t("yir.spend.label")}</span>
         {hasSpend ? (
           <ul className="almanac-spend-list">
@@ -161,10 +164,7 @@ function Tableau({ data, t }) {
               <li key={s.currency} className="almanac-spend-row">
                 <span className="almanac-spend-currency">{s.currency}</span>
                 <span className="almanac-spend-total">
-                  {Number(s.total).toLocaleString(undefined, {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 2,
-                  })}
+                  <Counter value={Number(s.total)} decimals={2} />
                 </span>
               </li>
             ))}
@@ -174,10 +174,10 @@ function Tableau({ data, t }) {
             {t("yir.spend.empty")}
           </p>
         )}
-      </div>
+      </Reveal>
 
       {/* FABRICANT FAVORI */}
-      <div className="almanac-cell almanac-cell--top" data-mark="工">
+      <Reveal className="almanac-cell almanac-cell--top" data-mark="工" i={1}>
         <span className="almanac-cell-label">
           {t("yir.top_manufacturer.label")}
         </span>
@@ -187,32 +187,35 @@ function Tableau({ data, t }) {
               {data.top_manufacturer.name}
             </p>
             <span className="almanac-cell-aside">
-              × {data.top_manufacturer.count}
+              × <Counter value={data.top_manufacturer.count} />
             </span>
           </>
         ) : (
           <p className="almanac-cell-headline is-muted">—</p>
         )}
-      </div>
+      </Reveal>
 
       {/* SÉRIE FAVORITE */}
-      <div className="almanac-cell almanac-cell--bot" data-mark="物">
+      <Reveal className="almanac-cell almanac-cell--bot" data-mark="物" i={2}>
         <span className="almanac-cell-label">{t("yir.top_series.label")}</span>
         {data.top_series ? (
           <>
             <p className="almanac-cell-headline">{data.top_series.name}</p>
-            <span className="almanac-cell-aside">× {data.top_series.count}</span>
+            <span className="almanac-cell-aside">
+              × <Counter value={data.top_series.count} />
+            </span>
           </>
         ) : (
           <p className="almanac-cell-headline is-muted">—</p>
         )}
-      </div>
+      </Reveal>
 
       {/* LONGEST SLIP — full width, lacquer accent */}
       {data.longest_slip ? (
-        <div
+        <Reveal
           className="almanac-cell almanac-cell--full almanac-slip"
           data-mark="遅"
+          i={3}
         >
           <span className="almanac-cell-label">
             {t("yir.longest_slip.label")}
@@ -232,7 +235,7 @@ function Tableau({ data, t }) {
                   to: data.longest_slip.current_date ?? "?",
                 })}
           </p>
-        </div>
+        </Reveal>
       ) : null}
     </section>
   );
@@ -252,19 +255,22 @@ function Ledger({ data, t }) {
   const peakMonth = counts.indexOf(max) + 1; // 1-12
 
   return (
-    <section className="almanac-ledger">
+    <Reveal as="section" className="almanac-ledger">
       <header className="almanac-ledger-head">
         <h2 className="almanac-ledger-title">{t("yir.timeline.title")}</h2>
         <div className="almanac-ledger-meta">
           <span>
             {t("yir.timeline.peak")}{" "}
             <span className="almanac-ledger-meta-value">
-              {t(`yir.month.${peakMonth}`)} ({max})
+              {t(`yir.month.${peakMonth}`)} (
+              <Counter value={max} />)
             </span>
           </span>
           <span>
             {t("yir.timeline.total")}{" "}
-            <span className="almanac-ledger-meta-value">{total}</span>
+            <span className="almanac-ledger-meta-value">
+              <Counter value={total} />
+            </span>
           </span>
         </div>
       </header>
@@ -304,7 +310,7 @@ function Ledger({ data, t }) {
           );
         })}
       </div>
-    </section>
+    </Reveal>
   );
 }
 
@@ -314,13 +320,13 @@ function Ledger({ data, t }) {
 
 function Bookends({ first, last, t }) {
   return (
-    <section className="almanac-bookends">
+    <Reveal as="section" className="almanac-bookends">
       <header className="almanac-bookends-head">
         <h2 className="almanac-ledger-title">{t("yir.bookends.title")}</h2>
       </header>
       <div className="almanac-bookends-grid">
         {first ? (
-          <article className="almanac-bookend almanac-bookend--first">
+          <Reveal as="article" className="almanac-bookend almanac-bookend--first" i={0}>
             <span className="almanac-bookend-eyebrow">
               {t("yir.first_acquisition")}
             </span>
@@ -328,10 +334,10 @@ function Bookends({ first, last, t }) {
             <time className="almanac-bookend-date">
               {new Date(first.at).toLocaleDateString()}
             </time>
-          </article>
+          </Reveal>
         ) : null}
         {last ? (
-          <article className="almanac-bookend almanac-bookend--last">
+          <Reveal as="article" className="almanac-bookend almanac-bookend--last" i={1}>
             <span className="almanac-bookend-eyebrow">
               {t("yir.last_acquisition")}
             </span>
@@ -339,10 +345,10 @@ function Bookends({ first, last, t }) {
             <time className="almanac-bookend-date">
               {new Date(last.at).toLocaleDateString()}
             </time>
-          </article>
+          </Reveal>
         ) : null}
       </div>
-    </section>
+    </Reveal>
   );
 }
 
@@ -385,4 +391,108 @@ function YearNavigation({ year, t }) {
       )}
     </nav>
   );
+}
+
+// =============================================================================
+// Animation primitives
+// =============================================================================
+
+/** Animates a number from 0 to `target` on mount with an ease-out-cubic
+ *  curve. Returns the current value as a number; consumers format it
+ *  however they want. Honours prefers-reduced-motion. */
+function useCountUp(target, duration = 1400, deps = []) {
+  const [value, setValue] = useState(() => {
+    if (typeof window !== "undefined" &&
+        window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      return target;
+    }
+    return 0;
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setValue(target);
+      return;
+    }
+    const targetNum = Number(target) || 0;
+    let raf;
+    let start;
+    const step = (ts) => {
+      if (!start) start = ts;
+      const elapsed = ts - start;
+      const t = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setValue(targetNum * eased);
+      if (t < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => raf && cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target, duration, ...deps]);
+  return value;
+}
+
+/** Flips a `.is-revealed` class on the referenced element once it scrolls
+ *  into view. One-shot: doesn't unmark when the user scrolls back up,
+ *  since these are page-load reveals not state indicators. */
+function useReveal(ref, options = {}) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // Reduced-motion users skip the choreography — reveal immediately.
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      el.classList.add("is-revealed");
+      return;
+    }
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          el.classList.add("is-revealed");
+          io.disconnect();
+        }
+      },
+      { threshold: 0.18, rootMargin: "0px 0px -10% 0px", ...options },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [ref, options]);
+}
+
+/** Wraps children in an element with .almanac-reveal so the
+ *  IntersectionObserver reveal kicks in. `i` drives the stagger via
+ *  inline --i. Pass `as="section"` etc to change the underlying tag. */
+function Reveal({ i = 0, as: As = "div", className = "", style, children, ...rest }) {
+  const ref = useRef(null);
+  useReveal(ref);
+  return (
+    <As
+      ref={ref}
+      className={`almanac-reveal ${className}`}
+      style={{ "--i": i, ...style }}
+      {...rest}
+    >
+      {children}
+    </As>
+  );
+}
+
+/** Formats a number the way the rest of the app does — locale-aware, no
+ *  trailing zeros unless they're significant. Wraps `Number.prototype.toLocaleString`. */
+function fmtNumber(n, maxFrac = 2) {
+  return Number(n).toLocaleString(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: maxFrac,
+  });
+}
+
+/** Inline counter span — animates from 0 to `value` then settles. */
+function Counter({ value, decimals = 0, className = "" }) {
+  const animated = useCountUp(value, 1400, [value]);
+  // For integer-only counters we floor while animating; for decimals we
+  // round to the requested places so the number doesn't jitter through
+  // weird intermediate fractions.
+  const display = decimals === 0
+    ? Math.round(animated)
+    : Number(animated.toFixed(decimals));
+  return <span className={className}>{fmtNumber(display, decimals)}</span>;
 }
