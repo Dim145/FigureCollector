@@ -178,6 +178,7 @@ pub async fn delete_and_return_key(
 
 /// Returns `(storage_key, is_primary)` for the figure's primary photo, if
 /// any. Used by the owned-items list to resolve a fallback cover.
+#[allow(dead_code)]
 pub async fn primary_for(
     pool: &PgPool,
     figure_id: Uuid,

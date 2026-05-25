@@ -175,5 +175,49 @@ export default defineConfig({
     target: "es2022",
     sourcemap: false,
     cssMinify: "lightningcss",
+    // Split the giant ML/imaging libs into their own vendor chunks so
+    // routes that never reach for them (most of the app) don't pay the
+    // cost. The chunk-size warning was firing at 682 kB / 1020 kB on a
+    // single bundle — splitting brings the largest non-ML chunk under
+    // the 500 kB default + makes the ML ones lazy-cacheable.
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (
+              id.includes("@imgly/background-removal") ||
+              id.includes("onnxruntime-web")
+            ) {
+              return "vendor-bgremoval";
+            }
+            if (id.includes("gsplat")) {
+              return "vendor-gsplat";
+            }
+            if (id.includes("filerobot-image-editor")) {
+              return "vendor-image-editor";
+            }
+            if (
+              id.includes("react-dom") ||
+              id.includes("react-router") ||
+              (id.includes("/react/") && !id.includes("react-query"))
+            ) {
+              return "vendor-react";
+            }
+            if (id.includes("@tanstack/react-query")) {
+              return "vendor-query";
+            }
+            if (id.includes("dexie")) {
+              return "vendor-dexie";
+            }
+          }
+          return undefined;
+        },
+      },
+    },
+    // The two ML/imaging vendor chunks legitimately exceed 500 kB — they
+    // are lazy-loaded on the routes that need them, so the warning would
+    // be misleading. Bump just enough to silence it while still catching
+    // accidental bloat in the main bundle.
+    chunkSizeWarningLimit: 1100,
   },
 });

@@ -152,7 +152,12 @@ async fn fetch_colissimo(
         event: Vec<Event>,
     }
     #[derive(Deserialize)]
+    #[allow(dead_code)]
     struct Event {
+        /// Carrier-specific event code (e.g. "DR1"). Kept for forward
+        /// compatibility — we surface `label` to the SPA, but having `code`
+        /// in the deserialised struct lets future logic key off it without
+        /// re-touching this parser.
         code: Option<String>,
         label: Option<String>,
         date: Option<String>,
@@ -489,8 +494,11 @@ async fn fetch_ups(
         location: Option<UpsLocation>,
     }
     #[derive(Deserialize)]
+    #[allow(dead_code)]
     struct ActivityStatus {
         description: Option<String>,
+        /// UPS milestone code (e.g. "I" for In Transit). Same rationale
+        /// as the LaPoste `code` field — captured for future use.
         #[serde(rename = "code")]
         code: Option<String>,
     }

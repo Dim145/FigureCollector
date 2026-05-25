@@ -374,9 +374,7 @@ async fn send_browser_push(
 ) -> ChannelResult {
     use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
     use web_push_native::{
-        Auth, WebPushBuilder,
-        jwt_simple::algorithms::ES256KeyPair,
-        p256::PublicKey,
+        WebPushBuilder, jwt_simple::algorithms::ES256KeyPair, p256::PublicKey,
     };
 
     // ----- Load admin-supplied VAPID config -----
@@ -534,7 +532,7 @@ fn try_to_auth(bytes: &[u8]) -> Option<web_push_native::Auth> {
     if bytes.len() < 16 {
         return None;
     }
-    let mut a = [0u8; 16];
+    let mut a = web_push_native::Auth::default();
     a.copy_from_slice(&bytes[..16]);
-    Some(web_push_native::Auth::clone_from_slice(&a))
+    Some(a)
 }

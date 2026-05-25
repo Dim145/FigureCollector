@@ -19,7 +19,7 @@ use axum::{
     Json, Router,
     extract::{Path, State},
     http::StatusCode,
-    routing::{get, patch as patch_method, put},
+    routing::{get, patch as patch_method},
 };
 use serde::Deserialize;
 use serde_json::Value;

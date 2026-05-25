@@ -29,6 +29,10 @@ struct ProfileBasics {
     avatar_url: Option<String>,
     locale: String,
     created_at: DateTime<Utc>,
+    /// Pulled via FromRow as a sanity field; the WHERE clause in the
+    /// SELECT already filters on it, but we hydrate the bool too in case
+    /// future code paths need to branch on it without a second query.
+    #[allow(dead_code)]
     public_profile_enabled: bool,
     /// Drives whether NSFW pieces appear in the public collection list /
     /// stats. We pull it here so the rest of the public-profile pipeline

@@ -29,6 +29,7 @@ pub enum AppError {
     NotFound,
 
     #[error("not implemented (Phase 1C+)")]
+    #[allow(dead_code)]
     NotImplemented,
 
     #[error("unauthorized")]

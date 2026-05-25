@@ -82,6 +82,7 @@ pub struct MalImageSet {
 
 impl MalImages {
     /// Pick the best available URL: WebP large → JPG large → JPG default.
+    #[allow(dead_code)]
     pub fn best(&self) -> Option<String> {
         if let Some(w) = &self.webp {
             if let Some(u) = w.large_image_url.clone().or_else(|| w.image_url.clone()) {

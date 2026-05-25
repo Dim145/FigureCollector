@@ -11,6 +11,10 @@ use std::env;
 #[derive(Clone)]
 pub struct Storage {
     pub bucket: Option<Box<Bucket>>,
+    /// Kept on the struct for diagnostics + future code paths (e.g. an
+    /// admin "switch bucket" flow) — the bucket itself already carries
+    /// the name internally for actual S3 requests.
+    #[allow(dead_code)]
     pub bucket_name: String,
 }
 

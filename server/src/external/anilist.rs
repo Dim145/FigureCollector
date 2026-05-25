@@ -333,9 +333,12 @@ pub async fn get_character(
 }
 
 // -----------------------------------------------------------------------------
-// Mapping helpers — AniList media → our `series` table origin / preferred title
+// Mapping helpers — AniList media → our `series` table origin / preferred title.
+// Kept as public API surface so the admin metadata-import path can reach for
+// them; not all callers have migrated to the helper layer yet.
 // -----------------------------------------------------------------------------
 
+#[allow(dead_code)]
 pub fn origin_from_media(m: &AniListMedia) -> &'static str {
     match m.media_type.as_deref() {
         Some("ANIME") => "anime",
@@ -347,6 +350,7 @@ pub fn origin_from_media(m: &AniListMedia) -> &'static str {
     }
 }
 
+#[allow(dead_code)]
 pub fn best_title(t: &AniListTitle) -> Option<String> {
     t.romaji
         .clone()

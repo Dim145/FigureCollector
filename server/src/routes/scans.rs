@@ -26,7 +26,7 @@ use axum::{
     extract::{Multipart, Path, State},
     http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
-    routing::{delete, get, post},
+    routing::{delete, get},
 };
 use image::ImageFormat;
 use std::io::Cursor;

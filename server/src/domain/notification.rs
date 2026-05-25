@@ -54,7 +54,11 @@ pub const ALL_EVENTS: &[&str] = &[
 // table's primary key.
 // =============================================================================
 
-pub const CHANNEL_IN_APP: &str = "in_app"; // virtual — the always-on bell
+/// The always-on in-app channel is virtual — it never appears in
+/// `notification_channels` and isn't part of `EXTERNAL_CHANNELS`, but the
+/// constant is exported for clarity if future code needs to reference it.
+#[allow(dead_code)]
+pub const CHANNEL_IN_APP: &str = "in_app";
 pub const CHANNEL_BROWSER_PUSH: &str = "browser_push";
 pub const CHANNEL_EMAIL: &str = "email";
 pub const CHANNEL_NTFY: &str = "ntfy";
@@ -121,6 +125,7 @@ pub struct UserRoute {
 
 /// Default page size for `list_for_user`. The SPA's bell popover uses
 /// `limit=8`; the dedicated /notifications page uses 50 with pagination.
+#[allow(dead_code)]
 pub const DEFAULT_LIST_LIMIT: i64 = 50;
 
 /// List notifications for a user, newest first. `unread_only` filters to

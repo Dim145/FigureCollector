@@ -8,6 +8,14 @@
 //! Modules that have been migrated off raw sqlx already use these entities;
 //! the rest still query through `state.pool`. Both paths share the same
 //! underlying connection (sea-orm wraps the sqlx PgPool).
+//!
+//! The `#![allow(dead_code)]` is intentional: sea-orm's macros generate
+//! `Model`, `Relation`, and the various column / entity types whether or
+//! not the application currently consumes them. They're part of the
+//! schema contract — we want them present even when no caller has
+//! migrated off raw sqlx yet.
+
+#![allow(dead_code)]
 
 pub mod achievements;
 pub mod activity_events;

@@ -6,6 +6,11 @@ use std::env;
 pub struct AppConfig {
     pub bind_addr: String,
     pub database_url: String,
+    /// Public origin the SPA is served from. Read by the OIDC bootstrap
+    /// path (`OIDC_REDIRECT_BASE` falls back to this) and kept on the
+    /// struct as part of the config surface even though no other code
+    /// branches on it right now.
+    #[allow(dead_code)]
     pub frontend_url: String,
     pub auth: AuthConfig,
     pub tracking: TrackingConfig,

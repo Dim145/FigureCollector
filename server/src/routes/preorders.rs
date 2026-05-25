@@ -10,7 +10,7 @@ use axum::{
     Json, Router,
     extract::{Path, State},
     http::StatusCode,
-    routing::{delete, get, patch as patch_method},
+    routing::{get, patch as patch_method},
 };
 use tower_sessions::Session;
 use uuid::Uuid;
