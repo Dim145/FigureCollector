@@ -470,10 +470,23 @@ export default {
 
   // Settings
   "settings.title": "Paramètres",
+  "settings.subtitle": "L'atelier — règle l'éclairage, les lentilles, les pudeurs.",
+  "settings.nav.heading": "Réglages",
+  "settings.nav.profile": "Profil",
+  "settings.nav.currency": "Devise",
+  "settings.nav.bg_model": "Détourage",
+  "settings.nav.nsfw": "Sensibilité",
+  "settings.copy_url.done": "Copié !",
   "settings.public_profile": "Profil public",
   "settings.public_profile.body": "Active pour rendre ta collection visible sur /u/{username}, et pour que d'autres utilisateurs puissent comparer leur collection à la tienne.",
+  "settings.public_profile.on": "Activé",
+  "settings.public_profile.off": "Privé",
   "settings.public_profile.url": "URL publique",
-  "settings.copy_url": "Copier l'URL",
+  "settings.public_profile.show_nsfw": "Afficher le contenu NSFW publiquement",
+  "settings.public_profile.show_nsfw.body": "Si activé, tes figurines NSFW apparaitront sur ton profil public. Par défaut elles sont masquées pour garder une vitrine publique conservatrice.",
+  "settings.public_profile.show_nsfw.on": "NSFW visible",
+  "settings.public_profile.show_nsfw.off": "NSFW masqué",
+  "settings.copy_url": "Copier",
 
   // Command palette
   "palette.placeholder": "Chercher une page, une figurine, un fabricant…",

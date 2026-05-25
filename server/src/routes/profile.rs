@@ -30,6 +30,10 @@ struct ProfileBasics {
     locale: String,
     created_at: DateTime<Utc>,
     public_profile_enabled: bool,
+    /// Drives whether NSFW pieces appear in the public collection list /
+    /// stats. We pull it here so the rest of the public-profile pipeline
+    /// can branch on it without a second query.
+    public_profile_show_nsfw: bool,
 }
 
 async fn load_public_user(pool: &PgPool, slug: &str) -> AppResult<ProfileBasics> {
@@ -37,7 +41,8 @@ async fn load_public_user(pool: &PgPool, slug: &str) -> AppResult<ProfileBasics>
     // case-collision (same username with different case) can't shadow the
     // public profile with a private one.
     let row: Option<ProfileBasics> = sqlx::query_as(
-        "SELECT id, username, display_name, avatar_url, locale, created_at, public_profile_enabled
+        "SELECT id, username, display_name, avatar_url, locale, created_at,
+                public_profile_enabled, public_profile_show_nsfw
          FROM users
          WHERE LOWER(username) = LOWER($1)
            AND public_profile_enabled = TRUE
@@ -97,6 +102,12 @@ async fn get_public_profile(
 ) -> AppResult<Json<PublicProfileResponse>> {
     let user = load_public_user(&state.pool, &slug).await?;
 
+    // When the user has opted to keep their public profile NSFW-free, we
+    // exclude NSFW figures from BOTH the listed collection and the stats
+    // counts so the page reads as a coherent "safe" snapshot. The owner
+    // sees the full thing in their own /collection view as always.
+    let hide_nsfw = !user.public_profile_show_nsfw;
+
     let collection: Vec<PublicCollectionEntry> = sqlx::query_as(
         "SELECT
             o.id AS owned_id, o.figure_id, f.name AS figure_name, f.slug AS figure_slug,
@@ -107,9 +118,11 @@ async fn get_public_profile(
          JOIN figures f         ON f.id = o.figure_id
          LEFT JOIN manufacturers m ON m.id = f.manufacturer_id
          WHERE o.user_id = $1
+           AND ($2 = FALSE OR f.is_nsfw = FALSE)
          ORDER BY o.created_at DESC",
     )
     .bind(user.id)
+    .bind(hide_nsfw)
     .fetch_all(&state.pool)
     .await?;
 
@@ -121,9 +134,11 @@ async fn get_public_profile(
          FROM owned_items o
          JOIN figures f ON f.id = o.figure_id
          LEFT JOIN figure_series fs ON fs.figure_id = f.id
-         WHERE o.user_id = $1",
+         WHERE o.user_id = $1
+           AND ($2 = FALSE OR f.is_nsfw = FALSE)",
     )
     .bind(user.id)
+    .bind(hide_nsfw)
     .fetch_one(&state.pool)
     .await?;
 
@@ -146,6 +161,10 @@ async fn get_public_profile(
 #[derive(Deserialize)]
 struct ProfilePatch {
     public_profile_enabled: Option<bool>,
+    /// Only takes effect when public_profile_enabled is on. When false
+    /// (the default), NSFW figures are excluded from the public listing
+    /// and stats.
+    public_profile_show_nsfw: Option<bool>,
     nsfw_visibility: Option<String>,
     /// `Some("")` is treated as "clear the value" (revert to no preference).
     /// `Some("EUR")` etc. enforces the supported-currency whitelist below.
@@ -156,6 +175,7 @@ struct ProfilePatch {
 #[derive(Serialize)]
 struct ProfileResponse {
     public_profile_enabled: bool,
+    public_profile_show_nsfw: bool,
     nsfw_visibility: String,
     preferred_currency: Option<String>,
 }
@@ -200,15 +220,17 @@ async fn patch_my_profile(
         Some(v) => (true, v),
     };
 
-    let row: (bool, String, Option<String>) = sqlx::query_as(
+    let row: (bool, bool, String, Option<String>) = sqlx::query_as(
         "UPDATE users SET
-            public_profile_enabled = COALESCE($1, public_profile_enabled),
-            nsfw_visibility        = COALESCE($2, nsfw_visibility),
-            preferred_currency     = CASE WHEN $3 THEN $4 ELSE preferred_currency END
-         WHERE id = $5
-         RETURNING public_profile_enabled, nsfw_visibility, preferred_currency",
+            public_profile_enabled   = COALESCE($1, public_profile_enabled),
+            public_profile_show_nsfw = COALESCE($2, public_profile_show_nsfw),
+            nsfw_visibility          = COALESCE($3, nsfw_visibility),
+            preferred_currency       = CASE WHEN $4 THEN $5 ELSE preferred_currency END
+         WHERE id = $6
+         RETURNING public_profile_enabled, public_profile_show_nsfw, nsfw_visibility, preferred_currency",
     )
     .bind(input.public_profile_enabled)
+    .bind(input.public_profile_show_nsfw)
     .bind(input.nsfw_visibility.as_deref())
     .bind(set_currency)
     .bind(currency_value.as_deref())
@@ -220,8 +242,9 @@ async fn patch_my_profile(
 
     Ok(Json(ProfileResponse {
         public_profile_enabled: row.0,
-        nsfw_visibility: row.1,
-        preferred_currency: row.2,
+        public_profile_show_nsfw: row.1,
+        nsfw_visibility: row.2,
+        preferred_currency: row.3,
     }))
 }
 

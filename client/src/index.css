@@ -4227,5 +4227,523 @@ a.horarium-entry-title:hover {
   50% { opacity: 1; }
 }
 
+/* ============================================================================
+ * Settings — L'Atelier (the curator's workshop)
+ *
+ * Two-column layout: a sticky kanji-stamped navigation rail on the left,
+ * stacked "drawer" sections on the right. Each drawer carries a giant
+ * kanji glyph in a section-specific accent colour (gold / jade / laque)
+ * and a calligraphic title. Hover the rail to highlight a section, click
+ * to smooth-scroll to it. On mobile the rail flips into a horizontal
+ * scroll-snap chip strip pinned below the page header.
+ *
+ * Per-section accent (set via inline custom property):
+ *   --atelier-tone        : the section's accent colour
+ *   --atelier-tone-soft   : the same hue, muted for backgrounds
+ * ============================================================================ */
+
+.atelier {
+  position: relative;
+  display: grid;
+  grid-template-columns: 14rem 1fr;
+  gap: 3rem;
+  align-items: start;
+  --atelier-laque: oklch(0.65 0.18 25);
+  --atelier-laque-soft: oklch(0.55 0.18 25 / 0.18);
+  --atelier-jade: oklch(0.62 0.13 175);
+  --atelier-jade-soft: oklch(0.62 0.13 175 / 0.18);
+}
+@media (max-width: 880px) {
+  .atelier {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+
+/* ─── Hero ─── */
+.atelier-hero {
+  grid-column: 1 / -1;
+  position: relative;
+  padding: 2rem 0 1rem;
+  text-align: center;
+}
+.atelier-hero::before {
+  /* 工 kanji watermark — "craft / work" */
+  content: "工";
+  position: absolute;
+  top: -2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-ja);
+  font-size: clamp(12rem, 22vw, 20rem);
+  line-height: 1;
+  color: oklch(0.78 0.10 80 / 0.04);
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+}
+.atelier-hero > * { position: relative; z-index: 1; }
+.atelier-hero-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.7;
+  margin-bottom: 0.5rem;
+}
+.atelier-hero-title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: clamp(2.8rem, 6vw, 4.2rem);
+  letter-spacing: -0.02em;
+  line-height: 0.95;
+  color: var(--color-ivoire);
+  margin: 0 0 0.6rem;
+}
+.atelier-hero-sub {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.92rem;
+  color: var(--color-ivoire-soft);
+  opacity: 0.75;
+  max-width: 32rem;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+/* ─── Nav rail (sticky on desktop, horizontal chip strip on mobile) ─── */
+.atelier-nav {
+  position: sticky;
+  top: 5.5rem; /* clears the AppShell's sticky header */
+  padding: 0;
+}
+.atelier-nav-heading {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.6;
+  margin-bottom: 1.2rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid oklch(0.78 0.10 80 / 0.18);
+}
+.atelier-nav-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.atelier-nav-item {
+  position: relative;
+}
+.atelier-nav-link {
+  display: grid;
+  grid-template-columns: 1.8rem 1fr;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem 0.3rem 0.5rem 0.6rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  letter-spacing: 0.01em;
+  color: var(--color-ivoire-soft);
+  background: transparent;
+  border: 0;
+  border-left: 2px solid transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: color 220ms var(--ease-quick), border-color 220ms var(--ease-quick);
+}
+.atelier-nav-link-kanji {
+  font-family: var(--font-ja);
+  font-size: 18px;
+  line-height: 1;
+  color: var(--color-or-pale);
+  opacity: 0.6;
+  transition: opacity 220ms var(--ease-quick), color 220ms var(--ease-quick);
+}
+@media (hover: hover) {
+  .atelier-nav-link:hover {
+    color: var(--color-ivoire);
+  }
+  .atelier-nav-link:hover .atelier-nav-link-kanji {
+    opacity: 0.95;
+  }
+}
+.atelier-nav-link.is-active {
+  color: var(--color-or);
+  border-left-color: var(--color-or);
+}
+.atelier-nav-link.is-active .atelier-nav-link-kanji {
+  color: var(--color-or);
+  opacity: 1;
+}
+
+/* Mobile — flip the rail to a horizontal chip strip */
+@media (max-width: 880px) {
+  .atelier-nav {
+    position: sticky;
+    top: 4rem;
+    background: linear-gradient(180deg, var(--color-noir) 60%, transparent);
+    padding: 0.5rem 0 1rem;
+    z-index: 5;
+  }
+  .atelier-nav-heading {
+    display: none;
+  }
+  .atelier-nav-list {
+    flex-direction: row;
+    gap: 0.5rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 0.4rem 0 0.4rem;
+  }
+  .atelier-nav-list::-webkit-scrollbar { display: none; }
+  .atelier-nav-link {
+    grid-template-columns: auto auto;
+    gap: 0.45rem;
+    padding: 0.45rem 0.85rem;
+    border-left: 0;
+    border: 1px solid oklch(0.78 0.10 80 / 0.2);
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-size: 0.85rem;
+  }
+  .atelier-nav-link.is-active {
+    border-color: var(--color-or);
+    background: oklch(0.78 0.10 80 / 0.08);
+  }
+}
+
+/* ─── Content column ─── */
+.atelier-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+  min-width: 0;
+}
+
+/* ─── Drawer (one per setting) ─── */
+.atelier-drawer {
+  position: relative;
+  padding: 2rem 2rem 1.75rem;
+  border: 1px solid oklch(0.78 0.10 80 / 0.16);
+  background:
+    linear-gradient(180deg,
+      oklch(0.15 0.005 50 / 0.85) 0%,
+      oklch(0.10 0.004 50 / 0.95) 100%);
+  overflow: hidden;
+  scroll-margin-top: 6rem; /* so smooth-scroll-to lands below the sticky header */
+}
+@media (max-width: 880px) {
+  .atelier-drawer {
+    padding: 1.5rem 1.25rem 1.4rem;
+    scroll-margin-top: 9rem;
+  }
+}
+.atelier-drawer::before {
+  /* Section kanji watermark — fades behind the content */
+  content: attr(data-kanji);
+  position: absolute;
+  top: -2.5rem;
+  right: -1rem;
+  font-family: var(--font-ja);
+  font-size: clamp(10rem, 14vw, 13rem);
+  line-height: 1;
+  color: var(--atelier-tone, var(--color-or));
+  opacity: 0.06;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+  transition: opacity 600ms var(--ease-quick);
+}
+.atelier-drawer:hover::before {
+  opacity: 0.09;
+}
+
+.atelier-drawer-header {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 0.9rem;
+  margin-bottom: 1.5rem;
+  z-index: 1;
+}
+.atelier-drawer-kanji {
+  font-family: var(--font-ja);
+  font-size: 32px;
+  line-height: 1;
+  color: var(--atelier-tone, var(--color-or));
+  letter-spacing: 0;
+}
+.atelier-drawer-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.5rem, 3vw, 1.9rem);
+  letter-spacing: 0.005em;
+  line-height: 1;
+  color: var(--color-ivoire);
+  margin: 0;
+}
+.atelier-drawer-rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    var(--atelier-tone, var(--color-or)) 0%,
+    transparent 100%
+  );
+  opacity: 0.4;
+  align-self: center;
+}
+
+.atelier-drawer-body {
+  position: relative;
+  z-index: 1;
+}
+.atelier-drawer-desc {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--color-ivoire-soft);
+  margin-bottom: 1.5rem;
+  max-width: 38rem;
+}
+
+/* ─── Public-profile toggle row + URL block ─── */
+.atelier-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid oklch(0.78 0.10 80 / 0.2);
+  background: oklch(0.08 0.003 50 / 0.5);
+}
+.atelier-toggle-row-text {
+  flex: 1;
+  min-width: 0;
+}
+.atelier-toggle-row-state {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.7;
+  margin-bottom: 0.2rem;
+}
+.atelier-toggle-row-state.is-on {
+  color: var(--color-or);
+  opacity: 1;
+}
+.atelier-toggle-row-hint {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.85rem;
+  color: var(--color-ivoire);
+}
+
+/* Larger, more tactile toggle — ink-stamp aesthetic. Off: a hollow ring;
+ * on: a solid filled ring with the gold lacquer wash. */
+.atelier-toggle {
+  position: relative;
+  flex-shrink: 0;
+  width: 3.6rem;
+  height: 2rem;
+  background: oklch(0.08 0.003 50 / 0.8);
+  border: 1px solid oklch(0.78 0.10 80 / 0.3);
+  cursor: pointer;
+  transition: background 280ms var(--ease-curtain),
+              border-color 280ms var(--ease-quick);
+}
+.atelier-toggle::before {
+  /* the bead — slides from left to right */
+  content: "";
+  position: absolute;
+  top: 0.2rem;
+  left: 0.2rem;
+  width: 1.3rem;
+  height: 1.3rem;
+  background: var(--color-or-pale);
+  transition: transform 320ms var(--ease-curtain), background 280ms var(--ease-quick);
+  box-shadow: 0 2px 6px -1px oklch(0.05 0.003 50 / 0.7);
+}
+.atelier-toggle.is-on {
+  background: oklch(0.78 0.10 80 / 0.5);
+  border-color: var(--color-or);
+}
+.atelier-toggle.is-on::before {
+  transform: translateX(1.6rem);
+  background: var(--color-noir);
+}
+.atelier-toggle:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+/* URL row — appears under the toggle when public profile is on */
+.atelier-url {
+  margin-top: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px dashed oklch(0.78 0.10 80 / 0.3);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.atelier-url-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.6;
+  margin-bottom: 0.3rem;
+}
+.atelier-url-link {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--color-or);
+  letter-spacing: 0.05em;
+  text-decoration: none;
+  border-bottom: 1px dotted var(--color-or);
+  transition: color 220ms var(--ease-quick);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.atelier-url-link:hover {
+  color: var(--color-or-pale);
+}
+.atelier-url-text {
+  flex: 1;
+  min-width: 0;
+}
+.atelier-url-copy {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  background: transparent;
+  border: 1px solid oklch(0.78 0.10 80 / 0.35);
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 220ms var(--ease-quick),
+              border-color 220ms var(--ease-quick),
+              background 220ms var(--ease-quick);
+}
+.atelier-url-copy:hover {
+  color: var(--color-or);
+  border-color: var(--color-or);
+}
+.atelier-url-copy.is-done {
+  color: var(--color-noir);
+  background: var(--color-or);
+  border-color: var(--color-or);
+}
+
+/* ─── NSFW tri-state buttons — gestural, distinctive  ─── */
+.atelier-nsfw-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+@media (max-width: 560px) {
+  .atelier-nsfw-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.atelier-nsfw-btn {
+  position: relative;
+  padding: 1.15rem 1.1rem 1.05rem;
+  text-align: left;
+  background: oklch(0.08 0.003 50 / 0.5);
+  border: 1px solid oklch(0.78 0.10 80 / 0.15);
+  cursor: pointer;
+  transition: border-color 240ms var(--ease-quick),
+              background 240ms var(--ease-quick),
+              transform 280ms var(--ease-curtain);
+}
+.atelier-nsfw-btn-kanji {
+  display: block;
+  font-family: var(--font-ja);
+  font-size: 24px;
+  line-height: 1;
+  color: var(--color-or-pale);
+  opacity: 0.5;
+  margin-bottom: 0.55rem;
+  transition: opacity 220ms var(--ease-quick), color 220ms var(--ease-quick);
+}
+.atelier-nsfw-btn-title {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  line-height: 1;
+  color: var(--color-ivoire);
+  margin-bottom: 0.5rem;
+}
+.atelier-nsfw-btn-desc {
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--color-ivoire-soft);
+  opacity: 0.85;
+}
+@media (hover: hover) {
+  .atelier-nsfw-btn:hover {
+    border-color: oklch(0.78 0.10 80 / 0.4);
+    transform: translateY(-2px);
+  }
+  .atelier-nsfw-btn:hover .atelier-nsfw-btn-kanji {
+    opacity: 0.8;
+  }
+}
+.atelier-nsfw-btn.is-active {
+  border-color: var(--atelier-tone, var(--color-or));
+  background:
+    linear-gradient(180deg,
+      var(--atelier-tone-soft, oklch(0.78 0.10 80 / 0.12)) 0%,
+      oklch(0.08 0.003 50 / 0.5) 100%);
+}
+.atelier-nsfw-btn.is-active .atelier-nsfw-btn-kanji {
+  color: var(--atelier-tone, var(--color-or));
+  opacity: 1;
+}
+.atelier-nsfw-btn.is-active .atelier-nsfw-btn-title {
+  color: var(--atelier-tone, var(--color-or));
+}
+.atelier-nsfw-btn.is-active::after {
+  /* a small foil rule at the bottom — claims the choice */
+  content: "";
+  position: absolute;
+  left: 1.1rem;
+  right: 1.1rem;
+  bottom: -1px;
+  height: 2px;
+  background:
+    linear-gradient(90deg, transparent, var(--atelier-tone, var(--color-or)), transparent);
+}
+
+/* ─── Select wrapper (currency + bg-model) ─── */
+.atelier-select-wrap {
+  max-width: 22rem;
+}
+.atelier-select-hint {
+  margin-top: 0.7rem;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--color-ivoire-soft);
+  opacity: 0.75;
+}
+
 /* tail marker — append-only
  * keep this block last to anchor tail-append patches */

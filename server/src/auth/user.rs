@@ -20,6 +20,11 @@ pub struct User {
     /// ISO 4217 default currency for every form that asks for a price.
     /// `None` ↦ SPA falls back to its built-in default (JPY).
     pub preferred_currency: Option<String>,
+    /// Whether the user's collection is browsable at `/u/{username}`.
+    pub public_profile_enabled: bool,
+    /// Whether NSFW pieces are listed on the user's public profile.
+    /// Only meaningful when `public_profile_enabled` is true.
+    pub public_profile_show_nsfw: bool,
     pub created_at: DateTime<Utc>,
     pub last_login_at: Option<DateTime<Utc>>,
 }
@@ -42,6 +47,10 @@ pub struct PublicUser {
     /// Default currency the SPA pre-fills in every price input. `None`
     /// means "use the SPA's built-in default" (currently JPY).
     pub preferred_currency: Option<String>,
+    /// Whether the collection is browsable at /u/{username}.
+    pub public_profile_enabled: bool,
+    /// Whether NSFW pieces are surfaced on /u/{username} when public.
+    pub public_profile_show_nsfw: bool,
 }
 
 impl From<User> for PublicUser {
@@ -55,13 +64,17 @@ impl From<User> for PublicUser {
             is_admin: u.is_admin,
             nsfw_visibility: u.nsfw_visibility,
             preferred_currency: u.preferred_currency,
+            public_profile_enabled: u.public_profile_enabled,
+            public_profile_show_nsfw: u.public_profile_show_nsfw,
         }
     }
 }
 
 const USER_COLUMNS: &str =
     "id, username, email, display_name, avatar_url, locale, is_admin, \
-     nsfw_visibility, preferred_currency, created_at, last_login_at";
+     nsfw_visibility, preferred_currency, \
+     public_profile_enabled, public_profile_show_nsfw, \
+     created_at, last_login_at";
 
 pub async fn create_local(
     pool: &PgPool,
