@@ -105,10 +105,13 @@ async fn upload_photo(
     img.write_to(&mut Cursor::new(&mut cleaned), ImageFormat::WebP)
         .map_err(|e| AppError::Internal(anyhow::anyhow!("WebP encode failed: {e}")))?;
 
+    // Push to Garage and persist the row. On INSERT failure, run a compensating
+    // delete on the blob so Garage doesn't accumulate orphan WebPs with no
+    // row referencing them.
     let storage_key = format!("figure-photos/{}.webp", Uuid::now_v7());
     state.storage.put(&storage_key, &cleaned, "image/webp").await?;
 
-    let saved = figure_photo::create(
+    let saved = match figure_photo::create(
         &state.pool,
         figure_id,
         &storage_key,
@@ -118,7 +121,20 @@ async fn upload_photo(
         cleaned.len() as i64,
         user.id,
     )
-    .await?;
+    .await
+    {
+        Ok(saved) => saved,
+        Err(e) => {
+            if let Err(del_err) = state.storage.delete(&storage_key).await {
+                tracing::error!(
+                    error = ?del_err,
+                    %storage_key,
+                    "orphan blob cleanup failed after figure_photo INSERT error"
+                );
+            }
+            return Err(e);
+        }
+    };
 
     tracing::info!(
         figure_id = %figure_id,

@@ -240,7 +240,31 @@ pub async fn upsert_oauth_user(
     // Same bootstrap as create_local: the first user on a clean DB is admin.
     let is_admin = should_bootstrap_admin(&mut tx).await?;
 
+    // Cap retry attempts to avoid runaway loops in pathological cases
+    // (e.g. a deterministic RNG, or every variant somehow taken). At 16-bit
+    // randomness 32 tries is well below any realistic collision rate.
+    const MAX_USERNAME_ATTEMPTS: u32 = 32;
+    let mut attempts = 0u32;
+
     let user: User = loop {
+        attempts += 1;
+        if attempts > MAX_USERNAME_ATTEMPTS {
+            return Err(AppError::Internal(anyhow::anyhow!(
+                "could not allocate a free username after {MAX_USERNAME_ATTEMPTS} attempts"
+            )));
+        }
+
+        // Each attempt is wrapped in a SAVEPOINT. Without this, the first
+        // unique_violation poisons the whole outer transaction and every
+        // subsequent INSERT returns "current transaction is aborted, commands
+        // ignored until end of transaction block" — NOT a unique_violation —
+        // so the match arm below never fires and we'd bail out on the first
+        // collision instead of retrying. The savepoint isolates each attempt
+        // so a unique_violation rolls back only the failed INSERT.
+        sqlx::query("SAVEPOINT username_attempt")
+            .execute(&mut *tx)
+            .await?;
+
         let insert_sql = format!(
             "INSERT INTO users (id, username, email, display_name, avatar_url, locale, is_admin) \
              VALUES ($1, $2, $3, $4, $5, 'fr', $6) \
@@ -257,8 +281,16 @@ pub async fn upsert_oauth_user(
             .await;
 
         match result {
-            Ok(u) => break u,
+            Ok(u) => {
+                sqlx::query("RELEASE SAVEPOINT username_attempt")
+                    .execute(&mut *tx)
+                    .await?;
+                break u;
+            }
             Err(sqlx::Error::Database(db)) if db.is_unique_violation() => {
+                sqlx::query("ROLLBACK TO SAVEPOINT username_attempt")
+                    .execute(&mut *tx)
+                    .await?;
                 attempted = format!("{candidate}-{:04x}", rand::random::<u16>());
                 continue;
             }

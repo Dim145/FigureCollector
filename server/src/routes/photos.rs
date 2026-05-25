@@ -97,11 +97,13 @@ async fn upload_photo(
     img.write_to(&mut Cursor::new(&mut cleaned), ImageFormat::WebP)
         .map_err(|e| AppError::Internal(anyhow::anyhow!("WebP encode failed: {e}")))?;
 
-    // Push to Garage and persist the row.
+    // Push to Garage and persist the row. If the DB insert fails after the
+    // blob is already in S3, run a compensating delete so we don't leave an
+    // orphan WebP in Garage with no row referencing it (there's no GC sweep).
     let storage_key = format!("photos/{}.webp", Uuid::now_v7());
     state.storage.put(&storage_key, &cleaned, "image/webp").await?;
 
-    let saved = photo::create(
+    let saved = match photo::create(
         &state.pool,
         owned_id,
         &storage_key,
@@ -110,7 +112,20 @@ async fn upload_photo(
         h as i32,
         cleaned.len() as i64,
     )
-    .await?;
+    .await
+    {
+        Ok(saved) => saved,
+        Err(e) => {
+            if let Err(del_err) = state.storage.delete(&storage_key).await {
+                tracing::error!(
+                    error = ?del_err,
+                    %storage_key,
+                    "orphan blob cleanup failed after photo INSERT error"
+                );
+            }
+            return Err(e);
+        }
+    };
 
     // Fan out so other devices refresh their cached collection.
     state.events.publish(user_id, Event::OwnedItemPhotosChanged { owned_id });

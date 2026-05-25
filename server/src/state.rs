@@ -17,6 +17,13 @@ pub struct AppState {
     pub config: AppConfig,
     pub oidc: OidcRegistry,
     pub http: reqwest::Client,
+    /// Same TLS + UA setup as `http` but with `redirect = Policy::none()`.
+    /// Used for outbound requests whose target URL is user-controlled
+    /// (webhook destinations, ntfy/apprise server URLs that the SSRF guard
+    /// validated) — disabling redirects prevents a server returning a
+    /// 30x → http://169.254.169.254/... from bypassing the up-front IP
+    /// denylist enforced in `external::notify_channel::validate_outbound_url`.
+    pub http_no_redirect: reqwest::Client,
     pub storage: Storage,
     pub events: EventBus,
 }

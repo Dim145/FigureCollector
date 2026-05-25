@@ -31,8 +31,138 @@ use crate::state::AppState;
 use lettre::message::header::ContentType;
 use lettre::transport::smtp::authentication::Credentials;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
+use std::net::IpAddr;
+use std::str::FromStr;
 use thiserror::Error;
 use uuid::Uuid;
+
+// =============================================================================
+// SSRF guards — every outbound HTTP call whose URL or hostname comes from a
+// user (webhook destination) or admin (ntfy/apprise server_url) goes through
+// `validate_outbound_url` BEFORE the request is built, and through the
+// no-redirect HTTP client in AppState (`state.http_no_redirect`) so a 30x
+// response can't bounce us to an internal IP after the up-front check.
+// =============================================================================
+
+/// Reject URLs whose target is loopback, private/RFC-1918, link-local,
+/// multicast, broadcast, unspecified, carrier-grade NAT, or a known alias
+/// hostname for loopback. Domain-name URLs (with a real DNS lookup down the
+/// line) are accepted as-is — full DNS-rebinding mitigation would require
+/// pinning the resolved IP into the connect step; left as a follow-up.
+fn validate_outbound_url(url: &str) -> Result<(), ChannelError> {
+    let parsed = reqwest::Url::parse(url)
+        .map_err(|e| ChannelError::Misconfigured(format!("invalid URL: {e}")))?;
+
+    // Scheme allow-list — blocks file://, gopher://, javascript:, data:, etc.
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Err(ChannelError::Misconfigured(format!(
+            "scheme '{}' not allowed (use http or https)",
+            parsed.scheme()
+        )));
+    }
+
+    // Use `Url::host()` rather than `host_str()` — the latter returns the
+    // raw URL slice and KEEPS the IPv6 brackets ("[::1]") so an
+    // `IpAddr::from_str` parse would silently fail and let loopback v6
+    // through. `host()` returns a parsed enum we can match against.
+    let host = parsed
+        .host()
+        .ok_or_else(|| ChannelError::Misconfigured("URL has no host".into()))?;
+    match host {
+        url::Host::Ipv4(v4) => {
+            if is_blocked_ip(&IpAddr::V4(v4)) {
+                return Err(ChannelError::Misconfigured(format!(
+                    "IP '{v4}' targets a private/loopback/link-local range"
+                )));
+            }
+        }
+        url::Host::Ipv6(v6) => {
+            if is_blocked_ip(&IpAddr::V6(v6)) {
+                return Err(ChannelError::Misconfigured(format!(
+                    "IP '{v6}' targets a private/loopback/link-local range"
+                )));
+            }
+        }
+        url::Host::Domain(name) => {
+            let lower = name.to_ascii_lowercase();
+            const BANNED_HOSTNAMES: &[&str] = &[
+                "localhost",
+                "ip6-localhost",
+                "ip6-loopback",
+                "broadcasthost",
+            ];
+            if BANNED_HOSTNAMES.contains(&lower.as_str()) || lower.ends_with(".localhost") {
+                return Err(ChannelError::Misconfigured(format!(
+                    "host '{name}' is not allowed"
+                )));
+            }
+            // If the admin/user typed a numeric hostname that the URL parser
+            // didn't recognise as an IP (e.g. trailing dot), we still try the
+            // `IpAddr::from_str` fallback to catch the dotted-decimal case.
+            if let Ok(ip) = IpAddr::from_str(&lower) {
+                if is_blocked_ip(&ip) {
+                    return Err(ChannelError::Misconfigured(format!(
+                        "IP '{ip}' targets a private/loopback/link-local range"
+                    )));
+                }
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn is_blocked_ip(ip: &IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => {
+            v4.is_loopback()
+                || v4.is_private()
+                || v4.is_link_local()
+                || v4.is_broadcast()
+                || v4.is_multicast()
+                || v4.is_unspecified()
+                || v4.is_documentation()
+                // Carrier-grade NAT: 100.64.0.0/10
+                || (v4.octets()[0] == 100 && (v4.octets()[1] & 0xc0) == 0x40)
+        }
+        IpAddr::V6(v6) => {
+            v6.is_loopback()
+                || v6.is_unspecified()
+                || v6.is_multicast()
+                // Unique-local (fc00::/7)
+                || (v6.segments()[0] & 0xfe00) == 0xfc00
+                // Link-local (fe80::/10)
+                || (v6.segments()[0] & 0xffc0) == 0xfe80
+                // IPv4-mapped (::ffff:0:0/96) — recurse on the embedded V4.
+                || v6
+                    .to_ipv4_mapped()
+                    .is_some_and(|v4| is_blocked_ip(&IpAddr::V4(v4)))
+        }
+    }
+}
+
+/// ntfy topic names must be safe to drop into the URL path without enabling
+/// path traversal (`../`) or auth-bypass via `@user:pass@otherhost`. We
+/// require alphanumerics + `_` + `-`, matching the ntfy spec.
+fn validate_ntfy_topic(topic: &str) -> Result<(), ChannelError> {
+    if topic.is_empty() {
+        return Err(ChannelError::Misconfigured("ntfy topic is empty".into()));
+    }
+    if topic.len() > 64 {
+        return Err(ChannelError::Misconfigured(
+            "ntfy topic too long (max 64 chars)".into(),
+        ));
+    }
+    let valid = topic
+        .bytes()
+        .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
+    if !valid {
+        return Err(ChannelError::Misconfigured(
+            "ntfy topic must contain only alphanumerics, '-' or '_'".into(),
+        ));
+    }
+    Ok(())
+}
 
 #[derive(Debug, Error)]
 pub enum ChannelError {
@@ -230,9 +360,14 @@ async fn send_ntfy(
         .and_then(|v| v.as_str())
         .ok_or_else(|| ChannelError::Misconfigured("missing ntfy topic".into()))?;
 
+    // SSRF guard on the admin-set server URL + format guard on the user-set
+    // topic (path traversal / @host injection via the format!() below).
+    validate_outbound_url(server_url)?;
+    validate_ntfy_topic(topic)?;
+
     let url = format!("{server_url}/{topic}");
     let mut req = state
-        .http
+        .http_no_redirect
         .post(&url)
         .header("Title", &msg.title)
         .header("Priority", "default")
@@ -274,6 +409,13 @@ async fn send_webhook(
         .and_then(|v| v.as_str())
         .ok_or_else(|| ChannelError::Misconfigured("missing webhook URL".into()))?;
 
+    // SSRF guard — refuses loopback / private / link-local / multicast / 0.0.0.0
+    // and `localhost`-style aliases. Combined with the no-redirect client this
+    // means an attacker can't (a) point a webhook at http://169.254.169.254/...
+    // to read cloud metadata, (b) probe internal services on the Docker
+    // network, or (c) bounce via a 302 from an attacker-controlled host.
+    validate_outbound_url(url)?;
+
     let body = serde_json::json!({
         "event_type": event_type,
         "title": msg.title,
@@ -281,7 +423,7 @@ async fn send_webhook(
         "payload": payload,
     });
 
-    let mut req = state.http.post(url).json(&body);
+    let mut req = state.http_no_redirect.post(url).json(&body);
     if let Some(auth) = destination.get("auth_header").and_then(|v| v.as_str()) {
         if !auth.is_empty() {
             req = req.header("Authorization", auth);
@@ -315,6 +457,10 @@ async fn send_apprise(
         .and_then(|v| v.as_str())
         .ok_or_else(|| ChannelError::Misconfigured("missing Apprise server_url".into()))?
         .trim_end_matches('/');
+    // Defense in depth — even though the Apprise URL is admin-controlled, an
+    // attacker who gains admin (or a misconfiguration) can't pivot to the
+    // metadata service through the Apprise sidecar.
+    validate_outbound_url(server_url)?;
     let urls = destination
         .get("urls")
         .ok_or_else(|| ChannelError::Misconfigured("missing apprise URLs".into()))?;
@@ -335,7 +481,7 @@ async fn send_apprise(
     }
 
     let url = format!("{server_url}/notify");
-    let mut req = state.http.post(&url).json(&serde_json::json!({
+    let mut req = state.http_no_redirect.post(&url).json(&serde_json::json!({
         "urls": urls_str,
         "title": msg.title,
         "body": msg.body,
@@ -535,4 +681,136 @@ fn try_to_auth(bytes: &[u8]) -> Option<web_push_native::Auth> {
     let mut a = web_push_native::Auth::default();
     a.copy_from_slice(&bytes[..16]);
     Some(a)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ssrf_guard_blocks_loopback_v4() {
+        for u in [
+            "http://127.0.0.1/x",
+            "https://127.0.0.1:8080/",
+            "http://127.255.255.254/",
+        ] {
+            assert!(validate_outbound_url(u).is_err(), "should block {u}");
+        }
+    }
+
+    #[test]
+    fn ssrf_guard_blocks_loopback_v6() {
+        assert!(validate_outbound_url("http://[::1]/").is_err());
+    }
+
+    #[test]
+    fn ssrf_guard_blocks_link_local_metadata() {
+        // AWS / GCP / Azure cloud-metadata IP — the classic SSRF target.
+        assert!(validate_outbound_url("http://169.254.169.254/latest/meta-data/").is_err());
+    }
+
+    #[test]
+    fn ssrf_guard_blocks_rfc1918() {
+        for u in [
+            "http://10.0.0.1/",
+            "http://172.16.0.1/",
+            "http://192.168.1.1/",
+        ] {
+            assert!(validate_outbound_url(u).is_err(), "should block {u}");
+        }
+    }
+
+    #[test]
+    fn ssrf_guard_blocks_unspecified_and_multicast() {
+        assert!(validate_outbound_url("http://0.0.0.0/").is_err());
+        assert!(validate_outbound_url("http://224.0.0.1/").is_err());
+    }
+
+    #[test]
+    fn ssrf_guard_blocks_carrier_grade_nat() {
+        assert!(validate_outbound_url("http://100.64.0.1/").is_err());
+        assert!(validate_outbound_url("http://100.127.255.254/").is_err());
+        // 100.128.x.x is outside CGNAT, should pass IP-level check.
+        assert!(validate_outbound_url("http://100.128.0.1/").is_ok());
+    }
+
+    #[test]
+    fn ssrf_guard_blocks_v6_unique_local_and_link_local() {
+        assert!(validate_outbound_url("http://[fc00::1]/").is_err());
+        assert!(validate_outbound_url("http://[fe80::1]/").is_err());
+    }
+
+    #[test]
+    fn ssrf_guard_blocks_v6_mapped_v4_loopback() {
+        // IPv4-mapped IPv6 forms — must recurse on the embedded V4.
+        assert!(validate_outbound_url("http://[::ffff:127.0.0.1]/").is_err());
+        assert!(validate_outbound_url("http://[::ffff:169.254.169.254]/").is_err());
+    }
+
+    #[test]
+    fn ssrf_guard_blocks_localhost_aliases() {
+        for u in [
+            "http://localhost/",
+            "https://LOCALHOST:8080/x",
+            "http://ip6-localhost/",
+            "http://ip6-loopback/",
+            "http://anything.localhost/",
+        ] {
+            assert!(validate_outbound_url(u).is_err(), "should block {u}");
+        }
+    }
+
+    #[test]
+    fn ssrf_guard_blocks_non_http_schemes() {
+        for u in [
+            "file:///etc/passwd",
+            "gopher://example.com/",
+            "javascript:alert(1)",
+            "ftp://example.com/",
+        ] {
+            assert!(validate_outbound_url(u).is_err(), "should block {u}");
+        }
+    }
+
+    #[test]
+    fn ssrf_guard_allows_public_dns_targets() {
+        // We accept DNS names without resolving — the guard's job is the
+        // IP-literal denylist + alias hostnames. Full DNS-rebinding mitigation
+        // would require pinning the resolved IP through the connect step.
+        for u in [
+            "https://example.com/hook",
+            "https://api.github.com/webhooks",
+            "http://ntfy.sh/topic",
+        ] {
+            assert!(validate_outbound_url(u).is_ok(), "should accept {u}");
+        }
+    }
+
+    #[test]
+    fn ntfy_topic_rejects_traversal_and_meta_chars() {
+        for t in [
+            "../../etc/passwd",
+            "topic/extra",
+            "topic?query=1",
+            "topic#frag",
+            "topic@host",
+            "topic with spaces",
+            "",
+        ] {
+            assert!(validate_ntfy_topic(t).is_err(), "should reject {t:?}");
+        }
+    }
+
+    #[test]
+    fn ntfy_topic_accepts_alnum_dash_underscore() {
+        for t in ["my-topic", "TOPIC_42", "abc"] {
+            assert!(validate_ntfy_topic(t).is_ok(), "should accept {t:?}");
+        }
+    }
+
+    #[test]
+    fn ntfy_topic_rejects_oversized() {
+        let too_long = "a".repeat(65);
+        assert!(validate_ntfy_topic(&too_long).is_err());
+    }
 }

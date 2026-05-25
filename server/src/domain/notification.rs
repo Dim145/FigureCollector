@@ -396,10 +396,13 @@ pub struct RouteResolved {
 // Dedup
 // =============================================================================
 
-/// Records a dedup token; returns true if it was newly inserted (caller
-/// should dispatch), false if it already existed (caller should skip).
-pub async fn try_mark_sent(
-    pool: &PgPool,
+/// Records a dedup token inside an outer transaction; returns true if it
+/// was newly inserted (caller should dispatch), false if it already
+/// existed (caller should skip). The dispatcher pairs this with
+/// `record_tx` in a single tx so a crash between the two writes can't
+/// leave a dedup row blocking every future retry of the same event.
+pub async fn try_mark_sent_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     user_id: Uuid,
     event_type: &str,
     dedup_key: &str,
@@ -412,7 +415,7 @@ pub async fn try_mark_sent(
     .bind(user_id)
     .bind(event_type)
     .bind(dedup_key)
-    .execute(pool)
+    .execute(&mut **tx)
     .await?;
     Ok(res.rows_affected() > 0)
 }
@@ -421,12 +424,14 @@ pub async fn try_mark_sent(
 // Dispatcher — the heart of the system
 // =============================================================================
 
-/// Drops a row into `notifications`. Returns the created notification so
-/// the caller can publish a "new notification" event over the WebSocket
-/// for live UI updates. Does NOT fan out to external channels — that's
-/// the caller's job (typically via `crate::services::notify_dispatcher`).
-pub async fn record(
-    pool: &PgPool,
+/// Drops a row into `notifications` inside an outer transaction. Returns
+/// the created notification so the caller can publish a "new notification"
+/// event over the WebSocket for live UI updates. Does NOT fan out to
+/// external channels — that's the caller's job (typically via
+/// `crate::services::notify::dispatch`). Always paired with
+/// `try_mark_sent_tx` to keep dedup + in-app row atomic.
+pub async fn record_tx(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     user_id: Uuid,
     event_type: &str,
     payload: serde_json::Value,
@@ -441,7 +446,7 @@ pub async fn record(
     .bind(user_id)
     .bind(event_type)
     .bind(payload)
-    .fetch_one(pool)
+    .fetch_one(&mut **tx)
     .await?)
 }
 

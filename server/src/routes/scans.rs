@@ -143,12 +143,37 @@ async fn create_scan(
         uploaded += 1;
     }
 
-    scan::set_frame_count(&state.pool, scan_row.id, frames.len() as i32).await?;
+    // If the UPDATE or the refresh SELECT fails after every frame is already
+    // in Garage we need to wipe the frames + mark the scan as failed; the
+    // scan_row would otherwise look like a stale ready/pending entry with
+    // frame_count=0 and a pile of orphan blobs underneath it.
+    let cleanup_frames = |state: AppState, prefix: String, count: usize| async move {
+        for cleanup_idx in 0..count {
+            let _ = state
+                .storage
+                .delete(&format!("{prefix}frame_{cleanup_idx:03}.webp"))
+                .await;
+        }
+    };
+
+    if let Err(e) = scan::set_frame_count(&state.pool, scan_row.id, frames.len() as i32).await {
+        cleanup_frames(state.clone(), storage_prefix.clone(), uploaded).await;
+        let _ = scan::mark_failed(&state.pool, scan_row.id, &format!("frame_count update failed: {e}")).await;
+        return Err(e);
+    }
 
     // Refresh the row to capture frame_count + final state.
-    let refreshed = scan::find_by_id(&state.pool, scan_row.id)
-        .await?
-        .ok_or(AppError::Internal(anyhow::anyhow!("scan vanished after create")))?;
+    let refreshed = match scan::find_by_id(&state.pool, scan_row.id).await {
+        Ok(Some(r)) => r,
+        Ok(None) => {
+            cleanup_frames(state.clone(), storage_prefix.clone(), uploaded).await;
+            return Err(AppError::Internal(anyhow::anyhow!("scan vanished after create")));
+        }
+        Err(e) => {
+            cleanup_frames(state.clone(), storage_prefix.clone(), uploaded).await;
+            return Err(e);
+        }
+    };
 
     state
         .events

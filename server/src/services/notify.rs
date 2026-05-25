@@ -40,21 +40,37 @@ pub async fn dispatch(
     payload: serde_json::Value,
     dedup_key: Option<&str>,
 ) -> bool {
+    // Wrap the dedup-check + in-app row insert in a SINGLE transaction so a
+    // crash between the two can't leave a dedup row blocking every future
+    // retry. Previously the dedup row was inserted on the bare pool (auto-
+    // committed) before the in-app row was written; a panic between those
+    // two writes would mean the daily cron silently skipped that event
+    // forever afterwards.
+    let mut tx = match state.pool.begin().await {
+        Ok(tx) => tx,
+        Err(e) => {
+            tracing::error!(error = ?e, user_id = %user_id, event_type, "failed to start notification tx");
+            return false;
+        }
+    };
+
     if let Some(k) = dedup_key {
-        match notification::try_mark_sent(&state.pool, user_id, event_type, k).await {
+        match notification::try_mark_sent_tx(&mut tx, user_id, event_type, k).await {
             Ok(true) => {}
             Ok(false) => {
                 tracing::debug!(user_id = %user_id, event_type, dedup_key = k, "notification deduped");
+                // tx rolls back on drop — no row written.
                 return false;
             }
             Err(e) => {
-                tracing::warn!(error = ?e, "notification dedup check failed; proceeding anyway");
+                tracing::warn!(error = ?e, "notification dedup check failed; aborting (a missed event is recoverable, a missing in-app row is not)");
+                return false;
             }
         }
     }
 
-    // 1) In-app row — always, regardless of any external routing config.
-    let n = match notification::record(&state.pool, user_id, event_type, payload.clone()).await {
+    // In-app row — always, regardless of any external routing config.
+    let n = match notification::record_tx(&mut tx, user_id, event_type, payload.clone()).await {
         Ok(n) => n,
         Err(e) => {
             tracing::error!(error = ?e, user_id = %user_id, event_type, "failed to record notification");
@@ -62,12 +78,19 @@ pub async fn dispatch(
         }
     };
 
-    // 2) Tell the user's open tabs that a new notification just landed.
+    if let Err(e) = tx.commit().await {
+        tracing::error!(error = ?e, user_id = %user_id, event_type, "failed to commit notification tx");
+        return false;
+    }
+
+    // Tell the user's open tabs that a new notification just landed. We do
+    // this AFTER the commit so the bell only refreshes on a successfully
+    // persisted row — no flicker on a rolled-back write.
     state
         .events
         .publish(user_id, Event::NotificationCreated { id: n.id });
 
-    // 3) External channel fan-out (best-effort, non-blocking).
+    // External channel fan-out (best-effort, non-blocking).
     let state2 = state.clone();
     let event_type = event_type.to_string();
     tokio::spawn(async move {

@@ -51,14 +51,25 @@ async fn main() -> anyhow::Result<()> {
 
     let config = AppConfig::from_env()?;
 
+    let user_agent = concat!(
+        "FigureCollector/",
+        env!("CARGO_PKG_VERSION"),
+        " (+https://github.com/Dim145/FigureCollector)"
+    );
     let http_client = reqwest::Client::builder()
-        .user_agent(concat!(
-            "FigureCollector/",
-            env!("CARGO_PKG_VERSION"),
-            " (+https://github.com/Dim145/FigureCollector)"
-        ))
+        .user_agent(user_agent)
         .timeout(Duration::from_secs(15))
         .redirect(reqwest::redirect::Policy::limited(5))
+        .build()?;
+    // Sibling client for outbound calls whose target URL is user-controlled
+    // (webhook, ntfy server_url, apprise server_url). The SSRF guard in
+    // `notify_channel::validate_outbound_url` blocks loopback / private
+    // ranges on the initial URL — disabling redirects here means a hostile
+    // upstream can't 302 us to an internal IP.
+    let http_no_redirect = reqwest::Client::builder()
+        .user_agent(user_agent)
+        .timeout(Duration::from_secs(15))
+        .redirect(reqwest::redirect::Policy::none())
         .build()?;
 
     let oidc = OidcRegistry::build(
@@ -95,6 +106,7 @@ async fn main() -> anyhow::Result<()> {
         config: config.clone(),
         oidc,
         http: http_client,
+        http_no_redirect,
         storage,
         events,
     };

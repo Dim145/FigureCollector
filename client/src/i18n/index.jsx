@@ -49,9 +49,24 @@ export function I18nProvider({ children }) {
   const t = useCallback(
     (key, params) => {
       const table = MESSAGES[locale] ?? MESSAGES[FALLBACK];
-      let value = table[key] ?? MESSAGES[FALLBACK][key] ?? key;
+      let value = table[key] ?? MESSAGES[FALLBACK][key];
+      if (value == null) {
+        // Caller-provided fallback for unknown keys — the server emits
+        // achievement codes, status labels, kind/condition values that the
+        // SPA wraps with `t(key, { default: serverLabel })`. If the locale
+        // hasn't caught up yet, we'd otherwise leak the raw enum key into
+        // the UI. Honour `default` BEFORE returning `key` as the final
+        // fallback.
+        if (params && Object.prototype.hasOwnProperty.call(params, "default")) {
+          value = String(params.default);
+        } else {
+          value = key;
+        }
+      }
       if (params) {
         for (const [k, v] of Object.entries(params)) {
+          // `default` is metadata for the resolver above, not a placeholder.
+          if (k === "default") continue;
           value = value.replaceAll(`{${k}}`, String(v));
         }
       }
