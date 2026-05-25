@@ -169,7 +169,7 @@ export default function CollectionPage() {
                     manufacturer={item.manufacturer_name}
                     imageUrl={resolveOwnedCover(item)}
                     scale={item.scale}
-                    heightMm={item.height_mm}
+                    versionName={item.version_name}
                     blurImage={
                       item.is_nsfw &&
                       (me.data?.user?.nsfw_visibility ?? "hide") === "blur"

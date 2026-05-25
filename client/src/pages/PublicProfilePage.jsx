@@ -76,7 +76,7 @@ export default function PublicProfilePage() {
                   manufacturer={entry.manufacturer_name}
                   imageUrl={entry.figure_image}
                   scale={entry.scale}
-                  heightMm={entry.height_mm}
+                  versionName={entry.version_name}
                 />
               </li>
             ))}

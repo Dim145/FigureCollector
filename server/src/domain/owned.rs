@@ -45,6 +45,7 @@ pub struct OwnedItemWithFigure {
     pub manufacturer_name: Option<String>,
     pub scale: Option<String>,
     pub height_mm: Option<i32>,
+    pub version_name: Option<String>,
 
     /// Per-user cover preference. Either `cover_photo_id` (a `photos` row),
     /// `cover_scan_id` (a `scans` row), or both null — in the latter case
@@ -203,7 +204,7 @@ pub async fn list_for_user(
             f.name AS figure_name, f.slug AS figure_slug, f.figure_type,
             f.official_image_url AS figure_image,
             m.name AS manufacturer_name,
-            f.scale, f.height_mm,
+            f.scale, f.height_mm, f.version_name,
             o.cover_photo_id, o.cover_scan_id,
             (
                 SELECT fp.id FROM figure_photos fp

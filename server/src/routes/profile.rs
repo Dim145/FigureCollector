@@ -79,6 +79,7 @@ struct PublicCollectionEntry {
     manufacturer_name: Option<String>,
     scale: Option<String>,
     height_mm: Option<i32>,
+    version_name: Option<String>,
     condition: String,
     created_at: DateTime<Utc>,
 }
@@ -100,7 +101,7 @@ async fn get_public_profile(
         "SELECT
             o.id AS owned_id, o.figure_id, f.name AS figure_name, f.slug AS figure_slug,
             f.figure_type, f.official_image_url AS figure_image,
-            m.name AS manufacturer_name, f.scale, f.height_mm,
+            m.name AS manufacturer_name, f.scale, f.height_mm, f.version_name,
             o.condition, o.created_at
          FROM owned_items o
          JOIN figures f         ON f.id = o.figure_id

@@ -107,7 +107,7 @@ export default function EntityPage({ kind }) {
                     manufacturer={f.manufacturer_name ?? null}
                     imageUrl={resolveFigureCover(f)}
                     scale={f.scale}
-                    heightMm={f.height_mm}
+                    versionName={f.version_name}
                     blurImage={f.is_nsfw && blurNsfw}
                     badge={(() => {
                       const phase = preorderPhaseFromFigure(f);

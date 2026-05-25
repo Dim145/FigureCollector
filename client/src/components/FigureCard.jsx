@@ -20,7 +20,15 @@ import { useT } from "../i18n/index.jsx";
  *  - hover lifts the card, glows the gold border, follows a spotlight
  */
 export default function FigureCard({
-  figureId, name, type, manufacturer, imageUrl, scale, heightMm, badge, href,
+  figureId,
+  name,
+  type,
+  manufacturer,
+  imageUrl,
+  scale,
+  versionName,
+  badge,
+  href,
   /** When true, applies a CSS blur on the cover image (NSFW + viewer pref=blur). */
   blurImage = false,
 }) {
@@ -104,10 +112,10 @@ export default function FigureCard({
           {manufacturer ? (
             <Row label={t("figure.spec.manufacturer")} value={manufacturer} />
           ) : null}
-          {scale ? <Row label={t("figure.spec.scale")} value={scale} /> : null}
-          {heightMm ? (
-            <Row label={t("figure.spec.height")} value={`${heightMm} mm`} />
+          {versionName ? (
+            <Row label={t("figure.spec.version")} value={versionName} />
           ) : null}
+          {scale ? <Row label={t("figure.spec.scale")} value={scale} /> : null}
         </dl>
       </div>
     </div>

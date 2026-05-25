@@ -72,6 +72,18 @@ export function useRemoveOwnedItem() {
   });
 }
 
+/** Patch an owned-item row. Server-side fields: condition, price_amount,
+ *  price_currency, store, purchase_date, location, notes. Missing keys are
+ *  treated as "leave alone" (COALESCE), so callers can send only what they
+ *  actually changed. */
+export function useUpdateOwnedItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, patch }) => api.patch(`/me/owned/${id}`, patch),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["owned"] }),
+  });
+}
+
 // ----- Pre-orders ------------------------------------------------------------
 
 export function usePreorders() {

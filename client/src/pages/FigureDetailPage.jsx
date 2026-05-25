@@ -15,6 +15,7 @@ import CoverPicker from "../components/CoverPicker.jsx";
 import FigureEditDialog from "../components/FigureEditDialog.jsx";
 import FigureHero from "../components/FigureHero.jsx";
 import FigurePhotosSection from "../components/FigurePhotosSection.jsx";
+import OwnedItemEditor from "../components/OwnedItemEditor.jsx";
 import PhotoStrip from "../components/PhotoStrip.jsx";
 import PreorderHistory from "../components/PreorderHistory.jsx";
 import TurntableSection from "../components/TurntableSection.jsx";
@@ -254,6 +255,11 @@ export default function FigureDetailPage() {
           <section className="max-w-7xl mx-auto px-6 mt-20">
             <div className="ornate-rule mb-12 max-w-md mx-auto">
               <span aria-hidden className="ornate-rule__diamond" />
+            </div>
+
+            {/* Owner-only metadata editor — condition, price, store, notes, … */}
+            <div className="mb-16">
+              <OwnedItemEditor owned={ownedRecord} />
             </div>
 
             {/* Preorder history — only renders when a linked preorder exists */}

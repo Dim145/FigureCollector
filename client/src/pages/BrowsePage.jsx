@@ -215,7 +215,7 @@ export default function BrowsePage() {
                   manufacturer={f.manufacturer_name ?? null}
                   imageUrl={resolveFigureCover(f)}
                   scale={f.scale}
-                  heightMm={f.height_mm}
+                  versionName={f.version_name}
                   blurImage={
                     f.is_nsfw &&
                     (me.data?.user?.nsfw_visibility ?? "hide") === "blur"
