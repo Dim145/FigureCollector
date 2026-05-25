@@ -3,7 +3,23 @@ import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useYearInReview } from "../hooks/useActivity.js";
 import AppShell from "../components/AppShell.jsx";
-import Card from "../components/Card.jsx";
+
+/**
+ * /year-in-review/:year — L'Almanach.
+ *
+ * Once-a-year retrospective. Reads like a printed almanac: a massive
+ * italic year as the masthead, a layered kanji watermark behind it
+ * (年 + 録), an opening sentence in display serif, an asymmetric stat
+ * tableau (the spend cell takes a tall left column), a 12-month ledger
+ * bar chart with the peak month highlighted, and a pair of bookend
+ * cards for first/last acquisitions of the year. The lacquer accent
+ * (oxblood red) calls in for the "longest slip" cell and the masthead's
+ * Nº stamp, so this page reads as a different chapter from the gold-led
+ * pages elsewhere in the app.
+ *
+ * Print mode hides the decorative kanji + year navigation; the rest
+ * flattens to a poster you can save as PDF.
+ */
 
 const CURRENT_YEAR = new Date().getFullYear();
 
@@ -17,7 +33,13 @@ export default function YearInReviewPage() {
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
 
-  if (yir.isLoading) return <AppShell><div className="text-center py-16 text-[var(--color-ivoire-soft)]">…</div></AppShell>;
+  if (yir.isLoading) {
+    return (
+      <AppShell>
+        <div className="text-center py-16 text-[var(--color-ivoire-soft)]">…</div>
+      </AppShell>
+    );
+  }
 
   if (yir.error || !yir.data) {
     return (
@@ -25,6 +47,7 @@ export default function YearInReviewPage() {
         <main className="max-w-md mx-auto px-6 py-16 text-center">
           <p className="display text-2xl text-[var(--color-ivoire)]">{year}</p>
           <p className="mt-2 text-[var(--color-ivoire-soft)]">{t("yir.no_data")}</p>
+          <YearNavigation year={year} t={t} />
         </main>
       </AppShell>
     );
@@ -35,94 +58,26 @@ export default function YearInReviewPage() {
 
   return (
     <AppShell>
-      <main className="max-w-5xl mx-auto px-6 py-12 print:py-4">
-        <PosterHeader year={year} t={t} />
+      <main className="almanac max-w-5xl mx-auto px-6 pt-4 pb-12 print:py-4">
+        <Masthead year={year} t={t} />
 
         {empty ? (
-          <Card className="p-10 text-center">
-            <p className="text-[var(--color-ivoire-soft)]">{t("yir.no_data")}</p>
-          </Card>
+          <EmptyYear t={t} />
         ) : (
           <>
-            <HeroNumber count={data.pieces_acquired} t={t} />
-            <div className="gold-rule mx-auto w-56 my-10" />
-            <div className="grid md:grid-cols-2 gap-6">
-              <Tile title={t("yir.spend.label")}>
-                <ul className="space-y-1">
-                  {data.spend_by_currency.length === 0 ? (
-                    <li className="text-[var(--color-ivoire-soft)]">—</li>
-                  ) : (
-                    data.spend_by_currency.map((s) => (
-                      <li key={s.currency} className="flex justify-between items-baseline">
-                        <span className="font-mono text-[var(--color-ivoire-soft)] tracking-wider">{s.currency}</span>
-                        <span className="display text-2xl text-[var(--color-or-pale)]">{Number(s.total).toLocaleString()}</span>
-                      </li>
-                    ))
-                  )}
-                </ul>
-              </Tile>
+            <Opening count={data.pieces_acquired} t={t} />
 
-              <Tile title={t("yir.top_manufacturer.label")}>
-                <BigTwoLine
-                  value={data.top_manufacturer?.name ?? "—"}
-                  hint={data.top_manufacturer ? `× ${data.top_manufacturer.count}` : ""}
-                />
-              </Tile>
+            <Tableau data={data} t={t} />
 
-              <Tile title={t("yir.top_series.label")}>
-                <BigTwoLine
-                  value={data.top_series?.name ?? "—"}
-                  hint={data.top_series ? `× ${data.top_series.count}` : ""}
-                />
-              </Tile>
+            <Ledger data={data.monthly_pieces ?? []} t={t} />
 
-              <Tile title={t("yir.longest_slip.label")}>
-                {data.longest_slip ? (
-                  <>
-                    <p className="display text-xl text-[var(--color-ivoire)] leading-tight">
-                      {data.longest_slip.figure_name}
-                    </p>
-                    <p className="micro mt-2">
-                      {t("yir.longest_slip.detail", {
-                        slips: data.longest_slip.slip_count,
-                        from: data.longest_slip.original_date ?? "?",
-                        to: data.longest_slip.current_date ?? "?",
-                      })}
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-[var(--color-ivoire-soft)]">—</p>
-                )}
-              </Tile>
-            </div>
-
-            <div className="gold-rule mx-auto w-56 my-12" />
-
-            <section>
-              <h3 className="micro mb-4 text-center">{t("yir.timeline.title")}</h3>
-              <MonthlyBars data={data.monthly_pieces} t={t} />
-            </section>
-
-            <div className="gold-rule mx-auto w-56 my-12" />
-
-            <div className="grid md:grid-cols-2 gap-6">
-              {data.first_acquisition ? (
-                <Tile title={t("yir.first_acquisition")}>
-                  <BigTwoLine
-                    value={data.first_acquisition.figure_name}
-                    hint={new Date(data.first_acquisition.at).toLocaleDateString()}
-                  />
-                </Tile>
-              ) : null}
-              {data.last_acquisition ? (
-                <Tile title={t("yir.last_acquisition")}>
-                  <BigTwoLine
-                    value={data.last_acquisition.figure_name}
-                    hint={new Date(data.last_acquisition.at).toLocaleDateString()}
-                  />
-                </Tile>
-              ) : null}
-            </div>
+            {data.first_acquisition || data.last_acquisition ? (
+              <Bookends
+                first={data.first_acquisition}
+                last={data.last_acquisition}
+                t={t}
+              />
+            ) : null}
           </>
         )}
 
@@ -132,104 +87,297 @@ export default function YearInReviewPage() {
   );
 }
 
-function PosterHeader({ year, t }) {
+// =============================================================================
+// Masthead — Nº · L'ALMANACH · Bilan + huge year
+// =============================================================================
+
+function Masthead({ year, t }) {
   return (
-    <header className="text-center mb-10 relative">
-      <p className="micro">{t("yir.subtitle")}</p>
-      <div className="relative inline-block mt-3">
-        <p
-          aria-hidden
-          className="absolute inset-0 ja text-[10rem] md:text-[14rem] leading-none text-[var(--color-or)]/12 select-none -translate-y-6 md:-translate-y-12"
-          style={{ filter: "blur(0.4px)" }}
-        >
-          年
+    <header className="almanac-masthead">
+      <div className="almanac-masthead-left">
+        <p className="almanac-masthead-eyebrow">
+          {t("yir.almanach.eyebrow")}
+          <span className="almanac-masthead-stamp">Nº {year}</span>
         </p>
-        <h1 className="relative display text-5xl md:text-7xl text-[var(--color-ivoire)]">
-          {t("yir.title", { year })}
-        </h1>
+        <h1 className="almanac-masthead-year">{year}</h1>
+        <p className="almanac-masthead-sub">{t("yir.subtitle")}</p>
       </div>
-      <div className="gold-rule mx-auto w-32 mt-6" />
+      <div className="almanac-masthead-right">
+        <p>FigureCollector</p>
+        <p style={{ marginTop: "0.5rem", opacity: 0.65 }}>
+          {new Date().toLocaleDateString(undefined, {
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+          })}
+        </p>
+      </div>
     </header>
   );
 }
 
-function HeroNumber({ count, t }) {
+// =============================================================================
+// Opening — italic display-serif sentence with the count inline
+// =============================================================================
+
+function Opening({ count, t }) {
+  // Use the n-aware key so singular/plural read naturally.
+  const phrase =
+    count === 1
+      ? t("yir.almanach.opening", { n: count })
+      : t("yir.almanach.opening_many", { n: count });
+
+  // Highlight the number itself by splitting around it — keeps the
+  // typographic emphasis in the sentence flow rather than as a separate
+  // hero block. The pattern "Cette année, X pièce(s)..." → wrap "X".
+  const parts = phrase.split(String(count));
   return (
-    <div className="text-center">
-      <p className="micro">{t("yir.pieces.label")}</p>
-      <p className="display text-9xl md:text-[10rem] text-[var(--color-or)] leading-none mt-2">
-        {count}
+    <section className="almanac-opening">
+      <p className="almanac-opening-line">
+        {parts[0]}
+        <span className="almanac-opening-count">{count}</span>
+        {parts[1]}
       </p>
-    </div>
+      <span className="almanac-opening-rule" aria-hidden />
+    </section>
   );
 }
 
-function Tile({ title, children }) {
-  return (
-    <Card className="p-6">
-      <p className="micro mb-3">{title}</p>
-      {children}
-    </Card>
-  );
-}
+// =============================================================================
+// Stat tableau — asymmetric grid
+// =============================================================================
 
-function BigTwoLine({ value, hint }) {
-  return (
-    <>
-      <p className="display text-2xl text-[var(--color-ivoire)] leading-tight">{value}</p>
-      {hint ? <p className="micro mt-1">{hint}</p> : null}
-    </>
-  );
-}
-
-function MonthlyBars({ data, t }) {
-  // Normalize 12-month array
-  const counts = new Array(12).fill(0);
-  data.forEach((m) => {
-    if (m.month >= 1 && m.month <= 12) counts[m.month - 1] = m.count;
-  });
-  const max = Math.max(1, ...counts);
+function Tableau({ data, t }) {
+  const hasSpend = (data.spend_by_currency ?? []).length > 0;
 
   return (
-    <div className="grid grid-cols-12 gap-2 h-40 items-end">
-      {counts.map((c, i) => (
-        <div key={i} className="flex flex-col items-center justify-end h-full">
-          <div className="relative w-full" style={{ height: `${(c / max) * 100}%` }}>
-            <div className="absolute inset-x-0 bottom-0 top-0 bg-[var(--color-or)]/70 hover:bg-[var(--color-or)] transition-colors" />
-            {c > 0 ? (
-              <span className="absolute -top-5 left-1/2 -translate-x-1/2 font-mono text-[10px] text-[var(--color-or-pale)]">
-                {c}
-              </span>
-            ) : null}
-          </div>
-          <span className="micro mt-2 opacity-70">{t(`yir.month.${i + 1}`)}</span>
+    <section className="almanac-tableau">
+      {/* DÉPENSES — tall left column */}
+      <div className="almanac-cell almanac-cell--wide" data-mark="銭">
+        <span className="almanac-cell-label">{t("yir.spend.label")}</span>
+        {hasSpend ? (
+          <ul className="almanac-spend-list">
+            {data.spend_by_currency.map((s) => (
+              <li key={s.currency} className="almanac-spend-row">
+                <span className="almanac-spend-currency">{s.currency}</span>
+                <span className="almanac-spend-total">
+                  {Number(s.total).toLocaleString(undefined, {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="almanac-cell-headline is-muted">
+            {t("yir.spend.empty")}
+          </p>
+        )}
+      </div>
+
+      {/* FABRICANT FAVORI */}
+      <div className="almanac-cell almanac-cell--top" data-mark="工">
+        <span className="almanac-cell-label">
+          {t("yir.top_manufacturer.label")}
+        </span>
+        {data.top_manufacturer ? (
+          <>
+            <p className="almanac-cell-headline">
+              {data.top_manufacturer.name}
+            </p>
+            <span className="almanac-cell-aside">
+              × {data.top_manufacturer.count}
+            </span>
+          </>
+        ) : (
+          <p className="almanac-cell-headline is-muted">—</p>
+        )}
+      </div>
+
+      {/* SÉRIE FAVORITE */}
+      <div className="almanac-cell almanac-cell--bot" data-mark="物">
+        <span className="almanac-cell-label">{t("yir.top_series.label")}</span>
+        {data.top_series ? (
+          <>
+            <p className="almanac-cell-headline">{data.top_series.name}</p>
+            <span className="almanac-cell-aside">× {data.top_series.count}</span>
+          </>
+        ) : (
+          <p className="almanac-cell-headline is-muted">—</p>
+        )}
+      </div>
+
+      {/* LONGEST SLIP — full width, lacquer accent */}
+      {data.longest_slip ? (
+        <div
+          className="almanac-cell almanac-cell--full almanac-slip"
+          data-mark="遅"
+        >
+          <span className="almanac-cell-label">
+            {t("yir.longest_slip.label")}
+          </span>
+          <p className="almanac-cell-headline">
+            {data.longest_slip.figure_name}
+          </p>
+          <p className="almanac-slip-detail">
+            {data.longest_slip.slip_count === 1
+              ? t("yir.longest_slip.detail_one", {
+                  from: data.longest_slip.original_date ?? "?",
+                  to: data.longest_slip.current_date ?? "?",
+                })
+              : t("yir.longest_slip.detail", {
+                  slips: data.longest_slip.slip_count,
+                  from: data.longest_slip.original_date ?? "?",
+                  to: data.longest_slip.current_date ?? "?",
+                })}
+          </p>
         </div>
-      ))}
-    </div>
+      ) : null}
+    </section>
   );
 }
+
+// =============================================================================
+// Monthly ledger — bar chart with peak highlighted
+// =============================================================================
+
+function Ledger({ data, t }) {
+  const counts = new Array(12).fill(0);
+  for (const m of data) {
+    if (m.month >= 1 && m.month <= 12) counts[m.month - 1] = m.count;
+  }
+  const max = Math.max(1, ...counts);
+  const total = counts.reduce((a, b) => a + b, 0);
+  const peakMonth = counts.indexOf(max) + 1; // 1-12
+
+  return (
+    <section className="almanac-ledger">
+      <header className="almanac-ledger-head">
+        <h2 className="almanac-ledger-title">{t("yir.timeline.title")}</h2>
+        <div className="almanac-ledger-meta">
+          <span>
+            {t("yir.timeline.peak")}{" "}
+            <span className="almanac-ledger-meta-value">
+              {t(`yir.month.${peakMonth}`)} ({max})
+            </span>
+          </span>
+          <span>
+            {t("yir.timeline.total")}{" "}
+            <span className="almanac-ledger-meta-value">{total}</span>
+          </span>
+        </div>
+      </header>
+
+      <div className="almanac-ledger-grid">
+        {counts.map((c, i) => {
+          const isPeak = c === max && c > 0;
+          const isEmpty = c === 0;
+          const heightPct = isEmpty ? 0 : (c / max) * 100;
+          return (
+            <div
+              key={i}
+              className={`almanac-ledger-month ${isPeak ? "is-peak" : ""}`}
+            >
+              <div className="almanac-ledger-bar-wrap">
+                {c > 0 ? (
+                  <span
+                    className={`almanac-ledger-count ${isPeak ? "is-peak" : ""}`}
+                  >
+                    {c}
+                  </span>
+                ) : null}
+                <span
+                  className={`almanac-ledger-bar ${
+                    isPeak ? "is-peak" : ""
+                  } ${isEmpty ? "is-empty" : ""}`}
+                  style={{
+                    height: isEmpty ? undefined : `${heightPct}%`,
+                    "--i": i,
+                  }}
+                />
+              </div>
+              <span className="almanac-ledger-label">
+                {t(`yir.month.${i + 1}`)}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// =============================================================================
+// Bookends — first / last acquisition
+// =============================================================================
+
+function Bookends({ first, last, t }) {
+  return (
+    <section className="almanac-bookends">
+      <header className="almanac-bookends-head">
+        <h2 className="almanac-ledger-title">{t("yir.bookends.title")}</h2>
+      </header>
+      <div className="almanac-bookends-grid">
+        {first ? (
+          <article className="almanac-bookend almanac-bookend--first">
+            <span className="almanac-bookend-eyebrow">
+              {t("yir.first_acquisition")}
+            </span>
+            <span className="almanac-bookend-name">{first.figure_name}</span>
+            <time className="almanac-bookend-date">
+              {new Date(first.at).toLocaleDateString()}
+            </time>
+          </article>
+        ) : null}
+        {last ? (
+          <article className="almanac-bookend almanac-bookend--last">
+            <span className="almanac-bookend-eyebrow">
+              {t("yir.last_acquisition")}
+            </span>
+            <span className="almanac-bookend-name">{last.figure_name}</span>
+            <time className="almanac-bookend-date">
+              {new Date(last.at).toLocaleDateString()}
+            </time>
+          </article>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+// =============================================================================
+// Empty state — when the year has zero activity
+// =============================================================================
+
+function EmptyYear({ t }) {
+  return (
+    <section className="almanac-opening">
+      <p className="almanac-opening-line">{t("yir.no_data")}</p>
+      <span className="almanac-opening-rule" aria-hidden />
+    </section>
+  );
+}
+
+// =============================================================================
+// Year navigation — prev / print / next
+// =============================================================================
 
 function YearNavigation({ year, t }) {
   return (
-    <nav className="mt-12 flex items-center justify-between text-[11px] uppercase tracking-[0.2em] print:hidden">
-      <Link
-        to={`/year-in-review/${year - 1}`}
-        className="text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)]"
-      >
+    <nav className="almanac-nav print:hidden">
+      <Link className="almanac-nav-link" to={`/year-in-review/${year - 1}`}>
         ← {t("yir.prev")} ({year - 1})
       </Link>
       <button
         type="button"
         onClick={() => window.print()}
-        className="text-[var(--color-or-pale)] hover:text-[var(--color-or)]"
+        className="almanac-nav-print"
       >
         ⎙ {t("yir.print")}
       </button>
       {year < CURRENT_YEAR ? (
-        <Link
-          to={`/year-in-review/${year + 1}`}
-          className="text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)]"
-        >
+        <Link className="almanac-nav-link" to={`/year-in-review/${year + 1}`}>
           {t("yir.next")} ({year + 1}) →
         </Link>
       ) : (
