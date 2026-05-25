@@ -1,15 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 
 /**
  * Listens to `fc:achievements-unlocked` events fired by `wsClient.js` and
- * stacks a Direction-B card per newly granted seal. Auto-dismisses after 6 s.
- * Stays out of the way otherwise — the actual seal collection lives on
- * `/achievements`.
+ * stacks a Direction-B card per newly granted seal. Each entry has its
+ * own 6 s dismiss timer so rapid back-to-back unlocks don't reset the
+ * window of items already on screen.
  */
 export default function AchievementCeremony() {
   const t = useT();
   const [stack, setStack] = useState([]);
+  // Stable, monotonically-increasing key. Previously used
+  // `${code}-${Date.now()}` which collided when two grants for the same
+  // code arrived in the same ms (e.g. burst-grants on first login),
+  // producing duplicate React keys and a "list-children-need-keys"
+  // warning at runtime.
+  const seqRef = useRef(0);
 
   useEffect(() => {
     const onUnlock = (e) => {
@@ -17,19 +23,43 @@ export default function AchievementCeremony() {
       if (codes.length === 0) return;
       setStack((cur) => [
         ...cur,
-        ...codes.map((code) => ({ id: `${code}-${Date.now()}`, code })),
+        ...codes.map((code) => ({
+          id: `${code}-${++seqRef.current}`,
+          code,
+          // Timestamp drives the per-entry timeout in the effect below.
+          shownAt: Date.now(),
+        })),
       ]);
     };
     window.addEventListener("fc:achievements-unlocked", onUnlock);
     return () => window.removeEventListener("fc:achievements-unlocked", onUnlock);
   }, []);
 
+  // Per-entry dismiss timers. The previous wiring used ONE shared 6 s
+  // timer reset on every new push, which meant N rapid unlocks all
+  // disappeared together at the same instant rather than rolling off in
+  // the order they arrived. Now each entry tracks its own timeout via
+  // its id; the effect only schedules ones it hasn't scheduled before.
+  const timeoutsRef = useRef(new Map());
   useEffect(() => {
-    if (stack.length === 0) return;
-    const id = setTimeout(() => {
-      setStack((cur) => cur.slice(1));
-    }, 6000);
-    return () => clearTimeout(id);
+    const timeouts = timeoutsRef.current;
+    for (const entry of stack) {
+      if (timeouts.has(entry.id)) continue;
+      const handle = setTimeout(() => {
+        setStack((cur) => cur.filter((it) => it.id !== entry.id));
+        timeouts.delete(entry.id);
+      }, 6000);
+      timeouts.set(entry.id, handle);
+    }
+    // Don't clear on each effect re-run — the timers belong to specific
+    // entries that may still be mid-flight.
+    return () => {
+      // Only on unmount: drop everything in flight.
+      if (stack.length === 0) {
+        for (const handle of timeouts.values()) clearTimeout(handle);
+        timeouts.clear();
+      }
+    };
   }, [stack]);
 
   if (stack.length === 0) return null;

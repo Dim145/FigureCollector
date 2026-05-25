@@ -14,6 +14,12 @@ export default function FormField({
   name,
 }) {
   const id = useId();
+  // Stable IDs for the hint + error nodes so we can wire them up via
+  // `aria-describedby` (screen readers announce the description right
+  // after the label) and flip `aria-invalid` when validation fails.
+  // Previously these existed only visually — SR users entering the
+  // field never heard the error message.
+  const messageId = useId();
 
   return (
     <div>
@@ -29,6 +35,8 @@ export default function FormField({
           required={required}
           disabled={disabled}
           placeholder={placeholder}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error || hint ? messageId : undefined}
           className={`w-full bg-[var(--color-noir)] border px-4 py-3 text-[var(--color-ivoire)] outline-none transition-colors duration-200 ${
             error
               ? "border-[var(--color-laque-bright)] focus:border-[var(--color-laque-bright)]"
@@ -38,9 +46,20 @@ export default function FormField({
         />
       </label>
       {error ? (
-        <p className="mt-1.5 text-xs text-[var(--color-laque-bright)] tracking-wide">{error}</p>
+        <p
+          id={messageId}
+          role="alert"
+          className="mt-1.5 text-xs text-[var(--color-laque-bright)] tracking-wide"
+        >
+          {error}
+        </p>
       ) : hint ? (
-        <p className="mt-1.5 text-xs text-[var(--color-ivoire-soft)] tracking-wide">{hint}</p>
+        <p
+          id={messageId}
+          className="mt-1.5 text-xs text-[var(--color-ivoire-soft)] tracking-wide"
+        >
+          {hint}
+        </p>
       ) : null}
     </div>
   );

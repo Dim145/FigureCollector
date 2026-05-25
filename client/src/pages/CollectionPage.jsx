@@ -6,6 +6,7 @@ import { useOwnedItems, useRemoveOwnedItem } from "../hooks/useCollection.js";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
 import Card from "../components/Card.jsx";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import CountUp from "../components/CountUp.jsx";
 import FigureCard from "../components/FigureCard.jsx";
 import { resolveOwnedCover } from "../lib/coverUrl.js";
@@ -41,6 +42,10 @@ export default function CollectionPage() {
   const owned = useOwnedItems();
   const remove = useRemoveOwnedItem();
   const [conditionFilter, setConditionFilter] = useState("all");
+  // Owned-item id queued for deletion confirmation; null when the dialog
+  // is closed. Drives a styled ConfirmDialog rather than the unstylable
+  // native `window.confirm()` we used to call.
+  const [pendingRemove, setPendingRemove] = useState(null);
 
   const stats = useMemo(() => {
     const data = owned.data ?? [];
@@ -201,11 +206,7 @@ export default function CollectionPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (confirm(t("collection.remove") + " ?")) {
-                          remove.mutate(item.id);
-                        }
-                      }}
+                      onClick={() => setPendingRemove(item)}
                       disabled={remove.isPending}
                       className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] transition-colors disabled:opacity-50"
                     >
@@ -224,6 +225,29 @@ export default function CollectionPage() {
           </>
         )}
       </main>
+      <ConfirmDialog
+        open={!!pendingRemove}
+        title={t("collection.remove")}
+        body={
+          pendingRemove
+            ? t("collection.remove.body", {
+                name: pendingRemove.figure_name ?? "",
+                default: t("collection.remove") + " ?",
+              })
+            : null
+        }
+        destructive
+        busy={remove.isPending}
+        onCancel={() => setPendingRemove(null)}
+        onConfirm={() => {
+          if (pendingRemove) {
+            remove.mutate(pendingRemove.id, {
+              onSuccess: () => setPendingRemove(null),
+              onError: () => setPendingRemove(null),
+            });
+          }
+        }}
+      />
     </AppShell>
   );
 }

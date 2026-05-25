@@ -135,9 +135,10 @@ function Header({ entity, kind, t }) {
         {entity.image_url ? (
           <img
             src={entity.image_url}
-            alt=""
+            alt={entity.name}
             className="w-full h-full object-cover"
             loading="eager"
+            decoding="async"
           />
         ) : (
           <div className="w-full h-full grid place-items-center text-[var(--color-or)]/30 text-xs uppercase tracking-[0.2em]">

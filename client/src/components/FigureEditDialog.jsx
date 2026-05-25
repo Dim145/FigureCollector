@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useT } from "../i18n/index.jsx";
+import { useFocusTrap } from "../hooks/useFocusTrap.js";
 import { usePatchFigure } from "../hooks/useAdmin.js";
 import { mapApiError } from "../lib/errorMap.js";
 import FigureForm from "./FigureForm.jsx";
@@ -13,21 +14,18 @@ import FigureForm from "./FigureForm.jsx";
 export default function FigureEditDialog({ figure, onClose, onSaved }) {
   const t = useT();
   const patch = usePatchFigure();
+  const cardRef = useRef(null);
+  // Focus trap + Esc + restore focus to the trigger on close.
+  useFocusTrap(cardRef, { active: true, onClose });
 
-  // Lock body scroll while the modal is open. Restores on unmount, even if
-  // the parent unmounts via Escape mid-keyup.
+  // Lock body scroll while the modal is open. Restores on unmount.
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const onKey = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = prev;
-      window.removeEventListener("keydown", onKey);
     };
-  }, [onClose]);
+  }, []);
 
   const submit = async (payload) => {
     // Only include fields that meaningfully differ from the original. Empty
@@ -49,14 +47,16 @@ export default function FigureEditDialog({ figure, onClose, onSaved }) {
   return (
     <div
       role="dialog"
-      aria-modal
+      aria-modal="true"
       aria-labelledby="figure-edit-title"
       onClick={onClose}
       className="fixed inset-0 z-50 grid place-items-center bg-[var(--color-noir)]/85 backdrop-blur-sm p-4"
     >
       <div
+        ref={cardRef}
+        tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
-        className="bg-[var(--color-noir-soft)] border border-[var(--color-or)]/40 w-[95vw] max-w-3xl max-h-[92vh] flex flex-col frame-corners"
+        className="bg-[var(--color-noir-soft)] border border-[var(--color-or)]/40 w-[95vw] max-w-3xl max-h-[92vh] flex flex-col frame-corners focus:outline-none"
         style={{
           boxShadow:
             "0 60px 120px -50px rgba(0,0,0,0.85), inset 0 1px 0 oklch(0.92 0.03 75 / 0.06)",

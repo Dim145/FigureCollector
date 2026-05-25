@@ -157,7 +157,13 @@ function Thumb({ row, kind }) {
   return (
     <span className="shrink-0 w-10 h-10 bg-[var(--color-noir-deep)] border border-[var(--color-or)]/15 overflow-hidden">
       {url ? (
-        <img src={url} alt="" loading="lazy" className="w-full h-full object-cover" />
+        <img
+          src={url}
+          alt={row.name ?? ""}
+          loading="lazy"
+          decoding="async"
+          className="w-full h-full object-cover"
+        />
       ) : null}
     </span>
   );

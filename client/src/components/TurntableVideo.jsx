@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 
 // Server rejects frames > 2048 px per side. Keep a safety margin and downscale
@@ -25,6 +25,12 @@ export default function TurntableVideo({ onComplete }) {
   const canvasRef = useRef(null);
   const [file, setFile] = useState(null);
   const [previews, setPreviews] = useState([]);
+
+  // Revoke every preview blob URL at unmount — the user can navigate
+  // away mid-extraction and otherwise the browser holds dozens of large
+  // WebP/JPEG blobs in memory until GC eventually kicks in.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), []);
   const [frames, setFrames] = useState([]);
   const [target, setTarget] = useState(24);
   const [busy, setBusy] = useState(false);

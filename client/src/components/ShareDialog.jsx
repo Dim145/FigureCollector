@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useT } from "../i18n/index.jsx";
+import { useFocusTrap } from "../hooks/useFocusTrap.js";
 import Button from "./Button.jsx";
 
 /**
@@ -21,14 +22,9 @@ export default function ShareDialog({ url, title, onClose }) {
   const [copied, setCopied] = useState(false);
   const cardRef = useRef(null);
 
-  // Esc + click-outside close.
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  // Focus trap: enter the dialog on open, cycle on Tab, Esc closes,
+  // focus restores to the trigger button on close.
+  useFocusTrap(cardRef, { active: true, onClose });
 
   const copy = async () => {
     try {
@@ -55,12 +51,13 @@ export default function ShareDialog({ url, title, onClose }) {
     <div
       className="fig-pop"
       role="dialog"
-      aria-modal
+      aria-modal="true"
       aria-labelledby="share-title"
       onClick={onClose}
     >
       <div
         ref={cardRef}
+        tabIndex={-1}
         className="fig-pop-card"
         onClick={(e) => e.stopPropagation()}
       >

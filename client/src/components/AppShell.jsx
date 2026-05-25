@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useIsAdmin, useLogout, useMe } from "../hooks/useMe.js";
 import LocaleSwitcher from "./LocaleSwitcher.jsx";
@@ -26,12 +26,23 @@ export default function AppShell({ children }) {
   const logout = useLogout();
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const mainRef = useRef(null);
+  const location = useLocation();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Move keyboard focus to the new page on every route change. React
+  // Router doesn't do this by default, so screen-reader users navigating
+  // via links would never hear the new <main> landmark announced. We
+  // give <main> tabIndex={-1} so it's focusable programmatically without
+  // entering the tab order.
+  useEffect(() => {
+    mainRef.current?.focus({ preventScroll: true });
+  }, [location.pathname]);
 
   const onSignOut = async () => {
     await logout.mutateAsync();
@@ -194,7 +205,9 @@ export default function AppShell({ children }) {
         ) : null}
       </header>
 
-      <div className="flex-1 relative">{children}</div>
+      <main ref={mainRef} tabIndex={-1} className="flex-1 relative focus:outline-none">
+        {children}
+      </main>
 
       <footer className="mt-20 border-t border-[var(--color-or)]/10 py-8">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-3 text-[10px] uppercase tracking-[0.28em] text-[var(--color-ivoire-soft)]/60">

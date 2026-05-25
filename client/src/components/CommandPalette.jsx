@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useFigures, useOwnedItems } from "../hooks/useCollection.js";
+import { useFocusTrap } from "../hooks/useFocusTrap.js";
 
 /**
  * Direction B — command palette opened with ⌘K / Ctrl+K.
@@ -21,6 +22,15 @@ export default function CommandPalette() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
   const inputRef = useRef(null);
+  const dialogRef = useRef(null);
+  // Focus trap: Tab cycles between the input + result items + close button.
+  // Esc restores focus to whatever element opened the palette (matters
+  // when ⌘K was triggered from a button via aria, not the keyboard
+  // shortcut itself).
+  useFocusTrap(dialogRef, {
+    active: open,
+    onClose: () => setOpen(false),
+  });
 
   // The palette is mounted on every page (App.jsx) so eagerly firing
   // `useOwnedItems()` + `useFigures()` would fan out two queries on every
@@ -130,7 +140,7 @@ export default function CommandPalette() {
   return (
     <div
       role="dialog"
-      aria-modal
+      aria-modal="true"
       className="fixed inset-0 z-50 grid place-items-start pt-[12vh] px-4"
       onClick={() => setOpen(false)}
     >
@@ -140,7 +150,9 @@ export default function CommandPalette() {
       />
 
       <div
-        className="relative w-full max-w-xl"
+        ref={dialogRef}
+        tabIndex={-1}
+        className="relative w-full max-w-xl focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <div

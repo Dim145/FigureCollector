@@ -17,7 +17,7 @@ import PhotoEditor from "./PhotoEditor.jsx";
  * The editor itself is lazy-loaded (filerobot + @imgly bg-removal) so this
  * code path never inflates the initial bundle.
  */
-export default function PhotoStrip({ ownedId, uploadDisabled = false, blurImages = false }) {
+export default function PhotoStrip({ ownedId, figureName, uploadDisabled = false, blurImages = false }) {
   const t = useT();
   const photos = usePhotos(ownedId);
   const upload = useUploadPhoto(ownedId);
@@ -94,11 +94,12 @@ export default function PhotoStrip({ ownedId, uploadDisabled = false, blurImages
               >
                 <img
                   src={`/api/photos/${p.id}`}
-                  alt=""
+                  alt={`${figureName ?? t("photos.view")} — ${i + 1}`}
                   width={p.width}
                   height={p.height}
                   className={`h-32 w-auto object-cover border border-[var(--color-or)]/20 cursor-zoom-in transition-opacity group-hover:opacity-85 ${blurImages ? "nsfw-blur" : ""}`}
                   loading="lazy"
+                  decoding="async"
                 />
               </button>
               <button

@@ -15,7 +15,7 @@ import {
  * Layout: a horizontal scrolling strip of tiles; the primary photo is
  * called out with a gold sash. Hover reveals the action overlay.
  */
-export default function FigurePhotosSection({ figureId, canEdit, uploadDisabled = false, blurImages = false }) {
+export default function FigurePhotosSection({ figureId, figureName, canEdit, uploadDisabled = false, blurImages = false }) {
   const t = useT();
   const photos = useFigurePhotos(figureId);
   const upload = useUploadFigurePhoto(figureId);
@@ -104,8 +104,9 @@ export default function FigurePhotosSection({ figureId, canEdit, uploadDisabled 
               >
                 <img
                   src={`/api/figure-photos/${p.id}`}
-                  alt=""
+                  alt={`${figureName ?? t("photos.view")} — ${i + 1}`}
                   loading="lazy"
+                  decoding="async"
                   className={`w-full h-full object-cover transition-transform duration-500 group-hover/photo:scale-105 ${blurImages ? "nsfw-blur" : ""}`}
                 />
               </button>

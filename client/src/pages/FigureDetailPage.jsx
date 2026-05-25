@@ -130,6 +130,7 @@ export default function FigureDetailPage() {
             <div className="mt-12">
               <FigurePhotosSection
                 figureId={f.id}
+                figureName={f.name}
                 canEdit={canEdit}
                 uploadDisabled={f.is_nsfw && nsfwPref === "blur"}
                 blurImages={f.is_nsfw && nsfwPref === "blur"}
@@ -564,6 +565,7 @@ function OwnerStack({ f, owned, nsfwPref, t }) {
       >
         <PhotoStrip
           ownedId={owned.id}
+          figureName={f.name}
           uploadDisabled={f.is_nsfw && nsfwPref === "blur"}
           blurImages={f.is_nsfw && nsfwPref === "blur"}
         />

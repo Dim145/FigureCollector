@@ -139,8 +139,12 @@ export default function FigureHero({
               <img
                 key={s.key}
                 src={s.url}
-                alt=""
-                loading="eager"
+                // The hero IS the product. SR users need an alt that
+                // identifies the figurine — empty alt previously hid the
+                // entire main image from anyone not using sighted vision.
+                alt={i === 0 ? figure.name : `${figure.name} — ${i + 1}`}
+                loading={i === 0 ? "eager" : "lazy"}
+                decoding="async"
                 draggable={false}
                 className={`absolute inset-0 w-full h-full object-contain p-8 transition-opacity duration-500 pointer-events-none ${nsfwBlurClass}`}
                 style={{ opacity: i === active ? 1 : 0 }}
@@ -175,7 +179,7 @@ export default function FigureHero({
                   type="button"
                   onClick={() => go(-1)}
                   aria-label={t("photos.prev")}
-                  className="absolute top-1/2 -translate-y-1/2 left-2 w-9 h-9 grid place-items-center border border-[var(--color-or)]/40 bg-[var(--color-noir)]/70 backdrop-blur-sm text-[var(--color-or-pale)] hover:text-[var(--color-or)] hover:border-[var(--color-or)] transition-colors"
+                  className="tap-target absolute top-1/2 -translate-y-1/2 left-2 border border-[var(--color-or)]/40 bg-[var(--color-noir)]/70 backdrop-blur-sm text-[var(--color-or-pale)] hover:text-[var(--color-or)] hover:border-[var(--color-or)] transition-colors"
                 >
                   ‹
                 </button>
@@ -183,7 +187,7 @@ export default function FigureHero({
                   type="button"
                   onClick={() => go(1)}
                   aria-label={t("photos.next")}
-                  className="absolute top-1/2 -translate-y-1/2 right-2 w-9 h-9 grid place-items-center border border-[var(--color-or)]/40 bg-[var(--color-noir)]/70 backdrop-blur-sm text-[var(--color-or-pale)] hover:text-[var(--color-or)] hover:border-[var(--color-or)] transition-colors"
+                  className="tap-target absolute top-1/2 -translate-y-1/2 right-2 border border-[var(--color-or)]/40 bg-[var(--color-noir)]/70 backdrop-blur-sm text-[var(--color-or-pale)] hover:text-[var(--color-or)] hover:border-[var(--color-or)] transition-colors"
                 >
                   ›
                 </button>

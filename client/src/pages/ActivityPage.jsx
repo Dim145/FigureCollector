@@ -244,7 +244,7 @@ function Entry({ ev, t }) {
             className="entry-thumb"
             aria-label={figureName}
           >
-            <img src={figureImage} alt="" loading="lazy" />
+            <img src={figureImage} alt={figureName ?? ""} loading="lazy" decoding="async" />
           </Link>
         ) : null}
       </div>

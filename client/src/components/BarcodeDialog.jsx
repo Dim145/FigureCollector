@@ -1,5 +1,6 @@
-import { useEffect, useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { useT } from "../i18n/index.jsx";
+import { useFocusTrap } from "../hooks/useFocusTrap.js";
 import Button from "./Button.jsx";
 
 /**
@@ -21,14 +22,12 @@ import Button from "./Button.jsx";
  */
 export default function BarcodeDialog({ code, label, onClose }) {
   const t = useT();
-
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  const cardRef = useRef(null);
+  // Focus enters the dialog on open + Tab cycles between focusable
+  // children + Esc closes + focus restores to the trigger on close.
+  // The shared hook replaces the ad-hoc Escape-only listener we used to
+  // wire here.
+  useFocusTrap(cardRef, { active: true, onClose });
 
   const ean13 = useMemo(() => encodeEan13(code), [code]);
 
@@ -36,11 +35,11 @@ export default function BarcodeDialog({ code, label, onClose }) {
     <div
       className="fig-pop"
       role="dialog"
-      aria-modal
+      aria-modal="true"
       aria-labelledby="barcode-title"
       onClick={onClose}
     >
-      <div className="fig-pop-card" onClick={(e) => e.stopPropagation()}>
+      <div ref={cardRef} tabIndex={-1} className="fig-pop-card" onClick={(e) => e.stopPropagation()}>
         <header className="flex items-baseline justify-between gap-3 mb-4">
           <div className="min-w-0">
             <p className="micro">{t("barcode.eyebrow")}</p>
