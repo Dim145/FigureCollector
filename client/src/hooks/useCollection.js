@@ -128,6 +128,20 @@ export function usePreorderHistory(id) {
   });
 }
 
+/** Patch the free-form `note` on a single slip-history entry. Re-uses the
+ *  same query-key invalidation as the parent preorder so the timeline
+ *  refreshes immediately. */
+export function useUpdatePreorderHistory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ preorderId, entryId, note }) =>
+      api.patch(`/me/preorders/${preorderId}/history/${entryId}`, { note }),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["preorder-history", vars.preorderId] });
+    },
+  });
+}
+
 /** Returns the (optional) preorder row auto-linked to a specific owned_item.
  *  Used by FigureDetailPage to render "Historique de pré-commande" even
  *  after the piece has been received. */

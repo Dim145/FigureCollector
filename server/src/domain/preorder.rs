@@ -281,6 +281,40 @@ pub async fn history(
     .await?)
 }
 
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct HistoryEntryPatch {
+    pub note: Option<String>,
+}
+
+/// Edit the free-form note on a single slip-history entry. We only allow
+/// editing the note — dates and source are immutable historical record.
+/// Returns the patched entry. Authorisation: the entry's parent preorder
+/// must belong to `user_id`, otherwise `NotFound`.
+pub async fn patch_history_note(
+    pool: &PgPool,
+    user_id: Uuid,
+    preorder_id: Uuid,
+    entry_id: Uuid,
+    input: HistoryEntryPatch,
+) -> AppResult<DateHistoryEntry> {
+    // Verify the entry belongs to a preorder owned by this user in one query.
+    let row: Option<DateHistoryEntry> = sqlx::query_as(
+        "UPDATE preorder_date_history
+         SET note = $1
+         WHERE id = $2
+           AND preorder_id = $3
+           AND preorder_id IN (SELECT id FROM preorders WHERE user_id = $4)
+         RETURNING id, previous_date, new_date, source, note, noted_at",
+    )
+    .bind(input.note.as_deref().map(str::trim).filter(|s| !s.is_empty()))
+    .bind(entry_id)
+    .bind(preorder_id)
+    .bind(user_id)
+    .fetch_optional(pool)
+    .await?;
+    row.ok_or(AppError::NotFound)
+}
+
 // -----------------------------------------------------------------------------
 // Linked preorder lifecycle
 // -----------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 //! `/api/me/preorders/*` — pre-orders with release-date slip history.
 
 use crate::auth;
-use crate::domain::preorder::{NewPreorder, PreorderPatch};
+use crate::domain::preorder::{HistoryEntryPatch, NewPreorder, PreorderPatch};
 use crate::domain::{achievement, activity, preorder};
 use crate::error::AppResult;
 use crate::events::Event;
@@ -167,6 +167,20 @@ async fn history_mine(
     Ok(Json(preorder::history(&state.pool, user_id, id).await?))
 }
 
+/// PATCH a single slip-history entry. Only the `note` field is editable —
+/// dates + source are immutable record.
+async fn patch_history_entry(
+    State(state): State<AppState>,
+    session: Session,
+    Path((id, entry_id)): Path<(Uuid, Uuid)>,
+    Json(input): Json<HistoryEntryPatch>,
+) -> AppResult<Json<preorder::DateHistoryEntry>> {
+    let user_id = auth::require_user(&session).await?;
+    Ok(Json(
+        preorder::patch_history_note(&state.pool, user_id, id, entry_id, input).await?,
+    ))
+}
+
 async fn by_owned(
     State(state): State<AppState>,
     session: Session,
@@ -186,5 +200,9 @@ pub fn router() -> Router<AppState> {
             patch_method(patch_mine).delete(delete_mine),
         )
         .route("/me/preorders/{id}/history", get(history_mine))
+        .route(
+            "/me/preorders/{id}/history/{entry_id}",
+            patch_method(patch_history_entry),
+        )
         .route("/me/owned/{owned_id}/preorder", get(by_owned))
 }
