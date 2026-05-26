@@ -95,6 +95,13 @@ pub struct NewFigure {
     #[serde(default)]
     pub is_nsfw: bool,
 
+    /// Optional URL the figure was imported from (orzgk product link, …).
+    /// Not persisted on the figures table; the create flow only uses it to
+    /// auto-link the new figure to any store whose `url` shares the same
+    /// hostname. Lets users paste a store URL and have the M2M link drop
+    /// into place in one round-trip.
+    pub source_url: Option<String>,
+
     // ─── related-entity metadata (auto-fill from AniList / MAL / orzgk) ──
     // These are nested optional payloads carried alongside the *_name
     // strings. The upsert helpers persist them with COALESCE so admin edits
@@ -285,6 +292,24 @@ pub async fn create(pool: &PgPool, created_by: Uuid, input: NewFigure) -> AppRes
             .bind(cid)
             .execute(&mut *tx)
             .await?;
+    }
+
+    // Auto-link to any store whose `url` matches the source URL's hostname.
+    // Hostname comparison (case-insensitive, sans leading `www.`) is more
+    // forgiving than literal prefix matching — http vs https, trailing
+    // slashes, and product subpaths all still match the right store.
+    if let Some(host) = input.source_url.as_deref().and_then(extract_host) {
+        sqlx::query(
+            "INSERT INTO figure_stores (figure_id, store_id)
+             SELECT $1, s.id FROM stores s
+             WHERE s.url IS NOT NULL
+               AND regexp_replace(lower(split_part(split_part(s.url, '://', 2), '/', 1)), '^www\\.', '') = $2
+             ON CONFLICT DO NOTHING",
+        )
+        .bind(figure.id)
+        .bind(&host)
+        .execute(&mut *tx)
+        .await?;
     }
 
     tx.commit().await?;
@@ -832,4 +857,23 @@ fn map_unique_violation(e: sqlx::Error) -> AppError {
         }
         _ => AppError::Db(e),
     }
+}
+
+/// Extract the lowercase hostname (sans leading `www.`) from a URL string.
+/// Returns None for malformed input — quietly skipping the auto-link path
+/// is the right behaviour: a bad source URL simply means no store gets
+/// linked, never a server-side failure on figure creation.
+fn extract_host(raw: &str) -> Option<String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    // Tolerate the user pasting a URL without a scheme (orzgk.com/...).
+    let url = if trimmed.contains("://") {
+        url::Url::parse(trimmed).ok()?
+    } else {
+        url::Url::parse(&format!("https://{}", trimmed)).ok()?
+    };
+    let host = url.host_str()?.to_lowercase();
+    Some(host.trim_start_matches("www.").to_string())
 }

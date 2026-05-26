@@ -16,7 +16,10 @@ pub struct Preorder {
     pub user_id: Uuid,
     pub figure_id: Uuid,
     pub status: String,
-    pub store: Option<String>,
+    /// FK to `stores`. Replaced the free-text `store` column in migration 22.
+    /// Callers send the *name* in NewPreorder / PreorderPatch and the
+    /// handler resolves it via `store::find_or_create`.
+    pub store_id: Option<Uuid>,
     pub order_ref: Option<String>,
     /// Optional tracking URL — the carrier + tracking number are parsed
     /// from this URL client-side (UPS, DHL, Colissimo, …).
@@ -48,7 +51,12 @@ pub struct PreorderWithFigure {
     /// uses this to drive the cancellation dialog (archive vs delete).
     pub owned_item_id: Option<Uuid>,
     pub status: String,
-    pub store: Option<String>,
+    /// Joined from `stores` — populated alongside `store_id` so the SPA
+    /// can render the chip + link to /stores/<slug> without a second
+    /// roundtrip.
+    pub store_id: Option<Uuid>,
+    pub store_name: Option<String>,
+    pub store_slug: Option<String>,
     pub order_ref: Option<String>,
     pub tracking_url: Option<String>,
     pub release_date_original: Option<NaiveDate>,
@@ -126,11 +134,17 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewPreorder) -> AppResu
         return Err(AppError::BadRequest("invalid status"));
     }
 
+    // Resolve free-text store name → stores.id (find-or-create by slug).
+    let store_id = match input.store.as_deref() {
+        Some(name) => super::store::find_or_create(pool, name).await?,
+        None => None,
+    };
+
     let id = Uuid::now_v7();
 
     sqlx::query_as::<_, Preorder>(
         "INSERT INTO preorders (
-            id, user_id, figure_id, status, store, order_ref, tracking_url,
+            id, user_id, figure_id, status, store_id, order_ref, tracking_url,
             release_date_original, release_date_current,
             price_amount, price_currency, deposit_amount, deposit_refund_amount,
             estimated_delivery_days, shipped_at, notes
@@ -139,7 +153,7 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewPreorder) -> AppResu
             CASE WHEN $4 = 'shipped' THEN NOW() ELSE NULL END,
             $14
          )
-         RETURNING id, user_id, figure_id, status, store, order_ref, tracking_url,
+         RETURNING id, user_id, figure_id, status, store_id, order_ref, tracking_url,
                    release_date_original, release_date_current,
                    price_amount, price_currency, deposit_amount,
                    deposit_refund_amount, shipped_at, estimated_delivery_days,
@@ -150,7 +164,7 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewPreorder) -> AppResu
     .bind(user_id)
     .bind(input.figure_id)
     .bind(&input.status)
-    .bind(&input.store)
+    .bind(store_id)
     .bind(&input.order_ref)
     .bind(&input.tracking_url)
     .bind(input.release_date)
@@ -174,7 +188,10 @@ pub async fn list_for_user(pool: &PgPool, user_id: Uuid) -> AppResult<Vec<Preord
     Ok(sqlx::query_as::<_, PreorderWithFigure>(
         "SELECT
             p.id, p.figure_id, p.owned_item_id, p.status,
-            p.store, p.order_ref, p.tracking_url,
+            p.store_id,
+            st.name AS store_name,
+            st.slug AS store_slug,
+            p.order_ref, p.tracking_url,
             p.release_date_original, p.release_date_current,
             p.price_amount, p.price_currency,
             p.deposit_amount, p.deposit_refund_amount,
@@ -188,6 +205,7 @@ pub async fn list_for_user(pool: &PgPool, user_id: Uuid) -> AppResult<Vec<Preord
          FROM preorders p
          JOIN figures f         ON f.id = p.figure_id
          LEFT JOIN manufacturers m ON m.id = f.manufacturer_id
+         LEFT JOIN stores st     ON st.id = p.store_id
          WHERE p.user_id = $1
          ORDER BY
             CASE WHEN p.status IN ('received','cancelled') THEN 1 ELSE 0 END,
@@ -211,10 +229,18 @@ pub async fn patch(
         }
     }
 
+    // Free-text store name → stores.id (same find-or-create flow as on
+    // owned_items). Done outside the tx because find_or_create may itself
+    // insert into `stores` — that insert wants its own tx semantics.
+    let store_id = match input.store.as_deref() {
+        Some(name) => super::store::find_or_create(pool, name).await?,
+        None => None,
+    };
+
     let mut tx = pool.begin().await?;
 
     let current: Option<Preorder> = sqlx::query_as(
-        "SELECT id, user_id, figure_id, status, store, order_ref, tracking_url,
+        "SELECT id, user_id, figure_id, status, store_id, order_ref, tracking_url,
                 release_date_original, release_date_current,
                 price_amount, price_currency,
                 deposit_amount, deposit_refund_amount,
@@ -248,7 +274,7 @@ pub async fn patch(
     let updated: Preorder = sqlx::query_as(
         "UPDATE preorders SET
             status                  = COALESCE($1, status),
-            store                   = COALESCE($2, store),
+            store_id                = COALESCE($2, store_id),
             order_ref               = COALESCE($3, order_ref),
             tracking_url            = COALESCE($4, tracking_url),
             release_date_current    = COALESCE($5, release_date_current),
@@ -266,7 +292,7 @@ pub async fn patch(
             END,
             notes                   = COALESCE($11, notes)
          WHERE id = $12 AND user_id = $13
-         RETURNING id, user_id, figure_id, status, store, order_ref, tracking_url,
+         RETURNING id, user_id, figure_id, status, store_id, order_ref, tracking_url,
                    release_date_original, release_date_current,
                    price_amount, price_currency,
                    deposit_amount, deposit_refund_amount,
@@ -274,7 +300,7 @@ pub async fn patch(
                    created_at, updated_at",
     )
     .bind(&input.status)
-    .bind(&input.store)
+    .bind(store_id)
     .bind(&input.order_ref)
     .bind(&input.tracking_url)
     .bind(input.release_date)
@@ -399,7 +425,7 @@ pub async fn create_for_owned_item(
          ) VALUES ($1, $2, $3, $4, 'preordered', $5, $5)
          ON CONFLICT (owned_item_id) WHERE owned_item_id IS NOT NULL
          DO UPDATE SET release_date_current = EXCLUDED.release_date_current
-         RETURNING id, user_id, figure_id, status, store, order_ref, tracking_url,
+         RETURNING id, user_id, figure_id, status, store_id, order_ref, tracking_url,
                    release_date_original, release_date_current,
                    price_amount, price_currency,
                    deposit_amount, deposit_refund_amount,
@@ -425,7 +451,7 @@ pub async fn find_by_owned_item(
     owned_item_id: Uuid,
 ) -> AppResult<Option<Preorder>> {
     Ok(sqlx::query_as::<_, Preorder>(
-        "SELECT id, user_id, figure_id, status, store, order_ref, tracking_url,
+        "SELECT id, user_id, figure_id, status, store_id, order_ref, tracking_url,
                 release_date_original, release_date_current,
                 price_amount, price_currency,
                 deposit_amount, deposit_refund_amount,

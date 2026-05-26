@@ -582,6 +582,7 @@ export default {
   // Command palette
   "palette.placeholder": "Chercher une page, une figurine, un fabricant…",
   "palette.hint_open": "⌘K",
+  "palette.aria_open": "Ouvrir la palette de commandes",
   "palette.no_results": "Aucun résultat",
   "palette.group.navigation": "Navigation",
   "palette.group.collection": "Ma collection",
@@ -905,7 +906,40 @@ export default {
   "admin.tab.figures": "Catalogue",
   "admin.tab.catalog": "Entités",
   "admin.tab.figure_types": "Types",
+  "admin.tab.stores": "Boutiques",
   "admin.tab.notifications": "Notifications",
+
+  // Public store page (/stores/:slug)
+  "store.eyebrow": "Boutique",
+  "store.missing.title": "Boutique introuvable",
+  "store.catalog.title": "Catalogue",
+  "store.catalog.count": "{n} figurine·s",
+  "store.catalog.empty": "Aucune figurine référencée pour cette boutique.",
+
+  // Admin · stores registry (/admin/stores)
+  "admin.stores.eyebrow": "Registre",
+  "admin.stores.title": "Boutiques",
+  "admin.stores.body":
+    "Les boutiques sont partagées entre tous les utilisateurs. Un nom unique suffit pour en créer une — l'URL, l'image de profil et la description ne sont éditables que par un administrateur.",
+  "admin.stores.count": "{n} entrée·s",
+  "admin.stores.add": "Ajouter",
+  "admin.stores.confirm_add": "Créer",
+  "admin.stores.confirm_edit": "Enregistrer",
+  "admin.stores.edit": "Modifier",
+  "admin.stores.delete": "Supprimer",
+  "admin.stores.delete_yes": "Confirmer",
+  "admin.stores.delete_no": "Annuler",
+  "admin.stores.empty": "Aucune boutique enregistrée pour l'instant.",
+  "admin.stores.usage": "{owned} possédée·s · {pre} pré-commande·s",
+  "admin.stores.usage_empty": "Inutilisée",
+  "admin.stores.no_url": "Pas d'URL",
+  "admin.stores.upload_image": "Téléverser",
+  "admin.stores.field.name": "Nom",
+  "admin.stores.field.name_ph": "AmiAmi, GSC Online…",
+  "admin.stores.field.url": "URL",
+  "admin.stores.field.description": "Description",
+  "admin.stores.field.image": "Image de profil",
+
   "admin.types.eyebrow": "Catégories de figurines",
   "admin.types.title": "Types — registre",
   "admin.types.body": "Curatez les catégories du catalogue. Chaque type porte un kanji-sceau, un slug technique, et des libellés bilingues. Position détermine l'ordre dans le menu déroulant.",
@@ -1029,6 +1063,34 @@ export default {
   "figure.cartouche.identity": "Identité",
   "figure.cartouche.production": "Production",
   "figure.cartouche.market": "Marché",
+  "figure.cartouche.stores": "Boutiques",
+
+  // Figure detail · linked-stores modal
+  "figure.stores.modal.title": "Boutiques liées",
+  "figure.stores.modal.count": "{n} boutique·s",
+
+  // FigureForm · admin "Boutiques liées" section
+  "figure.form.stores.title": "Boutiques liées",
+  "figure.form.stores.help":
+    "Boutiques où cette figurine apparaît dans le catalogue. Auto-créées quand un utilisateur l'achète ou la pré-commande ; l'admin peut ajouter ou retirer un lien manuellement.",
+  "figure.form.stores.empty": "Aucune boutique liée pour l'instant.",
+  "figure.form.stores.add_label": "Boutique",
+  "figure.form.stores.add_ph": "Nom d'une boutique existante…",
+  "figure.form.stores.add_btn": "Lier",
+  "figure.form.stores.unknown":
+    "Aucune boutique ne porte ce nom. Crée-la d'abord depuis /admin/stores.",
+  "figure.form.stores.already": "Cette boutique est déjà liée.",
+  "figure.form.stores.remove": "Retirer {name}",
+
+  // StorePage · bulk edit catalog (admin)
+  "store.catalog.bulk_edit": "Éditer le catalogue",
+  "store.catalog.bulk_selected": "{n} sélectionnée·s",
+  "store.catalog.bulk_search_ph": "Filtrer par nom…",
+  "store.catalog.bulk_select_all": "Cocher visibles",
+  "store.catalog.bulk_select_none": "Décocher visibles",
+  "store.catalog.bulk_no_match": "Aucune figurine ne correspond.",
+  "store.catalog.bulk_save": "Enregistrer",
+
   "figure.spec.type": "Type",
   "figure.spec.nsfw": "Catégorie",
   "figure.spec.nsfw_yes": "18 +",

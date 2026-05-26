@@ -28,6 +28,7 @@ pub mod preorders;
 pub mod profile;
 pub mod scans;
 pub mod stats;
+pub mod stores;
 pub mod web_push;
 pub mod ws;
 
@@ -89,6 +90,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(notif_channels::router())
         .merge(web_push::router())
         .merge(stats::router())
+        .merge(stores::router())
         .merge(admin::router())
         .merge(photo_routes)
         .merge(figure_photo_routes)

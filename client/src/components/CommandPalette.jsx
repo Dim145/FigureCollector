@@ -56,6 +56,16 @@ export default function CommandPalette() {
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
+  // External "open me" trigger — dispatched by the ⌘K chip in AppShell so
+  // it can mimic the keyboard shortcut without prop-drilling. Toggling
+  // matches the keyboard shortcut's behaviour: click while open closes.
+  useEffect(() => {
+    const onOpenEvent = () => setOpen((x) => !x);
+    window.addEventListener("figurecollector:toggle-palette", onOpenEvent);
+    return () =>
+      window.removeEventListener("figurecollector:toggle-palette", onOpenEvent);
+  }, []);
+
   // Auto-focus on open + reset selection
   useEffect(() => {
     if (open) {

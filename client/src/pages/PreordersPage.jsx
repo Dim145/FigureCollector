@@ -13,6 +13,7 @@ import Button from "../components/Button.jsx";
 import CancellationDialog from "../components/CancellationDialog.jsx";
 import FormField from "../components/FormField.jsx";
 import Select from "../components/Select.jsx";
+import StoreAutocomplete from "../components/StoreAutocomplete.jsx";
 import TrackingChip from "../components/TrackingChip.jsx";
 import {
   countdownTone,
@@ -358,14 +359,25 @@ function TimelineEntry({ preorder: p, t }) {
       </div>
 
       {/* Meta line — store + order ref + deposit (only when we have any) */}
-      {(p.store || p.order_ref || p.deposit_amount) ? (
+      {(p.store_name || p.order_ref || p.deposit_amount) ? (
         <div className="horarium-entry-meta">
-          {p.store ? (
+          {p.store_name ? (
             <span>
               <span className="horarium-entry-meta-key">
                 {t("preorders.field.store")}
               </span>
-              <span className="horarium-entry-meta-value">{p.store}</span>
+              <span className="horarium-entry-meta-value">
+                {p.store_slug ? (
+                  <Link
+                    to={`/stores/${p.store_slug}`}
+                    className="underline decoration-[var(--color-or)]/30 hover:decoration-[var(--color-or)] underline-offset-4"
+                  >
+                    {p.store_name}
+                  </Link>
+                ) : (
+                  p.store_name
+                )}
+              </span>
             </span>
           ) : null}
           {p.order_ref ? (
@@ -471,7 +483,10 @@ function TimelineEntry({ preorder: p, t }) {
 function EditForm({ preorder: p, onClose, t }) {
   const [form, setForm] = useState(() => ({
     status: p.status ?? "preordered",
-    store: p.store ?? "",
+    // Seed the autocomplete from the joined store_name. The save flow still
+    // sends a free-text `store` string, which the server resolves via
+    // upsert_store() — so swapping name on save still works.
+    store: p.store_name ?? "",
     order_ref: p.order_ref ?? "",
     tracking_url: p.tracking_url ?? "",
     release_date: p.release_date_current ?? "",
@@ -566,7 +581,7 @@ function EditForm({ preorder: p, onClose, t }) {
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
-        <FormField
+        <StoreAutocomplete
           label={t("preorders.field.store")}
           value={form.store}
           onChange={set("store")}

@@ -6,13 +6,14 @@ use crate::domain::admin::{self, NewAdminUser, UserPatch};
 use crate::domain::entity::{self as ent, CharacterPatch, ManufacturerPatch, SeriesPatch};
 use crate::domain::figure;
 use crate::domain::figure_type::{self, FigureTypePatch, NewFigureType};
+use crate::domain::store::{self, NewStore, StorePatch, StoreUsage};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use axum::{
     Json, Router,
     extract::{Multipart, Path, Query, State},
     http::StatusCode,
-    routing::{get, patch, post},
+    routing::{get, patch, post, put},
 };
 use serde::Deserialize;
 use tower_sessions::Session;
@@ -297,6 +298,113 @@ async fn process_and_store(
     Ok(key)
 }
 
+// ---------- /admin/stores — CRUD + usage + image upload --------------------
+
+async fn list_stores_admin(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<Vec<store::Store>>> {
+    auth::require_admin(&session, &state.pool).await?;
+    Ok(Json(store::list(&state.pool).await?))
+}
+
+async fn create_store(
+    State(state): State<AppState>,
+    session: Session,
+    Json(input): Json<NewStore>,
+) -> AppResult<(StatusCode, Json<store::Store>)> {
+    auth::require_admin(&session, &state.pool).await?;
+    let row = store::create(&state.pool, input).await?;
+    Ok((StatusCode::CREATED, Json(row)))
+}
+
+async fn patch_store(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+    Json(input): Json<StorePatch>,
+) -> AppResult<Json<store::Store>> {
+    auth::require_admin(&session, &state.pool).await?;
+    Ok(Json(store::patch(&state.pool, id, input).await?))
+}
+
+async fn delete_store(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+) -> AppResult<StatusCode> {
+    auth::require_admin(&session, &state.pool).await?;
+    store::delete(&state.pool, id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn store_usage(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<StoreUsage>> {
+    auth::require_admin(&session, &state.pool).await?;
+    Ok(Json(store::usage(&state.pool, id).await?))
+}
+
+async fn upload_store_photo(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+    multipart: Multipart,
+) -> AppResult<Json<store::Store>> {
+    auth::require_admin(&session, &state.pool).await?;
+    let key = process_and_store(&state, "stores", id, multipart).await?;
+    Ok(Json(store::set_image_key(&state.pool, id, &key).await?))
+}
+
+// ---------- /admin/stores/{id}/figures — link admin ---------------------------
+
+#[derive(serde::Deserialize)]
+struct BulkFiguresInput {
+    figure_ids: Vec<Uuid>,
+}
+
+/// PUT — bulk replace the full list of figures linked to a store. Used by
+/// the StorePage admin checkbox grid. Sent as one transactional diff so
+/// partial saves never leave the catalog in a torn state.
+async fn set_store_figures(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+    Json(input): Json<BulkFiguresInput>,
+) -> AppResult<StatusCode> {
+    auth::require_admin(&session, &state.pool).await?;
+    store::set_store_figures(&state.pool, id, &input.figure_ids).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// POST — add one figure to a store (idempotent via ON CONFLICT). Used
+/// from the FigureForm admin section.
+async fn add_figure_to_store(
+    State(state): State<AppState>,
+    session: Session,
+    Path((store_id, figure_id)): Path<(Uuid, Uuid)>,
+) -> AppResult<StatusCode> {
+    auth::require_admin(&session, &state.pool).await?;
+    store::link_figure(&state.pool, store_id, figure_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// DELETE — remove one figure from a store. Note that the
+/// `owned_items_sync_store` / `preorders_sync_store` triggers will re-add
+/// the link on the next write of a matching owned_item or preorder; the
+/// admin's removal only sticks until then.
+async fn remove_figure_from_store(
+    State(state): State<AppState>,
+    session: Session,
+    Path((store_id, figure_id)): Path<(Uuid, Uuid)>,
+) -> AppResult<StatusCode> {
+    auth::require_admin(&session, &state.pool).await?;
+    store::unlink_figure(&state.pool, store_id, figure_id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
 // ---------- /admin/figure-types — CRUD --------------------------------------
 
 async fn list_figure_types_admin(
@@ -379,6 +487,21 @@ pub fn router() -> Router<AppState> {
             patch(patch_figure_type).delete(delete_figure_type),
         )
         .route("/admin/figure-types/{id}/usage", get(figure_type_usage))
+        // ─── stores — admin CRUD + usage ─────────────────────────────────
+        .route(
+            "/admin/stores",
+            get(list_stores_admin).post(create_store),
+        )
+        .route(
+            "/admin/stores/{id}",
+            patch(patch_store).delete(delete_store),
+        )
+        .route("/admin/stores/{id}/usage", get(store_usage))
+        .route("/admin/stores/{id}/figures", put(set_store_figures))
+        .route(
+            "/admin/stores/{store_id}/figures/{figure_id}",
+            post(add_figure_to_store).delete(remove_figure_from_store),
+        )
 }
 
 /// Photo upload routes for catalog entities. Split out so `routes::mod` can
@@ -391,6 +514,7 @@ pub fn photo_upload_router() -> Router<AppState> {
             post(upload_manufacturer_photo),
         )
         .route("/admin/series/{id}/photo", post(upload_series_photo))
+        .route("/admin/stores/{id}/photo", post(upload_store_photo))
         .route(
             "/admin/characters/{id}/photo",
             post(upload_character_photo),

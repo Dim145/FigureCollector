@@ -123,13 +123,21 @@ export default function AppShell({ children }) {
 
           {/* Right cluster */}
           <div className="ml-auto flex items-center gap-2 shrink-0">
-            <kbd
-              title="⌘K"
-              aria-hidden
-              className="hidden md:inline-flex items-center px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] border border-[var(--color-or)]/30 text-[var(--color-or-pale)] hover:border-[var(--color-or)] transition-colors cursor-pointer leading-none"
+            <button
+              type="button"
+              title={t("palette.aria_open")}
+              aria-label={t("palette.aria_open")}
+              onClick={() =>
+                window.dispatchEvent(
+                  new CustomEvent("figurecollector:toggle-palette"),
+                )
+              }
+              className="hidden md:inline-flex items-center px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] border border-[var(--color-or)]/30 text-[var(--color-or-pale)] hover:border-[var(--color-or)] hover:text-[var(--color-or)] transition-colors cursor-pointer leading-none focus:outline-none focus-visible:border-[var(--color-or)] focus-visible:text-[var(--color-or)]"
             >
-              {t("palette.hint_open")}
-            </kbd>
+              <kbd className="bg-transparent font-mono">
+                {t("palette.hint_open")}
+              </kbd>
+            </button>
 
             {/* Primary CTA */}
             {authed ? (

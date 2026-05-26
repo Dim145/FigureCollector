@@ -5,6 +5,7 @@ import { useDefaultCurrency } from "../hooks/useMe.js";
 import Button from "./Button.jsx";
 import FormField from "./FormField.jsx";
 import Select from "./Select.jsx";
+import StoreAutocomplete from "./StoreAutocomplete.jsx";
 
 const CONDITION_OPTIONS = [
   "mib_sealed",
@@ -184,7 +185,7 @@ export default function AddToCollectionForm({
       {moreOpen ? (
         <div className="space-y-4 pt-2 border-t border-dashed border-[var(--color-or)]/20">
           <div className="grid sm:grid-cols-2 gap-3">
-            <FormField
+            <StoreAutocomplete
               label={t("addowned.field.store")}
               value={form.store}
               onChange={set("store")}

@@ -35,7 +35,9 @@ const AdminUsersPage       = lazy(() => import("./pages/AdminUsersPage.jsx"));
 const AdminFiguresPage     = lazy(() => import("./pages/AdminFiguresPage.jsx"));
 const AdminCatalogPage     = lazy(() => import("./pages/AdminCatalogPage.jsx"));
 const AdminFigureTypesPage = lazy(() => import("./pages/AdminFigureTypesPage.jsx"));
+const AdminStoresPage      = lazy(() => import("./pages/AdminStoresPage.jsx"));
 const AdminNotificationsPage = lazy(() => import("./pages/AdminNotificationsPage.jsx"));
+const StorePage            = lazy(() => import("./pages/StorePage.jsx"));
 
 import CommandPalette from "./components/CommandPalette.jsx";
 import LiveSyncProvider from "./components/LiveSyncProvider.jsx";
@@ -92,6 +94,7 @@ export default function App() {
               path="/characters/:slug"
               element={<EntityPage kind="character" />}
             />
+            <Route path="/stores/:slug" element={<StorePage />} />
             <Route path="/preorders" element={<PreordersPage />} />
             <Route path="/activity" element={<ActivityPage />} />
             <Route path="/year-in-review/:year" element={<YearInReviewPage />} />
@@ -105,6 +108,7 @@ export default function App() {
               <Route path="figures" element={<AdminFiguresPage />} />
               <Route path="catalog" element={<AdminCatalogPage />} />
               <Route path="figure-types" element={<AdminFigureTypesPage />} />
+              <Route path="stores" element={<AdminStoresPage />} />
               <Route path="notifications" element={<AdminNotificationsPage />} />
             </Route>
             <Route path="/settings" element={<SettingsPage />} />

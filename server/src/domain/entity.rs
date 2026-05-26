@@ -83,6 +83,58 @@ pub async fn find_manufacturer_by_slug(pool: &PgPool, slug: &str) -> AppResult<O
     Ok(row)
 }
 
+/// Lightweight `{id, name, slug}` rows for the figure-form manufacturer
+/// autocomplete. Same shape + cap as [`list_series_lookup`].
+#[derive(Debug, Clone, Serialize, FromRow)]
+pub struct ManufacturerLookup {
+    pub id: Uuid,
+    pub name: String,
+    pub slug: String,
+}
+
+pub async fn list_manufacturers_lookup(pool: &PgPool) -> AppResult<Vec<ManufacturerLookup>> {
+    Ok(sqlx::query_as::<_, ManufacturerLookup>(
+        "SELECT id, name, slug FROM manufacturers ORDER BY name ASC LIMIT 1000",
+    )
+    .fetch_all(pool)
+    .await?)
+}
+
+/// Sculptors have no slug-based public page (yet) but we still expose
+/// `slug` so the autocomplete row keys are stable.
+#[derive(Debug, Clone, Serialize, FromRow)]
+pub struct SculptorLookup {
+    pub id: Uuid,
+    pub name: String,
+    pub slug: String,
+}
+
+pub async fn list_sculptors_lookup(pool: &PgPool) -> AppResult<Vec<SculptorLookup>> {
+    Ok(sqlx::query_as::<_, SculptorLookup>(
+        "SELECT id, name, slug FROM sculptors ORDER BY name ASC LIMIT 1000",
+    )
+    .fetch_all(pool)
+    .await?)
+}
+
+/// Distinct material names previously used on any figure. Powers the
+/// `materials` field's per-token autocomplete in the figure form.
+/// Returns plain strings — materials are not a separate entity, just a
+/// `text[]` column on `figures`. We pre-trim + ignore blanks here so the
+/// frontend gets a clean alphabetical list.
+pub async fn list_materials_lookup(pool: &PgPool) -> AppResult<Vec<String>> {
+    let rows: Vec<(String,)> = sqlx::query_as(
+        "SELECT DISTINCT trim(m) AS name \
+         FROM figures, unnest(materials) AS m \
+         WHERE trim(m) <> '' \
+         ORDER BY name ASC \
+         LIMIT 200",
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows.into_iter().map(|(n,)| n).collect())
+}
+
 pub async fn list_manufacturers(
     pool: &PgPool,
     q: Option<&str>,
@@ -224,6 +276,25 @@ pub async fn find_series_by_slug(pool: &PgPool, slug: &str) -> AppResult<Option<
     )
     .bind(slug)
     .fetch_optional(pool)
+    .await?)
+}
+
+/// Lightweight `{id, name, slug}` rows for the public series autocomplete.
+/// The figure form filters client-side, so we send the full registry in one
+/// short payload and cache it aggressively. Cap kept generous — a personal
+/// catalogue rarely climbs past a few hundred series.
+#[derive(Debug, Clone, Serialize, FromRow)]
+pub struct SeriesLookup {
+    pub id: Uuid,
+    pub name: String,
+    pub slug: String,
+}
+
+pub async fn list_series_lookup(pool: &PgPool) -> AppResult<Vec<SeriesLookup>> {
+    Ok(sqlx::query_as::<_, SeriesLookup>(
+        "SELECT id, name, slug FROM series ORDER BY name ASC LIMIT 1000",
+    )
+    .fetch_all(pool)
     .await?)
 }
 
@@ -387,6 +458,29 @@ pub async fn find_character_by_slug(pool: &PgPool, slug: &str) -> AppResult<Opti
     )
     .bind(slug)
     .fetch_optional(pool)
+    .await?)
+}
+
+/// Lightweight character row for the autocomplete dropdown. The joined
+/// `series_name` makes disambiguation obvious in the UI ("Saber — Fate/stay
+/// night" vs. another Saber), without forcing the heavier
+/// [`list_characters`] payload.
+#[derive(Debug, Clone, Serialize, FromRow)]
+pub struct CharacterLookup {
+    pub id: Uuid,
+    pub name: String,
+    pub slug: String,
+    pub series_name: Option<String>,
+}
+
+pub async fn list_characters_lookup(pool: &PgPool) -> AppResult<Vec<CharacterLookup>> {
+    Ok(sqlx::query_as::<_, CharacterLookup>(
+        "SELECT c.id, c.name, c.slug, s.name AS series_name \
+         FROM characters c \
+         LEFT JOIN series s ON s.id = c.series_id \
+         ORDER BY c.name ASC LIMIT 2000",
+    )
+    .fetch_all(pool)
     .await?)
 }
 

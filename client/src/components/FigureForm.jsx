@@ -1,9 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 import { useDefaultCurrency } from "../hooks/useMe.js";
+import {
+  useCharactersLookup,
+  useManufacturersLookup,
+  useMaterialsLookup,
+  useSculptorsLookup,
+  useSeriesLookup,
+} from "../hooks/useEntities.js";
+import { useIsAdmin } from "../hooks/useMe.js";
 import AniListLookup from "./AniListLookup.jsx";
 import Button from "./Button.jsx";
+import EntityAutocomplete from "./EntityAutocomplete.jsx";
 import FigureLookup from "./FigureLookup.jsx";
+import FigureStoresEditor from "./FigureStoresEditor.jsx";
 import FormField from "./FormField.jsx";
 import Select from "./Select.jsx";
 
@@ -46,6 +56,16 @@ export default function FigureForm({
 }) {
   const t = useT();
   const defaultCurrency = useDefaultCurrency();
+  const isAdmin = useIsAdmin();
+  // Autocomplete sources — cached 5 min, prefetched eagerly so the dropdown
+  // is responsive on the first keystroke. The endpoints return only
+  // {id, name, slug} (+ joined series_name for characters), so the
+  // payload stays small even with hundreds of entities.
+  const seriesLookup = useSeriesLookup();
+  const charactersLookup = useCharactersLookup();
+  const manufacturersLookup = useManufacturersLookup();
+  const sculptorsLookup = useSculptorsLookup();
+  const materialsLookup = useMaterialsLookup();
 
   const [form, setForm] = useState(() => normalise(initial, defaultCurrency));
   // If the caller swaps `initial` (Edit modal jumping to a new figure), we
@@ -151,10 +171,11 @@ export default function FigureForm({
       >
         <div className="grid sm:grid-cols-2 gap-5">
           <div className="sm:col-span-1">
-            <FormField
+            <EntityAutocomplete
               label={t("addfig.field.series")}
               value={form.series_name}
               onChange={set("series_name")}
+              data={seriesLookup.data}
               disabled={busy}
             />
             <AniListLookup
@@ -185,10 +206,14 @@ export default function FigureForm({
               }
             />
           </div>
-          <FormField
+          <EntityAutocomplete
             label={t("addfig.field.character")}
             value={form.character_name}
             onChange={set("character_name")}
+            data={charactersLookup.data}
+            // Show the linked series next to the character name so
+            // duplicates (e.g. multiple "Saber") are easy to tell apart.
+            getMeta={(c) => c.series_name}
             disabled={busy}
           />
         </div>
@@ -222,10 +247,14 @@ export default function FigureForm({
             disabled={busy}
           />
         </div>
-        <FormField
+        <EntityAutocomplete
           label={t("addfig.field.materials")}
           value={form.materials}
           onChange={set("materials")}
+          data={materialsLookup.data}
+          // Comma-separated multi-value mode: each pick replaces only the
+          // token after the last comma, lets the user keep adding more.
+          multiValueSeparator=","
           placeholder={t("figure.form.ph.materials")}
           hint={t("figure.form.ph.materials_hint")}
           disabled={busy}
@@ -238,16 +267,18 @@ export default function FigureForm({
         title={t("figure.form.section.production.title")}
       >
         <div className="grid sm:grid-cols-2 gap-5">
-          <FormField
+          <EntityAutocomplete
             label={t("addfig.field.manufacturer")}
             value={form.manufacturer_name}
             onChange={set("manufacturer_name")}
+            data={manufacturersLookup.data}
             disabled={busy}
           />
-          <FormField
+          <EntityAutocomplete
             label={t("addfig.field.sculptor")}
             value={form.sculptor_name}
             onChange={set("sculptor_name")}
+            data={sculptorsLookup.data}
             disabled={busy}
           />
           <FormField
@@ -353,6 +384,14 @@ export default function FigureForm({
         </label>
       </section>
 
+      {/* Admin-only section for editing the figure↔store M2M. Only shown
+       *  when editing an existing figure (we need a stable id to mutate). */}
+      {mode === "edit" && isAdmin && initial?.id ? (
+        <section className="pt-2">
+          <FigureStoresEditor figureId={initial.id} />
+        </section>
+      ) : null}
+
       {extras ? <div className="pt-2">{extras}</div> : null}
 
       {errorMessage ? (
@@ -402,6 +441,11 @@ const EMPTY = {
   official_image_url: "",
   description: "",
   is_nsfw: false,
+  // Captured from FigureLookup.buildPick when the user imports a figure
+  // by pasting a store product URL. Sent alongside the create payload so
+  // the backend can auto-link the new figure to the matching store. Not
+  // persisted on the figures table — purely a creation-time signal.
+  source_url: "",
   // Related-entity enrichment carried alongside the *_name strings.
   // Lookups (AniList, MAL, orzgk) populate these; the upsert on the server
   // only persists them when the matching column is currently NULL.
@@ -439,6 +483,9 @@ function normalise(initial, defaultCurrency = "JPY") {
     official_image_url: initial.official_image_url ?? "",
     description: initial.description ?? "",
     is_nsfw: !!initial.is_nsfw,
+    // Source URL is transient (only set when freshly imported via lookup);
+    // editing an existing figure restarts blank.
+    source_url: "",
     manufacturer_meta: initial.manufacturer_meta ?? {},
     series_meta: initial.series_meta ?? {},
     character_meta: initial.character_meta ?? {},
@@ -479,6 +526,10 @@ function serialise(form, _mode) {
     official_image_url: nz(form.official_image_url),
     description: nz(form.description),
     is_nsfw: !!form.is_nsfw,
+    // Source URL only forwarded on create — the backend matches its
+    // hostname against `stores.url` and INSERTs into figure_stores for
+    // every matching store before committing the figure.
+    source_url: nz(form.source_url),
     // Related-entity metadata — only included when there's at least one
     // populated field so we don't waste bytes on the wire.
     manufacturer_meta: nonEmptyMeta(form.manufacturer_meta),

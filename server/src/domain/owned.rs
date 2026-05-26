@@ -19,7 +19,11 @@ pub struct OwnedItem {
     /// Stored separately so the figure cost stays comparable to the
     /// catalog MSRP; total paid = `price_amount + shipping_amount`.
     pub shipping_amount: Option<Decimal>,
-    pub store: Option<String>,
+    /// FK to the `stores` table. Replaces the old free-text `store` column
+    /// (migration 22). Callers send the *name* string in NewOwnedItem /
+    /// OwnedPatch; the handler resolves it to an id via
+    /// `store::find_or_create`.
+    pub store_id: Option<Uuid>,
     pub purchase_date: Option<NaiveDate>,
     pub location: Option<String>,
     pub notes: Option<String>,
@@ -40,7 +44,11 @@ pub struct OwnedItemWithFigure {
     pub price_amount: Option<Decimal>,
     pub price_currency: Option<String>,
     pub shipping_amount: Option<Decimal>,
-    pub store: Option<String>,
+    /// Joined from `stores` — `None` when the user never picked a store or
+    /// the store was deleted (FK is ON DELETE SET NULL).
+    pub store_id: Option<Uuid>,
+    pub store_name: Option<String>,
+    pub store_slug: Option<String>,
     pub purchase_date: Option<NaiveDate>,
     pub location: Option<String>,
     pub notes: Option<String>,
@@ -86,6 +94,10 @@ pub struct NewOwnedItem {
     pub price_amount: Option<Decimal>,
     pub price_currency: Option<String>,
     pub shipping_amount: Option<Decimal>,
+    /// Free-text store name — the handler runs it through
+    /// `store::find_or_create` so any user can implicitly add a new
+    /// store row by typing its name, and the slug-based lookup collapses
+    /// "AmiAmi" / "amiami" / "Ami Ami" onto a single canonical row.
     pub store: Option<String>,
     pub purchase_date: Option<NaiveDate>,
     pub location: Option<String>,
@@ -112,7 +124,7 @@ const ALLOWED_CONDITIONS: &[&str] = &["mib_sealed", "opened_box", "displayed", "
 
 const OWNED_RETURNING: &str =
     "id, user_id, figure_id, condition, price_amount, price_currency, shipping_amount, \
-     store, purchase_date, location, notes, cover_photo_id, cover_scan_id, \
+     store_id, purchase_date, location, notes, cover_photo_id, cover_scan_id, \
      archived_at, created_at, updated_at";
 
 pub async fn create(pool: &PgPool, user_id: Uuid, input: NewOwnedItem) -> AppResult<OwnedItem> {
@@ -128,11 +140,20 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewOwnedItem) -> AppRes
         return Err(AppError::BadRequest("notes too long (max 4096)"));
     }
 
+    // Resolve the free-text store name into a stores.id. If the slug
+    // collides with an existing row, we reuse that id; otherwise a fresh
+    // store is created (any signed-in user can do this — admin-only
+    // metadata fields stay null until an admin curates them).
+    let store_id = match input.store.as_deref() {
+        Some(name) => super::store::find_or_create(pool, name).await?,
+        None => None,
+    };
+
     let id = Uuid::now_v7();
     let sql = format!(
         "INSERT INTO owned_items (
             id, user_id, figure_id, condition, price_amount, price_currency, shipping_amount,
-            store, purchase_date, location, notes
+            store_id, purchase_date, location, notes
          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
          RETURNING {OWNED_RETURNING}"
     );
@@ -145,7 +166,7 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewOwnedItem) -> AppRes
         .bind(input.price_amount)
         .bind(&input.price_currency)
         .bind(input.shipping_amount)
-        .bind(&input.store)
+        .bind(store_id)
         .bind(input.purchase_date)
         .bind(&input.location)
         .bind(&input.notes)
@@ -171,13 +192,21 @@ pub async fn patch(
         }
     }
 
+    // Same find-or-create as in `create()`. Patch with `store: ""` is a
+    // no-op (find_or_create returns None for empty input, and COALESCE
+    // keeps the existing value when the bind is None).
+    let store_id = match input.store.as_deref() {
+        Some(name) => super::store::find_or_create(pool, name).await?,
+        None => None,
+    };
+
     let sql = format!(
         "UPDATE owned_items SET
             condition        = COALESCE($1, condition),
             price_amount     = COALESCE($2, price_amount),
             price_currency   = COALESCE($3, price_currency),
             shipping_amount  = COALESCE($4, shipping_amount),
-            store            = COALESCE($5, store),
+            store_id         = COALESCE($5, store_id),
             purchase_date    = COALESCE($6, purchase_date),
             location         = COALESCE($7, location),
             notes            = COALESCE($8, notes)
@@ -190,7 +219,7 @@ pub async fn patch(
         .bind(input.price_amount)
         .bind(&input.price_currency)
         .bind(input.shipping_amount)
-        .bind(&input.store)
+        .bind(store_id)
         .bind(input.purchase_date)
         .bind(&input.location)
         .bind(&input.notes)
@@ -216,7 +245,10 @@ pub async fn list_for_user(
         "SELECT
             o.id, o.figure_id, o.condition, o.price_amount, o.price_currency,
             o.shipping_amount,
-            o.store, o.purchase_date, o.location, o.notes,
+            o.store_id,
+            st.name AS store_name,
+            st.slug AS store_slug,
+            o.purchase_date, o.location, o.notes,
             o.archived_at, o.created_at,
             f.name AS figure_name, f.slug AS figure_slug, f.figure_type,
             f.official_image_url AS figure_image,
@@ -236,6 +268,7 @@ pub async fn list_for_user(
          FROM owned_items o
          JOIN figures f          ON f.id = o.figure_id
          LEFT JOIN manufacturers m ON m.id = f.manufacturer_id
+         LEFT JOIN stores st       ON st.id = o.store_id
          LEFT JOIN preorders p   ON p.owned_item_id = o.id
          WHERE o.user_id = $1",
     );

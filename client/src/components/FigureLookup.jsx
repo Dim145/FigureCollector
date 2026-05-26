@@ -800,6 +800,9 @@ function buildPick(detail, version, price) {
     scale: detail.scale,
     height_mm: detail.height_mm ? String(detail.height_mm) : undefined,
     materials: detail.product_material,
+    // The orzgk URL the user pasted — the backend uses its hostname to
+    // auto-link the new figure to the matching store at create time.
+    source_url: detail.url,
     // Limited editions: surface the count via the `edition` field; the
     // exclusivity slot is reserved for retailer / channel exclusives.
     edition: detail.limited_units
@@ -830,5 +833,6 @@ function legacyPick(row, t) {
     description: row.detail_url
       ? `${t("lookup.figure.source_prefix")} ${row.detail_url}`
       : undefined,
+    source_url: row.detail_url,
   };
 }

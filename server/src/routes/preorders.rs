@@ -38,9 +38,10 @@ async fn add_mine(
         if let Some(d) = po.release_date_current {
             obj.insert("release_date".into(), serde_json::Value::String(d.to_string()));
         }
-        if let Some(s) = &po.store {
-            obj.insert("store".into(), serde_json::Value::String(s.clone()));
-        }
+        // `po.store` used to be the free-text store name; now it's
+        // `store_id` (UUID, less useful in activity snapshots). The
+        // store name can be recovered by following the preorder_id
+        // link, so we skip embedding it here.
     }
     activity::record(&state.pool, user_id, "preorder_created", snap).await;
 

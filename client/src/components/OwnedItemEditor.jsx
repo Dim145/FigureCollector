@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import {
   usePreorderForOwned,
@@ -12,6 +13,7 @@ import CancellationDialog from "./CancellationDialog.jsx";
 import FormField from "./FormField.jsx";
 import PriceWithBreakdown from "./PriceWithBreakdown.jsx";
 import Select from "./Select.jsx";
+import StoreAutocomplete from "./StoreAutocomplete.jsx";
 
 /** Allowed condition values, mirrored from the server's allow-list. */
 const CONDITION_OPTIONS = [
@@ -161,7 +163,22 @@ function ReadMode({ owned, preorder, catalogMsrp, catalogCurrency, t }) {
           ? new Date(owned.purchase_date).toLocaleDateString()
           : "—"}
       </Row>
-      <Row label={t("owned.editor.field.store")}>{owned.store ?? "—"}</Row>
+      <Row label={t("owned.editor.field.store")}>
+        {owned.store_name ? (
+          owned.store_slug ? (
+            <Link
+              to={`/stores/${owned.store_slug}`}
+              className="text-[var(--color-or-pale)] underline decoration-[var(--color-or)]/30 hover:decoration-[var(--color-or)] underline-offset-4"
+            >
+              {owned.store_name}
+            </Link>
+          ) : (
+            owned.store_name
+          )
+        ) : (
+          "—"
+        )}
+      </Row>
       <Row label={t("owned.editor.field.price")}>
         {owned.price_amount || owned.shipping_amount || deposit ? (
           <PriceWithBreakdown
@@ -344,7 +361,7 @@ function EditMode({ owned, preorder, catalogMsrp, catalogCurrency, onClose, t })
       </div>
 
       <div className="grid sm:grid-cols-[2fr_1fr] gap-4">
-        <FormField
+        <StoreAutocomplete
           label={t("owned.editor.field.store")}
           value={form.store}
           onChange={set("store")}
@@ -490,7 +507,10 @@ function seedFromOwned(owned, preorder, defaultCurrency = "JPY") {
       owned.shipping_amount != null ? String(owned.shipping_amount) : "",
     deposit_amount:
       preorder?.deposit_amount != null ? String(preorder.deposit_amount) : "",
-    store: owned.store ?? "",
+    // Seed from the joined store_name when the server resolved one; we still
+    // round-trip it as a free-text `store` field so the upsert can rebind
+    // by slug on save.
+    store: owned.store_name ?? "",
     // Fall back to the date the row was added when no explicit purchase
     // date was ever set — for most collectors those are the same day.
     purchase_date:

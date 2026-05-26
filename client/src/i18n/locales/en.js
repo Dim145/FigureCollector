@@ -560,6 +560,7 @@ export default {
 
   "palette.placeholder": "Find a page, a figure, a manufacturer…",
   "palette.hint_open": "⌘K",
+  "palette.aria_open": "Open command palette",
   "palette.no_results": "No results",
   "palette.group.navigation": "Navigation",
   "palette.group.collection": "My collection",
@@ -875,7 +876,40 @@ export default {
   "admin.tab.figures": "Catalog",
   "admin.tab.catalog": "Entities",
   "admin.tab.figure_types": "Types",
+  "admin.tab.stores": "Stores",
   "admin.tab.notifications": "Notifications",
+
+  // Public store page (/stores/:slug)
+  "store.eyebrow": "Store",
+  "store.missing.title": "Store not found",
+  "store.catalog.title": "Catalogue",
+  "store.catalog.count": "{n} figure(s)",
+  "store.catalog.empty": "No figures linked to this store yet.",
+
+  // Admin · stores registry (/admin/stores)
+  "admin.stores.eyebrow": "Registry",
+  "admin.stores.title": "Stores",
+  "admin.stores.body":
+    "Stores are shared across every account. A unique name is all it takes to create one — URL, profile picture and description are admin-only.",
+  "admin.stores.count": "{n} row(s)",
+  "admin.stores.add": "Add",
+  "admin.stores.confirm_add": "Create",
+  "admin.stores.confirm_edit": "Save",
+  "admin.stores.edit": "Edit",
+  "admin.stores.delete": "Delete",
+  "admin.stores.delete_yes": "Confirm",
+  "admin.stores.delete_no": "Cancel",
+  "admin.stores.empty": "No stores in the registry yet.",
+  "admin.stores.usage": "{owned} owned · {pre} preorder(s)",
+  "admin.stores.usage_empty": "Unused",
+  "admin.stores.no_url": "No URL",
+  "admin.stores.upload_image": "Upload",
+  "admin.stores.field.name": "Name",
+  "admin.stores.field.name_ph": "AmiAmi, GSC Online…",
+  "admin.stores.field.url": "URL",
+  "admin.stores.field.description": "Description",
+  "admin.stores.field.image": "Profile picture",
+
   "admin.types.eyebrow": "Figure categories",
   "admin.types.title": "Types — registry",
   "admin.types.body": "Curate the catalog's figure-type taxonomy. Each type carries a kanji seal, a technical slug, and bilingual labels. Position drives the dropdown order.",
@@ -999,6 +1033,34 @@ export default {
   "figure.cartouche.identity": "Identity",
   "figure.cartouche.production": "Production",
   "figure.cartouche.market": "Market",
+  "figure.cartouche.stores": "Stores",
+
+  // Figure detail · linked-stores modal
+  "figure.stores.modal.title": "Linked stores",
+  "figure.stores.modal.count": "{n} store(s)",
+
+  // FigureForm · admin "Linked stores" section
+  "figure.form.stores.title": "Linked stores",
+  "figure.form.stores.help":
+    "Stores where this figure shows up in the catalogue. Auto-linked when a user buys or preorders it; admins can add or remove links manually.",
+  "figure.form.stores.empty": "No store linked yet.",
+  "figure.form.stores.add_label": "Store",
+  "figure.form.stores.add_ph": "Existing store name…",
+  "figure.form.stores.add_btn": "Link",
+  "figure.form.stores.unknown":
+    "No store under that name. Create it first from /admin/stores.",
+  "figure.form.stores.already": "That store is already linked.",
+  "figure.form.stores.remove": "Remove {name}",
+
+  // StorePage · bulk edit catalog (admin)
+  "store.catalog.bulk_edit": "Edit catalog",
+  "store.catalog.bulk_selected": "{n} selected",
+  "store.catalog.bulk_search_ph": "Filter by name…",
+  "store.catalog.bulk_select_all": "Check visible",
+  "store.catalog.bulk_select_none": "Uncheck visible",
+  "store.catalog.bulk_no_match": "No matching figure.",
+  "store.catalog.bulk_save": "Save",
+
   "figure.spec.type": "Type",
   "figure.spec.nsfw": "Rating",
   "figure.spec.nsfw_yes": "18+",

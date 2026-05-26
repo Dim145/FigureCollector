@@ -63,11 +63,11 @@ export default function PreorderHistory({ ownedId }) {
         <span className={statusPillClasses(phase)}>
           {t(`preorder.status.${po.status}`, { default: po.status })}
         </span>
-        {po.store ? (
+        {po.store_name ? (
           <span className="text-[var(--color-ivoire-soft)]">
             {t("preorder.history.store")}{" "}
             <span className="text-[var(--color-or-pale)] normal-case tracking-normal">
-              {po.store}
+              {po.store_name}
             </span>
           </span>
         ) : null}

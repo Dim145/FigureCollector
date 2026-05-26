@@ -13,3 +13,4 @@ pub mod photo;
 pub mod preorder;
 pub mod scan;
 pub mod stats;
+pub mod store;

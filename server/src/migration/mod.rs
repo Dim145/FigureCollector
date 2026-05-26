@@ -34,6 +34,8 @@ mod m20260526_000001_preorder_deposit;
 mod m20260526_000002_preorder_cancellation;
 mod m20260526_000003_preorder_delivery_estimate;
 mod m20260526_000004_figure_types;
+mod m20260526_000005_stores;
+mod m20260526_000006_figure_stores;
 
 pub struct Migrator;
 
@@ -63,6 +65,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260526_000002_preorder_cancellation::Migration),
             Box::new(m20260526_000003_preorder_delivery_estimate::Migration),
             Box::new(m20260526_000004_figure_types::Migration),
+            Box::new(m20260526_000005_stores::Migration),
+            Box::new(m20260526_000006_figure_stores::Migration),
         ]
     }
 }

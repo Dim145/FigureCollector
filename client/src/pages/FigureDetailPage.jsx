@@ -4,6 +4,7 @@ import { useT } from "../i18n/index.jsx";
 import { useIsAdmin, useMe } from "../hooks/useMe.js";
 import { useFigure, useOwnedItems } from "../hooks/useCollection.js";
 import { useDeleteFigure } from "../hooks/useAdmin.js";
+import { useStoresForFigure } from "../hooks/useStores.js";
 import { ApiError } from "../lib/api.js";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
@@ -14,6 +15,7 @@ import AddToCollectionForm from "../components/AddToCollectionForm.jsx";
 import BarcodeDialog from "../components/BarcodeDialog.jsx";
 import FigurePhotosSection from "../components/FigurePhotosSection.jsx";
 import Foldable from "../components/Foldable.jsx";
+import LinkedStoresModal from "../components/LinkedStoresModal.jsx";
 import OwnedItemEditor from "../components/OwnedItemEditor.jsx";
 import PhotoStrip from "../components/PhotoStrip.jsx";
 import PreorderHistory from "../components/PreorderHistory.jsx";
@@ -407,6 +409,12 @@ function OwnedConfirmation({ t }) {
 // =============================================================================
 
 function Cartouche({ f, t, onScanJan }) {
+  // Stores linked to this figure via the M2M (any owned/preorder by any
+  // user, plus admin manual links). Show a button when count > 0.
+  const linkedStores = useStoresForFigure(f.id);
+  const stores = linkedStores.data ?? [];
+  const [storesOpen, setStoresOpen] = useState(false);
+
   // Decide whether each block has any content; skip empty blocks entirely
   // so the page never shows a header with an empty body underneath. The
   // version_name is omitted on purpose — it already appears as the italic
@@ -423,7 +431,7 @@ function Cartouche({ f, t, onScanJan }) {
 
   const market = [f.msrp_amount, f.jan, f.is_nsfw, f.is_user_submitted].some(Boolean);
 
-  if (!production && !market) return null;
+  if (!production && !market && stores.length === 0) return null;
 
   return (
     <div className="fig-cartouche">
@@ -452,6 +460,26 @@ function Cartouche({ f, t, onScanJan }) {
             </dl>
           </div>
         ) : null}
+
+      {stores.length > 0 ? (
+        <div className="fig-cartouche-stores">
+          <button
+            type="button"
+            onClick={() => setStoresOpen(true)}
+            className="fig-cartouche-stores-btn"
+          >
+            <span className="ja text-[var(--color-or)]" aria-hidden>店</span>
+            <span>{t("figure.cartouche.stores")}</span>
+            <span className="fig-cartouche-stores-count">{stores.length}</span>
+          </button>
+        </div>
+      ) : null}
+
+      <LinkedStoresModal
+        open={storesOpen}
+        stores={stores}
+        onClose={() => setStoresOpen(false)}
+      />
 
       {market ? (
         <div className="fig-cartouche-block">

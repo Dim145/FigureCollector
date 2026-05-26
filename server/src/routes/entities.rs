@@ -59,6 +59,41 @@ struct SeriesPage {
     figures: Vec<Figure>,
 }
 
+/// Lightweight registry for the figure-form autocomplete. Public — same
+/// access policy as `/series/{slug}`.
+async fn list_series_lookup(
+    State(state): State<AppState>,
+) -> AppResult<Json<Vec<entity::SeriesLookup>>> {
+    Ok(Json(entity::list_series_lookup(&state.pool).await?))
+}
+
+async fn list_characters_lookup(
+    State(state): State<AppState>,
+) -> AppResult<Json<Vec<entity::CharacterLookup>>> {
+    Ok(Json(entity::list_characters_lookup(&state.pool).await?))
+}
+
+async fn list_manufacturers_lookup(
+    State(state): State<AppState>,
+) -> AppResult<Json<Vec<entity::ManufacturerLookup>>> {
+    Ok(Json(entity::list_manufacturers_lookup(&state.pool).await?))
+}
+
+async fn list_sculptors_lookup(
+    State(state): State<AppState>,
+) -> AppResult<Json<Vec<entity::SculptorLookup>>> {
+    Ok(Json(entity::list_sculptors_lookup(&state.pool).await?))
+}
+
+/// Distinct list of materials previously used across all figures. Used by
+/// the figure-form's comma-separated materials field to suggest known
+/// values for each token the user is typing.
+async fn list_materials_lookup(
+    State(state): State<AppState>,
+) -> AppResult<Json<Vec<String>>> {
+    Ok(Json(entity::list_materials_lookup(&state.pool).await?))
+}
+
 async fn get_series(
     State(state): State<AppState>,
     session: Session,
@@ -178,8 +213,13 @@ async fn nsfw_pref(session: &Session, pool: &sqlx::PgPool) -> bool {
 
 pub fn router() -> Router<AppState> {
     Router::new()
+        .route("/manufacturers", get(list_manufacturers_lookup))
         .route("/manufacturers/{slug}", get(get_manufacturer))
+        .route("/series", get(list_series_lookup))
         .route("/series/{slug}", get(get_series))
+        .route("/characters", get(list_characters_lookup))
         .route("/characters/{slug}", get(get_character))
+        .route("/sculptors", get(list_sculptors_lookup))
+        .route("/materials", get(list_materials_lookup))
         .route("/entity-image/{kind}/{id}", get(entity_image))
 }
