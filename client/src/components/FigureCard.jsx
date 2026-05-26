@@ -53,12 +53,39 @@ export default function FigureCard({
           "0 25px 60px -30px rgba(0,0,0,0.85), inset 0 1px 0 oklch(0.92 0.03 75 / 0.05)",
       }}
     >
-      {/* Photo well — stage-lit specimen surface */}
+      {/* Photo well — stage-lit specimen surface.
+       *
+       * Visual layering (back → front):
+       *   1. Blurred backdrop copy of the image (object-cover, scaled +
+       *      blurred). Fills the letterbox bars that landscape figure
+       *      photos leave when contained in a 4:5 portrait well —
+       *      previously those bars were stark dark voids, making cards
+       *      look half-empty next to portrait figures that filled the
+       *      well. The backdrop tints the bars with ambient color from
+       *      the figure itself (Spotify-style cover treatment).
+       *   2. Ambient kanji watermark (decorative).
+       *   3. The sharp `object-contain` figure photo — never cropped.
+       *   4. Brass plaque / status stamp / inscription chrome.
+       *
+       * The two img elements share the same URL → browser dedupes the
+       * network request.
+       */}
       <div className="specimen-well relative aspect-[4/5] overflow-hidden">
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt=""
+            aria-hidden
+            loading="lazy"
+            decoding="async"
+            className={`absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-45 pointer-events-none z-0 ${blurImage ? "nsfw-blur" : ""}`}
+          />
+        ) : null}
+
         {/* Ambient kanji watermark — fades in on hover */}
         <span
           aria-hidden
-          className="ja absolute right-2 bottom-8 text-[7rem] leading-none text-transparent transition-colors duration-700 select-none pointer-events-none group-hover/card:text-[var(--color-or)]/12"
+          className="ja absolute right-2 bottom-8 text-[7rem] leading-none text-transparent transition-colors duration-700 select-none pointer-events-none z-[1] group-hover/card:text-[var(--color-or)]/12"
         >
           {kanjiForType(type)}
         </span>
@@ -68,7 +95,8 @@ export default function FigureCard({
             src={imageUrl}
             alt={name}
             loading="lazy"
-            className={`absolute inset-0 w-full h-full object-contain p-6 transition-transform duration-700 ease-[var(--ease-curtain)] group-hover/card:scale-[1.04] z-[1] ${blurImage ? "nsfw-blur" : ""}`}
+            decoding="async"
+            className={`absolute inset-0 w-full h-full object-contain p-6 transition-transform duration-700 ease-[var(--ease-curtain)] group-hover/card:scale-[1.04] z-[2] ${blurImage ? "nsfw-blur" : ""}`}
           />
         ) : (
           <FigurePlaceholder />

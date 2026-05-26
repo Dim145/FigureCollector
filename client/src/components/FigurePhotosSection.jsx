@@ -118,18 +118,30 @@ export default function FigurePhotosSection({ figureId, figureName, canEdit, upl
               key={p.id}
               className="group/photo relative aspect-square bg-[var(--color-noir-deep)] border border-[var(--color-or)]/15 overflow-hidden"
             >
+              {/* Same blurred-backdrop treatment as FigureCard's well:
+                  ambient color fills the letterbox bars left by
+                  `object-contain` so landscape figure shots don't read
+                  as half-empty next to portrait ones. */}
+              <img
+                src={`/api/figure-photos/${p.id}`}
+                alt=""
+                aria-hidden
+                loading="lazy"
+                decoding="async"
+                className={`absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-45 pointer-events-none ${blurImages ? "nsfw-blur" : ""}`}
+              />
               <button
                 type="button"
                 onClick={() => setLightbox(i)}
                 aria-label={t("photos.view")}
-                className="absolute inset-0 w-full h-full"
+                className="absolute inset-0 w-full h-full z-[1]"
               >
                 <img
                   src={`/api/figure-photos/${p.id}`}
                   alt={`${figureName ?? t("photos.view")} — ${i + 1}`}
                   loading="lazy"
                   decoding="async"
-                  className={`w-full h-full object-cover transition-transform duration-500 group-hover/photo:scale-105 ${blurImages ? "nsfw-blur" : ""}`}
+                  className={`w-full h-full object-contain p-2 transition-transform duration-500 group-hover/photo:scale-[1.03] ${blurImages ? "nsfw-blur" : ""}`}
                 />
               </button>
 
