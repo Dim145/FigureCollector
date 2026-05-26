@@ -123,7 +123,13 @@ export default function FigureHero({
   const dividerBefore = firstMineIndex > 0 ? firstMineIndex : null;
 
   return (
-    <div className="flex flex-col gap-4 reveal" style={{ "--i": 0 }}>
+    // `min-w-0` is non-negotiable here: this div is a grid item in the
+    // detail page's `grid-cols-[1.1fr_1fr]` hero. Without it, the column
+    // track's `min-width: auto` resolves to the well's intrinsic min-content
+    // (which interacts pathologically with `aspect-[4/5]` + `max-h-[78vh]`)
+    // and ends up ~1144px wide on a 1280-grid, squeezing the title column
+    // to 302px and pushing it off-screen.
+    <div className="flex flex-col gap-4 reveal min-w-0" style={{ "--i": 0 }}>
       {/* Main image well.
        *
        * Sizing: the parent grid column on desktop is `1.1fr` of a 7xl

@@ -212,7 +212,11 @@ function HeroSection({
           nsfwBlurClass={nsfwClass(f.is_nsfw, nsfwPref)}
         />
 
-        <div className="relative pt-2">
+        <div className="relative pt-2 min-w-0">
+          {/* `min-w-0` mirrors the FigureHero side — both grid items need
+           *  it for the `1.1fr_1fr` track to resolve correctly. Without it
+           *  a long unbreakable token in the title would expand THIS
+           *  column's min-content past its share and overflow the page. */}
           {/* Lot stamp + action cluster — allow wrap on narrow viewports so
            *  neither overflows when both are present. */}
           <div
@@ -302,7 +306,13 @@ function DescriptionBlock({ text, t, delay = 5 }) {
   const display = !isLong || expanded ? text : text.slice(0, 220).trimEnd() + "…";
   return (
     <div className="reveal mb-7" style={{ "--i": delay }}>
-      <p className="text-[var(--color-ivoire-soft)] leading-relaxed whitespace-pre-wrap">
+      {/* `break-words` + `overflow-wrap: anywhere` keep imported
+       *  descriptions sane when they contain bare URLs
+       *  (`https://www.orzgk.com/product/.../`) or other unbreakable
+       *  tokens — those would otherwise extend the column's min-content
+       *  past its grid track's share. Paired with `min-w-0` on the grid
+       *  item itself (see HeroSection), this is belt-and-braces. */}
+      <p className="text-[var(--color-ivoire-soft)] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
         {display}
       </p>
       {isLong ? (
