@@ -54,9 +54,26 @@ export default function NotificationBell() {
         aria-label={t("notifications.bell.aria", { n: unread })}
         className="notif-bell"
       >
-        <span aria-hidden className="notif-bell-icon">
-          ◔
-        </span>
+        {/* Inline SVG bell — uses `currentColor` so it picks up the
+         *  `.notif-bell` `color: var(--color-or-pale)` rule and the
+         *  hover-state colour transition automatically. Sized at 16
+         *  via the CSS class (`.notif-bell-icon`); the viewBox is
+         *  scaled to match. */}
+        <svg
+          aria-hidden
+          className="notif-bell-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          {/* Bell body: a rounded dome flaring to a flat lip. */}
+          <path d="M6 16V10a6 6 0 0 1 12 0v6l1.5 2H4.5L6 16Z" />
+          {/* Clapper / hand: little tongue under the lip. */}
+          <path d="M10 19a2 2 0 0 0 4 0" />
+        </svg>
         {unread > 0 ? (
           <span aria-hidden className="notif-bell-badge">
             {unread > 99 ? "99+" : unread}

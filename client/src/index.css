@@ -5843,8 +5843,11 @@ a.horarium-entry-title:hover {
   border-color: var(--color-or);
 }
 .notif-bell-icon {
-  font-size: 14px;
-  line-height: 1;
+  /* SVG bell — width drives the size, height matches automatically via
+   * the viewBox. 16px reads well at the 32-square button. */
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 .notif-bell-badge {
   position: absolute;
