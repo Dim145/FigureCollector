@@ -234,7 +234,7 @@ export default function AppShell({ children }) {
               像
             </span>
             FigureCollector ·{" "}
-            <span className="font-mono normal-case tracking-wide">v0.11</span>
+            <span className="font-mono normal-case tracking-wide">v0.12</span>
           </p>
           <p className="display-italic normal-case text-[12px] tracking-normal text-[var(--color-or-pale)]/70">
             {t("app.tagline_en")}
