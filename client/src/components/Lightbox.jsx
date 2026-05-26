@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useFocusTrap } from "../hooks/useFocusTrap.js";
+import { useImageZoom } from "../hooks/useImageZoom.js";
 import { useT } from "../i18n/index.jsx";
 
 /**
@@ -23,12 +24,23 @@ export default function Lightbox({ open, slides, index, onChange, onClose }) {
   const t = useT();
   const cardRef = useRef(null);
   useFocusTrap(cardRef, { active: open, onClose });
+  const zoom = useImageZoom();
+
+  // Reset zoom + pan whenever the slide changes or the dialog opens.
+  // Each photo gets a fresh fit.
+  useEffect(() => {
+    if (!open) return;
+    zoom.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, index]);
 
   // Arrow-key navigation — wired on the dialog itself so the focus trap's
-  // own keydown handler still gets Tab + Esc.
+  // own keydown handler still gets Tab + Esc. Suppressed when the user is
+  // zoomed in (likely inspecting THIS slide, not flipping through).
   useEffect(() => {
     if (!open) return undefined;
     const onKey = (e) => {
+      if (zoom.isZoomed) return;
       if (e.key === "ArrowLeft") {
         e.preventDefault();
         onChange((index - 1 + slides.length) % slides.length);
@@ -39,7 +51,7 @@ export default function Lightbox({ open, slides, index, onChange, onClose }) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, index, slides.length, onChange]);
+  }, [open, index, slides.length, onChange, zoom.isZoomed]);
 
   if (!open) return null;
   const slide = slides[index];
@@ -66,6 +78,7 @@ export default function Lightbox({ open, slides, index, onChange, onClose }) {
         className="relative max-w-[92vw] max-h-[92vh] focus:outline-none"
       >
         <img
+          {...zoom.imgProps}
           src={slide.src}
           alt={slide.alt ?? ""}
           decoding="async"
@@ -81,6 +94,21 @@ export default function Lightbox({ open, slides, index, onChange, onClose }) {
           >
             {index + 1} / {slides.length}
           </p>
+        ) : null}
+
+        {/* Zoom indicator — appears only when actively zoomed. Pairs the
+         *  percentage with the 拡 (enlarge) glyph + a short hint about the
+         *  "0" reset shortcut. */}
+        {zoom.isZoomed ? (
+          <div
+            aria-hidden
+            className="absolute top-2 left-2 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--color-or-pale)] bg-[var(--color-noir)]/80 border border-[var(--color-or)]/40 flex items-center gap-2 pointer-events-none"
+          >
+            <span className="ja text-[var(--color-or)] not-italic" aria-hidden>拡</span>
+            <span>{zoom.zoomPercent}%</span>
+            <span className="opacity-50">·</span>
+            <span className="opacity-60">0 = fit</span>
+          </div>
         ) : null}
       </div>
 
