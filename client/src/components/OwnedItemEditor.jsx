@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 import {
   usePreorderForOwned,
+  useRestoreOwnedItem,
   useUpdateOwnedItem,
   useUpdatePreorder,
 } from "../hooks/useCollection.js";
 import { useDefaultCurrency } from "../hooks/useMe.js";
 import Button from "./Button.jsx";
+import CancellationDialog from "./CancellationDialog.jsx";
 import FormField from "./FormField.jsx";
 import PriceWithBreakdown from "./PriceWithBreakdown.jsx";
 import Select from "./Select.jsx";
@@ -46,12 +48,19 @@ const CURRENCY_OPTIONS = ["JPY", "EUR", "USD", "GBP", "CHF", "CAD"];
 export default function OwnedItemEditor({ owned, catalogMsrp, catalogCurrency }) {
   const t = useT();
   const [editing, setEditing] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
   // The preorder (when one exists) carries the deposit amount, which the
   // price popup needs as a separate line ABOVE the figurine balance. We
   // also need it here in edit mode so the deposit input pre-fills.
   const preorder = usePreorderForOwned(owned?.id);
+  const restore = useRestoreOwnedItem();
 
   if (!owned) return null;
+
+  const po = preorder.data ?? null;
+  const isArchived = !!owned.archived_at;
+  const canCancel =
+    !isArchived && po && po.status !== "cancelled" && po.status !== "received";
 
   return (
     <section>
@@ -63,20 +72,52 @@ export default function OwnedItemEditor({ owned, catalogMsrp, catalogCurrency })
           </h2>
         </div>
         {!editing ? (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors border border-[var(--color-or)]/40 hover:border-[var(--color-or)] px-3 py-1.5"
-          >
-            ✎ {t("owned.editor.edit")}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {isArchived ? (
+              <button
+                type="button"
+                onClick={() => restore.mutate(owned.id)}
+                disabled={restore.isPending}
+                className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-or)] hover:text-[var(--color-or-pale)] transition-colors border border-[var(--color-or)]/60 hover:border-[var(--color-or)] px-3 py-1.5 disabled:opacity-50"
+              >
+                ↺ {t("owned.editor.restore")}
+              </button>
+            ) : null}
+            {canCancel ? (
+              <button
+                type="button"
+                onClick={() => setCancelOpen(true)}
+                className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-laque-bright)] hover:text-[var(--color-laque)] transition-colors border border-[var(--color-laque-bright)]/40 hover:border-[var(--color-laque-bright)] px-3 py-1.5"
+              >
+                × {t("owned.editor.cancel_preorder")}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors border border-[var(--color-or)]/40 hover:border-[var(--color-or)] px-3 py-1.5"
+            >
+              ✎ {t("owned.editor.edit")}
+            </button>
+          </div>
         ) : null}
       </header>
+
+      {/* Archived banner — explicit chip so the user knows why this row
+       *  is hidden from the default /collection view. */}
+      {isArchived ? (
+        <p
+          role="status"
+          className="mb-4 text-[10px] uppercase tracking-[0.22em] text-[var(--color-laque-bright)] border-l-2 border-[var(--color-laque-bright)] pl-3 py-1"
+        >
+          {t("owned.editor.archived_note")}
+        </p>
+      ) : null}
 
       {editing ? (
         <EditMode
           owned={owned}
-          preorder={preorder.data ?? null}
+          preorder={po}
           catalogMsrp={catalogMsrp}
           catalogCurrency={catalogCurrency}
           onClose={() => setEditing(false)}
@@ -85,12 +126,20 @@ export default function OwnedItemEditor({ owned, catalogMsrp, catalogCurrency })
       ) : (
         <ReadMode
           owned={owned}
-          preorder={preorder.data ?? null}
+          preorder={po}
           catalogMsrp={catalogMsrp}
           catalogCurrency={catalogCurrency}
           t={t}
         />
       )}
+
+      {cancelOpen && po ? (
+        <CancellationDialog
+          preorder={po}
+          ownedId={owned.id}
+          onClose={() => setCancelOpen(false)}
+        />
+      ) : null}
     </section>
   );
 }
@@ -100,6 +149,8 @@ export default function OwnedItemEditor({ owned, catalogMsrp, catalogCurrency })
 
 function ReadMode({ owned, preorder, catalogMsrp, catalogCurrency, t }) {
   const deposit = preorder?.deposit_amount ?? null;
+  const depositRefund = preorder?.deposit_refund_amount ?? null;
+  const cancelled = preorder?.status === "cancelled";
   return (
     <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-1 border border-[var(--color-or)]/15 bg-[var(--color-noir)]/40 px-5 py-4">
       <Row label={t("owned.editor.field.condition")}>
@@ -117,7 +168,9 @@ function ReadMode({ owned, preorder, catalogMsrp, catalogCurrency, t }) {
             price={owned.price_amount}
             shipping={owned.shipping_amount}
             deposit={deposit}
-            currency={owned.price_currency}
+            depositRefund={depositRefund}
+            cancelled={cancelled}
+            currency={owned.price_currency || preorder?.price_currency}
             catalog={catalogMsrp}
             catalogCurrency={catalogCurrency}
             size="sm"

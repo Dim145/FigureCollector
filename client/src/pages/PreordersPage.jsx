@@ -10,6 +10,7 @@ import {
 } from "../hooks/useCollection.js";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
+import CancellationDialog from "../components/CancellationDialog.jsx";
 import FormField from "../components/FormField.jsx";
 import Select from "../components/Select.jsx";
 import TrackingChip from "../components/TrackingChip.jsx";
@@ -451,11 +452,14 @@ function EditForm({ preorder: p, onClose, t }) {
       p.deposit_amount != null ? String(p.deposit_amount) : "",
     note: "",
   }));
+  const [cancelOpen, setCancelOpen] = useState(false);
   const update = useUpdatePreorder();
   const set = (k) => (v) => setForm((s) => ({ ...s, [k]: v }));
 
-  // Quick-status chips — jump to "shipped" / "received" / "cancelled"
-  // without filling the whole form.
+  // Quick-status chips — jump to "shipped" / "received" without filling
+  // the whole form. Cancellation goes through CancellationDialog so the
+  // user is prompted for the refund amount + the owned_item fate; we
+  // never silently flip a preorder to `cancelled`.
   const quickStatus = (next) =>
     update.mutate({ id: p.id, patch: { status: next } });
 
@@ -507,10 +511,7 @@ function EditForm({ preorder: p, onClose, t }) {
           label={t("status.cancelled")}
           active={form.status === "cancelled"}
           tone="laque"
-          onClick={() => {
-            set("status")("cancelled");
-            quickStatus("cancelled");
-          }}
+          onClick={() => setCancelOpen(true)}
         />
       </div>
 
@@ -602,6 +603,20 @@ function EditForm({ preorder: p, onClose, t }) {
           {t("preorders.save")}
         </Button>
       </div>
+
+      {cancelOpen ? (
+        <CancellationDialog
+          preorder={p}
+          ownedId={p.owned_item_id ?? null}
+          onClose={() => {
+            setCancelOpen(false);
+            // The mutation already invalidates ["preorders"] and ["owned"]
+            // so the parent re-renders with the cancelled row out of
+            // sight (or with archived chip) — just dismiss our local UI.
+            onClose();
+          }}
+        />
+      ) : null}
     </form>
   );
 }

@@ -152,10 +152,15 @@ function Opening({ count, t }) {
 
 function Tableau({ data, t }) {
   const hasSpend = (data.spend_by_currency ?? []).length > 0;
+  const hasLosses = (data.cancellation_losses ?? []).length > 0;
 
   return (
     <section className="almanac-tableau">
-      {/* DÉPENSES — wider left cell, count-up animation per currency */}
+      {/* DÉPENSES — wider left cell, count-up animation per currency.
+       *  Now also surfaces the "Pertes sur annulations" sub-block beneath
+       *  the spending list when the year had at least one cancelled
+       *  preorder with an unrecovered deposit. Painted in laque-red so it
+       *  doesn't get confused with regular spending. */}
       <Reveal className="almanac-cell almanac-cell--wide" data-mark="銭" i={0}>
         <span className="almanac-cell-label">{t("yir.spend.label")}</span>
         {hasSpend ? (
@@ -174,6 +179,26 @@ function Tableau({ data, t }) {
             {t("yir.spend.empty")}
           </p>
         )}
+        {hasLosses ? (
+          <div className="almanac-losses">
+            <span className="almanac-losses-label">
+              {t("yir.losses.label")}
+            </span>
+            <ul className="almanac-spend-list">
+              {data.cancellation_losses.map((s) => (
+                <li
+                  key={`loss-${s.currency}`}
+                  className="almanac-spend-row almanac-spend-row--loss"
+                >
+                  <span className="almanac-spend-currency">{s.currency}</span>
+                  <span className="almanac-spend-total">
+                    − <Counter value={Number(s.total)} decimals={2} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </Reveal>
 
       {/* FABRICANT FAVORI */}

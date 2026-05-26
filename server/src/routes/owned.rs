@@ -8,22 +8,58 @@ use crate::events::Event;
 use crate::state::AppState;
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
-    routing::{get, patch as patch_method},
+    routing::{get, patch as patch_method, post as post_method},
 };
+use serde::Deserialize;
 use tower_sessions::Session;
 use uuid::Uuid;
+
+#[derive(Debug, Deserialize, Default)]
+struct ListQuery {
+    /// When `true`, archived items (e.g. cancelled preorders kept on file)
+    /// are returned alongside the active collection. Default `false`.
+    #[serde(default)]
+    include_archived: bool,
+}
 
 async fn list_mine(
     State(state): State<AppState>,
     session: Session,
+    Query(q): Query<ListQuery>,
 ) -> AppResult<Json<Vec<owned::OwnedItemWithFigure>>> {
     let user = auth::require_user_full(&session, &state.pool).await?;
     let exclude = user.nsfw_visibility == "hide";
     Ok(Json(
-        owned::list_for_user(&state.pool, user.id, exclude).await?,
+        owned::list_for_user(&state.pool, user.id, exclude, q.include_archived).await?,
     ))
+}
+
+async fn archive_mine(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<owned::OwnedItem>> {
+    let user_id = auth::require_user(&session).await?;
+    let updated = owned::archive(&state.pool, user_id, id).await?;
+    state
+        .events
+        .publish(user_id, Event::OwnedItemUpdated { owned_id: id });
+    Ok(Json(updated))
+}
+
+async fn restore_mine(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<owned::OwnedItem>> {
+    let user_id = auth::require_user(&session).await?;
+    let updated = owned::restore(&state.pool, user_id, id).await?;
+    state
+        .events
+        .publish(user_id, Event::OwnedItemUpdated { owned_id: id });
+    Ok(Json(updated))
 }
 
 async fn add_mine(
@@ -188,4 +224,9 @@ pub fn router() -> Router<AppState> {
             patch_method(patch_mine).delete(delete_mine),
         )
         .route("/me/owned/{id}/cover", patch_method(patch_cover))
+        // Archive / restore for cancelled-preorder bookkeeping. Separate
+        // verbs (not just a PATCH on `archived_at`) so the intent is
+        // explicit and we can wire activity-feed entries later if needed.
+        .route("/me/owned/{id}/archive", post_method(archive_mine))
+        .route("/me/owned/{id}/restore", post_method(restore_mine))
 }

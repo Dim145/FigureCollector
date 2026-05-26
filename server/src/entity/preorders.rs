@@ -22,6 +22,10 @@ pub struct Model {
     /// part of `price_amount`, not in addition to it — see the migration
     /// header for the OrzGK-style semantics.
     pub deposit_amount: Option<Decimal>,
+    /// What was actually paid back when the preorder is cancelled.
+    /// NULL = no decision yet, 0 = lost, partial, or equal to deposit_amount
+    /// = fully refunded.
+    pub deposit_refund_amount: Option<Decimal>,
     pub notes: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

@@ -454,6 +454,23 @@ kbd {
       oklch(0.78 0.03 75) 100%
     );
 }
+/* Cancelled — laque-red sash with a deeper centre so the chip reads as
+ * a "stamped void" rather than a fresh preorder. */
+.label-stamp--cancelled::before {
+  background:
+    linear-gradient(
+      to bottom,
+      oklch(0.55 0.20 25) 0%,
+      oklch(0.40 0.18 25) 60%,
+      oklch(0.28 0.14 25) 100%
+    );
+}
+.label-stamp--cancelled > span {
+  color: oklch(0.94 0.04 35);
+  text-decoration: line-through;
+  text-decoration-color: oklch(0.94 0.04 35 / 0.5);
+  text-decoration-thickness: 1px;
+}
 
 /* ============================================================================
  * Filter tiles — kanji-faced rail used on /browse + /collection
@@ -5232,6 +5249,31 @@ a.horarium-entry-title:hover {
 .almanac-spend-row:last-child {
   border-bottom: 0;
   padding-bottom: 0;
+}
+/* "Pertes sur annulations" — laque-red sub-block under the regular spend
+ * list. Visually demoted with a separator + muted opacity so it doesn't
+ * scream louder than the actual spending. */
+.almanac-losses {
+  margin-top: 1.25rem;
+  padding-top: 0.9rem;
+  border-top: 1px dashed oklch(0.55 0.20 25 / 0.4);
+}
+.almanac-losses-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-laque-bright);
+  opacity: 0.85;
+  margin-bottom: 0.6rem;
+}
+.almanac-losses .almanac-spend-row {
+  border-bottom-color: oklch(0.55 0.20 25 / 0.18);
+}
+.almanac-spend-row--loss .almanac-spend-currency,
+.almanac-spend-row--loss .almanac-spend-total {
+  color: var(--color-laque-bright);
 }
 .almanac-spend-currency {
   font-family: var(--font-mono);

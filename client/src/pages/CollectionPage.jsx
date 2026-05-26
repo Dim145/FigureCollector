@@ -39,13 +39,21 @@ const CONDITION_KANJI = {
 export default function CollectionPage() {
   const t = useT();
   const me = useMe();
-  const owned = useOwnedItems();
+  // `showArchived` toggles the optional "Voir aussi annulées" pass that
+  // surfaces preorder cancellations with a partial / no refund. Hidden by
+  // default so the active collection stays the focus.
+  const [showArchived, setShowArchived] = useState(false);
+  const owned = useOwnedItems({ includeArchived: showArchived });
   const remove = useRemoveOwnedItem();
   const [conditionFilter, setConditionFilter] = useState("all");
   // Owned-item id queued for deletion confirmation; null when the dialog
   // is closed. Drives a styled ConfirmDialog rather than the unstylable
   // native `window.confirm()` we used to call.
   const [pendingRemove, setPendingRemove] = useState(null);
+  const archivedCount = useMemo(
+    () => (owned.data ?? []).filter((o) => o.archived_at).length,
+    [owned.data],
+  );
 
   const stats = useMemo(() => {
     const data = owned.data ?? [];
@@ -159,6 +167,38 @@ export default function CollectionPage() {
               })}
             </nav>
 
+            {/* Archived toggle — when the user has any cancelled-and-kept
+             *  preorders, surface them on demand with a separate switch
+             *  so the active collection stays uncluttered. */}
+            {showArchived && archivedCount > 0 ? (
+              <p
+                className="mb-4 text-[10px] uppercase tracking-[0.22em] text-[var(--color-laque-bright)]"
+                style={{ "--i": 4 }}
+              >
+                {t("collection.archived_shown", { n: archivedCount })}
+                <button
+                  type="button"
+                  onClick={() => setShowArchived(false)}
+                  className="ml-2 underline decoration-dotted hover:no-underline"
+                >
+                  {t("collection.archived_hide")}
+                </button>
+              </p>
+            ) : !showArchived ? (
+              <p
+                className="mb-4 text-[10px] uppercase tracking-[0.22em] text-[var(--color-ivoire-soft)]/60"
+                style={{ "--i": 4 }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setShowArchived(true)}
+                  className="underline decoration-dotted hover:no-underline hover:text-[var(--color-laque-bright)] transition-colors"
+                >
+                  {t("collection.archived_show")}
+                </button>
+              </p>
+            ) : null}
+
             <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filtered.map((item, i) => (
                 <li
@@ -180,6 +220,14 @@ export default function CollectionPage() {
                       (me.data?.user?.nsfw_visibility ?? "hide") === "blur"
                     }
                     badge={(() => {
+                      // Archived (cancelled-and-kept) wins all other badges
+                      // — that's the most important state to communicate.
+                      if (item.archived_at) {
+                        return {
+                          label: t("collection.archived_badge"),
+                          tone: "cancelled",
+                        };
+                      }
                       // Pre-order phase wins — it's the more time-sensitive
                       // signal. Cover-pinned badge falls back when there's
                       // no lifecycle event to surface.

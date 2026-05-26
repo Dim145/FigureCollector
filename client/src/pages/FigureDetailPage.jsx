@@ -50,7 +50,10 @@ export default function FigureDetailPage() {
   const isAdmin = useIsAdmin();
   const navigate = useNavigate();
   const figure = useFigure(id);
-  const owned = useOwnedItems();
+  // Include archived: the figure detail page needs to surface an archived
+  // owned_item too so the user can restore it / see the cancellation
+  // history. /collection itself filters them out via its own toggle.
+  const owned = useOwnedItems({ includeArchived: true });
   const del = useDeleteFigure();
 
   const [editing, setEditing] = useState(false);

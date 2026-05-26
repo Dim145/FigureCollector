@@ -52,10 +52,13 @@ export function useCreateFigure() {
 
 // ----- Owned items (collection) ---------------------------------------------
 
-export function useOwnedItems({ enabled = true } = {}) {
+export function useOwnedItems({ enabled = true, includeArchived = false } = {}) {
+  // Cache key includes the flag so the active-only and include-archived
+  // views don't collide. Both fetch the same endpoint with different qs.
   return useQuery({
-    queryKey: ["owned"],
-    queryFn: () => api.get("/me/owned"),
+    queryKey: ["owned", { includeArchived }],
+    queryFn: () =>
+      api.get(`/me/owned${includeArchived ? "?include_archived=true" : ""}`),
     enabled,
   });
 }
@@ -88,6 +91,28 @@ export function useUpdateOwnedItem() {
   });
 }
 
+/** Archive an owned item (typically after a partial-refund cancellation).
+ *  The row keeps existing on disk so the loss can be retraced, but it's
+ *  hidden from default list views. */
+export function useArchiveOwnedItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => api.post(`/me/owned/${id}/archive`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["owned"] }),
+  });
+}
+
+/** Bring an archived owned item back into the active collection. The user
+ *  typically pairs this with editing the linked preorder back to a fresh
+ *  status (the preorder row is untouched by this call). */
+export function useRestoreOwnedItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => api.post(`/me/owned/${id}/restore`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["owned"] }),
+  });
+}
+
 // ----- Pre-orders ------------------------------------------------------------
 
 export function usePreorders() {
@@ -112,6 +137,11 @@ export function useUpdatePreorder() {
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["preorders"] });
       qc.invalidateQueries({ queryKey: ["preorder-history", vars.id] });
+      // OwnedItemEditor + PreorderHistory both read the preorder via
+      // `usePreorderForOwned(ownedId)` — without this invalidation the
+      // popup keeps showing pre-cancellation deposit / status until a
+      // manual reload.
+      qc.invalidateQueries({ queryKey: ["preorder-for-owned"] });
     },
   });
 }

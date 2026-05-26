@@ -28,6 +28,9 @@ pub struct Preorder {
     /// Acompte paid up-front at preorder time (e.g. 30 € on a 200 €
     /// figurine). Part of `price_amount`, not in addition to it.
     pub deposit_amount: Option<Decimal>,
+    /// What was actually paid back when the preorder is cancelled.
+    /// See migration 19 header for the full semantics.
+    pub deposit_refund_amount: Option<Decimal>,
     pub notes: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -37,6 +40,9 @@ pub struct Preorder {
 pub struct PreorderWithFigure {
     pub id: Uuid,
     pub figure_id: Uuid,
+    /// FK back to the auto-linked owned_item, when one exists. The SPA
+    /// uses this to drive the cancellation dialog (archive vs delete).
+    pub owned_item_id: Option<Uuid>,
     pub status: String,
     pub store: Option<String>,
     pub order_ref: Option<String>,
@@ -46,6 +52,7 @@ pub struct PreorderWithFigure {
     pub price_amount: Option<Decimal>,
     pub price_currency: Option<String>,
     pub deposit_amount: Option<Decimal>,
+    pub deposit_refund_amount: Option<Decimal>,
     pub notes: Option<String>,
     pub created_at: DateTime<Utc>,
 
@@ -69,6 +76,7 @@ pub struct NewPreorder {
     pub price_amount: Option<Decimal>,
     pub price_currency: Option<String>,
     pub deposit_amount: Option<Decimal>,
+    pub deposit_refund_amount: Option<Decimal>,
     pub notes: Option<String>,
 }
 
@@ -83,6 +91,10 @@ pub struct PreorderPatch {
     pub price_amount: Option<Decimal>,
     pub price_currency: Option<String>,
     pub deposit_amount: Option<Decimal>,
+    /// Special semantics for PATCH: pass an explicit `null` JSON literal
+    /// to CLEAR the refund (e.g. when un-cancelling). Omitting the field
+    /// leaves it unchanged via COALESCE — see the patch SQL.
+    pub deposit_refund_amount: Option<Decimal>,
     pub notes: Option<String>,
 }
 
@@ -112,11 +124,12 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewPreorder) -> AppResu
         "INSERT INTO preorders (
             id, user_id, figure_id, status, store, order_ref, tracking_url,
             release_date_original, release_date_current,
-            price_amount, price_currency, deposit_amount, notes
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10,$11,$12)
+            price_amount, price_currency, deposit_amount, deposit_refund_amount, notes
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10,$11,$12,$13)
          RETURNING id, user_id, figure_id, status, store, order_ref, tracking_url,
                    release_date_original, release_date_current,
-                   price_amount, price_currency, deposit_amount, notes,
+                   price_amount, price_currency, deposit_amount,
+                   deposit_refund_amount, notes,
                    created_at, updated_at",
     )
     .bind(id)
@@ -130,6 +143,7 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewPreorder) -> AppResu
     .bind(input.price_amount)
     .bind(&input.price_currency)
     .bind(input.deposit_amount)
+    .bind(input.deposit_refund_amount)
     .bind(&input.notes)
     .fetch_one(pool)
     .await
@@ -144,9 +158,12 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewPreorder) -> AppResu
 pub async fn list_for_user(pool: &PgPool, user_id: Uuid) -> AppResult<Vec<PreorderWithFigure>> {
     Ok(sqlx::query_as::<_, PreorderWithFigure>(
         "SELECT
-            p.id, p.figure_id, p.status, p.store, p.order_ref, p.tracking_url,
+            p.id, p.figure_id, p.owned_item_id, p.status,
+            p.store, p.order_ref, p.tracking_url,
             p.release_date_original, p.release_date_current,
-            p.price_amount, p.price_currency, p.deposit_amount, p.notes,
+            p.price_amount, p.price_currency,
+            p.deposit_amount, p.deposit_refund_amount,
+            p.notes,
             p.created_at,
             f.name AS figure_name, f.slug AS figure_slug, f.figure_type,
             f.official_image_url AS figure_image,
@@ -183,7 +200,8 @@ pub async fn patch(
     let current: Option<Preorder> = sqlx::query_as(
         "SELECT id, user_id, figure_id, status, store, order_ref, tracking_url,
                 release_date_original, release_date_current,
-                price_amount, price_currency, deposit_amount, notes,
+                price_amount, price_currency,
+                deposit_amount, deposit_refund_amount, notes,
                 created_at, updated_at
          FROM preorders WHERE id = $1 AND user_id = $2",
     )
@@ -212,19 +230,21 @@ pub async fn patch(
 
     let updated: Preorder = sqlx::query_as(
         "UPDATE preorders SET
-            status               = COALESCE($1, status),
-            store                = COALESCE($2, store),
-            order_ref            = COALESCE($3, order_ref),
-            tracking_url         = COALESCE($4, tracking_url),
-            release_date_current = COALESCE($5, release_date_current),
-            price_amount         = COALESCE($6, price_amount),
-            price_currency       = COALESCE($7, price_currency),
-            deposit_amount       = COALESCE($8, deposit_amount),
-            notes                = COALESCE($9, notes)
-         WHERE id = $10 AND user_id = $11
+            status                = COALESCE($1, status),
+            store                 = COALESCE($2, store),
+            order_ref             = COALESCE($3, order_ref),
+            tracking_url          = COALESCE($4, tracking_url),
+            release_date_current  = COALESCE($5, release_date_current),
+            price_amount          = COALESCE($6, price_amount),
+            price_currency        = COALESCE($7, price_currency),
+            deposit_amount        = COALESCE($8, deposit_amount),
+            deposit_refund_amount = COALESCE($9, deposit_refund_amount),
+            notes                 = COALESCE($10, notes)
+         WHERE id = $11 AND user_id = $12
          RETURNING id, user_id, figure_id, status, store, order_ref, tracking_url,
                    release_date_original, release_date_current,
-                   price_amount, price_currency, deposit_amount, notes,
+                   price_amount, price_currency,
+                   deposit_amount, deposit_refund_amount, notes,
                    created_at, updated_at",
     )
     .bind(&input.status)
@@ -235,6 +255,7 @@ pub async fn patch(
     .bind(input.price_amount)
     .bind(&input.price_currency)
     .bind(input.deposit_amount)
+    .bind(input.deposit_refund_amount)
     .bind(&input.notes)
     .bind(id)
     .bind(user_id)
@@ -353,7 +374,8 @@ pub async fn create_for_owned_item(
          DO UPDATE SET release_date_current = EXCLUDED.release_date_current
          RETURNING id, user_id, figure_id, status, store, order_ref, tracking_url,
                    release_date_original, release_date_current,
-                   price_amount, price_currency, deposit_amount, notes,
+                   price_amount, price_currency,
+                   deposit_amount, deposit_refund_amount, notes,
                    created_at, updated_at",
     )
     .bind(id)
@@ -377,7 +399,8 @@ pub async fn find_by_owned_item(
     Ok(sqlx::query_as::<_, Preorder>(
         "SELECT id, user_id, figure_id, status, store, order_ref, tracking_url,
                 release_date_original, release_date_current,
-                price_amount, price_currency, deposit_amount, notes,
+                price_amount, price_currency,
+                deposit_amount, deposit_refund_amount, notes,
                 created_at, updated_at
          FROM preorders WHERE owned_item_id = $1 AND user_id = $2",
     )

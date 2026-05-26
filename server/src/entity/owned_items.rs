@@ -17,6 +17,10 @@ pub struct Model {
     pub purchase_date: Option<NaiveDate>,
     pub location: Option<String>,
     pub notes: Option<String>,
+    /// Non-null when the user has marked this item as archived — typically
+    /// after a preorder cancellation that didn't end in a full refund.
+    /// Archived items are filtered out of default collection views.
+    pub archived_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }

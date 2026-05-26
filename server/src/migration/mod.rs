@@ -31,6 +31,7 @@ mod m20260524_000016_public_profile_show_nsfw;
 mod m20260524_000017_notifications;
 mod m20260525_000001_perf_indexes;
 mod m20260526_000001_preorder_deposit;
+mod m20260526_000002_preorder_cancellation;
 
 pub struct Migrator;
 
@@ -57,6 +58,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260524_000017_notifications::Migration),
             Box::new(m20260525_000001_perf_indexes::Migration),
             Box::new(m20260526_000001_preorder_deposit::Migration),
+            Box::new(m20260526_000002_preorder_cancellation::Migration),
         ]
     }
 }

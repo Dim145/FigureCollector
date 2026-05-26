@@ -25,6 +25,9 @@ pub struct OwnedItem {
     pub notes: Option<String>,
     pub cover_photo_id: Option<Uuid>,
     pub cover_scan_id: Option<Uuid>,
+    /// Non-null when this item is archived (e.g. preorder cancelled with
+    /// a partial / no refund). Hidden from default list views.
+    pub archived_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -41,6 +44,7 @@ pub struct OwnedItemWithFigure {
     pub purchase_date: Option<NaiveDate>,
     pub location: Option<String>,
     pub notes: Option<String>,
+    pub archived_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
 
     pub figure_name: String,
@@ -109,7 +113,7 @@ const ALLOWED_CONDITIONS: &[&str] = &["mib_sealed", "opened_box", "displayed", "
 const OWNED_RETURNING: &str =
     "id, user_id, figure_id, condition, price_amount, price_currency, shipping_amount, \
      store, purchase_date, location, notes, cover_photo_id, cover_scan_id, \
-     created_at, updated_at";
+     archived_at, created_at, updated_at";
 
 pub async fn create(pool: &PgPool, user_id: Uuid, input: NewOwnedItem) -> AppResult<OwnedItem> {
     if !ALLOWED_CONDITIONS.contains(&input.condition.as_str()) {
@@ -202,6 +206,7 @@ pub async fn list_for_user(
     pool: &PgPool,
     user_id: Uuid,
     exclude_nsfw: bool,
+    include_archived: bool,
 ) -> AppResult<Vec<OwnedItemWithFigure>> {
     // `catalog_cover_photo_id` is resolved here so the SPA can build the
     // fallback `/api/figure-photos/{id}` URL without a second roundtrip per
@@ -211,7 +216,8 @@ pub async fn list_for_user(
         "SELECT
             o.id, o.figure_id, o.condition, o.price_amount, o.price_currency,
             o.shipping_amount,
-            o.store, o.purchase_date, o.location, o.notes, o.created_at,
+            o.store, o.purchase_date, o.location, o.notes,
+            o.archived_at, o.created_at,
             f.name AS figure_name, f.slug AS figure_slug, f.figure_type,
             f.official_image_url AS figure_image,
             m.name AS manufacturer_name,
@@ -236,11 +242,53 @@ pub async fn list_for_user(
     if exclude_nsfw {
         sql.push_str(" AND NOT f.is_nsfw");
     }
-    sql.push_str(" ORDER BY o.created_at DESC");
+    if !include_archived {
+        sql.push_str(" AND o.archived_at IS NULL");
+    }
+    // Archived items, when included, sink to the bottom of the list so they
+    // don't crowd the "active collection" experience.
+    sql.push_str(" ORDER BY (o.archived_at IS NOT NULL) ASC, o.created_at DESC");
     Ok(sqlx::query_as::<_, OwnedItemWithFigure>(&sql)
         .bind(user_id)
         .fetch_all(pool)
         .await?)
+}
+
+/// Mark an owned item as archived (preorder cancelled with partial refund).
+/// Idempotent — re-archiving an already-archived item is a no-op but still
+/// returns the row.
+pub async fn archive(pool: &PgPool, user_id: Uuid, id: Uuid) -> AppResult<OwnedItem> {
+    let sql = format!(
+        "UPDATE owned_items
+         SET archived_at = COALESCE(archived_at, NOW())
+         WHERE id = $1 AND user_id = $2
+         RETURNING {OWNED_RETURNING}"
+    );
+    let row: Option<OwnedItem> = sqlx::query_as(&sql)
+        .bind(id)
+        .bind(user_id)
+        .fetch_optional(pool)
+        .await?;
+    row.ok_or(AppError::NotFound)
+}
+
+/// Restore an archived owned item back into the active collection. Clears
+/// `archived_at`. The linked preorder (if any) keeps whatever status it had
+/// — the user typically wants to set it back to "preordered" via the normal
+/// edit flow.
+pub async fn restore(pool: &PgPool, user_id: Uuid, id: Uuid) -> AppResult<OwnedItem> {
+    let sql = format!(
+        "UPDATE owned_items
+         SET archived_at = NULL
+         WHERE id = $1 AND user_id = $2
+         RETURNING {OWNED_RETURNING}"
+    );
+    let row: Option<OwnedItem> = sqlx::query_as(&sql)
+        .bind(id)
+        .bind(user_id)
+        .fetch_optional(pool)
+        .await?;
+    row.ok_or(AppError::NotFound)
 }
 
 /// Patch the cover preference for a single owned item. Either field can be

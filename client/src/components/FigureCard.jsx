@@ -165,14 +165,17 @@ function StatusStamp({ badge }) {
   // `badge` is either a string (legacy) or an object { label, tone }
   const label = typeof badge === "string" ? badge : badge.label;
   const tone = typeof badge === "string" ? "default" : badge.tone ?? "default";
-  // Sash colour follows the tone: red for preorder, gold for imminent (a
-  // priority signal), ivoire for neutral markers like "pinned cover".
+  // Sash colour follows the tone: red for preorder/cancelled, gold for
+  // imminent (priority signal), ivoire for neutral markers like
+  // "pinned cover".
   const sashClass =
     tone === "imminent"
       ? "label-stamp--gold"
       : tone === "preorder"
         ? ""
-        : "label-stamp--ivory";
+        : tone === "cancelled"
+          ? "label-stamp--cancelled"
+          : "label-stamp--ivory";
   return (
     <span className={`label-stamp ${sashClass}`}>
       <span>{label}</span>
