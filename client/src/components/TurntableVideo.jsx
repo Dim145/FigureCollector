@@ -61,19 +61,29 @@ export default function TurntableVideo({ onComplete }) {
     let objectUrl = null;
     try {
       const video = videoRef.current;
-      objectUrl = URL.createObjectURL(file);
       video.muted = true;
       video.playsInline = true;
-      // Belt-and-braces: `URL.createObjectURL` only ever returns `blob:`
-      // URLs, but the explicit prefix check (a) is a meaningful guard if
-      // future code ever feeds a different source into `objectUrl`, and
-      // (b) acts as a sanitizer that CodeQL's `js/xss-through-dom` rule
-      // recognises — without it the rule treats `file` (from the picker)
-      // as DOM-sourced and flags this assignment.
-      if (!objectUrl.startsWith("blob:")) {
+      // `URL.createObjectURL` always returns a `blob:` URL by spec, but
+      // CodeQL's `js/xss-through-dom` flow tracks `file` (a DOM-sourced
+      // value from the picker) all the way to `video.src` and only
+      // recognises a small set of sanitizers as barriers. We use the
+      // URL-parser-plus-protocol-allowlist pattern, which IS in that set:
+      // build a fresh `URL`, assert the parsed protocol is `blob:`, then
+      // hand the *parser-normalised* `href` to `<video>`. Using a const
+      // declared inside this block (rather than reassigning the outer
+      // `let`) keeps the sanitized value in a tight scope CodeQL can
+      // reason about end-to-end.
+      const candidate = URL.createObjectURL(file);
+      const parsedUrl = new URL(candidate);
+      if (parsedUrl.protocol !== "blob:") {
+        URL.revokeObjectURL(candidate);
         throw new Error("createObjectURL did not return a blob URL");
       }
-      video.src = objectUrl;
+      // Track the original for revoke in the finally block, but feed the
+      // parser-normalised string to the DOM so the data-flow path
+      // terminates on a value CodeQL has marked safe.
+      objectUrl = candidate;
+      video.src = parsedUrl.href;
 
       // `loadeddata` = first frame buffered. `loadedmetadata` alone leaves
       // the decoder cold and seeks paint black.
