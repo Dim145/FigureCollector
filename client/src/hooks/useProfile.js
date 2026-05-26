@@ -60,7 +60,13 @@ export function useUploadPhoto(ownedId) {
       }
       return res.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["photos", ownedId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["photos", ownedId] });
+      // When the owned-item has no pinned cover yet, the collection card
+      // falls through to "first personal photo" — refresh the owned list
+      // so the new photo appears as the cover without a manual reload.
+      qc.invalidateQueries({ queryKey: ["owned"] });
+    },
   });
 }
 

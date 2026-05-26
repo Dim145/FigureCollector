@@ -70,15 +70,27 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          // Catalog reads — fresh-but-fast.
+          // Catalog reads — NetworkFirst so a freshly-mutated catalog
+          // (new figure, new primary photo, deleted figure, NSFW flag
+          // flip on /me) shows up on the very next navigation. The
+          // earlier StaleWhileRevalidate served the cached snapshot
+          // synchronously and only revalidated in the background, so
+          // TanStack always received the stale list on its first
+          // refetch — visible symptoms were "new figurines don't appear
+          // in the catalogue" and "thumbnail change requires a page
+          // reload". NetworkFirst keeps the cache as an offline fallback
+          // (when network truly fails) without ever masking fresh data
+          // online. `networkTimeoutSeconds: 3` handles a brief blip on a
+          // slow link gracefully.
           {
             urlPattern: ({ url, request }) =>
               (url.pathname === "/api/figures" ||
                 /^\/api\/figures\/[^/]+$/.test(url.pathname)) &&
               request.method === "GET",
-            handler: "StaleWhileRevalidate",
+            handler: "NetworkFirst",
             options: {
               cacheName: "fc-figures",
+              networkTimeoutSeconds: 3,
               expiration: {
                 maxEntries: 500,
                 maxAgeSeconds: 60 * 60 * 24, // 24h

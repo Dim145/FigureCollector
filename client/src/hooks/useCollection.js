@@ -13,10 +13,12 @@ export function useFigures(params = {}, { enabled = true } = {}) {
   return useQuery({
     queryKey: ["figures", params],
     queryFn: () => api.get(`/figures${qs ? `?${qs}` : ""}`),
-    // The service worker is configured StaleWhileRevalidate on /api/figures
-    // so the SW will serve the in-cache list immediately. Force TanStack to
-    // refetch on mount so a deleted figure doesn't linger as a clickable
-    // card after the SW snapshot has gone stale.
+    // Catalog freshness matters more than skipping a network round-trip:
+    // every visit to /browse or /collection refetches even within the
+    // default 30 s stale window. Paired with the SW's NetworkFirst
+    // strategy on `/api/figures*`, this guarantees newly-created figures
+    // (or freshly-changed primary photos) appear on the very next
+    // navigation, without forcing a full page reload.
     refetchOnMount: "always",
     enabled,
   });

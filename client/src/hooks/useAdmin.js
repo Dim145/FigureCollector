@@ -89,6 +89,10 @@ export function useDeleteFigure() {
       qc.invalidateQueries({ queryKey: ["figures"] });
       qc.invalidateQueries({ queryKey: ["admin", "figures"] });
       qc.invalidateQueries({ queryKey: ["admin", "overview"] });
+      // The owned-items list joins the figure row, so cascading the
+      // delete leaves it dangling here too — refetch so the collection
+      // grid drops the ghost card.
+      qc.invalidateQueries({ queryKey: ["owned"] });
     },
   });
 }
