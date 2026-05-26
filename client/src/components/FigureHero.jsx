@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 import { useFigurePhotos } from "../hooks/useFigurePhotos.js";
 import { usePhotos } from "../hooks/useProfile.js";
+import Lightbox from "./Lightbox.jsx";
 
 /**
  * Shoppable hero gallery for a figure detail page.
@@ -77,12 +78,24 @@ export default function FigureHero({
   }, [catalogPhotos.data, personalPhotos.data, ownedItemId, figure.official_image_url]);
 
   const [active, setActive] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   // Reset when the slide set itself changes (e.g. user uploads a new photo).
   // Snap to the catalog primary if no choice was made yet.
   useEffect(() => {
     if (active >= slides.length) setActive(0);
   }, [slides.length, active]);
+
+  // Shape for the shared Lightbox component — keeps the alt text + URL
+  // aligned with what we already render in the well.
+  const lightboxSlides = useMemo(
+    () =>
+      slides.map((s, i) => ({
+        src: s.url,
+        alt: i === 0 ? figure.name : `${figure.name} — ${i + 1}`,
+      })),
+    [slides, figure.name],
+  );
 
   const go = useCallback(
     (delta) => {
@@ -111,13 +124,21 @@ export default function FigureHero({
 
   return (
     <div className="flex flex-col gap-4 reveal" style={{ "--i": 0 }}>
-      {/* Main image well */}
+      {/* Main image well.
+       *
+       * Sizing: the parent grid column on desktop is `1.1fr` of a 7xl
+       * container, so without a cap the 4:5 aspect-ratio well becomes
+       * absurdly tall (~850px) and pushes the rest of the page off-
+       * screen. Cap at min(560px, 100% of the column) AND a max-height
+       * tied to the viewport. The `aspect-[4/5]` keeps shape; the caps
+       * keep it sane.
+       */}
       <div
         tabIndex={hasSlides ? 0 : -1}
         onKeyDown={onKeyDown}
         aria-roledescription="carousel"
         aria-label={t("figure.hero.aria")}
-        className="relative aspect-[4/5] bg-[var(--color-noir-deep)] border border-[var(--color-or)]/25 vignette frame-corners outline-none focus-visible:border-[var(--color-or)]/80"
+        className="relative aspect-[4/5] w-full max-w-[min(560px,100%)] max-h-[78vh] bg-[var(--color-noir-deep)] border border-[var(--color-or)]/25 vignette frame-corners outline-none focus-visible:border-[var(--color-or)]/80 mx-auto lg:mx-0"
         style={{
           boxShadow:
             "0 60px 120px -50px rgba(0,0,0,0.9), inset 0 1px 0 oklch(0.92 0.03 75 / 0.06)",
@@ -134,22 +155,32 @@ export default function FigureHero({
         {hasSlides ? (
           <>
             {/* Crossfade-style stack — keeps decoded copies of every slide in
-                memory so navigation is instant. */}
-            {slides.map((s, i) => (
-              <img
-                key={s.key}
-                src={s.url}
-                // The hero IS the product. SR users need an alt that
-                // identifies the figurine — empty alt previously hid the
-                // entire main image from anyone not using sighted vision.
-                alt={i === 0 ? figure.name : `${figure.name} — ${i + 1}`}
-                loading={i === 0 ? "eager" : "lazy"}
-                decoding="async"
-                draggable={false}
-                className={`absolute inset-0 w-full h-full object-contain p-8 transition-opacity duration-500 pointer-events-none ${nsfwBlurClass}`}
-                style={{ opacity: i === active ? 1 : 0 }}
-              />
-            ))}
+                memory so navigation is instant.
+                Wrapped in a single button so a click on the active image
+                opens the shared Lightbox at the current slide. The button
+                fills the well so the entire image area is the hit target. */}
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(true)}
+              aria-label={t("photos.view")}
+              className="absolute inset-0 w-full h-full cursor-zoom-in focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-or)]/70"
+            >
+              {slides.map((s, i) => (
+                <img
+                  key={s.key}
+                  src={s.url}
+                  // The hero IS the product. SR users need an alt that
+                  // identifies the figurine — empty alt previously hid the
+                  // entire main image from anyone not using sighted vision.
+                  alt={i === 0 ? figure.name : `${figure.name} — ${i + 1}`}
+                  loading={i === 0 ? "eager" : "lazy"}
+                  decoding="async"
+                  draggable={false}
+                  className={`absolute inset-0 w-full h-full object-contain p-8 transition-opacity duration-500 pointer-events-none ${nsfwBlurClass}`}
+                  style={{ opacity: i === active ? 1 : 0 }}
+                />
+              ))}
+            </button>
 
             {/* Type chip top-left */}
             <span className="chip absolute top-4 left-4 z-10 pointer-events-none">
@@ -219,9 +250,11 @@ export default function FigureHero({
         )}
       </div>
 
-      {/* Thumbnail strip — only when more than one slide */}
+      {/* Thumbnail strip — only when more than one slide.
+       *  Matches the hero's max-width so the strip aligns under the
+       *  capped well rather than running the full grid-column width. */}
       {showArrows ? (
-        <div className="overflow-x-auto -mx-1 px-1">
+        <div className="w-full max-w-[min(560px,100%)] mx-auto lg:mx-0 overflow-x-auto -mx-1 px-1">
           <ul className="flex items-stretch gap-2">
             {slides.map((s, i) => (
               <Thumb
@@ -238,6 +271,14 @@ export default function FigureHero({
           </ul>
         </div>
       ) : null}
+
+      <Lightbox
+        open={lightboxOpen}
+        slides={lightboxSlides}
+        index={active}
+        onChange={setActive}
+        onClose={() => setLightboxOpen(false)}
+      />
     </div>
   );
 }

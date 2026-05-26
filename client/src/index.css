@@ -2098,6 +2098,13 @@ html {
   font-size: clamp(2.6rem, 6vw, 4.8rem);
   color: var(--color-ivoire);
   margin: 0;
+  /* Long figurine names ("NTR Studio - Ame-chan Needy Girl Overdose")
+     contain words that exceed the column width at this font size.
+     Without `overflow-wrap: anywhere` the word juts out of the column
+     and clips against the viewport edge. `hyphens: auto` improves the
+     break aesthetics where the locale lets the renderer hyphenate. */
+  overflow-wrap: anywhere;
+  hyphens: auto;
 }
 .fig-title-version {
   display: block;

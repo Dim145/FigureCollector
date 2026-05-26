@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 import {
   useDeleteFigurePhoto,
@@ -6,14 +6,17 @@ import {
   useSetPrimaryFigurePhoto,
   useUploadFigurePhoto,
 } from "../hooks/useFigurePhotos.js";
+import Lightbox from "./Lightbox.jsx";
 
 /**
  * Catalog-side photo gallery for a single figure. Visible to everyone (it
  * IS the catalog data); upload / star-primary / delete only show up when
  * `canEdit` (admin or figure creator) is true.
  *
- * Layout: a horizontal scrolling strip of tiles; the primary photo is
- * called out with a gold sash. Hover reveals the action overlay.
+ * Layout: a responsive grid (auto-fill, min 160px tile) — the previous
+ * horizontal-scroll strip was banned because it required mouse-wheel
+ * acrobatics to see anything past the 6th tile. The grid wraps naturally
+ * onto as many rows as the viewport needs.
  */
 export default function FigurePhotosSection({ figureId, figureName, canEdit, uploadDisabled = false, blurImages = false }) {
   const t = useT();
@@ -32,6 +35,16 @@ export default function FigurePhotosSection({ figureId, figureName, canEdit, upl
   };
 
   const list = photos.data ?? [];
+  // Pre-compute the shape the shared Lightbox expects: a flat
+  // `{ src, alt }` list, indexed the same way as `list`.
+  const lightboxSlides = useMemo(
+    () =>
+      list.map((p, i) => ({
+        src: `/api/figure-photos/${p.id}`,
+        alt: `${figureName ?? ""} — ${i + 1}`,
+      })),
+    [list, figureName],
+  );
   // Nothing to show + nothing to do.
   if (!canEdit && list.length === 0) return null;
 
@@ -90,11 +103,20 @@ export default function FigurePhotosSection({ figureId, figureName, canEdit, upl
           {t("figure.catalog_photos.empty")}
         </p>
       ) : (
-        <ul className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1">
+        <ul
+          className="grid gap-3"
+          style={{
+            // auto-fill with a min tile width: each row fits as many
+            // 160px tiles as the column allows, then wraps. The 1fr cap
+            // lets the last row's tiles grow slightly so there's no
+            // dead trailing whitespace.
+            gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+          }}
+        >
           {list.map((p, i) => (
             <li
               key={p.id}
-              className="shrink-0 group/photo relative w-40 h-40 bg-[var(--color-noir-deep)] border border-[var(--color-or)]/15 overflow-hidden"
+              className="group/photo relative aspect-square bg-[var(--color-noir-deep)] border border-[var(--color-or)]/15 overflow-hidden"
             >
               <button
                 type="button"
@@ -153,65 +175,13 @@ export default function FigurePhotosSection({ figureId, figureName, canEdit, upl
         </ul>
       )}
 
-      {lightbox !== null ? (
-        <Lightbox
-          photos={list}
-          index={lightbox}
-          onChange={setLightbox}
-          onClose={() => setLightbox(null)}
-        />
-      ) : null}
-    </section>
-  );
-}
-
-function Lightbox({ photos, index, onChange, onClose }) {
-  const photo = photos[index];
-  if (!photo) return null;
-  return (
-    <div
-      role="dialog"
-      aria-modal
-      onClick={onClose}
-      className="fixed inset-0 z-50 grid place-items-center bg-[var(--color-noir)]/95 backdrop-blur-sm"
-    >
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute top-4 right-4 text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] text-3xl leading-none transition-colors"
-      >
-        ×
-      </button>
-      {photos.length > 1 ? (
-        <>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onChange((index - 1 + photos.length) % photos.length);
-            }}
-            className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] text-4xl transition-colors"
-          >
-            ‹
-          </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onChange((index + 1) % photos.length);
-            }}
-            className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] text-4xl transition-colors"
-          >
-            ›
-          </button>
-        </>
-      ) : null}
-      <img
-        src={`/api/figure-photos/${photo.id}`}
-        alt=""
-        onClick={(e) => e.stopPropagation()}
-        className="max-w-[92vw] max-h-[88vh] object-contain border border-[var(--color-or)]/30"
+      <Lightbox
+        open={lightbox !== null}
+        slides={lightboxSlides}
+        index={lightbox ?? 0}
+        onChange={setLightbox}
+        onClose={() => setLightbox(null)}
       />
-    </div>
+    </section>
   );
 }
