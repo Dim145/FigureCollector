@@ -527,12 +527,17 @@ function PolarChart({ rows, kanji }) {
   // to encode magnitude. This reads "all the categories at a glance" — not
   // strict % of pie.
   const sweep = totalAngle / rows.length;
-  // Fixed 3° gap BETWEEN wedges (only when there's more than one — a single
-  // wedge fills the full 360°, no neighbour to separate from). The earlier
-  // `sweep * 0.86` formula reserved 14% per wedge for the gap, which made
-  // the single-category case display as a 310°-only ring (visually broken)
-  // and created 25°+ chasms when there were only two categories.
-  const gap = rows.length > 1 ? 3 : 0;
+  // Hairline gap BETWEEN wedges. The earlier `sweep * 0.86` formula
+  // reserved 14% per wedge, which produced a 310°-only ring for the
+  // 1-category case and 25°+ chasms for 2 categories — both read as
+  // broken charts.
+  //
+  // Now we use a tiny angular gap (≈1° total = 0.5° each side) which at
+  // the outer radius of 77px works out to roughly a 1.3px-wide visible
+  // separator — enough to distinguish adjacent wedges without splitting
+  // the donut into "two crescents". And a single category keeps the
+  // full 360° (no neighbour to separate from).
+  const gap = rows.length > 1 ? 1 : 0;
 
   return (
     <div className="relative" style={{ width: size, height: size }}>
