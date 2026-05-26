@@ -1,5 +1,11 @@
 import { useMemo } from "react";
 import { Link, Navigate } from "react-router-dom";
+import {
+  Cell as RechartsCell,
+  Pie as RechartsPie,
+  PieChart as RechartsPieChart,
+  Tooltip as RechartsTooltip,
+} from "recharts";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useMyStats } from "../hooks/useStats.js";
@@ -14,14 +20,15 @@ import CountUp from "../components/CountUp.jsx";
  *   - Hero ledger spread (vertical tag + huge embossed figural)
  *   - Roman-numeral chapter dividers with kanji subtitle
  *   - Brass-tabbed ledger rows for spend per currency (+ sparkline)
- *   - Polar dial charts for type + condition breakdowns (CSS-only SVG)
+ *   - Donut breakdowns (Recharts) for type + condition
  *   - Podium for top-3 manufacturers/series/sculptors (lists below)
  *   - Press-strip year timeline with letterpress numbers above each bar
  *   - "Pièce de la couronne" feature card for the most expensive piece
  *   - Thermometer rule for the price distribution
  *
- * No charting library — every chart is hand-drawn SVG or CSS so the bundle
- * stays slim and the look stays cohesive with the rest of the Vitrine.
+ * Only the donut breakdowns use a charting library (Recharts) — the rest
+ * (sparklines, dials, thermometers, podiums) are hand-rolled because they
+ * are bespoke compositions Recharts doesn't ship presets for.
  */
 export default function StatsPage() {
   const t = useT();
@@ -508,149 +515,71 @@ function PolarBreakdown({ title, kanji, rows }) {
   );
 }
 
-/** Inline SVG polar / radial chart (Nightingale rose).
+/** Donut breakdown — Recharts PieChart in donut configuration.
  *
- * Each segment is a wedge with angle proportional to its share of total,
- * radius proportional to its share of MAX. We use angle for proportion +
- * radius for emphasis — pieces with the most representation jut out the
- * furthest, those with the least are shorter wedges at the same angle.
+ * Hand-rolling the SVG (wedges + arcs + even-odd full-circle special case)
+ * was fragile: the 1-category case lost a chunk, the 2-category case
+ * looked like two separate crescents. Recharts handles all the edge
+ * cases (single segment closing to a full ring, equal halves, paddings)
+ * correctly out of the box, costs ~70 KB gzipped, tree-shakes to just
+ * PieChart + Pie + Cell.
+ *
+ * The kanji is positioned in the centre via the PieChart's
+ * `label`-on-the-pie centerpoint trick: an absolutely-positioned span
+ * inside the wrapper sits exactly at the donut's inner-ring centre.
  */
 function PolarChart({ rows, kanji }) {
   const size = 170;
-  const cx = size / 2;
-  const cy = size / 2;
-  const innerR = 26;
-  const maxR = size / 2 - 8;
-  const max = Math.max(1, ...rows.map((r) => r.count));
-  const totalAngle = 360;
-  // distribute equal angles per segment so each label has a slot; vary radius
-  // to encode magnitude. This reads "all the categories at a glance" — not
-  // strict % of pie.
-  const sweep = totalAngle / rows.length;
-  // Hairline gap BETWEEN wedges. The earlier `sweep * 0.86` formula
-  // reserved 14% per wedge, which produced a 310°-only ring for the
-  // 1-category case and 25°+ chasms for 2 categories — both read as
-  // broken charts.
-  //
-  // Now we use a tiny angular gap (≈1° total = 0.5° each side) which at
-  // the outer radius of 77px works out to roughly a 1.3px-wide visible
-  // separator — enough to distinguish adjacent wedges without splitting
-  // the donut into "two crescents". And a single category keeps the
-  // full 360° (no neighbour to separate from).
-  const gap = rows.length > 1 ? 1 : 0;
+  const data = rows.map((r, i) => ({
+    name: r.label,
+    value: r.count,
+    fill: segmentColor(i, rows.length),
+  }));
 
   return (
     <div className="relative" style={{ width: size, height: size }}>
-      <svg
-        className="polar-svg"
-        viewBox={`0 0 ${size} ${size}`}
-        aria-hidden
-      >
-        {/* Centre kanji */}
-        <text
-          x={cx}
-          y={cy + 8}
-          textAnchor="middle"
-          fontFamily="Noto Serif JP, serif"
-          fontSize="22"
-          fill="var(--color-or)"
-          opacity="0.85"
+      <RechartsPieChart width={size} height={size}>
+        <RechartsPie
+          data={data}
+          cx="50%"
+          cy="50%"
+          innerRadius={26}
+          outerRadius={size / 2 - 8}
+          // Tiny 1° padding between wedges. Recharts also renders a clean
+          // full ring when there's only one segment — no special case needed.
+          paddingAngle={data.length > 1 ? 1 : 0}
+          dataKey="value"
+          isAnimationActive={false}
+          stroke="transparent"
         >
-          {kanji}
-        </text>
-        {/* concentric guide rings */}
-        {[0.33, 0.66, 1].map((t, i) => (
-          <circle
-            key={i}
-            cx={cx}
-            cy={cy}
-            r={innerR + (maxR - innerR) * t}
-            fill="none"
-            stroke="oklch(0.78 0.10 80 / 0.10)"
-            strokeWidth="0.75"
-            strokeDasharray="2 3"
-          />
-        ))}
-        {rows.map((r, i) => {
-          const a0 = -90 + i * sweep + gap / 2;
-          const a1 = -90 + (i + 1) * sweep - gap / 2;
-          const radius = innerR + (r.count / max) * (maxR - innerR);
-          return (
-            <AnnularWedge
-              key={r.key}
-              cx={cx}
-              cy={cy}
-              innerR={innerR}
-              outerR={radius}
-              a0={a0}
-              a1={a1}
-              fill={segmentColor(i, rows.length)}
-              label={`${r.label}: ${r.count}`}
-            />
-          );
-        })}
-      </svg>
+          {data.map((entry, i) => (
+            <RechartsCell key={i} fill={entry.fill} />
+          ))}
+        </RechartsPie>
+        <RechartsTooltip
+          contentStyle={{
+            background: "oklch(0.10 0.005 50 / 0.95)",
+            border: "1px solid oklch(0.78 0.10 80 / 0.4)",
+            borderRadius: 0,
+            color: "var(--color-ivoire)",
+            fontSize: "12px",
+            padding: "6px 10px",
+          }}
+          itemStyle={{ color: "var(--color-ivoire)" }}
+          labelStyle={{ color: "var(--color-or-pale)" }}
+          formatter={(value, name) => [`${value}`, name]}
+        />
+      </RechartsPieChart>
+      {/* Centre kanji — positioned absolutely over the donut hole. */}
+      <span
+        aria-hidden
+        className="ja absolute inset-0 grid place-items-center text-[22px] text-[var(--color-or)] pointer-events-none"
+        style={{ opacity: 0.85 }}
+      >
+        {kanji}
+      </span>
     </div>
   );
-}
-
-/** Renders one annular wedge. Falls back to a full ring (two stacked circles)
- *  when the wedge spans the entire circle, because an SVG <path> arc from a
- *  point back to itself is ambiguous and most renderers degenerate to either
- *  nothing or a single hairline. */
-function AnnularWedge({ cx, cy, innerR, outerR, a0, a1, fill, label }) {
-  const sweepDeg = a1 - a0;
-  // Full-ring path doesn't render cleanly — use two concentric circles with
-  // an even-odd fill rule to punch the hole instead.
-  if (sweepDeg >= 359.99) {
-    return (
-      <path
-        d={`M ${cx - outerR} ${cy}
-            a ${outerR} ${outerR} 0 1 0 ${outerR * 2} 0
-            a ${outerR} ${outerR} 0 1 0 ${-outerR * 2} 0
-            M ${cx - innerR} ${cy}
-            a ${innerR} ${innerR} 0 1 1 ${innerR * 2} 0
-            a ${innerR} ${innerR} 0 1 1 ${-innerR * 2} 0
-            Z`}
-        fill={fill}
-        fillRule="evenodd"
-        style={{ filter: "drop-shadow(0 2px 4px oklch(0.78 0.10 80 / 0.3))" }}
-      >
-        <title>{label}</title>
-      </path>
-    );
-  }
-  return (
-    <path
-      d={wedgePath(cx, cy, innerR, outerR, a0, a1)}
-      fill={fill}
-      style={{ filter: "drop-shadow(0 2px 4px oklch(0.78 0.10 80 / 0.3))" }}
-    >
-      <title>{label}</title>
-    </path>
-  );
-}
-
-/** Build an SVG path for an annular wedge (donut slice). */
-function wedgePath(cx, cy, r0, r1, a0deg, a1deg) {
-  const a0 = (a0deg * Math.PI) / 180;
-  const a1 = (a1deg * Math.PI) / 180;
-  const large = a1 - a0 > Math.PI ? 1 : 0;
-  const x0o = cx + r1 * Math.cos(a0);
-  const y0o = cy + r1 * Math.sin(a0);
-  const x1o = cx + r1 * Math.cos(a1);
-  const y1o = cy + r1 * Math.sin(a1);
-  const x0i = cx + r0 * Math.cos(a1);
-  const y0i = cy + r0 * Math.sin(a1);
-  const x1i = cx + r0 * Math.cos(a0);
-  const y1i = cy + r0 * Math.sin(a0);
-  return [
-    `M ${x0o} ${y0o}`,
-    `A ${r1} ${r1} 0 ${large} 1 ${x1o} ${y1o}`,
-    `L ${x0i} ${y0i}`,
-    `A ${r0} ${r0} 0 ${large} 0 ${x1i} ${y1i}`,
-    "Z",
-  ].join(" ");
 }
 
 /** Six tiers of gold opacity so each segment is distinguishable without
