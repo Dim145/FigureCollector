@@ -4,7 +4,7 @@ export default {
   "app.name": "FigureCollector",
   "app.tagline_jp": "雪 の 蒐 集 者",
   "app.tagline_en": "Catalogue your shelf, figure by figure.",
-  "app.phase": "v0.1.0 · phase 1B",
+  "app.phase": "v0.11.0 · phase 1B",
 
   // Navigation
   "nav.signin": "Se connecter",
