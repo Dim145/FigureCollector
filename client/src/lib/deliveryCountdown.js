@@ -66,3 +66,21 @@ export function countdownTone(days) {
   if (days === 0) return "text-[var(--color-or)]";
   return "text-[var(--color-or-pale)]";
 }
+
+/** The exact projected delivery date — `shipped_at::date +
+ *  estimated_delivery_days`, formatted with the user's locale.
+ *  Returns null when the preorder isn't shipped or has no ETA. Used
+ *  as the native `title` tooltip on the countdown chip.
+ */
+export function deliveryDateLabel(po) {
+  if (!po?.shipped_at || po.estimated_delivery_days == null) return null;
+  const shipped = new Date(po.shipped_at);
+  if (Number.isNaN(shipped.getTime())) return null;
+  const target = new Date(shipped);
+  target.setUTCDate(target.getUTCDate() + Number(po.estimated_delivery_days));
+  return target.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}

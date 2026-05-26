@@ -369,6 +369,7 @@ export default {
   "preorder.delivery.today": "D0",
   "preorder.delivery.in": "D-{n}",
   "preorder.delivery.overdue": "D+{n}",
+  "preorder.delivery.tooltip": "Estimated delivery on {date}",
   "preorders.quick.title": "Mark as:",
   "preorders.tracking.carrier": "Carrier",
   "preorders.tracking.carrier_unknown": "External link",

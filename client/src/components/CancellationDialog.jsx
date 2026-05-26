@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useT } from "../i18n/index.jsx";
 import {
   useArchiveOwnedItem,
@@ -115,7 +116,14 @@ export default function CancellationDialog({ preorder, ownedId, onClose }) {
     }
   };
 
-  return (
+  // Render through a portal to <body>. The preorder card's hover state
+  // applies a transform (and the surrounding `.reveal` animation has a
+  // `translateY` keyframe), which establishes a new containing block —
+  // `position: fixed` then refers to THAT ancestor instead of the viewport
+  // and the modal renders clipped INSIDE the card. Portaling escapes the
+  // entire stacking-context chain, same trick the Lightbox uses.
+  if (typeof document === "undefined") return null;
+  return createPortal(
     <div
       role="dialog"
       aria-modal
@@ -249,7 +257,8 @@ export default function CancellationDialog({ preorder, ownedId, onClose }) {
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

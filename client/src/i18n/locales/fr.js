@@ -383,6 +383,7 @@ export default {
   "preorder.delivery.today": "J0",
   "preorder.delivery.in": "J-{n}",
   "preorder.delivery.overdue": "J+{n}",
+  "preorder.delivery.tooltip": "Livraison estimée le {date}",
   "preorders.quick.title": "Marquer :",
   "preorders.tracking.carrier": "Transporteur",
   "preorders.tracking.carrier_unknown": "Lien externe",

@@ -6,6 +6,7 @@ import {
 import {
   countdownTone,
   deliveryCountdown,
+  deliveryDateLabel,
   formatCountdown,
 } from "../lib/deliveryCountdown.js";
 
@@ -89,13 +90,16 @@ export default function PreorderHistory({ ownedId }) {
           </span>
         ) : null}
         {/* Delivery countdown — visible only when shipped + ETA both set.
-         *  J-3 / J0 / J+2 (overdue tinted laque). */}
+         *  J-3 / J0 / J+2 (overdue tinted laque). Native `title` tooltip
+         *  reveals the exact projected delivery date on hover/long-press. */}
         {(() => {
           const days = deliveryCountdown(po);
           if (days == null) return null;
+          const date = deliveryDateLabel(po);
           return (
             <span
-              className={`font-mono uppercase tracking-[0.22em] ${countdownTone(days)}`}
+              title={date ? t("preorder.delivery.tooltip", { date }) : undefined}
+              className={`font-mono uppercase tracking-[0.22em] cursor-help ${countdownTone(days)}`}
             >
               {formatCountdown(days, t)}
             </span>

@@ -17,6 +17,7 @@ import TrackingChip from "../components/TrackingChip.jsx";
 import {
   countdownTone,
   deliveryCountdown,
+  deliveryDateLabel,
   formatCountdown,
 } from "../lib/deliveryCountdown.js";
 
@@ -392,12 +393,15 @@ function TimelineEntry({ preorder: p, t }) {
             </span>
           ) : null}
           {/* Delivery countdown — surfaces here too so the user can spot
-           *  an overdue parcel without expanding the entry. */}
+           *  an overdue parcel without expanding the entry. Native `title`
+           *  reveals the exact projected delivery date. */}
           {(() => {
             const days = deliveryCountdown(p);
             if (days == null) return null;
+            const date = deliveryDateLabel(p);
+            const tip = date ? t("preorder.delivery.tooltip", { date }) : undefined;
             return (
-              <span>
+              <span title={tip} className="cursor-help">
                 <span className="horarium-entry-meta-key">
                   {t("preorders.field.delivery_chip_label")}
                 </span>
