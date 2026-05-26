@@ -63,4 +63,4 @@ This means three places the docs can live:
 | Self-hosted container | Behind your VPN, alongside your app, version-pinned to a release tag |
 | Local `mkdocs serve` | While editing, `:8001` with hot reload |
 
-All three serve the same Markdown source from `documentation/docs/`.
+All three serve the same Markdown source from `docs/content/`.

@@ -15,7 +15,7 @@
 #     `requirements.txt` for the MkDocs site (deterministic).
 #
 # Build:
-#   docker build -t figurecollector-docs:dev documentation/
+#   docker build -t figurecollector-docs:dev docs/
 # =============================================================================
 
 # ───────────────────────────────────────────────────────────────────────────────
@@ -31,9 +31,11 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir --user -r requirements.txt
 ENV PATH="/home/nonroot/.local/bin:${PATH}"
 
-# Now the actual docs sources.
+# Now the actual docs sources. `docs_dir: content` in mkdocs.yml points
+# the build at this directory; we COPY it under the same name so the
+# layout inside the builder mirrors the repo layout.
 COPY mkdocs.yml ./
-COPY docs/ ./docs/
+COPY content/ ./content/
 
 # Build into ./site/. `--strict` makes the build fail on any broken link or
 # missing reference so CI catches them, not the users.

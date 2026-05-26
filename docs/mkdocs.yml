@@ -3,7 +3,12 @@ site_description: Self-hosted PWA for figurine collectors — catalogue, pre-ord
 site_url: https://dim145.github.io/FigureCollector/
 repo_url: https://github.com/Dim145/FigureCollector
 repo_name: Dim145/FigureCollector
-edit_uri: edit/main/documentation/docs/
+edit_uri: edit/main/docs/content/
+# Markdown source lives at docs/content/ alongside the rest of the docs
+# tooling (mkdocs.yml, Dockerfile, nginx.conf, requirements.txt) — keeps
+# every doc-related artefact under one top-level /docs directory instead
+# of scattering the config in a sibling folder.
+docs_dir: content
 copyright: AGPL-3.0-or-later · 像 FigureCollector
 
 theme:

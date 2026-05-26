@@ -7,7 +7,7 @@ A short reference of what FigureCollector guarantees, what it doesn't, and where
 ### Container surface
 
 - **`FROM scratch` backend** — no shell, no libc, no package manager. Source: `server/Dockerfile`.
-- **Distroless nginx** for both frontend and docs. Source: `client/Dockerfile`, `documentation/Dockerfile`.
+- **Distroless nginx** for both frontend and docs. Source: `client/Dockerfile`, `docs/Dockerfile`.
 - **Read-only rootfs**, **`cap_drop: ALL`**, **`no-new-privileges: true`** on every service. Source: `docker-compose.yml`, `docker-compose.prod.yml`, `docker-compose.docs.yml`.
 - **Non-root user** (`65532`) everywhere.
 - **No OpenSSL** anywhere in the dependency tree. Verified per-PR with `cargo tree -i openssl-sys`. Source: `Cargo.toml` (cookbook of Rustls + aws-lc-rs alternatives).
@@ -48,7 +48,7 @@ A short reference of what FigureCollector guarantees, what it doesn't, and where
 | Concern | Source |
 |---|---|
 | Hardening posture | `docker-compose*.yml`, `*/Dockerfile`, `*/nginx.conf` |
-| CSP + security headers | `client/nginx.conf`, `documentation/nginx.conf` |
+| CSP + security headers | `client/nginx.conf`, `docs/nginx.conf` |
 | Auth flows | `server/src/auth/`, `server/src/routes/auth.rs` |
 | Rate limiting | `server/src/main.rs` (tower_governor) |
 | Image upload validation | `server/src/domain/photo.rs` |
