@@ -78,6 +78,7 @@ nav:
   - Features:
       - features/index.md
       - Catalogue & collection: features/catalogue.md
+      - URL import (orzgk + proxy): features/url-import.md
       - Pre-orders: features/preorders.md
       - Photos & 360° scans: features/photos.md
       - Notifications: features/notifications.md

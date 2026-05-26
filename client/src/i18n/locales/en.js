@@ -204,6 +204,7 @@ export default {
   "lookup.figure.open": "Search this figure on orzgk / MFC",
   "lookup.figure.placeholder": "Nendoroid Miku, Asuka 1/6, Saber Alter… or paste an orzgk link",
   "lookup.figure.paste_hint": "Tip — paste an orzgk.com/product/… URL to import directly",
+  "lookup.figure.paste_hint_proxy": "Tip — paste an orzgk.com URL or one from a proxy-supported store ({stores}) to import directly",
   "lookup.figure.url_detected": "Link detected — opening the listing…",
   "lookup.figure.hint_min": "Type at least 2 characters to start the search.",
   "lookup.figure.no_results": "No results. Try a different keyword.",

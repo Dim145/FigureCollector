@@ -4,7 +4,7 @@
 
 use crate::auth;
 use crate::error::{AppError, AppResult};
-use crate::external::{anilist, mal, mfc, orzgk, tracking};
+use crate::external::{anilist, mal, mfc, orzgk, proxy, tracking};
 use crate::state::AppState;
 use axum::{
     Json, Router,
@@ -97,6 +97,83 @@ async fn orzgk_search(
         return Err(AppError::BadRequest("query must be at least 2 chars"));
     }
     Ok(Json(orzgk::search(&state.pool, &state.http, &query).await?))
+}
+
+// =============================================================================
+// Boutique scraping proxy — `/api/external/proxy/{stores,search,product}`
+//
+// Thin forwarders to the optional external proxy. When
+// `FIGURE_PROXY_URL` is unset every route returns `feature_disabled` so
+// the SPA hides the matching UI. See `external::proxy` for the wire
+// contract and `docs/content/features/url-import.md` for the response
+// shapes the proxy must implement.
+// =============================================================================
+
+#[derive(Deserialize)]
+struct ProxySearchQuery {
+    q: Option<String>,
+    /// Optional boutique filter (matches `ProxyStore.id`).
+    store: Option<String>,
+}
+
+fn proxy_client(state: &AppState) -> proxy::ProxyClient<'_> {
+    proxy::ProxyClient::new(&state.config.proxy, &state.http)
+}
+
+async fn proxy_stores(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<Vec<proxy::ProxyStore>>> {
+    auth::require_user(&session).await?;
+    let client = proxy_client(&state);
+    if !client.is_configured() {
+        return Err(AppError::FeatureDisabled(
+            "figure scraping proxy is not configured \
+             (set FIGURE_PROXY_URL)",
+        ));
+    }
+    Ok(Json(client.stores().await?))
+}
+
+async fn proxy_search(
+    State(state): State<AppState>,
+    session: Session,
+    Query(q): Query<ProxySearchQuery>,
+) -> AppResult<Json<Vec<proxy::ProxySearchResult>>> {
+    auth::require_user(&session).await?;
+    let client = proxy_client(&state);
+    if !client.is_configured() {
+        return Err(AppError::FeatureDisabled(
+            "figure scraping proxy is not configured",
+        ));
+    }
+    let query = q.q.unwrap_or_default();
+    if query.trim().len() < 2 {
+        return Err(AppError::BadRequest("query must be at least 2 chars"));
+    }
+    let store_filter = q.store.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    Ok(Json(client.search(query.trim(), store_filter).await?))
+}
+
+async fn proxy_product(
+    State(state): State<AppState>,
+    session: Session,
+    Query(q): Query<UrlQuery>,
+) -> AppResult<Json<proxy::ProxyProduct>> {
+    auth::require_user(&session).await?;
+    let client = proxy_client(&state);
+    if !client.is_configured() {
+        return Err(AppError::FeatureDisabled(
+            "figure scraping proxy is not configured",
+        ));
+    }
+    let url = q
+        .url
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .ok_or(AppError::BadRequest("missing url parameter"))?;
+    Ok(Json(client.product(url).await?))
 }
 
 /// Fetch + cache a single orzgk product page. Used by the lookup modal once
@@ -209,6 +286,9 @@ pub fn router() -> Router<AppState> {
         .route("/external/mfc/{id}", get(mfc_get))
         .route("/external/orzgk/search", get(orzgk_search))
         .route("/external/orzgk/detail", get(orzgk_detail))
+        .route("/external/proxy/stores", get(proxy_stores))
+        .route("/external/proxy/search", get(proxy_search))
+        .route("/external/proxy/product", get(proxy_product))
         .route("/external/mal/anime/search", get(mal_anime_search))
         .route("/external/mal/anime/{id}", get(mal_anime_get))
         .route("/external/mal/character/search", get(mal_character_search))

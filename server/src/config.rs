@@ -14,6 +14,27 @@ pub struct AppConfig {
     pub frontend_url: String,
     pub auth: AuthConfig,
     pub tracking: TrackingConfig,
+    pub proxy: ProxyConfig,
+}
+
+/// External boutique-scraping proxy. When `base_url` is set, the
+/// `/api/external/proxy/*` routes forward to it; when it's `None`, those
+/// routes return `feature_disabled` and the SPA hides the matching
+/// lookup widgets.
+///
+/// The proxy is intentionally agnostic — any service that implements the
+/// three documented endpoints (`/stores`, `/search`, `/product`) works.
+/// See `docs/content/features/url-import.md` for the response contract.
+#[derive(Debug, Clone, Default)]
+pub struct ProxyConfig {
+    /// Base URL (no trailing slash). Endpoints are appended (`/stores`,
+    /// `/search`, `/product`). When `None`, proxy routes return
+    /// `feature_disabled`.
+    pub base_url: Option<String>,
+    /// Optional bearer token sent in `Authorization: Bearer …` on every
+    /// proxy call. Pair with a self-hosted proxy that gates its routes,
+    /// or leave unset for a proxy reachable on a trusted network only.
+    pub api_key: Option<String>,
 }
 
 /// Shipping-carrier API credentials. All optional — the corresponding
@@ -91,12 +112,21 @@ impl AppConfig {
             ups_client_secret: env_nonempty("UPS_CLIENT_SECRET"),
         };
 
+        // Strip a trailing slash so endpoint joining (`base + "/stores"`)
+        // doesn't accidentally produce `//stores` on a misconfigured value.
+        let proxy = ProxyConfig {
+            base_url: env_nonempty("FIGURE_PROXY_URL")
+                .map(|s| s.trim_end_matches('/').to_string()),
+            api_key: env_nonempty("FIGURE_PROXY_API_KEY"),
+        };
+
         Ok(Self {
             bind_addr,
             database_url,
             frontend_url,
             auth,
             tracking,
+            proxy,
         })
     }
 }

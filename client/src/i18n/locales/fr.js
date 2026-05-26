@@ -216,6 +216,7 @@ export default {
   "lookup.figure.open": "Chercher cette figurine sur orzgk / MFC",
   "lookup.figure.placeholder": "Nendoroid Miku, Asuka 1/6, Saber Alter… ou colle un lien orzgk",
   "lookup.figure.paste_hint": "Astuce — colle un lien orzgk.com/product/… pour importer directement",
+  "lookup.figure.paste_hint_proxy": "Astuce — colle un lien orzgk.com ou d'une boutique gérée par le proxy ({stores}) pour importer directement",
   "lookup.figure.url_detected": "Lien détecté — ouverture de la fiche…",
   "lookup.figure.hint_min": "Tape au moins 2 caractères pour lancer la recherche.",
   "lookup.figure.no_results": "Aucun résultat. Essaie un autre mot-clé.",

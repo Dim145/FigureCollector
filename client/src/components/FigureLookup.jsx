@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 import { api, ApiError } from "../lib/api.js";
+import {
+  fetchProxyProduct,
+  useProxyEnabled,
+} from "../hooks/useProxy.js";
 import Button from "./Button.jsx";
 
 /**
@@ -33,6 +37,11 @@ export default function FigureLookup({ initial = "", onPick }) {
   const [error, setError] = useState(null);
   const [mfcNotice, setMfcNotice] = useState(null);
   const inputRef = useRef(null);
+  // Boutique proxy gate. `enabled` flips to true once the proxy is
+  // configured AND its `/stores` endpoint returns at least one store.
+  // The hostname-routing test below uses `proxy.stores` to decide
+  // whether a pasted non-orzgk URL should be sent to the proxy.
+  const proxy = useProxyEnabled();
 
   // Detail-flow state (when a card is clicked or a URL is pasted).
   const [detailFor, setDetailFor] = useState(null); // url string, or null
@@ -46,15 +55,28 @@ export default function FigureLookup({ initial = "", onPick }) {
     return () => clearTimeout(id);
   }, [query]);
 
-  // Detect when the user pastes an orzgk product URL → jump to detail.
+  // URL paste dispatcher.
+  // - orzgk URLs open the rich version-picker modal (existing flow).
+  // - Any URL whose host matches a store the configured proxy supports
+  //   goes through `/external/proxy/product?url=…` and fills the form
+  //   directly — no modal, no extra clicks.
+  // - Anything else is left as a free-text query so the search effect
+  //   below can take over.
   useEffect(() => {
     if (!open) return;
     const trimmed = query.trim();
     if (ORZGK_URL_RE.test(trimmed) && trimmed !== detailFor) {
       openDetail(trimmed);
+      return;
+    }
+    if (proxy.enabled && /^https?:\/\//i.test(trimmed) && trimmed !== detailFor) {
+      const host = hostnameOf(trimmed);
+      if (host && proxyHandles(proxy.stores, host)) {
+        openProxyProduct(trimmed);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, open]);
+  }, [query, open, proxy.enabled, proxy.stores]);
 
   // Trigger search when the panel is open AND the debounced query is non-URL
   // AND long enough. Providers fire in parallel; whichever fails just shows
@@ -62,8 +84,10 @@ export default function FigureLookup({ initial = "", onPick }) {
   useEffect(() => {
     if (!open) return;
     const q = debouncedQuery.trim();
-    if (ORZGK_URL_RE.test(q)) {
-      // URL paste handled separately by the effect above.
+    // A URL paste is handled by the dispatcher above (orzgk modal /
+    // proxy product). Suppress the search effect so we don't fire a
+    // useless `?q=https://...` against orzgk / MFC.
+    if (/^https?:\/\//i.test(q)) {
       setResults([]);
       setError(null);
       setMfcNotice(null);
@@ -100,6 +124,45 @@ export default function FigureLookup({ initial = "", onPick }) {
         },
       ),
     ];
+
+    // Optional third branch — the external boutique proxy. Same shape
+    // adapted into the result-row contract so the existing ResultRow
+    // renders it without code-paths.
+    if (proxy.enabled) {
+      calls.push(
+        api
+          .get(`/external/proxy/search?q=${encodeURIComponent(q)}`)
+          .then(
+            (rows) =>
+              rows.map((r) => ({
+                source: "proxy",
+                title: r.title,
+                detail_url: r.url,
+                image_url: r.image_url ?? null,
+                studio: r.store_name ?? r.store_id,
+                // Map status string to the same field orzgk's card uses.
+                status: r.status ?? null,
+                // Keep the structured price for tooltip rendering.
+                price_range:
+                  r.price?.amount != null
+                    ? `${r.price.amount} ${r.price.currency ?? ""}`.trim()
+                    : null,
+                // Carry the store_id through so the modal can route the
+                // detail call back to the proxy.
+                proxy_store_id: r.store_id,
+              })),
+            (e) => {
+              if (cancelled) return [];
+              // proxy errors are silent in the results list — the
+              // gating UI shows the cause separately.
+              if (!(e instanceof ApiError && e.code === "feature_disabled")) {
+                console.warn("proxy search failed", e);
+              }
+              return [];
+            },
+          ),
+      );
+    }
 
     Promise.all(calls).then((lists) => {
       if (cancelled) return;
@@ -157,6 +220,49 @@ export default function FigureLookup({ initial = "", onPick }) {
     setOpen(false);
   };
 
+  // Proxy product import — used when a pasted URL belongs to a store
+  // the external proxy supports. Same race-token discipline as
+  // `openDetail` so a slow first call can't clobber a fresh second one
+  // if the user clears + repastes a different URL.
+  const openProxyProduct = (url) => {
+    const myReq = ++detailReqRef.current;
+    setDetailFor(url);
+    setDetail(null);
+    setDetailError(null);
+    setDetailBusy(true);
+    fetchProxyProduct(url)
+      .then((p) => {
+        if (detailReqRef.current !== myReq) return;
+        // Map ProxyProduct → pick payload. `source_url` is preserved
+        // so the backend can auto-link the new figure to the matching
+        // store via hostname.
+        applyPick({
+          name: p.title,
+          manufacturer_name: p.manufacturer ?? undefined,
+          series_name: p.series ?? undefined,
+          character_name: p.character ?? undefined,
+          scale: p.scale ?? undefined,
+          height_mm: p.height_mm != null ? String(p.height_mm) : undefined,
+          materials: p.materials ?? undefined,
+          official_image_url: p.primary_image_url ?? undefined,
+          msrp_amount:
+            p.price?.amount != null
+              ? String(p.price.amount.toFixed(2))
+              : undefined,
+          msrp_currency: p.price?.currency ?? undefined,
+          release_date: p.release_date ?? undefined,
+          description: p.description ?? undefined,
+          is_nsfw: p.is_nsfw || undefined,
+          source_url: p.url,
+        });
+      })
+      .catch((e) => {
+        if (detailReqRef.current !== myReq) return;
+        setDetailError(e?.message ?? "proxy lookup failed");
+        setDetailBusy(false);
+      });
+  };
+
   if (!open) {
     return (
       <button
@@ -191,7 +297,14 @@ export default function FigureLookup({ initial = "", onPick }) {
         </div>
 
         <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)]/60 mb-3">
-          {t("lookup.figure.paste_hint")}
+          {proxy.enabled
+            ? t("lookup.figure.paste_hint_proxy", {
+                stores: proxy.stores
+                  .map((s) => s.name)
+                  .slice(0, 3)
+                  .join(", "),
+              })
+            : t("lookup.figure.paste_hint")}
         </p>
 
         {ORZGK_URL_RE.test(query.trim()) ? (
@@ -218,6 +331,8 @@ export default function FigureLookup({ initial = "", onPick }) {
                   onPick={() => {
                     if (r.source === "orzgk" && r.detail_url) {
                       openDetail(r.detail_url);
+                    } else if (r.source === "proxy" && r.detail_url) {
+                      openProxyProduct(r.detail_url);
                     } else {
                       // MFC or detail-less row: keep the legacy minimal apply.
                       applyPick(legacyPick(r, t));
@@ -835,4 +950,28 @@ function legacyPick(row, t) {
       : undefined,
     source_url: row.detail_url,
   };
+}
+
+/** Extract a lowercase hostname (without the `www.` prefix) from a
+ *  user-pasted URL string. Returns null when the string isn't a
+ *  parseable URL — callers fall back to the search effect in that case. */
+function hostnameOf(raw) {
+  try {
+    const host = new URL(raw).hostname.toLowerCase();
+    return host.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+/** Test whether any of the proxy's `/stores` entries claims this host.
+ *  Each `ProxyStore.hosts` is an array of bare hostnames the proxy can
+ *  scrape; matching is case-insensitive and ignores leading `www.`. */
+function proxyHandles(stores, host) {
+  const needle = host.replace(/^www\./, "").toLowerCase();
+  return stores.some((s) =>
+    (s.hosts ?? []).some(
+      (h) => (h ?? "").replace(/^www\./, "").toLowerCase() === needle,
+    ),
+  );
 }
