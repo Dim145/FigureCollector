@@ -56,6 +56,12 @@ pub struct TrackingConfig {
 #[derive(Debug, Clone)]
 pub struct AuthConfig {
     pub allow_local_signup: bool,
+    /// Master switch for the auth-route rate limiter (tower_governor).
+    /// `RATE_LIMIT_ENABLED=false` removes the layer entirely — handy when
+    /// you front the app with your own limiter (Traefik, Cloudflare) or
+    /// when the built-in one is too aggressive for your OIDC flow's
+    /// request bursts.
+    pub rate_limit_enabled: bool,
     pub auth_rate_limit_per_second: u64,
     pub auth_rate_limit_burst: u32,
     /// Base URL the OIDC IdP redirects to; callbacks land at `<base>/api/auth/callback/<provider>`.
@@ -93,13 +99,19 @@ impl AppConfig {
             allow_local_signup: env::var("ALLOW_LOCAL_SIGNUP")
                 .map(|v| matches!(v.as_str(), "1" | "true" | "yes"))
                 .unwrap_or(true),
+            // Default ON. Any of false/0/no disables it.
+            rate_limit_enabled: env::var("RATE_LIMIT_ENABLED")
+                .map(|v| !matches!(v.trim().to_lowercase().as_str(), "0" | "false" | "no" | "off"))
+                .unwrap_or(true),
             auth_rate_limit_per_second: env::var("AUTH_RATE_LIMIT_PER_SECOND")
                 .ok()
                 .and_then(|v| v.parse().ok())
+                .filter(|&n| n > 0)
                 .unwrap_or(2),
             auth_rate_limit_burst: env::var("AUTH_RATE_LIMIT_BURST")
                 .ok()
                 .and_then(|v| v.parse().ok())
+                .filter(|&n| n > 0)
                 .unwrap_or(8),
             oidc_redirect_base,
             oidc_providers,

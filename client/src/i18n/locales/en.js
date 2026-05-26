@@ -693,6 +693,8 @@ export default {
   "settings.bg_model.large": "Large · 120 MB · best quality",
 
   "turntable.section.title": "360° view",
+  "turntable.viewer.load_error": "{failed} of {total} frames failed to load (network error or too many requests).",
+  "turntable.viewer.retry": "Retry",
   "turntable.section.empty": "No 360° scan yet for this piece.",
   "turntable.section.add_first": "+ Create a 360° scan",
   "turntable.section.add_more": "+ New scan",

@@ -33,19 +33,32 @@ pub mod web_push;
 pub mod ws;
 
 pub fn build_router(state: AppState) -> Router {
-    let governor_conf = Arc::new(
-        GovernorConfigBuilder::default()
-            .per_second(state.config.auth.auth_rate_limit_per_second)
-            .burst_size(state.config.auth.auth_rate_limit_burst)
-            .key_extractor(SmartIpKeyExtractor)
-            .finish()
-            .expect("valid governor configuration"),
-    );
-    // tower_governor 0.8 made GovernorLayer's fields private; use the
-    // `new` constructor (Arc is built via the Into bound).
-    let auth_governor = GovernorLayer::new(governor_conf);
-
-    let auth_routes = auth::router().layer(auth_governor);
+    // Auth routes get an IP-keyed rate limiter unless RATE_LIMIT_ENABLED
+    // is turned off. The toggle + tunables come from env (see AuthConfig):
+    //   RATE_LIMIT_ENABLED         on/off (default on)
+    //   AUTH_RATE_LIMIT_PER_SECOND sustained req/s per IP (default 2)
+    //   AUTH_RATE_LIMIT_BURST      burst allowance (default 8)
+    // Disabling is the escape hatch when you front the app with your own
+    // limiter or the built-in one is too tight for your OIDC bursts.
+    let auth_routes = if state.config.auth.rate_limit_enabled {
+        let governor_conf = Arc::new(
+            GovernorConfigBuilder::default()
+                .per_second(state.config.auth.auth_rate_limit_per_second)
+                .burst_size(state.config.auth.auth_rate_limit_burst)
+                .key_extractor(SmartIpKeyExtractor)
+                .finish()
+                .expect("valid governor configuration"),
+        );
+        // tower_governor 0.8 made GovernorLayer's fields private; use the
+        // `new` constructor (Arc is built via the Into bound).
+        auth::router().layer(GovernorLayer::new(governor_conf))
+    } else {
+        tracing::warn!(
+            "auth rate limiting is DISABLED (RATE_LIMIT_ENABLED=false) — \
+             ensure an upstream limiter protects /api/auth/*"
+        );
+        auth::router()
+    };
 
     // Multipart photo uploads — 5 MB per file + multipart framing.
     // Both layers are needed: `DefaultBodyLimit::disable()` removes the

@@ -39,6 +39,28 @@ If unset, uploads fall back to the local filesystem under `./data/uploads`.
 |---|---|
 | `MFC_PROXY_URL` | HTTP proxy used for MFC scraping (rate-limited to 1 req/s) |
 | `ANILIST_CLIENT_ID`, `ANILIST_CLIENT_SECRET` | AniList API |
+| `FIGURE_PROXY_URL` | Base URL of the boutique-scraping proxy (no trailing slash). When unset, the `/api/external/proxy/*` routes return `feature_disabled` and the SPA hides the proxy lookup UI. See [URL import](../features/url-import.md). |
+| `FIGURE_PROXY_API_KEY` | Optional bearer token sent on every proxy call. |
+
+## Optional — rate limiting
+
+The built-in rate limiter (tower_governor) guards the auth routes
+(`/api/auth/*`) — login / register / OIDC callbacks — keyed by client
+IP. It does **not** touch the rest of the API.
+
+| Variable | Default | What |
+|---|---|---|
+| `RATE_LIMIT_ENABLED` | `true` | Master switch. Set to `false`/`0`/`no`/`off` to remove the limiter entirely — do this when you front the app with your own limiter (Traefik, Cloudflare) or when the defaults are too tight for your OIDC bursts. |
+| `AUTH_RATE_LIMIT_PER_SECOND` | `2` | Sustained requests/second allowed per IP on auth routes. |
+| `AUTH_RATE_LIMIT_BURST` | `8` | Burst allowance on top of the sustained rate. |
+
+!!! note "429 on the 360° viewer"
+    The turntable viewer used to fire every frame request at once, which
+    could trip an *upstream* limiter (your reverse proxy / host) — never
+    the built-in one above, which is auth-only. The viewer now loads
+    frames with bounded concurrency + per-frame retry, and surfaces a
+    "retry" button if frames still fail, so a transient 429 no longer
+    leaves a hole in the rotation.
 
 ## Optional — observability
 
