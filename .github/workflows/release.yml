@@ -64,8 +64,8 @@ jobs:
             context: ./client
             dockerfile: ./client/Dockerfile
           - image: docs
-            context: ./documentation
-            dockerfile: ./documentation/Dockerfile
+            context: ./docs
+            dockerfile: ./docs/Dockerfile
 
     steps:
       - name: Checkout

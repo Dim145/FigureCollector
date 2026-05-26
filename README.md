@@ -86,13 +86,12 @@ FigureCollector/
 │   ├── vite.config.js
 │   ├── nginx.conf
 │   └── Dockerfile
-├── documentation/         # MkDocs Material site (published to GH Pages)
-│   ├── docs/
+├── docs/                  # All documentation under one roof
+│   ├── content/           # MkDocs Material source (published to GH Pages)
 │   ├── mkdocs.yml
 │   ├── nginx.conf
-│   └── Dockerfile
-├── docs/
-│   └── design/preview.html
+│   ├── Dockerfile
+│   └── design/preview.html  # Phase-0 visual-direction sketch
 ├── .github/workflows/
 │   ├── release.yml        # GHCR image push on tag
 │   └── docs.yml           # MkDocs → GitHub Pages

@@ -10,14 +10,14 @@
 #   docker compose -f docker-compose.docs.yml up -d --build
 #   open http://localhost:8000
 #
-# When fronting with Traefik in production, see documentation/docs/self-hosting/docs.md
+# When fronting with Traefik in production, see docs/content/self-hosting/docs.md
 # for the labels block.
 # =============================================================================
 
 services:
   docs:
     build:
-      context: ./documentation
+      context: ./docs
       dockerfile: Dockerfile
     image: figurecollector-docs:dev
     restart: unless-stopped
