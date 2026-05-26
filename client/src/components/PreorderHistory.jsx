@@ -3,6 +3,11 @@ import {
   usePreorderForOwned,
   usePreorderHistory,
 } from "../hooks/useCollection.js";
+import {
+  countdownTone,
+  deliveryCountdown,
+  formatCountdown,
+} from "../lib/deliveryCountdown.js";
 
 /**
  * Persistent pre-order history block rendered under an owned piece. Stays
@@ -83,6 +88,19 @@ export default function PreorderHistory({ ownedId }) {
             </span>
           </span>
         ) : null}
+        {/* Delivery countdown — visible only when shipped + ETA both set.
+         *  J-3 / J0 / J+2 (overdue tinted laque). */}
+        {(() => {
+          const days = deliveryCountdown(po);
+          if (days == null) return null;
+          return (
+            <span
+              className={`font-mono uppercase tracking-[0.22em] ${countdownTone(days)}`}
+            >
+              {formatCountdown(days, t)}
+            </span>
+          );
+        })()}
       </div>
 
       {/* Slip timeline — only when there are previous date changes */}
@@ -153,6 +171,7 @@ function fmtDate(d) {
     day: "numeric",
   });
 }
+
 
 function DateCard({ label, value, highlight, slipNote }) {
   return (

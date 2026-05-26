@@ -32,6 +32,7 @@ mod m20260524_000017_notifications;
 mod m20260525_000001_perf_indexes;
 mod m20260526_000001_preorder_deposit;
 mod m20260526_000002_preorder_cancellation;
+mod m20260526_000003_preorder_delivery_estimate;
 
 pub struct Migrator;
 
@@ -59,6 +60,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260525_000001_perf_indexes::Migration),
             Box::new(m20260526_000001_preorder_deposit::Migration),
             Box::new(m20260526_000002_preorder_cancellation::Migration),
+            Box::new(m20260526_000003_preorder_delivery_estimate::Migration),
         ]
     }
 }

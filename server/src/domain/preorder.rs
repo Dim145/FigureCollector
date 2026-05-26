@@ -31,6 +31,10 @@ pub struct Preorder {
     /// What was actually paid back when the preorder is cancelled.
     /// See migration 19 header for the full semantics.
     pub deposit_refund_amount: Option<Decimal>,
+    /// Auto-set on the status='shipped' transition. Combined with
+    /// `estimated_delivery_days` to project a delivery date.
+    pub shipped_at: Option<DateTime<Utc>>,
+    pub estimated_delivery_days: Option<i32>,
     pub notes: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -53,6 +57,8 @@ pub struct PreorderWithFigure {
     pub price_currency: Option<String>,
     pub deposit_amount: Option<Decimal>,
     pub deposit_refund_amount: Option<Decimal>,
+    pub shipped_at: Option<DateTime<Utc>>,
+    pub estimated_delivery_days: Option<i32>,
     pub notes: Option<String>,
     pub created_at: DateTime<Utc>,
 
@@ -77,6 +83,7 @@ pub struct NewPreorder {
     pub price_currency: Option<String>,
     pub deposit_amount: Option<Decimal>,
     pub deposit_refund_amount: Option<Decimal>,
+    pub estimated_delivery_days: Option<i32>,
     pub notes: Option<String>,
 }
 
@@ -95,6 +102,7 @@ pub struct PreorderPatch {
     /// to CLEAR the refund (e.g. when un-cancelling). Omitting the field
     /// leaves it unchanged via COALESCE — see the patch SQL.
     pub deposit_refund_amount: Option<Decimal>,
+    pub estimated_delivery_days: Option<i32>,
     pub notes: Option<String>,
 }
 
@@ -124,12 +132,18 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewPreorder) -> AppResu
         "INSERT INTO preorders (
             id, user_id, figure_id, status, store, order_ref, tracking_url,
             release_date_original, release_date_current,
-            price_amount, price_currency, deposit_amount, deposit_refund_amount, notes
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10,$11,$12,$13)
+            price_amount, price_currency, deposit_amount, deposit_refund_amount,
+            estimated_delivery_days, shipped_at, notes
+         ) VALUES (
+            $1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10,$11,$12,$13,
+            CASE WHEN $4 = 'shipped' THEN NOW() ELSE NULL END,
+            $14
+         )
          RETURNING id, user_id, figure_id, status, store, order_ref, tracking_url,
                    release_date_original, release_date_current,
                    price_amount, price_currency, deposit_amount,
-                   deposit_refund_amount, notes,
+                   deposit_refund_amount, shipped_at, estimated_delivery_days,
+                   notes,
                    created_at, updated_at",
     )
     .bind(id)
@@ -144,6 +158,7 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewPreorder) -> AppResu
     .bind(&input.price_currency)
     .bind(input.deposit_amount)
     .bind(input.deposit_refund_amount)
+    .bind(input.estimated_delivery_days)
     .bind(&input.notes)
     .fetch_one(pool)
     .await
@@ -163,6 +178,7 @@ pub async fn list_for_user(pool: &PgPool, user_id: Uuid) -> AppResult<Vec<Preord
             p.release_date_original, p.release_date_current,
             p.price_amount, p.price_currency,
             p.deposit_amount, p.deposit_refund_amount,
+            p.shipped_at, p.estimated_delivery_days,
             p.notes,
             p.created_at,
             f.name AS figure_name, f.slug AS figure_slug, f.figure_type,
@@ -201,7 +217,8 @@ pub async fn patch(
         "SELECT id, user_id, figure_id, status, store, order_ref, tracking_url,
                 release_date_original, release_date_current,
                 price_amount, price_currency,
-                deposit_amount, deposit_refund_amount, notes,
+                deposit_amount, deposit_refund_amount,
+                shipped_at, estimated_delivery_days, notes,
                 created_at, updated_at
          FROM preorders WHERE id = $1 AND user_id = $2",
     )
@@ -230,21 +247,30 @@ pub async fn patch(
 
     let updated: Preorder = sqlx::query_as(
         "UPDATE preorders SET
-            status                = COALESCE($1, status),
-            store                 = COALESCE($2, store),
-            order_ref             = COALESCE($3, order_ref),
-            tracking_url          = COALESCE($4, tracking_url),
-            release_date_current  = COALESCE($5, release_date_current),
-            price_amount          = COALESCE($6, price_amount),
-            price_currency        = COALESCE($7, price_currency),
-            deposit_amount        = COALESCE($8, deposit_amount),
-            deposit_refund_amount = COALESCE($9, deposit_refund_amount),
-            notes                 = COALESCE($10, notes)
-         WHERE id = $11 AND user_id = $12
+            status                  = COALESCE($1, status),
+            store                   = COALESCE($2, store),
+            order_ref               = COALESCE($3, order_ref),
+            tracking_url            = COALESCE($4, tracking_url),
+            release_date_current    = COALESCE($5, release_date_current),
+            price_amount            = COALESCE($6, price_amount),
+            price_currency          = COALESCE($7, price_currency),
+            deposit_amount          = COALESCE($8, deposit_amount),
+            deposit_refund_amount   = COALESCE($9, deposit_refund_amount),
+            estimated_delivery_days = COALESCE($10, estimated_delivery_days),
+            -- Auto-stamp shipped_at on the FIRST transition to 'shipped'.
+            -- COALESCE keeps any previous value so re-saving the same
+            -- status doesn't reset the timestamp.
+            shipped_at              = CASE
+                WHEN $1 = 'shipped' AND shipped_at IS NULL THEN NOW()
+                ELSE shipped_at
+            END,
+            notes                   = COALESCE($11, notes)
+         WHERE id = $12 AND user_id = $13
          RETURNING id, user_id, figure_id, status, store, order_ref, tracking_url,
                    release_date_original, release_date_current,
                    price_amount, price_currency,
-                   deposit_amount, deposit_refund_amount, notes,
+                   deposit_amount, deposit_refund_amount,
+                   shipped_at, estimated_delivery_days, notes,
                    created_at, updated_at",
     )
     .bind(&input.status)
@@ -256,6 +282,7 @@ pub async fn patch(
     .bind(&input.price_currency)
     .bind(input.deposit_amount)
     .bind(input.deposit_refund_amount)
+    .bind(input.estimated_delivery_days)
     .bind(&input.notes)
     .bind(id)
     .bind(user_id)
@@ -375,7 +402,8 @@ pub async fn create_for_owned_item(
          RETURNING id, user_id, figure_id, status, store, order_ref, tracking_url,
                    release_date_original, release_date_current,
                    price_amount, price_currency,
-                   deposit_amount, deposit_refund_amount, notes,
+                   deposit_amount, deposit_refund_amount,
+                   shipped_at, estimated_delivery_days, notes,
                    created_at, updated_at",
     )
     .bind(id)
@@ -400,7 +428,8 @@ pub async fn find_by_owned_item(
         "SELECT id, user_id, figure_id, status, store, order_ref, tracking_url,
                 release_date_original, release_date_current,
                 price_amount, price_currency,
-                deposit_amount, deposit_refund_amount, notes,
+                deposit_amount, deposit_refund_amount,
+                shipped_at, estimated_delivery_days, notes,
                 created_at, updated_at
          FROM preorders WHERE owned_item_id = $1 AND user_id = $2",
     )

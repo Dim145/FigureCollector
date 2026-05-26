@@ -40,6 +40,12 @@ use uuid::Uuid;
 pub const EVENT_ACHIEVEMENT_UNLOCKED: &str = "achievement_unlocked";
 pub const EVENT_PREORDER_RELEASE_TODAY: &str = "preorder_release_today";
 pub const EVENT_PREORDER_RELEASE_J7: &str = "preorder_release_j7";
+/// Fires when a shipped preorder's projected delivery date (shipped_at +
+/// estimated_delivery_days) equals today, ONCE per (preorder_id, date).
+pub const EVENT_PREORDER_DELIVERY_TODAY: &str = "preorder_delivery_today";
+/// Fires the day AFTER the projected delivery date when the preorder
+/// isn't already marked received. Fires ONCE per preorder.
+pub const EVENT_PREORDER_DELIVERY_OVERDUE: &str = "preorder_delivery_overdue";
 
 /// All event types the system can fire. Keep in lockstep with the SPA's
 /// i18n message keys (`notifications.event.<event_type>.*`).
@@ -47,6 +53,8 @@ pub const ALL_EVENTS: &[&str] = &[
     EVENT_ACHIEVEMENT_UNLOCKED,
     EVENT_PREORDER_RELEASE_TODAY,
     EVENT_PREORDER_RELEASE_J7,
+    EVENT_PREORDER_DELIVERY_TODAY,
+    EVENT_PREORDER_DELIVERY_OVERDUE,
 ];
 
 // =============================================================================

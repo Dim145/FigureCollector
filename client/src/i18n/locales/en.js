@@ -362,6 +362,13 @@ export default {
   "preorders.field.deposit": "Deposit",
   "preorders.field.deposit_ph": "30",
   "preorders.field.deposit_hint": "Upfront payment at order time (deducted from the balance before shipping).",
+  "preorders.field.delivery_days": "Estimated delivery (days)",
+  "preorders.field.delivery_days_ph": "7",
+  "preorders.field.delivery_days_hint": "ETA from the carrier. Countdown starts when status flips to \"Shipped\".",
+  "preorders.field.delivery_chip_label": "Delivery",
+  "preorder.delivery.today": "D0",
+  "preorder.delivery.in": "D-{n}",
+  "preorder.delivery.overdue": "D+{n}",
   "preorders.quick.title": "Mark as:",
   "preorders.tracking.carrier": "Carrier",
   "preorders.tracking.carrier_unknown": "External link",
@@ -489,6 +496,9 @@ export default {
   "notifications.event.preorder_release_today.title": "Released today: {name}",
   "notifications.event.preorder_release_j7.title": "Releasing soon: {name}",
   "notifications.event.preorder_release_j7.sub": "Only 7 days left — {date}",
+  "notifications.event.preorder_delivery_today.title": "Arriving today: {name}",
+  "notifications.event.preorder_delivery_overdue.title": "Delivery overdue: {name}",
+  "notifications.event.preorder_delivery_overdue.sub": "Estimated date was yesterday ({date})",
 
   // Notification channels (settings page)
   "settings.nav.notif_chan": "Notifications",

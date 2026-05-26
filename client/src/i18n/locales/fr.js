@@ -376,6 +376,13 @@ export default {
   "preorders.field.deposit": "Dépôt",
   "preorders.field.deposit_ph": "30",
   "preorders.field.deposit_hint": "Acompte versé à la commande (déduit du solde avant livraison).",
+  "preorders.field.delivery_days": "Livraison estimée (jours)",
+  "preorders.field.delivery_days_ph": "7",
+  "preorders.field.delivery_days_hint": "Délai annoncé par le transporteur. Le décompte démarre quand le statut passe à « Expédiée ».",
+  "preorders.field.delivery_chip_label": "Livraison",
+  "preorder.delivery.today": "J0",
+  "preorder.delivery.in": "J-{n}",
+  "preorder.delivery.overdue": "J+{n}",
   "preorders.quick.title": "Marquer :",
   "preorders.tracking.carrier": "Transporteur",
   "preorders.tracking.carrier_unknown": "Lien externe",
@@ -510,6 +517,9 @@ export default {
   "notifications.event.preorder_release_today.title": "Sortie aujourd'hui : {name}",
   "notifications.event.preorder_release_j7.title": "Sortie imminente : {name}",
   "notifications.event.preorder_release_j7.sub": "Plus que 7 jours — {date}",
+  "notifications.event.preorder_delivery_today.title": "Livraison aujourd'hui : {name}",
+  "notifications.event.preorder_delivery_overdue.title": "Livraison en retard : {name}",
+  "notifications.event.preorder_delivery_overdue.sub": "Date estimée dépassée hier ({date})",
 
   // Notification channels (settings page)
   "settings.nav.notif_chan": "Notifications",

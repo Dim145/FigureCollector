@@ -8,6 +8,8 @@ const KANJI_BY_EVENT = {
   achievement_unlocked: "印",
   preorder_release_today: "予",
   preorder_release_j7: "近",
+  preorder_delivery_today: "届",
+  preorder_delivery_overdue: "遅",
 };
 
 export function formatNotification(n, t) {
@@ -43,6 +45,28 @@ export function formatNotification(n, t) {
         }),
         sub: t("notifications.event.preorder_release_j7.sub", {
           date: p.release_date ?? "—",
+        }),
+        href: p.figure_id ? `/figures/${p.figure_id}` : "/preorders",
+        kanji,
+      };
+    }
+    case "preorder_delivery_today": {
+      return {
+        title: t("notifications.event.preorder_delivery_today.title", {
+          name: p.figure_name ?? "—",
+        }),
+        sub: p.delivery_date ?? "",
+        href: p.figure_id ? `/figures/${p.figure_id}` : "/preorders",
+        kanji,
+      };
+    }
+    case "preorder_delivery_overdue": {
+      return {
+        title: t("notifications.event.preorder_delivery_overdue.title", {
+          name: p.figure_name ?? "—",
+        }),
+        sub: t("notifications.event.preorder_delivery_overdue.sub", {
+          date: p.delivery_date ?? "—",
         }),
         href: p.figure_id ? `/figures/${p.figure_id}` : "/preorders",
         kanji,

@@ -34,9 +34,11 @@ const CHANNEL_META = {
 };
 
 const EVENT_META = {
-  achievement_unlocked:     { kanji: "印" },
-  preorder_release_today:   { kanji: "予" },
-  preorder_release_j7:      { kanji: "近" },
+  achievement_unlocked:       { kanji: "印" },
+  preorder_release_today:     { kanji: "予" },
+  preorder_release_j7:        { kanji: "近" },
+  preorder_delivery_today:    { kanji: "届" },
+  preorder_delivery_overdue:  { kanji: "遅" },
 };
 
 export default function NotificationSettings({ t }) {

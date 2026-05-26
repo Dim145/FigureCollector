@@ -26,6 +26,12 @@ pub struct Model {
     /// NULL = no decision yet, 0 = lost, partial, or equal to deposit_amount
     /// = fully refunded.
     pub deposit_refund_amount: Option<Decimal>,
+    /// Auto-set the first time `status` flips to 'shipped'. Combined with
+    /// `estimated_delivery_days` to compute the projected delivery date.
+    pub shipped_at: Option<DateTime<Utc>>,
+    /// Carrier-provided ETA in days. Combined with `shipped_at` to drive
+    /// the J-day countdown chip and the delivery notification cron.
+    pub estimated_delivery_days: Option<i32>,
     pub notes: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

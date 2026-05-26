@@ -45,14 +45,21 @@ pub fn spawn(state: AppState) {
 /// manually.
 pub async fn run_once(state: &AppState) -> anyhow::Result<()> {
     let today = chrono::Utc::now().date_naive();
+    let yesterday = today - chrono::Duration::days(1);
     let in_seven_days = today + chrono::Duration::days(7);
 
     let today_due = fetch_due(&state.pool, today).await?;
     let j7_due = fetch_due(&state.pool, in_seven_days).await?;
+    // Delivery checks: shipped preorders with an ETA matching today
+    // (delivery_today) or yesterday (delivery_overdue, fires J+1 only).
+    let delivery_today = fetch_delivery_due(&state.pool, today).await?;
+    let delivery_overdue = fetch_delivery_due(&state.pool, yesterday).await?;
 
     tracing::info!(
         today_count = today_due.len(),
         j7_count = j7_due.len(),
+        delivery_today_count = delivery_today.len(),
+        delivery_overdue_count = delivery_overdue.len(),
         "release-cron tick"
     );
 
@@ -88,6 +95,40 @@ pub async fn run_once(state: &AppState) -> anyhow::Result<()> {
         )
         .await;
     }
+    for row in delivery_today {
+        let dedup = format!("delivery-today:{}:{}", row.preorder_id, row.delivery_date);
+        notify::dispatch(
+            state,
+            row.user_id,
+            notification::EVENT_PREORDER_DELIVERY_TODAY,
+            json!({
+                "preorder_id": row.preorder_id,
+                "figure_id":   row.figure_id,
+                "figure_name": row.figure_name,
+                "delivery_date": row.delivery_date.to_string(),
+            }),
+            Some(&dedup),
+        )
+        .await;
+    }
+    for row in delivery_overdue {
+        // J+1 fires once — dedup on the preorder_id alone so we never
+        // re-notify even if the worker restarts repeatedly.
+        let dedup = format!("delivery-overdue:{}", row.preorder_id);
+        notify::dispatch(
+            state,
+            row.user_id,
+            notification::EVENT_PREORDER_DELIVERY_OVERDUE,
+            json!({
+                "preorder_id": row.preorder_id,
+                "figure_id":   row.figure_id,
+                "figure_name": row.figure_name,
+                "delivery_date": row.delivery_date.to_string(),
+            }),
+            Some(&dedup),
+        )
+        .await;
+    }
     Ok(())
 }
 
@@ -105,6 +146,44 @@ async fn fetch_due(pool: &sqlx::PgPool, date: NaiveDate) -> anyhow::Result<Vec<D
            AND p.status NOT IN ('received', 'cancelled')",
     )
     .bind(date)
+    .fetch_all(pool)
+    .await?)
+}
+
+#[derive(Debug, FromRow)]
+struct DeliveryDueRow {
+    user_id: Uuid,
+    figure_id: Uuid,
+    figure_name: String,
+    preorder_id: Uuid,
+    delivery_date: NaiveDate,
+}
+
+/// Find shipped preorders whose projected delivery date (shipped_at::date
+/// + estimated_delivery_days) equals the given target date.
+///
+/// Excludes preorders that have already been marked `received` (the user
+/// got the figurine) or `cancelled` (no shipment will happen).
+async fn fetch_delivery_due(
+    pool: &sqlx::PgPool,
+    target: NaiveDate,
+) -> anyhow::Result<Vec<DeliveryDueRow>> {
+    Ok(sqlx::query_as::<_, DeliveryDueRow>(
+        "SELECT
+            p.user_id   AS user_id,
+            p.figure_id AS figure_id,
+            f.name      AS figure_name,
+            p.id        AS preorder_id,
+            (p.shipped_at::date + p.estimated_delivery_days * INTERVAL '1 day')::date
+                        AS delivery_date
+         FROM preorders p
+         JOIN figures f ON f.id = p.figure_id
+         WHERE p.shipped_at IS NOT NULL
+           AND p.estimated_delivery_days IS NOT NULL
+           AND p.status NOT IN ('received', 'cancelled')
+           AND (p.shipped_at::date + p.estimated_delivery_days * INTERVAL '1 day')::date = $1",
+    )
+    .bind(target)
     .fetch_all(pool)
     .await?)
 }

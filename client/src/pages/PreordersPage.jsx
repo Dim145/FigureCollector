@@ -14,6 +14,11 @@ import CancellationDialog from "../components/CancellationDialog.jsx";
 import FormField from "../components/FormField.jsx";
 import Select from "../components/Select.jsx";
 import TrackingChip from "../components/TrackingChip.jsx";
+import {
+  countdownTone,
+  deliveryCountdown,
+  formatCountdown,
+} from "../lib/deliveryCountdown.js";
 
 /**
  * /preorders — the "Horarium", a hand-kept register of acquisitions to come.
@@ -386,6 +391,24 @@ function TimelineEntry({ preorder: p, t }) {
               </span>
             </span>
           ) : null}
+          {/* Delivery countdown — surfaces here too so the user can spot
+           *  an overdue parcel without expanding the entry. */}
+          {(() => {
+            const days = deliveryCountdown(p);
+            if (days == null) return null;
+            return (
+              <span>
+                <span className="horarium-entry-meta-key">
+                  {t("preorders.field.delivery_chip_label")}
+                </span>
+                <span
+                  className={`horarium-entry-meta-value is-mono ${countdownTone(days)}`}
+                >
+                  {formatCountdown(days, t)}
+                </span>
+              </span>
+            );
+          })()}
         </div>
       ) : null}
 
@@ -450,6 +473,8 @@ function EditForm({ preorder: p, onClose, t }) {
     release_date: p.release_date_current ?? "",
     deposit_amount:
       p.deposit_amount != null ? String(p.deposit_amount) : "",
+    estimated_delivery_days:
+      p.estimated_delivery_days != null ? String(p.estimated_delivery_days) : "",
     note: "",
   }));
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -480,6 +505,9 @@ function EditForm({ preorder: p, onClose, t }) {
       release_date: form.release_date || null,
       release_date_note: nz(form.note),
       deposit_amount: num(form.deposit_amount),
+      estimated_delivery_days: form.estimated_delivery_days
+        ? Number.parseInt(form.estimated_delivery_days, 10) || null
+        : null,
     };
     await update.mutateAsync({ id: p.id, patch: payload });
     onClose();
@@ -571,6 +599,19 @@ function EditForm({ preorder: p, onClose, t }) {
         onChange={set("deposit_amount")}
         placeholder={t("preorders.field.deposit_ph")}
         hint={t("preorders.field.deposit_hint")}
+      />
+
+      {/* Delivery ETA — only meaningful from `shipped` onward. We keep it
+       *  editable in all states so the user can pre-fill it (some carriers
+       *  give an ETA the moment the parcel is dropped off, before our
+       *  status flip catches up). */}
+      <FormField
+        label={t("preorders.field.delivery_days")}
+        type="number"
+        value={form.estimated_delivery_days}
+        onChange={set("estimated_delivery_days")}
+        placeholder={t("preorders.field.delivery_days_ph")}
+        hint={t("preorders.field.delivery_days_hint")}
       />
 
       <FormField
