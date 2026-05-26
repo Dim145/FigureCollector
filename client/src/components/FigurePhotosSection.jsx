@@ -203,8 +203,13 @@ export default function FigurePhotosSection({ figureId, figureName, canEdit, upl
               </button>
 
               {p.is_primary ? (
+                // `z-[2]` lifts the chip above the lightbox-trigger button
+                // (which sits at `z-[1]`); without it the figure image
+                // covers the chip visually. `pointer-events-none` keeps
+                // clicks falling through to the lightbox button so the
+                // chip is purely decorative.
                 <span
-                  className="absolute top-1.5 left-1.5 chip chip--solid pointer-events-none"
+                  className="absolute top-1.5 left-1.5 z-[2] chip chip--solid pointer-events-none"
                   style={{ fontSize: "9px", padding: "0.15em 0.5em" }}
                 >
                   {t("figure.catalog_photos.primary")}
@@ -212,7 +217,13 @@ export default function FigurePhotosSection({ figureId, figureName, canEdit, upl
               ) : null}
 
               {canEdit ? (
-                <div className="absolute bottom-0 left-0 right-0 bg-[var(--color-noir)]/85 backdrop-blur-sm border-t border-[var(--color-or)]/15 px-2 py-1.5 flex items-center justify-between gap-2 opacity-0 group-hover/photo:opacity-100 transition-opacity">
+                // Hover action band — must sit ABOVE the lightbox-trigger
+                // button (z-[1]) so the ★ and × buttons are actually
+                // clickable. Default `pointer-events-none` lets clicks
+                // pass through to the lightbox button when the band is
+                // invisible (opacity-0), then re-enabled on hover so the
+                // delete/make-primary buttons receive their clicks.
+                <div className="absolute bottom-0 left-0 right-0 z-[2] bg-[var(--color-noir)]/85 backdrop-blur-sm border-t border-[var(--color-or)]/15 px-2 py-1.5 flex items-center justify-between gap-2 opacity-0 pointer-events-none group-hover/photo:opacity-100 group-hover/photo:pointer-events-auto focus-within:opacity-100 focus-within:pointer-events-auto transition-opacity">
                   {!p.is_primary ? (
                     <button
                       type="button"
