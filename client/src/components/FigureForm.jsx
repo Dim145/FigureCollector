@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useT } from "../i18n/index.jsx";
+import { useI18n, useT } from "../i18n/index.jsx";
+import { useFigureTypes } from "../hooks/useAdmin.js";
 import { useDefaultCurrency } from "../hooks/useMe.js";
 import {
   useCharactersLookup,
@@ -17,7 +18,11 @@ import FigureStoresEditor from "./FigureStoresEditor.jsx";
 import FormField from "./FormField.jsx";
 import Select from "./Select.jsx";
 
-const TYPE_OPTIONS = [
+// Hard-coded fallback list — used only when /figure-types hasn't responded
+// yet (page first-paint, offline). The live dropdown is driven from the
+// admin-curated registry so custom types added at /admin/figure-types
+// surface here automatically.
+const TYPE_OPTIONS_FALLBACK = [
   "nendoroid", "scale", "figma", "prize", "trading",
   "statue", "plamo", "bishoujo", "dakimakura", "other",
 ];
@@ -55,8 +60,22 @@ export default function FigureForm({
   footerExtras = null,
 }) {
   const t = useT();
+  const { locale } = useI18n();
   const defaultCurrency = useDefaultCurrency();
   const isAdmin = useIsAdmin();
+  // Live list of figure types (admin-curated). Falls back to the hard-coded
+  // list during the first paint so the dropdown isn't ever empty.
+  const figureTypes = useFigureTypes();
+  const typeOptions = useMemo(() => {
+    const rows = figureTypes.data;
+    if (Array.isArray(rows) && rows.length > 0) {
+      return rows.map((ft) => ({
+        value: ft.id,
+        label: (locale === "fr" ? ft.label_fr : ft.label_en) || ft.id,
+      }));
+    }
+    return TYPE_OPTIONS_FALLBACK.map((v) => ({ value: v, label: t(`type.${v}`) }));
+  }, [figureTypes.data, locale, t]);
   // Autocomplete sources — cached 5 min, prefetched eagerly so the dropdown
   // is responsive on the first keystroke. The endpoints return only
   // {id, name, slug} (+ joined series_name for characters), so the
@@ -229,7 +248,7 @@ export default function FigureForm({
             label={t("addfig.field.type")}
             value={form.figure_type}
             onChange={set("figure_type")}
-            options={TYPE_OPTIONS.map((v) => ({ value: v, label: t(`type.${v}`) }))}
+            options={typeOptions}
             disabled={busy}
           />
           <FormField

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { useT } from "../i18n/index.jsx";
+import { useI18n, useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
+import { useFigureTypes } from "../hooks/useAdmin.js";
 import { useFigures } from "../hooks/useCollection.js";
 import AppShell from "../components/AppShell.jsx";
 import FigureCard from "../components/FigureCard.jsx";
@@ -11,16 +12,21 @@ import {
   preorderPhaseFromFigure,
 } from "../lib/preorderStatus.js";
 
-const TYPES = [
-  "nendoroid", "scale", "figma", "prize", "trading",
-  "statue", "plamo", "bishoujo", "dakimakura", "other",
+// Fallback used only when `/figure-types` hasn't responded yet (first paint
+// or offline). The live rail is driven by the admin-curated registry so
+// custom types appear automatically and the kanji never goes stale.
+const TYPES_FALLBACK = [
+  { id: "nendoroid", kanji: "童" },
+  { id: "scale",     kanji: "像" },
+  { id: "figma",     kanji: "動" },
+  { id: "prize",     kanji: "賞" },
+  { id: "trading",   kanji: "交" },
+  { id: "statue",    kanji: "彫" },
+  { id: "plamo",     kanji: "組" },
+  { id: "bishoujo",  kanji: "美" },
+  { id: "dakimakura", kanji: "枕" },
+  { id: "other",     kanji: "玩" },
 ];
-
-const KANJI_BY_TYPE = {
-  nendoroid: "童", scale: "像", figma: "動", prize: "賞",
-  trading: "交", statue: "彫", plamo: "組", bishoujo: "美",
-  dakimakura: "枕", other: "玩",
-};
 
 const SORT_OPTIONS = [
   { value: "recent", labelKey: "browse.sort.recent" },
@@ -42,10 +48,30 @@ const SORT_OPTIONS = [
  */
 export default function BrowsePage() {
   const t = useT();
+  const { locale } = useI18n();
   const me = useMe();
+  const figureTypes = useFigureTypes();
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
   const [sort, setSort] = useState("recent");
+
+  // Live rail tiles. Falls back to the hard-coded list while the
+  // `/figure-types` query is still loading or empty.
+  const typeTiles = useMemo(() => {
+    const rows = figureTypes.data;
+    if (Array.isArray(rows) && rows.length > 0) {
+      return rows.map((ft) => ({
+        id: ft.id,
+        kanji: ft.kanji || "玩",
+        label: (locale === "fr" ? ft.label_fr : ft.label_en) || ft.id,
+      }));
+    }
+    return TYPES_FALLBACK.map((row) => ({
+      id: row.id,
+      kanji: row.kanji,
+      label: t(`type.${row.id}`),
+    }));
+  }, [figureTypes.data, locale, t]);
 
   // 250 ms debounce on the catalog query. The previous wiring re-fired
   // `useFigures()` on every keystroke, producing one network roundtrip
@@ -190,14 +216,14 @@ export default function BrowsePage() {
               active={type === ""}
               onClick={() => setType("")}
             />
-            {TYPES.map((tt) => (
+            {typeTiles.map((tt) => (
               <FilterTile
-                key={tt}
-                kanji={KANJI_BY_TYPE[tt] ?? "玩"}
-                romaji={t(`type.${tt}`)}
-                count={countsByType.get(tt) ?? 0}
-                active={type === tt}
-                onClick={() => setType(tt)}
+                key={tt.id}
+                kanji={tt.kanji}
+                romaji={tt.label}
+                count={countsByType.get(tt.id) ?? 0}
+                active={type === tt.id}
+                onClick={() => setType(tt.id)}
               />
             ))}
           </nav>

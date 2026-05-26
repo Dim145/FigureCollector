@@ -1,6 +1,7 @@
-import { useRef } from "react";
+import { useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
-import { useT } from "../i18n/index.jsx";
+import { useI18n, useT } from "../i18n/index.jsx";
+import { useFigureTypes } from "../hooks/useAdmin.js";
 
 /**
  * Cabinet de curiosités — display-pedestal card.
@@ -33,6 +34,24 @@ export default function FigureCard({
   blurImage = false,
 }) {
   const t = useT();
+  const { locale } = useI18n();
+  const figureTypes = useFigureTypes();
+  // Resolve kanji + label for this figure's type via the admin-curated
+  // registry so custom types added after build-time render correctly.
+  // Falls back to the hard-coded mapping if the lookup hasn't responded
+  // (cached across cards via React Query's queryKey dedupe).
+  const typeMeta = useMemo(() => {
+    const id = type ?? "other";
+    const rows = figureTypes.data;
+    const match = Array.isArray(rows) ? rows.find((ft) => ft.id === id) : null;
+    if (match) {
+      return {
+        kanji: match.kanji || kanjiFallback(id),
+        label: (locale === "fr" ? match.label_fr : match.label_en) || id,
+      };
+    }
+    return { kanji: kanjiFallback(id), label: t(`type.${id}`) };
+  }, [figureTypes.data, type, locale, t]);
   const ref = useRef(null);
 
   const onMove = (e) => {
@@ -87,7 +106,7 @@ export default function FigureCard({
           aria-hidden
           className="ja absolute right-2 bottom-8 text-[7rem] leading-none text-transparent transition-colors duration-700 select-none pointer-events-none z-[1] group-hover/card:text-[var(--color-or)]/12"
         >
-          {kanjiForType(type)}
+          {typeMeta.kanji}
         </span>
 
         {imageUrl ? (
@@ -106,9 +125,9 @@ export default function FigureCard({
         <div className="absolute top-3 left-3 z-[3]">
           <span className="label-plaque">
             <span className="label-plaque-kanji" aria-hidden>
-              {kanjiForType(type)}
+              {typeMeta.kanji}
             </span>
-            <span>{t(`type.${type ?? "other"}`)}</span>
+            <span>{typeMeta.label}</span>
           </span>
         </div>
 
@@ -218,9 +237,10 @@ function FigurePlaceholder() {
   );
 }
 
-/** Maps a figure_type to one evocative kanji used as ambient watermark
- *  and engraved on the brass plaque. */
-function kanjiForType(type) {
+/** Fallback kanji used while `/figure-types` is loading or when the
+ *  registry hasn't been seeded yet. Once the lookup responds the live
+ *  data (FigureType.kanji column) takes precedence. */
+function kanjiFallback(type) {
   switch (type) {
     case "nendoroid":  return "童";
     case "scale":      return "像";
