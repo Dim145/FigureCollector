@@ -841,6 +841,59 @@ kbd {
   50%      { transform: translateY(-6px); }
 }
 
+/* ─── Upload placeholder tiles (FigurePhotosSection batch upload)
+ *
+ * The picker can stage 5+ photos at once. While each upload's POST is in
+ * flight the placeholder tile renders with three layered effects:
+ *
+ *   - `upload-tile-pulse`  : the border breathes from /30 → /60 alpha,
+ *                            making "this tile is alive" obvious at a
+ *                            glance even across a 4×4 grid of tiles.
+ *   - `upload-stripes`     : a diagonal gold-on-noir kintsugi pattern
+ *                            that slides across the tile every 4 s,
+ *                            reading as motion without being noisy.
+ *   - `upload-spin`        : the 印 (seal/stamp) glyph centred in the
+ *                            tile makes one full rotation every 8 s.
+ *                            Slow so it doesn't fight the stripes.
+ *
+ * All three honour `prefers-reduced-motion` via the shared block below.
+ */
+.upload-tile-pulse {
+  animation: upload-tile-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes upload-tile-pulse {
+  0%, 100% { border-color: oklch(0.78 0.10 80 / 0.30); }
+  50%      { border-color: oklch(0.78 0.10 80 / 0.65); }
+}
+
+.upload-stripes {
+  background-image: repeating-linear-gradient(
+    135deg,
+    oklch(0.78 0.10 80 / 0.06) 0px,
+    oklch(0.78 0.10 80 / 0.06) 12px,
+    transparent 12px,
+    transparent 28px
+  );
+  background-size: 200% 100%;
+  animation: upload-stripes-slide 4s linear infinite;
+}
+
+@keyframes upload-stripes-slide {
+  from { background-position: 0%   0; }
+  to   { background-position: 100% 0; }
+}
+
+.upload-spin {
+  animation: upload-spin 8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes upload-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
 @keyframes glow-pulse {
   0%, 100% { opacity: 0.6; }
   50%      { opacity: 1; }
@@ -872,7 +925,10 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   .reveal,
   .reveal-slow,
-  .drift {
+  .drift,
+  .upload-tile-pulse,
+  .upload-stripes,
+  .upload-spin {
     animation: none !important;
     opacity: 1;
   }

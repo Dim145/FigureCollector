@@ -8,6 +8,11 @@ import {
 } from "../hooks/useFigurePhotos.js";
 import Lightbox from "./Lightbox.jsx";
 
+/* Monotonic id for pending-upload tasks — uniquely identifies a tile
+ * across the lifetime of the section even if the user picks 5 files
+ * with the same name in quick succession. */
+let UPLOAD_SEQ = 0;
+
 /**
  * Catalog-side photo gallery for a single figure. Visible to everyone (it
  * IS the catalog data); upload / star-primary / delete only show up when
@@ -26,12 +31,58 @@ export default function FigurePhotosSection({ figureId, figureName, canEdit, upl
   const del = useDeleteFigurePhoto(figureId);
   const fileInput = useRef(null);
   const [lightbox, setLightbox] = useState(null);
+  // Per-file upload tasks rendered as placeholder tiles AHEAD of the
+  // grid. Each carries its own status (uploading / error) so the user
+  // sees granular progress when they batch 5+ photos at once.
+  const [pendingUploads, setPendingUploads] = useState([]);
 
   const onPick = (e) => {
-    const file = e.target.files?.[0];
+    const files = Array.from(e.target.files ?? []);
     e.target.value = "";
-    if (!file) return;
-    upload.mutate(file);
+    if (files.length === 0) return;
+
+    // Stage tasks immediately so the placeholder tiles appear before
+    // the network round-trips begin — this is the "all 5 squares
+    // show up at once with loading states" UX the user asked for.
+    const tasks = files.map((file) => ({
+      id: ++UPLOAD_SEQ,
+      name: file.name,
+      size: file.size,
+      status: "uploading",
+      errorMessage: null,
+    }));
+    setPendingUploads((prev) => [...prev, ...tasks]);
+
+    // Fire all uploads in parallel. TanStack's `mutateAsync` supports
+    // concurrent calls — each returns its own promise. The shared
+    // `onSuccess` invalidates `["figure-photos", figureId]` so the
+    // newly-arrived photos land in `list` as they're uploaded; the
+    // pending tile fades out as it's removed from local state.
+    tasks.forEach((task, i) => {
+      const file = files[i];
+      upload
+        .mutateAsync(file)
+        .then(() => {
+          setPendingUploads((prev) => prev.filter((t) => t.id !== task.id));
+        })
+        .catch((err) => {
+          setPendingUploads((prev) =>
+            prev.map((t) =>
+              t.id === task.id
+                ? {
+                    ...t,
+                    status: "error",
+                    errorMessage: err?.message ?? "Upload failed",
+                  }
+                : t,
+            ),
+          );
+        });
+    });
+  };
+
+  const dismissUpload = (id) => {
+    setPendingUploads((prev) => prev.filter((t) => t.id !== id));
   };
 
   const list = photos.data ?? [];
@@ -70,6 +121,7 @@ export default function FigurePhotosSection({ figureId, figureName, canEdit, upl
               <input
                 ref={fileInput}
                 type="file"
+                multiple
                 accept="image/jpeg,image/png,image/webp"
                 className="hidden"
                 onChange={onPick}
@@ -77,12 +129,9 @@ export default function FigurePhotosSection({ figureId, figureName, canEdit, upl
               <button
                 type="button"
                 onClick={() => fileInput.current?.click()}
-                disabled={upload.isPending}
-                className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-or)] hover:text-[var(--color-or-pale)] disabled:opacity-50 transition-colors"
+                className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-or)] hover:text-[var(--color-or-pale)] transition-colors"
               >
-                {upload.isPending
-                  ? t("figure.catalog_photos.uploading")
-                  : `＋ ${t("figure.catalog_photos.upload")}`}
+                ＋ {t("figure.catalog_photos.upload")}
               </button>
             </>
           )
@@ -98,7 +147,7 @@ export default function FigurePhotosSection({ figureId, figureName, canEdit, upl
         </p>
       ) : null}
 
-      {list.length === 0 ? (
+      {list.length === 0 && pendingUploads.length === 0 ? (
         <p className="text-sm text-[var(--color-ivoire-soft)] italic">
           {t("figure.catalog_photos.empty")}
         </p>
@@ -113,6 +162,14 @@ export default function FigurePhotosSection({ figureId, figureName, canEdit, upl
             gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
           }}
         >
+          {/* Pending uploads first — they appear immediately when the
+              picker closes, before the network roundtrip. Each tile
+              shows its own loading state and self-dismisses when the
+              upload settles (or stays as an error chip until the user
+              dismisses it). */}
+          {pendingUploads.map((task) => (
+            <UploadTile key={`pending-${task.id}`} task={task} onDismiss={dismissUpload} t={t} />
+          ))}
           {list.map((p, i) => (
             <li
               key={p.id}
@@ -196,4 +253,111 @@ export default function FigurePhotosSection({ figureId, figureName, canEdit, upl
       />
     </section>
   );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pending upload tile
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Placeholder rendered for each file currently being uploaded — appears
+ * immediately when the picker closes, fades out as the upload settles.
+ *
+ * Two visual states:
+ *   - uploading: faint pulsing gold border, animated kintsugi diagonal
+ *                stripes (匠 aesthetic), centred 印 (seal) glyph rotating
+ *                gently, filename + size at the bottom.
+ *   - error:     red sash across the top, error text replaces the kanji,
+ *                "dismiss" × on hover so the user can clear the failed
+ *                tile (the file picker can be re-opened to retry).
+ */
+function UploadTile({ task, onDismiss, t }) {
+  const isError = task.status === "error";
+  return (
+    <li
+      className={`group/upload relative aspect-square overflow-hidden border ${
+        isError
+          ? "border-[var(--color-laque-bright)]/60 bg-[var(--color-laque)]/8"
+          : "border-[var(--color-or)]/30 bg-[var(--color-noir-deep)] upload-tile-pulse"
+      }`}
+      aria-live="polite"
+      aria-label={
+        isError
+          ? t("figure.catalog_photos.upload_failed", {
+              name: task.name,
+              default: `Upload failed: ${task.name}`,
+            })
+          : t("figure.catalog_photos.upload_pending", {
+              name: task.name,
+              default: `Uploading ${task.name}…`,
+            })
+      }
+    >
+      {!isError ? (
+        <>
+          {/* Animated kintsugi-style diagonal stripes — quiet motion that
+              reads as "in progress" without screaming. */}
+          <div className="absolute inset-0 upload-stripes pointer-events-none" aria-hidden />
+          {/* Centred rotating seal — 印 (stamp) sits at the heart of the
+              tile, slow spin. Telegraphs "we're registering this photo
+              into the catalogue". */}
+          <div className="absolute inset-0 grid place-items-center pointer-events-none">
+            <span
+              aria-hidden
+              className="ja text-5xl text-[var(--color-or)]/55 upload-spin select-none"
+              style={{ textShadow: "0 0 18px oklch(0.78 0.10 80 / 0.35)" }}
+            >
+              印
+            </span>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Error sash + glyph */}
+          <span
+            className="absolute top-2 left-2 chip chip--solid pointer-events-none"
+            style={{
+              fontSize: "9px",
+              padding: "0.15em 0.55em",
+              background: "var(--color-laque-bright)",
+              color: "var(--color-ivoire)",
+            }}
+          >
+            !
+          </span>
+          <div className="absolute inset-0 grid place-items-center px-3 text-center pointer-events-none">
+            <p className="text-[10.5px] uppercase tracking-[0.18em] text-[var(--color-laque-bright)] leading-snug">
+              {task.errorMessage}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onDismiss(task.id)}
+            aria-label={t("editor.cancel")}
+            className="absolute top-1.5 right-1.5 w-6 h-6 grid place-items-center text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] text-base leading-none transition-colors"
+          >
+            ×
+          </button>
+        </>
+      )}
+
+      {/* Footer ribbon: filename + size. Always visible so the user can
+          tell which tile is theirs in a batch upload. */}
+      <div className="absolute bottom-0 left-0 right-0 bg-[var(--color-noir)]/85 backdrop-blur-sm border-t border-[var(--color-or)]/15 px-2 py-1.5">
+        <p className="font-mono text-[10px] tracking-tight text-[var(--color-ivoire-soft)] truncate">
+          {task.name}
+        </p>
+        <p className="font-mono text-[9px] tracking-[0.18em] uppercase text-[var(--color-or-pale)]/60">
+          {formatBytes(task.size)}
+        </p>
+      </div>
+    </li>
+  );
+}
+
+function formatBytes(n) {
+  if (!Number.isFinite(n)) return "—";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(2)} MB`;
 }
