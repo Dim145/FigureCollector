@@ -1,0 +1,72 @@
+# =============================================================================
+# Build + deploy the FigureCollector documentation to GitHub Pages.
+#
+# Triggers:
+#   - push to `main` that touches anything under documentation/
+#   - manual run via the Actions tab
+#
+# Uses the canonical GitHub Pages deploy chain (configure-pages →
+# upload-pages-artifact → deploy-pages) — no third-party actions needed.
+# =============================================================================
+
+name: docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "documentation/**"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+# Required permissions for the official deploy-pages action.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Don't run multiple deploys in parallel — race against the GitHub Pages
+# environment would just queue them anyway.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: documentation/requirements.txt
+
+      - name: Install MkDocs Material
+        working-directory: documentation
+        run: pip install --no-cache-dir -r requirements.txt
+
+      - name: Build site (strict — fail on broken links)
+        working-directory: documentation
+        run: mkdocs build --strict --site-dir _site
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: documentation/_site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,8 @@
+# FigureCollector docs — Python dependencies for the MkDocs build.
+#
+# Pinned ranges so the build is reproducible. Bump explicitly when a new
+# Material release lands, audit the changelog, then commit.
+
+mkdocs>=1.6,<2.0
+mkdocs-material>=9.5,<10.0
+pymdown-extensions>=10.0,<11.0

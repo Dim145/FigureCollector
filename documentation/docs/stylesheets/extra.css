@@ -1,0 +1,114 @@
+/* ============================================================================
+ * FigureCollector documentation — gold/noir overrides on top of mkdocs-material
+ * dark slate palette. Keeps the kanji-shrine vibe of the main app without
+ * fighting Material's accessibility defaults.
+ * ============================================================================ */
+
+:root,
+[data-md-color-scheme="slate"] {
+  /* Or (gold) accent — used for hover, links, primary buttons */
+  --md-accent-fg-color:        oklch(0.78 0.10 80);
+  --md-accent-fg-color--transparent: oklch(0.78 0.10 80 / 0.12);
+
+  /* Slate background that matches the main app's --color-noir */
+  --md-default-bg-color:       oklch(0.13 0.005 50);
+  --md-default-bg-color--lightest: oklch(0.17 0.005 50);
+
+  /* Body / headings ivoire-soft */
+  --md-default-fg-color:        oklch(0.92 0.03 75);
+  --md-default-fg-color--light: oklch(0.78 0.03 75);
+
+  /* Code blocks: ever-so-slightly-warmer charcoal */
+  --md-code-bg-color: oklch(0.16 0.008 50);
+
+  /* Header bar */
+  --md-primary-fg-color:           oklch(0.10 0.005 50);
+  --md-primary-bg-color:           oklch(0.92 0.03 75);
+  --md-primary-bg-color--light:    oklch(0.78 0.10 80);
+}
+
+/* Headings — keep them sober but lift the H1 with a thin gold rule like the
+ * main app's `.gold-rule` does on every section.
+ */
+.md-typeset h1 {
+  font-weight: 300;
+  letter-spacing: -0.01em;
+  position: relative;
+  padding-bottom: 0.6rem;
+}
+.md-typeset h1::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 4rem;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    oklch(0.78 0.10 80) 0%,
+    oklch(0.78 0.10 80 / 0) 100%
+  );
+}
+
+.md-typeset h2 {
+  color: oklch(0.92 0.03 75);
+  font-weight: 400;
+  margin-top: 2.2rem;
+}
+
+/* Article body line-height a touch more generous for long-form docs. */
+.md-typeset p,
+.md-typeset li {
+  line-height: 1.65;
+}
+
+/* Inline code reads as a gold-tinted chip rather than the default red-pink. */
+.md-typeset code {
+  color: oklch(0.78 0.10 80);
+  background-color: oklch(0.78 0.10 80 / 0.10);
+  border-radius: 0;
+  padding: 0.1em 0.4em;
+  font-size: 0.86em;
+}
+
+/* Admonitions — soften the colored stripe to match the gold-accent direction. */
+.md-typeset .admonition,
+.md-typeset details {
+  border-left-width: 2px;
+  border-radius: 0;
+}
+.md-typeset .admonition.note,
+.md-typeset details.note {
+  border-color: oklch(0.78 0.10 80 / 0.7);
+}
+
+/* Tabs: subtle gold underline on the active one. */
+.md-tabs__link--active {
+  position: relative;
+}
+.md-tabs__link--active::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -2px;
+  height: 1px;
+  background: oklch(0.78 0.10 80);
+}
+
+/* Footer — match the main app's "discrete, very dark" footer with a single
+ * gold rule on top. */
+.md-footer {
+  background: oklch(0.10 0.005 50);
+  border-top: 1px solid oklch(0.78 0.10 80 / 0.2);
+}
+.md-footer-meta {
+  background: transparent;
+}
+
+/* Optional kanji "mark" decoration — opt in by adding `class="kanji"` to a
+ * span. Used sparingly on hero pages so the docs feel related to the app
+ * without becoming overdesigned. */
+.kanji {
+  font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho ProN", serif;
+  color: oklch(0.78 0.10 80 / 0.5);
+  letter-spacing: 0;
+}

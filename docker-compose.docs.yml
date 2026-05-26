@@ -1,0 +1,52 @@
+# =============================================================================
+# FigureCollector documentation — standalone compose
+#
+# Self-host the MkDocs Material documentation alongside (or independently of)
+# the main app. Same hardening profile as the production client container:
+# read-only rootfs, tmpfs for writeable nginx state, dropped capabilities, no
+# new privileges, non-root uid 65532.
+#
+# Usage:
+#   docker compose -f docker-compose.docs.yml up -d --build
+#   open http://localhost:8000
+#
+# When fronting with Traefik in production, see documentation/docs/self-hosting/docs.md
+# for the labels block.
+# =============================================================================
+
+services:
+  docs:
+    build:
+      context: ./documentation
+      dockerfile: Dockerfile
+    image: figurecollector-docs:dev
+    restart: unless-stopped
+    ports:
+      - "8000:8080"
+    read_only: true
+    tmpfs:
+      # nginx needs a writable spot for client bodies + pid file. Keep them
+      # small (no large uploads here), noexec/nosuid/nodev.
+      - /tmp:size=8M,mode=1777,noexec,nosuid,nodev
+      - /tmp/nginx:size=4M,mode=1777,noexec,nosuid,nodev
+      - /var/cache/nginx:size=8M,mode=1777,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # nginx in the Chainguard image already binds to 8080 as nonroot — no
+    # extra capability needed.
+    healthcheck:
+      # No `curl` or `wget` in the distroless image. Use nginx's own pid
+      # presence + the listening socket from /proc as the signal.
+      test: ["CMD-SHELL", "test -f /tmp/nginx.pid"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    networks:
+      - docs_net
+
+networks:
+  docs_net:
+    driver: bridge

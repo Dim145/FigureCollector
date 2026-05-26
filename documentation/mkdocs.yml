@@ -1,0 +1,100 @@
+site_name: FigureCollector
+site_description: Self-hosted PWA for figurine collectors — catalogue, pre-orders, deposits, hardened containers.
+site_url: https://dim145.github.io/FigureCollector/
+repo_url: https://github.com/Dim145/FigureCollector
+repo_name: Dim145/FigureCollector
+edit_uri: edit/main/documentation/docs/
+copyright: AGPL-3.0-or-later · 像 FigureCollector
+
+theme:
+  name: material
+  language: en
+  font: false        # opt out of Google Fonts at build time (no external connect needed)
+  palette:
+    # Single dark-only palette — the main app is dark-only too, the docs
+    # match. No light-mode toggle to avoid the "two themes, half-loved"
+    # syndrome.
+    scheme: slate
+    primary: black
+    accent: amber
+  features:
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.action.edit
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - search.highlight
+    - search.suggest
+  icon:
+    repo: fontawesome/brands/github
+    logo: material/album
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  - toc:
+      permalink: ¶
+      toc_depth: 3
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.keys
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - getting-started/index.md
+      - Local development: getting-started/local-dev.md
+      - Production deployment: getting-started/production.md
+      - Environment variables: getting-started/env-vars.md
+  - Features:
+      - features/index.md
+      - Catalogue & collection: features/catalogue.md
+      - Pre-orders: features/preorders.md
+      - Photos & 360° scans: features/photos.md
+      - Notifications: features/notifications.md
+      - Achievements & stats: features/achievements-stats.md
+      - NSFW handling: features/nsfw.md
+      - PWA & offline: features/pwa.md
+  - Self-hosting:
+      - self-hosting/index.md
+      - Container hardening: self-hosting/hardening.md
+      - Backup & restore: self-hosting/backup.md
+      - Self-host the docs: self-hosting/docs.md
+  - Architecture:
+      - architecture/index.md
+      - Stack: architecture/stack.md
+      - Data model: architecture/data-model.md
+      - Security contract: architecture/security.md
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Dim145/FigureCollector
+      name: Source on GitHub
