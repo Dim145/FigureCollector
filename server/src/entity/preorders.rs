@@ -17,6 +17,11 @@ pub struct Model {
     pub release_date_current: Option<NaiveDate>,
     pub price_amount: Option<Decimal>,
     pub price_currency: Option<String>,
+    /// Acompte (deposit) paid up-front at preorder time. Stored on the
+    /// preorder because it's part of the preorder lifecycle. Treated as
+    /// part of `price_amount`, not in addition to it — see the migration
+    /// header for the OrzGK-style semantics.
+    pub deposit_amount: Option<Decimal>,
     pub notes: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,

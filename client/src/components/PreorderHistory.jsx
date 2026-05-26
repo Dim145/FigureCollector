@@ -71,6 +71,18 @@ export default function PreorderHistory({ ownedId }) {
             <code className="text-[var(--color-or-pale)]">{po.order_ref}</code>
           </span>
         ) : null}
+        {po.deposit_amount ? (
+          <span className="text-[var(--color-ivoire-soft)]">
+            {t("preorder.history.deposit")}{" "}
+            <span className="font-mono text-[var(--color-or-pale)]">
+              {Number(po.deposit_amount).toLocaleString(undefined, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+              })}{" "}
+              {po.price_currency ?? ""}
+            </span>
+          </span>
+        ) : null}
       </div>
 
       {/* Slip timeline — only when there are previous date changes */}

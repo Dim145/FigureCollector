@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { useT } from "../i18n/index.jsx";
-import { useUpdateOwnedItem } from "../hooks/useCollection.js";
+import {
+  usePreorderForOwned,
+  useUpdateOwnedItem,
+  useUpdatePreorder,
+} from "../hooks/useCollection.js";
 import { useDefaultCurrency } from "../hooks/useMe.js";
 import Button from "./Button.jsx";
 import FormField from "./FormField.jsx";
@@ -42,6 +46,10 @@ const CURRENCY_OPTIONS = ["JPY", "EUR", "USD", "GBP", "CHF", "CAD"];
 export default function OwnedItemEditor({ owned, catalogMsrp, catalogCurrency }) {
   const t = useT();
   const [editing, setEditing] = useState(false);
+  // The preorder (when one exists) carries the deposit amount, which the
+  // price popup needs as a separate line ABOVE the figurine balance. We
+  // also need it here in edit mode so the deposit input pre-fills.
+  const preorder = usePreorderForOwned(owned?.id);
 
   if (!owned) return null;
 
@@ -68,6 +76,7 @@ export default function OwnedItemEditor({ owned, catalogMsrp, catalogCurrency })
       {editing ? (
         <EditMode
           owned={owned}
+          preorder={preorder.data ?? null}
           catalogMsrp={catalogMsrp}
           catalogCurrency={catalogCurrency}
           onClose={() => setEditing(false)}
@@ -76,6 +85,7 @@ export default function OwnedItemEditor({ owned, catalogMsrp, catalogCurrency })
       ) : (
         <ReadMode
           owned={owned}
+          preorder={preorder.data ?? null}
           catalogMsrp={catalogMsrp}
           catalogCurrency={catalogCurrency}
           t={t}
@@ -88,7 +98,8 @@ export default function OwnedItemEditor({ owned, catalogMsrp, catalogCurrency })
 // ─────────────────────────────────────────────────────────────────────────────
 // Read mode
 
-function ReadMode({ owned, catalogMsrp, catalogCurrency, t }) {
+function ReadMode({ owned, preorder, catalogMsrp, catalogCurrency, t }) {
+  const deposit = preorder?.deposit_amount ?? null;
   return (
     <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-10 gap-y-1 border border-[var(--color-or)]/15 bg-[var(--color-noir)]/40 px-5 py-4">
       <Row label={t("owned.editor.field.condition")}>
@@ -101,10 +112,11 @@ function ReadMode({ owned, catalogMsrp, catalogCurrency, t }) {
       </Row>
       <Row label={t("owned.editor.field.store")}>{owned.store ?? "—"}</Row>
       <Row label={t("owned.editor.field.price")}>
-        {owned.price_amount || owned.shipping_amount ? (
+        {owned.price_amount || owned.shipping_amount || deposit ? (
           <PriceWithBreakdown
             price={owned.price_amount}
             shipping={owned.shipping_amount}
+            deposit={deposit}
             currency={owned.price_currency}
             catalog={catalogMsrp}
             catalogCurrency={catalogCurrency}
@@ -166,17 +178,21 @@ function ConditionChip({ code, t }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Edit mode
 
-function EditMode({ owned, catalogMsrp, catalogCurrency, onClose, t }) {
+function EditMode({ owned, preorder, catalogMsrp, catalogCurrency, onClose, t }) {
   const defaultCurrency = useDefaultCurrency();
-  const [form, setForm] = useState(() => seedFromOwned(owned, defaultCurrency));
+  const [form, setForm] = useState(() => seedFromOwned(owned, preorder, defaultCurrency));
   const update = useUpdateOwnedItem();
+  // The deposit lives on the linked preorder row, not on the owned_item,
+  // so we patch it via a separate mutation when the field changes. The
+  // user still experiences a single Save — both calls fire on submit.
+  const updatePreorder = useUpdatePreorder();
   const delta = priceDelta(form.price_amount, catalogMsrp);
 
   // Re-seed when the parent loads a different owned item (defensive).
   useEffect(() => {
-    setForm(seedFromOwned(owned, defaultCurrency));
+    setForm(seedFromOwned(owned, preorder, defaultCurrency));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [owned?.id]);
+  }, [owned?.id, preorder?.id, preorder?.deposit_amount]);
 
   const set = (k) => (v) => setForm((s) => ({ ...s, [k]: v }));
 
@@ -210,6 +226,21 @@ function EditMode({ owned, catalogMsrp, catalogCurrency, onClose, t }) {
       notes: nz(form.notes),
     };
     await update.mutateAsync({ id: owned.id, patch: payload });
+    // Patch the preorder's deposit too, when the field is editable
+    // (only meaningful if a preorder exists for this owned item).
+    if (preorder?.id) {
+      const nextDeposit = num(form.deposit_amount);
+      const prevDeposit =
+        preorder.deposit_amount != null ? Number(preorder.deposit_amount) : null;
+      // Skip the call when nothing changed — saves a roundtrip on the
+      // common case "the user only edited the price".
+      if (nextDeposit !== prevDeposit) {
+        await updatePreorder.mutateAsync({
+          id: preorder.id,
+          patch: { deposit_amount: nextDeposit },
+        });
+      }
+    }
     onClose();
   };
 
@@ -336,6 +367,27 @@ function EditMode({ owned, catalogMsrp, catalogCurrency, onClose, t }) {
         />
       </div>
 
+      {/* Deposit row — only meaningful when a preorder exists for this
+       *  owned item. The deposit lives on the preorder row, but the UX
+       *  ties price + shipping + deposit together because they're three
+       *  facets of the same "what did this figurine cost me" question. */}
+      {preorder ? (
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <FormField
+              label={t("owned.editor.field.deposit")}
+              type="number"
+              value={form.deposit_amount}
+              onChange={set("deposit_amount")}
+              placeholder={t("owned.editor.ph.deposit")}
+            />
+            <p className="mt-1 text-[10px] uppercase tracking-[0.22em] text-[var(--color-ivoire-soft)]/55">
+              {t("owned.editor.deposit_hint")}
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       <label className="block">
         <span className="micro block mb-2">
           {t("owned.editor.field.notes")}
@@ -376,13 +428,15 @@ function EditMode({ owned, catalogMsrp, catalogCurrency, onClose, t }) {
   );
 }
 
-function seedFromOwned(owned, defaultCurrency = "JPY") {
+function seedFromOwned(owned, preorder, defaultCurrency = "JPY") {
   return {
     condition: owned.condition ?? "mib_sealed",
     price_amount: owned.price_amount != null ? String(owned.price_amount) : "",
     price_currency: owned.price_currency ?? defaultCurrency,
     shipping_amount:
       owned.shipping_amount != null ? String(owned.shipping_amount) : "",
+    deposit_amount:
+      preorder?.deposit_amount != null ? String(preorder.deposit_amount) : "",
     store: owned.store ?? "",
     // Fall back to the date the row was added when no explicit purchase
     // date was ever set — for most collectors those are the same day.

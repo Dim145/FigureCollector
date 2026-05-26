@@ -350,8 +350,8 @@ function TimelineEntry({ preorder: p, t }) {
         </div>
       </div>
 
-      {/* Meta line — store + order ref (only when we have either) */}
-      {(p.store || p.order_ref) ? (
+      {/* Meta line — store + order ref + deposit (only when we have any) */}
+      {(p.store || p.order_ref || p.deposit_amount) ? (
         <div className="horarium-entry-meta">
           {p.store ? (
             <span>
@@ -368,6 +368,20 @@ function TimelineEntry({ preorder: p, t }) {
               </span>
               <span className="horarium-entry-meta-value is-mono">
                 {p.order_ref}
+              </span>
+            </span>
+          ) : null}
+          {p.deposit_amount ? (
+            <span>
+              <span className="horarium-entry-meta-key">
+                {t("preorders.field.deposit")}
+              </span>
+              <span className="horarium-entry-meta-value is-mono">
+                {Number(p.deposit_amount).toLocaleString(undefined, {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 2,
+                })}{" "}
+                {p.price_currency ?? ""}
               </span>
             </span>
           ) : null}
@@ -433,6 +447,8 @@ function EditForm({ preorder: p, onClose, t }) {
     order_ref: p.order_ref ?? "",
     tracking_url: p.tracking_url ?? "",
     release_date: p.release_date_current ?? "",
+    deposit_amount:
+      p.deposit_amount != null ? String(p.deposit_amount) : "",
     note: "",
   }));
   const update = useUpdatePreorder();
@@ -447,6 +463,11 @@ function EditForm({ preorder: p, onClose, t }) {
     e.preventDefault();
     const nz = (s) =>
       typeof s === "string" && s.trim() !== "" ? s.trim() : null;
+    const num = (s) => {
+      if (!s || s === "") return null;
+      const n = Number.parseFloat(s);
+      return Number.isFinite(n) ? n : null;
+    };
     const payload = {
       status: form.status,
       store: nz(form.store),
@@ -454,6 +475,7 @@ function EditForm({ preorder: p, onClose, t }) {
       tracking_url: nz(form.tracking_url),
       release_date: form.release_date || null,
       release_date_note: nz(form.note),
+      deposit_amount: num(form.deposit_amount),
     };
     await update.mutateAsync({ id: p.id, patch: payload });
     onClose();
@@ -540,6 +562,15 @@ function EditForm({ preorder: p, onClose, t }) {
           </div>
         ) : null}
       </div>
+
+      <FormField
+        label={t("preorders.field.deposit")}
+        type="number"
+        value={form.deposit_amount}
+        onChange={set("deposit_amount")}
+        placeholder={t("preorders.field.deposit_ph")}
+        hint={t("preorders.field.deposit_hint")}
+      />
 
       <FormField
         label={t("preorders.bump_note")}

@@ -3,7 +3,7 @@ import { useT } from "../i18n/index.jsx";
 
 /**
  * Renders a total price with a tooltip-style popover detailing the
- * breakdown — item cost, shipping, and catalog MSRP delta.
+ * breakdown — deposit, item cost, shipping, and catalog MSRP delta.
  *
  * Interaction model (mobile-aware):
  *   - touch / click  → toggles the popover (sticky)
@@ -13,13 +13,22 @@ import { useT } from "../i18n/index.jsx";
  *   - click outside  → closes
  *
  * Always renders the total; the popover only appears when there's
- * something to break down — when the user paid shipping, or the catalog
- * MSRP differs from what they paid. The "ⓘ" affordance hint only appears
- * when a breakdown exists.
+ * something to break down — when the user paid shipping, when a deposit
+ * was recorded, or when the catalog MSRP differs from what they paid.
+ * The "ⓘ" affordance hint only appears when a breakdown exists.
+ *
+ * Deposit semantics (OrzGK / Tsuki Hobby style preorders): the deposit
+ * is part of the figurine cost — paid upfront, deducted from the
+ * balance before shipping. So `price` is the TOTAL figurine cost, and
+ * the popover splits it into "DÉPÔT" (what was paid at preorder time)
+ * and "FIGURINE" (the balance = price - deposit). The grand total
+ * stays `price + shipping` regardless.
  *
  * @param {object} props
- * @param {number|string|null|undefined} props.price       Item cost (what they paid).
+ * @param {number|string|null|undefined} props.price       Total figurine cost (paid).
  * @param {number|string|null|undefined} props.shipping    Shipping cost.
+ * @param {number|string|null|undefined} props.deposit     Upfront preorder deposit
+ *        (part of `price`, not in addition to it).
  * @param {string|null|undefined}         props.currency
  * @param {number|string|null|undefined} props.catalog     Catalog MSRP for reference.
  * @param {string|null|undefined}         props.catalogCurrency
@@ -29,6 +38,7 @@ import { useT } from "../i18n/index.jsx";
 export default function PriceWithBreakdown({
   price,
   shipping,
+  deposit,
   currency,
   catalog,
   catalogCurrency,
@@ -42,20 +52,28 @@ export default function PriceWithBreakdown({
 
   const itemNum = toNum(price);
   const shipNum = toNum(shipping);
+  const depositNum = toNum(deposit);
   const catalogNum = toNum(catalog);
 
   const hasItem = itemNum != null;
   const hasShipping = shipNum != null && shipNum > 0;
+  const hasDeposit = depositNum != null && depositNum > 0;
   const hasCatalog = catalogNum != null && catalogNum > 0;
+  // Total paid stays `price + shipping` — the deposit is *part of* the
+  // price (already counted in it), not an extra charge on top.
   const total = (itemNum ?? 0) + (shipNum ?? 0);
-  // Delta compares the figure's price alone (item cost) against the
-  // catalog MSRP. Including shipping here would always tilt the result
-  // upward, hiding actual promo savings — shipping is a carrier line item,
-  // not a markup on the figure itself.
+  // The figurine line displays the BALANCE — what was paid after the
+  // deposit was deducted. When there's no deposit, balance == price.
+  const balanceNum = hasItem && hasDeposit ? itemNum - depositNum : itemNum;
+  // Delta compares the figure's FULL price (item cost incl. deposit)
+  // against the catalog MSRP. Shipping is excluded — it's a carrier
+  // line item, not a markup on the figure itself. The deposit IS
+  // included because it's a partial payment toward the figurine, not
+  // an independent charge.
   const delta = hasItem && hasCatalog ? deltaInfo(itemNum, catalogNum) : null;
   // Only show the breakdown popover if there's something meaningful to
-  // break down — shipping line, OR a catalog reference + delta.
-  const hasBreakdown = hasShipping || (hasCatalog && delta);
+  // break down — shipping line, deposit line, OR a catalog reference + delta.
+  const hasBreakdown = hasShipping || hasDeposit || (hasCatalog && delta);
 
   // Close on click-outside and Esc — but only when the popover was opened.
   useEffect(() => {
@@ -80,7 +98,7 @@ export default function PriceWithBreakdown({
     };
   }, [open]);
 
-  if (!hasItem && !hasShipping) {
+  if (!hasItem && !hasShipping && !hasDeposit) {
     return <span className={className}>—</span>;
   }
 
@@ -173,10 +191,19 @@ export default function PriceWithBreakdown({
             {t("price.breakdown.title")}
           </p>
           <dl className="space-y-1.5">
+            {/* Deposit appears ABOVE the figurine line — it represents
+                the upfront payment, with the figurine line below showing
+                what's left to settle before shipping. */}
+            {hasDeposit ? (
+              <BreakdownRow
+                label={t("price.breakdown.deposit")}
+                value={`${fmtMoney(depositNum)} ${currency ?? ""}`}
+              />
+            ) : null}
             {hasItem ? (
               <BreakdownRow
                 label={t("price.breakdown.item")}
-                value={`${fmtMoney(itemNum)} ${currency ?? ""}`}
+                value={`${fmtMoney(balanceNum)} ${currency ?? ""}`}
               />
             ) : null}
             {hasShipping ? (
