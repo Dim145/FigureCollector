@@ -11,6 +11,7 @@
 # Output
 #   ghcr.io/<owner-lower>/figurecollector-server:<tags>
 #   ghcr.io/<owner-lower>/figurecollector-client:<tags>
+#   ghcr.io/<owner-lower>/figurecollector-docs:<tags>
 #
 # Tag set (computed by docker/metadata-action):
 #   - the raw release tag                       (e.g. `v0.1.0`)
@@ -20,10 +21,10 @@
 #                                                 published releases
 #
 # Build cache uses `type=gha` so subsequent runs reuse layers and the
-# cargo registry / pnpm store between releases. Two images build in
-# parallel via a job matrix; one failing doesn't cancel the other
-# (fail-fast: false) so an issue isolated to the client doesn't waste
-# the server's compile time and vice versa.
+# cargo registry / pnpm store between releases. Three images build in
+# parallel via a job matrix; one failing doesn't cancel the others
+# (fail-fast: false) so an issue isolated to one image doesn't waste
+# the others' compile time.
 # ─────────────────────────────────────────────────────────────────────
 name: Release containers
 
@@ -62,6 +63,9 @@ jobs:
           - image: client
             context: ./client
             dockerfile: ./client/Dockerfile
+          - image: docs
+            context: ./documentation
+            dockerfile: ./documentation/Dockerfile
 
     steps:
       - name: Checkout
@@ -105,7 +109,7 @@ jobs:
             type=raw,value=${{ inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
           labels: |
             org.opencontainers.image.title=FigureCollector ${{ matrix.image }}
-            org.opencontainers.image.description=Hardened ${{ matrix.image == 'server' && 'Rust/Axum API (FROM scratch)' || 'distroless nginx serving the FigureCollector PWA' }}
+            org.opencontainers.image.description=${{ matrix.image == 'server' && 'Hardened Rust/Axum API (FROM scratch)' || (matrix.image == 'client' && 'Distroless nginx serving the FigureCollector PWA' || 'Distroless nginx serving the FigureCollector MkDocs Material documentation site') }}
             org.opencontainers.image.licenses=AGPL-3.0-or-later
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
 
