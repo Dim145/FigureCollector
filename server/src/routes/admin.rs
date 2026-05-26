@@ -5,6 +5,7 @@ use crate::auth::user::User;
 use crate::domain::admin::{self, NewAdminUser, UserPatch};
 use crate::domain::entity::{self as ent, CharacterPatch, ManufacturerPatch, SeriesPatch};
 use crate::domain::figure;
+use crate::domain::figure_type::{self, FigureTypePatch, NewFigureType};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use axum::{
@@ -296,6 +297,62 @@ async fn process_and_store(
     Ok(key)
 }
 
+// ---------- /admin/figure-types — CRUD --------------------------------------
+
+async fn list_figure_types_admin(
+    State(state): State<AppState>,
+    session: tower_sessions::Session,
+) -> AppResult<Json<Vec<figure_type::FigureType>>> {
+    auth::require_admin(&session, &state.pool).await?;
+    Ok(Json(figure_type::list(&state.pool).await?))
+}
+
+async fn create_figure_type(
+    State(state): State<AppState>,
+    session: tower_sessions::Session,
+    Json(input): Json<NewFigureType>,
+) -> AppResult<(StatusCode, Json<figure_type::FigureType>)> {
+    auth::require_admin(&session, &state.pool).await?;
+    let row = figure_type::create(&state.pool, input).await?;
+    Ok((StatusCode::CREATED, Json(row)))
+}
+
+async fn patch_figure_type(
+    State(state): State<AppState>,
+    session: tower_sessions::Session,
+    Path(id): Path<String>,
+    Json(input): Json<FigureTypePatch>,
+) -> AppResult<Json<figure_type::FigureType>> {
+    auth::require_admin(&session, &state.pool).await?;
+    Ok(Json(figure_type::patch(&state.pool, &id, input).await?))
+}
+
+async fn delete_figure_type(
+    State(state): State<AppState>,
+    session: tower_sessions::Session,
+    Path(id): Path<String>,
+) -> AppResult<StatusCode> {
+    auth::require_admin(&session, &state.pool).await?;
+    figure_type::delete(&state.pool, &id).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+#[derive(serde::Serialize)]
+struct FigureTypeUsage {
+    id: String,
+    count: i64,
+}
+
+async fn figure_type_usage(
+    State(state): State<AppState>,
+    session: tower_sessions::Session,
+    Path(id): Path<String>,
+) -> AppResult<Json<FigureTypeUsage>> {
+    auth::require_admin(&session, &state.pool).await?;
+    let count = figure_type::usage_count(&state.pool, &id).await?;
+    Ok(Json(FigureTypeUsage { id, count }))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/admin/overview", get(overview))
@@ -312,6 +369,16 @@ pub fn router() -> Router<AppState> {
         .route("/admin/series/{id}", patch(patch_series))
         .route("/admin/characters", get(list_characters))
         .route("/admin/characters/{id}", patch(patch_character))
+        // ─── figure types — admin curates the dropdown values ────────────
+        .route(
+            "/admin/figure-types",
+            get(list_figure_types_admin).post(create_figure_type),
+        )
+        .route(
+            "/admin/figure-types/{id}",
+            patch(patch_figure_type).delete(delete_figure_type),
+        )
+        .route("/admin/figure-types/{id}/usage", get(figure_type_usage))
 }
 
 /// Photo upload routes for catalog entities. Split out so `routes::mod` can

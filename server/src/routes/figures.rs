@@ -2,6 +2,7 @@
 
 use crate::auth;
 use crate::domain::figure::{self, FigurePatch, NewFigure};
+use crate::domain::figure_type;
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use axum::{
@@ -100,6 +101,18 @@ async fn delete_one(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Public list of figure types — used by the dropdown on the
+/// add-figure / catalog filter UIs. Open to any signed-in user so the
+/// dropdown populates without an admin call; the admin CRUD lives at
+/// /admin/figure-types/*.
+async fn list_figure_types(
+    State(state): State<AppState>,
+    session: tower_sessions::Session,
+) -> AppResult<Json<Vec<figure_type::FigureType>>> {
+    auth::require_user(&session).await?;
+    Ok(Json(figure_type::list(&state.pool).await?))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/figures", get(list).post(create))
@@ -109,4 +122,5 @@ pub fn router() -> Router<AppState> {
                 .patch(patch_one)
                 .delete(delete_one),
         )
+        .route("/figure-types", get(list_figure_types))
 }

@@ -34,6 +34,7 @@ const AdminOverviewPage    = lazy(() => import("./pages/AdminOverviewPage.jsx"))
 const AdminUsersPage       = lazy(() => import("./pages/AdminUsersPage.jsx"));
 const AdminFiguresPage     = lazy(() => import("./pages/AdminFiguresPage.jsx"));
 const AdminCatalogPage     = lazy(() => import("./pages/AdminCatalogPage.jsx"));
+const AdminFigureTypesPage = lazy(() => import("./pages/AdminFigureTypesPage.jsx"));
 const AdminNotificationsPage = lazy(() => import("./pages/AdminNotificationsPage.jsx"));
 
 import CommandPalette from "./components/CommandPalette.jsx";
@@ -103,6 +104,7 @@ export default function App() {
               <Route path="users" element={<AdminUsersPage />} />
               <Route path="figures" element={<AdminFiguresPage />} />
               <Route path="catalog" element={<AdminCatalogPage />} />
+              <Route path="figure-types" element={<AdminFigureTypesPage />} />
               <Route path="notifications" element={<AdminNotificationsPage />} />
             </Route>
             <Route path="/settings" element={<SettingsPage />} />

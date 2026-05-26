@@ -81,6 +81,79 @@ export function usePatchFigure() {
   });
 }
 
+// =============================================================================
+// Figure types — admin curates the dropdown list (slugs + i18n labels + kanji).
+// =============================================================================
+
+/** Public list used by the figure-type dropdown anywhere in the app. Lives
+ *  at /api/figure-types so any signed-in user can populate it without
+ *  hitting an admin-only endpoint. */
+export function useFigureTypes() {
+  return useQuery({
+    queryKey: ["figure-types"],
+    queryFn: () => api.get("/figure-types"),
+    // Types rarely change — cache aggressively. Mutations below explicitly
+    // invalidate this so the admin sees their edit immediately.
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Admin-only list with the same payload as the public list — kept as a
+ *  separate hook so the admin page can refetch independently when entering
+ *  the admin nav, even when the public cache is still warm. */
+export function useAdminFigureTypes() {
+  return useQuery({
+    queryKey: ["admin", "figure-types"],
+    queryFn: () => api.get("/admin/figure-types"),
+    staleTime: 10_000,
+  });
+}
+
+/** How many figures still use this slug. The admin UI calls it before
+ *  surfacing the delete confirm so the user knows what they're about to
+ *  break. */
+export function useFigureTypeUsage(id, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: ["admin", "figure-types", id, "usage"],
+    queryFn: () => api.get(`/admin/figure-types/${id}/usage`),
+    enabled: enabled && !!id,
+    staleTime: 30_000,
+  });
+}
+
+export function useCreateFigureType() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload) => api.post("/admin/figure-types", payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["figure-types"] });
+      qc.invalidateQueries({ queryKey: ["admin", "figure-types"] });
+    },
+  });
+}
+
+export function usePatchFigureType() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, patch }) => api.patch(`/admin/figure-types/${id}`, patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["figure-types"] });
+      qc.invalidateQueries({ queryKey: ["admin", "figure-types"] });
+    },
+  });
+}
+
+export function useDeleteFigureType() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => api.delete(`/admin/figure-types/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["figure-types"] });
+      qc.invalidateQueries({ queryKey: ["admin", "figure-types"] });
+    },
+  });
+}
+
 export function useDeleteFigure() {
   const qc = useQueryClient();
   return useMutation({

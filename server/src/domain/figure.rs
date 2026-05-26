@@ -140,18 +140,9 @@ fn default_type() -> String {
     "other".to_string()
 }
 
-const ALLOWED_TYPES: &[&str] = &[
-    "scale",
-    "nendoroid",
-    "figma",
-    "prize",
-    "trading",
-    "statue",
-    "plamo",
-    "bishoujo",
-    "dakimakura",
-    "other",
-];
+// Note: the valid figure_type slugs used to live in `ALLOWED_TYPES` here.
+// They moved into the `figure_types` table (migration 21) so the admin can
+// curate the list at runtime. See `domain::figure_type::exists`.
 
 const ALLOWED_CURRENCIES_LEN: usize = 3;
 
@@ -199,7 +190,9 @@ const FIGURE_NAME_PROJECTION: &str =
        c.name  AS character_name,    c.slug  AS character_slug";
 
 pub async fn create(pool: &PgPool, created_by: Uuid, input: NewFigure) -> AppResult<Figure> {
-    if !ALLOWED_TYPES.contains(&input.figure_type.as_str()) {
+    // figure_type validation lives in the `figure_types` table now — admins
+    // can add new types without a code change.
+    if !super::figure_type::exists(pool, &input.figure_type).await? {
         return Err(AppError::BadRequest("invalid figure_type"));
     }
     if let Some(c) = &input.msrp_currency {
@@ -423,7 +416,7 @@ pub struct FigurePatch {
 
 pub async fn patch(pool: &PgPool, id: Uuid, input: FigurePatch) -> AppResult<Figure> {
     if let Some(ft) = &input.figure_type {
-        if !ALLOWED_TYPES.contains(&ft.as_str()) {
+        if !super::figure_type::exists(pool, ft).await? {
             return Err(AppError::BadRequest("invalid figure_type"));
         }
     }
