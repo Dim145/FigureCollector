@@ -46,7 +46,12 @@ jobs:
 
       - name: Install MkDocs Material
         working-directory: docs
-        run: pip install --no-cache-dir -r requirements.txt
+        # No `--no-cache-dir` here: it's contradictory with the
+        # `cache: pip` enabled on setup-python above and causes the
+        # post-job cache-save step to fail when there's nothing to
+        # save. Let pip populate ~/.cache/pip so setup-python can
+        # restore it on subsequent runs.
+        run: pip install -r requirements.txt
 
       - name: Build site (strict — fail on broken links)
         working-directory: docs
