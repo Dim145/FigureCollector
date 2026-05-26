@@ -527,6 +527,12 @@ function PolarChart({ rows, kanji }) {
   // to encode magnitude. This reads "all the categories at a glance" — not
   // strict % of pie.
   const sweep = totalAngle / rows.length;
+  // Fixed 3° gap BETWEEN wedges (only when there's more than one — a single
+  // wedge fills the full 360°, no neighbour to separate from). The earlier
+  // `sweep * 0.86` formula reserved 14% per wedge for the gap, which made
+  // the single-category case display as a 310°-only ring (visually broken)
+  // and created 25°+ chasms when there were only two categories.
+  const gap = rows.length > 1 ? 3 : 0;
 
   return (
     <div className="relative" style={{ width: size, height: size }}>
@@ -561,26 +567,62 @@ function PolarChart({ rows, kanji }) {
           />
         ))}
         {rows.map((r, i) => {
-          const a0 = -90 + i * sweep;
-          const a1 = a0 + sweep * 0.86; // 14% gap between wedges
+          const a0 = -90 + i * sweep + gap / 2;
+          const a1 = -90 + (i + 1) * sweep - gap / 2;
           const radius = innerR + (r.count / max) * (maxR - innerR);
-          const d = wedgePath(cx, cy, innerR, radius, a0, a1);
           return (
-            <path
+            <AnnularWedge
               key={r.key}
-              className="seg"
-              d={d}
+              cx={cx}
+              cy={cy}
+              innerR={innerR}
+              outerR={radius}
+              a0={a0}
+              a1={a1}
               fill={segmentColor(i, rows.length)}
-              style={{
-                filter: "drop-shadow(0 2px 4px oklch(0.78 0.10 80 / 0.3))",
-              }}
-            >
-              <title>{`${r.label}: ${r.count}`}</title>
-            </path>
+              label={`${r.label}: ${r.count}`}
+            />
           );
         })}
       </svg>
     </div>
+  );
+}
+
+/** Renders one annular wedge. Falls back to a full ring (two stacked circles)
+ *  when the wedge spans the entire circle, because an SVG <path> arc from a
+ *  point back to itself is ambiguous and most renderers degenerate to either
+ *  nothing or a single hairline. */
+function AnnularWedge({ cx, cy, innerR, outerR, a0, a1, fill, label }) {
+  const sweepDeg = a1 - a0;
+  // Full-ring path doesn't render cleanly — use two concentric circles with
+  // an even-odd fill rule to punch the hole instead.
+  if (sweepDeg >= 359.99) {
+    return (
+      <path
+        d={`M ${cx - outerR} ${cy}
+            a ${outerR} ${outerR} 0 1 0 ${outerR * 2} 0
+            a ${outerR} ${outerR} 0 1 0 ${-outerR * 2} 0
+            M ${cx - innerR} ${cy}
+            a ${innerR} ${innerR} 0 1 1 ${innerR * 2} 0
+            a ${innerR} ${innerR} 0 1 1 ${-innerR * 2} 0
+            Z`}
+        fill={fill}
+        fillRule="evenodd"
+        style={{ filter: "drop-shadow(0 2px 4px oklch(0.78 0.10 80 / 0.3))" }}
+      >
+        <title>{label}</title>
+      </path>
+    );
+  }
+  return (
+    <path
+      d={wedgePath(cx, cy, innerR, outerR, a0, a1)}
+      fill={fill}
+      style={{ filter: "drop-shadow(0 2px 4px oklch(0.78 0.10 80 / 0.3))" }}
+    >
+      <title>{label}</title>
+    </path>
   );
 }
 
