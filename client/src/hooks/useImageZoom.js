@@ -11,6 +11,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
  *       * if already zoomed: reset to fit.
  *   - Mouse wheel / trackpad: fine-grained continuous zoom. The pixel
  *     under the cursor stays stable. Capped at MIN_ZOOM..MAX_ZOOM.
+ *   - Pinch (two fingers): continuous zoom around the midpoint, which
+ *     stays pinned under the fingers as they spread and slide. Capped at
+ *     MIN_ZOOM..MAX_ZOOM; lifting one finger keeps panning from the other.
  *   - Drag (mouse / single-finger touch) while zoomed: pan the image.
  *     Pan is clamped so the image edges can't fly past the container
  *     center — the user can never lose the figure off-screen.
@@ -185,37 +188,129 @@ export function useImageZoom() {
     return () => el.removeEventListener("wheel", handler);
   }, [zoom, pan, toCenterCoords, clampPan]);
 
-  // ─── Touch: single-finger drag when zoomed. No pinch yet. ───────────
-  const touchRef = useRef(null);
-  const onTouchStart = useCallback(
-    (e) => {
-      if (e.touches.length !== 1 || zoom <= MIN_ZOOM) return;
-      const t = e.touches[0];
-      touchRef.current = { x: t.clientX, y: t.clientY, startPan: pan };
-    },
-    [pan, zoom],
-  );
-  const onTouchMove = useCallback(
-    (e) => {
-      const t = e.touches[0];
-      const start = touchRef.current;
-      if (!t || !start) return;
-      e.preventDefault();
-      setPan(
-        clampPan(
-          {
-            x: start.startPan.x + (t.clientX - start.x),
-            y: start.startPan.y + (t.clientY - start.y),
-          },
-          zoom,
-        ),
-      );
-    },
-    [zoom, clampPan],
-  );
-  const onTouchEnd = useCallback(() => {
-    touchRef.current = null;
-  }, []);
+  // ─── Touch: pinch-to-zoom (2 fingers) + drag-to-pan (1 finger). ──────
+  //
+  // Attached as NATIVE non-passive listeners (like the wheel handler) so
+  // `preventDefault()` actually suppresses iOS page-zoom / rubber-band —
+  // React routes synthetic touch events through a passive root listener
+  // that silently no-ops preventDefault. `touch-action: none` on the
+  // <img> already stops the browser claiming the gesture; this supplies
+  // the JS half the disabled native pinch used to do.
+  //
+  // The effect re-binds whenever zoom/pan change (mirroring the wheel
+  // handler — that's also what makes it (re)bind once the <img> mounts,
+  // since opening the lightbox resets pan to a fresh object). Gesture
+  // state lives in a ref so an in-flight pinch/pan survives the re-bind.
+  //
+  // We deliberately DON'T preventDefault on touchstart: that would cancel
+  // the synthesized click that powers tap-to-zoom. Only touchmove (a real
+  // gesture) consumes the event.
+  const gestureRef = useRef({ mode: null });
+  useEffect(() => {
+    const el = elRef.current;
+    if (!el) return undefined;
+    const g = gestureRef.current;
+
+    const distOf = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    const midOf = (a, b) => ({
+      x: (a.clientX + b.clientX) / 2,
+      y: (a.clientY + b.clientY) / 2,
+    });
+    const clamp = (p, z) => {
+      const maxX = (g.fitW * (z - 1)) / 2;
+      const maxY = (g.fitH * (z - 1)) / 2;
+      return {
+        x: Math.max(-maxX, Math.min(maxX, p.x)),
+        y: Math.max(-maxY, Math.min(maxY, p.y)),
+      };
+    };
+    // Snapshot the fit size + the untransformed (layout) centre from the
+    // live post-transform rect, so all gesture math runs in fixed coords
+    // (screen = pan + zoom·natural, measured from the layout centre).
+    const snapshot = (z0, p0) => {
+      const rect = el.getBoundingClientRect();
+      g.fitW = rect.width / Math.max(z0, MIN_ZOOM);
+      g.fitH = rect.height / Math.max(z0, MIN_ZOOM);
+      g.cx = rect.left + rect.width / 2 - p0.x;
+      g.cy = rect.top + rect.height / 2 - p0.y;
+    };
+
+    const onStart = (e) => {
+      if (e.touches.length >= 2) {
+        snapshot(zoom, pan);
+        const m = midOf(e.touches[0], e.touches[1]);
+        const focal = { x: m.x - g.cx, y: m.y - g.cy };
+        g.mode = "pinch";
+        g.startDist = distOf(e.touches[0], e.touches[1]) || 1;
+        g.startZoom = zoom;
+        // Natural point under the pinch midpoint — kept under the fingers
+        // as they spread/move:  i = (focal − pan) / zoom.
+        g.i0 = { x: (focal.x - pan.x) / zoom, y: (focal.y - pan.y) / zoom };
+      } else if (e.touches.length === 1 && zoom > MIN_ZOOM) {
+        snapshot(zoom, pan);
+        g.mode = "pan";
+        g.panZoom = zoom;
+        g.startPan = pan;
+        g.startTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      } else {
+        // Single tap at fit → let the synthesized click toggle the zoom.
+        g.mode = null;
+      }
+    };
+
+    const onMove = (e) => {
+      if (g.mode === "pinch" && e.touches.length >= 2) {
+        e.preventDefault();
+        const d = distOf(e.touches[0], e.touches[1]);
+        const m = midOf(e.touches[0], e.touches[1]);
+        const next = Math.min(
+          MAX_ZOOM,
+          Math.max(MIN_ZOOM, g.startZoom * (d / g.startDist)),
+        );
+        const focal = { x: m.x - g.cx, y: m.y - g.cy };
+        const nextPan = { x: focal.x - next * g.i0.x, y: focal.y - next * g.i0.y };
+        setZoom(next);
+        setPan(next <= MIN_ZOOM + 0.001 ? { x: 0, y: 0 } : clamp(nextPan, next));
+      } else if (g.mode === "pan" && e.touches.length === 1) {
+        e.preventDefault();
+        const tch = e.touches[0];
+        setPan(
+          clamp(
+            {
+              x: g.startPan.x + (tch.clientX - g.startTouch.x),
+              y: g.startPan.y + (tch.clientY - g.startTouch.y),
+            },
+            g.panZoom,
+          ),
+        );
+      }
+    };
+
+    const onEnd = (e) => {
+      if (e.touches.length === 0) {
+        g.mode = null;
+      } else if (e.touches.length === 1 && zoom > MIN_ZOOM) {
+        // Lifted one finger out of a pinch — keep panning from the other,
+        // re-anchored so the image doesn't jump.
+        snapshot(zoom, pan);
+        g.mode = "pan";
+        g.panZoom = zoom;
+        g.startPan = pan;
+        g.startTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      }
+    };
+
+    el.addEventListener("touchstart", onStart, { passive: false });
+    el.addEventListener("touchmove", onMove, { passive: false });
+    el.addEventListener("touchend", onEnd, { passive: false });
+    el.addEventListener("touchcancel", onEnd, { passive: false });
+    return () => {
+      el.removeEventListener("touchstart", onStart);
+      el.removeEventListener("touchmove", onMove);
+      el.removeEventListener("touchend", onEnd);
+      el.removeEventListener("touchcancel", onEnd);
+    };
+  }, [zoom, pan]);
 
   // ─── Keyboard shortcut: 0 resets. ───────────────────────────────────
   useEffect(() => {
@@ -261,15 +356,13 @@ export function useImageZoom() {
   // callers do `<img {...zoom.imgProps} />` and the lint rule
   // `react-hooks/refs-in-render` doesn't see a free-standing `xxxRef`
   // property being read during render.
-  // Note: wheel handler is attached natively via the useEffect above (React's
-  // synthetic onWheel is passive and can't preventDefault), so it's NOT in
-  // this bundle. The other handlers are fine as React synthetic events.
+  // Note: the wheel + touch handlers are attached natively via the effects
+  // above (React's synthetic onWheel/onTouch* go through a passive root
+  // listener that can't preventDefault), so they're NOT in this bundle.
+  // onMouseDown is fine as a synthetic event.
   const imgProps = {
     ref: elRef,
     onMouseDown,
-    onTouchStart,
-    onTouchMove,
-    onTouchEnd,
     draggable: false,
     style: transformStyle,
   };
