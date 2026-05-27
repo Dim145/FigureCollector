@@ -1453,7 +1453,7 @@ html {
   height: 28px;
   overflow: visible;
 }
-.sparkline path {
+.sparkline-line {
   fill: none;
   stroke: var(--color-or);
   stroke-width: 1.2;
@@ -1463,12 +1463,29 @@ html {
   stroke-dasharray: 1000;
   stroke-dashoffset: 1000;
   animation: sparkline-draw 1.8s var(--ease-curtain) forwards;
+  transition: stroke 0.25s var(--ease-quick);
 }
-.sparkline circle {
+/* Filled area below the line — hidden until the ledger row is hovered, so
+   the resting state stays a clean trend line and the hover adds depth. */
+.sparkline-area {
+  fill: oklch(0.78 0.10 80 / 0.16);
+  stroke: none;
+  opacity: 0;
+  transition: opacity 0.3s var(--ease-quick);
+}
+.spark-pt {
+  fill: var(--color-or-pale);
+  opacity: 0;
+  transition: opacity 0.25s var(--ease-quick);
+}
+.spark-end {
   fill: var(--color-or);
   opacity: 0;
   animation: sparkline-dot 0.4s ease-out 1.4s forwards;
 }
+.ledger-row:hover .sparkline-area { opacity: 1; }
+.ledger-row:hover .spark-pt { opacity: 0.9; }
+.ledger-row:hover .sparkline-line { stroke: var(--color-or-pale); }
 @keyframes sparkline-draw {
   to { stroke-dashoffset: 0; }
 }
@@ -1650,61 +1667,98 @@ html {
 
 /* ─── Thermomètre — price-distribution diagram. min — median — avg — max
  *     drawn as a horizontal rule with four indented marks. */
-.thermo {
+/* ─── Price scale (stats §VII) ───────────────────────────────────────────────
+ * Decoupled from the numbers: the track is pure visual context (min→max
+ * with a médiane tick + moyenne diamond, no text), and the readable
+ * figures sit in an even 4-column grid below. This is what kills the old
+ * label-collision when médiane ≈ moyenne. */
+.price-scale {
   position: relative;
-  padding: 1.3rem 0.5rem 1.5rem;
+  height: 24px;
+  margin: 0.25rem 0.5rem 1.4rem;
 }
-.thermo-rule {
+.price-scale-track {
   position: absolute;
   left: 0;
   right: 0;
   top: 50%;
   height: 2px;
-  background:
-    linear-gradient(90deg, transparent, oklch(0.78 0.10 80), transparent);
-  box-shadow: 0 0 8px oklch(0.78 0.10 80 / 0.4);
+  transform: translateY(-50%);
+  background: linear-gradient(
+    90deg,
+    oklch(0.78 0.10 80 / 0.25),
+    oklch(0.78 0.10 80 / 0.7),
+    oklch(0.78 0.10 80 / 0.25)
+  );
+  box-shadow: 0 0 8px oklch(0.78 0.10 80 / 0.3);
 }
-.thermo-mark {
+/* min / max endpoints */
+.price-scale-end {
   position: absolute;
   top: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  pointer-events: none;
-}
-.thermo-mark-dot {
-  width: 10px;
-  height: 10px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background:
-    radial-gradient(
-      circle at 30% 30%,
-      oklch(0.92 0.08 80),
-      oklch(0.62 0.09 80)
-    );
-  box-shadow:
-    0 0 0 1.5px oklch(0.30 0.04 60),
-    0 0 12px oklch(0.78 0.10 80 / 0.6);
+  transform: translate(-50%, -50%);
+  background: var(--color-or-pale);
+  box-shadow: 0 0 0 2px var(--color-noir);
 }
-.thermo-mark-label {
+/* médiane — a vertical tick */
+.price-scale-median {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  background: var(--color-or);
+  box-shadow: 0 0 8px oklch(0.78 0.10 80 / 0.7);
+}
+/* moyenne — a hollow diamond so it stays distinct from the médiane tick
+ * even when the two sit on top of each other */
+.price-scale-mean {
+  position: absolute;
+  top: 50%;
+  width: 11px;
+  height: 11px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  border: 1.5px solid var(--color-or);
+  background: var(--color-noir);
+}
+.price-scale-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin: 0;
+}
+.price-scale-stat {
+  text-align: center;
+  min-width: 0;
+}
+.price-scale-stat dt {
   font-family: var(--font-mono);
   font-size: 9px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--color-or-pale);
-  margin-top: 0.6rem;
-  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
 }
-.thermo-mark-value {
-  position: absolute;
-  bottom: 100%;
-  margin-bottom: 0.55rem;
+.price-scale-stat-glyph {
+  color: var(--color-or);
+  font-size: 10px;
+  line-height: 1;
+}
+.price-scale-stat dd {
+  margin: 0.3rem 0 0;
   font-family: var(--font-display);
-  font-size: 13px;
   font-style: italic;
+  font-size: clamp(13px, 2.6vw, 17px);
   color: var(--color-ivoire);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ─── Crown piece — the "Pièce de la couronne" feature card */
@@ -1752,6 +1806,333 @@ html {
   content: "❦";
   color: var(--color-or);
   font-size: 12px;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ * Le Grand Livre — interaction layer
+ *
+ * Hover / focus affordances layered onto the static ledger so the page
+ * answers the reader's attention: gold catches light, ink deepens,
+ * marginalia surfaces. Built to never fight the entry animations — where a
+ * `forwards` keyframe already owns transform/opacity (press bars + counts),
+ * the hover effect rides a different property (filter, colour, an inner
+ * span). All autoplay is neutralised under prefers-reduced-motion below.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Floating tooltip. Namespaced `.ledger-tip` so the generic data-tip
+ *     pattern never leaks onto other pages. */
+.ledger-tip { position: relative; }
+.ledger-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: 50%;
+  transform: translate(-50%, 4px);
+  padding: 5px 9px;
+  background: oklch(0.10 0.005 50 / 0.97);
+  border: 1px solid oklch(0.78 0.10 80 / 0.5);
+  color: var(--color-ivoire);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s var(--ease-quick), transform 0.18s var(--ease-quick);
+  box-shadow: 0 10px 26px -12px rgba(0, 0, 0, 0.85);
+  z-index: 40;
+}
+.ledger-tip:hover::after,
+.ledger-tip:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ─── Hero satellites */
+.satellite { transition: border-color 0.3s var(--ease-quick); }
+.satellite:hover { border-color: var(--color-or); }
+.satellite .sat-kanji { transition: transform 0.35s var(--ease-curtain), color 0.35s; }
+.satellite:hover .sat-kanji {
+  transform: scale(1.16);
+  color: oklch(0.78 0.10 80 / 0.3);
+}
+.satellite .sat-value {
+  display: inline-block;
+  transition: transform 0.3s var(--ease-curtain);
+}
+.satellite:hover .sat-value { transform: translateY(-2px); }
+
+/* ─── Chapter dividers — kanji pivots, roman warms */
+.chapter-rule-roman,
+.chapter-rule-kanji { transition: transform 0.4s var(--ease-curtain), color 0.4s; }
+.chapter-rule:hover .chapter-rule-kanji {
+  transform: rotate(7deg) scale(1.1);
+  color: var(--color-or-pale);
+}
+.chapter-rule:hover .chapter-rule-roman { color: var(--color-or-pale); }
+
+/* ─── Ledger rows (spend) — warm wash, brass press, figure + sparkline lift */
+.ledger-row {
+  padding-inline: 0.75rem;
+  margin-inline: -0.75rem;
+  border-radius: 2px;
+  transition: background-color 0.25s var(--ease-quick);
+}
+.ledger-row:hover { background: oklch(0.78 0.10 80 / 0.045); }
+.ledger-row .brass-tab { transition: transform 0.15s var(--ease-quick), box-shadow 0.15s; }
+.ledger-row:hover .brass-tab {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 1px 0 oklch(0.96 0.06 85 / 0.8),
+    inset 0 -1px 0 oklch(0.45 0.06 75 / 0.55),
+    0 2px 4px -2px rgba(0, 0, 0, 0.6);
+}
+.ledger-figure { transition: color 0.25s; }
+.ledger-row:hover .ledger-figure { color: var(--color-or); }
+
+/* ─── Pre-order rows — kanji blooms, count swells */
+.preorder-row {
+  padding-inline: 0.6rem;
+  margin-inline: -0.6rem;
+  border-radius: 2px;
+  transition: background-color 0.25s var(--ease-quick);
+}
+.preorder-row:hover { background: oklch(0.78 0.10 80 / 0.05); }
+.preorder-row .pre-kanji { transition: transform 0.3s var(--ease-curtain), color 0.3s; }
+.preorder-row:hover .pre-kanji {
+  transform: scale(1.2);
+  color: var(--color-or);
+}
+.preorder-row .pre-count {
+  display: inline-block;
+  transform-origin: left center;
+  transition: transform 0.3s var(--ease-curtain);
+}
+.preorder-row:hover .pre-count { transform: scale(1.08); }
+
+/* ─── Donut breakdown — controlled active wedge + linked legend */
+.donut-wrap { animation: donut-in 850ms var(--ease-curtain) both; }
+.donut-wrap svg { transition: transform 0.3s var(--ease-curtain); }
+.donut-wrap[data-active="true"] svg { transform: scale(1.03); }
+.donut-wrap .recharts-sector {
+  transition: fill-opacity 0.22s var(--ease-quick), stroke 0.22s;
+  cursor: pointer;
+}
+@keyframes donut-in {
+  from { opacity: 0; transform: scale(0.86) rotate(-6deg); }
+  to   { opacity: 1; transform: none; }
+}
+.donut-center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.donut-kanji {
+  grid-area: 1 / 1;
+  font-size: 22px;
+  color: var(--color-or);
+  opacity: 0.85;
+  transition: opacity 0.25s var(--ease-quick);
+}
+.donut-pct {
+  grid-area: 1 / 1;
+  font-style: italic;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--color-or-pale);
+  opacity: 0;
+  transition: opacity 0.25s var(--ease-quick);
+}
+.donut-center[data-active="true"] .donut-kanji { opacity: 0; }
+.donut-center[data-active="true"] .donut-pct { opacity: 1; }
+.legend-row {
+  cursor: pointer;
+  transition: opacity 0.2s var(--ease-quick);
+}
+.legend-row[data-dim="true"] { opacity: 0.42; }
+.legend-swatch {
+  transform-origin: center;
+  transition: transform 0.2s var(--ease-curtain), box-shadow 0.2s;
+}
+.legend-row[data-active="true"] .legend-swatch {
+  transform: scale(1.8);
+  box-shadow: 0 0 9px oklch(0.78 0.10 80 / 0.65);
+}
+.legend-label { color: var(--color-ivoire); transition: color 0.2s; }
+.legend-row[data-active="true"] .legend-label { color: var(--color-or-pale); }
+.legend-count { color: var(--color-or-pale); }
+.legend-share { color: oklch(0.92 0.03 75 / 0.6); transition: color 0.2s; }
+.legend-row[data-active="true"] .legend-share { color: var(--color-or); }
+.legend-hint {
+  opacity: 0.5;
+  transition: opacity 0.3s;
+}
+.legend-hint::before { content: "↳ "; }
+.legend-hint[data-quiet="true"] { opacity: 0; }
+
+/* ─── Podium */
+.podium-tier {
+  cursor: default;
+  transform: translateY(var(--lift, 0px));
+  transition: transform 0.3s var(--ease-curtain), box-shadow 0.3s, border-color 0.3s;
+}
+.podium-tier:hover {
+  transform: translateY(calc(var(--lift, 0px) - 6px));
+  border-color: var(--color-or);
+  box-shadow:
+    0 22px 46px -22px oklch(0.78 0.10 80 / 0.55),
+    inset 0 1px 0 oklch(0.92 0.08 80 / 0.2);
+}
+.podium-rank { transition: color 0.3s, text-shadow 0.3s; }
+.podium-tier:hover .podium-rank {
+  color: var(--color-or-pale);
+  text-shadow: 0 0 14px oklch(0.78 0.10 80 / 0.5);
+}
+.podium-rest {
+  cursor: default;
+  transition: transform 0.2s var(--ease-quick);
+}
+.podium-rest:hover { transform: translateX(4px); }
+.podium-rest-rank { color: oklch(0.78 0.10 80 / 0.4); transition: color 0.2s; }
+.podium-rest:hover .podium-rest-rank { color: var(--color-or); }
+.podium-rest-name { color: var(--color-ivoire-soft); transition: color 0.2s; }
+.podium-rest:hover .podium-rest-name { color: var(--color-ivoire); }
+
+/* ─── Press strip — hover isolates a year. press-bar / press-count already
+ *     own transform+opacity via their entry keyframes, so emphasis rides
+ *     filter / colour and an inner <span> rather than fighting fill-forwards. */
+.press-col { cursor: pointer; }
+.press-bar { transition: filter 0.25s, opacity 0.25s, box-shadow 0.25s; }
+.press-grid[data-active="true"] .press-col:not([data-hot="true"]) .press-bar { opacity: 0.3; }
+.press-col[data-hot="true"] .press-bar {
+  filter: brightness(1.22) saturate(1.08);
+  box-shadow:
+    inset 0 1px 0 oklch(0.96 0.06 85 / 0.6),
+    0 0 20px oklch(0.78 0.10 80 / 0.55);
+}
+.press-count-n {
+  display: inline-block;
+  transition: transform 0.25s var(--ease-curtain), color 0.25s;
+}
+.press-col[data-hot="true"] .press-count-n {
+  transform: scale(1.32);
+  color: var(--color-or);
+}
+.press-grid[data-active="true"] .press-col:not([data-hot="true"]) .press-count-n {
+  color: oklch(0.88 0.06 80 / 0.4);
+}
+.press-year { transition: color 0.25s; }
+.press-col[data-hot="true"] .press-year { color: var(--color-or); opacity: 1; }
+.press-readout {
+  margin-top: 3rem;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.32em;
+  color: oklch(0.88 0.06 80 / 0.7);
+  transition: color 0.2s, letter-spacing 0.2s;
+  min-height: 1.2em;
+}
+.press-readout[data-active="true"] {
+  color: var(--color-or);
+  letter-spacing: 0.28em;
+}
+
+/* ─── Crown card — lift + light-sweep, the gold rule extends */
+.crown-card { transition: transform 0.4s var(--ease-curtain), box-shadow 0.4s; }
+.crown-card:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    0 34px 64px -28px oklch(0.78 0.10 80 / 0.5),
+    inset 0 1px 0 oklch(0.92 0.08 80 / 0.25);
+}
+.crown-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 36%,
+    oklch(1 0 0 / 0.13) 48%,
+    transparent 60%
+  );
+  transform: translateX(-160%);
+  transition: transform 0.9s var(--ease-curtain);
+}
+.crown-card:hover::after { transform: translateX(160%); }
+.crown-card .gold-rule { transition: width 0.45s var(--ease-curtain); }
+.crown-card:hover .gold-rule { width: 5rem; }
+
+/* ─── Price scale — markers light from either the track or the grid.
+ *     Entry rides opacity only, leaving transform free for hover. */
+.price-scale-end,
+.price-scale-median,
+.price-scale-mean {
+  cursor: pointer;
+  opacity: 0;
+  animation: ps-marker-in 520ms var(--ease-curtain) forwards;
+  transition: transform 0.2s var(--ease-curtain), box-shadow 0.2s,
+    background-color 0.2s, border-color 0.2s;
+}
+.price-scale > span:nth-child(2) { animation-delay: 120ms; }
+.price-scale > span:nth-child(3) { animation-delay: 180ms; }
+.price-scale > span:nth-child(4) { animation-delay: 240ms; }
+.price-scale > span:nth-child(5) { animation-delay: 300ms; }
+@keyframes ps-marker-in { to { opacity: 1; } }
+.price-scale-track {
+  transform-origin: center;
+  animation: ps-track-in 700ms var(--ease-curtain) both;
+}
+@keyframes ps-track-in {
+  from { transform: translateY(-50%) scaleX(0); }
+  to   { transform: translateY(-50%) scaleX(1); }
+}
+.price-scale-end[data-hot="true"] {
+  transform: translate(-50%, -50%) scale(1.7);
+  background: var(--color-or);
+  box-shadow: 0 0 0 2px var(--color-noir), 0 0 12px oklch(0.78 0.10 80 / 0.8);
+}
+.price-scale-median[data-hot="true"] {
+  transform: translate(-50%, -50%) scaleX(1.6) scaleY(1.22);
+  box-shadow: 0 0 12px oklch(0.78 0.10 80 / 0.9);
+}
+.price-scale-mean[data-hot="true"] {
+  transform: translate(-50%, -50%) rotate(45deg) scale(1.35);
+  border-color: var(--color-or-pale);
+  background: oklch(0.2 0.01 60);
+  box-shadow: 0 0 12px oklch(0.78 0.10 80 / 0.7);
+}
+/* enlarge the hit area of the tiny markers */
+.price-scale .ledger-tip::before {
+  content: "";
+  position: absolute;
+  inset: -9px;
+}
+.price-scale-stat {
+  cursor: default;
+  padding: 0.25rem 0.15rem;
+  transition: opacity 0.2s;
+}
+.price-scale-stat[data-dim="true"] { opacity: 0.42; }
+.price-scale-stat dd { transition: color 0.2s; }
+.price-scale-stat[data-hot="true"] dd { color: var(--color-or); }
+.price-scale-stat dt { transition: color 0.2s; }
+.price-scale-stat[data-hot="true"] dt { color: var(--color-or-pale); }
+
+@media (prefers-reduced-motion: reduce) {
+  .donut-wrap,
+  .price-scale-track,
+  .price-scale-end,
+  .price-scale-median,
+  .price-scale-mean {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+  .crown-card::after { display: none; }
 }
 
 /* ============================================================================

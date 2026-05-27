@@ -871,6 +871,9 @@ export default {
   "stats.price_dist.median": "Median",
   "stats.price_dist.min": "Min",
   "stats.price_dist.max": "Max",
+  "stats.share.of_total": "{pct}% of total",
+  "stats.timeline.readout": "{count} piece(s) · {year}",
+  "stats.interact.hint": "Hover to explore",
 
   // ----- Admin -----
   "admin.title": "Administration",

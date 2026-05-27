@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import {
   Cell as RechartsCell,
@@ -70,17 +70,21 @@ export default function StatsPage() {
 
             {/* II — Dépenses */}
             <ChapterRule roman="II" label={t("stats.ch.spend")} kanji="財" />
-            <div className="grid lg:grid-cols-[1.4fr_1fr] gap-8 items-start">
+            <div
+              className="grid lg:grid-cols-[1.4fr_1fr] gap-8 items-start reveal"
+              style={{ "--i": 2 }}
+            >
               <SpendLedger data={data} t={t} />
               <PreorderDial data={data} t={t} />
             </div>
 
             {/* III — Répartition */}
             <ChapterRule roman="III" label={t("stats.ch.allocation")} kanji="分" />
-            <div className="grid lg:grid-cols-2 gap-8">
+            <div className="grid lg:grid-cols-2 gap-8 reveal" style={{ "--i": 2 }}>
               <PolarBreakdown
                 title={t("stats.by_type.title")}
                 kanji="像"
+                t={t}
                 rows={data.by_type.map((r) => ({
                   key: r.figure_type,
                   label: t(`type.${r.figure_type}`, { default: r.figure_type }),
@@ -90,6 +94,7 @@ export default function StatsPage() {
               <PolarBreakdown
                 title={t("stats.by_condition.title")}
                 kanji="態"
+                t={t}
                 rows={data.by_condition.map((r) => ({
                   key: r.condition,
                   label: t(`condition.${r.condition}`, { default: r.condition }),
@@ -100,7 +105,7 @@ export default function StatsPage() {
 
             {/* IV — Palmarès */}
             <ChapterRule roman="IV" label={t("stats.ch.tops")} kanji="冠" />
-            <div className="grid lg:grid-cols-3 gap-8">
+            <div className="grid lg:grid-cols-3 gap-8 reveal" style={{ "--i": 2 }}>
               <PodiumColumn
                 title={t("stats.top_manufacturers.title")}
                 rows={data.top_manufacturers}
@@ -233,15 +238,15 @@ function TitlePage({ data, t, year }) {
 
 function Satellite({ kanji, label, value }) {
   return (
-    <div className="relative border-l border-[var(--color-or)]/30 pl-4 py-1">
+    <div className="satellite relative border-l border-[var(--color-or)]/30 pl-4 py-1">
       <span
         aria-hidden
-        className="ja absolute -top-2 right-2 text-3xl text-[var(--color-or)]/15 leading-none select-none"
+        className="sat-kanji ja absolute -top-2 right-2 text-3xl text-[var(--color-or)]/15 leading-none select-none"
       >
         {kanji}
       </span>
       <p className="label-mono">{label}</p>
-      <p className="display text-3xl md:text-4xl text-[var(--color-or)] mt-1.5 leading-none">
+      <p className="sat-value display text-3xl md:text-4xl text-[var(--color-or)] mt-1.5 leading-none">
         <CountUp value={Number(value) || 0} />
       </p>
     </div>
@@ -392,11 +397,18 @@ function Sparkline({ data }) {
   const path = points
     .map((p, i) => `${i === 0 ? "M" : "L"} ${p[0].toFixed(1)} ${p[1].toFixed(1)}`)
     .join(" ");
+  // Close the line down to the baseline so it can be filled as an area —
+  // revealed only while the ledger row is hovered.
+  const area = `${path} L ${w} ${h} L 0 ${h} Z`;
   const last = points[points.length - 1];
   return (
     <svg className="sparkline" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
-      <path d={path} />
-      {last ? <circle cx={last[0]} cy={last[1]} r="2" /> : null}
+      <path className="sparkline-area" d={area} />
+      <path className="sparkline-line" d={path} />
+      {points.map((p, i) => (
+        <circle key={i} className="spark-pt" cx={p[0]} cy={p[1]} r="1.7" />
+      ))}
+      {last ? <circle className="spark-end" cx={last[0]} cy={last[1]} r="2" /> : null}
     </svg>
   );
 }
@@ -422,15 +434,15 @@ function PreorderDial({ data, t }) {
         {rows.map((r) => (
           <li
             key={r.label}
-            className="flex items-baseline gap-4 py-2 border-b border-dashed border-[var(--color-or)]/15 last:border-b-0"
+            className="preorder-row flex items-baseline gap-4 py-2 border-b border-dashed border-[var(--color-or)]/15 last:border-b-0"
           >
             <span
               aria-hidden
-              className="ja text-2xl leading-none text-[var(--color-or)]/40 w-8 shrink-0"
+              className="pre-kanji ja text-2xl leading-none text-[var(--color-or)]/40 w-8 shrink-0"
             >
               {r.kanji}
             </span>
-            <span className="display text-3xl leading-none tracking-tight">
+            <span className="pre-count display text-3xl leading-none tracking-tight">
               <span className={toneColor(r.tone)}>
                 <CountUp value={Number(r.value) || 0} />
               </span>
@@ -462,9 +474,15 @@ function toneColor(tone) {
 // III — Polar breakdown (donut + radial bars)
 // =============================================================================
 
-function PolarBreakdown({ title, kanji, rows }) {
+function PolarBreakdown({ title, kanji, rows, t }) {
   const total = rows.reduce((s, r) => s + r.count, 0);
   const top = [...rows].sort((a, b) => b.count - a.count)[0];
+  // Shared active segment — drives both the donut (which wedge pops + the
+  // others dim) and the legend (matching row lights up). Bidirectional:
+  // set from either side so hovering a name isolates its wedge and
+  // hovering a wedge isolates its name.
+  const [activeIndex, setActiveIndex] = useState(null);
+
   if (rows.length === 0) {
     return (
       <Card className="p-7">
@@ -477,25 +495,37 @@ function PolarBreakdown({ title, kanji, rows }) {
     <Card className="relative p-7">
       <p className="micro mb-5">{title}</p>
       <div className="grid grid-cols-[170px_1fr] gap-7 items-center">
-        <PolarChart rows={rows} kanji={kanji} />
+        <PolarChart
+          rows={rows}
+          kanji={kanji}
+          total={total}
+          activeIndex={activeIndex}
+          setActiveIndex={setActiveIndex}
+        />
         <ol className="space-y-2.5">
           {rows.map((r, i) => {
             const share = total > 0 ? (r.count / total) * 100 : 0;
             return (
-              <li key={r.key} className="flex items-baseline gap-3 text-sm">
+              <li
+                key={r.key}
+                className="legend-row flex items-baseline gap-3 text-sm"
+                data-active={activeIndex === i}
+                data-dim={activeIndex != null && activeIndex !== i}
+                onMouseEnter={() => setActiveIndex(i)}
+                onMouseLeave={() => setActiveIndex(null)}
+                onFocus={() => setActiveIndex(i)}
+                onBlur={() => setActiveIndex(null)}
+                tabIndex={0}
+              >
                 <span
-                  className="block w-2 h-2 shrink-0 mt-1"
-                  style={{
-                    background: segmentColor(i, rows.length),
-                  }}
+                  className="legend-swatch block w-2 h-2 shrink-0 self-start mt-1.5"
+                  style={{ background: segmentColor(i, rows.length) }}
                 />
-                <span className="flex-1 text-[var(--color-ivoire)] truncate">
-                  {r.label}
-                </span>
-                <span className="font-mono text-[11px] text-[var(--color-or-pale)] tracking-wider">
+                <span className="legend-label flex-1 truncate">{r.label}</span>
+                <span className="legend-count font-mono text-[11px] tracking-wider">
                   {r.count}
                 </span>
-                <span className="font-mono text-[10px] text-[var(--color-ivoire-soft)]/60 w-10 text-right">
+                <span className="legend-share font-mono text-[10px] w-10 text-right">
                   {share.toFixed(0)}%
                 </span>
               </li>
@@ -509,6 +539,14 @@ function PolarBreakdown({ title, kanji, rows }) {
           <span className="display italic text-base text-[var(--color-or-pale)]">
             {top.label}
           </span>
+        </p>
+      ) : null}
+      {rows.length > 1 ? (
+        <p
+          className="legend-hint micro-tight mt-5 text-center"
+          data-quiet={activeIndex != null}
+        >
+          {t("stats.interact.hint")}
         </p>
       ) : null}
     </Card>
@@ -528,16 +566,22 @@ function PolarBreakdown({ title, kanji, rows }) {
  * `label`-on-the-pie centerpoint trick: an absolutely-positioned span
  * inside the wrapper sits exactly at the donut's inner-ring centre.
  */
-function PolarChart({ rows, kanji }) {
+function PolarChart({ rows, kanji, total, activeIndex, setActiveIndex }) {
   const size = 170;
   const data = rows.map((r, i) => ({
     name: r.label,
     value: r.count,
     fill: segmentColor(i, rows.length),
   }));
+  const active = activeIndex != null ? data[activeIndex] : null;
+  const pct = active && total > 0 ? Math.round((active.value / total) * 100) : 0;
 
   return (
-    <div className="relative" style={{ width: size, height: size }}>
+    <div
+      className="donut-wrap relative"
+      style={{ width: size, height: size }}
+      data-active={activeIndex != null}
+    >
       <RechartsPieChart width={size} height={size}>
         <RechartsPie
           data={data}
@@ -549,12 +593,27 @@ function PolarChart({ rows, kanji }) {
           // full ring when there's only one segment — no special case needed.
           paddingAngle={data.length > 1 ? 1 : 0}
           dataKey="value"
+          // Hover state is fully controlled by us (so it links with the
+          // legend) — Recharts' own entry animation would re-fire on every
+          // re-colour, so we keep it off and animate the wrapper via CSS.
           isAnimationActive={false}
           stroke="transparent"
+          onMouseEnter={(_, idx) => setActiveIndex(idx)}
+          onMouseLeave={() => setActiveIndex(null)}
         >
-          {data.map((entry, i) => (
-            <RechartsCell key={i} fill={entry.fill} />
-          ))}
+          {data.map((entry, i) => {
+            const isActive = activeIndex === i;
+            const dim = activeIndex != null && !isActive;
+            return (
+              <RechartsCell
+                key={i}
+                fill={entry.fill}
+                fillOpacity={dim ? 0.28 : 1}
+                stroke={isActive ? "var(--color-or-pale)" : "transparent"}
+                strokeWidth={isActive ? 1.5 : 0}
+              />
+            );
+          })}
         </RechartsPie>
         <RechartsTooltip
           contentStyle={{
@@ -570,13 +629,15 @@ function PolarChart({ rows, kanji }) {
           formatter={(value, name) => [`${value}`, name]}
         />
       </RechartsPieChart>
-      {/* Centre kanji — positioned absolutely over the donut hole. */}
+      {/* Centre — kanji at rest, morphing to the active wedge's share on
+          hover. Both layers occupy the same grid cell and cross-fade. */}
       <span
         aria-hidden
-        className="ja absolute inset-0 grid place-items-center text-[22px] text-[var(--color-or)] pointer-events-none"
-        style={{ opacity: 0.85 }}
+        className="donut-center"
+        data-active={activeIndex != null}
       >
-        {kanji}
+        <span className="ja donut-kanji">{kanji}</span>
+        <span className="donut-pct display">{pct}%</span>
       </span>
     </div>
   );
@@ -584,7 +645,7 @@ function PolarChart({ rows, kanji }) {
 
 /** Six tiers of gold opacity so each segment is distinguishable without
  *  introducing colour outside the Vitrine palette. */
-function segmentColor(i, n) {
+function segmentColor(i, _n) {
   const opacities = [0.95, 0.78, 0.62, 0.48, 0.36, 0.26, 0.20, 0.16, 0.13, 0.10];
   const o = opacities[i] ?? 0.1;
   return `oklch(0.78 0.10 80 / ${o})`;
@@ -617,15 +678,12 @@ function PodiumColumn({ title, rows, t }) {
         {podium.map((r, i) => (
           <div
             key={`${r.name}-${i}`}
-            className={`podium-tier ${i === 0 ? "podium-tier--gold" : ""}`}
-            style={{
-              transform: i === 0 ? "translateY(-8px)" : "translateY(0)",
-            }}
+            className={`podium-tier ledger-tip ${i === 0 ? "podium-tier--gold" : ""}`}
+            style={{ "--lift": i === 0 ? "-8px" : "0px" }}
+            data-tip={`${r.name} · ${r.count} fig.`}
           >
             <span className="podium-rank">{String(i + 1).padStart(2, "0")}</span>
-            <span className="podium-name" title={r.name}>
-              {truncate(r.name, 36)}
-            </span>
+            <span className="podium-name">{truncate(r.name, 36)}</span>
             <span className="podium-count">
               {r.count} {r.count === 1 ? "fig." : "fig."}
             </span>
@@ -638,14 +696,12 @@ function PodiumColumn({ title, rows, t }) {
           {rest.map((r, idx) => (
             <li
               key={`${r.name}-${idx}`}
-              className="flex items-baseline gap-3 text-[13px]"
+              className="podium-rest flex items-baseline gap-3 text-[13px]"
             >
-              <span className="font-mono text-[10px] text-[var(--color-or)]/40 w-5 shrink-0">
+              <span className="podium-rest-rank font-mono text-[10px] w-5 shrink-0">
                 {String(idx + 4).padStart(2, "0")}
               </span>
-              <span className="flex-1 text-[var(--color-ivoire-soft)] truncate">
-                {r.name}
-              </span>
+              <span className="podium-rest-name flex-1 truncate">{r.name}</span>
               <span className="font-mono text-[10.5px] text-[var(--color-or-pale)] shrink-0">
                 {r.count}
               </span>
@@ -668,10 +724,15 @@ function truncate(s, max) {
 
 function PressStrip({ data, t }) {
   const max = Math.max(1, ...data.map((d) => Number(d.count) || 0));
+  // Hovering one year isolates it — siblings dim, the count swells, and the
+  // caption line below swaps to a live readout for the focused year.
+  const [hoveredYear, setHoveredYear] = useState(null);
+  const hot = data.find((d) => d.year === hoveredYear) || null;
   return (
     <div className="press-strip reveal" style={{ "--i": 1 }}>
       <div
         className="press-grid"
+        data-active={hoveredYear != null}
         style={{
           gridTemplateColumns: `repeat(${data.length}, minmax(0, 1fr))`,
         }}
@@ -679,8 +740,23 @@ function PressStrip({ data, t }) {
         {data.map((d, i) => {
           const h = ((Number(d.count) || 0) / max) * 100;
           return (
-            <div key={d.year} className="press-col">
-              <span className="press-count">{d.count}</span>
+            <div
+              key={d.year}
+              className="press-col"
+              data-hot={d.year === hoveredYear}
+              tabIndex={0}
+              aria-label={t("stats.timeline.readout", {
+                count: d.count,
+                year: d.year,
+              })}
+              onMouseEnter={() => setHoveredYear(d.year)}
+              onMouseLeave={() => setHoveredYear(null)}
+              onFocus={() => setHoveredYear(d.year)}
+              onBlur={() => setHoveredYear(null)}
+            >
+              <span className="press-count">
+                <span className="press-count-n">{d.count}</span>
+              </span>
               <div
                 className="press-bar"
                 style={{
@@ -693,8 +769,10 @@ function PressStrip({ data, t }) {
           );
         })}
       </div>
-      <p className="mt-12 text-center text-[10px] uppercase tracking-[0.32em] text-[var(--color-or-pale)]/70">
-        {t("stats.timeline.caption")}
+      <p className="press-readout" data-active={hot != null} aria-live="polite">
+        {hot
+          ? t("stats.timeline.readout", { count: hot.count, year: hot.year })
+          : t("stats.timeline.caption")}
       </p>
     </div>
   );
@@ -713,7 +791,7 @@ function CrownPieces({ data, t }) {
     );
   }
   return (
-    <div className="grid lg:grid-cols-2 gap-6">
+    <div className="grid lg:grid-cols-2 gap-6 reveal" style={{ "--i": 2 }}>
       {data.most_expensive.map((m, i) => (
         <article key={`${m.currency}-${m.figure_id}`} className="crown-card">
           <p className="crown-eyebrow">
@@ -764,7 +842,7 @@ function CrownPieces({ data, t }) {
 
 function PriceThermometers({ data, t }) {
   return (
-    <div className="space-y-12">
+    <div className="space-y-12 reveal" style={{ "--i": 2 }}>
       {data.price_distribution.map((p) => (
         <PriceThermometer key={p.currency} dist={p} t={t} />
       ))}
@@ -778,37 +856,91 @@ function PriceThermometer({ dist, t }) {
   const med = Number(dist.median) || 0;
   const avg = Number(dist.avg) || 0;
   const span = max - min || 1;
-  const pos = (v) => ((v - min) / span) * 100;
+  const clampPos = (v) => Math.max(0, Math.min(100, ((v - min) / span) * 100));
 
-  const marks = [
-    { key: "min", value: min, x: 0, label: t("stats.price_dist.min") },
-    { key: "median", value: med, x: pos(med), label: t("stats.price_dist.median") },
-    { key: "avg", value: avg, x: pos(avg), label: t("stats.price_dist.avg") },
-    { key: "max", value: max, x: 100, label: t("stats.price_dist.max") },
+  // Hovering a marker on the track and hovering its figure in the grid both
+  // light the same `key` — so the reader can learn which mark is the median
+  // vs the mean, and where each sits on the min→max range.
+  const [hoveredKey, setHoveredKey] = useState(null);
+  const enter = (k) => () => setHoveredKey(k);
+  const leave = () => setHoveredKey(null);
+
+  // The visual scale carries NO text — only the min/max end-dots plus a
+  // médiane tick and a moyenne diamond. Whatever their values, two shapes
+  // can touch without ever turning into unreadable overlapping text. The
+  // numbers live in the collision-proof 4-column grid below.
+  const stats = [
+    { key: "min", value: min, label: t("stats.price_dist.min"), glyph: null },
+    { key: "median", value: med, label: t("stats.price_dist.median"), glyph: "│" },
+    { key: "avg", value: avg, label: t("stats.price_dist.avg"), glyph: "◆" },
+    { key: "max", value: max, label: t("stats.price_dist.max"), glyph: null },
   ];
 
   return (
     <Card className="p-7">
-      <div className="flex items-baseline justify-between mb-2">
+      <div className="flex items-baseline justify-between mb-5">
         <p className="micro">{t("stats.price_dist.title")}</p>
         <span className="brass-tab">{dist.currency}</span>
       </div>
-      <div className="thermo">
-        <span className="thermo-rule" aria-hidden />
-        {marks.map((m) => (
-          <span
-            key={m.key}
-            className="thermo-mark"
-            style={{ left: `${m.x}%` }}
-          >
-            <span className="thermo-mark-value">
-              {fmtMoney(m.value, dist.currency)}
-            </span>
-            <span className="thermo-mark-dot" aria-hidden />
-            <span className="thermo-mark-label">{m.label}</span>
-          </span>
-        ))}
+
+      <div className="price-scale" aria-hidden>
+        <span className="price-scale-track" />
+        <span
+          className="price-scale-end ledger-tip"
+          data-hot={hoveredKey === "min"}
+          data-tip={`${t("stats.price_dist.min")} · ${fmtMoney(min, dist.currency)}`}
+          style={{ left: "0%" }}
+          onMouseEnter={enter("min")}
+          onMouseLeave={leave}
+        />
+        <span
+          className="price-scale-end ledger-tip"
+          data-hot={hoveredKey === "max"}
+          data-tip={`${t("stats.price_dist.max")} · ${fmtMoney(max, dist.currency)}`}
+          style={{ left: "100%" }}
+          onMouseEnter={enter("max")}
+          onMouseLeave={leave}
+        />
+        <span
+          className="price-scale-median ledger-tip"
+          data-hot={hoveredKey === "median"}
+          data-tip={`${t("stats.price_dist.median")} · ${fmtMoney(med, dist.currency)}`}
+          style={{ left: `${clampPos(med)}%` }}
+          onMouseEnter={enter("median")}
+          onMouseLeave={leave}
+        />
+        <span
+          className="price-scale-mean ledger-tip"
+          data-hot={hoveredKey === "avg"}
+          data-tip={`${t("stats.price_dist.avg")} · ${fmtMoney(avg, dist.currency)}`}
+          style={{ left: `${clampPos(avg)}%` }}
+          onMouseEnter={enter("avg")}
+          onMouseLeave={leave}
+        />
       </div>
+
+      <dl className="price-scale-grid">
+        {stats.map((s) => (
+          <div
+            key={s.key}
+            className="price-scale-stat"
+            data-hot={hoveredKey === s.key}
+            data-dim={hoveredKey != null && hoveredKey !== s.key}
+            onMouseEnter={enter(s.key)}
+            onMouseLeave={leave}
+          >
+            <dt>
+              {s.glyph ? (
+                <span aria-hidden className="price-scale-stat-glyph">
+                  {s.glyph}
+                </span>
+              ) : null}
+              {s.label}
+            </dt>
+            <dd>{fmtMoney(s.value, dist.currency)}</dd>
+          </div>
+        ))}
+      </dl>
     </Card>
   );
 }
