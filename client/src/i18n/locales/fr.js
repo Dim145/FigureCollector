@@ -723,6 +723,7 @@ export default {
   "turntable.section.title": "Vue 360°",
   "turntable.viewer.load_error": "{failed} image·s sur {total} n'ont pas pu se charger (erreur réseau ou trop de requêtes).",
   "turntable.viewer.retry": "Réessayer",
+  "turntable.viewer.fullscreen": "Plein écran",
   "turntable.section.empty": "Aucun scan 360° pour cette pièce.",
   "turntable.section.add_first": "+ Créer un scan 360°",
   "turntable.section.add_more": "+ Nouveau scan",
