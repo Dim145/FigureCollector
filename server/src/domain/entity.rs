@@ -592,6 +592,253 @@ pub async fn patch_character(
 }
 
 // =============================================================================
+// Bulk link/unlink/move (admin) — figures × series, figures × characters
+// =============================================================================
+//
+// All four operations run inside a single transaction so a partial failure
+// (e.g. one bad figure_id in a batch) never leaves the join table half-
+// updated. The "move" operations use INSERT ON CONFLICT DO NOTHING + DELETE
+// pattern because (figure_id, series_id) and (figure_id, character_id) are
+// composite primary keys — a straight UPDATE would explode if the figure
+// was already linked to the target.
+
+/// Remove the given figures from a series' join table. Returns the row
+/// count actually deleted (so callers can detect "figure_id wasn't linked").
+pub async fn unlink_figures_from_series(
+    pool: &PgPool,
+    series_id: Uuid,
+    figure_ids: &[Uuid],
+) -> AppResult<u64> {
+    if figure_ids.is_empty() {
+        return Ok(0);
+    }
+    let res = sqlx::query(
+        "DELETE FROM figure_series WHERE series_id = $1 AND figure_id = ANY($2)",
+    )
+    .bind(series_id)
+    .bind(figure_ids)
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected())
+}
+
+pub async fn unlink_figures_from_character(
+    pool: &PgPool,
+    character_id: Uuid,
+    figure_ids: &[Uuid],
+) -> AppResult<u64> {
+    if figure_ids.is_empty() {
+        return Ok(0);
+    }
+    let res = sqlx::query(
+        "DELETE FROM figure_characters WHERE character_id = $1 AND figure_id = ANY($2)",
+    )
+    .bind(character_id)
+    .bind(figure_ids)
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected())
+}
+
+/// Move figures from one series to another. INSERTs the new link first
+/// (with `ON CONFLICT DO NOTHING` so a figure already in the target survives),
+/// then DELETEs the old link in the same transaction.
+pub async fn move_figures_between_series(
+    pool: &PgPool,
+    from_series: Uuid,
+    to_series: Uuid,
+    figure_ids: &[Uuid],
+) -> AppResult<u64> {
+    if figure_ids.is_empty() {
+        return Ok(0);
+    }
+    if from_series == to_series {
+        return Err(AppError::BadRequest("source and target series are the same"));
+    }
+    // Confirm the target exists so we 404 cleanly instead of relying on a FK
+    // violation buried in the move INSERT.
+    let target_exists: (bool,) =
+        sqlx::query_as("SELECT EXISTS(SELECT 1 FROM series WHERE id = $1)")
+            .bind(to_series)
+            .fetch_one(pool)
+            .await?;
+    if !target_exists.0 {
+        return Err(AppError::NotFound);
+    }
+
+    let mut tx = pool.begin().await?;
+    sqlx::query(
+        "INSERT INTO figure_series (figure_id, series_id)
+         SELECT figure_id, $2 FROM figure_series
+          WHERE series_id = $1 AND figure_id = ANY($3)
+         ON CONFLICT (figure_id, series_id) DO NOTHING",
+    )
+    .bind(from_series)
+    .bind(to_series)
+    .bind(figure_ids)
+    .execute(&mut *tx)
+    .await?;
+    let res = sqlx::query(
+        "DELETE FROM figure_series WHERE series_id = $1 AND figure_id = ANY($2)",
+    )
+    .bind(from_series)
+    .bind(figure_ids)
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(res.rows_affected())
+}
+
+pub async fn move_figures_between_characters(
+    pool: &PgPool,
+    from_character: Uuid,
+    to_character: Uuid,
+    figure_ids: &[Uuid],
+) -> AppResult<u64> {
+    if figure_ids.is_empty() {
+        return Ok(0);
+    }
+    if from_character == to_character {
+        return Err(AppError::BadRequest(
+            "source and target characters are the same",
+        ));
+    }
+    let target_exists: (bool,) =
+        sqlx::query_as("SELECT EXISTS(SELECT 1 FROM characters WHERE id = $1)")
+            .bind(to_character)
+            .fetch_one(pool)
+            .await?;
+    if !target_exists.0 {
+        return Err(AppError::NotFound);
+    }
+
+    let mut tx = pool.begin().await?;
+    sqlx::query(
+        "INSERT INTO figure_characters (figure_id, character_id)
+         SELECT figure_id, $2 FROM figure_characters
+          WHERE character_id = $1 AND figure_id = ANY($3)
+         ON CONFLICT (figure_id, character_id) DO NOTHING",
+    )
+    .bind(from_character)
+    .bind(to_character)
+    .bind(figure_ids)
+    .execute(&mut *tx)
+    .await?;
+    let res = sqlx::query(
+        "DELETE FROM figure_characters WHERE character_id = $1 AND figure_id = ANY($2)",
+    )
+    .bind(from_character)
+    .bind(figure_ids)
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    Ok(res.rows_affected())
+}
+
+// =============================================================================
+// Delete (admin) — with optional replacement = full merge semantics
+// =============================================================================
+//
+// `delete_series(id, replacement=Some(other))` rewires every figure_series
+// row to point at `other` (deduped via ON CONFLICT) AND moves every child
+// `characters.series_id = id` to `other`. Then drops the row. Without a
+// replacement, the existing FK cascades (figure_series ON DELETE CASCADE,
+// characters.series_id ON DELETE SET NULL) handle the orphans.
+
+pub async fn delete_series(
+    pool: &PgPool,
+    id: Uuid,
+    replacement: Option<Uuid>,
+) -> AppResult<()> {
+    if Some(id) == replacement {
+        return Err(AppError::BadRequest(
+            "replacement series must differ from the one being deleted",
+        ));
+    }
+    let mut tx = pool.begin().await?;
+    if let Some(target) = replacement {
+        // Cheap NotFound guard before touching the join tables.
+        let target_exists: (bool,) =
+            sqlx::query_as("SELECT EXISTS(SELECT 1 FROM series WHERE id = $1)")
+                .bind(target)
+                .fetch_one(&mut *tx)
+                .await?;
+        if !target_exists.0 {
+            return Err(AppError::NotFound);
+        }
+        // Figures: re-point every link, ignoring duplicates with the target.
+        sqlx::query(
+            "INSERT INTO figure_series (figure_id, series_id)
+             SELECT figure_id, $2 FROM figure_series WHERE series_id = $1
+             ON CONFLICT (figure_id, series_id) DO NOTHING",
+        )
+        .bind(id)
+        .bind(target)
+        .execute(&mut *tx)
+        .await?;
+        // Characters: full merge — move them onto the replacement series.
+        sqlx::query("UPDATE characters SET series_id = $2 WHERE series_id = $1")
+            .bind(id)
+            .bind(target)
+            .execute(&mut *tx)
+            .await?;
+    }
+    // Either way: drop the row. CASCADE deletes leftover figure_series rows
+    // (without replacement) or, with replacement, the remaining `series_id =
+    // old` rows that the INSERT already mirrored.
+    let res = sqlx::query("DELETE FROM series WHERE id = $1")
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+    if res.rows_affected() == 0 {
+        return Err(AppError::NotFound);
+    }
+    tx.commit().await?;
+    Ok(())
+}
+
+pub async fn delete_character(
+    pool: &PgPool,
+    id: Uuid,
+    replacement: Option<Uuid>,
+) -> AppResult<()> {
+    if Some(id) == replacement {
+        return Err(AppError::BadRequest(
+            "replacement character must differ from the one being deleted",
+        ));
+    }
+    let mut tx = pool.begin().await?;
+    if let Some(target) = replacement {
+        let target_exists: (bool,) =
+            sqlx::query_as("SELECT EXISTS(SELECT 1 FROM characters WHERE id = $1)")
+                .bind(target)
+                .fetch_one(&mut *tx)
+                .await?;
+        if !target_exists.0 {
+            return Err(AppError::NotFound);
+        }
+        sqlx::query(
+            "INSERT INTO figure_characters (figure_id, character_id)
+             SELECT figure_id, $2 FROM figure_characters WHERE character_id = $1
+             ON CONFLICT (figure_id, character_id) DO NOTHING",
+        )
+        .bind(id)
+        .bind(target)
+        .execute(&mut *tx)
+        .await?;
+    }
+    let res = sqlx::query("DELETE FROM characters WHERE id = $1")
+        .bind(id)
+        .execute(&mut *tx)
+        .await?;
+    if res.rows_affected() == 0 {
+        return Err(AppError::NotFound);
+    }
+    tx.commit().await?;
+    Ok(())
+}
+
+// =============================================================================
 // Helpers
 // =============================================================================
 

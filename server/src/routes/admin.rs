@@ -260,6 +260,126 @@ async fn upload_character_photo(
     Ok(Json(ent::patch_character(&state.pool, id, patch).await?))
 }
 
+// ─── bulk link/unlink/move + delete (series & characters) ───────────────────
+//
+// Common payload shapes:
+//   POST .../unlink  → { figure_ids: [Uuid, ...] }
+//   POST .../move    → { figure_ids: [Uuid, ...], to_id: Uuid }
+//   DELETE           → ?replacement_id=Uuid (optional)
+//
+// The "move" endpoint also doubles as a "merge into" preview when the admin
+// selects every figure of the source — but explicit `delete?replacement_id`
+// stays the canonical way to wipe a series.
+
+#[derive(Deserialize)]
+struct BulkFigureIds {
+    figure_ids: Vec<Uuid>,
+}
+
+#[derive(Deserialize)]
+struct MoveFiguresInput {
+    figure_ids: Vec<Uuid>,
+    to_id: Uuid,
+}
+
+#[derive(Deserialize)]
+struct DeleteWithReplacement {
+    replacement_id: Option<Uuid>,
+}
+
+#[derive(serde::Serialize)]
+struct AffectedRows {
+    affected: u64,
+}
+
+async fn unlink_series_figures(
+    State(state): State<AppState>,
+    session: Session,
+    Path(series_id): Path<Uuid>,
+    Json(input): Json<BulkFigureIds>,
+) -> AppResult<Json<AffectedRows>> {
+    auth::require_admin(&session, &state.pool).await?;
+    let n =
+        ent::unlink_figures_from_series(&state.pool, series_id, &input.figure_ids).await?;
+    Ok(Json(AffectedRows { affected: n }))
+}
+
+async fn move_series_figures(
+    State(state): State<AppState>,
+    session: Session,
+    Path(from_series): Path<Uuid>,
+    Json(input): Json<MoveFiguresInput>,
+) -> AppResult<Json<AffectedRows>> {
+    auth::require_admin(&session, &state.pool).await?;
+    let n = ent::move_figures_between_series(
+        &state.pool,
+        from_series,
+        input.to_id,
+        &input.figure_ids,
+    )
+    .await?;
+    Ok(Json(AffectedRows { affected: n }))
+}
+
+async fn delete_series(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+    Query(q): Query<DeleteWithReplacement>,
+) -> AppResult<StatusCode> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    ent::delete_series(&state.pool, id, q.replacement_id).await?;
+    tracing::info!(
+        series = %id, replacement = ?q.replacement_id, by_admin = %actor.id,
+        "admin deleted series",
+    );
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn unlink_character_figures(
+    State(state): State<AppState>,
+    session: Session,
+    Path(character_id): Path<Uuid>,
+    Json(input): Json<BulkFigureIds>,
+) -> AppResult<Json<AffectedRows>> {
+    auth::require_admin(&session, &state.pool).await?;
+    let n = ent::unlink_figures_from_character(&state.pool, character_id, &input.figure_ids)
+        .await?;
+    Ok(Json(AffectedRows { affected: n }))
+}
+
+async fn move_character_figures(
+    State(state): State<AppState>,
+    session: Session,
+    Path(from_character): Path<Uuid>,
+    Json(input): Json<MoveFiguresInput>,
+) -> AppResult<Json<AffectedRows>> {
+    auth::require_admin(&session, &state.pool).await?;
+    let n = ent::move_figures_between_characters(
+        &state.pool,
+        from_character,
+        input.to_id,
+        &input.figure_ids,
+    )
+    .await?;
+    Ok(Json(AffectedRows { affected: n }))
+}
+
+async fn delete_character(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+    Query(q): Query<DeleteWithReplacement>,
+) -> AppResult<StatusCode> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    ent::delete_character(&state.pool, id, q.replacement_id).await?;
+    tracing::info!(
+        character = %id, replacement = ?q.replacement_id, by_admin = %actor.id,
+        "admin deleted character",
+    );
+    Ok(StatusCode::NO_CONTENT)
+}
+
 // ─── shared photo pipeline ──────────────────────────────────────────────────
 
 /// Read a single `file` multipart field, validate format + size, re-encode
@@ -508,9 +628,25 @@ pub fn router() -> Router<AppState> {
         .route("/admin/manufacturers", get(list_manufacturers))
         .route("/admin/manufacturers/{id}", patch(patch_manufacturer))
         .route("/admin/series", get(list_series))
-        .route("/admin/series/{id}", patch(patch_series))
+        .route(
+            "/admin/series/{id}",
+            patch(patch_series).delete(delete_series),
+        )
+        .route("/admin/series/{id}/figures/unlink", post(unlink_series_figures))
+        .route("/admin/series/{id}/figures/move", post(move_series_figures))
         .route("/admin/characters", get(list_characters))
-        .route("/admin/characters/{id}", patch(patch_character))
+        .route(
+            "/admin/characters/{id}",
+            patch(patch_character).delete(delete_character),
+        )
+        .route(
+            "/admin/characters/{id}/figures/unlink",
+            post(unlink_character_figures),
+        )
+        .route(
+            "/admin/characters/{id}/figures/move",
+            post(move_character_figures),
+        )
         // ─── figure types — admin curates the dropdown values ────────────
         .route(
             "/admin/figure-types",

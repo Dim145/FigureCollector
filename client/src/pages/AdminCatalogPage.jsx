@@ -5,6 +5,7 @@ import Button from "../components/Button.jsx";
 import FormField from "../components/FormField.jsx";
 import { useT } from "../i18n/index.jsx";
 import { api } from "../lib/api.js";
+import { useDeleteSeries, useDeleteCharacter } from "../hooks/useAdmin.js";
 
 /**
  * /admin/catalog — editor for the entity tables behind manufacturer / series /
@@ -22,6 +23,10 @@ export default function AdminCatalogPage() {
   const t = useT();
   const [tab, setTab] = useState("series");
   const [editing, setEditing] = useState(null); // { kind, entity } or null
+  // Delete dialog state — only series + characters can be deleted; the
+  // manufacturer story is out of scope (figures.manufacturer_id is a direct
+  // FK with different cascade semantics).
+  const [deleting, setDeleting] = useState(null); // { kind, entity } or null
 
   return (
     <div>
@@ -52,13 +57,25 @@ export default function AdminCatalogPage() {
         ))}
       </nav>
 
-      <EntityList kind={tab} onPick={(entity) => setEditing({ kind: tab, entity })} />
+      <EntityList
+        kind={tab}
+        onPick={(entity) => setEditing({ kind: tab, entity })}
+        onDelete={(entity) => setDeleting({ kind: tab, entity })}
+      />
 
       {editing ? (
         <EntityEditDrawer
           kind={editing.kind}
           entity={editing.entity}
           onClose={() => setEditing(null)}
+        />
+      ) : null}
+
+      {deleting ? (
+        <DeleteEntityDialog
+          kind={deleting.kind}
+          entity={deleting.entity}
+          onClose={() => setDeleting(null)}
         />
       ) : null}
     </div>
@@ -68,10 +85,11 @@ export default function AdminCatalogPage() {
 // ─────────────────────────────────────────────────────────────────────────────
 // List
 
-function EntityList({ kind, onPick }) {
+function EntityList({ kind, onPick, onDelete }) {
   const t = useT();
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
+  const deletable = kind === "series" || kind === "characters";
 
   useEffect(() => {
     const id = setTimeout(() => setDebounced(q.trim()), 250);
@@ -135,6 +153,17 @@ function EntityList({ kind, onPick }) {
               >
                 ✎ {t("admin.catalog.edit")}
               </button>
+              {deletable ? (
+                <button
+                  type="button"
+                  onClick={() => onDelete(row)}
+                  title={t("admin.catalog.delete")}
+                  className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] hover:text-[var(--color-laque-bright)] border border-[var(--color-or)]/30 hover:border-[var(--color-laque-bright)] px-3 py-1.5 transition-all"
+                >
+                  ×
+                  <span className="sr-only">{t("admin.catalog.delete")}</span>
+                </button>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -665,3 +694,127 @@ function serialiseForKind(kind, form) {
     portrait_url: nz(form.image_external_url),
   };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Delete dialog — shown for series + characters tabs. Surfaces the figure
+// count, offers an optional replacement (full merge: figures + children),
+// and falls back to "leave orphans" (figure_series cascades, characters
+// get series_id = NULL via the ON DELETE SET NULL clause).
+// ─────────────────────────────────────────────────────────────────────────────
+
+function DeleteEntityDialog({ kind, entity, onClose }) {
+  const t = useT();
+  // Singular API verb: series stays "series" (Latin invariable), characters
+  // → "character". We need it for both the lookup endpoint and the i18n key.
+  const singular = kindSingular(kind); // "series" | "character"
+  const [replacementId, setReplacementId] = useState("");
+
+  // Pull every other entity of the same kind for the replacement picker.
+  // Distinct cache key from the searchable list above (different limit, and
+  // we don't want a stray user search filtering the merge target).
+  const targets = useQuery({
+    queryKey: ["admin", "catalog", kind, "all-for-merge"],
+    queryFn: () => api.get(`/admin/${kind}?limit=500`),
+  });
+
+  const deleteSeries = useDeleteSeries();
+  const deleteCharacter = useDeleteCharacter();
+  const mut = kind === "series" ? deleteSeries : deleteCharacter;
+
+  const onConfirm = async () => {
+    await mut.mutateAsync({
+      id: entity.id,
+      replacementId: replacementId || null,
+    });
+    onClose();
+  };
+
+  const figureCount = entity.figure_count ?? 0;
+  const candidates = (targets.data ?? []).filter((row) => row.id !== entity.id);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal
+      onClick={onClose}
+      className="fixed inset-0 z-50 grid place-items-center bg-[var(--color-noir)]/85 backdrop-blur-sm p-4"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md bg-[var(--color-noir-soft)] border border-[var(--color-or)]/40 p-6"
+      >
+        <p className="micro">{t("admin.catalog.delete")}</p>
+        <h3 className="display text-xl text-[var(--color-ivoire)] mt-1 truncate">
+          {entity.name}
+        </h3>
+        <div className="gold-rule w-12 mt-3 mb-4 opacity-70" />
+
+        <p className="text-sm text-[var(--color-ivoire-soft)] leading-relaxed">
+          {figureCount > 0
+            ? t(`admin.catalog.delete_body.${singular}_with_figures`, {
+                n: figureCount,
+              })
+            : t(`admin.catalog.delete_body.${singular}_empty`)}
+        </p>
+
+        {figureCount > 0 ? (
+          <label className="block mt-5">
+            <span className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-or-pale)]">
+              {t("admin.catalog.delete_replacement_label")}
+            </span>
+            <select
+              value={replacementId}
+              onChange={(e) => setReplacementId(e.target.value)}
+              disabled={targets.isLoading || mut.isPending}
+              className="mt-2 w-full bg-[var(--color-noir)] border border-[var(--color-or)]/30 px-3 py-2 text-sm text-[var(--color-ivoire)] outline-none focus:border-[var(--color-or)] transition-colors"
+            >
+              <option value="">
+                {t("admin.catalog.delete_replacement_none")}
+              </option>
+              {candidates.map((row) => (
+                <option key={row.id} value={row.id}>
+                  {row.name}
+                  {row.figure_count ? ` (${row.figure_count})` : ""}
+                </option>
+              ))}
+            </select>
+            <span className="block mt-1.5 text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)]/60">
+              {replacementId
+                ? t(`admin.catalog.delete_hint.${singular}_merge`)
+                : t(`admin.catalog.delete_hint.${singular}_orphan`)}
+            </span>
+          </label>
+        ) : null}
+
+        {mut.isError ? (
+          <p
+            role="alert"
+            className="mt-4 text-xs text-[var(--color-laque-bright)] border-l-2 border-[var(--color-laque-bright)] pl-3 py-1"
+          >
+            {mut.error?.message}
+          </p>
+        ) : null}
+
+        <div className="flex justify-end items-center gap-3 mt-6">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onClose}
+            disabled={mut.isPending}
+          >
+            {t("editor.cancel")}
+          </Button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={mut.isPending}
+            className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-laque-bright)] border border-[var(--color-laque-bright)] hover:bg-[var(--color-laque-bright)] hover:text-[var(--color-noir)] px-4 py-2 transition-colors disabled:opacity-40"
+          >
+            {t("admin.catalog.delete_confirm")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+

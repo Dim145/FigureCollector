@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import AppShell from "../components/AppShell.jsx";
@@ -5,7 +6,14 @@ import FigureCard from "../components/FigureCard.jsx";
 import { useT } from "../i18n/index.jsx";
 import { api, ApiError } from "../lib/api.js";
 import { resolveFigureCover } from "../lib/coverUrl.js";
-import { useMe } from "../hooks/useMe.js";
+import { useIsAdmin, useMe } from "../hooks/useMe.js";
+import {
+  useUnlinkSeriesFigures,
+  useMoveSeriesFigures,
+  useUnlinkCharacterFigures,
+  useMoveCharacterFigures,
+} from "../hooks/useAdmin.js";
+import { useSeriesLookup, useCharactersLookup } from "../hooks/useEntities.js";
 import { preorderPhaseFromFigure, preorderBadgeLabel } from "../lib/preorderStatus.js";
 
 /**
@@ -25,7 +33,14 @@ import { preorderPhaseFromFigure, preorderBadgeLabel } from "../lib/preorderStat
 export default function EntityPage({ kind }) {
   const t = useT();
   const me = useMe();
+  const isAdmin = useIsAdmin();
   const { slug } = useParams();
+  // Per-figure selection for admin bulk ops (unlink / move). Resets to empty
+  // every time the slug changes — different page, different selection set.
+  const [selected, setSelected] = useState(() => new Set());
+  useEffect(() => {
+    setSelected(new Set());
+  }, [slug, kind]);
 
   const apiPath = kindToApiPath(kind);
   const q = useQuery({
@@ -71,6 +86,20 @@ export default function EntityPage({ kind }) {
 
   const blurNsfw =
     (me.data?.user?.nsfw_visibility ?? "hide") === "blur";
+  // The admin toolbar (checkboxes + unlink / move bulk ops) is only relevant
+  // for the two M2M-linked entity kinds — manufacturers are 1:N via a
+  // direct FK and not in scope for this issue.
+  const manageable = isAdmin && (kind === "series" || kind === "character");
+
+  const toggle = (id) =>
+    setSelected((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  const selectAll = () => setSelected(new Set(figures.map((f) => f.id)));
+  const clearSelection = () => setSelected(new Set());
 
   return (
     <AppShell>
@@ -87,6 +116,18 @@ export default function EntityPage({ kind }) {
             </span>
           </header>
 
+          {manageable && figures.length > 0 ? (
+            <AdminBulkToolbar
+              kind={kind}
+              entity={entity}
+              figures={figures}
+              selected={selected}
+              onSelectAll={selectAll}
+              onClear={clearSelection}
+              t={t}
+            />
+          ) : null}
+
           {figures.length === 0 ? (
             <p className="text-sm text-[var(--color-ivoire-soft)] italic text-center py-12">
               {t("entity.figures_section.empty")}
@@ -96,9 +137,16 @@ export default function EntityPage({ kind }) {
               {figures.map((f, i) => (
                 <li
                   key={f.id}
-                  className="reveal"
+                  className="reveal relative"
                   style={{ "--i": Math.min(i, 10) + 5 }}
                 >
+                  {manageable ? (
+                    <SelectCheckbox
+                      checked={selected.has(f.id)}
+                      onChange={() => toggle(f.id)}
+                      label={t("entity.admin.toggle_select", { name: f.name })}
+                    />
+                  ) : null}
                   <FigureCard
                     figureId={f.id}
                     href={`/figures/${f.id}`}
@@ -122,6 +170,148 @@ export default function EntityPage({ kind }) {
         </section>
       </main>
     </AppShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin bulk toolbar — appears on series + character pages for admin viewers.
+// Mirrors the figure-types ledger styling (mono micro caps, gold border).
+// ─────────────────────────────────────────────────────────────────────────────
+
+function AdminBulkToolbar({ kind, entity, figures, selected, onSelectAll, onClear, t }) {
+  const [moveTo, setMoveTo] = useState("");
+  const isSeries = kind === "series";
+  // Call every hook unconditionally — branching on `kind` would put the
+  // hooks call order at the mercy of the prop, which rules-of-hooks
+  // (rightly) forbids. The unused half is cheap (TanStack Query dedupes).
+  const seriesLookup = useSeriesLookup();
+  const charLookup = useCharactersLookup();
+  const seriesUnlink = useUnlinkSeriesFigures();
+  const charUnlink = useUnlinkCharacterFigures();
+  const seriesMove = useMoveSeriesFigures();
+  const charMove = useMoveCharacterFigures();
+  const lookup = isSeries ? seriesLookup : charLookup;
+  const unlinkMut = isSeries ? seriesUnlink : charUnlink;
+  const moveMut = isSeries ? seriesMove : charMove;
+  // The picker excludes the current entity — moving "to self" is a no-op the
+  // backend rejects as 400 anyway, no need to surface it as a valid choice.
+  const targets = (lookup.data ?? []).filter((row) => row.id !== entity.id);
+  const figureIds = Array.from(selected);
+  const allSelected = selected.size === figures.length && figures.length > 0;
+  const busy = unlinkMut.isPending || moveMut.isPending;
+
+  const onUnlink = async () => {
+    if (figureIds.length === 0) return;
+    if (isSeries) {
+      await unlinkMut.mutateAsync({ seriesId: entity.id, figureIds });
+    } else {
+      await unlinkMut.mutateAsync({ characterId: entity.id, figureIds });
+    }
+    onClear();
+  };
+
+  const onMove = async () => {
+    if (figureIds.length === 0 || !moveTo) return;
+    if (isSeries) {
+      await moveMut.mutateAsync({
+        fromSeriesId: entity.id,
+        toSeriesId: moveTo,
+        figureIds,
+      });
+    } else {
+      await moveMut.mutateAsync({
+        fromCharacterId: entity.id,
+        toCharacterId: moveTo,
+        figureIds,
+      });
+    }
+    setMoveTo("");
+    onClear();
+  };
+
+  return (
+    <div className="mb-6 p-4 border border-[var(--color-or)]/25 bg-[var(--color-noir-soft)]/40 flex flex-wrap items-center gap-3 text-[10px] uppercase tracking-[0.2em]">
+      <span className="text-[var(--color-or-pale)]">
+        {t("entity.admin.eyebrow")}
+      </span>
+      <span className="font-mono text-[var(--color-ivoire-soft)]">
+        {t("entity.admin.selected_count", { n: selected.size })}
+      </span>
+      <div className="flex-1" />
+      <button
+        type="button"
+        onClick={allSelected ? onClear : onSelectAll}
+        className="text-[var(--color-or-pale)] hover:text-[var(--color-or)] border border-[var(--color-or)]/30 hover:border-[var(--color-or)] px-2.5 py-1 transition-colors"
+      >
+        {allSelected ? t("entity.admin.deselect_all") : t("entity.admin.select_all")}
+      </button>
+      <button
+        type="button"
+        onClick={onUnlink}
+        disabled={selected.size === 0 || busy}
+        className="text-[var(--color-or-pale)] hover:text-[var(--color-laque-bright)] border border-[var(--color-or)]/30 hover:border-[var(--color-laque-bright)] px-2.5 py-1 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      >
+        ✂ {t("entity.admin.unlink")}
+      </button>
+      <select
+        value={moveTo}
+        onChange={(e) => setMoveTo(e.target.value)}
+        disabled={selected.size === 0 || busy || targets.length === 0}
+        className="bg-[var(--color-noir-deep)] border border-[var(--color-or)]/30 px-2.5 py-1 text-[var(--color-ivoire)] disabled:opacity-30"
+        style={{ minWidth: "14rem" }}
+      >
+        <option value="">{t("entity.admin.move_placeholder")}</option>
+        {targets.map((row) => (
+          <option key={row.id} value={row.id}>
+            {row.name}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        onClick={onMove}
+        disabled={selected.size === 0 || !moveTo || busy}
+        className="text-[var(--color-or)] hover:text-[var(--color-noir)] border border-[var(--color-or)] hover:bg-[var(--color-or)] px-2.5 py-1 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      >
+        → {t("entity.admin.move_confirm")}
+      </button>
+      {unlinkMut.isError || moveMut.isError ? (
+        <p
+          role="alert"
+          className="basis-full normal-case tracking-normal text-xs text-[var(--color-laque-bright)] border-l-2 border-[var(--color-laque-bright)] pl-3 py-1"
+        >
+          {(unlinkMut.error || moveMut.error)?.message}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function SelectCheckbox({ checked, onChange, label }) {
+  return (
+    <label
+      className="absolute top-2 left-2 z-10 grid place-items-center w-6 h-6 bg-[var(--color-noir)]/70 border border-[var(--color-or)]/50 hover:border-[var(--color-or)] cursor-pointer transition-colors backdrop-blur-sm"
+      title={label}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onChange}
+        className="absolute opacity-0 w-full h-full cursor-pointer"
+        aria-label={label}
+      />
+      <span
+        aria-hidden
+        className={`text-[12px] leading-none transition-opacity ${
+          checked
+            ? "text-[var(--color-or)] opacity-100"
+            : "text-transparent opacity-0"
+        }`}
+      >
+        ✓
+      </span>
+    </label>
   );
 }
 

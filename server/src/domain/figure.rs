@@ -660,6 +660,23 @@ async fn upsert_series(
         }
     }
 
+    // Name-based fallback: the slug-only ON CONFLICT below catches duplicates
+    // when slugify produces the same string, but non-ASCII characters get
+    // stripped (e.g. "Pokémon" → "pokmon" but "Pokemon" → "pokemon", two
+    // distinct slugs for the *same* series). Case-insensitive trim match
+    // closes that hole: if the user typed a name that already exists in any
+    // common casing/whitespace variant, reuse the row.
+    if let Some((id,)) = sqlx::query_as::<_, (Uuid,)>(
+        "SELECT id FROM series WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1",
+    )
+    .bind(name)
+    .fetch_optional(&mut **tx)
+    .await?
+    {
+        apply_series_meta(tx, id, name, meta).await?;
+        return Ok(id);
+    }
+
     let slug = slugify(name);
     let row = sqlx::query(
         "INSERT INTO series
@@ -745,6 +762,25 @@ async fn upsert_character(
             apply_character_meta(tx, id, series_id, meta).await?;
             return Ok(id);
         }
+    }
+
+    // Name-based fallback (same reason as upsert_series). Scope the match to
+    // the same series_id when one is provided — two characters of the same
+    // name across different shows are genuinely distinct, so we only collapse
+    // within a series. NULL-safe comparison via IS NOT DISTINCT FROM.
+    if let Some((id,)) = sqlx::query_as::<_, (Uuid,)>(
+        "SELECT id FROM characters
+         WHERE LOWER(TRIM(name)) = LOWER(TRIM($1))
+           AND series_id IS NOT DISTINCT FROM $2
+         LIMIT 1",
+    )
+    .bind(name)
+    .bind(series_id)
+    .fetch_optional(&mut **tx)
+    .await?
+    {
+        apply_character_meta(tx, id, series_id, meta).await?;
+        return Ok(id);
     }
 
     let slug = match series_id {

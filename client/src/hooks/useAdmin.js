@@ -210,3 +210,105 @@ export function useDeleteWorker() {
     },
   });
 }
+
+// =============================================================================
+// Entity bulk ops — unlink/move figures, delete with optional merge target.
+//
+// Same shape twice (series / characters) so the EntityPage admin toolbar and
+// the AdminCatalogPage delete dialog share one hook per verb per entity kind.
+// =============================================================================
+
+/** Body shape: `{ figure_ids: [Uuid, …] }`. */
+export function useUnlinkSeriesFigures() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ seriesId, figureIds }) =>
+      api.post(`/admin/series/${seriesId}/figures/unlink`, {
+        figure_ids: figureIds,
+      }),
+    onSuccess: (_d, vars) => {
+      // The entity page reads `["entity", "series", slug]`; we don't have the
+      // slug here (the page invalidates on slug change), so blanket-bust the
+      // entity cache for any series page currently mounted.
+      qc.invalidateQueries({ queryKey: ["entity", "series"] });
+      qc.invalidateQueries({ queryKey: ["admin", "series", vars.seriesId] });
+      qc.invalidateQueries({ queryKey: ["lookup", "series"] });
+    },
+  });
+}
+
+/** Body: `{ figure_ids, to_id }`. */
+export function useMoveSeriesFigures() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ fromSeriesId, toSeriesId, figureIds }) =>
+      api.post(`/admin/series/${fromSeriesId}/figures/move`, {
+        figure_ids: figureIds,
+        to_id: toSeriesId,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["entity", "series"] });
+      qc.invalidateQueries({ queryKey: ["lookup", "series"] });
+    },
+  });
+}
+
+/** `replacementId` is optional — leaving it null deletes without merging. */
+export function useDeleteSeries() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, replacementId }) => {
+      const qs = replacementId ? `?replacement_id=${replacementId}` : "";
+      return api.delete(`/admin/series/${id}${qs}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "series"] });
+      qc.invalidateQueries({ queryKey: ["entity", "series"] });
+      qc.invalidateQueries({ queryKey: ["lookup", "series"] });
+    },
+  });
+}
+
+export function useUnlinkCharacterFigures() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ characterId, figureIds }) =>
+      api.post(`/admin/characters/${characterId}/figures/unlink`, {
+        figure_ids: figureIds,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["entity", "character"] });
+      qc.invalidateQueries({ queryKey: ["lookup", "characters"] });
+    },
+  });
+}
+
+export function useMoveCharacterFigures() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ fromCharacterId, toCharacterId, figureIds }) =>
+      api.post(`/admin/characters/${fromCharacterId}/figures/move`, {
+        figure_ids: figureIds,
+        to_id: toCharacterId,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["entity", "character"] });
+      qc.invalidateQueries({ queryKey: ["lookup", "characters"] });
+    },
+  });
+}
+
+export function useDeleteCharacter() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, replacementId }) => {
+      const qs = replacementId ? `?replacement_id=${replacementId}` : "";
+      return api.delete(`/admin/characters/${id}${qs}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "characters"] });
+      qc.invalidateQueries({ queryKey: ["entity", "character"] });
+      qc.invalidateQueries({ queryKey: ["lookup", "characters"] });
+    },
+  });
+}
