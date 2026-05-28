@@ -69,6 +69,26 @@ pub struct AniListCharacterName {
     pub native: Option<String>,
 }
 
+/// A character search hit. Lighter than [`AniListCharacter`] (no description),
+/// but carries the `media` it appears in so the picker can disambiguate
+/// homonyms ("which Saber?"). `media` is only populated for the *un-scoped*
+/// free search — when the search is already scoped to a series there's
+/// nothing to disambiguate.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AniListCharacterResult {
+    pub id: i64,
+    pub name: AniListCharacterName,
+    pub image: Option<AniListImage>,
+    #[serde(default)]
+    pub media: Vec<AniListCharacterMedia>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AniListCharacterMedia {
+    pub id: i64,
+    pub title: AniListTitle,
+}
+
 // -----------------------------------------------------------------------------
 // Search + lookup
 // -----------------------------------------------------------------------------
@@ -327,6 +347,221 @@ pub async fn get_character(
                 )));
             }
             resp.data.map(|d| d.character).ok_or(AppError::NotFound)
+        },
+    )
+    .await
+}
+
+/// Search characters by free-text, optionally scoped to a series (AniList
+/// media id).
+///
+/// AniList's `Media.characters` connection has **no `search` argument**, so a
+/// scoped search can't be done server-side at AniList. Instead, when
+/// `media_id` is set, we fetch that media's full character roster once
+/// (cached 24h) and filter it locally by name. An empty query in scoped mode
+/// returns the whole roster — handy as initial suggestions once a series is
+/// picked. Un-scoped, it's a normal `Page { characters(search:) }` query and
+/// needs a non-empty query.
+pub async fn search_characters(
+    pool: &PgPool,
+    http: &reqwest::Client,
+    query: &str,
+    media_id: Option<i64>,
+) -> AppResult<Vec<AniListCharacterResult>> {
+    let trimmed = query.trim();
+
+    // ── Scoped to a series: filter the media's roster locally. ──
+    if let Some(mid) = media_id {
+        let roster = media_characters(pool, http, mid).await?;
+        if trimmed.is_empty() {
+            return Ok(roster);
+        }
+        let needle = trimmed.to_lowercase();
+        let matches = |s: &Option<String>| {
+            s.as_deref()
+                .map(|v| v.to_lowercase().contains(&needle))
+                .unwrap_or(false)
+        };
+        return Ok(roster
+            .into_iter()
+            .filter(|c| matches(&c.name.full) || matches(&c.name.native))
+            .collect());
+    }
+
+    // ── Free search across all of AniList. ──
+    if trimmed.is_empty() {
+        return Ok(vec![]);
+    }
+    let cache_key = format!("char-search:{}", trimmed.to_lowercase());
+    cache::cached_fetch(
+        pool,
+        PROVIDER,
+        "character-search",
+        &cache_key,
+        Duration::hours(CACHE_TTL_HOURS),
+        || async {
+            #[derive(Deserialize)]
+            struct Resp {
+                data: Option<Data>,
+                errors: Option<Vec<serde_json::Value>>,
+            }
+            #[derive(Deserialize)]
+            struct Data {
+                #[serde(rename = "Page")]
+                page: Page,
+            }
+            #[derive(Deserialize)]
+            struct Page {
+                characters: Vec<CharNode>,
+            }
+            #[derive(Deserialize)]
+            struct CharNode {
+                id: i64,
+                name: AniListCharacterName,
+                image: Option<AniListImage>,
+                media: Option<MediaConn>,
+            }
+            #[derive(Deserialize)]
+            struct MediaConn {
+                nodes: Vec<AniListCharacterMedia>,
+            }
+
+            let body = serde_json::json!({
+                "query": r#"
+                    query ($q: String) {
+                        Page(perPage: 15) {
+                            characters(search: $q, sort: SEARCH_MATCH) {
+                                id
+                                name { full native }
+                                image { large medium }
+                                media(perPage: 4, sort: POPULARITY_DESC) {
+                                    nodes { id title { romaji english native } }
+                                }
+                            }
+                        }
+                    }
+                "#,
+                "variables": { "q": trimmed },
+            });
+
+            let resp: Resp = http
+                .post(ANILIST_ENDPOINT)
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| AppError::Internal(anyhow::anyhow!("AniList request failed: {e}")))?
+                .json()
+                .await
+                .map_err(|e| AppError::Internal(anyhow::anyhow!("AniList JSON parse failed: {e}")))?;
+
+            if let Some(errs) = resp.errors {
+                return Err(AppError::Internal(anyhow::anyhow!("AniList errors: {errs:?}")));
+            }
+            Ok(resp
+                .data
+                .map(|d| {
+                    d.page
+                        .characters
+                        .into_iter()
+                        .map(|c| AniListCharacterResult {
+                            id: c.id,
+                            name: c.name,
+                            image: c.image,
+                            media: c.media.map(|m| m.nodes).unwrap_or_default(),
+                        })
+                        .collect()
+                })
+                .unwrap_or_default())
+        },
+    )
+    .await
+}
+
+/// Full character roster of a media (all roles, role-sorted so mains lead),
+/// cached 24h. The source set for the series-scoped character search.
+async fn media_characters(
+    pool: &PgPool,
+    http: &reqwest::Client,
+    media_id: i64,
+) -> AppResult<Vec<AniListCharacterResult>> {
+    cache::cached_fetch(
+        pool,
+        PROVIDER,
+        "media-character-roster",
+        &media_id.to_string(),
+        Duration::hours(CACHE_TTL_HOURS),
+        || async {
+            #[derive(Deserialize)]
+            struct Resp {
+                data: Option<Data>,
+                errors: Option<Vec<serde_json::Value>>,
+            }
+            #[derive(Deserialize)]
+            struct Data {
+                #[serde(rename = "Media")]
+                media: Option<MediaPayload>,
+            }
+            #[derive(Deserialize)]
+            struct MediaPayload {
+                characters: Option<CharactersConn>,
+            }
+            #[derive(Deserialize)]
+            struct CharactersConn {
+                nodes: Vec<CharNode>,
+            }
+            #[derive(Deserialize)]
+            struct CharNode {
+                id: i64,
+                name: AniListCharacterName,
+                image: Option<AniListImage>,
+            }
+
+            let body = serde_json::json!({
+                "query": r#"
+                    query ($id: Int) {
+                        Media(id: $id) {
+                            characters(perPage: 50, sort: [ROLE, RELEVANCE]) {
+                                nodes {
+                                    id
+                                    name { full native }
+                                    image { large medium }
+                                }
+                            }
+                        }
+                    }
+                "#,
+                "variables": { "id": media_id },
+            });
+
+            let resp: Resp = http
+                .post(ANILIST_ENDPOINT)
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| AppError::Internal(anyhow::anyhow!("AniList request failed: {e}")))?
+                .json()
+                .await
+                .map_err(|e| AppError::Internal(anyhow::anyhow!("AniList JSON parse failed: {e}")))?;
+
+            if let Some(errs) = resp.errors {
+                return Err(AppError::Internal(anyhow::anyhow!("AniList errors: {errs:?}")));
+            }
+            Ok(resp
+                .data
+                .and_then(|d| d.media)
+                .and_then(|m| m.characters)
+                .map(|c| {
+                    c.nodes
+                        .into_iter()
+                        .map(|n| AniListCharacterResult {
+                            id: n.id,
+                            name: n.name,
+                            image: n.image,
+                            media: Vec::new(),
+                        })
+                        .collect()
+                })
+                .unwrap_or_default())
         },
     )
     .await

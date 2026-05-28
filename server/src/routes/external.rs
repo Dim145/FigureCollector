@@ -61,6 +61,31 @@ async fn anilist_character_get(
     ))
 }
 
+#[derive(Deserialize)]
+struct CharacterSearchQuery {
+    q: Option<String>,
+    /// AniList media id — when present, scopes the search to that series'
+    /// character roster (the figure form passes the picked series' anilist_id).
+    media_id: Option<i64>,
+}
+
+async fn anilist_character_search(
+    State(state): State<AppState>,
+    session: Session,
+    Query(q): Query<CharacterSearchQuery>,
+) -> AppResult<Json<Vec<anilist::AniListCharacterResult>>> {
+    auth::require_user(&session).await?;
+    let query = q.q.unwrap_or_default();
+    // Scoped search may have an empty query (returns the roster); free search
+    // needs the usual ≥2 chars to avoid hammering AniList on a single letter.
+    if q.media_id.is_none() && query.trim().len() < 2 {
+        return Err(AppError::BadRequest("query must be at least 2 chars"));
+    }
+    Ok(Json(
+        anilist::search_characters(&state.pool, &state.http, &query, q.media_id).await?,
+    ))
+}
+
 async fn mfc_get(
     State(state): State<AppState>,
     session: Session,
@@ -280,6 +305,9 @@ pub fn router() -> Router<AppState> {
             get(tracking_get),
         )
         .route("/external/anilist/search", get(anilist_search))
+        // `characters` (plural) for search — kept distinct from the singular
+        // `character/{id}` get so the `{id}: i64` extractor never sees "search".
+        .route("/external/anilist/characters", get(anilist_character_search))
         .route("/external/anilist/{id}", get(anilist_get))
         .route("/external/anilist/character/{id}", get(anilist_character_get))
         .route("/external/mfc/search", get(mfc_search))

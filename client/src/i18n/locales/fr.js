@@ -211,6 +211,9 @@ export default {
   "addfig.lookup_apply": "Utiliser ce résultat",
   "addfig.lookup_no_results": "Aucun résultat AniList.",
   "addfig.lookup_min": "Au moins 2 caractères.",
+  "addfig.lookup_anilist_char": "Chercher le personnage sur AniList",
+  "addfig.lookup_char_placeholder": "Miku, Nezuko, Tifa…",
+  "addfig.lookup_char_scoped": "Filtré par la série : {series}",
 
   // External figurine search (orzgk + MFC)
   "lookup.figure.open": "Chercher cette figurine sur orzgk / MFC",

@@ -11,6 +11,7 @@ import {
 } from "../hooks/useEntities.js";
 import { useIsAdmin } from "../hooks/useMe.js";
 import AniListLookup from "./AniListLookup.jsx";
+import AniListCharacterLookup from "./AniListCharacterLookup.jsx";
 import Button from "./Button.jsx";
 import EntityAutocomplete from "./EntityAutocomplete.jsx";
 import FigureLookup from "./FigureLookup.jsx";
@@ -225,16 +226,42 @@ export default function FigureForm({
               }
             />
           </div>
-          <EntityAutocomplete
-            label={t("addfig.field.character")}
-            value={form.character_name}
-            onChange={set("character_name")}
-            data={charactersLookup.data}
-            // Show the linked series next to the character name so
-            // duplicates (e.g. multiple "Saber") are easy to tell apart.
-            getMeta={(c) => c.series_name}
-            disabled={busy}
-          />
+          <div className="sm:col-span-1">
+            <EntityAutocomplete
+              label={t("addfig.field.character")}
+              value={form.character_name}
+              onChange={set("character_name")}
+              data={charactersLookup.data}
+              // Show the linked series next to the character name so
+              // duplicates (e.g. multiple "Saber") are easy to tell apart.
+              getMeta={(c) => c.series_name}
+              disabled={busy}
+            />
+            <AniListCharacterLookup
+              // Scope to the picked series when we know its AniList id —
+              // the search then lists that series' roster and filters it.
+              mediaId={form.series_meta?.anilist_id ?? null}
+              seriesLabel={form.series_name}
+              onPick={(pick) =>
+                setForm((s) => ({
+                  ...s,
+                  character_name: pick.full ?? pick.native ?? s.character_name,
+                  // Same COALESCE-on-the-server contract as the series meta:
+                  // enrichment lands on first insert, never clobbers edits.
+                  character_meta: {
+                    ...s.character_meta,
+                    anilist_id: pick.anilistId ?? s.character_meta?.anilist_id,
+                    description:
+                      stripHtmlSafe(pick.description) ??
+                      s.character_meta?.description,
+                    portrait_url:
+                      pick.portraitUrl ?? s.character_meta?.portrait_url,
+                    external_url: pick.siteUrl ?? s.character_meta?.external_url,
+                  },
+                }))
+              }
+            />
+          </div>
         </div>
       </Section>
 
