@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd LaunchAgent for the native macOS Brush splat worker.
+
+  It MUST be a LaunchAgent (~/Library/LaunchAgents), NOT a system LaunchDaemon:
+  only an agent running in your GUI login session can reach the Metal GPU.
+
+  Install:
+    1. Edit the two __FC_DIR__ placeholders below to this folder's absolute path.
+    2. cp com.figurecollector.splat-worker.plist ~/Library/LaunchAgents/
+    3. launchctl load -w ~/Library/LaunchAgents/com.figurecollector.splat-worker.plist
+  Stop:
+    launchctl unload -w ~/Library/LaunchAgents/com.figurecollector.splat-worker.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.figurecollector.splat-worker</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__FC_DIR__/run.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__FC_DIR__</string>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>__FC_DIR__/worker.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__FC_DIR__/worker.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

@@ -1,0 +1,9 @@
+asyncpg==0.30.0
+boto3==1.35.*
+structlog==24.4.*
+Pillow>=10,<12
+
+# Optional — foreground masking for turntable captures (ENABLE_MASKING=true).
+# Heavy (pulls onnxruntime); uncomment and reinstall to enable.
+# rembg==2.0.*
+# onnxruntime>=1.17
