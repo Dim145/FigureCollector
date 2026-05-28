@@ -31,9 +31,13 @@ from __future__ import annotations
 
 import asyncio
 import os
+import platform
+import socket
 import subprocess
 import tempfile
 import traceback
+import uuid
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -71,6 +75,13 @@ VIDEO_MAX_DIM = int(os.environ.get("VIDEO_MAX_DIM", "2048"))
 # backdrop and the splat is junk.
 ENABLE_MASKING = os.environ.get("ENABLE_MASKING", "false").lower() in ("1", "true", "yes")
 
+# Worker registration. The backend's offline detector waits 3 × this interval
+# (per `domain::worker::OFFLINE_MISS_THRESHOLD`) before flagging us offline,
+# so 30s here ≈ 90s of grace before the admin UI marks us hors-ligne.
+HEARTBEAT_INTERVAL = int(os.environ.get("HEARTBEAT_INTERVAL", "30"))
+WORKER_KIND = "cuda"
+WORKER_VERSION = "0.1.0"
+
 MIN_FRAMES = 6
 
 log = structlog.get_logger()
@@ -90,16 +101,36 @@ s3 = boto3.client(
 # -----------------------------------------------------------------------------
 
 
+@dataclass
+class WorkerState:
+    """Mutable snapshot shared between the heartbeat task and the main loop:
+    the heartbeat refreshes `enabled` from the row each tick so the claim
+    loop can short-circuit while the admin has us disabled."""
+    id: uuid.UUID
+    enabled: bool
+
+
 async def main() -> None:
     pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=4)
+    state = await _register_worker(pool)
     log.info(
         "worker started",
+        worker_id=str(state.id),
+        kind=WORKER_KIND,
+        enabled=state.enabled,
+        heartbeat=HEARTBEAT_INTERVAL,
         poll_interval=POLL_INTERVAL,
         bucket=S3_BUCKET,
         iterations=TRAINING_ITERATIONS,
     )
+    heartbeat_task = asyncio.create_task(_heartbeat_loop(pool, state))
     try:
         while True:
+            # Admin can flip `enabled` off at any moment; the heartbeat
+            # refreshes it. Idle politely instead of claiming.
+            if not state.enabled:
+                await asyncio.sleep(POLL_INTERVAL)
+                continue
             scan = await claim_next_pending(pool)
             if scan is None:
                 await asyncio.sleep(POLL_INTERVAL)
@@ -120,7 +151,131 @@ async def main() -> None:
                 )
                 await mark_failed(pool, scan_id, f"{type(e).__name__}: {e}\n{trace}")
     finally:
+        heartbeat_task.cancel()
+        try:
+            await heartbeat_task
+        except (asyncio.CancelledError, Exception):  # noqa: BLE001
+            pass
         await pool.close()
+
+
+# -----------------------------------------------------------------------------
+# Worker registration + heartbeat — direct DB UPSERT, same pattern as the
+# claim loop already uses (workers carry the same DB creds).
+# -----------------------------------------------------------------------------
+
+
+def _hwinfo() -> dict:
+    """Probe the host for the fields the `workers` table wants. Best-effort:
+    anything we can't read becomes None and the admin UI just shows '—'."""
+    info = {
+        "hostname": socket.gethostname(),
+        "os": platform.platform(),
+        "arch": platform.machine(),
+        "gpu": None,
+        "gpu_memory_mb": None,
+        "runtime_version": None,
+    }
+    # GPU name + VRAM from nvidia-smi (lives in the CUDA Docker base image).
+    try:
+        out = subprocess.run(
+            ["nvidia-smi",
+             "--query-gpu=name,memory.total",
+             "--format=csv,noheader,nounits",
+             "-i", "0"],
+            check=False, capture_output=True, text=True, timeout=8,
+        ).stdout.strip()
+        if out:
+            # "NVIDIA GeForce RTX 3090, 24576"
+            parts = [p.strip() for p in out.splitlines()[0].split(",")]
+            if len(parts) >= 1 and parts[0]:
+                info["gpu"] = parts[0]
+            if len(parts) >= 2:
+                try:
+                    info["gpu_memory_mb"] = int(parts[1])
+                except ValueError:
+                    pass
+    except Exception:  # noqa: BLE001
+        pass
+    # CUDA runtime — the env var is set by the nvidia/cuda base image; fall
+    # back to nvidia-smi's "CUDA Version" line if it's missing.
+    cuda = os.environ.get("CUDA_VERSION")
+    if not cuda:
+        try:
+            out = subprocess.run(
+                ["nvidia-smi"], check=False, capture_output=True, text=True, timeout=4,
+            ).stdout
+            for line in out.splitlines():
+                if "CUDA Version" in line:
+                    # "Driver Version: 535.86.10    CUDA Version: 12.2"
+                    after = line.split("CUDA Version", 1)[1]
+                    cuda = after.lstrip(":").strip().split()[0]
+                    break
+        except Exception:  # noqa: BLE001
+            pass
+    info["runtime_version"] = f"CUDA {cuda}" if cuda else None
+    return info
+
+
+async def _register_worker(pool: asyncpg.Pool) -> WorkerState:
+    """UPSERT on (hostname, kind). Re-running the worker keeps the same row.
+    If the admin deleted us in the meantime, this re-creates the row."""
+    info = _hwinfo()
+    fresh_id = uuid.uuid4()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO workers (
+                id, hostname, kind, os, arch, gpu, gpu_memory_mb,
+                runtime_version, worker_version, heartbeat_interval_secs,
+                last_seen
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+            ON CONFLICT (hostname, kind) DO UPDATE SET
+                os                      = EXCLUDED.os,
+                arch                    = EXCLUDED.arch,
+                gpu                     = EXCLUDED.gpu,
+                gpu_memory_mb           = EXCLUDED.gpu_memory_mb,
+                runtime_version         = EXCLUDED.runtime_version,
+                worker_version          = EXCLUDED.worker_version,
+                heartbeat_interval_secs = EXCLUDED.heartbeat_interval_secs,
+                last_seen               = NOW()
+            RETURNING id, enabled
+            """,
+            fresh_id,
+            info["hostname"],
+            WORKER_KIND,
+            info["os"],
+            info["arch"],
+            info["gpu"],
+            info["gpu_memory_mb"],
+            info["runtime_version"],
+            WORKER_VERSION,
+            max(1, HEARTBEAT_INTERVAL),
+        )
+    return WorkerState(id=row["id"], enabled=row["enabled"])
+
+
+async def _heartbeat_loop(pool: asyncpg.Pool, state: WorkerState) -> None:
+    """Every HEARTBEAT_INTERVAL seconds: bump last_seen, refresh `enabled`.
+    If the row vanished (admin delete), re-register so we stay reachable
+    instead of silently going stale."""
+    while True:
+        await asyncio.sleep(HEARTBEAT_INTERVAL)
+        try:
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "UPDATE workers SET last_seen = NOW() WHERE id = $1 RETURNING enabled",
+                    state.id,
+                )
+            if row is None:
+                log.warning("worker row missing; re-registering", worker_id=str(state.id))
+                fresh = await _register_worker(pool)
+                state.id = fresh.id
+                state.enabled = fresh.enabled
+            else:
+                state.enabled = row["enabled"]
+        except Exception as e:  # noqa: BLE001
+            log.warning("heartbeat failed", error=str(e))
 
 
 # -----------------------------------------------------------------------------

@@ -169,3 +169,44 @@ export function useDeleteFigure() {
     },
   });
 }
+
+// =============================================================================
+// Workers — gsplat compute registry. CUDA and Metal workers self-register on
+// startup; the admin can rename, disable, or delete them here.
+// =============================================================================
+
+/** Live list — short stale so the online dots track reality without spamming. */
+export function useAdminWorkers() {
+  return useQuery({
+    queryKey: ["admin", "workers"],
+    queryFn: () => api.get("/admin/workers"),
+    // Workers heartbeat every ~30 s; refetch enough to track that without
+    // burning bandwidth when the admin is just looking.
+    staleTime: 5_000,
+    refetchInterval: 15_000,
+  });
+}
+
+export function usePatchWorker() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, patch }) => api.patch(`/admin/workers/${id}`, patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "workers"] });
+      // Disabling the last worker hides the "Modèle 3D" checkbox — bust
+      // the capability cache too.
+      qc.invalidateQueries({ queryKey: ["scans", "capabilities"] });
+    },
+  });
+}
+
+export function useDeleteWorker() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => api.delete(`/admin/workers/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "workers"] });
+      qc.invalidateQueries({ queryKey: ["scans", "capabilities"] });
+    },
+  });
+}

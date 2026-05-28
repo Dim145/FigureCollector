@@ -7286,6 +7286,113 @@ a.notif-page-row-title:hover {
 }
 
 /* =============================================================================
+ * Workers ledger — shares the figure-types row aesthetic. One row per worker;
+ * status pill on the left, hardware specs grid in the middle, actions on the
+ * right. The kanji seal in the gutter is 機 ("machine") instead of 類.
+ * ============================================================================ */
+.worker-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1.25rem;
+  align-items: start;
+  padding: 1rem 1.25rem;
+  background: oklch(0.13 0.005 50);
+  border: 1px solid oklch(0.78 0.10 80 / 0.15);
+}
+.worker-row-seal {
+  position: absolute;
+  left: -1.6rem;
+  top: 0.85rem;
+  font-family: "Noto Serif JP", "Yu Mincho", serif;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--color-or);
+  background: var(--color-noir);
+  padding: 0.15rem 0.3rem;
+}
+.worker-row-body {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.worker-row-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  align-items: stretch;
+}
+.worker-row-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2rem;
+  padding: 0.3rem 0.7rem;
+  background: transparent;
+  border: 1px solid oklch(0.78 0.10 80 / 0.35);
+  color: var(--color-or-pale);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 220ms var(--ease-quick), color 220ms var(--ease-quick),
+              background 220ms var(--ease-quick);
+}
+.worker-row-btn:hover:not(:disabled) {
+  border-color: var(--color-or);
+  color: var(--color-or);
+}
+.worker-row-btn.is-on {
+  color: var(--color-or);
+  border-color: var(--color-or);
+}
+.worker-row-btn.is-off {
+  color: oklch(0.92 0.03 75 / 0.55);
+  border-color: oklch(0.92 0.03 75 / 0.3);
+}
+.worker-row-btn.is-danger:hover:not(:disabled) {
+  border-color: var(--color-laque-bright);
+  color: var(--color-laque-bright);
+  background: oklch(0.55 0.20 25 / 0.08);
+}
+.worker-row-btn.is-disabled,
+.worker-row-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.worker-row-confirm {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+.worker-row-confirm-yes,
+.worker-row-confirm-no {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 0.45rem 0.7rem;
+  background: transparent;
+  border: 1px solid;
+  cursor: pointer;
+  transition: background 220ms var(--ease-quick);
+}
+.worker-row-confirm-yes {
+  border-color: var(--color-laque-bright);
+  color: var(--color-laque-bright);
+}
+.worker-row-confirm-yes:hover {
+  background: oklch(0.55 0.20 25 / 0.15);
+}
+.worker-row-confirm-no {
+  border-color: oklch(0.78 0.10 80 / 0.4);
+  color: var(--color-or-pale);
+}
+.worker-row-confirm-no:hover {
+  background: oklch(0.78 0.10 80 / 0.05);
+}
+
+/* =============================================================================
  * Store autocomplete — input + dropdown overlay
  * ============================================================================ */
 .store-ac-label {

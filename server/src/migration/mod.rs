@@ -37,6 +37,7 @@ mod m20260526_000004_figure_types;
 mod m20260526_000005_stores;
 mod m20260526_000006_figure_stores;
 mod m20260526_000007_figure_type_fk;
+mod m20260528_000001_workers;
 
 pub struct Migrator;
 
@@ -69,6 +70,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260526_000005_stores::Migration),
             Box::new(m20260526_000006_figure_stores::Migration),
             Box::new(m20260526_000007_figure_type_fk::Migration),
+            Box::new(m20260528_000001_workers::Migration),
         ]
     }
 }

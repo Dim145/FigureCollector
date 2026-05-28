@@ -37,6 +37,7 @@ const AdminCatalogPage     = lazy(() => import("./pages/AdminCatalogPage.jsx"));
 const AdminFigureTypesPage = lazy(() => import("./pages/AdminFigureTypesPage.jsx"));
 const AdminStoresPage      = lazy(() => import("./pages/AdminStoresPage.jsx"));
 const AdminNotificationsPage = lazy(() => import("./pages/AdminNotificationsPage.jsx"));
+const AdminWorkersPage     = lazy(() => import("./pages/AdminWorkersPage.jsx"));
 const StorePage            = lazy(() => import("./pages/StorePage.jsx"));
 
 import CommandPalette from "./components/CommandPalette.jsx";
@@ -110,6 +111,7 @@ export default function App() {
               <Route path="figure-types" element={<AdminFigureTypesPage />} />
               <Route path="stores" element={<AdminStoresPage />} />
               <Route path="notifications" element={<AdminNotificationsPage />} />
+              <Route path="workers" element={<AdminWorkersPage />} />
             </Route>
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/u/:slug" element={<PublicProfilePage />} />

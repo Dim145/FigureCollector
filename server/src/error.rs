@@ -49,6 +49,9 @@ pub enum AppError {
 
     #[error("feature disabled: {0}")]
     FeatureDisabled(&'static str),
+
+    #[error("service unavailable: {0}")]
+    ServiceUnavailable(&'static str),
 }
 
 impl AppError {
@@ -67,6 +70,9 @@ impl AppError {
             AppError::BadRequest(_) => (StatusCode::BAD_REQUEST, "bad_request"),
             AppError::InvalidCredentials => (StatusCode::UNAUTHORIZED, "invalid_credentials"),
             AppError::FeatureDisabled(_) => (StatusCode::FORBIDDEN, "feature_disabled"),
+            AppError::ServiceUnavailable(_) => {
+                (StatusCode::SERVICE_UNAVAILABLE, "service_unavailable")
+            }
         }
     }
 }

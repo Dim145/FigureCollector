@@ -14,3 +14,4 @@ pub mod preorder;
 pub mod scan;
 pub mod stats;
 pub mod store;
+pub mod worker;

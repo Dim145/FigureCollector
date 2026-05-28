@@ -60,3 +60,21 @@ export function useDeleteScan(ownedId) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["scans", ownedId] }),
   });
 }
+
+/**
+ * Capability probe — is there at least one gsplat worker registered, enabled,
+ * AND alive? Used by the upload wizard to hide the "Modèle 3D" checkbox when
+ * nothing can process the job; the backend enforces the same invariant with a
+ * 503 on the upload route.
+ *
+ * Polled gently (30 s stale) so a worker coming online or going offline is
+ * reflected without much delay, without hammering when the wizard is just open.
+ */
+export function useScanCapabilities() {
+  return useQuery({
+    queryKey: ["scans", "capabilities"],
+    queryFn: () => api.get("/scans/capabilities"),
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
+}

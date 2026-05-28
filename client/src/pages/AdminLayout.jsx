@@ -33,6 +33,7 @@ export default function AdminLayout() {
             <SubLink to="/admin/figure-types">{t("admin.tab.figure_types")}</SubLink>
             <SubLink to="/admin/stores">{t("admin.tab.stores")}</SubLink>
             <SubLink to="/admin/notifications">{t("admin.tab.notifications")}</SubLink>
+            <SubLink to="/admin/workers">{t("admin.tab.workers")}</SubLink>
           </nav>
         </div>
       </header>

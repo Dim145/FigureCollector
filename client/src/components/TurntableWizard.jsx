@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useT } from "../i18n/index.jsx";
+import { useScanCapabilities } from "../hooks/useScans.js";
 import TurntableCapture from "./TurntableCapture.jsx";
 import TurntableImport from "./TurntableImport.jsx";
 import TurntableVideo from "./TurntableVideo.jsx";
@@ -10,11 +11,24 @@ const TABS = ["camera", "video", "import"];
  * Fullscreen wizard with three capture modes plus a Phase 5B toggle for
  * "Generate full 3D model (Gaussian Splatting)". Same capture flows in
  * either mode — the toggle only flips `kind` on submit.
+ *
+ * The 3D checkbox is gated on `/scans/capabilities` — if no gsplat worker
+ * is currently enabled + alive, we hide the checkbox entirely (the backend
+ * would 503 the upload anyway). The 360° flow stays available regardless.
  */
 export default function TurntableWizard({ onUpload, onCancel, busy }) {
   const t = useT();
   const [tab, setTab] = useState("camera");
   const [generate3d, setGenerate3d] = useState(false);
+  const caps = useScanCapabilities();
+  const gsplatAvailable = caps.data?.gsplat_available ?? false;
+
+  // If the last worker drops while the wizard is open, untick — otherwise
+  // the user could trigger a 503 on submit despite the checkbox not even
+  // being visible anymore.
+  useEffect(() => {
+    if (!gsplatAvailable && generate3d) setGenerate3d(false);
+  }, [gsplatAvailable, generate3d]);
 
   // `video` is the original file (video tab only); we forward it for gsplat
   // so the worker can extract full-res frames rather than the downscaled set.
@@ -59,7 +73,41 @@ export default function TurntableWizard({ onUpload, onCancel, busy }) {
         </nav>
 
         <div className="flex items-center gap-4">
-          <label className="hidden md:flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] cursor-pointer select-none">
+          {gsplatAvailable ? (
+            <label className="hidden md:flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={generate3d}
+                onChange={(e) => setGenerate3d(e.target.checked)}
+                className="accent-[var(--color-or)] w-4 h-4"
+              />
+              <span
+                className={
+                  generate3d
+                    ? "text-[var(--color-or)]"
+                    : "text-[var(--color-ivoire-soft)]"
+                }
+              >
+                🧊 {t("turntable.wizard.generate_3d")}
+              </span>
+            </label>
+          ) : null}
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            aria-label={t("editor.cancel")}
+            className="text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] text-2xl leading-none transition-colors"
+          >
+            ×
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile-only toggle row — same capabilities gate as the desktop one. */}
+      {gsplatAvailable ? (
+        <div className="md:hidden flex items-center justify-end gap-2 px-6 py-2 border-b border-[var(--color-or)]/15 text-[10px] uppercase tracking-[0.18em]">
+          <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
               checked={generate3d}
@@ -76,38 +124,8 @@ export default function TurntableWizard({ onUpload, onCancel, busy }) {
               🧊 {t("turntable.wizard.generate_3d")}
             </span>
           </label>
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={busy}
-            aria-label={t("editor.cancel")}
-            className="text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] text-2xl leading-none transition-colors"
-          >
-            ×
-          </button>
         </div>
-      </header>
-
-      {/* Mobile-only toggle row */}
-      <div className="md:hidden flex items-center justify-end gap-2 px-6 py-2 border-b border-[var(--color-or)]/15 text-[10px] uppercase tracking-[0.18em]">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={generate3d}
-            onChange={(e) => setGenerate3d(e.target.checked)}
-            className="accent-[var(--color-or)] w-4 h-4"
-          />
-          <span
-            className={
-              generate3d
-                ? "text-[var(--color-or)]"
-                : "text-[var(--color-ivoire-soft)]"
-            }
-          >
-            🧊 {t("turntable.wizard.generate_3d")}
-          </span>
-        </label>
-      </div>
+      ) : null}
 
       {generate3d ? (
         <div className="px-6 py-2 bg-[var(--color-or)]/10 border-b border-[var(--color-or)]/20">

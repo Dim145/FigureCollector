@@ -33,11 +33,16 @@ from __future__ import annotations
 
 import asyncio
 import os
+import platform
+import re
 import shutil
+import socket
 import struct
 import subprocess
 import tempfile
 import traceback
+import uuid
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -80,6 +85,13 @@ COLMAP_BIN = os.environ.get("COLMAP_BIN", "colmap")
 # it on for turntable captures, where it makes a night-and-day quality difference.
 ENABLE_MASKING = os.environ.get("ENABLE_MASKING", "false").lower() in ("1", "true", "yes")
 
+# Worker registration. The backend's offline detector waits 3 × this interval
+# (per `domain::worker::OFFLINE_MISS_THRESHOLD`) before flagging us offline,
+# so 30s here ≈ 90s of grace before the admin UI marks us hors-ligne.
+HEARTBEAT_INTERVAL = int(os.environ.get("HEARTBEAT_INTERVAL", "30"))
+WORKER_KIND = "metal"
+WORKER_VERSION = "0.1.0"
+
 MIN_FRAMES = 6
 
 log = structlog.get_logger()
@@ -99,19 +111,39 @@ s3 = boto3.client(
 # -----------------------------------------------------------------------------
 
 
+@dataclass
+class WorkerState:
+    """Mutable snapshot shared between the heartbeat task and the main loop:
+    the heartbeat refreshes `enabled` from the row each tick so the claim
+    loop can short-circuit while the admin has us disabled."""
+    id: uuid.UUID
+    enabled: bool
+
+
 async def main() -> None:
     _preflight()
     pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=4)
+    state = await _register_worker(pool)
     log.info(
         "worker started",
+        worker_id=str(state.id),
+        kind=WORKER_KIND,
+        enabled=state.enabled,
+        heartbeat=HEARTBEAT_INTERVAL,
         poll_interval=POLL_INTERVAL,
         bucket=S3_BUCKET,
         iterations=TRAINING_ITERATIONS,
         brush=BRUSH_BIN,
         masking=ENABLE_MASKING,
     )
+    heartbeat_task = asyncio.create_task(_heartbeat_loop(pool, state))
     try:
         while True:
+            # Admin can flip `enabled` off at any moment; the heartbeat
+            # refreshes it. Idle politely instead of claiming.
+            if not state.enabled:
+                await asyncio.sleep(POLL_INTERVAL)
+                continue
             scan = await claim_next_pending(pool)
             if scan is None:
                 await asyncio.sleep(POLL_INTERVAL)
@@ -127,7 +159,114 @@ async def main() -> None:
                 log.error("scan failed", scan_id=str(scan_id), error=str(e), trace=trace)
                 await mark_failed(pool, scan_id, f"{type(e).__name__}: {e}\n{trace}")
     finally:
+        heartbeat_task.cancel()
+        try:
+            await heartbeat_task
+        except (asyncio.CancelledError, Exception):  # noqa: BLE001
+            pass
         await pool.close()
+
+
+# -----------------------------------------------------------------------------
+# Worker registration + heartbeat — direct DB UPSERT, same pattern as the
+# claim loop already uses (workers carry the same DB creds).
+# -----------------------------------------------------------------------------
+
+
+def _hwinfo() -> dict:
+    """Probe the host for the fields the `workers` table wants. Best-effort:
+    anything we can't read becomes None and the admin UI just shows '—'."""
+    info = {
+        "hostname": socket.gethostname(),
+        "os": f"macOS {platform.mac_ver()[0]}".strip() or platform.platform(),
+        "arch": platform.machine(),
+        "gpu": None,
+        "gpu_memory_mb": None,
+        "runtime_version": None,
+    }
+    # GPU model — system_profiler is the canonical macOS path.
+    try:
+        out = subprocess.run(
+            ["system_profiler", "SPDisplaysDataType"],
+            check=False, capture_output=True, text=True, timeout=8,
+        ).stdout
+        # "Chipset Model: Apple M1 Pro" — first match wins (integrated GPU).
+        m = re.search(r"Chipset Model:\s*(.+)", out)
+        if m:
+            info["gpu"] = m.group(1).strip()
+        # On Apple Silicon, "Total Number of Cores" appears under the GPU
+        # block but VRAM is shared with system RAM. Report unified-memory
+        # size when we can find it; admins recognise the "unified" suffix.
+        mm = re.search(r"VRAM \(Total\):\s*(\d+)\s*GB", out)
+        if mm:
+            info["gpu_memory_mb"] = int(mm.group(1)) * 1024
+    except Exception:  # noqa: BLE001
+        pass
+    # Runtime — Brush is wgpu→Metal; tag the macOS major as a proxy for the
+    # Metal version (Metal 3 lives in macOS 13+, etc.).
+    info["runtime_version"] = f"Metal via wgpu (macOS {platform.mac_ver()[0]})"
+    return info
+
+
+async def _register_worker(pool: asyncpg.Pool) -> WorkerState:
+    """UPSERT on (hostname, kind). Re-running the worker keeps the same row.
+    If the admin deleted us in the meantime, this re-creates the row."""
+    info = _hwinfo()
+    fresh_id = uuid.uuid4()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO workers (
+                id, hostname, kind, os, arch, gpu, gpu_memory_mb,
+                runtime_version, worker_version, heartbeat_interval_secs,
+                last_seen
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+            ON CONFLICT (hostname, kind) DO UPDATE SET
+                os                      = EXCLUDED.os,
+                arch                    = EXCLUDED.arch,
+                gpu                     = EXCLUDED.gpu,
+                gpu_memory_mb           = EXCLUDED.gpu_memory_mb,
+                runtime_version         = EXCLUDED.runtime_version,
+                worker_version          = EXCLUDED.worker_version,
+                heartbeat_interval_secs = EXCLUDED.heartbeat_interval_secs,
+                last_seen               = NOW()
+            RETURNING id, enabled
+            """,
+            fresh_id,
+            info["hostname"],
+            WORKER_KIND,
+            info["os"],
+            info["arch"],
+            info["gpu"],
+            info["gpu_memory_mb"],
+            info["runtime_version"],
+            WORKER_VERSION,
+            max(1, HEARTBEAT_INTERVAL),
+        )
+    return WorkerState(id=row["id"], enabled=row["enabled"])
+
+
+async def _heartbeat_loop(pool: asyncpg.Pool, state: WorkerState) -> None:
+    """Every HEARTBEAT_INTERVAL seconds: bump last_seen, refresh `enabled`.
+    If the row vanished (admin delete), re-register so we stay reachable
+    instead of silently going stale."""
+    while True:
+        await asyncio.sleep(HEARTBEAT_INTERVAL)
+        try:
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(
+                    "UPDATE workers SET last_seen = NOW() WHERE id = $1 RETURNING enabled",
+                    state.id,
+                )
+            if row is None:
+                log.warning("worker row missing; re-registering", worker_id=str(state.id))
+                fresh = await _register_worker(pool)
+                state.id = fresh.id
+                state.enabled = fresh.enabled
+            else:
+                state.enabled = row["enabled"]
+        except Exception as e:  # noqa: BLE001
+            log.warning("heartbeat failed", error=str(e))
 
 
 def _preflight() -> None:

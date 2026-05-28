@@ -17,6 +17,7 @@
 use crate::auth;
 use crate::domain::achievement;
 use crate::domain::scan::{self, ALLOWED_KINDS};
+use crate::domain::worker;
 use crate::error::{AppError, AppResult};
 use crate::events::Event;
 use crate::photo as photo_pipeline;
@@ -131,6 +132,18 @@ async fn create_scan(
     // the usual >= 6 frames (e.g. a turntable scan, or the 360° viewer).
     if frames.len() < MIN_FRAMES && video.is_none() {
         return Err(AppError::BadRequest("at least 6 frames required"));
+    }
+
+    // Gsplat scans need a live worker that's enabled, otherwise the row
+    // would sit pending forever — fail fast with a 503 so the SPA can
+    // surface a useful message. The frontend already hides the "Modèle 3D"
+    // checkbox via /scans/capabilities, this is the defence-in-depth layer
+    // for direct API callers (and to handle the race where the last worker
+    // disconnects between the SPA's check and the upload).
+    if kind == "gsplat" && !worker::any_live(&state.pool).await? {
+        return Err(AppError::ServiceUnavailable(
+            "no gsplat worker is currently available",
+        ));
     }
 
     // Reserve a scan row first, then upload each frame under the prefix.
@@ -384,10 +397,30 @@ async fn fetch_splat(
     Ok((headers, Body::from(bytes)).into_response())
 }
 
+#[derive(serde::Serialize)]
+struct ScanCapabilities {
+    /// True when at least one gsplat worker is registered, enabled, AND has
+    /// pinged within its `heartbeat_interval × OFFLINE_MISS_THRESHOLD`
+    /// window. The SPA uses this to hide the "Modèle 3D" checkbox; the
+    /// scan-creation route enforces the same invariant as a 503.
+    gsplat_available: bool,
+}
+
+async fn capabilities(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<ScanCapabilities>> {
+    auth::require_user(&session).await?;
+    Ok(Json(ScanCapabilities {
+        gsplat_available: worker::any_live(&state.pool).await?,
+    }))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/me/owned/{id}/scans", get(list_scans).post(create_scan))
         .route("/me/owned/{owned_id}/scans/{scan_id}", delete(delete_scan))
+        .route("/scans/capabilities", get(capabilities))
         .route("/scans/{scan_id}/frames/{idx}", get(fetch_frame))
         .route("/scans/{scan_id}/splat", get(fetch_splat))
 }

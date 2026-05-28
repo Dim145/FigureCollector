@@ -7,6 +7,7 @@ use crate::domain::entity::{self as ent, CharacterPatch, ManufacturerPatch, Seri
 use crate::domain::figure;
 use crate::domain::figure_type::{self, FigureTypePatch, NewFigureType};
 use crate::domain::store::{self, NewStore, StorePatch, StoreUsage};
+use crate::domain::worker::{self, WorkerPatch, WorkerView};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use axum::{
@@ -461,6 +462,39 @@ async fn figure_type_usage(
     Ok(Json(FigureTypeUsage { id, count }))
 }
 
+// ---------- /admin/workers — list / toggle / rename / delete --------------
+
+async fn list_workers(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<Vec<WorkerView>>> {
+    auth::require_admin(&session, &state.pool).await?;
+    Ok(Json(worker::list(&state.pool).await?))
+}
+
+async fn patch_worker(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+    Json(input): Json<WorkerPatch>,
+) -> AppResult<Json<WorkerView>> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    let row = worker::patch(&state.pool, id, input).await?;
+    tracing::info!(worker = %row.worker.id, by_admin = %actor.id, "admin updated worker");
+    Ok(Json(row))
+}
+
+async fn delete_worker(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+) -> AppResult<StatusCode> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    worker::delete(&state.pool, id).await?;
+    tracing::info!(worker = %id, by_admin = %actor.id, "admin deleted worker");
+    Ok(StatusCode::NO_CONTENT)
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/admin/overview", get(overview))
@@ -501,6 +535,12 @@ pub fn router() -> Router<AppState> {
         .route(
             "/admin/stores/{store_id}/figures/{figure_id}",
             post(add_figure_to_store).delete(remove_figure_from_store),
+        )
+        // ─── workers — gsplat compute registry (one row per CUDA / Metal) ───
+        .route("/admin/workers", get(list_workers))
+        .route(
+            "/admin/workers/{id}",
+            patch(patch_worker).delete(delete_worker),
         )
 }
 
