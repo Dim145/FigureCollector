@@ -45,11 +45,25 @@ RUN python3 -m pip install \
 # Nerfstudio + gsplat (gsplat compiles CUDA kernels here; takes ~5-10 min).
 RUN python3 -m pip install nerfstudio==1.1.5
 
-# Runtime deps for our worker.
+# Runtime deps for our worker. `rembg` is opt-in at runtime (ENABLE_MASKING),
+# but installed unconditionally because the ~170 MB U2Net download is much
+# nicer to pay during build than on the first job.
 RUN python3 -m pip install \
     asyncpg==0.30.0 \
     boto3==1.35.* \
-    structlog==24.4.*
+    structlog==24.4.* \
+    rembg==2.0.*
+
+# Pin rembg's model cache to a system-wide location so the warmup we do here
+# (as root) and the runtime read (as user 65532) hit the same path.
+ENV U2NET_HOME=/opt/u2net
+
+# Warm the model cache so the first masking job doesn't stall on the ~170 MB
+# u2net.onnx download. `|| true` keeps the build green if the upstream mirror
+# blips — the worker will re-download lazily if the file isn't there.
+RUN mkdir -p /opt/u2net && \
+    python3 -c "from rembg import new_session; new_session()" || true && \
+    chmod -R a+rX /opt/u2net
 
 WORKDIR /app
 COPY worker.py /app/worker.py

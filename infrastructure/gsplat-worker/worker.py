@@ -6,6 +6,12 @@ job at a time with `FOR UPDATE SKIP LOCKED`, runs the full SfM + training
 pipeline locally on GPU, then uploads the result back to Garage and marks
 the row as ready (or failed).
 
+Frames flow:
+  1. Prefer the scan's original video (`{prefix}source.*`) — full-res frames
+     sampled by ffmpeg beat the downscaled WebP set the client uploads for
+     the 360° viewer.
+  2. Fall back to the WebP frame set when no source video is present.
+
 Environment:
     DATABASE_URL          required, postgres://user:pass@host:5432/db
     S3_ENDPOINT           required, e.g. http://garage:3902
@@ -15,6 +21,10 @@ Environment:
     S3_REGION             optional, defaults to "garage"
     POLL_INTERVAL         optional, seconds between polls (default 10)
     TRAINING_ITERATIONS   optional, splatfacto max-num-iterations (default 15000)
+    VIDEO_TARGET_FRAMES   optional, frames sampled from a source video (default 150)
+    VIDEO_MAX_DIM         optional, max-dim cap on extracted frames (default 2048)
+    ENABLE_MASKING        optional, bake rembg foreground masks into the training
+                          images (default false; mandatory for turntable captures)
 """
 
 from __future__ import annotations
@@ -31,6 +41,7 @@ import asyncpg
 import boto3
 import structlog
 from botocore.config import Config as BotoConfig
+from PIL import Image
 
 # -----------------------------------------------------------------------------
 # Config
@@ -44,6 +55,23 @@ S3_SECRET_KEY = os.environ["S3_SECRET_KEY"]
 S3_REGION = os.environ.get("S3_REGION", "garage")
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "10"))
 TRAINING_ITERATIONS = int(os.environ.get("TRAINING_ITERATIONS", "15000"))
+# When a scan ships its original video (key `{prefix}source.*`), we extract
+# our own frames from it with ffmpeg — far more of them, and from a lossless
+# source, than the downscaled WebP set the client uploads for the 360° viewer.
+# Defaults are kept in lockstep with `splat-worker-mac` so both workers behave
+# the same on the same scan.
+VIDEO_TARGET_FRAMES = int(os.environ.get("VIDEO_TARGET_FRAMES", "150"))
+# Cap the longest side of extracted frames. 4K is overkill for SfM + Gaussian
+# splatting and makes COLMAP matching / training crawl; ~2048 px is the sweet
+# spot (well above the client's 1920 px WebP, still fast).
+VIDEO_MAX_DIM = int(os.environ.get("VIDEO_MAX_DIM", "2048"))
+# Foreground masking. Off by default (the rembg model is heavy and only helps
+# turntable-style captures); flip it on for any scan where the background
+# doesn't move with the figure — without it COLMAP locks onto the static
+# backdrop and the splat is junk.
+ENABLE_MASKING = os.environ.get("ENABLE_MASKING", "false").lower() in ("1", "true", "yes")
+
+MIN_FRAMES = 6
 
 log = structlog.get_logger()
 
@@ -145,23 +173,29 @@ def process_scan(scan: asyncpg.Record) -> str:
     """Run the full SfM + training pipeline and return the Garage key of the .ply."""
     scan_id = scan["id"]
     prefix = scan["storage_prefix"]
+    # This is the *client*-uploaded frame count — it's 0 for a video-only
+    # gsplat scan, where the worker extracts frames from the video itself.
+    # The real floor is enforced on `n_frames` after `_prepare_frames`.
     frame_count = scan["frame_count"]
-    if frame_count < 6:
-        raise RuntimeError(f"too few frames ({frame_count}); need ≥6 for SfM")
 
     with tempfile.TemporaryDirectory(prefix="gsplat-") as tmp_str:
         tmp = Path(tmp_str)
         images = tmp / "images"
         images.mkdir()
 
-        # 1. Pull frames from Garage.
-        for i in range(frame_count):
-            key = f"{prefix}frame_{i:03}.webp"
-            local = images / f"frame_{i:03}.webp"
-            s3.download_file(S3_BUCKET, key, str(local))
-        log.info("frames downloaded", scan_id=str(scan_id), count=frame_count)
+        # 1. Get frames into images/ — preferring the scan's original video
+        #    (full-res, ffmpeg-sampled) over the client's downscaled WebP set.
+        n_frames = _prepare_frames(tmp, prefix, frame_count, images, scan_id)
+        if n_frames < MIN_FRAMES:
+            raise RuntimeError(f"only {n_frames} usable frames; need >= {MIN_FRAMES}")
 
-        # 2. Nerfstudio's image processor runs COLMAP internally and writes a
+        # 2. Optional foreground masking (huge quality win on turntables —
+        #    without it COLMAP locks onto the static backdrop, the splat fits
+        #    the void, and the figure ends up as a noise cloud).
+        if ENABLE_MASKING:
+            _make_masks(images, scan_id)
+
+        # 3. Nerfstudio's image processor runs COLMAP internally and writes a
         #    nerfstudio-shaped dataset (transforms.json + images + sparse poses).
         processed = tmp / "processed"
         _run(
@@ -173,7 +207,7 @@ def process_scan(scan: asyncpg.Record) -> str:
             "--no-skip-image-processing",
         )
 
-        # 3. Train splatfacto. `--vis none` suppresses the viewer.
+        # 4. Train splatfacto. `--vis none` suppresses the viewer.
         trained = tmp / "trained"
         _run(
             "ns-train", "splatfacto",
@@ -184,14 +218,14 @@ def process_scan(scan: asyncpg.Record) -> str:
             "--logging.local-writer.enable", "False",
         )
 
-        # 4. Find the config.yml the trainer produced.
+        # 5. Find the config.yml the trainer produced.
         configs = sorted(trained.rglob("config.yml"))
         if not configs:
             raise RuntimeError("ns-train produced no config.yml")
         config_path = configs[-1]
         log.info("training finished", scan_id=str(scan_id), config=str(config_path))
 
-        # 5. Export the Gaussian Splat to .ply.
+        # 6. Export the Gaussian Splat to .ply.
         export_dir = tmp / "export"
         _run(
             "ns-export", "gaussian-splat",
@@ -205,7 +239,7 @@ def process_scan(scan: asyncpg.Record) -> str:
         size = ply_path.stat().st_size
         log.info("export finished", scan_id=str(scan_id), bytes=size)
 
-        # 6. Upload result to Garage.
+        # 7. Upload result to Garage.
         result_key = f"{prefix}result.ply"
         s3.upload_file(
             str(ply_path),
@@ -217,6 +251,104 @@ def process_scan(scan: asyncpg.Record) -> str:
             },
         )
         return result_key
+
+
+def _prepare_frames(
+    tmp: Path, prefix: str, frame_count: int, images: Path, scan_id: Any
+) -> int:
+    """Populate images/ and return the frame count. Prefers the scan's original
+    video (`{prefix}source.*`) — ffmpeg gives full-res, plentiful frames — and
+    falls back to the client's downscaled WebP set."""
+    video_key = _find_source_video(prefix)
+    if video_key:
+        local = tmp / f"source{Path(video_key).suffix or '.mp4'}"
+        s3.download_file(S3_BUCKET, video_key, str(local))
+        n = _extract_video_frames(local, images, scan_id)
+        local.unlink(missing_ok=True)
+        log.info("frames from video", scan_id=str(scan_id), key=video_key, frames=n)
+        return n
+    # Decode the WebP frames to PNG: COLMAP (under ns-process-data) and rembg
+    # both read PNG reliably, while WebP support is hit-or-miss across the
+    # OpenCV / PIL versions Nerfstudio drags in.
+    for i in range(frame_count):
+        webp = tmp / f"src_{i:03}.webp"
+        s3.download_file(S3_BUCKET, f"{prefix}frame_{i:03}.webp", str(webp))
+        with Image.open(webp) as im:
+            im.convert("RGB").save(images / f"frame_{i:03}.png")
+        webp.unlink(missing_ok=True)
+    log.info("frames downloaded", scan_id=str(scan_id), count=frame_count)
+    return frame_count
+
+
+def _find_source_video(prefix: str) -> str | None:
+    """Key of an uploaded source video under the prefix, if any."""
+    resp = s3.list_objects_v2(Bucket=S3_BUCKET, Prefix=f"{prefix}source.")
+    for obj in resp.get("Contents") or []:
+        return obj["Key"]
+    return None
+
+
+def _extract_video_frames(video: Path, images: Path, scan_id: Any) -> int:
+    """Sample ~VIDEO_TARGET_FRAMES evenly-spaced PNG frames from the video with
+    ffmpeg, downscaled to VIDEO_MAX_DIM on the longest side (never upscaled)."""
+    probe = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "default=nokey=1:noprint_wrappers=1", str(video)],
+        check=False, capture_output=True, text=True,
+    )
+    try:
+        duration = float(probe.stdout.strip())
+    except ValueError:
+        duration = 0.0
+    fps = (
+        f"fps={max(0.1, VIDEO_TARGET_FRAMES / duration):.5f}"
+        if duration > 0
+        else "fps=8"
+    )
+    # Downscale-only to VIDEO_MAX_DIM on the longest side (never upscale).
+    scale = (
+        f"scale='min({VIDEO_MAX_DIM},iw)':'min({VIDEO_MAX_DIM},ih)'"
+        ":force_original_aspect_ratio=decrease"
+    )
+    _run(
+        "ffmpeg", "-loglevel", "error", "-i", str(video),
+        "-vf", f"{fps},{scale}", str(images / "frame_%04d.png"),
+    )
+    return len(list(images.glob("frame_*.png")))
+
+
+def _make_masks(images: Path, scan_id: Any) -> None:
+    """Bake rembg foreground segmentation into the training images.
+
+    rembg writes the cutout as an RGBA image with the background set to
+    transparent black ``(0, 0, 0, 0)``, which solves both halves of the
+    turntable-capture problem in one pass even though `ns-process-data`
+    doesn't expose COLMAP's `--ImageReader.mask_path`:
+
+      * COLMAP reads RGB only — a uniform black backdrop yields no SIFT
+        features, so SfM can't lock onto the static turntable plate.
+      * splatfacto sees the alpha channel and ignores transparent pixels
+        during the gaussian fit, so no gaussians waste capacity on the void.
+
+    Best-effort: if rembg isn't installed (image rebuilt without the dep) we
+    log + skip rather than fail — the worker still runs, just without the
+    quality lift."""
+    try:
+        from rembg import new_session, remove  # type: ignore
+    except Exception:  # noqa: BLE001
+        log.warning(
+            "masking requested but rembg not installed; skipping",
+            scan_id=str(scan_id),
+        )
+        return
+    session = new_session()
+    count = 0
+    for img in sorted(images.glob("*.png")):
+        with Image.open(img) as im:
+            cut = remove(im.convert("RGBA"), session=session)
+        cut.save(img)
+        count += 1
+    log.info("masks baked", scan_id=str(scan_id), count=count)
 
 
 def _run(*cmd: str) -> None:
