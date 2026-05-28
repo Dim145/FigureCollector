@@ -75,11 +75,12 @@ pub fn build_router(state: AppState) -> Router {
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(16 * 1024 * 1024));
 
-    // 360° scans bundle up to 96 frames in one POST. Cap at 96 MB which fits
-    // a typical 48-frame phone capture (≈1-2 MB / frame) with room to spare.
+    // 360° scans bundle up to 96 frames in one POST — and, for gsplat scans,
+    // optionally the original capture video so the worker can extract full-res
+    // frames itself. Cap at 256 MB to fit the frames + a typical phone video.
     let scan_routes = scans::router()
         .layer(DefaultBodyLimit::disable())
-        .layer(RequestBodyLimitLayer::new(96 * 1024 * 1024));
+        .layer(RequestBodyLimitLayer::new(256 * 1024 * 1024));
 
     // Admin uploads (entity logos / cover / portrait) — 5 MB cap, single
     // file, gated by `require_admin` inside the handler.

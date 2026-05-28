@@ -755,6 +755,9 @@ export default {
   "turntable.video.picked": "Vidéo : {name}",
   "turntable.video.extract": "Extraire les images",
   "turntable.video.extracting": "Extraction… {p}%",
+  "turntable.video.send": "Envoyer la vidéo (3D)",
+  "turntable.video.send_hint": "Envoie la vidéo originale — le modèle 3D s'entraîne sur des images pleine résolution, pas sur les aperçus réduits.",
+  "turntable.video.save_with_video": "Enregistrer le scan + vidéo",
 
   "turntable.uploading": "Envoi du scan…",
   "turntable.uploading_hint": "Ne ferme pas l'application.",

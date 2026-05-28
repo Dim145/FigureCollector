@@ -18,15 +18,23 @@ export function useScans(ownedId) {
 export function useCreateScan(ownedId) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ frames, kind = "turntable" }) => {
-      if (!frames || frames.length < 6) {
+    mutationFn: async ({ frames, kind = "turntable", video = null }) => {
+      // A gsplat scan may be video-only (no client frames) — the worker
+      // extracts them. Otherwise we need the usual >= 6 frames.
+      const list = frames || [];
+      if (list.length < 6 && !video) {
         throw new Error("at least 6 frames required");
       }
       const fd = new FormData();
       fd.append("kind", kind);
-      frames.forEach((blob, i) => {
+      list.forEach((blob, i) => {
         fd.append("frame", blob, `frame_${String(i).padStart(3, "0")}.webp`);
       });
+      // gsplat: ship the original video so the worker extracts full-res frames
+      // itself (much better splat than the downscaled WebPs).
+      if (video) {
+        fd.append("video", video, video.name || "source.mp4");
+      }
       const res = await fetch(`/api/me/owned/${ownedId}/scans`, {
         method: "POST",
         body: fd,

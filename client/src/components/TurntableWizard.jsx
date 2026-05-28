@@ -16,9 +16,15 @@ export default function TurntableWizard({ onUpload, onCancel, busy }) {
   const [tab, setTab] = useState("camera");
   const [generate3d, setGenerate3d] = useState(false);
 
-  const handle = async (frames) => {
-    if (!frames || frames.length < 6) return;
-    await onUpload(frames, generate3d ? "gsplat" : "turntable");
+  // `video` is the original file (video tab only); we forward it for gsplat
+  // so the worker can extract full-res frames rather than the downscaled set.
+  // A gsplat upload may be video-only (no frames) — allow it when a video is
+  // present; otherwise still require the usual >= 6 frames.
+  const handle = async (frames, video = null) => {
+    const list = frames || [];
+    if (list.length < 6 && !video) return;
+    const kind = generate3d ? "gsplat" : "turntable";
+    await onUpload(list, kind, kind === "gsplat" ? video : null);
   };
 
   return (
@@ -113,7 +119,7 @@ export default function TurntableWizard({ onUpload, onCancel, busy }) {
 
       <div className="flex-1 overflow-hidden">
         {tab === "camera" && <TurntableCapture onComplete={handle} />}
-        {tab === "video" && <TurntableVideo onComplete={handle} />}
+        {tab === "video" && <TurntableVideo onComplete={handle} gsplat={generate3d} />}
         {tab === "import" && <TurntableImport onComplete={handle} />}
       </div>
 

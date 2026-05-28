@@ -51,17 +51,39 @@ pub async fn create(
 }
 
 pub async fn set_frame_count(pool: &PgPool, scan_id: Uuid, count: i32) -> AppResult<()> {
-    sqlx::query("UPDATE scans SET frame_count = $1, state = 'ready' WHERE id = $2")
-        .bind(count)
-        .bind(scan_id)
-        .execute(pool)
-        .await?;
+    // Turntable scans are done the moment their frames land, so they go
+    // straight to 'ready'. gsplat scans, however, are only *captured* here —
+    // the splat worker still has to train + export — so they must stay in
+    // whatever state they were created with ('pending'). Clobbering that to
+    // 'ready' (as this used to) meant the worker's `WHERE state='pending'`
+    // never matched and no gsplat job was ever picked up.
+    sqlx::query(
+        "UPDATE scans
+            SET frame_count = $1,
+                state = CASE WHEN kind = 'gsplat' THEN state ELSE 'ready' END
+          WHERE id = $2",
+    )
+    .bind(count)
+    .bind(scan_id)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
 pub async fn mark_failed(pool: &PgPool, scan_id: Uuid, error: &str) -> AppResult<()> {
     sqlx::query("UPDATE scans SET state = 'failed', error_message = $1 WHERE id = $2")
         .bind(error)
+        .bind(scan_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+/// Make a gsplat scan claimable by the worker. Called only after every asset
+/// (frames and/or the source video) has finished uploading to Garage, so the
+/// worker can't grab a half-uploaded scan.
+pub async fn mark_pending(pool: &PgPool, scan_id: Uuid) -> AppResult<()> {
+    sqlx::query("UPDATE scans SET state = 'pending', updated_at = now() WHERE id = $1")
         .bind(scan_id)
         .execute(pool)
         .await?;

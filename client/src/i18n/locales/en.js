@@ -727,6 +727,9 @@ export default {
   "turntable.video.picked": "Video: {name}",
   "turntable.video.extract": "Extract frames",
   "turntable.video.extracting": "Extracting… {p}%",
+  "turntable.video.send": "Send video for 3D",
+  "turntable.video.send_hint": "Uploads the original video — the 3D model trains on full-resolution frames, not the downscaled previews.",
+  "turntable.video.save_with_video": "Save scan + video",
 
   "turntable.uploading": "Uploading scan…",
   "turntable.uploading_hint": "Keep the app open.",

@@ -39,9 +39,9 @@ export default function TurntableSection({ ownedId }) {
   const failedGsplat = all.find((s) => s.kind === "gsplat" && s.state === "failed");
   const latestTurntable = all.find((s) => s.kind === "turntable" && s.state === "ready");
 
-  const onUpload = async (frames, kind) => {
+  const onUpload = async (frames, kind, video = null) => {
     try {
-      await create.mutateAsync({ frames, kind });
+      await create.mutateAsync({ frames, kind, video });
       setWizardOpen(false);
     } catch (e) {
       // eslint-disable-next-line no-console

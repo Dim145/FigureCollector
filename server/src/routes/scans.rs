@@ -61,6 +61,10 @@ async fn create_scan(
     // at ~300 KB each = ~30 MB worst case, acceptable.
     let mut kind = String::from("turntable");
     let mut frames: Vec<Vec<u8>> = Vec::new();
+    // For gsplat scans the client may also ship the original capture video, so
+    // the worker can extract full-resolution frames itself rather than relying
+    // on the downscaled WebP set. (bytes, extension, mime).
+    let mut video: Option<(Vec<u8>, String, String)> = None;
 
     while let Some(field) = multipart.next_field().await.map_err(|e| {
         AppError::BadRequest(Box::leak(format!("multipart error: {e}").into_boxed_str()))
@@ -97,18 +101,47 @@ async fn create_scan(
                     photo_pipeline::sanitize_to_webp(data.to_vec(), MAX_FRAME_DIM).await?;
                 frames.push(cleaned);
             }
+            Some("video") => {
+                // Owned copies first — these borrow `field`, which `bytes()`
+                // then consumes.
+                let ext = field
+                    .file_name()
+                    .and_then(|n| n.rsplit('.').next())
+                    .map(|e| e.to_ascii_lowercase())
+                    .filter(|e| matches!(e.as_str(), "mp4" | "mov" | "m4v" | "webm" | "avi"))
+                    .unwrap_or_else(|| "mp4".to_string());
+                let mime = field
+                    .content_type()
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "video/mp4".to_string());
+                let data = field.bytes().await.map_err(|e| {
+                    tracing::warn!(error = ?e, "scan video read failed");
+                    AppError::BadRequest("could not read video")
+                })?;
+                if !data.is_empty() {
+                    video = Some((data.to_vec(), ext, mime));
+                }
+            }
             _ => {}
         }
     }
 
-    if frames.len() < MIN_FRAMES {
+    // A gsplat scan may ship *just* the original video (no client-extracted
+    // frames) — the worker samples its own frames from it. Otherwise we need
+    // the usual >= 6 frames (e.g. a turntable scan, or the 360° viewer).
+    if frames.len() < MIN_FRAMES && video.is_none() {
         return Err(AppError::BadRequest("at least 6 frames required"));
     }
 
     // Reserve a scan row first, then upload each frame under the prefix.
     let scan_id = Uuid::now_v7();
     let storage_prefix = format!("scans/{scan_id}/");
-    let initial_state = if kind == "gsplat" { "pending" } else { "ready" };
+    // Create gsplat scans as 'processing' (a transient "uploading" marker), NOT
+    // 'pending' — otherwise the worker, which polls for pending gsplat scans,
+    // can claim one before its frames/video have finished uploading to Garage
+    // and fail with "0 usable frames". We flip it to 'pending' as the final
+    // step below, once every asset is stored. (Turntable is done immediately.)
+    let initial_state = if kind == "gsplat" { "processing" } else { "ready" };
 
     let scan_row = scan::create(&state.pool, owned_id, &kind, &storage_prefix, initial_state).await?;
 
@@ -175,6 +208,28 @@ async fn create_scan(
         cleanup_frames(state.clone(), storage_prefix.clone(), uploaded).await;
         let _ = scan::mark_failed(&state.pool, scan_row.id, &format!("frame_count update failed: {e}")).await;
         return Err(e);
+    }
+
+    // Store the original video (gsplat only) at `{prefix}source.<ext>` so the
+    // splat worker can extract full-res frames. Non-fatal: if it fails, the
+    // worker falls back to the WebP frames we already uploaded.
+    if let Some((bytes, ext, mime)) = video {
+        let key = format!("{storage_prefix}source.{ext}");
+        if let Err(e) = state.storage.put(&key, &bytes, &mime).await {
+            tracing::warn!(error = ?e, scan_id = %scan_row.id, "scan source-video store failed");
+        } else {
+            tracing::info!(scan_id = %scan_row.id, bytes = bytes.len(), "scan source video stored");
+        }
+    }
+
+    // All assets are in Garage now — make the gsplat scan claimable. (No-op
+    // for turntable, which was created 'ready'.)
+    if kind == "gsplat" {
+        if let Err(e) = scan::mark_pending(&state.pool, scan_row.id).await {
+            cleanup_frames(state.clone(), storage_prefix.clone(), uploaded).await;
+            let _ = scan::mark_failed(&state.pool, scan_row.id, &format!("activation failed: {e}")).await;
+            return Err(e);
+        }
     }
 
     // Refresh the row to capture frame_count + final state.

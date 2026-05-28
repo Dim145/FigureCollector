@@ -19,7 +19,7 @@ const MAX_FRAME_DIM = 1920;
  *    actual paint — otherwise canvas captures the *previous* frame, or
  *    black, on iOS Safari and some Chromium builds.
  */
-export default function TurntableVideo({ onComplete }) {
+export default function TurntableVideo({ onComplete, gsplat = false }) {
   const t = useT();
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -172,13 +172,19 @@ export default function TurntableVideo({ onComplete }) {
 
       setFrames(blobs);
       setPreviews(urls);
+      return blobs;
     } catch (e) {
       setError(e?.message ?? "extraction failed");
+      return null;
     } finally {
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       setBusy(false);
     }
   };
+
+  // Video-only 3D path: ship just the original video — NO client-side
+  // extraction. The worker samples its own full-resolution frames from it.
+  const sendVideoOnly = () => onComplete([], file);
 
   return (
     <div className="p-8 h-full overflow-y-auto">
@@ -248,16 +254,32 @@ export default function TurntableVideo({ onComplete }) {
             ))}
           </div>
 
-          <button
-            type="button"
-            onClick={extract}
-            disabled={busy}
-            className="px-5 py-3 border border-[var(--color-or)] text-[var(--color-or)] hover:bg-[var(--color-or)]/10 text-[11px] uppercase tracking-[0.18em] disabled:opacity-40"
-          >
-            {busy
-              ? t("turntable.video.extracting", { p: progress })
-              : t("turntable.video.extract")}
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={extract}
+              disabled={busy}
+              className="px-5 py-3 border border-[var(--color-or)] text-[var(--color-or)] hover:bg-[var(--color-or)]/10 text-[11px] uppercase tracking-[0.18em] disabled:opacity-40"
+            >
+              {busy
+                ? t("turntable.video.extracting", { p: progress })
+                : t("turntable.video.extract")}
+            </button>
+            {/* gsplat only: ship the original video directly — no extraction. */}
+            {gsplat ? (
+              <button
+                type="button"
+                onClick={sendVideoOnly}
+                disabled={busy}
+                className="px-5 py-3 bg-[var(--color-or)] text-[var(--color-noir)] text-[11px] uppercase tracking-[0.18em] disabled:opacity-40"
+              >
+                {t("turntable.video.send")}
+              </button>
+            ) : null}
+          </div>
+          {gsplat ? (
+            <p className="micro opacity-70">{t("turntable.video.send_hint")}</p>
+          ) : null}
 
           {error ? (
             <p role="alert" className="text-sm text-[var(--color-laque-bright)]">
@@ -281,10 +303,11 @@ export default function TurntableVideo({ onComplete }) {
                 <button
                   type="button"
                   disabled={frames.length < 6}
-                  onClick={() => onComplete(frames)}
+                  onClick={() => onComplete(frames, file)}
                   className="px-5 py-3 bg-[var(--color-or)] text-[var(--color-noir)] text-[11px] uppercase tracking-[0.18em] disabled:opacity-40"
                 >
-                  {t("turntable.save")}
+                  {/* For 3D, make it explicit the video ships with the frames. */}
+                  {gsplat ? t("turntable.video.save_with_video") : t("turntable.save")}
                 </button>
               </div>
             </>
