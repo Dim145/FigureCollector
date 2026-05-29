@@ -134,37 +134,66 @@ export default function EntityPage({ kind }) {
             </p>
           ) : (
             <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {figures.map((f, i) => (
-                <li
-                  key={f.id}
-                  className="reveal relative"
-                  style={{ "--i": Math.min(i, 10) + 5 }}
-                >
-                  {manageable ? (
-                    <SelectCheckbox
-                      checked={selected.has(f.id)}
-                      onChange={() => toggle(f.id)}
-                      label={t("entity.admin.toggle_select", { name: f.name })}
-                    />
-                  ) : null}
-                  <FigureCard
-                    figureId={f.id}
-                    href={`/figures/${f.id}`}
-                    name={f.name}
-                    type={f.figure_type}
-                    manufacturer={f.manufacturer_name ?? null}
-                    imageUrl={resolveFigureCover(f)}
-                    scale={f.scale}
-                    versionName={f.version_name}
-                    blurImage={f.is_nsfw && blurNsfw}
-                    badge={(() => {
-                      const phase = preorderPhaseFromFigure(f);
-                      const label = preorderBadgeLabel(phase, t);
-                      return label ? { label, tone: "preorder" } : null;
-                    })()}
-                  />
-                </li>
-              ))}
+              {figures.map((f, i) => {
+                const isSelected = selected.has(f.id);
+                return (
+                  <li
+                    key={f.id}
+                    className="reveal"
+                    style={{ "--i": Math.min(i, 10) + 5 }}
+                  >
+                    {/* Selection control sits ABOVE the card, not as a corner
+                        overlay — both card corners are already taken (type
+                        chip top-left, preorder badge top-right). A labelled
+                        bar is also a bigger hit target + screen-reader clear. */}
+                    {manageable ? (
+                      <label
+                        className={`flex items-center gap-2 mb-2 px-2.5 py-2 cursor-pointer select-none text-[10px] uppercase tracking-[0.18em] border transition-colors ${
+                          isSelected
+                            ? "border-[var(--color-or)] text-[var(--color-or)] bg-[var(--color-or)]/10"
+                            : "border-[var(--color-or)]/25 text-[var(--color-ivoire-soft)] hover:border-[var(--color-or)]/60"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggle(f.id)}
+                          className="accent-[var(--color-or)] w-4 h-4"
+                        />
+                        <span>
+                          {isSelected
+                            ? t("entity.admin.selected_one")
+                            : t("entity.admin.select_one")}
+                        </span>
+                      </label>
+                    ) : null}
+                    <div
+                      className={
+                        manageable && isSelected
+                          ? "ring-1 ring-[var(--color-or)]"
+                          : ""
+                      }
+                    >
+                      <FigureCard
+                        figureId={f.id}
+                        href={`/figures/${f.id}`}
+                        name={f.name}
+                        type={f.figure_type}
+                        manufacturer={f.manufacturer_name ?? null}
+                        imageUrl={resolveFigureCover(f)}
+                        scale={f.scale}
+                        versionName={f.version_name}
+                        blurImage={f.is_nsfw && blurNsfw}
+                        badge={(() => {
+                          const phase = preorderPhaseFromFigure(f);
+                          const label = preorderBadgeLabel(phase, t);
+                          return label ? { label, tone: "preorder" } : null;
+                        })()}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>
@@ -284,34 +313,6 @@ function AdminBulkToolbar({ kind, entity, figures, selected, onSelectAll, onClea
         </p>
       ) : null}
     </div>
-  );
-}
-
-function SelectCheckbox({ checked, onChange, label }) {
-  return (
-    <label
-      className="absolute top-2 left-2 z-10 grid place-items-center w-6 h-6 bg-[var(--color-noir)]/70 border border-[var(--color-or)]/50 hover:border-[var(--color-or)] cursor-pointer transition-colors backdrop-blur-sm"
-      title={label}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={onChange}
-        className="absolute opacity-0 w-full h-full cursor-pointer"
-        aria-label={label}
-      />
-      <span
-        aria-hidden
-        className={`text-[12px] leading-none transition-opacity ${
-          checked
-            ? "text-[var(--color-or)] opacity-100"
-            : "text-transparent opacity-0"
-        }`}
-      >
-        ✓
-      </span>
-    </label>
   );
 }
 

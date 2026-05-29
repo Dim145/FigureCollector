@@ -326,7 +326,7 @@ function KindBadge({ kind }) {
 function Spec({ label, value, mono }) {
   return (
     <div className="flex flex-col min-w-0">
-      <dt className="text-[9px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)] opacity-70">
+      <dt className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)]">
         {label}
       </dt>
       <dd

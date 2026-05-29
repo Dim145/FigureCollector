@@ -643,12 +643,26 @@ function PolarChart({ rows, kanji, total, activeIndex, setActiveIndex }) {
   );
 }
 
-/** Six tiers of gold opacity so each segment is distinguishable without
- *  introducing colour outside the Vitrine palette. */
+/** Tonal staircase (bright champagne → deep bronze) at FULL opacity, kept
+ *  inside the Vitrine gold/bronze family. The old version faded a single
+ *  hue's opacity toward the noir background, so the lower tiers muddied into
+ *  the bg and into each other — wedges past the third were near-impossible
+ *  to tell apart. Stepping lightness (and easing the hue warmer as it
+ *  darkens) keeps every segment legible on the dark ground. */
 function segmentColor(i, _n) {
-  const opacities = [0.95, 0.78, 0.62, 0.48, 0.36, 0.26, 0.20, 0.16, 0.13, 0.10];
-  const o = opacities[i] ?? 0.1;
-  return `oklch(0.78 0.10 80 / ${o})`;
+  const tiers = [
+    "oklch(0.86 0.09 84)",
+    "oklch(0.75 0.115 80)",
+    "oklch(0.65 0.12 74)",
+    "oklch(0.56 0.11 66)",
+    "oklch(0.49 0.10 58)",
+    "oklch(0.64 0.055 92)",
+    "oklch(0.55 0.05 88)",
+    "oklch(0.47 0.05 80)",
+    "oklch(0.41 0.045 70)",
+    "oklch(0.36 0.04 62)",
+  ];
+  return tiers[i] ?? "oklch(0.33 0.03 60)";
 }
 
 // =============================================================================

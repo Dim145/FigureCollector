@@ -808,7 +808,7 @@ function DeleteEntityDialog({ kind, entity, onClose }) {
             type="button"
             onClick={onConfirm}
             disabled={mut.isPending}
-            className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-laque-bright)] border border-[var(--color-laque-bright)] hover:bg-[var(--color-laque-bright)] hover:text-[var(--color-noir)] px-4 py-2 transition-colors disabled:opacity-40"
+            className="inline-flex items-center justify-center px-6 py-3 font-medium tracking-wide border border-[var(--color-laque-bright)] text-[var(--color-laque-bright)] hover:bg-[var(--color-laque-bright)] hover:text-[var(--color-noir)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {t("admin.catalog.delete_confirm")}
           </button>

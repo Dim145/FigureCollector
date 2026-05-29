@@ -1,14 +1,21 @@
+import { useEffect, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { useT } from "../i18n/index.jsx";
 
 /**
  * Listens to the vite-plugin-pwa lifecycle. When a new service worker has
- * fetched fresh app bytes and is waiting to activate, we show a Direction B
- * toast inviting the user to reload. Until they click "Reload", they keep
- * running the previous version (no surprise refreshes mid-action).
+ * fetched fresh app bytes and is waiting to activate, we apply it at the next
+ * SAFE break — a route change — so the user never gets a surprise refresh
+ * mid-action, but also never gets stranded on a stale bundle (the old
+ * behaviour: a toast they could ignore forever, leaving them on yesterday's
+ * code). The toast is still shown as a fallback for users who sit on one
+ * route, repositioned to bottom-centre so it can't occlude right-aligned
+ * controls (the entity move-picker, worker row actions, donut hints).
  */
 export default function UpdateToast() {
   const t = useT();
+  const location = useLocation();
   const {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
@@ -19,13 +26,32 @@ export default function UpdateToast() {
     },
   });
 
+  // Apply a pending update on the first navigation AFTER it was detected.
+  // `armedAt` records the route we were on when the update appeared; the
+  // first time the path differs, we swap to the fresh SW and reload onto the
+  // page the user just asked for.
+  const armedAt = useRef(null);
+  useEffect(() => {
+    if (!needRefresh) {
+      armedAt.current = null;
+      return;
+    }
+    if (armedAt.current === null) {
+      armedAt.current = location.pathname;
+      return;
+    }
+    if (location.pathname !== armedAt.current) {
+      updateServiceWorker(true);
+    }
+  }, [needRefresh, location.pathname, updateServiceWorker]);
+
   if (!needRefresh) return null;
 
   return (
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-4 right-4 z-50 max-w-sm"
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(92vw,24rem)]"
     >
       <div
         className="bg-[var(--color-noir-soft)] border border-[var(--color-or)]/40 p-4"

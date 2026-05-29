@@ -248,7 +248,12 @@ function HeroSection({
             />
           </div>
 
-          <h1 className="fig-title mt-7 reveal" style={{ "--i": 3 }}>
+          <h1
+            className={`fig-title mt-7 reveal ${
+              (f.name?.length ?? 0) > 38 ? "fig-title--long" : ""
+            }`}
+            style={{ "--i": 3 }}
+          >
             {f.name}
             {f.version_name ? (
               <span className="fig-title-version">{f.version_name}</span>
@@ -283,12 +288,22 @@ function HeroSection({
 function ActionCluster({ canEdit, onEdit, onDelete, onShare, t }) {
   return (
     <div className="fig-actions reveal" style={{ "--i": 2 }}>
-      <button type="button" onClick={onShare} title={t("figure.action.share")}>
+      <button
+        type="button"
+        onClick={onShare}
+        title={t("figure.action.share")}
+        aria-label={t("figure.action.share")}
+      >
         <span className="fig-actions-icon" aria-hidden>↗</span>
       </button>
       {canEdit ? (
         <>
-          <button type="button" onClick={onEdit} title={t("figure.edit.cta")}>
+          <button
+            type="button"
+            onClick={onEdit}
+            title={t("figure.edit.cta")}
+            aria-label={t("figure.edit.cta")}
+          >
             <span className="fig-actions-icon" aria-hidden>✎</span>
           </button>
           <button
@@ -296,6 +311,7 @@ function ActionCluster({ canEdit, onEdit, onDelete, onShare, t }) {
             onClick={onDelete}
             className="danger"
             title={t("figure.edit.delete")}
+            aria-label={t("figure.edit.delete")}
           >
             <span className="fig-actions-icon" aria-hidden>×</span>
           </button>
