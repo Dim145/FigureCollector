@@ -215,8 +215,7 @@ function CreateRow({ t, onClose }) {
             value={form.description}
             onChange={(e) => set("description")(e.target.value)}
             rows={3}
-            className="ftype-field-input"
-            style={{ fontFamily: "var(--font-sans)" }}
+            className="ftype-field-input font-sans"
           />
         </label>
       </div>
@@ -329,8 +328,7 @@ function EditRow({ store, t, onClose }) {
               value={form.description}
               onChange={(e) => set("description")(e.target.value)}
               rows={4}
-              className="ftype-field-input"
-              style={{ fontFamily: "var(--font-sans)" }}
+              className="ftype-field-input font-sans"
             />
           </label>
         </div>

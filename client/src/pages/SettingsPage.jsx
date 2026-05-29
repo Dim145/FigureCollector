@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
+import { motion, useReducedMotion } from "motion/react";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useChannels } from "../hooks/useNotifications.js";
 import { useUpdateProfile } from "../hooks/useProfile.js";
 import AppShell from "../components/AppShell.jsx";
+import Reveal from "../components/motion/Reveal.jsx";
 import NotificationSettings from "../components/NotificationSettings.jsx";
 import Select from "../components/Select.jsx";
 import { BG_MODEL_SIZES, getPref, setPref } from "../lib/userPrefs.js";
@@ -35,10 +37,10 @@ import { BG_MODEL_SIZES, getPref, setPref } from "../lib/userPrefs.js";
 /// All possible drawers. The Notifications drawer is excluded at render
 /// time when the admin has zero channels enabled — see `sections` below.
 const ALL_SECTIONS = [
-  { id: "profile",    kanji: "公", tone: "var(--color-or)",       toneSoft: "oklch(0.78 0.10 80 / 0.18)" },
-  { id: "currency",   kanji: "銭", tone: "var(--color-or)",       toneSoft: "oklch(0.78 0.10 80 / 0.18)" },
+  { id: "profile",    kanji: "公", tone: "var(--color-or)",       toneSoft: "color-mix(in oklab, var(--color-or) 18%, transparent)" },
+  { id: "currency",   kanji: "銭", tone: "var(--color-or)",       toneSoft: "color-mix(in oklab, var(--color-or) 18%, transparent)" },
   { id: "bg_model",   kanji: "影", tone: "var(--atelier-jade)",   toneSoft: "var(--atelier-jade-soft)" },
-  { id: "notif_chan", kanji: "鈴", tone: "var(--color-or)",       toneSoft: "oklch(0.78 0.10 80 / 0.18)" },
+  { id: "notif_chan", kanji: "鈴", tone: "var(--color-or)",       toneSoft: "color-mix(in oklab, var(--color-or) 18%, transparent)" },
   { id: "nsfw",       kanji: "禁", tone: "var(--atelier-laque)",  toneSoft: "var(--atelier-laque-soft)" },
 ];
 
@@ -122,6 +124,7 @@ export default function SettingsPage() {
             title={t("settings.public_profile")}
             tone={toneOf("profile").tone}
             toneSoft={toneOf("profile").toneSoft}
+            delay={0}
             refMap={drawerRefs}
           >
             <p className="atelier-drawer-desc">
@@ -129,7 +132,7 @@ export default function SettingsPage() {
             </p>
 
             <div className="atelier-toggle-row">
-              <div className="atelier-toggle-row-text">
+              <div id="toggle-label-public-profile" className="atelier-toggle-row-text">
                 <span
                   className={`atelier-toggle-row-state ${flag ? "is-on" : ""}`}
                 >
@@ -141,7 +144,7 @@ export default function SettingsPage() {
                   /u/{user.username}
                 </span>
               </div>
-              <Toggle on={flag} onChange={toggle} disabled={update.isPending} />
+              <Toggle on={flag} onChange={toggle} disabled={update.isPending} labelId="toggle-label-public-profile" />
             </div>
 
             {flag ? (
@@ -173,7 +176,7 @@ export default function SettingsPage() {
                   {t("settings.public_profile.show_nsfw.body")}
                 </p>
                 <div className="atelier-toggle-row">
-                  <div className="atelier-toggle-row-text">
+                  <div id="toggle-label-show-nsfw" className="atelier-toggle-row-text">
                     <span
                       className={`atelier-toggle-row-state ${showNsfwPublic ? "is-on" : ""}`}
                     >
@@ -189,6 +192,7 @@ export default function SettingsPage() {
                     on={showNsfwPublic}
                     onChange={toggleNsfwPublic}
                     disabled={update.isPending}
+                    labelId="toggle-label-show-nsfw"
                   />
                 </div>
               </>
@@ -202,6 +206,7 @@ export default function SettingsPage() {
             title={t("settings.currency.title")}
             tone={toneOf("currency").tone}
             toneSoft={toneOf("currency").toneSoft}
+            delay={0.06}
             refMap={drawerRefs}
           >
             <p className="atelier-drawer-desc">{t("settings.currency.body")}</p>
@@ -237,6 +242,7 @@ export default function SettingsPage() {
             title={t("settings.bg_model")}
             tone={toneOf("bg_model").tone}
             toneSoft={toneOf("bg_model").toneSoft}
+            delay={0.12}
             refMap={drawerRefs}
           >
             <p className="atelier-drawer-desc">{t("settings.bg_model.body")}</p>
@@ -264,6 +270,7 @@ export default function SettingsPage() {
               title={t("notif.channels.title")}
               tone={toneOf("notif_chan").tone}
               toneSoft={toneOf("notif_chan").toneSoft}
+              delay={0.18}
               refMap={drawerRefs}
             >
               <NotificationSettings t={t} />
@@ -277,6 +284,7 @@ export default function SettingsPage() {
             title={t("settings.nsfw.title")}
             tone={toneOf("nsfw").tone}
             toneSoft={toneOf("nsfw").toneSoft}
+            delay={0.18}
             refMap={drawerRefs}
           >
             <p className="atelier-drawer-desc">{t("settings.nsfw.body")}</p>
@@ -329,11 +337,50 @@ const NSFW_OPTIONS = [
 // =============================================================================
 
 function Hero({ username, t }) {
+  const reduce = useReducedMotion();
   return (
     <header className="atelier-hero">
-      <p className="atelier-hero-eyebrow">{username}</p>
-      <h1 className="atelier-hero-title">{t("settings.title")}</h1>
-      <p className="atelier-hero-sub">{t("settings.subtitle")}</p>
+      {/* Localized colour-wash — gold + jade + indigo breathing behind the
+        * title. Absolutely positioned, never intercepts pointer events, and
+        * pinned below the z-index:1 hero content. Reads on both themes
+        * because it mixes the theme-aware accent vars into transparent. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 -top-10 bottom-0"
+        style={{
+          zIndex: 0,
+          backgroundImage: [
+            "radial-gradient(46% 70% at 50% 8%, color-mix(in oklab, var(--color-or) 16%, transparent), transparent 70%)",
+            "radial-gradient(40% 80% at 16% 36%, color-mix(in oklab, var(--atelier-jade) 14%, transparent), transparent 72%)",
+            "radial-gradient(42% 80% at 84% 30%, color-mix(in oklab, var(--color-indigo) 13%, transparent), transparent 72%)",
+          ].join(", "),
+        }}
+      />
+      <motion.p
+        className="atelier-hero-eyebrow"
+        style={{ color: "var(--color-jade)" }}
+        initial={reduce ? false : { opacity: 0, y: 12 }}
+        animate={reduce ? undefined : { opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      >
+        {username}
+      </motion.p>
+      <motion.h1
+        className="atelier-hero-title"
+        initial={reduce ? false : { opacity: 0, y: 18 }}
+        animate={reduce ? undefined : { opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.06, ease: [0.22, 1, 0.36, 1] }}
+      >
+        {t("settings.title")}
+      </motion.h1>
+      <motion.p
+        className="atelier-hero-sub"
+        initial={reduce ? false : { opacity: 0, y: 14 }}
+        animate={reduce ? undefined : { opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+      >
+        {t("settings.subtitle")}
+      </motion.p>
     </header>
   );
 }
@@ -345,21 +392,48 @@ function Hero({ username, t }) {
 function Nav({ sections, active, onClick, t }) {
   return (
     <nav className="atelier-nav" aria-label={t("settings.title")}>
-      <p className="atelier-nav-heading">{t("settings.nav.heading")}</p>
+      <p
+        className="atelier-nav-heading"
+        style={{
+          color: "var(--color-jade)",
+          borderBottomColor:
+            "color-mix(in oklab, var(--color-jade) 26%, transparent)",
+        }}
+      >
+        {t("settings.nav.heading")}
+      </p>
       <ul className="atelier-nav-list">
-        {sections.map((s) => (
-          <li key={s.id} className="atelier-nav-item">
+        {sections.map((s, i) => (
+          <Reveal
+            as="li"
+            key={s.id}
+            className="atelier-nav-item"
+            delay={i * 0.05}
+            y={12}
+          >
             <a
               href={`#${s.id}`}
               onClick={onClick(s.id)}
               className={`atelier-nav-link ${active === s.id ? "is-active" : ""}`}
+              style={
+                active === s.id
+                  ? {
+                      color: s.tone,
+                      borderLeftColor: s.tone,
+                    }
+                  : undefined
+              }
             >
-              <span className="atelier-nav-link-kanji" aria-hidden>
+              <span
+                className="atelier-nav-link-kanji"
+                aria-hidden
+                style={active === s.id ? { color: s.tone, opacity: 1 } : undefined}
+              >
                 {s.kanji}
               </span>
               <span>{t(`settings.nav.${s.id}`)}</span>
             </a>
-          </li>
+          </Reveal>
         ))}
       </ul>
     </nav>
@@ -370,24 +444,47 @@ function Nav({ sections, active, onClick, t }) {
 // Drawer — one setting section
 // =============================================================================
 
-function Drawer({ id, kanji, title, tone, toneSoft, refMap, children }) {
+function Drawer({ id, kanji, title, tone, toneSoft, delay = 0, refMap, children }) {
+  const reduce = useReducedMotion();
   return (
-    <section
+    <motion.section
       id={id}
       ref={(el) => {
         if (el) refMap.current[id] = el;
       }}
-      className="atelier-drawer"
+      className="atelier-drawer group"
       data-kanji={kanji}
       style={{ "--atelier-tone": tone, "--atelier-tone-soft": toneSoft }}
+      initial={reduce ? false : { opacity: 0, y: 24 }}
+      whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
+      viewport={{ once: true, amount: 0.18 }}
+      transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}
     >
+      {/* Per-section accent colour-wash — bleeds the drawer's tone up from
+        * the corner. Clipped by the drawer's overflow:hidden, sits beneath
+        * the z-index:1 body, and warms on hover (opacity only → GPU-safe). */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-70 transition-opacity duration-500 group-hover:opacity-100"
+        style={{
+          zIndex: 0,
+          backgroundImage:
+            "radial-gradient(70% 60% at 88% -10%, color-mix(in oklab, var(--atelier-tone) 14%, transparent), transparent 62%)",
+        }}
+      />
       <header className="atelier-drawer-header">
-        <span className="atelier-drawer-kanji" aria-hidden>{kanji}</span>
+        <span
+          className="atelier-drawer-kanji"
+          aria-hidden
+          style={{ color: tone }}
+        >
+          {kanji}
+        </span>
         <h2 className="atelier-drawer-title">{title}</h2>
         <span className="atelier-drawer-rule" aria-hidden />
       </header>
       <div className="atelier-drawer-body">{children}</div>
-    </section>
+    </motion.section>
   );
 }
 
@@ -395,12 +492,13 @@ function Drawer({ id, kanji, title, tone, toneSoft, refMap, children }) {
 // Toggle
 // =============================================================================
 
-function Toggle({ on, onChange, disabled }) {
+function Toggle({ on, onChange, disabled, labelId }) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={on}
+      aria-labelledby={labelId}
       onClick={onChange}
       disabled={disabled}
       className={`atelier-toggle ${on ? "is-on" : ""}`}

@@ -25,7 +25,7 @@ export default function AdminLayout() {
           <h1 className="display text-3xl md:text-4xl text-[var(--color-ivoire)] mt-1">
             {t("admin.title")}
           </h1>
-          <nav className="mt-6 flex items-center gap-2 text-[11px] uppercase tracking-[0.2em]">
+          <nav className="mt-6 flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] overflow-x-auto pb-1 -mb-1">
             <SubLink to="/admin">{t("admin.tab.overview")}</SubLink>
             <SubLink to="/admin/users">{t("admin.tab.users")}</SubLink>
             <SubLink to="/admin/figures">{t("admin.tab.figures")}</SubLink>
@@ -50,9 +50,9 @@ function SubLink({ to, children }) {
       to={to}
       end={to === "/admin"}
       className={({ isActive }) =>
-        `px-3 py-1.5 transition-colors border-b ${
+        `shrink-0 whitespace-nowrap px-3 py-1.5 transition-colors border-b ${
           isActive
-            ? "text-[var(--color-or)] border-[var(--color-or)]"
+            ? "text-[var(--color-or)] border-[var(--color-or)] font-medium"
             : "text-[var(--color-ivoire-soft)] border-transparent hover:text-[var(--color-or-pale)]"
         }`
       }

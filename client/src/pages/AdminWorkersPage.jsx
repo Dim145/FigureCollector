@@ -52,6 +52,10 @@ export default function AdminWorkersPage() {
 
       {workers.isLoading ? (
         <p className="text-center text-[var(--color-ivoire-soft)] py-12">…</p>
+      ) : workers.isError ? (
+        <p role="alert" className="text-center text-[var(--color-ivoire-soft)] py-12">
+          {t("error.unknown")}
+        </p>
       ) : !workers.data || workers.data.length === 0 ? (
         <EmptyState t={t} />
       ) : (
@@ -260,8 +264,7 @@ function DisplayNameEdit({ w, onClose }) {
         onChange={(e) => setValue(e.target.value)}
         autoFocus
         placeholder={w.hostname}
-        className="bg-[var(--color-noir-deep)] border border-[var(--color-or)]/40 px-2 py-1 text-sm text-[var(--color-ivoire)] focus:outline-none focus:border-[var(--color-or)]"
-        style={{ minWidth: "12rem" }}
+        className="min-w-48 bg-[var(--color-noir-deep)] border border-[var(--color-or)]/40 px-2 py-1 text-sm text-[var(--color-ivoire)] focus:outline-none focus:border-[var(--color-or)]"
         onKeyDown={(e) => {
           if (e.key === "Escape") {
             e.preventDefault();
@@ -308,7 +311,7 @@ function StatusPill({ w, t }) {
     <span
       className={`inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.22em] border px-2 py-0.5 ${styles}`}
     >
-      <span>{dot}</span>
+      <span aria-hidden>{dot}</span>
       <span>{t(`admin.workers.status.${status}`)}</span>
     </span>
   );

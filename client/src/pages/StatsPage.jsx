@@ -4,7 +4,6 @@ import {
   Cell as RechartsCell,
   Pie as RechartsPie,
   PieChart as RechartsPieChart,
-  Tooltip as RechartsTooltip,
 } from "recharts";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
@@ -12,6 +11,23 @@ import { useMyStats } from "../hooks/useStats.js";
 import AppShell from "../components/AppShell.jsx";
 import Card from "../components/Card.jsx";
 import CountUp from "../components/CountUp.jsx";
+import Reveal from "../components/motion/Reveal.jsx";
+import { typeHue } from "../lib/typeHue.js";
+
+/**
+ * Per-chapter accent palette (néo-vitrine). Each entry is a theme var that
+ * flips light/dark — never a raw colour. Drives the chapter-rule glyphs, the
+ * localized hero wash and assorted dividers/chips so each section of the
+ * ledger reads in its own light while the gold/ink surfaces stay dominant.
+ */
+const CHAPTER_ACCENT = {
+  II: "var(--color-neon-amber)",
+  III: "var(--color-jade)",
+  IV: "var(--color-or)",
+  V: "var(--color-indigo)",
+  VI: "var(--color-laque-bright)",
+  VII: "var(--color-neon-cyan)",
+};
 
 /**
  * Le Grand Livre — the user's annual inventory ledger.
@@ -41,8 +57,25 @@ export default function StatsPage() {
   if (stats.isLoading) {
     return (
       <AppShell>
-        <div className="text-center py-32 text-[var(--color-ivoire-soft)] italic">
+        <div
+          role="status"
+          aria-live="polite"
+          className="text-center py-32 text-[var(--color-ivoire-soft)] italic"
+        >
           …
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (stats.isError) {
+    return (
+      <AppShell>
+        <div
+          role="alert"
+          className="text-center py-32 text-[var(--color-ivoire-soft)] italic"
+        >
+          {t("error.unknown")}
         </div>
       </AppShell>
     );
@@ -54,6 +87,8 @@ export default function StatsPage() {
   return (
     <AppShell>
       <main className="relative max-w-6xl mx-auto px-6 py-12">
+        <HeroWash />
+        <div className="relative z-10">
         {empty ? (
           <>
             <TitlePage data={null} t={t} year={new Date().getFullYear()} />
@@ -69,22 +104,24 @@ export default function StatsPage() {
             <TitlePage data={data} t={t} year={new Date().getFullYear()} />
 
             {/* II — Dépenses */}
-            <ChapterRule roman="II" label={t("stats.ch.spend")} kanji="財" />
-            <div
-              className="grid lg:grid-cols-[1.4fr_1fr] gap-8 items-start reveal"
-              style={{ "--i": 2 }}
+            <ChapterRule roman="II" label={t("stats.ch.spend")} kanji="財" accent={CHAPTER_ACCENT.II} />
+            <Reveal
+              as="div"
+              y={24}
+              className="grid lg:grid-cols-[1.4fr_1fr] gap-8 items-start"
             >
               <SpendLedger data={data} t={t} />
               <PreorderDial data={data} t={t} />
-            </div>
+            </Reveal>
 
             {/* III — Répartition */}
-            <ChapterRule roman="III" label={t("stats.ch.allocation")} kanji="分" />
-            <div className="grid lg:grid-cols-2 gap-8 reveal" style={{ "--i": 2 }}>
+            <ChapterRule roman="III" label={t("stats.ch.allocation")} kanji="分" accent={CHAPTER_ACCENT.III} />
+            <Reveal as="div" y={24} className="grid lg:grid-cols-2 gap-8">
               <PolarBreakdown
                 title={t("stats.by_type.title")}
                 kanji="像"
                 t={t}
+                typed
                 rows={data.by_type.map((r) => ({
                   key: r.figure_type,
                   label: t(`type.${r.figure_type}`, { default: r.figure_type }),
@@ -101,11 +138,11 @@ export default function StatsPage() {
                   count: Number(r.count) || 0,
                 }))}
               />
-            </div>
+            </Reveal>
 
             {/* IV — Palmarès */}
-            <ChapterRule roman="IV" label={t("stats.ch.tops")} kanji="冠" />
-            <div className="grid lg:grid-cols-3 gap-8 reveal" style={{ "--i": 2 }}>
+            <ChapterRule roman="IV" label={t("stats.ch.tops")} kanji="冠" accent={CHAPTER_ACCENT.IV} />
+            <Reveal as="div" y={24} className="grid lg:grid-cols-3 gap-8">
               <PodiumColumn
                 title={t("stats.top_manufacturers.title")}
                 rows={data.top_manufacturers}
@@ -121,10 +158,10 @@ export default function StatsPage() {
                 rows={data.top_sculptors}
                 t={t}
               />
-            </div>
+            </Reveal>
 
             {/* V — Chronique */}
-            <ChapterRule roman="V" label={t("stats.ch.timeline")} kanji="暦" />
+            <ChapterRule roman="V" label={t("stats.ch.timeline")} kanji="暦" accent={CHAPTER_ACCENT.V} />
             {data.acquisitions_by_year.length === 0 ? (
               <p className="text-center text-[var(--color-ivoire-soft)] py-12 italic">
                 {t("stats.timeline.empty")}
@@ -134,13 +171,13 @@ export default function StatsPage() {
             )}
 
             {/* VI — Pièces majeures */}
-            <ChapterRule roman="VI" label={t("stats.ch.crown")} kanji="王" />
+            <ChapterRule roman="VI" label={t("stats.ch.crown")} kanji="王" accent={CHAPTER_ACCENT.VI} />
             <CrownPieces data={data} t={t} />
 
             {/* VII — Échelle des prix */}
             {data.price_distribution.length > 0 ? (
               <>
-                <ChapterRule roman="VII" label={t("stats.ch.scale")} kanji="幅" />
+                <ChapterRule roman="VII" label={t("stats.ch.scale")} kanji="幅" accent={CHAPTER_ACCENT.VII} />
                 <PriceThermometers data={data} t={t} />
               </>
             ) : null}
@@ -149,6 +186,7 @@ export default function StatsPage() {
             <Colophon t={t} pieces={data.total_pieces} year={new Date().getFullYear()} />
           </>
         )}
+        </div>
       </main>
     </AppShell>
   );
@@ -158,21 +196,83 @@ export default function StatsPage() {
 // Chapter rule — Roman numeral + label + kanji separator
 // =============================================================================
 
-function ChapterRule({ roman, label, kanji }) {
+function ChapterRule({ roman, label, kanji, accent = "var(--color-or)" }) {
+  // The accent only paints the chapter glyphs + tints the trailing rule, so
+  // each section opens in its own light. The label stays gold (`--color-or-pale`
+  // via CSS) to keep the spread coherent; CSS hover still warms glyphs to gold.
+  const tintedLine = `linear-gradient(90deg, transparent, ${colorMix(accent, 55)}, transparent)`;
   return (
-    <div
-      className="chapter-rule reveal"
-      style={{ "--i": 1 }}
+    <Reveal
+      as="div"
+      y={14}
+      delay={0.02}
+      className="chapter-rule"
       role="separator"
       aria-label={label}
     >
-      <span className="chapter-rule-roman">{roman}.</span>
+      <span className="chapter-rule-roman" style={{ color: accent }}>
+        {roman}.
+      </span>
       <span className="chapter-rule-line" aria-hidden />
       <span className="chapter-rule-label">{label}</span>
-      <span className="chapter-rule-line" aria-hidden />
-      <span className="chapter-rule-kanji" aria-hidden>
+      <span
+        className="chapter-rule-line"
+        aria-hidden
+        style={{ background: tintedLine }}
+      />
+      <span className="chapter-rule-kanji" aria-hidden style={{ color: accent }}>
         {kanji}
       </span>
+    </Reveal>
+  );
+}
+
+/** color-mix helper — keep accent translucency in oklab, theme-var safe. */
+function colorMix(accentVar, pct) {
+  return `color-mix(in oklab, ${accentVar} ${pct}%, transparent)`;
+}
+
+/**
+ * Localized hero colour-wash — a pointer-events-none pair of radial gradients
+ * at low alpha pinned to the top of the ledger (behind the title page only).
+ * Adds atmosphere/spectacle without competing with the global page aurora.
+ * Fully self-contained (inline styles, no shared CSS). Static under
+ * prefers-reduced-motion; otherwise a slow GPU-only opacity/scale breathe.
+ */
+function HeroWash() {
+  // Static glow — no breathe. Ambient motion was removed for GPU (alongside the
+  // aurora); the colour stays as a fixed, ~0-cost layer. Edges feathered so the
+  // gradients fade instead of hard-cutting at the content column (the seam).
+  const base = { position: "absolute", inset: 0 };
+  const layerA = {
+    background: `radial-gradient(60% 70% at 18% 10%, ${colorMix(
+      "var(--color-neon-amber)",
+      18,
+    )}, transparent 70%)`,
+  };
+  const layerB = {
+    background: `radial-gradient(58% 66% at 86% 2%, ${colorMix(
+      "var(--color-indigo)",
+      16,
+    )}, transparent 72%)`,
+  };
+  const wrap = {
+    position: "absolute",
+    top: "-3rem",
+    left: "-3rem",
+    right: "-3rem",
+    height: "56vh",
+    pointerEvents: "none",
+    zIndex: 0,
+    WebkitMaskImage:
+      "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
+    maskImage:
+      "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
+  };
+  return (
+    <div aria-hidden style={wrap}>
+      <span style={{ ...base, ...layerA, opacity: 0.85 }} />
+      <span style={{ ...base, ...layerB, opacity: 0.85 }} />
     </div>
   );
 }
@@ -217,18 +317,19 @@ function TitlePage({ data, t, year }) {
         {/* The hero figure — massive embossed total piece count */}
         <div className="mt-8 reveal" style={{ "--i": 3 }}>
           <p className="label-mono mb-2">{t("stats.headline.pieces")}</p>
-          <p className="figural-massive" data-value={pieces}>
+          <p className="figural-massive">
             <CountUp value={pieces} duration={1400} />
           </p>
         </div>
 
-        {/* Headline satellites — secondary counters in a tight row */}
+        {/* Headline satellites — secondary counters in a tight row, each lit
+            in its own accent for a vivid spread while values stay legible. */}
         {data ? (
           <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-4 reveal" style={{ "--i": 4 }}>
-            <Satellite kanji="種" label={t("stats.headline.types")} value={data.distinct_types} />
-            <Satellite kanji="社" label={t("stats.headline.manufacturers")} value={data.distinct_manufacturers} />
-            <Satellite kanji="作" label={t("stats.headline.series")} value={data.distinct_series} />
-            <Satellite kanji="影" label={t("stats.headline.scans")} value={data.total_scans} />
+            <Satellite kanji="種" label={t("stats.headline.types")} value={data.distinct_types} accent="var(--color-neon-amber)" />
+            <Satellite kanji="社" label={t("stats.headline.manufacturers")} value={data.distinct_manufacturers} accent="var(--color-jade)" />
+            <Satellite kanji="作" label={t("stats.headline.series")} value={data.distinct_series} accent="var(--color-indigo)" />
+            <Satellite kanji="影" label={t("stats.headline.scans")} value={data.total_scans} accent="var(--color-neon-cyan)" />
           </div>
         ) : null}
       </div>
@@ -236,7 +337,9 @@ function TitlePage({ data, t, year }) {
   );
 }
 
-function Satellite({ kanji, label, value }) {
+function Satellite({ kanji, label, value, accent = "var(--color-or)" }) {
+  // Accent only paints the value digits + a soft glow, leaving the left border
+  // and kanji to CSS so their existing hover transitions keep firing.
   return (
     <div className="satellite relative border-l border-[var(--color-or)]/30 pl-4 py-1">
       <span
@@ -246,7 +349,13 @@ function Satellite({ kanji, label, value }) {
         {kanji}
       </span>
       <p className="label-mono">{label}</p>
-      <p className="sat-value display text-3xl md:text-4xl text-[var(--color-or)] mt-1.5 leading-none">
+      <p
+        className="sat-value display text-3xl md:text-4xl mt-1.5 leading-none"
+        style={{
+          color: accent,
+          textShadow: `0 0 22px ${colorMix(accent, 30)}`,
+        }}
+      >
         <CountUp value={Number(value) || 0} />
       </p>
     </div>
@@ -266,9 +375,19 @@ function SpendLedger({ data, t }) {
     [data.acquisitions_by_year],
   );
   return (
-    <Card className="relative p-7">
-      <p className="micro mb-1">{t("stats.spend.title")}</p>
-      <p className="display italic text-[var(--color-or-pale)] text-lg mb-5">
+    <Card className="relative p-7 overflow-hidden">
+      <p className="micro mb-1 inline-flex items-center gap-2">
+        <span
+          aria-hidden
+          className="inline-block w-5 h-px"
+          style={{ background: colorMix("var(--color-neon-amber)", 75) }}
+        />
+        {t("stats.spend.title")}
+      </p>
+      <p
+        className="display italic text-lg mb-5"
+        style={{ color: "var(--color-neon-amber)" }}
+      >
         {t("stats.spend.kicker")}
       </p>
 
@@ -419,14 +538,24 @@ function PreorderDial({ data, t }) {
   // four-row inventory table style — same brass tab, terse caption.
   const rows = [
     { kanji: "予", label: t("stats.preorders.placed"), value: p.placed, tone: "ivory" },
-    { kanji: "途", label: t("stats.preorders.open"), value: p.open, tone: "gold" },
+    { kanji: "途", label: t("stats.preorders.open"), value: p.open, tone: "jade" },
     { kanji: "受", label: t("stats.preorders.received"), value: p.received, tone: "gold-pale" },
     { kanji: "棄", label: t("stats.preorders.cancelled"), value: p.cancelled, tone: "dim" },
   ];
   return (
     <Card className="relative p-7 overflow-hidden">
-      <p className="micro mb-1">{t("stats.preorders.title")}</p>
-      <p className="display italic text-[var(--color-or-pale)] text-lg mb-5">
+      <p className="micro mb-1 inline-flex items-center gap-2">
+        <span
+          aria-hidden
+          className="inline-block w-5 h-px"
+          style={{ background: colorMix("var(--color-jade)", 75) }}
+        />
+        {t("stats.preorders.title")}
+      </p>
+      <p
+        className="display italic text-lg mb-5"
+        style={{ color: "var(--color-jade)" }}
+      >
         {t("stats.preorders.kicker")}
       </p>
 
@@ -464,6 +593,7 @@ function toneColor(tone) {
   switch (tone) {
     case "gold": return "text-[var(--color-or)]";
     case "gold-pale": return "text-[var(--color-or-pale)]";
+    case "jade": return "text-[var(--color-jade)]";
     case "dim": return "text-[var(--color-ivoire-soft)]/60";
     case "ivory":
     default: return "text-[var(--color-ivoire)]";
@@ -474,9 +604,12 @@ function toneColor(tone) {
 // III — Polar breakdown (donut + radial bars)
 // =============================================================================
 
-function PolarBreakdown({ title, kanji, rows, t }) {
+function PolarBreakdown({ title, kanji, rows, t, typed = false }) {
   const total = rows.reduce((s, r) => s + r.count, 0);
   const top = [...rows].sort((a, b) => b.count - a.count)[0];
+  // When the breakdown maps to figure types, the dominant type tints the
+  // section header so the eye links chart → category. Falls back to gold.
+  const headerHue = typed && top ? typeHue(top.key) : "var(--color-or-pale)";
   // Shared active segment — drives both the donut (which wedge pops + the
   // others dim) and the legend (matching row lights up). Bidirectional:
   // set from either side so hovering a name isolates its wedge and
@@ -493,7 +626,14 @@ function PolarBreakdown({ title, kanji, rows, t }) {
   }
   return (
     <Card className="relative p-7">
-      <p className="micro mb-5">{title}</p>
+      <p className="micro mb-5 inline-flex items-center gap-2">
+        <span
+          aria-hidden
+          className="inline-block w-5 h-px"
+          style={{ background: colorMix(headerHue, 75) }}
+        />
+        <span style={typed ? { color: headerHue } : undefined}>{title}</span>
+      </p>
       <div className="grid grid-cols-[170px_1fr] gap-7 items-center">
         <PolarChart
           rows={rows}
@@ -522,6 +662,16 @@ function PolarBreakdown({ title, kanji, rows, t }) {
                   style={{ background: segmentColor(i, rows.length) }}
                 />
                 <span className="legend-label flex-1 truncate">{r.label}</span>
+                {typed ? (
+                  <span
+                    aria-hidden
+                    className="block w-1.5 h-1.5 rounded-full shrink-0 self-center"
+                    style={{
+                      background: typeHue(r.key),
+                      boxShadow: `0 0 6px ${colorMix(typeHue(r.key), 60)}`,
+                    }}
+                  />
+                ) : null}
                 <span className="legend-count font-mono text-[11px] tracking-wider">
                   {r.count}
                 </span>
@@ -535,8 +685,11 @@ function PolarBreakdown({ title, kanji, rows, t }) {
       </div>
       {top ? (
         <p className="absolute top-7 right-7 text-right">
-          <span className="micro-tight block">{rows.length > 1 ? "Dominant" : "Unique"}</span>
-          <span className="display italic text-base text-[var(--color-or-pale)]">
+          <span className="micro-tight block">{rows.length > 1 ? t("stats.dominant") : t("stats.unique")}</span>
+          <span
+            className="display italic text-base"
+            style={{ color: typed ? headerHue : "var(--color-or-pale)" }}
+          >
             {top.label}
           </span>
         </p>
@@ -615,19 +768,6 @@ function PolarChart({ rows, kanji, total, activeIndex, setActiveIndex }) {
             );
           })}
         </RechartsPie>
-        <RechartsTooltip
-          contentStyle={{
-            background: "oklch(0.10 0.005 50 / 0.95)",
-            border: "1px solid oklch(0.78 0.10 80 / 0.4)",
-            borderRadius: 0,
-            color: "var(--color-ivoire)",
-            fontSize: "12px",
-            padding: "6px 10px",
-          }}
-          itemStyle={{ color: "var(--color-ivoire)" }}
-          labelStyle={{ color: "var(--color-or-pale)" }}
-          formatter={(value, name) => [`${value}`, name]}
-        />
       </RechartsPieChart>
       {/* Centre — kanji at rest, morphing to the active wedge's share on
           hover. Both layers occupy the same grid cell and cross-fade. */}
@@ -650,7 +790,10 @@ function PolarChart({ rows, kanji, total, activeIndex, setActiveIndex }) {
  *  to tell apart. Stepping lightness (and easing the hue warmer as it
  *  darkens) keeps every segment legible on the dark ground. */
 function segmentColor(i, _n) {
-  const tiers = [
+  // Dark theme: bright champagne → deep bronze (reads on the near-black card).
+  // Light theme: a deeper staircase so the wedges keep contrast against the
+  // near-white card surface (the bright tiers would otherwise wash out).
+  const dark = [
     "oklch(0.86 0.09 84)",
     "oklch(0.75 0.115 80)",
     "oklch(0.65 0.12 74)",
@@ -662,7 +805,23 @@ function segmentColor(i, _n) {
     "oklch(0.41 0.045 70)",
     "oklch(0.36 0.04 62)",
   ];
-  return tiers[i] ?? "oklch(0.33 0.03 60)";
+  const light = [
+    "oklch(0.64 0.13 72)",
+    "oklch(0.56 0.13 66)",
+    "oklch(0.49 0.12 58)",
+    "oklch(0.43 0.11 50)",
+    "oklch(0.38 0.10 44)",
+    "oklch(0.58 0.06 86)",
+    "oklch(0.50 0.055 80)",
+    "oklch(0.44 0.05 72)",
+    "oklch(0.39 0.045 64)",
+    "oklch(0.34 0.04 56)",
+  ];
+  const isLight =
+    typeof document !== "undefined" &&
+    document.documentElement.dataset.theme === "light";
+  const tiers = isLight ? light : dark;
+  return tiers[i] ?? (isLight ? "oklch(0.30 0.03 56)" : "oklch(0.33 0.03 60)");
 }
 
 // =============================================================================
@@ -684,7 +843,14 @@ function PodiumColumn({ title, rows, t }) {
   const rest = rows.slice(3, 10);
   return (
     <div>
-      <p className="micro mb-4">{title}</p>
+      <p className="micro mb-4 inline-flex items-center gap-2">
+        <span
+          aria-hidden
+          className="inline-block w-5 h-px"
+          style={{ background: colorMix("var(--color-or)", 80) }}
+        />
+        {title}
+      </p>
       <div className="grid grid-cols-3 gap-1.5 items-end">
         {/* Reorder for visual hierarchy: 2 · 1 · 3 (silver in the middle of
          *  the screen looks weird; we keep 1·2·3 left-to-right so it reads
@@ -743,7 +909,7 @@ function PressStrip({ data, t }) {
   const [hoveredYear, setHoveredYear] = useState(null);
   const hot = data.find((d) => d.year === hoveredYear) || null;
   return (
-    <div className="press-strip reveal" style={{ "--i": 1 }}>
+    <Reveal as="div" y={22} className="press-strip">
       <div
         className="press-grid"
         data-active={hoveredYear != null}
@@ -776,6 +942,16 @@ function PressStrip({ data, t }) {
                 style={{
                   height: `${h}%`,
                   animationDelay: `${i * 60}ms`,
+                  // Indigo base warming to gold at the cap — keeps the timeline
+                  // vivid while staying on-brand. Overrides only `background`,
+                  // so the scaleY entrance + hover filter/shadow stay intact.
+                  background: `linear-gradient(to top, ${colorMix(
+                    "var(--color-indigo)",
+                    80,
+                  )}, ${colorMix("var(--color-indigo-bright)", 60)} 55%, ${colorMix(
+                    "var(--color-or-pale)",
+                    75,
+                  )} 100%)`,
                 }}
               />
               <span className="press-year">{d.year}</span>
@@ -788,7 +964,7 @@ function PressStrip({ data, t }) {
           ? t("stats.timeline.readout", { count: hot.count, year: hot.year })
           : t("stats.timeline.caption")}
       </p>
-    </div>
+    </Reveal>
   );
 }
 
@@ -805,9 +981,20 @@ function CrownPieces({ data, t }) {
     );
   }
   return (
-    <div className="grid lg:grid-cols-2 gap-6 reveal" style={{ "--i": 2 }}>
+    <Reveal as="div" y={24} className="grid lg:grid-cols-2 gap-6">
       {data.most_expensive.map((m, i) => (
         <article key={`${m.currency}-${m.figure_id}`} className="crown-card">
+          {/* Thin laque accent strip along the top edge — the crown's ribbon. */}
+          <span
+            aria-hidden
+            className="absolute top-0 left-0 right-0 h-px"
+            style={{
+              background: `linear-gradient(90deg, transparent, ${colorMix(
+                "var(--color-laque-bright)",
+                70,
+              )} 30%, ${colorMix("var(--color-or)", 60)} 70%, transparent)`,
+            }}
+          />
           <p className="crown-eyebrow">
             {t("stats.most_expensive.eyebrow")} · {m.currency}
           </p>
@@ -819,7 +1006,16 @@ function CrownPieces({ data, t }) {
               {m.figure_name}
             </Link>
           </h3>
-          <div className="gold-rule w-12 mt-5 mb-4 opacity-70" />
+          {/* Accent rule — laque→gold gradient instead of the plain gold rule. */}
+          <div
+            className="w-12 h-px mt-5 mb-4 opacity-80"
+            style={{
+              background: `linear-gradient(90deg, ${colorMix(
+                "var(--color-laque-bright)",
+                90,
+              )}, ${colorMix("var(--color-or)", 80)})`,
+            }}
+          />
           <p className="display font-light text-4xl md:text-5xl text-[var(--color-or)]">
             {fmtMoney(m.price, m.currency)}
             <span className="font-mono text-base text-[var(--color-or-pale)]/70 ml-3 align-baseline">
@@ -840,13 +1036,14 @@ function CrownPieces({ data, t }) {
           ) : null}
           <span
             aria-hidden
-            className="absolute bottom-4 right-5 font-mono text-[9px] tracking-[0.3em] uppercase text-[var(--color-or-pale)]/40"
+            className="absolute bottom-4 right-5 font-mono text-[9px] tracking-[0.3em] uppercase"
+            style={{ color: colorMix("var(--color-laque-bright)", 55) }}
           >
             n<sup>o</sup> {i + 1}
           </span>
         </article>
       ))}
-    </div>
+    </Reveal>
   );
 }
 
@@ -856,11 +1053,11 @@ function CrownPieces({ data, t }) {
 
 function PriceThermometers({ data, t }) {
   return (
-    <div className="space-y-12 reveal" style={{ "--i": 2 }}>
+    <Reveal as="div" y={24} className="space-y-12">
       {data.price_distribution.map((p) => (
         <PriceThermometer key={p.currency} dist={p} t={t} />
       ))}
-    </div>
+    </Reveal>
   );
 }
 
@@ -893,12 +1090,30 @@ function PriceThermometer({ dist, t }) {
   return (
     <Card className="p-7">
       <div className="flex items-baseline justify-between mb-5">
-        <p className="micro">{t("stats.price_dist.title")}</p>
+        <p className="micro inline-flex items-center gap-2">
+          <span
+            aria-hidden
+            className="inline-block w-5 h-px"
+            style={{ background: colorMix("var(--color-neon-cyan)", 75) }}
+          />
+          {t("stats.price_dist.title")}
+        </p>
         <span className="brass-tab">{dist.currency}</span>
       </div>
 
       <div className="price-scale" aria-hidden>
-        <span className="price-scale-track" />
+        <span
+          className="price-scale-track"
+          style={{
+            background: `linear-gradient(90deg, ${colorMix(
+              "var(--color-neon-cyan)",
+              30,
+            )}, ${colorMix("var(--color-neon-cyan)", 75)}, ${colorMix(
+              "var(--color-neon-cyan)",
+              30,
+            )})`,
+          }}
+        />
         <span
           className="price-scale-end ledger-tip"
           data-hot={hoveredKey === "min"}
@@ -919,7 +1134,7 @@ function PriceThermometer({ dist, t }) {
           className="price-scale-median ledger-tip"
           data-hot={hoveredKey === "median"}
           data-tip={`${t("stats.price_dist.median")} · ${fmtMoney(med, dist.currency)}`}
-          style={{ left: `${clampPos(med)}%` }}
+          style={{ left: `${clampPos(med)}%`, background: "var(--color-neon-cyan)" }}
           onMouseEnter={enter("median")}
           onMouseLeave={leave}
         />

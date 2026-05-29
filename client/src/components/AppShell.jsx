@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { motion, useReducedMotion } from "motion/react";
 import { useT } from "../i18n/index.jsx";
 import { useIsAdmin, useLogout, useMe } from "../hooks/useMe.js";
 import LocaleSwitcher from "./LocaleSwitcher.jsx";
+import ThemeToggle from "./ThemeToggle.jsx";
 import NotificationBell from "./NotificationBell.jsx";
+import AuroraBackground from "./AuroraBackground.jsx";
+import TypeAccentVars from "./TypeAccentVars.jsx";
 
 /**
  * Compact exhibition-style header.
@@ -28,6 +32,7 @@ export default function AppShell({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const mainRef = useRef(null);
   const location = useLocation();
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -70,6 +75,8 @@ export default function AppShell({ children }) {
 
   return (
     <div className="min-h-dvh flex flex-col">
+      <AuroraBackground />
+      <TypeAccentVars />
       {/* Skip link — hidden until focused, then jumps the user past the
           nav directly to <main>. Critical for keyboard users on a
           multi-row top bar. The styling is intentionally aggressive
@@ -152,6 +159,8 @@ export default function AppShell({ children }) {
 
             {authed ? <NotificationBell /> : null}
 
+            <ThemeToggle />
+
             <LocaleSwitcher />
 
             {authed ? (
@@ -223,21 +232,89 @@ export default function AppShell({ children }) {
         ) : null}
       </header>
 
-      <main id="fc-main" ref={mainRef} tabIndex={-1} className="flex-1 relative focus:outline-none">
-        {children}
-      </main>
+      {/* Page-enter transition: each route fades + rises in. Keyed by path so
+          it replays on navigation; reduced-motion users get a static main. */}
+      {reduceMotion ? (
+        <main
+          id="fc-main"
+          ref={mainRef}
+          tabIndex={-1}
+          className="flex-1 relative focus:outline-none"
+        >
+          {children}
+        </main>
+      ) : (
+        <motion.main
+          id="fc-main"
+          key={location.pathname}
+          ref={mainRef}
+          tabIndex={-1}
+          className="flex-1 relative focus:outline-none"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {children}
+        </motion.main>
+      )}
 
-      <footer className="mt-20 border-t border-[var(--color-or)]/10 py-8">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-3 text-[10px] uppercase tracking-[0.28em] text-[var(--color-ivoire-soft)]/60">
+      <footer className="mt-20 border-t border-[var(--color-or)]/20 py-8">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-[11px] uppercase tracking-[0.28em] text-[var(--color-ivoire-soft)]/80">
           <p className="flex items-center gap-3">
-            <span aria-hidden className="ja text-[var(--color-or)]/60 text-base leading-none">
+            <span aria-hidden className="ja text-[var(--color-or)]/70 text-base leading-none">
               像
             </span>
             FigureCollector ·{" "}
-            <span className="font-mono normal-case tracking-wide">v0.12.1</span>
+            <span className="font-mono normal-case tracking-wide">{t("app.phase")}</span>
           </p>
-          <p className="display-italic normal-case text-[12px] tracking-normal text-[var(--color-or-pale)]/70">
-            {t("app.tagline_en")}
+          <nav
+            aria-label={t("footer.links")}
+            className="flex items-center gap-2 text-[var(--color-or-pale)]/85"
+          >
+            <a
+              href="https://dim145.github.io/FigureCollector/"
+              target="_blank"
+              rel="noopener noreferrer"
+              title={t("footer.docs")}
+              aria-label={t("footer.docs")}
+              className="grid place-items-center p-2 hover:text-[var(--color-or)] focus-visible:text-[var(--color-or)] transition-colors"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+              </svg>
+            </a>
+            <a
+              href="https://github.com/Dim145/FigureCollector"
+              target="_blank"
+              rel="noopener noreferrer"
+              title="GitHub"
+              aria-label="GitHub"
+              className="grid place-items-center p-2 hover:text-[var(--color-or)] focus-visible:text-[var(--color-or)] transition-colors"
+            >
+              <svg
+                viewBox="0 0 16 16"
+                width="18"
+                height="18"
+                fill="currentColor"
+                aria-hidden
+              >
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+              </svg>
+            </a>
+          </nav>
+          <p className="display-italic normal-case text-[12px] tracking-normal text-[var(--color-or-pale)]/80">
+            {t("app.tagline")}
           </p>
         </div>
       </footer>
@@ -306,6 +383,7 @@ function UserMenu({ user, items, onSignOut, t }) {
         onClick={() => setOpen((x) => !x)}
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label={user?.display_name ?? user?.username ?? "Menu"}
         title={user?.display_name ?? user?.username ?? ""}
         className={`w-8 h-8 grid place-items-center border transition-colors leading-none ${
           open
@@ -324,7 +402,7 @@ function UserMenu({ user, items, onSignOut, t }) {
             "--i": 0,
             "--delay": "0ms",
             boxShadow:
-              "0 30px 80px -30px rgba(0,0,0,0.85), inset 0 1px 0 oklch(0.92 0.03 75 / 0.06)",
+              "0 30px 80px -30px rgba(0,0,0,0.85), inset 0 1px 0 color-mix(in oklab, var(--color-ivoire) 6%, transparent)",
           }}
         >
           <header className="px-4 py-3 border-b border-[var(--color-or)]/15">

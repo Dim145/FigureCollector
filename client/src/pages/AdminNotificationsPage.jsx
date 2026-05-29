@@ -18,58 +18,45 @@ import ConfirmDialog from "../components/ConfirmDialog.jsx";
  * flip it on.
  */
 
+// Channel structure only — display strings (name/body, field labels/hints)
+// live in i18n under `admin.notif.ch.<type>.*` and `admin.notif.f.<type>.<key>.*`.
+// `hint: true` marks fields that have a `.hint` translation to render.
 const CHANNEL_META = {
   browser_push: {
     kanji: "鈴",
-    label: "Browser (Web Push)",
-    body: "VAPID-signed Web Push to subscribed browsers + devices.",
     fields: [
-      { key: "vapid_public_key", label: "VAPID public key", type: "text",
-        hint: "Base64url ECDSA P-256 public key the SPA passes to pushManager.subscribe." },
-      { key: "vapid_private_key", label: "VAPID private key (PEM)", type: "textarea",
-        hint: "PEM-encoded EC private key. Generate with web-push-cli or any VAPID generator." },
-      { key: "vapid_subject", label: "VAPID subject", type: "text",
-        hint: "mailto:admin@your-domain or https://your-domain — required by push services." },
+      { key: "vapid_public_key", type: "text", hint: true },
+      { key: "vapid_private_key", type: "textarea", hint: true },
+      { key: "vapid_subject", type: "text", hint: true },
     ],
   },
   email: {
     kanji: "封",
-    label: "Email (SMTP)",
-    body: "Outbound email via the SMTP server credentials below.",
     fields: [
-      { key: "host", label: "SMTP host", type: "text" },
-      { key: "port", label: "Port", type: "number", default: 587 },
-      { key: "use_tls", label: "Use TLS (port 465)", type: "bool" },
-      { key: "username", label: "Username (optional)", type: "text" },
-      { key: "password", label: "Password / app password", type: "password" },
-      { key: "from", label: "From address", type: "text",
-        hint: 'e.g. "FigureCollector <noreply@your-domain>".' },
+      { key: "host", type: "text" },
+      { key: "port", type: "number", default: 587 },
+      { key: "use_tls", type: "bool" },
+      { key: "username", type: "text" },
+      { key: "password", type: "password" },
+      { key: "from", type: "text", hint: true },
     ],
   },
   ntfy: {
     kanji: "報",
-    label: "ntfy",
-    body: "ntfy.sh or self-hosted instance.",
     fields: [
-      { key: "server_url", label: "Server URL", type: "text", default: "https://ntfy.sh" },
-      { key: "auth_header", label: "Authorization header (optional)", type: "text",
-        hint: 'e.g. "Bearer tk_…" for protected topics.' },
+      { key: "server_url", type: "text", default: "https://ntfy.sh" },
+      { key: "auth_header", type: "text", hint: true },
     ],
   },
   webhook: {
     kanji: "鉤",
-    label: "Webhook",
-    body: "No system config — each user supplies their own URL.",
     fields: [],
   },
   apprise: {
     kanji: "音",
-    label: "Apprise",
-    body: "Apprise sidecar that fans out to 100+ services.",
     fields: [
-      { key: "server_url", label: "Apprise server URL", type: "text",
-        hint: 'e.g. "http://apprise:8000".' },
-      { key: "auth_header", label: "Authorization header (optional)", type: "text" },
+      { key: "server_url", type: "text", hint: true },
+      { key: "auth_header", type: "text" },
     ],
   },
 };
@@ -103,12 +90,7 @@ export default function AdminNotificationsPage() {
 }
 
 function AdminChannelCard({ channel, t }) {
-  const meta = CHANNEL_META[channel.channel_type] ?? {
-    kanji: "?",
-    label: channel.channel_type,
-    body: "",
-    fields: [],
-  };
+  const meta = CHANNEL_META[channel.channel_type] ?? { kanji: "?", fields: [] };
   const update = useAdminUpdateChannel();
   const generateVapid = useGenerateVapid();
   const [config, setConfig] = useState(channel.config ?? {});
@@ -148,7 +130,7 @@ function AdminChannelCard({ channel, t }) {
         setVapidNotice(t("admin.notif.vapid.generated_save"));
       },
       onError: (err) => {
-        setVapidNotice(`✗ ${err?.message ?? "Generation failed"}`);
+        setVapidNotice(`✗ ${err?.message ?? t("admin.notif.vapid.generate_failed")}`);
       },
     });
   };
@@ -188,8 +170,14 @@ function AdminChannelCard({ channel, t }) {
           {meta.kanji}
         </span>
         <div className="notif-channel-title-block">
-          <h3 className="notif-channel-title">{meta.label}</h3>
-          <p className="notif-channel-desc">{meta.body}</p>
+          <h3 className="notif-channel-title">
+            {t(`admin.notif.ch.${channel.channel_type}.name`, {
+              default: channel.channel_type,
+            })}
+          </h3>
+          <p className="notif-channel-desc">
+            {t(`admin.notif.ch.${channel.channel_type}.body`, { default: "" })}
+          </p>
         </div>
         <span className="notif-channel-state">
           {channel.enabled
@@ -218,7 +206,7 @@ function AdminChannelCard({ channel, t }) {
               >
                 {generateVapid.isPending
                   ? t("admin.notif.vapid.generating")
-                  : `🔑 ${t("admin.notif.vapid.generate")}`}
+                  : <><span aria-hidden>🔑</span> {t("admin.notif.vapid.generate")}</>}
               </button>
               <p className="notif-vapid-hint">
                 {t("admin.notif.vapid.hint")}
@@ -233,6 +221,8 @@ function AdminChannelCard({ channel, t }) {
               <ConfigField
                 key={f.key}
                 field={f}
+                channelType={channel.channel_type}
+                t={t}
                 value={config[f.key]}
                 onChange={(v) => onChange(f.key, v)}
               />
@@ -267,26 +257,30 @@ function AdminChannelCard({ channel, t }) {
   );
 }
 
-function ConfigField({ field, value, onChange }) {
+function ConfigField({ field, channelType, value, onChange, t }) {
+  const label = t(`admin.notif.f.${channelType}.${field.key}.label`, {
+    default: field.key,
+  });
+  const hint = field.hint
+    ? t(`admin.notif.f.${channelType}.${field.key}.hint`)
+    : null;
   if (field.type === "bool") {
     return (
-      <label className="notif-channel-field" style={{ flexDirection: "row", alignItems: "center", gap: "0.85rem" }}>
+      <label className="notif-channel-field flex-row items-center gap-3">
         <input
           type="checkbox"
           checked={!!value}
           onChange={(e) => onChange(e.target.checked)}
         />
-        <span className="notif-channel-field-label" style={{ flex: 1 }}>
-          {field.label}
-        </span>
+        <span className="notif-channel-field-label flex-1">{label}</span>
       </label>
     );
   }
   if (field.type === "textarea") {
     return (
       <label className="notif-channel-field">
-        <span className="notif-channel-field-label">{field.label}</span>
-        {field.hint ? <span className="notif-channel-field-hint">{field.hint}</span> : null}
+        <span className="notif-channel-field-label">{label}</span>
+        {hint ? <span className="notif-channel-field-hint">{hint}</span> : null}
         <textarea
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value)}
@@ -298,8 +292,8 @@ function ConfigField({ field, value, onChange }) {
   }
   return (
     <label className="notif-channel-field">
-      <span className="notif-channel-field-label">{field.label}</span>
-      {field.hint ? <span className="notif-channel-field-hint">{field.hint}</span> : null}
+      <span className="notif-channel-field-label">{label}</span>
+      {hint ? <span className="notif-channel-field-hint">{hint}</span> : null}
       <input
         type={field.type}
         value={value ?? field.default ?? ""}

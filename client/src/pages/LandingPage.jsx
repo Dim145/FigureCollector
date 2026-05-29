@@ -44,6 +44,16 @@ export default function LandingPage() {
       {/* ──────────────────────────── HERO ──────────────────────────── */}
       <section className="relative min-h-[100dvh] grid place-items-center px-6 pt-24 pb-32">
         <Halo intensity={0.22} />
+        {/* Chromatic hero wash — saturated accent blooms behind the wordmark,
+            on top of the Halo + global aurora. Theme-aware via accent vars. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{
+            background:
+              "radial-gradient(38% 42% at 30% 38%, color-mix(in oklab, var(--color-indigo) 24%, transparent), transparent 70%), radial-gradient(34% 38% at 72% 60%, color-mix(in oklab, var(--color-neon-magenta) 18%, transparent), transparent 72%), radial-gradient(30% 34% at 55% 28%, color-mix(in oklab, var(--color-jade) 16%, transparent), transparent 74%)",
+          }}
+        />
 
         {/* Kanji watermark — 飾 "decorate / ornament" */}
         <span
@@ -92,7 +102,7 @@ export default function LandingPage() {
             style={{ "--i": 6 }}
           >
             {authed ? (
-              <AuthedActions t={t} userName={user.display_name} />
+              <AuthedActions t={t} userName={user?.display_name} />
             ) : (
               <>
                 <Link to="/login">
@@ -204,18 +214,21 @@ export default function LandingPage() {
             <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
               <Feature
                 kanji="蒐"
+                accent="var(--color-jade)"
                 label={t("landing.feat.collect.label")}
                 title={t("landing.feat.collect.title")}
                 body={t("landing.feat.collect.body")}
               />
               <Feature
                 kanji="期"
+                accent="var(--color-neon-amber)"
                 label={t("landing.feat.track.label")}
                 title={t("landing.feat.track.title")}
                 body={t("landing.feat.track.body")}
               />
               <Feature
                 kanji="覧"
+                accent="var(--color-indigo)"
                 label={t("landing.feat.share.label")}
                 title={t("landing.feat.share.title")}
                 body={t("landing.feat.share.body")}
@@ -272,20 +285,42 @@ function AuthedActions({ t, userName }) {
   );
 }
 
-function Feature({ kanji, label, title, body }) {
+function Feature({ kanji, label, title, body, accent = "var(--color-or)" }) {
+  // Each feature carries its own accent — a top spotlight bar, a hue-tinted
+  // kanji + rule, and an accent bloom on hover. Inline styles only.
   return (
-    <li className="relative spotlight glass shimmer magnetic frame-corners p-7 overflow-hidden">
+    <li
+      className="feature-card relative spotlight glass shimmer magnetic frame-corners p-7 overflow-hidden transition-transform duration-500"
+      style={{ "--accent": accent }}
+    >
       <span
         aria-hidden
-        className="ja text-[7rem] text-[var(--color-or)]/12 absolute -top-6 -right-2 leading-none select-none"
+        className="absolute top-0 left-0 right-0 h-[2px]"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent, var(--accent) 30%, var(--accent) 70%, transparent)",
+        }}
+      />
+      <span
+        aria-hidden
+        className="ja text-[7rem] absolute -top-6 -right-2 leading-none select-none"
+        style={{ color: "color-mix(in oklab, var(--accent) 22%, transparent)" }}
       >
         {kanji}
       </span>
-      <p className="label-mono relative">{label}</p>
+      <p className="label-mono relative" style={{ color: "var(--accent)" }}>
+        {label}
+      </p>
       <h3 className="display-tight text-3xl mt-3 text-[var(--color-ivoire)] relative">
         {title}
       </h3>
-      <div className="gold-rule w-12 my-5" />
+      <div
+        className="w-12 my-5 h-px"
+        style={{
+          background:
+            "linear-gradient(90deg, var(--accent), color-mix(in oklab, var(--accent) 15%, transparent))",
+        }}
+      />
       <p className="text-sm text-[var(--color-ivoire-soft)] leading-relaxed relative">
         {body}
       </p>

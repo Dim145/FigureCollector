@@ -6,6 +6,7 @@ import AppShell from "../components/AppShell.jsx";
 import Card from "../components/Card.jsx";
 import FigureCard from "../components/FigureCard.jsx";
 import Button from "../components/Button.jsx";
+import Reveal from "../components/motion/Reveal.jsx";
 
 export default function PublicProfilePage() {
   const { slug } = useParams();
@@ -32,42 +33,68 @@ export default function PublicProfilePage() {
 
   return (
     <AppShell>
-      <main className="max-w-6xl mx-auto px-6 py-12">
-        <header className="text-center mb-12">
-          <p className="micro">
-            {t("profile.member_since", { date: new Date(user.member_since).toLocaleDateString() })}
-          </p>
-          <h1 className="display text-5xl mt-2 text-[var(--color-ivoire)]">
-            {t("profile.public_title", { name: user.display_name })}
-          </h1>
-          <p className="ja text-base mt-2 text-[var(--color-or-pale)] tracking-[0.3em]">
-            @{user.username}
-          </p>
-          <div className="gold-rule mx-auto w-32 mt-6" />
+      <main className="relative max-w-6xl mx-auto px-6 py-12 sm:py-16">
+        {/* Localized hero colour-wash — a welcoming, gallery-like glow over the
+            global aurora. Jade + gold + a magenta accent, low alpha, theme-aware
+            via accent vars. Breathes gently (GPU opacity/scale) unless reduced. */}
+        <HeroWash />
 
-          <dl className="mt-8 flex justify-center gap-12">
-            <Stat label={t("profile.stat_pieces")} value={stats.pieces} />
-            <Stat label={t("profile.stat_series")} value={stats.series_count} />
-            <Stat label={t("profile.stat_manufacturers")} value={stats.manufacturers_count} />
-          </dl>
+        {/* ─── Hero ─── */}
+        <header className="relative mb-12 text-center">
+          <span
+            aria-hidden
+            className="kanji-mark text-[20rem] sm:text-[26rem] -top-24 sm:-top-32 left-1/2 -translate-x-1/2 select-none"
+          >
+            蒐
+          </span>
+
+          <Reveal as="div" className="relative" y={20}>
+            <p className="micro">
+              {t("profile.member_since", { date: new Date(user.member_since).toLocaleDateString() })}
+            </p>
+            <h1 className="display text-4xl sm:text-5xl md:text-6xl mt-2 text-[var(--color-ivoire)] leading-[0.98]">
+              {t("profile.public_title", { name: user.display_name })}
+            </h1>
+            <p
+              className="ja text-base mt-3 tracking-[0.3em]"
+              style={{
+                color: "var(--color-or-pale)",
+                textShadow:
+                  "0 0 24px color-mix(in oklab, var(--color-or) 45%, transparent)",
+              }}
+            >
+              @{user.username}
+            </p>
+            <div className="gold-rule mx-auto w-32 mt-6" />
+          </Reveal>
+
+          <Reveal as="dl" delay={0.08} y={18} className="relative mt-8 flex justify-center gap-8 sm:gap-12">
+            <Stat label={t("profile.stat_pieces")} value={stats.pieces} accent="var(--color-or)" />
+            <Stat label={t("profile.stat_series")} value={stats.series_count} accent="var(--color-jade)" />
+            <Stat
+              label={t("profile.stat_manufacturers")}
+              value={stats.manufacturers_count}
+              accent="var(--color-neon-magenta)"
+            />
+          </Reveal>
 
           {!isSelf ? (
-            <div className="mt-8 flex justify-center gap-3">
+            <Reveal as="div" delay={0.14} y={16} className="relative mt-8 flex justify-center gap-3">
               <Link to={`/compare/${user.username}`}>
                 <Button variant="ghost">{t("compare.title", { name: user.display_name })}</Button>
               </Link>
-            </div>
+            </Reveal>
           ) : null}
         </header>
 
         {collection.length === 0 ? (
-          <p className="text-center text-[var(--color-ivoire-soft)] py-12">
+          <p className="relative text-center text-[var(--color-ivoire-soft)] py-12">
             {t("collection.empty.title")}
           </p>
         ) : (
-          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {collection.map((entry) => (
-              <li key={entry.owned_id}>
+          <ul className="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {collection.map((entry, i) => (
+              <Reveal as="li" key={entry.owned_id} delay={Math.min(i, 7) * 0.05} y={24}>
                 <FigureCard
                   figureId={entry.figure_id}
                   href={`/figures/${entry.figure_id}`}
@@ -78,7 +105,7 @@ export default function PublicProfilePage() {
                   scale={entry.scale}
                   versionName={entry.version_name}
                 />
-              </li>
+              </Reveal>
             ))}
           </ul>
         )}
@@ -87,15 +114,69 @@ export default function PublicProfilePage() {
   );
 }
 
-function Stat({ label, value }) {
+/** color-mix helper — keep accent translucency in oklab, theme-var safe. */
+function mix(accentVar, pct) {
+  return `color-mix(in oklab, ${accentVar} ${pct}%, transparent)`;
+}
+
+/**
+ * Localized hero colour-wash for the public profile — a warm, gallery-like
+ * trio of radial gradients pinned behind the header. Self-contained inline
+ * styles (no shared CSS). Static under prefers-reduced-motion; otherwise a
+ * slow GPU-only opacity/scale breathe.
+ */
+function HeroWash() {
+  // Static glow — no breathe (ambient motion removed for GPU). Edges feathered
+  // so the gradients fade instead of hard-cutting at the content column.
+  const wrap = {
+    position: "absolute",
+    top: "-3rem",
+    left: "-3rem",
+    right: "-3rem",
+    height: "52vh",
+    pointerEvents: "none",
+    zIndex: 0,
+    WebkitMaskImage:
+      "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
+    maskImage:
+      "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
+  };
+  const base = { position: "absolute", inset: 0 };
+  const layerA = {
+    background: `radial-gradient(52% 68% at 22% 4%, ${mix("var(--color-jade)", 20)}, transparent 70%)`,
+  };
+  const layerB = {
+    background: `radial-gradient(50% 64% at 84% 0%, ${mix("var(--color-or)", 22)}, transparent 72%)`,
+  };
+  const layerC = {
+    background: `radial-gradient(44% 58% at 56% 34%, ${mix("var(--color-neon-magenta)", 10)}, transparent 75%)`,
+  };
+  return (
+    <div aria-hidden style={wrap}>
+      <span style={{ ...base, ...layerA, opacity: 0.85 }} />
+      <span style={{ ...base, ...layerB, opacity: 0.85 }} />
+      <span style={{ ...base, ...layerC, opacity: 0.85 }} />
+    </div>
+  );
+}
+
+function Stat({ label, value, accent = "var(--color-or)" }) {
   return (
     <div className="text-center">
-      <p className="display text-4xl text-[var(--color-or)]">{value}</p>
+      <p
+        className="display text-3xl sm:text-4xl"
+        style={{
+          color: accent,
+          textShadow: `0 0 28px ${`color-mix(in oklab, ${accent} 38%, transparent)`}`,
+        }}
+      >
+        {value}
+      </p>
       <p className="micro mt-1">{label}</p>
     </div>
   );
 }
 
 function Loading() {
-  return <main className="max-w-md mx-auto px-6 py-16 text-center text-[var(--color-ivoire-soft)]">…</main>;
+  return <div className="max-w-md mx-auto px-6 py-16 text-center text-[var(--color-ivoire-soft)]">…</div>;
 }

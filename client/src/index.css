@@ -18,30 +18,269 @@
  * ============================================================================ */
 
 @theme {
-  /* Type families */
+  /* Type families
+   * Display stays the Cormorant serif (the soul); UI body swaps Inter for
+   * Hanken Grotesk — a modern humanist grotesque with real character at
+   * small sizes and a full 100–900 weight range (keeps the refined thin
+   * weights). Inter remains in the fallback stack. */
   --font-display: "Cormorant Garamond", "Times New Roman", Georgia, serif;
-  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "Hanken Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-ja: "Noto Serif JP", "Yu Mincho", "MS PMincho", serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
 
-  /* Vitrine palette (OKLCH for predictable hue rotations & alpha mixing) */
-  --color-noir: oklch(0.14 0.005 50);            /* #08070a — body bg, slightly deeper */
-  --color-noir-soft: oklch(0.19 0.008 50);       /* #14110f — cards */
-  --color-noir-deep: oklch(0.10 0.004 50);       /* #050404 — wells, hero bg */
-  --color-laque: oklch(0.42 0.16 25);            /* #8c1e1e — accent red */
-  --color-laque-bright: oklch(0.55 0.20 25);     /* #c0252a — hover red */
-  --color-or: oklch(0.78 0.10 80);               /* #c9a85c — gold lines */
-  --color-or-pale: oklch(0.88 0.06 80);          /* #e8d09a — gold text */
-  --color-or-deep: oklch(0.60 0.10 80);          /* #957836 — gold shadow */
-  --color-ivoire: oklch(0.92 0.03 75);           /* #ece1c8 — primary text */
-  /* Soft variant for secondary copy. Was 0.65 alpha; bumped to 0.8 to
-     ensure WCAG-AA contrast on small caps labels (10-11 px) when the
-     consumer compounds an additional /70 or /80 opacity on top. */
-  --color-ivoire-soft: oklch(0.92 0.03 75 / 0.8);
+  /* ── Core palette (dark default). These are OVERRIDDEN per-theme below by
+   *    `[data-theme="light"]`; everything that reads `var(--color-*)` flips
+   *    automatically. OKLCH for predictable hue rotations & alpha mixing. */
+  --color-noir: oklch(0.14 0.005 50);            /* body bg */
+  --color-noir-soft: oklch(0.19 0.008 50);       /* cards */
+  --color-noir-deep: oklch(0.10 0.004 50);       /* wells, hero bg */
+  --color-laque: oklch(0.42 0.16 25);            /* accent red */
+  --color-laque-bright: oklch(0.55 0.20 25);     /* hover red */
+  --color-or: oklch(0.78 0.10 80);               /* gold lines */
+  --color-or-pale: oklch(0.88 0.06 80);          /* gold text */
+  --color-or-deep: oklch(0.60 0.10 80);          /* gold shadow */
+  --color-ivoire: oklch(0.92 0.03 75);           /* primary text */
+  --color-ivoire-soft: oklch(0.92 0.03 75 / 0.8); /* secondary text */
+
+  /* ── Expanded accents (the "plus de couleurs"). Jade + indigo join the
+   *    gold/laque pair; the néon trio is for electric energy (active
+   *    states, glows, focus, progress). Tuned to read on both themes. */
+  --color-jade: oklch(0.72 0.13 175);            /* céladon / teal */
+  --color-jade-deep: oklch(0.55 0.12 175);
+  --color-indigo: oklch(0.58 0.15 275);          /* nuit / periwinkle */
+  --color-indigo-bright: oklch(0.66 0.17 272);
+  --color-neon-cyan: oklch(0.82 0.16 195);
+  --color-neon-magenta: oklch(0.72 0.25 350);
+  --color-neon-amber: oklch(0.83 0.17 78);
 
   /* Motion tokens — easings biased towards quietly-confident */
   --ease-curtain: cubic-bezier(0.22, 1, 0.36, 1);   /* expo-out, theatrical */
   --ease-quick:   cubic-bezier(0.4, 0, 0.2, 1);     /* material */
+  --ease-spring:  cubic-bezier(0.34, 1.56, 0.64, 1);/* overshoot, playful */
+}
+
+/* ============================================================================
+ * THEMING — dark is the default (emitted by @theme above on :root). The
+ * light theme overrides the same custom properties so every `var(--color-*)`
+ * consumer (utilities + arbitrary values + JSX) flips with no code change.
+ *
+ * `data-theme` is set on <html> at boot by main.jsx (localStorage →
+ * prefers-color-scheme) and toggled by the useTheme hook. We avoid an inline
+ * <script> (the prod CSP forbids inline JS) — the very first paint is the
+ * empty #root, so there's no flash of mis-themed *content*.
+ * ============================================================================ */
+
+:root {
+  color-scheme: dark;
+  /* Atmosphere accents that differ subtly per theme. */
+  --glow-strength: 0.5;
+  --grain-opacity: 0.04;
+
+  /* ── Per-type signature hues (dark default). Kept in a PLAIN :root, NOT in
+   *    @theme — they're consumed via runtime `var(--type-<slug>)` (lib/typeHue
+   *    .js), which Tailwind's scanner can't see, so @theme would tree-shake the
+   *    "unused" ones and they'd silently fall back to gold. Plain custom
+   *    properties are always emitted. Admin overrides land on the SEPARATE
+   *    `--type-accent-<slug>` (see TypeAccentVars), so these base values stay
+   *    pristine — the admin colour picker reads them to reset to the true
+   *    default. The `[data-theme="light"]` block below deepens them for light. */
+  --type-nendoroid: oklch(0.74 0.16 350);        /* sakura */
+  --type-scale: oklch(0.72 0.13 175);            /* jade */
+  --type-figma: oklch(0.72 0.15 230);            /* azure */
+  --type-prize: oklch(0.80 0.15 75);             /* amber */
+  --type-trading: oklch(0.64 0.19 300);          /* violet */
+  --type-statue: oklch(0.68 0.13 50);            /* bronze */
+  --type-plamo: oklch(0.72 0.18 45);             /* orange */
+  --type-bishoujo: oklch(0.68 0.21 360);         /* rose */
+  --type-dakimakura: oklch(0.62 0.16 275);       /* indigo */
+  --type-other: oklch(0.78 0.10 80);             /* gold */
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* Surfaces → warm porcelain / washi paper, layered light→lighter. */
+  --color-noir: oklch(0.965 0.008 85);           /* page bg */
+  --color-noir-soft: oklch(0.995 0.004 85);      /* cards (elevated, near-white) */
+  --color-noir-deep: oklch(0.93 0.012 80);       /* wells / hero recesses */
+
+  /* Ink → warm near-black, soft for secondary copy. */
+  --color-ivoire: oklch(0.26 0.02 55);
+  --color-ivoire-soft: oklch(0.40 0.02 55 / 0.86);
+
+  /* Gold must deepen to stay legible on light surfaces. */
+  --color-or: oklch(0.58 0.12 72);
+  --color-or-pale: oklch(0.50 0.12 70);
+  --color-or-deep: oklch(0.42 0.10 68);
+
+  /* Lacquer reads a touch deeper on light. */
+  --color-laque: oklch(0.50 0.19 25);
+  --color-laque-bright: oklch(0.56 0.21 25);
+
+  /* Accents deepen slightly for contrast on light. */
+  --color-jade: oklch(0.55 0.13 175);
+  --color-indigo: oklch(0.50 0.16 275);
+  --color-neon-cyan: oklch(0.62 0.15 210);
+  --color-neon-magenta: oklch(0.58 0.24 350);
+  --color-neon-amber: oklch(0.66 0.16 70);
+
+  /* Type hues deepen for legibility on light surfaces. */
+  --type-nendoroid: oklch(0.58 0.18 350);
+  --type-scale: oklch(0.52 0.13 175);
+  --type-figma: oklch(0.55 0.16 230);
+  --type-prize: oklch(0.62 0.15 70);
+  --type-trading: oklch(0.52 0.19 300);
+  --type-statue: oklch(0.52 0.13 50);
+  --type-plamo: oklch(0.58 0.18 45);
+  --type-bishoujo: oklch(0.56 0.21 360);
+  --type-dakimakura: oklch(0.50 0.16 275);
+  --type-other: oklch(0.56 0.11 78);
+
+  --glow-strength: 0.32;
+  --grain-opacity: 0.02;
+}
+
+/* Light-theme atmosphere — the dark body halos are tuned for OLED black; on
+   porcelain we swap to faint coloured washes (gold + jade + indigo) and a
+   dark grain instead of the ivory one (which vanishes on light). Higher
+   specificity (`[data-theme] body`) wins over the base `body` rule below
+   regardless of source order. */
+[data-theme="light"] body {
+  background-image:
+    radial-gradient(70% 60% at 28% 22%, oklch(0.58 0.12 72 / 0.10), transparent 62%),
+    radial-gradient(55% 55% at 82% 85%, oklch(0.55 0.13 175 / 0.08), transparent 68%),
+    radial-gradient(48% 45% at 60% 55%, oklch(0.50 0.16 275 / 0.05), transparent 70%);
+}
+[data-theme="light"] body::before {
+  background-image: radial-gradient(circle at 1px 1px, oklch(0.30 0.02 60 / 0.05) 1px, transparent 0);
+}
+
+/* ============================================================================
+ * Type-hue card — each figure card carries its type's signature colour in a
+ * `--hue` custom property (set inline from lib/typeHue.js). At rest the chrome
+ * stays restrained; on hover/focus the card lifts and bathes in its own
+ * coloured light (border + outer glow + ring). This is the "néo-vitrine"
+ * core idea: every specimen lit by its own spotlight. color-mix keeps one
+ * hue driving every layer; GPU-only transform/opacity for mobile smoothness.
+ * ============================================================================ */
+.fc-card {
+  --hue: var(--color-or);
+  border: 1px solid color-mix(in oklab, var(--hue) 22%, transparent);
+  box-shadow:
+    0 25px 60px -34px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 color-mix(in oklab, var(--color-ivoire) 5%, transparent);
+  transition:
+    border-color 420ms var(--ease-quick),
+    box-shadow 420ms var(--ease-quick),
+    transform 520ms var(--ease-curtain);
+}
+.group\/card:hover .fc-card,
+.fc-card:focus-visible {
+  transform: translateY(-5px);
+  border-color: color-mix(in oklab, var(--hue) 60%, transparent);
+  box-shadow:
+    0 38px 80px -32px color-mix(in oklab, var(--hue) 42%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--hue) 34%, transparent),
+    0 0 36px -8px color-mix(in oklab, var(--hue) 30%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--color-ivoire) 8%, transparent);
+}
+/* The kanji watermark warms to the type hue on hover (was gold). */
+.group\/card:hover .fc-card .fc-kanji {
+  color: color-mix(in oklab, var(--hue) 18%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .fc-card,
+  .group\/card:hover .fc-card {
+    transform: none;
+    transition: border-color 200ms linear, box-shadow 200ms linear;
+  }
+}
+/* Bolder: a faint type-hue wash on the card at rest (colour reads without
+   hover) layered over the noir-soft surface. */
+.fc-card {
+  background-image: radial-gradient(
+    130% 80% at 50% -12%,
+    color-mix(in oklab, var(--hue) 13%, transparent),
+    transparent 58%
+  );
+}
+
+/* ============================================================================
+ * AURORA — atmosphere layer. A fixed field of slowly-drifting accent blobs
+ * behind all content (mounted once in AppShell). The "vive & moderne"
+ * backbone: saturated gold / jade / indigo / néon light that breathes.
+ * GPU-only (transform), heavily blurred; screen-blended on dark (additive
+ * glow), multiply on light (coloured tints). Honours reduced-motion.
+ * ============================================================================ */
+.aurora-bg {
+  position: fixed;
+  inset: -12%;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: var(--aurora-opacity, 0.5);
+  contain: strict;
+}
+[data-theme="light"] .aurora-bg {
+  --aurora-opacity: 0.36;
+}
+/* STATIC colour mesh — intentionally NOT animated, NOT blurred, NOT blended.
+ * The previous aurora drifted four blurred, screen-blended layers every frame,
+ * which pinned the GPU (~30-50% of an M1 Pro for a single tab); even when the
+ * drift was paused, the blend mode forced the fixed layer to re-composite over
+ * the page on every scroll. This is now a plain stack of soft radial-gradient
+ * glows: it rasterises ONCE and rides along as a cached fixed layer, so it
+ * costs ~0 GPU whether idle or scrolling — while keeping the colour. A wide,
+ * soft gradient falloff stands in for the blur. */
+.aurora-blob {
+  position: absolute;
+  width: 62vmax;
+  height: 62vmax;
+  border-radius: 50%;
+}
+.aurora-blob.b1 {
+  top: -16%;
+  left: -12%;
+  background: radial-gradient(circle at 50% 50%, var(--color-or), transparent 70%);
+}
+.aurora-blob.b2 {
+  top: -8%;
+  right: -16%;
+  background: radial-gradient(circle at 50% 50%, var(--color-jade), transparent 72%);
+}
+.aurora-blob.b3 {
+  bottom: -22%;
+  left: 10%;
+  background: radial-gradient(circle at 50% 50%, var(--color-indigo), transparent 72%);
+}
+.aurora-blob.b4 {
+  bottom: -10%;
+  right: 2%;
+  width: 46vmax;
+  height: 46vmax;
+  opacity: 0.7;
+  background: radial-gradient(circle at 50% 50%, var(--color-neon-magenta), transparent 68%);
+}
+@media (max-width: 768px) {
+  .aurora-bg {
+    --aurora-opacity: 0.4;
+  }
+  .aurora-blob.b4 {
+    display: none;
+  }
+}
+
+/* Landing feature cards — accent bloom on hover, in each card's own --accent
+   (set inline). Layers over the existing .glass/.magnetic hover. */
+.feature-card {
+  --accent: var(--color-or);
+  transition: box-shadow 420ms var(--ease-quick), transform 520ms var(--ease-curtain);
+}
+.feature-card:hover {
+  box-shadow:
+    0 34px 74px -34px color-mix(in oklab, var(--accent) 36%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--accent) 30%, transparent),
+    0 0 28px -10px color-mix(in oklab, var(--accent) 26%, transparent);
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -111,16 +350,20 @@ body {
   background: var(--color-noir);
 }
 ::-webkit-scrollbar-thumb {
-  background: oklch(0.78 0.10 80 / 0.25);
+  background: color-mix(in oklab, var(--color-or) 25%, transparent);
   border-radius: 0;
   border: 2px solid var(--color-noir);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.78 0.10 80 / 0.5);
+  background: color-mix(in oklab, var(--color-or) 50%, transparent);
 }
 
 /* Focus ring (keyboard-only). Replaces browser default with a thin gold halo. */
-:focus-visible {
+/* Keyboard focus ring — but NOT on programmatic focus targets (tabindex="-1"),
+   e.g. the <main> / header anchors that route changes focus to for
+   accessibility. Those aren't tabbed-to by the user, so the ring there only
+   painted a stray gold "bar" around the content/header on every page load. */
+:focus-visible:not([tabindex="-1"]) {
   outline: 1px solid var(--color-or);
   outline-offset: 2px;
 }
@@ -209,9 +452,9 @@ kbd {
   font-size: 0.78em;
   letter-spacing: 0.05em;
   padding: 0.12em 0.45em;
-  border: 1px solid oklch(0.78 0.10 80 / 0.35);
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
   color: var(--color-or-pale);
-  background: oklch(0.78 0.10 80 / 0.05);
+  background: color-mix(in oklab, var(--color-or) 5%, transparent);
 }
 
 /* ============================================================================
@@ -273,7 +516,7 @@ kbd {
   background: var(--color-or);
   transform: rotate(45deg);
   flex-shrink: 0;
-  box-shadow: 0 0 12px oklch(0.78 0.10 80 / 0.6);
+  box-shadow: 0 0 12px color-mix(in oklab, var(--color-or) 60%, transparent);
 }
 
 /* ============================================================================
@@ -311,9 +554,9 @@ kbd {
   font-size: 10px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  border: 1px solid oklch(0.78 0.10 80 / 0.35);
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
   color: var(--color-or-pale);
-  background: oklch(0.78 0.10 80 / 0.04);
+  background: color-mix(in oklab, var(--color-or) 4%, transparent);
   white-space: nowrap;
 }
 .chip--solid {
@@ -322,9 +565,9 @@ kbd {
   border-color: var(--color-or);
 }
 .chip--laque {
-  border-color: oklch(0.55 0.20 25 / 0.5);
-  color: oklch(0.85 0.10 25);
-  background: oklch(0.42 0.16 25 / 0.08);
+  border-color: color-mix(in oklab, var(--color-laque-bright) 50%, transparent);
+  color: var(--color-laque-bright);
+  background: color-mix(in oklab, var(--color-laque) 8%, transparent);
 }
 
 /* ============================================================================
@@ -358,7 +601,7 @@ kbd {
     linear-gradient(
       155deg,
       oklch(0.88 0.10 80) 0%,
-      oklch(0.78 0.10 80) 38%,
+      var(--color-or) 38%,
       oklch(0.68 0.09 80) 100%
     );
   border: 1px solid oklch(0.50 0.07 75);
@@ -414,7 +657,7 @@ kbd {
   letter-spacing: 0.30em;
   text-transform: uppercase;
   color: var(--color-ivoire);
-  background: oklch(0.10 0.005 50);
+  background: var(--color-noir-deep);
   border: 1px solid oklch(0.30 0.04 60);
   box-shadow:
     0 8px 14px -6px rgba(0, 0, 0, 0.75),
@@ -427,8 +670,8 @@ kbd {
   background:
     linear-gradient(
       to bottom,
-      oklch(0.55 0.20 25) 0%,
-      oklch(0.42 0.16 25) 60%,
+      var(--color-laque-bright) 0%,
+      var(--color-laque) 60%,
       oklch(0.30 0.13 25) 100%
     );
   box-shadow: inset -1px 0 0 oklch(0.20 0.10 25 / 0.5);
@@ -442,7 +685,7 @@ kbd {
     linear-gradient(
       to bottom,
       oklch(0.88 0.10 80) 0%,
-      oklch(0.78 0.10 80) 60%,
+      var(--color-or) 60%,
       oklch(0.62 0.09 80) 100%
     );
 }
@@ -450,7 +693,7 @@ kbd {
   background:
     linear-gradient(
       to bottom,
-      oklch(0.92 0.03 75) 0%,
+      var(--color-ivoire) 0%,
       oklch(0.78 0.03 75) 100%
     );
 }
@@ -460,7 +703,7 @@ kbd {
   background:
     linear-gradient(
       to bottom,
-      oklch(0.55 0.20 25) 0%,
+      var(--color-laque-bright) 0%,
       oklch(0.40 0.18 25) 60%,
       oklch(0.28 0.14 25) 100%
     );
@@ -500,11 +743,11 @@ kbd {
   flex-shrink: 0;
   min-width: 88px;
   padding: 0.7rem 0.5rem 0.55rem;
-  border: 1px solid oklch(0.78 0.10 80 / 0.18);
+  border: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
   background:
     linear-gradient(180deg,
-      oklch(0.19 0.008 50 / 0.6) 0%,
-      oklch(0.10 0.004 50 / 0.4) 100%);
+      color-mix(in oklab, var(--color-noir-soft) 60%, transparent) 0%,
+      color-mix(in oklab, var(--color-noir-deep) 40%, transparent) 100%);
   color: var(--color-ivoire-soft);
   text-align: center;
   cursor: pointer;
@@ -537,11 +780,11 @@ kbd {
   }
   .tile:hover .tile-kanji {
     opacity: 1;
-    text-shadow: 0 0 14px oklch(0.78 0.10 80 / 0.28);
+    text-shadow: 0 0 14px color-mix(in oklab, var(--color-or) 28%, transparent);
   }
 }
 .tile:focus-visible {
-  outline: 1px dashed oklch(0.78 0.10 80 / 0.7);
+  outline: 1px dashed color-mix(in oklab, var(--color-or) 70%, transparent);
   outline-offset: 3px;
 }
 .tile-kanji {
@@ -572,8 +815,8 @@ kbd {
   letter-spacing: 0.05em;
   text-align: center;
   color: var(--color-or-pale);
-  background: oklch(0.78 0.10 80 / 0.08);
-  border: 1px solid oklch(0.78 0.10 80 / 0.22);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 22%, transparent);
   border-radius: 1px;
   /* Quiet by default so it doesn't compete with the kanji glyph below. */
   opacity: 0.7;
@@ -590,23 +833,23 @@ kbd {
    * selected state. */
   opacity: 1;
   color: var(--color-or);
-  background: oklch(0.78 0.10 80 / 0.2);
-  border-color: oklch(0.78 0.10 80 / 0.6);
+  background: color-mix(in oklab, var(--color-or) 20%, transparent);
+  border-color: color-mix(in oklab, var(--color-or) 60%, transparent);
 }
 .tile.is-active {
   color: var(--color-or);
   background:
     linear-gradient(180deg,
-      oklch(0.78 0.10 80 / 0.14) 0%,
-      oklch(0.78 0.10 80 / 0.05) 100%);
+      color-mix(in oklab, var(--color-or) 14%, transparent) 0%,
+      color-mix(in oklab, var(--color-or) 5%, transparent) 100%);
   border-color: var(--color-or);
   box-shadow:
-    0 12px 24px -10px oklch(0.78 0.10 80 / 0.35),
+    0 12px 24px -10px color-mix(in oklab, var(--color-or) 35%, transparent),
     inset 0 1px 0 oklch(0.92 0.08 80 / 0.2);
 }
 .tile.is-active .tile-kanji {
   opacity: 1;
-  text-shadow: 0 0 18px oklch(0.78 0.10 80 / 0.5);
+  text-shadow: 0 0 18px color-mix(in oklab, var(--color-or) 50%, transparent);
 }
 .tile.is-active::after {
   /* thin foil underline */
@@ -632,9 +875,9 @@ kbd {
   background:
     radial-gradient(
       circle at 30% 18%,
-      oklch(0.20 0.01 60) 0%,
-      oklch(0.10 0.004 50) 50%,
-      oklch(0.06 0.003 50) 100%
+      var(--color-noir-soft) 0%,
+      var(--color-noir-deep) 50%,
+      var(--color-noir-deep) 100%
     );
   overflow: hidden;
   isolation: isolate;
@@ -680,12 +923,12 @@ kbd {
   font-size: 9px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: oklch(0.88 0.06 80 / 0.65);
+  color: color-mix(in oklab, var(--color-or-pale) 65%, transparent);
   background:
     linear-gradient(
       to top,
-      oklch(0.06 0.003 50 / 0.85) 0%,
-      oklch(0.06 0.003 50 / 0.5) 60%,
+      color-mix(in oklab, var(--color-noir-deep) 85%, transparent) 0%,
+      color-mix(in oklab, var(--color-noir-deep) 50%, transparent) 60%,
       transparent 100%
     );
   z-index: 2;
@@ -698,7 +941,7 @@ kbd {
   right: 12%;
   height: 1px;
   background:
-    linear-gradient(90deg, transparent, oklch(0.78 0.10 80 / 0.4), transparent);
+    linear-gradient(90deg, transparent, color-mix(in oklab, var(--color-or) 40%, transparent), transparent);
 }
 
 /* Sort + view toolbar — tiny pill of icons / labels used in the header */
@@ -707,8 +950,8 @@ kbd {
   align-items: center;
   gap: 0.4rem;
   padding: 0.35rem 0.7rem;
-  border: 1px solid oklch(0.78 0.10 80 / 0.25);
-  background: oklch(0.10 0.004 50 / 0.6);
+  border: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
+  background: color-mix(in oklab, var(--color-noir-deep) 60%, transparent);
   font-size: 10px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -748,7 +991,7 @@ kbd {
   align-items: baseline;
   gap: 1.5rem;
   padding: 0.85rem 0;
-  border-bottom: 1px solid oklch(0.78 0.10 80 / 0.12);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 12%, transparent);
 }
 .museum-key {
   font-family: var(--font-sans);
@@ -799,7 +1042,7 @@ kbd {
   transition: opacity 300ms var(--ease-quick);
   background: radial-gradient(
     360px circle at var(--x, 50%) var(--y, 50%),
-    oklch(0.78 0.10 80 / 0.10),
+    color-mix(in oklab, var(--color-or) 10%, transparent),
     transparent 60%
   );
 }
@@ -815,11 +1058,11 @@ kbd {
 }
 .card-lift:hover {
   transform: translateY(-3px);
-  border-color: oklch(0.78 0.10 80 / 0.6);
+  border-color: color-mix(in oklab, var(--color-or) 60%, transparent);
   box-shadow:
     0 30px 80px -30px rgba(0, 0, 0, 0.85),
-    0 0 0 1px oklch(0.78 0.10 80 / 0.20),
-    inset 0 1px 0 oklch(0.92 0.03 75 / 0.08);
+    0 0 0 1px color-mix(in oklab, var(--color-or) 20%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--color-ivoire) 8%, transparent);
 }
 
 /* Photographic vignette — apply on hero photo containers so the figurine
@@ -835,7 +1078,7 @@ kbd {
   background: radial-gradient(
     100% 75% at 50% 60%,
     transparent 55%,
-    oklch(0.10 0.004 50 / 0.55) 100%
+    color-mix(in oklab, var(--color-noir-deep) 55%, transparent) 100%
   );
 }
 
@@ -880,15 +1123,15 @@ kbd {
 }
 
 @keyframes upload-tile-pulse {
-  0%, 100% { border-color: oklch(0.78 0.10 80 / 0.30); }
-  50%      { border-color: oklch(0.78 0.10 80 / 0.65); }
+  0%, 100% { border-color: color-mix(in oklab, var(--color-or) 30%, transparent); }
+  50%      { border-color: color-mix(in oklab, var(--color-or) 65%, transparent); }
 }
 
 .upload-stripes {
   background-image: repeating-linear-gradient(
     135deg,
-    oklch(0.78 0.10 80 / 0.06) 0px,
-    oklch(0.78 0.10 80 / 0.06) 12px,
+    color-mix(in oklab, var(--color-or) 6%, transparent) 0px,
+    color-mix(in oklab, var(--color-or) 6%, transparent) 12px,
     transparent 12px,
     transparent 28px
   );
@@ -945,7 +1188,10 @@ kbd {
   .drift,
   .upload-tile-pulse,
   .upload-stripes,
-  .upload-spin {
+  .upload-spin,
+  .ach-card-foil::before,
+  .ach-card.tier-gold.is-unlocked::before,
+  .horarium-seal.is-imminent::before {
     animation: none !important;
     opacity: 1;
   }
@@ -975,7 +1221,7 @@ select.vitrine-select,
 input.vitrine-input,
 textarea.vitrine-textarea {
   background: var(--color-noir);
-  border: 1px solid oklch(0.78 0.10 80 / 0.30);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
   color: var(--color-ivoire);
   padding: 0.75rem 1rem;
   transition: border-color 200ms var(--ease-quick);
@@ -1006,15 +1252,15 @@ textarea.vitrine-textarea:focus {
   position: relative;
   background: linear-gradient(
     160deg,
-    oklch(0.19 0.008 50 / 0.6),
-    oklch(0.14 0.005 50 / 0.4)
+    color-mix(in oklab, var(--color-noir-soft) 60%, transparent),
+    color-mix(in oklab, var(--color-noir) 40%, transparent)
   );
   backdrop-filter: blur(14px) saturate(1.1);
   -webkit-backdrop-filter: blur(14px) saturate(1.1);
-  border: 1px solid oklch(0.78 0.10 80 / 0.18);
+  border: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
   box-shadow:
     0 20px 60px -30px rgba(0, 0, 0, 0.85),
-    inset 0 1px 0 oklch(0.92 0.03 75 / 0.08);
+    inset 0 1px 0 color-mix(in oklab, var(--color-ivoire) 8%, transparent);
   isolation: isolate;
 }
 .glass::before {
@@ -1024,7 +1270,7 @@ textarea.vitrine-textarea:focus {
   pointer-events: none;
   background: linear-gradient(
     180deg,
-    oklch(0.78 0.10 80 / 0.05) 0%,
+    color-mix(in oklab, var(--color-or) 5%, transparent) 0%,
     transparent 30%
   );
   z-index: -1;
@@ -1032,10 +1278,10 @@ textarea.vitrine-textarea:focus {
 
 /* Even glassier surface for floating UI (popovers, drawers). */
 .glass-strong {
-  background: oklch(0.14 0.005 50 / 0.72);
+  background: color-mix(in oklab, var(--color-noir) 72%, transparent);
   backdrop-filter: blur(22px) saturate(1.2);
   -webkit-backdrop-filter: blur(22px) saturate(1.2);
-  border: 1px solid oklch(0.78 0.10 80 / 0.22);
+  border: 1px solid color-mix(in oklab, var(--color-or) 22%, transparent);
   box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.95);
 }
 
@@ -1089,7 +1335,7 @@ textarea.vitrine-textarea:focus {
   background: linear-gradient(
     115deg,
     transparent 30%,
-    oklch(0.92 0.03 75 / 0.12) 50%,
+    color-mix(in oklab, var(--color-ivoire) 12%, transparent) 50%,
     transparent 70%
   );
   transform: translateX(-130%);
@@ -1236,8 +1482,8 @@ textarea.vitrine-textarea:focus {
   background: linear-gradient(
     to right,
     transparent,
-    oklch(0.78 0.10 80 / 0.5) 30%,
-    oklch(0.78 0.10 80 / 0.5) 70%,
+    color-mix(in oklab, var(--color-or) 50%, transparent) 30%,
+    color-mix(in oklab, var(--color-or) 50%, transparent) 70%,
     transparent
   );
 }
@@ -1252,7 +1498,7 @@ textarea.vitrine-textarea:focus {
 /* ---- Tasteful selection (slightly warmer than the default ::selection) -- */
 
 ::selection {
-  background: oklch(0.78 0.10 80 / 0.85);
+  background: color-mix(in oklab, var(--color-or) 85%, transparent);
   color: var(--color-noir);
 }
 
@@ -1271,7 +1517,7 @@ html {
   transition: filter 250ms var(--ease-quick), color 200ms var(--ease-quick);
 }
 .glow-on-hover:hover {
-  filter: drop-shadow(0 0 12px oklch(0.78 0.10 80 / 0.5));
+  filter: drop-shadow(0 0 12px color-mix(in oklab, var(--color-or) 50%, transparent));
 }
 
 /* ============================================================================
@@ -1320,7 +1566,7 @@ html {
 .chapter-rule-line {
   height: 1px;
   background:
-    linear-gradient(90deg, transparent, oklch(0.78 0.10 80 / 0.5), transparent);
+    linear-gradient(90deg, transparent, color-mix(in oklab, var(--color-or) 50%, transparent), transparent);
 }
 
 /* ─── Massive figural numerals — used for the hero count and the "weight"
@@ -1329,48 +1575,55 @@ html {
 .figural-massive {
   font-family: var(--font-display);
   font-weight: 200;
-  font-variant-numeric: oldstyle-nums tabular-nums;
+  /* Lining figures (not oldstyle) for the hero KPI: it changes value, and
+     oldstyle digits 3/4/5/7/9 carry a descender that overflowed the tight
+     line-height and collided with the satellites grid below ("3" looked
+     broken, "22" didn't — the 2 has no descender). Lining = uniform height,
+     baseline-sitting, no descender → contained for every value. */
+  font-variant-numeric: lining-nums tabular-nums;
   letter-spacing: -0.045em;
   line-height: 0.82;
   font-size: clamp(7rem, 16vw, 14rem);
+  /* Two clipped layers on the SAME element: a diagonal highlight (top) that
+   * sweeps across, over the static embossed gold gradient (bottom). Folding
+   * the shine in here — rather than a duplicate ::after content:attr() — means
+   * there's only ever one set of glyphs, so a live <CountUp> never ghosts
+   * against a stale overlay mid-animation. */
   background:
+    linear-gradient(
+      105deg,
+      transparent 30%,
+      oklch(1 0 0 / 0.22) 47%,
+      transparent 64%
+    ),
     linear-gradient(
       180deg,
       oklch(0.96 0.07 80) 0%,
       oklch(0.82 0.10 80) 40%,
       oklch(0.58 0.09 80) 95%
     );
+  background-size: 300% 100%, 100% 100%;
+  background-position: -100% 0, 0 0;
+  background-repeat: no-repeat;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   text-shadow:
     0 1px 0 oklch(0.40 0.05 75 / 0.4),
-    0 0 30px oklch(0.78 0.10 80 / 0.18);
-  position: relative;
+    0 0 30px color-mix(in oklab, var(--color-or) 18%, transparent);
+  /* PERF: a SINGLE sweep on mount (greets the count-up) rather than an
+   * infinite loop. Animating background-position on a background-clip:text
+   * element repaints the glyphs every frame, so looping it forever kept the
+   * hero number perpetually repainting. One sweep, then it rests on the
+   * static embossed gradient with the highlight parked off-screen. */
+  animation: figural-sweep 2.4s var(--ease-quick) 0.2s 1 both;
 }
-/* Slow shimmer — a thin diagonal highlight sweeps across the digits every 8s. */
-.figural-massive::after {
-  content: attr(data-value);
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(
-      105deg,
-      transparent 30%,
-      oklch(1 0 0 / 0.25) 47%,
-      transparent 64%
-    );
-  background-size: 300% 100%;
-  background-position: -100% 0;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: figural-sweep 9s linear infinite;
-  pointer-events: none;
-}
+/* Only the highlight layer travels; the base gold gradient stays put. The
+   highlight starts and ends off-screen, so the resting state is the clean
+   gradient (no repaint once the single sweep completes). */
 @keyframes figural-sweep {
-  0%   { background-position: -100% 0; }
-  100% { background-position: 200% 0; }
+  0%   { background-position: -100% 0, 0 0; }
+  100% { background-position: 200% 0, 0 0; }
 }
 
 /* ─── Vertical chapter tag — Tracking-out caps running down the side of the
@@ -1383,7 +1636,7 @@ html {
   font-size: 12px;
   letter-spacing: 0.7em;
   text-transform: uppercase;
-  color: oklch(0.78 0.10 80 / 0.7);
+  color: color-mix(in oklab, var(--color-or) 70%, transparent);
   white-space: nowrap;
 }
 
@@ -1405,7 +1658,7 @@ html {
     linear-gradient(
       155deg,
       oklch(0.88 0.10 80) 0%,
-      oklch(0.78 0.10 80) 38%,
+      var(--color-or) 38%,
       oklch(0.68 0.09 80) 100%
     );
   border: 1px solid oklch(0.50 0.07 75);
@@ -1424,7 +1677,7 @@ html {
   align-items: baseline;
   gap: 1.5rem;
   padding: 1.25rem 0;
-  border-bottom: 1px dashed oklch(0.78 0.10 80 / 0.18);
+  border-bottom: 1px dashed color-mix(in oklab, var(--color-or) 18%, transparent);
 }
 .ledger-row:last-child {
   border-bottom: 0;
@@ -1443,7 +1696,7 @@ html {
   font-style: italic;
   font-size: 13px;
   letter-spacing: 0.04em;
-  color: oklch(0.92 0.03 75 / 0.55);
+  color: color-mix(in oklab, var(--color-ivoire) 55%, transparent);
 }
 
 /* ─── Sparkline — tiny SVG inline trend line below the ledger figure. Pure
@@ -1459,7 +1712,7 @@ html {
   stroke-width: 1.2;
   stroke-linecap: round;
   stroke-linejoin: round;
-  filter: drop-shadow(0 1px 2px oklch(0.78 0.10 80 / 0.4));
+  filter: drop-shadow(0 1px 2px color-mix(in oklab, var(--color-or) 40%, transparent));
   stroke-dasharray: 1000;
   stroke-dashoffset: 1000;
   animation: sparkline-draw 1.8s var(--ease-curtain) forwards;
@@ -1468,7 +1721,7 @@ html {
 /* Filled area below the line — hidden until the ledger row is hovered, so
    the resting state stays a clean trend line and the hover adds depth. */
 .sparkline-area {
-  fill: oklch(0.78 0.10 80 / 0.16);
+  fill: color-mix(in oklab, var(--color-or) 16%, transparent);
   stroke: none;
   opacity: 0;
   transition: opacity 0.3s var(--ease-quick);
@@ -1527,11 +1780,11 @@ html {
 .podium-tier {
   position: relative;
   padding: 1.25rem 1rem 1.1rem;
-  border: 1px solid oklch(0.78 0.10 80 / 0.25);
+  border: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
   background:
     linear-gradient(180deg,
-      oklch(0.19 0.008 50) 0%,
-      oklch(0.13 0.005 50) 100%);
+      var(--color-noir-soft) 0%,
+      var(--color-noir) 100%);
   text-align: center;
 }
 .podium-tier--gold {
@@ -1539,9 +1792,9 @@ html {
   background:
     linear-gradient(180deg,
       oklch(0.22 0.012 60) 0%,
-      oklch(0.14 0.006 50) 100%);
+      var(--color-noir) 100%);
   box-shadow:
-    0 18px 40px -20px oklch(0.78 0.10 80 / 0.5),
+    0 18px 40px -20px color-mix(in oklab, var(--color-or) 50%, transparent),
     inset 0 1px 0 oklch(0.92 0.08 80 / 0.18);
 }
 .podium-tier--gold::before {
@@ -1590,8 +1843,8 @@ html {
 .press-strip {
   position: relative;
   padding: 2rem 0 0.5rem;
-  border-top: 1px solid oklch(0.78 0.10 80 / 0.25);
-  border-bottom: 1px solid oklch(0.78 0.10 80 / 0.25);
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
 }
 .press-strip::before {
   content: "";
@@ -1599,9 +1852,9 @@ html {
   inset: 0;
   background:
     linear-gradient(90deg,
-      oklch(0.10 0.004 50 / 0.8),
-      oklch(0.06 0.003 50 / 0.4),
-      oklch(0.10 0.004 50 / 0.8));
+      color-mix(in oklab, var(--color-noir-deep) 80%, transparent),
+      color-mix(in oklab, var(--color-noir-deep) 40%, transparent),
+      color-mix(in oklab, var(--color-noir-deep) 80%, transparent));
   z-index: 0;
 }
 .press-grid {
@@ -1625,13 +1878,13 @@ html {
   background:
     linear-gradient(
       to top,
-      oklch(0.78 0.10 80 / 0.85),
+      color-mix(in oklab, var(--color-or) 85%, transparent),
       oklch(0.92 0.08 80 / 0.55) 70%,
-      oklch(0.78 0.10 80 / 0.25) 100%
+      color-mix(in oklab, var(--color-or) 25%, transparent) 100%
     );
   box-shadow:
     inset 0 1px 0 oklch(0.96 0.06 85 / 0.4),
-    0 -2px 10px oklch(0.78 0.10 80 / 0.15);
+    0 -2px 10px color-mix(in oklab, var(--color-or) 15%, transparent);
   transform-origin: bottom;
   animation: press-rise 900ms var(--ease-curtain) forwards;
   transform: scaleY(0);
@@ -1686,11 +1939,11 @@ html {
   transform: translateY(-50%);
   background: linear-gradient(
     90deg,
-    oklch(0.78 0.10 80 / 0.25),
-    oklch(0.78 0.10 80 / 0.7),
-    oklch(0.78 0.10 80 / 0.25)
+    color-mix(in oklab, var(--color-or) 25%, transparent),
+    color-mix(in oklab, var(--color-or) 70%, transparent),
+    color-mix(in oklab, var(--color-or) 25%, transparent)
   );
-  box-shadow: 0 0 8px oklch(0.78 0.10 80 / 0.3);
+  box-shadow: 0 0 8px color-mix(in oklab, var(--color-or) 30%, transparent);
 }
 /* min / max endpoints */
 .price-scale-end {
@@ -1711,7 +1964,7 @@ html {
   height: 18px;
   transform: translate(-50%, -50%);
   background: var(--color-or);
-  box-shadow: 0 0 8px oklch(0.78 0.10 80 / 0.7);
+  box-shadow: 0 0 8px color-mix(in oklab, var(--color-or) 70%, transparent);
 }
 /* moyenne — a hollow diamond so it stays distinct from the médiane tick
  * even when the two sit on top of each other */
@@ -1770,11 +2023,11 @@ html {
     linear-gradient(
       155deg,
       oklch(0.22 0.013 60) 0%,
-      oklch(0.13 0.006 50) 70%,
-      oklch(0.10 0.004 50) 100%
+      var(--color-noir) 70%,
+      var(--color-noir-deep) 100%
     );
   box-shadow:
-    0 25px 50px -25px oklch(0.78 0.10 80 / 0.35),
+    0 25px 50px -25px color-mix(in oklab, var(--color-or) 35%, transparent),
     inset 0 1px 0 oklch(0.92 0.08 80 / 0.18);
   overflow: hidden;
 }
@@ -1786,7 +2039,7 @@ html {
   font-size: 22rem;
   font-weight: 200;
   line-height: 0.85;
-  color: oklch(0.78 0.10 80 / 0.05);
+  color: color-mix(in oklab, var(--color-or) 5%, transparent);
   top: -2rem;
   right: -3rem;
   pointer-events: none;
@@ -1829,8 +2082,8 @@ html {
   left: 50%;
   transform: translate(-50%, 4px);
   padding: 5px 9px;
-  background: oklch(0.10 0.005 50 / 0.97);
-  border: 1px solid oklch(0.78 0.10 80 / 0.5);
+  background: color-mix(in oklab, var(--color-noir-deep) 97%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 50%, transparent);
   color: var(--color-ivoire);
   font-family: var(--font-mono);
   font-size: 10px;
@@ -1854,7 +2107,7 @@ html {
 .satellite .sat-kanji { transition: transform 0.35s var(--ease-curtain), color 0.35s; }
 .satellite:hover .sat-kanji {
   transform: scale(1.16);
-  color: oklch(0.78 0.10 80 / 0.3);
+  color: color-mix(in oklab, var(--color-or) 30%, transparent);
 }
 .satellite .sat-value {
   display: inline-block;
@@ -1878,7 +2131,7 @@ html {
   border-radius: 2px;
   transition: background-color 0.25s var(--ease-quick);
 }
-.ledger-row:hover { background: oklch(0.78 0.10 80 / 0.045); }
+.ledger-row:hover { background: color-mix(in oklab, var(--color-or) 4.5%, transparent); }
 .ledger-row .brass-tab { transition: transform 0.15s var(--ease-quick), box-shadow 0.15s; }
 .ledger-row:hover .brass-tab {
   transform: translateY(1px);
@@ -1897,7 +2150,7 @@ html {
   border-radius: 2px;
   transition: background-color 0.25s var(--ease-quick);
 }
-.preorder-row:hover { background: oklch(0.78 0.10 80 / 0.05); }
+.preorder-row:hover { background: color-mix(in oklab, var(--color-or) 5%, transparent); }
 .preorder-row .pre-kanji { transition: transform 0.3s var(--ease-curtain), color 0.3s; }
 .preorder-row:hover .pre-kanji {
   transform: scale(1.2);
@@ -1958,12 +2211,12 @@ html {
 }
 .legend-row[data-active="true"] .legend-swatch {
   transform: scale(1.8);
-  box-shadow: 0 0 9px oklch(0.78 0.10 80 / 0.65);
+  box-shadow: 0 0 9px color-mix(in oklab, var(--color-or) 65%, transparent);
 }
 .legend-label { color: var(--color-ivoire); transition: color 0.2s; }
 .legend-row[data-active="true"] .legend-label { color: var(--color-or-pale); }
 .legend-count { color: var(--color-or-pale); }
-.legend-share { color: oklch(0.92 0.03 75 / 0.6); transition: color 0.2s; }
+.legend-share { color: color-mix(in oklab, var(--color-ivoire) 60%, transparent); transition: color 0.2s; }
 .legend-row[data-active="true"] .legend-share { color: var(--color-or); }
 .legend-hint {
   opacity: 0.5;
@@ -1982,20 +2235,20 @@ html {
   transform: translateY(calc(var(--lift, 0px) - 6px));
   border-color: var(--color-or);
   box-shadow:
-    0 22px 46px -22px oklch(0.78 0.10 80 / 0.55),
+    0 22px 46px -22px color-mix(in oklab, var(--color-or) 55%, transparent),
     inset 0 1px 0 oklch(0.92 0.08 80 / 0.2);
 }
 .podium-rank { transition: color 0.3s, text-shadow 0.3s; }
 .podium-tier:hover .podium-rank {
   color: var(--color-or-pale);
-  text-shadow: 0 0 14px oklch(0.78 0.10 80 / 0.5);
+  text-shadow: 0 0 14px color-mix(in oklab, var(--color-or) 50%, transparent);
 }
 .podium-rest {
   cursor: default;
   transition: transform 0.2s var(--ease-quick);
 }
 .podium-rest:hover { transform: translateX(4px); }
-.podium-rest-rank { color: oklch(0.78 0.10 80 / 0.4); transition: color 0.2s; }
+.podium-rest-rank { color: color-mix(in oklab, var(--color-or) 40%, transparent); transition: color 0.2s; }
 .podium-rest:hover .podium-rest-rank { color: var(--color-or); }
 .podium-rest-name { color: var(--color-ivoire-soft); transition: color 0.2s; }
 .podium-rest:hover .podium-rest-name { color: var(--color-ivoire); }
@@ -2010,7 +2263,7 @@ html {
   filter: brightness(1.22) saturate(1.08);
   box-shadow:
     inset 0 1px 0 oklch(0.96 0.06 85 / 0.6),
-    0 0 20px oklch(0.78 0.10 80 / 0.55);
+    0 0 20px color-mix(in oklab, var(--color-or) 55%, transparent);
 }
 .press-count-n {
   display: inline-block;
@@ -2021,7 +2274,7 @@ html {
   color: var(--color-or);
 }
 .press-grid[data-active="true"] .press-col:not([data-hot="true"]) .press-count-n {
-  color: oklch(0.88 0.06 80 / 0.4);
+  color: color-mix(in oklab, var(--color-or-pale) 40%, transparent);
 }
 .press-year { transition: color 0.25s; }
 .press-col[data-hot="true"] .press-year { color: var(--color-or); opacity: 1; }
@@ -2032,7 +2285,7 @@ html {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.32em;
-  color: oklch(0.88 0.06 80 / 0.7);
+  color: color-mix(in oklab, var(--color-or-pale) 70%, transparent);
   transition: color 0.2s, letter-spacing 0.2s;
   min-height: 1.2em;
 }
@@ -2046,7 +2299,7 @@ html {
 .crown-card:hover {
   transform: translateY(-6px);
   box-shadow:
-    0 34px 64px -28px oklch(0.78 0.10 80 / 0.5),
+    0 34px 64px -28px color-mix(in oklab, var(--color-or) 50%, transparent),
     inset 0 1px 0 oklch(0.92 0.08 80 / 0.25);
 }
 .crown-card::after {
@@ -2094,17 +2347,17 @@ html {
 .price-scale-end[data-hot="true"] {
   transform: translate(-50%, -50%) scale(1.7);
   background: var(--color-or);
-  box-shadow: 0 0 0 2px var(--color-noir), 0 0 12px oklch(0.78 0.10 80 / 0.8);
+  box-shadow: 0 0 0 2px var(--color-noir), 0 0 12px color-mix(in oklab, var(--color-or) 80%, transparent);
 }
 .price-scale-median[data-hot="true"] {
   transform: translate(-50%, -50%) scaleX(1.6) scaleY(1.22);
-  box-shadow: 0 0 12px oklch(0.78 0.10 80 / 0.9);
+  box-shadow: 0 0 12px color-mix(in oklab, var(--color-or) 90%, transparent);
 }
 .price-scale-mean[data-hot="true"] {
   transform: translate(-50%, -50%) rotate(45deg) scale(1.35);
   border-color: var(--color-or-pale);
   background: oklch(0.2 0.01 60);
-  box-shadow: 0 0 12px oklch(0.78 0.10 80 / 0.7);
+  box-shadow: 0 0 12px color-mix(in oklab, var(--color-or) 70%, transparent);
 }
 /* enlarge the hit area of the tiny markers */
 .price-scale .ledger-tip::before {
@@ -2164,8 +2417,8 @@ html {
     linear-gradient(
       to bottom,
       transparent,
-      oklch(0.78 0.10 80 / 0.35) 12%,
-      oklch(0.78 0.10 80 / 0.35) 88%,
+      color-mix(in oklab, var(--color-or) 35%, transparent) 12%,
+      color-mix(in oklab, var(--color-or) 35%, transparent) 88%,
       transparent
     );
 }
@@ -2211,7 +2464,7 @@ html {
 .day-strap-rule {
   height: 1px;
   background:
-    linear-gradient(90deg, oklch(0.78 0.10 80 / 0.55), transparent);
+    linear-gradient(90deg, color-mix(in oklab, var(--color-or) 55%, transparent), transparent);
 }
 .day-strap-count {
   font-family: var(--font-mono);
@@ -2231,7 +2484,7 @@ html {
   grid-template-columns: 56px 1fr;
   gap: 1.1rem;
   padding: 0.95rem 0;
-  border-bottom: 1px dashed oklch(0.78 0.10 80 / 0.15);
+  border-bottom: 1px dashed color-mix(in oklab, var(--color-or) 15%, transparent);
 }
 .entry:last-child {
   border-bottom: 0;
@@ -2258,7 +2511,7 @@ html {
     linear-gradient(
       155deg,
       oklch(0.88 0.10 80) 0%,
-      oklch(0.78 0.10 80) 38%,
+      var(--color-or) 38%,
       oklch(0.68 0.09 80) 100%
     );
   border: 1px solid oklch(0.50 0.07 75);
@@ -2290,12 +2543,12 @@ html {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: oklch(0.78 0.10 80);
+  background: var(--color-or);
   box-shadow: 0 0 0 1px oklch(0.16 0.01 60 / 0.3);
 }
 .entry-glyph--positive::before { background: oklch(0.88 0.10 80); }
-.entry-glyph--negative::before { background: oklch(0.55 0.20 25); }
-.entry-glyph--neutral::before  { background: oklch(0.92 0.03 75); }
+.entry-glyph--negative::before { background: var(--color-laque-bright); }
+.entry-glyph--neutral::before  { background: var(--color-ivoire); }
 
 /* Body — the typeset entry line + below it any annotations (paper tape,
  * status pills). A pseudo-element draws a thin gold "underline" that
@@ -2339,7 +2592,7 @@ html {
   font-size: 10px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: oklch(0.92 0.03 75 / 0.45);
+  color: color-mix(in oklab, var(--color-ivoire) 45%, transparent);
 }
 
 /* Paper tape — pinned over the entry when a preorder slip happens. A
@@ -2382,7 +2635,7 @@ html {
   background:
     radial-gradient(
       circle at 30% 30%,
-      oklch(0.78 0.10 80),
+      var(--color-or),
       oklch(0.42 0.06 75)
     );
   box-shadow: 0 0 0 0.5px oklch(0.20 0.02 50 / 0.4);
@@ -2413,11 +2666,11 @@ html {
   font-size: 9.5px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  border: 1px solid oklch(0.78 0.10 80 / 0.35);
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
   color: var(--color-or-pale);
 }
 .status-arrow-pill--to {
-  background: oklch(0.78 0.10 80 / 0.12);
+  background: color-mix(in oklab, var(--color-or) 12%, transparent);
   border-color: var(--color-or);
   color: var(--color-or);
 }
@@ -2435,7 +2688,7 @@ html {
   right: 0;
   width: 48px;
   height: 48px;
-  border: 1px solid oklch(0.78 0.10 80 / 0.25);
+  border: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
   background: var(--color-noir-deep);
   overflow: hidden;
   opacity: 0;
@@ -2473,16 +2726,16 @@ html {
   background:
     radial-gradient(
       circle at 35% 30%,
-      oklch(0.42 0.16 25),
+      var(--color-laque),
       oklch(0.30 0.12 25)
     );
-  border: 2px solid oklch(0.78 0.10 80);
-  color: oklch(0.92 0.03 75);
+  border: 2px solid var(--color-or);
+  color: var(--color-ivoire);
   font-family: var(--font-ja);
   font-size: 38px;
   box-shadow:
     inset 0 2px 8px oklch(0.20 0.10 25 / 0.55),
-    0 14px 30px -10px oklch(0.42 0.16 25 / 0.5);
+    0 14px 30px -10px color-mix(in oklab, var(--color-laque) 50%, transparent);
   transform: rotate(-6deg);
   position: relative;
 }
@@ -2490,7 +2743,7 @@ html {
   content: "";
   position: absolute;
   inset: 5px;
-  border: 1px solid oklch(0.78 0.10 80 / 0.7);
+  border: 1px solid color-mix(in oklab, var(--color-or) 70%, transparent);
   border-radius: 50%;
 }
 
@@ -2512,8 +2765,8 @@ html {
   align-items: baseline;
   gap: 0.5rem 0.7rem;
   padding: 0.5rem 0.85rem 0.55rem;
-  border: 1px solid oklch(0.78 0.10 80 / 0.45);
-  background: oklch(0.10 0.004 50 / 0.7);
+  border: 1px solid color-mix(in oklab, var(--color-or) 45%, transparent);
+  background: color-mix(in oklab, var(--color-noir-deep) 70%, transparent);
   position: relative;
 }
 .fig-lot::before {
@@ -2525,7 +2778,7 @@ html {
   right: 12%;
   height: 3px;
   background:
-    radial-gradient(circle, oklch(0.10 0.004 50 / 0.7) 1px, transparent 1.5px) 0 0 / 6px 3px;
+    radial-gradient(circle, color-mix(in oklab, var(--color-noir-deep) 70%, transparent) 1px, transparent 1.5px) 0 0 / 6px 3px;
 }
 .fig-lot-label {
   font-family: var(--font-mono);
@@ -2587,8 +2840,8 @@ html {
 .fig-actions {
   display: inline-flex;
   align-items: stretch;
-  border: 1px solid oklch(0.78 0.10 80 / 0.25);
-  background: oklch(0.10 0.004 50 / 0.7);
+  border: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
+  background: color-mix(in oklab, var(--color-noir-deep) 70%, transparent);
   backdrop-filter: blur(8px);
 }
 .fig-actions > button,
@@ -2601,7 +2854,7 @@ html {
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--color-or-pale);
-  border-left: 1px solid oklch(0.78 0.10 80 / 0.15);
+  border-left: 1px solid color-mix(in oklab, var(--color-or) 15%, transparent);
   cursor: pointer;
   transition: color 200ms var(--ease-quick), background 200ms var(--ease-quick);
 }
@@ -2612,14 +2865,14 @@ html {
 .fig-actions > button:hover,
 .fig-actions > a:hover {
   color: var(--color-or);
-  background: oklch(0.78 0.10 80 / 0.08);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
 }
 .fig-actions .danger {
   color: oklch(0.85 0.10 25 / 0.75);
 }
 .fig-actions .danger:hover {
   color: oklch(0.95 0.15 25);
-  background: oklch(0.55 0.20 25 / 0.12);
+  background: color-mix(in oklab, var(--color-laque-bright) 12%, transparent);
 }
 .fig-actions-icon {
   font-size: 13px;
@@ -2632,11 +2885,11 @@ html {
  *     terse key/value pairs with the museum-row treatment but tighter. */
 .fig-cartouche {
   position: relative;
-  border: 1px solid oklch(0.78 0.10 80 / 0.22);
+  border: 1px solid color-mix(in oklab, var(--color-or) 22%, transparent);
   background:
     linear-gradient(180deg,
-      oklch(0.19 0.008 50 / 0.45) 0%,
-      oklch(0.13 0.005 50 / 0.55) 100%);
+      color-mix(in oklab, var(--color-noir-soft) 45%, transparent) 0%,
+      color-mix(in oklab, var(--color-noir) 55%, transparent) 100%);
   padding: 0;
 }
 
@@ -2646,7 +2899,7 @@ html {
   padding: 1.6rem 1.75rem;
 }
 .fig-cartouche-block + .fig-cartouche-block {
-  border-top: 1px solid oklch(0.78 0.10 80 / 0.18);
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
 }
 /* Tighten the horizontal padding on narrow viewports — 1.75rem inside an
  * already-padded parent leaves too little real estate for spec values. */
@@ -2681,11 +2934,11 @@ html {
   flex: 1;
   height: 1px;
   background:
-    linear-gradient(90deg, oklch(0.78 0.10 80 / 0.5), transparent);
+    linear-gradient(90deg, color-mix(in oklab, var(--color-or) 50%, transparent), transparent);
 }
 .fig-cartouche-tabs {
   display: flex;
-  border-bottom: 1px solid oklch(0.78 0.10 80 / 0.22);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 22%, transparent);
 }
 .fig-cartouche-tab {
   flex: 1;
@@ -2695,13 +2948,13 @@ html {
   font-size: 12.5px;
   letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: oklch(0.92 0.03 75 / 0.55);
+  color: color-mix(in oklab, var(--color-ivoire) 55%, transparent);
   text-align: center;
   background: transparent;
   cursor: pointer;
   position: relative;
   transition: color 250ms var(--ease-quick);
-  border-right: 1px solid oklch(0.78 0.10 80 / 0.15);
+  border-right: 1px solid color-mix(in oklab, var(--color-or) 15%, transparent);
 }
 .fig-cartouche-tab:last-child {
   border-right: 0;
@@ -2749,7 +3002,7 @@ html {
   gap: 1.5rem;
   align-items: baseline;
   padding: 0.85rem 0;
-  border-bottom: 1px dashed oklch(0.78 0.10 80 / 0.14);
+  border-bottom: 1px dashed color-mix(in oklab, var(--color-or) 14%, transparent);
 }
 .fig-spec:last-child {
   border-bottom: 0;
@@ -2768,7 +3021,7 @@ html {
   font-size: 9.5px;
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: oklch(0.92 0.03 75 / 0.55);
+  color: color-mix(in oklab, var(--color-ivoire) 55%, transparent);
 }
 .fig-spec-value {
   font-family: var(--font-display);
@@ -2784,7 +3037,7 @@ html {
 .fig-spec-value a {
   color: var(--color-or-pale);
   text-decoration-line: underline;
-  text-decoration-color: oklch(0.78 0.10 80 / 0.3);
+  text-decoration-color: color-mix(in oklab, var(--color-or) 30%, transparent);
   text-decoration-thickness: 1px;
   text-underline-offset: 4px;
   transition: color 200ms var(--ease-quick), text-decoration-color 200ms var(--ease-quick);
@@ -2794,7 +3047,7 @@ html {
   text-decoration-color: var(--color-or);
 }
 .fig-spec-empty {
-  color: oklch(0.92 0.03 75 / 0.25);
+  color: color-mix(in oklab, var(--color-ivoire) 25%, transparent);
   font-style: italic;
 }
 
@@ -2805,7 +3058,7 @@ html {
   position: relative;
   margin-top: 4rem;
   padding-top: 3rem;
-  border-top: 1px solid oklch(0.78 0.10 80 / 0.2);
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 20%, transparent);
 }
 .fig-owner-shell::before {
   /* center fleuron at the top of the border line */
@@ -2824,7 +3077,7 @@ html {
   gap: 0.25rem;
   overflow-x: auto;
   scrollbar-width: none;
-  border-bottom: 1px solid oklch(0.78 0.10 80 / 0.18);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
   margin-bottom: 2rem;
 }
 .fig-owner-tabs::-webkit-scrollbar { display: none; }
@@ -2836,7 +3089,7 @@ html {
   font-size: 13px;
   letter-spacing: 0.32em;
   text-transform: uppercase;
-  color: oklch(0.92 0.03 75 / 0.55);
+  color: color-mix(in oklab, var(--color-ivoire) 55%, transparent);
   background: transparent;
   cursor: pointer;
   border-bottom: 2px solid transparent;
@@ -2875,12 +3128,12 @@ html {
   font-family: var(--font-mono);
   font-size: 9px;
   letter-spacing: 0.05em;
-  background: oklch(0.78 0.10 80 / 0.18);
-  border: 1px solid oklch(0.78 0.10 80 / 0.5);
+  background: color-mix(in oklab, var(--color-or) 18%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 50%, transparent);
   color: var(--color-or-pale);
 }
 .fig-owner-tab.is-active .fig-owner-tab-badge {
-  background: oklch(0.78 0.10 80 / 0.35);
+  background: color-mix(in oklab, var(--color-or) 35%, transparent);
   color: var(--color-or);
 }
 
@@ -2892,14 +3145,14 @@ html {
   z-index: 50;
   display: grid;
   place-items: center;
-  background: oklch(0.10 0.004 50 / 0.85);
+  background: color-mix(in oklab, var(--color-noir-deep) 85%, transparent);
   backdrop-filter: blur(6px);
   padding: 1rem;
   animation: fig-pop-in 220ms var(--ease-curtain);
 }
 .fig-pop-card {
   background: var(--color-noir-soft);
-  border: 1px solid oklch(0.78 0.10 80 / 0.4);
+  border: 1px solid color-mix(in oklab, var(--color-or) 40%, transparent);
   width: 95vw;
   max-width: 28rem;
   padding: 1.75rem;
@@ -2923,13 +3176,13 @@ html {
   padding: 0.6rem;
 }
 .fig-barcode rect {
-  fill: oklch(0.12 0.005 50);
+  fill: var(--color-noir);
 }
 .fig-barcode text {
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.18em;
-  fill: oklch(0.12 0.005 50);
+  fill: var(--color-noir);
 }
 
 /* ─── Quiet section header — used between the hero and the cartouche, and
@@ -2953,7 +3206,7 @@ html {
 .fig-section-rule-line {
   height: 1px;
   background:
-    linear-gradient(90deg, oklch(0.78 0.10 80 / 0.45), transparent);
+    linear-gradient(90deg, color-mix(in oklab, var(--color-or) 45%, transparent), transparent);
 }
 
 /* ============================================================================
@@ -2983,8 +3236,8 @@ html {
   background:
     linear-gradient(90deg,
       transparent,
-      oklch(0.78 0.10 80 / 0.35) 35%,
-      oklch(0.78 0.10 80 / 0.35) 65%,
+      color-mix(in oklab, var(--color-or) 35%, transparent) 35%,
+      color-mix(in oklab, var(--color-or) 35%, transparent) 65%,
       transparent);
 }
 .fig-owner-block:first-of-type::before {
@@ -3057,8 +3310,8 @@ html {
   background:
     linear-gradient(90deg,
       transparent,
-      oklch(0.78 0.10 80 / 0.3) 35%,
-      oklch(0.78 0.10 80 / 0.3) 65%,
+      color-mix(in oklab, var(--color-or) 30%, transparent) 35%,
+      color-mix(in oklab, var(--color-or) 30%, transparent) 65%,
       transparent);
 }
 
@@ -3086,7 +3339,7 @@ html {
   opacity: 0.92;
 }
 .foldable-header:focus-visible {
-  outline: 1px dashed oklch(0.78 0.10 80 / 0.6);
+  outline: 1px dashed color-mix(in oklab, var(--color-or) 60%, transparent);
   outline-offset: 6px;
 }
 
@@ -3104,7 +3357,7 @@ html {
 }
 .foldable-rule {
   height: 1px;
-  background: linear-gradient(90deg, oklch(0.78 0.10 80 / 0.45), transparent);
+  background: linear-gradient(90deg, color-mix(in oklab, var(--color-or) 45%, transparent), transparent);
 }
 .foldable-toggle {
   display: inline-flex;
@@ -3214,7 +3467,7 @@ html {
 }
 .foldable--minor .foldable-rule {
   /* Owner blocks keep a hairline but it's quieter than the major's. */
-  background: linear-gradient(90deg, oklch(0.78 0.10 80 / 0.25), transparent);
+  background: linear-gradient(90deg, color-mix(in oklab, var(--color-or) 25%, transparent), transparent);
 }
 
 /* ─── PriceWithBreakdown popover — on narrow viewports anchor it as a
@@ -3231,7 +3484,7 @@ html {
     /* Slightly stronger shadow since it floats over the whole page rather
      * than tethering to the trigger. */
     box-shadow:
-      0 0 0 1px oklch(0.10 0.004 50 / 0.6),
+      0 0 0 1px color-mix(in oklab, var(--color-noir-deep) 60%, transparent),
       0 -8px 30px -6px rgba(0, 0, 0, 0.85),
       0 -2px 8px -2px rgba(0, 0, 0, 0.7),
       inset 0 1px 0 oklch(0.92 0.08 80 / 0.18) !important;
@@ -3279,7 +3532,7 @@ html {
   font-family: var(--font-ja);
   font-size: clamp(14rem, 22vw, 22rem);
   line-height: 1;
-  color: oklch(0.78 0.10 80 / 0.045);
+  color: color-mix(in oklab, var(--color-or) 4.5%, transparent);
   pointer-events: none;
   user-select: none;
   letter-spacing: 0;
@@ -3321,16 +3574,16 @@ html {
   /* The 1px gap is filled by the parent's dark color showing through, so
    * the three lozenges read as a single continuous frieze with hairline
    * dividers. */
-  background: oklch(0.78 0.10 80 / 0.18);
-  border: 1px solid oklch(0.78 0.10 80 / 0.18);
+  background: color-mix(in oklab, var(--color-or) 18%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
   margin-bottom: 3rem;
 }
 .horarium-stat {
   padding: 1.4rem 1.2rem 1.3rem;
   background:
     linear-gradient(180deg,
-      oklch(0.16 0.006 50 / 0.85) 0%,
-      oklch(0.10 0.004 50 / 0.95) 100%);
+      color-mix(in oklab, var(--color-noir-soft) 85%, transparent) 0%,
+      color-mix(in oklab, var(--color-noir-deep) 95%, transparent) 100%);
   text-align: center;
 }
 .horarium-stat-label {
@@ -3353,7 +3606,7 @@ html {
   letter-spacing: -0.01em;
 }
 .horarium-stat-value.is-muted {
-  color: oklch(0.92 0.03 75 / 0.4);
+  color: color-mix(in oklab, var(--color-ivoire) 40%, transparent);
   font-style: italic;
   font-size: clamp(0.85rem, 1.6vw, 1rem);
   letter-spacing: 0.05em;
@@ -3387,8 +3640,8 @@ html {
   letter-spacing: 0.28em;
   text-transform: uppercase;
   color: var(--color-ivoire-soft);
-  background: oklch(0.14 0.005 50 / 0.6);
-  border: 1px solid oklch(0.78 0.10 80 / 0.18);
+  background: color-mix(in oklab, var(--color-noir) 60%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
   cursor: pointer;
   transition: color 220ms var(--ease-quick), background 220ms var(--ease-quick);
 }
@@ -3412,7 +3665,7 @@ html {
 @media (hover: hover) {
   .horarium-filter-chip:hover {
     color: var(--color-or-pale);
-    background: oklch(0.18 0.008 50 / 0.7);
+    background: color-mix(in oklab, var(--color-noir-soft) 70%, transparent);
   }
   .horarium-filter-chip:hover .horarium-filter-chip-kanji {
     opacity: 1;
@@ -3422,8 +3675,8 @@ html {
   color: var(--color-or);
   background:
     linear-gradient(180deg,
-      oklch(0.78 0.10 80 / 0.14) 0%,
-      oklch(0.78 0.10 80 / 0.05) 100%);
+      color-mix(in oklab, var(--color-or) 14%, transparent) 0%,
+      color-mix(in oklab, var(--color-or) 5%, transparent) 100%);
   border-color: var(--color-or);
 }
 .horarium-filter-chip.is-active .horarium-filter-chip-kanji {
@@ -3451,9 +3704,9 @@ html {
   background:
     linear-gradient(180deg,
       transparent 0%,
-      oklch(0.78 0.10 80 / 0.45) 8%,
-      oklch(0.78 0.10 80 / 0.35) 50%,
-      oklch(0.78 0.10 80 / 0.45) 92%,
+      color-mix(in oklab, var(--color-or) 45%, transparent) 8%,
+      color-mix(in oklab, var(--color-or) 35%, transparent) 50%,
+      color-mix(in oklab, var(--color-or) 45%, transparent) 92%,
       transparent 100%);
 }
 @media (max-width: 640px) {
@@ -3488,7 +3741,7 @@ html {
   font-size: 18px;
   color: var(--color-or);
   background: var(--color-noir);
-  border: 1px solid oklch(0.78 0.10 80 / 0.45);
+  border: 1px solid color-mix(in oklab, var(--color-or) 45%, transparent);
   border-radius: 50%;
   line-height: 1;
 }
@@ -3525,14 +3778,14 @@ html {
   padding: 1.5rem 1.5rem 1.25rem 1.5rem;
   background:
     linear-gradient(180deg,
-      oklch(0.17 0.006 50 / 0.7) 0%,
-      oklch(0.11 0.004 50 / 0.85) 100%);
-  border: 1px solid oklch(0.78 0.10 80 / 0.16);
+      color-mix(in oklab, var(--color-noir-soft) 70%, transparent) 0%,
+      color-mix(in oklab, var(--color-noir-deep) 85%, transparent) 100%);
+  border: 1px solid color-mix(in oklab, var(--color-or) 16%, transparent);
   transition: border-color 250ms var(--ease-quick), transform 280ms var(--ease-curtain);
 }
 @media (hover: hover) {
   .horarium-entry:hover {
-    border-color: oklch(0.78 0.10 80 / 0.35);
+    border-color: color-mix(in oklab, var(--color-or) 35%, transparent);
     transform: translateX(2px);
   }
 }
@@ -3546,7 +3799,7 @@ html {
   width: 2.2rem;
   height: 1px;
   background:
-    linear-gradient(90deg, transparent, oklch(0.78 0.10 80 / 0.45) 30%);
+    linear-gradient(90deg, transparent, color-mix(in oklab, var(--color-or) 45%, transparent) 30%);
   pointer-events: none;
 }
 @media (max-width: 640px) {
@@ -3573,16 +3826,16 @@ html {
 .horarium-entry.is-received {
   background:
     linear-gradient(180deg,
-      oklch(0.78 0.10 80 / 0.10) 0%,
-      oklch(0.78 0.10 80 / 0.03) 100%);
-  border-color: oklch(0.78 0.10 80 / 0.45);
+      color-mix(in oklab, var(--color-or) 10%, transparent) 0%,
+      color-mix(in oklab, var(--color-or) 3%, transparent) 100%);
+  border-color: color-mix(in oklab, var(--color-or) 45%, transparent);
 }
 
 /* Variant — imminent (releasing within 14 days) gets a brighter glow */
 .horarium-entry.is-imminent {
   box-shadow:
-    0 0 0 1px oklch(0.78 0.10 80 / 0.15),
-    0 12px 30px -16px oklch(0.78 0.10 80 / 0.55);
+    0 0 0 1px color-mix(in oklab, var(--color-or) 15%, transparent),
+    0 12px 30px -16px color-mix(in oklab, var(--color-or) 55%, transparent);
 }
 
 .horarium-entry-head {
@@ -3605,8 +3858,8 @@ html {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  border: 1.5px solid oklch(0.78 0.10 80 / 0.35);
-  background: oklch(0.14 0.005 50 / 0.85);
+  border: 1.5px solid color-mix(in oklab, var(--color-or) 35%, transparent);
+  background: color-mix(in oklab, var(--color-noir) 85%, transparent);
   font-family: var(--font-ja);
   font-size: 22px;
   line-height: 1;
@@ -3623,7 +3876,7 @@ html {
   position: absolute;
   inset: 4px;
   border-radius: 50%;
-  border: 1px dashed oklch(0.78 0.10 80 / 0.18);
+  border: 1px dashed color-mix(in oklab, var(--color-or) 18%, transparent);
   pointer-events: none;
 }
 .horarium-seal.is-received {
@@ -3632,7 +3885,7 @@ html {
   color: var(--color-noir);
   border-color: var(--color-or);
   box-shadow:
-    0 0 14px oklch(0.78 0.10 80 / 0.55),
+    0 0 14px color-mix(in oklab, var(--color-or) 55%, transparent),
     inset 0 1px 0 oklch(0.92 0.08 80 / 0.5);
 }
 .horarium-seal.is-received::after {
@@ -3646,22 +3899,27 @@ html {
 .horarium-seal.is-cancelled {
   border-color: oklch(0.55 0.18 25 / 0.55);
   color: oklch(0.85 0.10 25 / 0.75);
-  background: oklch(0.14 0.005 50 / 0.85);
+  background: color-mix(in oklab, var(--color-noir) 85%, transparent);
 }
 .horarium-seal.is-cancelled::after {
   border-color: oklch(0.55 0.18 25 / 0.25);
 }
-.horarium-seal.is-imminent {
-  /* pulsing glow for items releasing within 14 days */
+.horarium-seal.is-imminent::before {
+  /* Pulsing glow for items releasing within 14 days. A pseudo with a STATIC
+   * box-shadow whose OPACITY animates (compositor-only) — the old version
+   * animated box-shadow itself, repainting every frame. */
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  box-shadow: 0 0 18px 2px color-mix(in oklab, var(--color-or) 35%, transparent);
+  opacity: 0;
+  pointer-events: none;
   animation: horarium-seal-pulse 2.4s ease-in-out infinite;
 }
 @keyframes horarium-seal-pulse {
-  0%, 100% {
-    box-shadow: 0 0 0 0 oklch(0.78 0.10 80 / 0.0);
-  }
-  50% {
-    box-shadow: 0 0 18px 2px oklch(0.78 0.10 80 / 0.35);
-  }
+  0%, 100% { opacity: 0; }
+  50%      { opacity: 1; }
 }
 
 /* ─── Entry body ─── */
@@ -3729,24 +3987,24 @@ a.horarium-entry-title:hover {
   text-transform: uppercase;
   color: var(--color-or);
   padding: 0.25rem 0.55rem;
-  background: oklch(0.78 0.10 80 / 0.08);
-  border: 1px solid oklch(0.78 0.10 80 / 0.3);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
   border-radius: 1px;
 }
 .horarium-countdown.is-imminent {
   color: var(--color-or);
-  background: oklch(0.78 0.10 80 / 0.18);
+  background: color-mix(in oklab, var(--color-or) 18%, transparent);
   border-color: var(--color-or);
 }
 .horarium-countdown.is-past {
   color: var(--color-or-pale);
   background: transparent;
-  border-color: oklch(0.78 0.10 80 / 0.2);
+  border-color: color-mix(in oklab, var(--color-or) 20%, transparent);
   opacity: 0.75;
 }
 .horarium-countdown.is-tbc {
-  color: oklch(0.92 0.03 75 / 0.55);
-  border-color: oklch(0.92 0.03 75 / 0.18);
+  color: color-mix(in oklab, var(--color-ivoire) 55%, transparent);
+  border-color: color-mix(in oklab, var(--color-ivoire) 18%, transparent);
   background: transparent;
   font-style: italic;
   letter-spacing: 0.15em;
@@ -3770,7 +4028,7 @@ a.horarium-entry-title:hover {
   color: oklch(0.85 0.10 25 / 0.85);
 }
 .horarium-entry-slip.is-zero {
-  color: oklch(0.78 0.10 80 / 0.6);
+  color: color-mix(in oklab, var(--color-or) 60%, transparent);
 }
 
 /* ─── Entry footer — meta line, tracking chip, edit action ─── */
@@ -3781,7 +4039,7 @@ a.horarium-entry-title:hover {
   align-items: baseline;
   margin-top: 1.15rem;
   padding-top: 1rem;
-  border-top: 1px dashed oklch(0.78 0.10 80 / 0.18);
+  border-top: 1px dashed color-mix(in oklab, var(--color-or) 18%, transparent);
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.18em;
@@ -3790,7 +4048,7 @@ a.horarium-entry-title:hover {
   opacity: 0.85;
 }
 .horarium-entry-meta-key {
-  color: oklch(0.92 0.03 75 / 0.5);
+  color: color-mix(in oklab, var(--color-ivoire) 50%, transparent);
   margin-right: 0.45rem;
 }
 .horarium-entry-meta-value {
@@ -3819,7 +4077,7 @@ a.horarium-entry-title:hover {
   text-transform: uppercase;
   color: var(--color-or-pale);
   background: transparent;
-  border: 1px solid oklch(0.78 0.10 80 / 0.3);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
   padding: 0.5rem 0.9rem;
   cursor: pointer;
   transition: color 220ms var(--ease-quick), border-color 220ms var(--ease-quick);
@@ -3836,7 +4094,7 @@ a.horarium-entry-title:hover {
   margin: 4rem auto;
   text-align: center;
   padding: 3.5rem 2rem;
-  border: 1px dashed oklch(0.78 0.10 80 / 0.3);
+  border: 1px dashed color-mix(in oklab, var(--color-or) 30%, transparent);
 }
 .horarium-empty::before {
   content: "予";
@@ -3867,7 +4125,7 @@ a.horarium-entry-title:hover {
 .horarium-entry-form {
   margin-top: 1.25rem;
   padding-top: 1.25rem;
-  border-top: 1px solid oklch(0.78 0.10 80 / 0.2);
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 20%, transparent);
 }
 
 /* ─── Status label — sits under the seal, names the status in plain
@@ -3913,7 +4171,7 @@ a.horarium-entry-title:hover {
 .horarium-history {
   margin-top: 1.25rem;
   padding-top: 1.25rem;
-  border-top: 1px solid oklch(0.78 0.10 80 / 0.2);
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 20%, transparent);
 }
 .horarium-history-heading {
   display: flex;
@@ -3943,7 +4201,7 @@ a.horarium-entry-title:hover {
 .horarium-history-item {
   position: relative;
   padding: 0.85rem 0 0.85rem 1.7rem;
-  border-bottom: 1px dashed oklch(0.78 0.10 80 / 0.14);
+  border-bottom: 1px dashed color-mix(in oklab, var(--color-or) 14%, transparent);
 }
 .horarium-history-item:last-child {
   border-bottom: 0;
@@ -3985,7 +4243,7 @@ a.horarium-entry-title:hover {
   color: var(--color-ivoire-soft);
 }
 .horarium-history-note.is-empty {
-  color: oklch(0.92 0.03 75 / 0.4);
+  color: color-mix(in oklab, var(--color-ivoire) 40%, transparent);
   font-size: 0.82rem;
 }
 .horarium-history-note-actions {
@@ -3999,7 +4257,7 @@ a.horarium-entry-title:hover {
   color: var(--color-or-pale);
   background: transparent;
   border: 0;
-  border-bottom: 1px dotted oklch(0.78 0.10 80 / 0.4);
+  border-bottom: 1px dotted color-mix(in oklab, var(--color-or) 40%, transparent);
   padding: 0.15rem 0;
   cursor: pointer;
   transition: color 220ms var(--ease-quick), border-color 220ms var(--ease-quick);
@@ -4017,7 +4275,7 @@ a.horarium-entry-title:hover {
 .horarium-history-input {
   width: 100%;
   background: var(--color-noir);
-  border: 1px solid oklch(0.78 0.10 80 / 0.3);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
   padding: 0.55rem 0.7rem;
   font-family: var(--font-sans);
   font-size: 0.85rem;
@@ -4045,12 +4303,12 @@ a.horarium-entry-title:hover {
   transition: all 220ms var(--ease-quick);
 }
 .horarium-history-form-btn.is-cancel {
-  color: oklch(0.92 0.03 75 / 0.55);
-  border-color: oklch(0.92 0.03 75 / 0.25);
+  color: color-mix(in oklab, var(--color-ivoire) 55%, transparent);
+  border-color: color-mix(in oklab, var(--color-ivoire) 25%, transparent);
 }
 .horarium-history-form-btn.is-cancel:hover {
   color: var(--color-ivoire);
-  border-color: oklch(0.92 0.03 75 / 0.5);
+  border-color: color-mix(in oklab, var(--color-ivoire) 50%, transparent);
 }
 .horarium-history-form-btn.is-save {
   color: var(--color-or);
@@ -4087,7 +4345,7 @@ a.horarium-entry-title:hover {
   --ach-laque: oklch(0.55 0.21 25);
   --ach-laque-soft: oklch(0.55 0.21 25 / 0.18);
   --ach-collection-tone: var(--color-or);
-  --ach-collection-soft: oklch(0.78 0.10 80 / 0.18);
+  --ach-collection-soft: color-mix(in oklab, var(--color-or) 18%, transparent);
   --ach-preorder-tone: oklch(0.7 0.17 25);
   --ach-preorder-soft: oklch(0.7 0.17 25 / 0.18);
   --ach-curator-tone: var(--ach-jade);
@@ -4126,7 +4384,7 @@ a.horarium-entry-title:hover {
   font-family: var(--font-ja);
   font-size: 22rem;
   line-height: 1;
-  color: oklch(0.78 0.10 80 / 0.035);
+  color: color-mix(in oklab, var(--color-or) 3.5%, transparent);
   pointer-events: none;
   user-select: none;
   z-index: 0;
@@ -4146,7 +4404,7 @@ a.horarium-entry-title:hover {
 }
 .ach-hero-ring-track {
   fill: none;
-  stroke: oklch(0.78 0.10 80 / 0.15);
+  stroke: color-mix(in oklab, var(--color-or) 15%, transparent);
   stroke-width: 4;
 }
 .ach-hero-ring-fill {
@@ -4156,7 +4414,7 @@ a.horarium-entry-title:hover {
   stroke-linecap: round;
   /* Animated reveal — runs once on mount */
   animation: ach-ring-fill 1600ms var(--ease-curtain) both;
-  filter: drop-shadow(0 0 8px oklch(0.78 0.10 80 / 0.45));
+  filter: drop-shadow(0 0 8px color-mix(in oklab, var(--color-or) 45%, transparent));
 }
 @keyframes ach-ring-fill {
   from { stroke-dasharray: 0 999; }
@@ -4246,11 +4504,11 @@ a.horarium-entry-title:hover {
   flex-shrink: 0;
   width: 14rem;
   padding: 1rem 1rem 0.85rem;
-  border: 1px solid oklch(0.78 0.10 80 / 0.25);
+  border: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
   background:
     linear-gradient(180deg,
-      oklch(0.16 0.006 50 / 0.85) 0%,
-      oklch(0.10 0.004 50 / 0.95) 100%);
+      color-mix(in oklab, var(--color-noir-soft) 85%, transparent) 0%,
+      color-mix(in oklab, var(--color-noir-deep) 95%, transparent) 100%);
   display: flex;
   align-items: center;
   gap: 0.85rem;
@@ -4427,9 +4685,9 @@ a.horarium-entry-title:hover {
   padding: 1.25rem 1rem 1.1rem;
   background:
     linear-gradient(180deg,
-      oklch(0.14 0.005 50 / 0.9) 0%,
-      oklch(0.10 0.004 50 / 0.95) 100%);
-  border: 1px solid oklch(0.78 0.10 80 / 0.12);
+      color-mix(in oklab, var(--color-noir) 90%, transparent) 0%,
+      color-mix(in oklab, var(--color-noir-deep) 95%, transparent) 100%);
+  border: 1px solid color-mix(in oklab, var(--color-or) 12%, transparent);
   cursor: default;
   transform-style: preserve-3d;
   transform: perspective(900px) rotateX(0) rotateY(0);
@@ -4458,7 +4716,7 @@ a.horarium-entry-title:hover {
   inset: 0;
   background: radial-gradient(
     180px circle at var(--spotlight-x) var(--spotlight-y),
-    oklch(0.78 0.10 80 / 0.18),
+    color-mix(in oklab, var(--color-or) 18%, transparent),
     transparent 60%
   );
   opacity: 0;
@@ -4472,15 +4730,15 @@ a.horarium-entry-title:hover {
 .ach-card.is-unlocked {
   border-color: var(--ach-tone, var(--color-or));
   box-shadow:
-    0 0 0 1px oklch(0.10 0.004 50 / 0.6),
-    0 25px 50px -25px var(--ach-tone-soft, oklch(0.78 0.10 80 / 0.4));
+    0 0 0 1px color-mix(in oklab, var(--color-noir-deep) 60%, transparent),
+    0 25px 50px -25px var(--ach-tone-soft, color-mix(in oklab, var(--color-or) 40%, transparent));
 }
 @media (hover: hover) {
   .ach-card.is-unlocked:hover {
     transform: perspective(900px) rotateY(4deg) rotateX(-3deg) translateY(-4px);
     box-shadow:
       0 0 0 1px var(--ach-tone, var(--color-or)),
-      0 30px 65px -20px var(--ach-tone-soft, oklch(0.78 0.10 80 / 0.6));
+      0 30px 65px -20px var(--ach-tone-soft, color-mix(in oklab, var(--color-or) 60%, transparent));
   }
 }
 
@@ -4495,7 +4753,7 @@ a.horarium-entry-title:hover {
   .ach-card.is-locked:hover {
     opacity: 1;
     transform: perspective(900px) translateY(-2px);
-    border-color: oklch(0.78 0.10 80 / 0.3);
+    border-color: color-mix(in oklab, var(--color-or) 30%, transparent);
   }
 }
 
@@ -4508,8 +4766,8 @@ a.horarium-entry-title:hover {
   overflow: hidden;
   background:
     radial-gradient(circle at 30% 30%,
-      oklch(0.20 0.008 50 / 0.9) 0%,
-      oklch(0.08 0.003 50 / 0.95) 100%);
+      color-mix(in oklab, var(--color-noir-soft) 90%, transparent) 0%,
+      color-mix(in oklab, var(--color-noir-deep) 95%, transparent) 100%);
   display: grid;
   place-items: center;
   border: 2px solid transparent;
@@ -4559,6 +4817,7 @@ a.horarium-entry-title:hover {
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
           mask-composite: exclude;
+  will-change: transform;
   animation: ach-foil-spin 6s linear infinite;
 }
 .ach-card.tier-gold .ach-card-foil::before {
@@ -4637,8 +4896,8 @@ a.horarium-entry-title:hover {
 }
 .ach-card.is-locked .ach-card-tier-badge {
   background: oklch(0.18 0.005 250);
-  color: oklch(0.78 0.10 80 / 0.4);
-  border-color: oklch(0.10 0.004 50);
+  color: color-mix(in oklab, var(--color-or) 40%, transparent);
+  border-color: var(--color-noir-deep);
 }
 
 /* Card body — title + threshold + meta */
@@ -4657,7 +4916,7 @@ a.horarium-entry-title:hover {
   margin-bottom: 0.3rem;
 }
 .ach-card.is-locked .ach-card-label {
-  color: oklch(0.92 0.03 75 / 0.55);
+  color: color-mix(in oklab, var(--color-ivoire) 55%, transparent);
 }
 .ach-card-threshold {
   display: block;
@@ -4705,9 +4964,9 @@ a.horarium-entry-title:hover {
   font-size: 9px;
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: oklch(0.92 0.03 75 / 0.5);
-  border: 1px solid oklch(0.78 0.10 80 / 0.18);
-  background: oklch(0.05 0.003 50 / 0.6);
+  color: color-mix(in oklab, var(--color-ivoire) 50%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
+  background: color-mix(in oklab, var(--color-noir-deep) 60%, transparent);
 }
 
 /* Sparkle particles — sprinkled over gold-tier unlocked cards */
@@ -4780,7 +5039,7 @@ a.horarium-entry-title:hover {
   font-family: var(--font-ja);
   font-size: clamp(12rem, 22vw, 20rem);
   line-height: 1;
-  color: oklch(0.78 0.10 80 / 0.04);
+  color: color-mix(in oklab, var(--color-or) 4%, transparent);
   pointer-events: none;
   user-select: none;
   z-index: 0;
@@ -4831,7 +5090,7 @@ a.horarium-entry-title:hover {
   opacity: 0.6;
   margin-bottom: 1.2rem;
   padding-bottom: 0.7rem;
-  border-bottom: 1px solid oklch(0.78 0.10 80 / 0.18);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
 }
 .atelier-nav-list {
   list-style: none;
@@ -4911,14 +5170,14 @@ a.horarium-entry-title:hover {
     gap: 0.45rem;
     padding: 0.45rem 0.85rem;
     border-left: 0;
-    border: 1px solid oklch(0.78 0.10 80 / 0.2);
+    border: 1px solid color-mix(in oklab, var(--color-or) 20%, transparent);
     flex-shrink: 0;
     white-space: nowrap;
     font-size: 0.85rem;
   }
   .atelier-nav-link.is-active {
     border-color: var(--color-or);
-    background: oklch(0.78 0.10 80 / 0.08);
+    background: color-mix(in oklab, var(--color-or) 8%, transparent);
   }
 }
 
@@ -4934,11 +5193,11 @@ a.horarium-entry-title:hover {
 .atelier-drawer {
   position: relative;
   padding: 2rem 2rem 1.75rem;
-  border: 1px solid oklch(0.78 0.10 80 / 0.16);
+  border: 1px solid color-mix(in oklab, var(--color-or) 16%, transparent);
   background:
     linear-gradient(180deg,
-      oklch(0.15 0.005 50 / 0.85) 0%,
-      oklch(0.10 0.004 50 / 0.95) 100%);
+      color-mix(in oklab, var(--color-noir-soft) 85%, transparent) 0%,
+      color-mix(in oklab, var(--color-noir-deep) 95%, transparent) 100%);
   overflow: hidden;
   scroll-margin-top: 6rem; /* so smooth-scroll-to lands below the sticky header */
 }
@@ -5024,8 +5283,8 @@ a.horarium-entry-title:hover {
   align-items: center;
   gap: 1.25rem;
   padding: 1rem 1.25rem;
-  border: 1px solid oklch(0.78 0.10 80 / 0.2);
-  background: oklch(0.08 0.003 50 / 0.5);
+  border: 1px solid color-mix(in oklab, var(--color-or) 20%, transparent);
+  background: color-mix(in oklab, var(--color-noir-deep) 50%, transparent);
 }
 .atelier-toggle-row-text {
   flex: 1;
@@ -5059,8 +5318,8 @@ a.horarium-entry-title:hover {
   flex-shrink: 0;
   width: 3.6rem;
   height: 2rem;
-  background: oklch(0.08 0.003 50 / 0.8);
-  border: 1px solid oklch(0.78 0.10 80 / 0.3);
+  background: color-mix(in oklab, var(--color-noir-deep) 80%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
   cursor: pointer;
   transition: background 280ms var(--ease-curtain),
               border-color 280ms var(--ease-quick);
@@ -5075,10 +5334,10 @@ a.horarium-entry-title:hover {
   height: 1.3rem;
   background: var(--color-or-pale);
   transition: transform 320ms var(--ease-curtain), background 280ms var(--ease-quick);
-  box-shadow: 0 2px 6px -1px oklch(0.05 0.003 50 / 0.7);
+  box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.4);
 }
 .atelier-toggle.is-on {
-  background: oklch(0.78 0.10 80 / 0.5);
+  background: color-mix(in oklab, var(--color-or) 50%, transparent);
   border-color: var(--color-or);
 }
 .atelier-toggle.is-on::before {
@@ -5094,7 +5353,7 @@ a.horarium-entry-title:hover {
 .atelier-url {
   margin-top: 1rem;
   padding: 1rem 1.25rem;
-  border: 1px dashed oklch(0.78 0.10 80 / 0.3);
+  border: 1px dashed color-mix(in oklab, var(--color-or) 30%, transparent);
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -5134,7 +5393,7 @@ a.horarium-entry-title:hover {
   text-transform: uppercase;
   color: var(--color-or-pale);
   background: transparent;
-  border: 1px solid oklch(0.78 0.10 80 / 0.35);
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
   padding: 0.45rem 0.85rem;
   cursor: pointer;
   flex-shrink: 0;
@@ -5167,8 +5426,8 @@ a.horarium-entry-title:hover {
   position: relative;
   padding: 1.15rem 1.1rem 1.05rem;
   text-align: left;
-  background: oklch(0.08 0.003 50 / 0.5);
-  border: 1px solid oklch(0.78 0.10 80 / 0.15);
+  background: color-mix(in oklab, var(--color-noir-deep) 50%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 15%, transparent);
   cursor: pointer;
   transition: border-color 240ms var(--ease-quick),
               background 240ms var(--ease-quick),
@@ -5202,7 +5461,7 @@ a.horarium-entry-title:hover {
 }
 @media (hover: hover) {
   .atelier-nsfw-btn:hover {
-    border-color: oklch(0.78 0.10 80 / 0.4);
+    border-color: color-mix(in oklab, var(--color-or) 40%, transparent);
     transform: translateY(-2px);
   }
   .atelier-nsfw-btn:hover .atelier-nsfw-btn-kanji {
@@ -5213,8 +5472,8 @@ a.horarium-entry-title:hover {
   border-color: var(--atelier-tone, var(--color-or));
   background:
     linear-gradient(180deg,
-      var(--atelier-tone-soft, oklch(0.78 0.10 80 / 0.12)) 0%,
-      oklch(0.08 0.003 50 / 0.5) 100%);
+      var(--atelier-tone-soft, color-mix(in oklab, var(--color-or) 12%, transparent)) 0%,
+      color-mix(in oklab, var(--color-noir-deep) 50%, transparent) 100%);
 }
 .atelier-nsfw-btn.is-active .atelier-nsfw-btn-kanji {
   color: var(--atelier-tone, var(--color-or));
@@ -5306,7 +5565,7 @@ a.horarium-entry-title:hover {
   grid-template-columns: 1fr auto;
   align-items: end;
   gap: 1.5rem;
-  border-bottom: 1px solid oklch(0.78 0.10 80 / 0.25);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
   overflow: hidden;
 }
 .almanac-masthead::before {
@@ -5318,7 +5577,7 @@ a.horarium-entry-title:hover {
   font-family: var(--font-ja);
   font-size: clamp(20rem, 36vw, 32rem);
   line-height: 0.85;
-  color: oklch(0.78 0.10 80 / 0.05);
+  color: color-mix(in oklab, var(--color-or) 5%, transparent);
   pointer-events: none;
   user-select: none;
   z-index: 0;
@@ -5474,7 +5733,7 @@ a.horarium-entry-title:hover {
   background: linear-gradient(
     90deg,
     transparent,
-    oklch(0.78 0.10 80 / 0.6),
+    color-mix(in oklab, var(--color-or) 60%, transparent),
     transparent
   );
   /* Draws from centre outward when the parent reveals. */
@@ -5513,11 +5772,11 @@ a.horarium-entry-title:hover {
 .almanac-cell {
   position: relative;
   padding: 1.5rem 1.5rem 1.4rem;
-  border: 1px solid oklch(0.78 0.10 80 / 0.18);
+  border: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
   background:
     linear-gradient(180deg,
-      oklch(0.15 0.005 50 / 0.85) 0%,
-      oklch(0.10 0.004 50 / 0.95) 100%);
+      color-mix(in oklab, var(--color-noir-soft) 85%, transparent) 0%,
+      color-mix(in oklab, var(--color-noir-deep) 95%, transparent) 100%);
   overflow: hidden;
   transition:
     transform 380ms var(--ease-curtain),
@@ -5526,10 +5785,10 @@ a.horarium-entry-title:hover {
 }
 @media (hover: hover) {
   .almanac-cell:hover {
-    border-color: oklch(0.78 0.10 80 / 0.4);
+    border-color: color-mix(in oklab, var(--color-or) 40%, transparent);
     transform: translateY(-3px);
     box-shadow:
-      0 14px 32px -16px oklch(0.78 0.10 80 / 0.35);
+      0 14px 32px -16px color-mix(in oklab, var(--color-or) 35%, transparent);
   }
   .almanac-cell.almanac-slip:hover {
     border-color: oklch(0.55 0.16 28 / 0.6);
@@ -5537,7 +5796,7 @@ a.horarium-entry-title:hover {
       0 14px 32px -16px oklch(0.55 0.16 28 / 0.45);
   }
   .almanac-cell:hover::before {
-    color: oklch(0.78 0.10 80 / 0.10);
+    color: color-mix(in oklab, var(--color-or) 10%, transparent);
     transition: color 480ms var(--ease-quick);
   }
 }
@@ -5577,7 +5836,7 @@ a.horarium-entry-title:hover {
   font-family: var(--font-ja);
   font-size: 6rem;
   line-height: 1;
-  color: oklch(0.78 0.10 80 / 0.06);
+  color: color-mix(in oklab, var(--color-or) 6%, transparent);
   pointer-events: none;
   user-select: none;
 }
@@ -5604,7 +5863,7 @@ a.horarium-entry-title:hover {
   font-style: italic;
 }
 .almanac-cell-headline.is-muted {
-  color: oklch(0.92 0.03 75 / 0.4);
+  color: color-mix(in oklab, var(--color-ivoire) 40%, transparent);
   font-style: italic;
   font-size: 1.1rem;
 }
@@ -5635,7 +5894,7 @@ a.horarium-entry-title:hover {
   align-items: baseline;
   gap: 1rem;
   padding-bottom: 0.55rem;
-  border-bottom: 1px dashed oklch(0.78 0.10 80 / 0.18);
+  border-bottom: 1px dashed color-mix(in oklab, var(--color-or) 18%, transparent);
 }
 .almanac-spend-row:last-child {
   border-bottom: 0;
@@ -5647,7 +5906,7 @@ a.horarium-entry-title:hover {
 .almanac-losses {
   margin-top: 1.25rem;
   padding-top: 0.9rem;
-  border-top: 1px dashed oklch(0.55 0.20 25 / 0.4);
+  border-top: 1px dashed color-mix(in oklab, var(--color-laque-bright) 40%, transparent);
 }
 .almanac-losses-label {
   display: block;
@@ -5660,7 +5919,7 @@ a.horarium-entry-title:hover {
   margin-bottom: 0.6rem;
 }
 .almanac-losses .almanac-spend-row {
-  border-bottom-color: oklch(0.55 0.20 25 / 0.18);
+  border-bottom-color: color-mix(in oklab, var(--color-laque-bright) 18%, transparent);
 }
 .almanac-spend-row--loss .almanac-spend-currency,
 .almanac-spend-row--loss .almanac-spend-total {
@@ -5691,7 +5950,7 @@ a.horarium-entry-title:hover {
   background:
     linear-gradient(180deg,
       oklch(0.55 0.16 28 / 0.08) 0%,
-      oklch(0.10 0.004 50 / 0.9) 100%);
+      color-mix(in oklab, var(--color-noir-deep) 90%, transparent) 100%);
 }
 .almanac-slip-detail {
   margin-top: 0.7rem;
@@ -5713,7 +5972,7 @@ a.horarium-entry-title:hover {
   gap: 1rem;
   margin-bottom: 1.5rem;
   padding-bottom: 0.85rem;
-  border-bottom: 1px solid oklch(0.78 0.10 80 / 0.25);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
 }
 .almanac-ledger-title {
   font-family: var(--font-display);
@@ -5764,7 +6023,7 @@ a.horarium-entry-title:hover {
   width: 100%;
   background:
     linear-gradient(180deg,
-      oklch(0.78 0.10 80 / 0.85) 0%,
+      color-mix(in oklab, var(--color-or) 85%, transparent) 0%,
       oklch(0.65 0.13 60 / 0.7) 100%);
   position: relative;
   transform-origin: bottom;
@@ -5780,10 +6039,10 @@ a.horarium-entry-title:hover {
     linear-gradient(180deg,
       oklch(0.85 0.13 80) 0%,
       oklch(0.72 0.14 60) 100%);
-  box-shadow: 0 -8px 24px -8px oklch(0.78 0.10 80 / 0.55);
+  box-shadow: 0 -8px 24px -8px color-mix(in oklab, var(--color-or) 55%, transparent);
 }
 .almanac-ledger-bar.is-empty {
-  background: oklch(0.78 0.10 80 / 0.08);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
   height: 2px !important;
 }
 @media (hover: hover) {
@@ -5851,7 +6110,7 @@ a.horarium-entry-title:hover {
   gap: 0.85rem;
   margin-bottom: 1.5rem;
   padding-bottom: 0.85rem;
-  border-bottom: 1px solid oklch(0.78 0.10 80 / 0.25);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
 }
 .almanac-bookends-grid {
   display: grid;
@@ -5869,8 +6128,8 @@ a.horarium-entry-title:hover {
   border-top: 2px solid var(--color-or);
   background:
     linear-gradient(180deg,
-      oklch(0.15 0.005 50 / 0.85) 0%,
-      oklch(0.10 0.004 50 / 0.95) 100%);
+      color-mix(in oklab, var(--color-noir-soft) 85%, transparent) 0%,
+      color-mix(in oklab, var(--color-noir-deep) 95%, transparent) 100%);
   overflow: hidden;
 }
 .almanac-bookend--first::before,
@@ -5882,7 +6141,7 @@ a.horarium-entry-title:hover {
   font-family: var(--font-ja);
   font-size: 9rem;
   line-height: 1;
-  color: oklch(0.78 0.10 80 / 0.06);
+  color: color-mix(in oklab, var(--color-or) 6%, transparent);
   pointer-events: none;
   user-select: none;
 }
@@ -5930,7 +6189,7 @@ a.horarium-entry-title:hover {
   gap: 1rem;
   margin-top: 3rem;
   padding-top: 2rem;
-  border-top: 1px solid oklch(0.78 0.10 80 / 0.18);
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.32em;
@@ -5947,7 +6206,7 @@ a.horarium-entry-title:hover {
 .almanac-nav-print {
   color: var(--color-or-pale);
   background: transparent;
-  border: 1px solid oklch(0.78 0.10 80 / 0.35);
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
   padding: 0.55rem 1rem;
   cursor: pointer;
   font-family: inherit;
@@ -5959,7 +6218,7 @@ a.horarium-entry-title:hover {
 .almanac-nav-print:hover {
   color: var(--color-or);
   border-color: var(--color-or);
-  background: oklch(0.78 0.10 80 / 0.08);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
 }
 
 /* ─── Print mode — "Paper Almanach"
@@ -6224,7 +6483,7 @@ a.horarium-entry-title:hover {
   width: 2rem;
   height: 2rem;
   background: transparent;
-  border: 1px solid oklch(0.78 0.10 80 / 0.3);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
   color: var(--color-or-pale);
   cursor: pointer;
   transition: color 220ms var(--ease-quick), border-color 220ms var(--ease-quick);
@@ -6269,9 +6528,9 @@ a.horarium-entry-title:hover {
   max-width: calc(100vw - 1.5rem);
   padding: 1rem 0 0.5rem;
   background: var(--color-noir-soft);
-  border: 1px solid oklch(0.78 0.10 80 / 0.5);
+  border: 1px solid color-mix(in oklab, var(--color-or) 50%, transparent);
   box-shadow:
-    0 0 0 1px oklch(0.10 0.004 50 / 0.6),
+    0 0 0 1px color-mix(in oklab, var(--color-noir-deep) 60%, transparent),
     0 24px 50px -16px rgba(0, 0, 0, 0.85),
     inset 0 1px 0 oklch(0.92 0.08 80 / 0.18);
   animation: notif-pop-in 240ms var(--ease-curtain);
@@ -6289,7 +6548,7 @@ a.horarium-entry-title:hover {
   height: 7px;
   background: var(--color-noir-soft);
   clip-path: polygon(50% 0, 0 100%, 100% 100%);
-  box-shadow: 0 -1px 0 oklch(0.78 0.10 80 / 0.5);
+  box-shadow: 0 -1px 0 color-mix(in oklab, var(--color-or) 50%, transparent);
 }
 .notif-popover-head {
   padding: 0 1.25rem 0.75rem;
@@ -6318,7 +6577,7 @@ a.horarium-entry-title:hover {
   display: flex;
   gap: 0.5rem;
   padding: 0 1.25rem 0.75rem;
-  border-bottom: 1px solid oklch(0.78 0.10 80 / 0.18);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
 }
 .notif-popover-tab {
   display: inline-flex;
@@ -6330,8 +6589,8 @@ a.horarium-entry-title:hover {
   letter-spacing: 0.28em;
   text-transform: uppercase;
   color: var(--color-or-pale);
-  background: oklch(0.78 0.10 80 / 0.08);
-  border: 1px solid oklch(0.78 0.10 80 / 0.25);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
 }
 .notif-popover-tab em {
   font-style: normal;
@@ -6343,7 +6602,7 @@ a.horarium-entry-title:hover {
   opacity: 0.55;
 }
 .notif-popover-tab.is-dim em {
-  color: oklch(0.92 0.03 75 / 0.4);
+  color: color-mix(in oklab, var(--color-ivoire) 40%, transparent);
 }
 .notif-popover-tab-dot {
   width: 6px;
@@ -6353,7 +6612,7 @@ a.horarium-entry-title:hover {
 }
 .notif-popover-tab.is-all {
   background: transparent;
-  border-color: oklch(0.78 0.10 80 / 0.15);
+  border-color: color-mix(in oklab, var(--color-or) 15%, transparent);
 }
 .notif-popover-empty {
   padding: 2rem 1.25rem;
@@ -6388,10 +6647,10 @@ a.horarium-entry-title:hover {
   transition: background 220ms var(--ease-quick);
 }
 .notif-popover-row:hover {
-  background: oklch(0.78 0.10 80 / 0.06);
+  background: color-mix(in oklab, var(--color-or) 6%, transparent);
 }
 .notif-popover-row + .notif-popover-row {
-  border-top: 1px dashed oklch(0.78 0.10 80 / 0.1);
+  border-top: 1px dashed color-mix(in oklab, var(--color-or) 10%, transparent);
 }
 .notif-popover-row-glyph {
   font-family: var(--font-ja);
@@ -6451,7 +6710,7 @@ a.horarium-entry-title:hover {
   justify-content: space-between;
   gap: 0.85rem;
   padding: 0.75rem 1.25rem 0.5rem;
-  border-top: 1px solid oklch(0.78 0.10 80 / 0.18);
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
 }
 .notif-popover-foot-btn {
   font-family: var(--font-mono);
@@ -6486,7 +6745,7 @@ a.horarium-entry-title:hover {
 }
 .notif-page-hero {
   padding: 1rem 0 2rem;
-  border-bottom: 1px solid oklch(0.78 0.10 80 / 0.18);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
   margin-bottom: 1.5rem;
 }
 .notif-page-eyebrow {
@@ -6536,7 +6795,7 @@ a.horarium-entry-title:hover {
   text-transform: uppercase;
   color: var(--color-ivoire-soft);
   background: transparent;
-  border: 1px solid oklch(0.78 0.10 80 / 0.2);
+  border: 1px solid color-mix(in oklab, var(--color-or) 20%, transparent);
   cursor: pointer;
   transition: all 220ms var(--ease-quick);
 }
@@ -6548,12 +6807,12 @@ a.horarium-entry-title:hover {
 }
 .notif-page-tab:hover {
   color: var(--color-or-pale);
-  border-color: oklch(0.78 0.10 80 / 0.4);
+  border-color: color-mix(in oklab, var(--color-or) 40%, transparent);
 }
 .notif-page-tab.is-active {
   color: var(--color-or);
   border-color: var(--color-or);
-  background: oklch(0.78 0.10 80 / 0.08);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
 }
 .notif-page-tab.is-active em {
   color: var(--color-or);
@@ -6565,7 +6824,7 @@ a.horarium-entry-title:hover {
   text-transform: uppercase;
   color: var(--color-or-pale);
   background: transparent;
-  border: 1px solid oklch(0.78 0.10 80 / 0.35);
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
   padding: 0.45rem 0.85rem;
   cursor: pointer;
   transition: all 220ms var(--ease-quick);
@@ -6573,7 +6832,7 @@ a.horarium-entry-title:hover {
 .notif-page-mark-all:hover {
   color: var(--color-or);
   border-color: var(--color-or);
-  background: oklch(0.78 0.10 80 / 0.08);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
 }
 
 .notif-page-empty {
@@ -6584,7 +6843,7 @@ a.horarium-entry-title:hover {
 .notif-page-empty-card {
   text-align: center;
   padding: 4rem 1rem;
-  border: 1px dashed oklch(0.78 0.10 80 / 0.25);
+  border: 1px dashed color-mix(in oklab, var(--color-or) 25%, transparent);
 }
 .notif-page-empty-kanji {
   font-family: var(--font-ja);
@@ -6613,13 +6872,13 @@ a.horarium-entry-title:hover {
   align-items: start;
   gap: 1.25rem;
   padding: 1.25rem 0;
-  border-bottom: 1px dashed oklch(0.78 0.10 80 / 0.15);
+  border-bottom: 1px dashed color-mix(in oklab, var(--color-or) 15%, transparent);
 }
 .notif-page-row.is-unread {
   background:
     linear-gradient(
       90deg,
-      oklch(0.78 0.10 80 / 0.06) 0%,
+      color-mix(in oklab, var(--color-or) 6%, transparent) 0%,
       transparent 20%
     );
 }
@@ -6685,7 +6944,7 @@ a.notif-page-row-title:hover {
   font-size: 13px;
   color: var(--color-or-pale);
   background: transparent;
-  border: 1px solid oklch(0.78 0.10 80 / 0.2);
+  border: 1px solid color-mix(in oklab, var(--color-or) 20%, transparent);
   cursor: pointer;
   transition: all 220ms var(--ease-quick);
 }
@@ -6729,13 +6988,13 @@ a.notif-page-row-title:hover {
   opacity: 0.6;
 }
 .notif-channel {
-  border: 1px solid oklch(0.78 0.10 80 / 0.18);
-  background: oklch(0.10 0.004 50 / 0.6);
+  border: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
+  background: color-mix(in oklab, var(--color-noir-deep) 60%, transparent);
   padding: 1rem 1.25rem 1.1rem;
   transition: border-color 220ms var(--ease-quick), background 220ms var(--ease-quick);
 }
 .notif-channel.is-user-enabled {
-  border-color: oklch(0.78 0.10 80 / 0.4);
+  border-color: color-mix(in oklab, var(--color-or) 40%, transparent);
 }
 .notif-channel.is-admin-disabled {
   opacity: 0.55;
@@ -6776,23 +7035,23 @@ a.notif-page-row-title:hover {
   letter-spacing: 0.28em;
   text-transform: uppercase;
   color: var(--color-or-pale);
-  border: 1px solid oklch(0.78 0.10 80 / 0.25);
+  border: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
   padding: 0.2rem 0.5rem;
   white-space: nowrap;
 }
 .notif-channel.is-user-enabled .notif-channel-state {
   color: var(--color-or);
   border-color: var(--color-or);
-  background: oklch(0.78 0.10 80 / 0.08);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
 }
 .notif-channel.is-admin-disabled .notif-channel-state {
-  color: oklch(0.92 0.03 75 / 0.4);
-  border-color: oklch(0.92 0.03 75 / 0.18);
+  color: color-mix(in oklab, var(--color-ivoire) 40%, transparent);
+  border-color: color-mix(in oklab, var(--color-ivoire) 18%, transparent);
 }
 .notif-channel-body {
   margin-top: 1rem;
   padding-top: 1rem;
-  border-top: 1px dashed oklch(0.78 0.10 80 / 0.15);
+  border-top: 1px dashed color-mix(in oklab, var(--color-or) 15%, transparent);
 }
 
 /* Destination summary + edit */
@@ -6813,7 +7072,7 @@ a.notif-page-row-title:hover {
   font-family: var(--font-display);
   font-style: italic;
   font-size: 0.85rem;
-  color: oklch(0.92 0.03 75 / 0.5);
+  color: color-mix(in oklab, var(--color-ivoire) 50%, transparent);
 }
 .notif-channel-summary-edit {
   font-family: var(--font-mono);
@@ -6822,7 +7081,7 @@ a.notif-page-row-title:hover {
   text-transform: uppercase;
   color: var(--color-or-pale);
   background: transparent;
-  border: 1px solid oklch(0.78 0.10 80 / 0.3);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
   padding: 0.4rem 0.75rem;
   cursor: pointer;
   transition: all 220ms var(--ease-quick);
@@ -6860,7 +7119,7 @@ a.notif-page-row-title:hover {
 .notif-channel-field-input {
   width: 100%;
   background: var(--color-noir);
-  border: 1px solid oklch(0.78 0.10 80 / 0.3);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
   padding: 0.55rem 0.7rem;
   font-family: var(--font-mono);
   font-size: 0.85rem;
@@ -6888,12 +7147,12 @@ a.notif-page-row-title:hover {
   transition: all 220ms var(--ease-quick);
 }
 .notif-channel-form-btn.is-cancel {
-  color: oklch(0.92 0.03 75 / 0.55);
-  border-color: oklch(0.92 0.03 75 / 0.25);
+  color: color-mix(in oklab, var(--color-ivoire) 55%, transparent);
+  border-color: color-mix(in oklab, var(--color-ivoire) 25%, transparent);
 }
 .notif-channel-form-btn.is-cancel:hover {
   color: var(--color-ivoire);
-  border-color: oklch(0.92 0.03 75 / 0.5);
+  border-color: color-mix(in oklab, var(--color-ivoire) 50%, transparent);
 }
 .notif-channel-form-btn.is-save {
   color: var(--color-or);
@@ -6911,7 +7170,7 @@ a.notif-page-row-title:hover {
 /* Routing matrix */
 .notif-routes-matrix {
   margin-top: 1.2rem;
-  border: 1px solid oklch(0.78 0.10 80 / 0.18);
+  border: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
 }
 .notif-routes-head,
 .notif-routes-row {
@@ -6920,8 +7179,8 @@ a.notif-page-row-title:hover {
   align-items: stretch;
 }
 .notif-routes-head {
-  background: oklch(0.78 0.10 80 / 0.08);
-  border-bottom: 1px solid oklch(0.78 0.10 80 / 0.2);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 20%, transparent);
 }
 .notif-routes-col-head {
   display: flex;
@@ -6949,7 +7208,7 @@ a.notif-page-row-title:hover {
   opacity: 0.7;
 }
 .notif-routes-row {
-  border-top: 1px dashed oklch(0.78 0.10 80 / 0.12);
+  border-top: 1px dashed color-mix(in oklab, var(--color-or) 12%, transparent);
 }
 .notif-routes-row:first-child {
   border-top: 0;
@@ -6959,7 +7218,7 @@ a.notif-page-row-title:hover {
   align-items: center;
   gap: 0.6rem;
   padding: 0.85rem 1rem;
-  border-right: 1px solid oklch(0.78 0.10 80 / 0.15);
+  border-right: 1px solid color-mix(in oklab, var(--color-or) 15%, transparent);
 }
 .notif-routes-row-kanji {
   font-family: var(--font-ja);
@@ -6980,10 +7239,10 @@ a.notif-page-row-title:hover {
   font-family: var(--font-mono);
   font-size: 13px;
   letter-spacing: 0.05em;
-  color: oklch(0.92 0.03 75 / 0.35);
+  color: color-mix(in oklab, var(--color-ivoire) 35%, transparent);
   background: transparent;
   border: 0;
-  border-right: 1px solid oklch(0.78 0.10 80 / 0.1);
+  border-right: 1px solid color-mix(in oklab, var(--color-or) 10%, transparent);
   cursor: pointer;
   transition: background 200ms var(--ease-quick), color 200ms var(--ease-quick);
 }
@@ -6991,12 +7250,12 @@ a.notif-page-row-title:hover {
   border-right: 0;
 }
 .notif-routes-cell:hover {
-  background: oklch(0.78 0.10 80 / 0.08);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
   color: var(--color-or-pale);
 }
 .notif-routes-cell.is-on {
   color: var(--color-or);
-  background: oklch(0.78 0.10 80 / 0.12);
+  background: color-mix(in oklab, var(--color-or) 12%, transparent);
 }
 
 /* Per-channel "send test" row — appears under each enabled channel
@@ -7009,7 +7268,7 @@ a.notif-page-row-title:hover {
   gap: 0.85rem;
   margin-top: 0.85rem;
   padding-top: 0.85rem;
-  border-top: 1px dashed oklch(0.78 0.10 80 / 0.15);
+  border-top: 1px dashed color-mix(in oklab, var(--color-or) 15%, transparent);
 }
 .notif-channel-test-btn {
   font-family: var(--font-mono);
@@ -7018,7 +7277,7 @@ a.notif-page-row-title:hover {
   text-transform: uppercase;
   color: var(--color-or-pale);
   background: transparent;
-  border: 1px solid oklch(0.78 0.10 80 / 0.35);
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
   padding: 0.45rem 0.9rem;
   cursor: pointer;
   transition: all 220ms var(--ease-quick);
@@ -7026,7 +7285,7 @@ a.notif-page-row-title:hover {
 .notif-channel-test-btn:hover {
   color: var(--color-or);
   border-color: var(--color-or);
-  background: oklch(0.78 0.10 80 / 0.08);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
 }
 .notif-channel-test-btn:disabled {
   opacity: 0.5;
@@ -7054,7 +7313,7 @@ a.notif-page-row-title:hover {
   gap: 0.55rem;
   margin-bottom: 1.25rem;
   padding-bottom: 1rem;
-  border-bottom: 1px dashed oklch(0.78 0.10 80 / 0.18);
+  border-bottom: 1px dashed color-mix(in oklab, var(--color-or) 18%, transparent);
 }
 .notif-vapid-toolbar .notif-channel-form-btn {
   align-self: flex-start;
@@ -7091,8 +7350,8 @@ a.notif-page-row-title:hover {
   gap: 1.25rem;
   align-items: start;
   padding: 1rem 1.25rem;
-  background: oklch(0.13 0.005 50);
-  border: 1px solid oklch(0.78 0.10 80 / 0.15);
+  background: var(--color-noir-deep);
+  border: 1px solid color-mix(in oklab, var(--color-or) 15%, transparent);
 }
 .ftype-row-seal {
   position: absolute;
@@ -7125,7 +7384,7 @@ a.notif-page-row-title:hover {
   font-size: 10px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: oklch(0.92 0.03 75 / 0.45);
+  color: color-mix(in oklab, var(--color-ivoire) 45%, transparent);
 }
 .ftype-row-labels {
   display: flex;
@@ -7142,7 +7401,7 @@ a.notif-page-row-title:hover {
   font-size: 9px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: oklch(0.78 0.10 80 / 0.55);
+  color: color-mix(in oklab, var(--color-or) 55%, transparent);
 }
 .ftype-row-label {
   color: var(--color-ivoire);
@@ -7160,7 +7419,7 @@ a.notif-page-row-title:hover {
   color: var(--color-or-pale);
 }
 .ftype-row-usage.is-empty {
-  color: oklch(0.92 0.03 75 / 0.4);
+  color: color-mix(in oklab, var(--color-ivoire) 40%, transparent);
 }
 .ftype-row-actions {
   display: flex;
@@ -7173,7 +7432,7 @@ a.notif-page-row-title:hover {
   width: 2rem;
   height: 2rem;
   background: transparent;
-  border: 1px solid oklch(0.78 0.10 80 / 0.35);
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
   color: var(--color-or-pale);
   font-size: 0.95rem;
   cursor: pointer;
@@ -7214,20 +7473,20 @@ a.notif-page-row-title:hover {
   color: var(--color-laque-bright);
 }
 .ftype-confirm-yes:hover {
-  background: oklch(0.55 0.20 25 / 0.15);
+  background: color-mix(in oklab, var(--color-laque-bright) 15%, transparent);
 }
 .ftype-confirm-no {
-  border-color: oklch(0.78 0.10 80 / 0.4);
+  border-color: color-mix(in oklab, var(--color-or) 40%, transparent);
   color: var(--color-ivoire-soft);
 }
 .ftype-confirm-no:hover {
-  background: oklch(0.78 0.10 80 / 0.08);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
 }
 
 /* Inline create + edit form */
 .ftype-form {
-  background: oklch(0.13 0.005 50);
-  border: 1px solid oklch(0.78 0.10 80 / 0.35);
+  background: var(--color-noir-deep);
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
   padding: 1.25rem 1.5rem;
 }
 .ftype-form--create {
@@ -7235,7 +7494,7 @@ a.notif-page-row-title:hover {
   border-left-color: var(--color-or);
 }
 .ftype-form--edit {
-  background: oklch(0.16 0.005 50);
+  background: var(--color-noir-soft);
 }
 .ftype-form-eyebrow {
   font-family: var(--font-mono);
@@ -7256,7 +7515,7 @@ a.notif-page-row-title:hover {
   gap: 0.75rem;
   margin-top: 1.25rem;
   padding-top: 0.85rem;
-  border-top: 1px solid oklch(0.78 0.10 80 / 0.15);
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 15%, transparent);
 }
 
 /* Field — block label + input + optional hint */
@@ -7272,7 +7531,7 @@ a.notif-page-row-title:hover {
 .ftype-field-input {
   width: 100%;
   background: var(--color-noir);
-  border: 1px solid oklch(0.78 0.10 80 / 0.3);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
   color: var(--color-ivoire);
   padding: 0.6rem 0.85rem;
   font-size: 0.95rem;
@@ -7289,7 +7548,7 @@ a.notif-page-row-title:hover {
   font-size: 9.5px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: oklch(0.92 0.03 75 / 0.45);
+  color: color-mix(in oklab, var(--color-ivoire) 45%, transparent);
 }
 .ftype-field--short {
   max-width: 9rem;
@@ -7306,8 +7565,8 @@ a.notif-page-row-title:hover {
   gap: 1.25rem;
   align-items: start;
   padding: 1rem 1.25rem;
-  background: oklch(0.13 0.005 50);
-  border: 1px solid oklch(0.78 0.10 80 / 0.15);
+  background: var(--color-noir-deep);
+  border: 1px solid color-mix(in oklab, var(--color-or) 15%, transparent);
 }
 .worker-row-seal {
   position: absolute;
@@ -7339,7 +7598,7 @@ a.notif-page-row-title:hover {
   min-height: 2.25rem;
   padding: 0.4rem 0.75rem;
   background: transparent;
-  border: 1px solid oklch(0.78 0.10 80 / 0.35);
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
   color: var(--color-or-pale);
   font-family: var(--font-mono);
   font-size: 10px;
@@ -7358,13 +7617,13 @@ a.notif-page-row-title:hover {
   border-color: var(--color-or);
 }
 .worker-row-btn.is-off {
-  color: oklch(0.92 0.03 75 / 0.55);
-  border-color: oklch(0.92 0.03 75 / 0.3);
+  color: color-mix(in oklab, var(--color-ivoire) 55%, transparent);
+  border-color: color-mix(in oklab, var(--color-ivoire) 30%, transparent);
 }
 .worker-row-btn.is-danger:hover:not(:disabled) {
   border-color: var(--color-laque-bright);
   color: var(--color-laque-bright);
-  background: oklch(0.55 0.20 25 / 0.08);
+  background: color-mix(in oklab, var(--color-laque-bright) 8%, transparent);
 }
 .worker-row-btn.is-disabled,
 .worker-row-btn:disabled {
@@ -7392,14 +7651,14 @@ a.notif-page-row-title:hover {
   color: var(--color-laque-bright);
 }
 .worker-row-confirm-yes:hover {
-  background: oklch(0.55 0.20 25 / 0.15);
+  background: color-mix(in oklab, var(--color-laque-bright) 15%, transparent);
 }
 .worker-row-confirm-no {
-  border-color: oklch(0.78 0.10 80 / 0.4);
+  border-color: color-mix(in oklab, var(--color-or) 40%, transparent);
   color: var(--color-or-pale);
 }
 .worker-row-confirm-no:hover {
-  background: oklch(0.78 0.10 80 / 0.05);
+  background: color-mix(in oklab, var(--color-or) 5%, transparent);
 }
 
 /* =============================================================================
@@ -7417,7 +7676,7 @@ a.notif-page-row-title:hover {
 .store-ac-input {
   width: 100%;
   background: var(--color-noir);
-  border: 1px solid oklch(0.78 0.10 80 / 0.3);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
   color: var(--color-ivoire);
   padding: 0.65rem 0.85rem;
   font-size: 0.95rem;
@@ -7434,7 +7693,7 @@ a.notif-page-row-title:hover {
   font-size: 9.5px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: oklch(0.92 0.03 75 / 0.45);
+  color: color-mix(in oklab, var(--color-ivoire) 45%, transparent);
 }
 .store-ac-drop {
   position: absolute;
@@ -7444,7 +7703,7 @@ a.notif-page-row-title:hover {
   z-index: 30;
   margin-top: 4px;
   background: var(--color-noir-soft);
-  border: 1px solid oklch(0.78 0.10 80 / 0.45);
+  border: 1px solid color-mix(in oklab, var(--color-or) 45%, transparent);
   max-height: 16rem;
   overflow-y: auto;
   box-shadow:
@@ -7458,13 +7717,13 @@ a.notif-page-row-title:hover {
   gap: 0.85rem;
   padding: 0.55rem 0.85rem;
   cursor: pointer;
-  border-bottom: 1px dashed oklch(0.78 0.10 80 / 0.15);
+  border-bottom: 1px dashed color-mix(in oklab, var(--color-or) 15%, transparent);
 }
 .store-ac-row:last-child {
   border-bottom: 0;
 }
 .store-ac-row.is-active {
-  background: oklch(0.78 0.10 80 / 0.12);
+  background: color-mix(in oklab, var(--color-or) 12%, transparent);
 }
 .store-ac-row-name {
   color: var(--color-ivoire);
@@ -7474,7 +7733,7 @@ a.notif-page-row-title:hover {
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.06em;
-  color: oklch(0.78 0.10 80 / 0.7);
+  color: color-mix(in oklab, var(--color-or) 70%, transparent);
 }
 
 /* =============================================================================
@@ -7494,7 +7753,7 @@ a.notif-page-row-title:hover {
   position: relative;
   aspect-ratio: 1;
   background: var(--color-noir-deep);
-  border: 1px solid oklch(0.78 0.10 80 / 0.3);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
   overflow: hidden;
 }
 .store-hero-frame::after {
@@ -7551,7 +7810,7 @@ a.notif-page-row-title:hover {
   width: 34px;
   height: 34px;
   background: oklch(0.15 0.01 60 / 0.8);
-  border: 1px solid oklch(0.78 0.10 80 / 0.45);
+  border: 1px solid color-mix(in oklab, var(--color-or) 45%, transparent);
   color: var(--color-or-pale);
   font-size: 15px;
   pointer-events: none;
@@ -7583,7 +7842,7 @@ a.notif-page-row-title:hover {
   height: 100%;
   display: grid;
   place-items: center;
-  color: oklch(0.78 0.10 80 / 0.3);
+  color: color-mix(in oklab, var(--color-or) 30%, transparent);
   font-family: "Noto Serif JP", serif;
   font-size: 6rem;
   line-height: 1;
@@ -7597,7 +7856,7 @@ a.notif-page-row-title:hover {
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--color-or-pale);
-  border: 1px solid oklch(0.78 0.10 80 / 0.4);
+  border: 1px solid color-mix(in oklab, var(--color-or) 40%, transparent);
   padding: 0.4rem 0.75rem;
   margin-top: 0.85rem;
   transition: all 220ms var(--ease-quick);
@@ -7605,7 +7864,7 @@ a.notif-page-row-title:hover {
 .store-hero-url:hover {
   color: var(--color-or);
   border-color: var(--color-or);
-  background: oklch(0.78 0.10 80 / 0.08);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
 }
 
 /* =============================================================================
@@ -7617,14 +7876,14 @@ a.notif-page-row-title:hover {
   gap: 1.1rem;
   align-items: center;
   padding: 0.9rem 1.1rem;
-  background: oklch(0.13 0.005 50);
-  border: 1px solid oklch(0.78 0.10 80 / 0.15);
+  background: var(--color-noir-deep);
+  border: 1px solid color-mix(in oklab, var(--color-or) 15%, transparent);
 }
 .store-admin-thumb {
   width: 64px;
   height: 64px;
   background: var(--color-noir-deep);
-  border: 1px solid oklch(0.78 0.10 80 / 0.2);
+  border: 1px solid color-mix(in oklab, var(--color-or) 20%, transparent);
   overflow: hidden;
 }
 .store-admin-thumb img { width: 100%; height: 100%; object-fit: cover; }
@@ -7632,7 +7891,7 @@ a.notif-page-row-title:hover {
   display: grid;
   place-items: center;
   height: 100%;
-  color: oklch(0.78 0.10 80 / 0.4);
+  color: color-mix(in oklab, var(--color-or) 40%, transparent);
   font-family: "Noto Serif JP", serif;
   font-size: 1.6rem;
 }
@@ -7645,8 +7904,8 @@ a.notif-page-row-title:hover {
   display: flex;
   justify-content: center;
   padding: 1.25rem 0;
-  border-top: 1px dashed oklch(0.78 0.10 80 / 0.2);
-  border-bottom: 1px dashed oklch(0.78 0.10 80 / 0.2);
+  border-top: 1px dashed color-mix(in oklab, var(--color-or) 20%, transparent);
+  border-bottom: 1px dashed color-mix(in oklab, var(--color-or) 20%, transparent);
   margin-bottom: 1rem;
 }
 .fig-cartouche-stores-btn {
@@ -7655,7 +7914,7 @@ a.notif-page-row-title:hover {
   gap: 0.7rem;
   padding: 0.55rem 1.15rem;
   background: transparent;
-  border: 1px solid oklch(0.78 0.10 80 / 0.4);
+  border: 1px solid color-mix(in oklab, var(--color-or) 40%, transparent);
   color: var(--color-or-pale);
   font-family: var(--font-mono);
   font-size: 11px;
@@ -7668,7 +7927,7 @@ a.notif-page-row-title:hover {
 .fig-cartouche-stores-btn:focus-visible {
   color: var(--color-or);
   border-color: var(--color-or);
-  background: oklch(0.78 0.10 80 / 0.08);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
 }
 .fig-cartouche-stores-btn .ja {
   font-family: "Noto Serif JP", serif;
@@ -7694,12 +7953,12 @@ a.notif-page-row-title:hover {
   display: flex;
   flex-direction: column;
   background: var(--color-noir-soft);
-  border: 1px solid oklch(0.78 0.10 80 / 0.35);
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
   box-shadow: 0 60px 120px -40px rgba(0, 0, 0, 0.85);
 }
 .linked-stores-modal-header {
   padding: 1.75rem 2rem 1.25rem;
-  border-bottom: 1px solid oklch(0.78 0.10 80 / 0.15);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 15%, transparent);
 }
 .linked-stores-modal-header .ja {
   display: block;
@@ -7726,13 +7985,13 @@ a.notif-page-row-title:hover {
   gap: 1rem;
   padding: 0.9rem 2rem;
   color: var(--color-ivoire-soft);
-  border-bottom: 1px solid oklch(0.78 0.10 80 / 0.06);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 6%, transparent);
   text-decoration: none;
   transition: background 180ms var(--ease-quick), color 180ms var(--ease-quick);
 }
 .linked-stores-row:hover,
 .linked-stores-row:focus-visible {
-  background: oklch(0.78 0.10 80 / 0.06);
+  background: color-mix(in oklab, var(--color-or) 6%, transparent);
   color: var(--color-ivoire);
   outline: none;
 }
@@ -7740,14 +7999,14 @@ a.notif-page-row-title:hover {
   width: 56px;
   height: 56px;
   background: var(--color-noir-deep);
-  border: 1px solid oklch(0.78 0.10 80 / 0.22);
+  border: 1px solid color-mix(in oklab, var(--color-or) 22%, transparent);
   overflow: hidden;
   display: grid;
   place-items: center;
 }
 .linked-stores-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .linked-stores-thumb-fallback {
-  color: oklch(0.78 0.10 80 / 0.45);
+  color: color-mix(in oklab, var(--color-or) 45%, transparent);
   font-family: "Noto Serif JP", serif;
   font-size: 1.6rem;
 }
@@ -7768,7 +8027,7 @@ a.notif-page-row-title:hover {
   font-size: 9.5px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: oklch(0.78 0.10 80 / 0.55);
+  color: color-mix(in oklab, var(--color-or) 55%, transparent);
 }
 .linked-stores-url {
   font-family: var(--font-mono);
@@ -7780,7 +8039,7 @@ a.notif-page-row-title:hover {
 }
 .linked-stores-arrow {
   font-size: 1.3rem;
-  color: oklch(0.78 0.10 80 / 0.4);
+  color: color-mix(in oklab, var(--color-or) 40%, transparent);
   transition: transform 220ms var(--ease-quick), color 220ms var(--ease-quick);
 }
 .linked-stores-row:hover .linked-stores-arrow,
@@ -7807,7 +8066,7 @@ a.notif-page-row-title:hover {
  * FigureForm · admin "Boutiques liées" section
  * ============================================================================= */
 .figure-stores-editor {
-  border: 1px dashed oklch(0.78 0.10 80 / 0.25);
+  border: 1px dashed color-mix(in oklab, var(--color-or) 25%, transparent);
   padding: 1.1rem 1.25rem 1.25rem;
   background: oklch(0.15 0.01 60 / 0.25);
 }
@@ -7831,8 +8090,8 @@ a.notif-page-row-title:hover {
   align-items: center;
   gap: 0.5rem;
   padding: 0.3rem 0.55rem 0.3rem 0.75rem;
-  background: oklch(0.78 0.10 80 / 0.10);
-  border: 1px solid oklch(0.78 0.10 80 / 0.35);
+  background: color-mix(in oklab, var(--color-or) 10%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
   color: var(--color-or-pale);
   font-size: 12px;
   letter-spacing: 0.04em;
@@ -7841,7 +8100,7 @@ a.notif-page-row-title:hover {
 .figure-stores-chip-x {
   background: transparent;
   border: 0;
-  color: oklch(0.78 0.10 80 / 0.55);
+  color: color-mix(in oklab, var(--color-or) 55%, transparent);
   cursor: pointer;
   font-size: 1.05rem;
   line-height: 1;
@@ -7852,7 +8111,7 @@ a.notif-page-row-title:hover {
 .figure-stores-empty {
   font-size: 12px;
   font-style: italic;
-  color: oklch(0.78 0.10 80 / 0.4);
+  color: color-mix(in oklab, var(--color-or) 40%, transparent);
   margin: 0 0 1rem;
 }
 .figure-stores-add {
@@ -7870,7 +8129,7 @@ a.notif-page-row-title:hover {
   padding: 0.97rem 1rem;
   line-height: 1.2;
   background: transparent;
-  border: 1px solid oklch(0.78 0.10 80 / 0.45);
+  border: 1px solid color-mix(in oklab, var(--color-or) 45%, transparent);
   color: var(--color-or);
   font-family: var(--font-mono);
   font-size: 10.5px;
@@ -7881,7 +8140,7 @@ a.notif-page-row-title:hover {
   white-space: nowrap;
 }
 .figure-stores-add-btn:hover:not(:disabled) {
-  background: oklch(0.78 0.10 80 / 0.1);
+  background: color-mix(in oklab, var(--color-or) 10%, transparent);
   border-color: var(--color-or);
 }
 .figure-stores-add-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -7902,7 +8161,7 @@ a.notif-page-row-title:hover {
   gap: 0.8rem;
   margin-bottom: 1.25rem;
   padding: 0.8rem 1rem;
-  border: 1px dashed oklch(0.78 0.10 80 / 0.25);
+  border: 1px dashed color-mix(in oklab, var(--color-or) 25%, transparent);
   background: oklch(0.15 0.01 60 / 0.3);
 }
 .store-bulk-toolbar-label {
@@ -7915,7 +8174,7 @@ a.notif-page-row-title:hover {
 }
 .store-bulk-search {
   background: transparent;
-  border: 1px solid oklch(0.78 0.10 80 / 0.3);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
   color: var(--color-ivoire);
   padding: 0.4rem 0.7rem;
   font-size: 12px;
@@ -7930,7 +8189,7 @@ a.notif-page-row-title:hover {
 }
 .store-bulk-action {
   background: transparent;
-  border: 1px solid oklch(0.78 0.10 80 / 0.4);
+  border: 1px solid color-mix(in oklab, var(--color-or) 40%, transparent);
   color: var(--color-or-pale);
   font-family: var(--font-mono);
   font-size: 10px;
@@ -7943,7 +8202,7 @@ a.notif-page-row-title:hover {
 .store-bulk-action:hover:not(:disabled) {
   color: var(--color-or);
   border-color: var(--color-or);
-  background: oklch(0.78 0.10 80 / 0.08);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
 }
 .store-bulk-action--primary {
   color: var(--color-noir);
@@ -7969,16 +8228,16 @@ a.notif-page-row-title:hover {
   align-items: center;
   gap: 0.7rem;
   padding: 0.55rem 0.75rem;
-  border: 1px solid oklch(0.78 0.10 80 / 0.18);
+  border: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
   background: var(--color-noir-deep);
   font-size: 12.5px;
   color: var(--color-ivoire);
   transition: border-color 180ms var(--ease-quick), background 180ms var(--ease-quick);
 }
-.store-bulk-grid li:hover { border-color: oklch(0.78 0.10 80 / 0.4); }
+.store-bulk-grid li:hover { border-color: color-mix(in oklab, var(--color-or) 40%, transparent); }
 .store-bulk-grid li.is-linked {
-  border-color: oklch(0.78 0.10 80 / 0.55);
-  background: oklch(0.78 0.10 80 / 0.06);
+  border-color: color-mix(in oklab, var(--color-or) 55%, transparent);
+  background: color-mix(in oklab, var(--color-or) 6%, transparent);
 }
 .store-bulk-grid input[type="checkbox"] {
   accent-color: var(--color-or);
@@ -8009,7 +8268,7 @@ a.notif-page-row-title:hover {
   font-size: 9.5px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: oklch(0.78 0.10 80 / 0.5);
+  color: color-mix(in oklab, var(--color-or) 50%, transparent);
 }
 
 /* tail marker — append-only

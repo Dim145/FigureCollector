@@ -95,6 +95,21 @@ export default function YearInReviewPage() {
 function Masthead({ year, t }) {
   return (
     <header className="almanac-masthead">
+      {/* Localized hero colour-wash — a warm celebratory bloom behind the
+       *  masthead so the recap opens like a festival poster rather than a
+       *  ledger. Absolute + pointer-events-none, low-alpha accent vars only,
+       *  so it tints without flooding and flips with the light/dark theme.
+       *  The masthead is position:relative + overflow:hidden, and its
+       *  `> *` rule lifts real content to z-1, so this first-child layer
+       *  paints safely underneath. Hidden in print to keep the PDF clean. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 print:hidden"
+        style={{
+          background:
+            "radial-gradient(70% 90% at 12% 110%, color-mix(in oklab, var(--color-neon-amber) 16%, transparent), transparent 68%), radial-gradient(60% 80% at 95% -10%, color-mix(in oklab, var(--color-neon-magenta) 13%, transparent), transparent 70%), radial-gradient(55% 70% at 60% 50%, color-mix(in oklab, var(--color-indigo) 10%, transparent), transparent 72%)",
+        }}
+      />
       <div className="almanac-masthead-left">
         <p className="almanac-masthead-eyebrow">
           {t("yir.almanach.eyebrow")}
@@ -106,7 +121,7 @@ function Masthead({ year, t }) {
       <div className="almanac-masthead-right">
         <p>FigureCollector</p>
         <p style={{ marginTop: "0.5rem", opacity: 0.65 }}>
-          {new Date().toLocaleDateString(undefined, {
+          {new Date().toLocaleDateString(document.documentElement.lang || undefined, {
             day: "2-digit",
             month: "long",
             year: "numeric",
@@ -136,7 +151,17 @@ function Opening({ count, t }) {
     <Reveal as="section" className="almanac-opening" i={0}>
       <p className="almanac-opening-line">
         {parts[0]}
-        <span className="almanac-opening-count">
+        {/* The headline count is the emotional centre of the recap — lift it
+         *  from gold to a warm amber so the year's tally reads as a
+         *  celebration. CSS-var only → theme-correct. */}
+        <span
+          className="almanac-opening-count"
+          style={{
+            color: "var(--color-neon-amber)",
+            textShadow:
+              "0 0 28px color-mix(in oklab, var(--color-neon-amber) 35%, transparent)",
+          }}
+        >
           <Counter value={count} />
         </span>
         {parts[1]}
@@ -201,17 +226,23 @@ function Tableau({ data, t }) {
         ) : null}
       </Reveal>
 
-      {/* FABRICANT FAVORI */}
+      {/* FABRICANT FAVORI — jade accent in the rhythm. */}
       <Reveal className="almanac-cell almanac-cell--top" data-mark="工" i={1}>
         <span className="almanac-cell-label">
           {t("yir.top_manufacturer.label")}
         </span>
         {data.top_manufacturer ? (
           <>
-            <p className="almanac-cell-headline">
+            <p
+              className="almanac-cell-headline"
+              style={{ color: "var(--color-jade)" }}
+            >
               {data.top_manufacturer.name}
             </p>
-            <span className="almanac-cell-aside">
+            <span
+              className="almanac-cell-aside"
+              style={{ color: "var(--color-jade)", opacity: 1 }}
+            >
               × <Counter value={data.top_manufacturer.count} />
             </span>
           </>
@@ -220,13 +251,21 @@ function Tableau({ data, t }) {
         )}
       </Reveal>
 
-      {/* SÉRIE FAVORITE */}
+      {/* SÉRIE FAVORITE — indigo accent in the rhythm. */}
       <Reveal className="almanac-cell almanac-cell--bot" data-mark="物" i={2}>
         <span className="almanac-cell-label">{t("yir.top_series.label")}</span>
         {data.top_series ? (
           <>
-            <p className="almanac-cell-headline">{data.top_series.name}</p>
-            <span className="almanac-cell-aside">
+            <p
+              className="almanac-cell-headline"
+              style={{ color: "var(--color-indigo)" }}
+            >
+              {data.top_series.name}
+            </p>
+            <span
+              className="almanac-cell-aside"
+              style={{ color: "var(--color-indigo)", opacity: 1 }}
+            >
               × <Counter value={data.top_series.count} />
             </span>
           </>
@@ -286,7 +325,12 @@ function Ledger({ data, t }) {
         <div className="almanac-ledger-meta">
           <span>
             {t("yir.timeline.peak")}{" "}
-            <span className="almanac-ledger-meta-value">
+            {/* Peak month gets the cyan accent so it pops out of the gold
+             *  meta line as the year's high-water mark. */}
+            <span
+              className="almanac-ledger-meta-value"
+              style={{ color: "var(--color-neon-cyan)" }}
+            >
               {t(`yir.month.${peakMonth}`)} (
               <Counter value={max} />)
             </span>
@@ -314,6 +358,9 @@ function Ledger({ data, t }) {
                 {c > 0 ? (
                   <span
                     className={`almanac-ledger-count ${isPeak ? "is-peak" : ""}`}
+                    style={
+                      isPeak ? { color: "var(--color-neon-cyan)" } : undefined
+                    }
                   >
                     {c}
                   </span>
@@ -325,6 +372,17 @@ function Ledger({ data, t }) {
                   style={{
                     height: isEmpty ? undefined : `${heightPct}%`,
                     "--i": i,
+                    // The peak column glows cyan instead of gold so the
+                    // year's busiest month is unmistakable. Bar entrance is
+                    // still the CSS scaleY grow keyed off --i. Vars only.
+                    ...(isPeak
+                      ? {
+                          background:
+                            "linear-gradient(180deg, var(--color-neon-cyan) 0%, color-mix(in oklab, var(--color-neon-cyan) 55%, transparent) 100%)",
+                          boxShadow:
+                            "0 -8px 24px -8px color-mix(in oklab, var(--color-neon-cyan) 60%, transparent)",
+                        }
+                      : null),
                   }}
                 />
               </div>
@@ -351,7 +409,15 @@ function Bookends({ first, last, t }) {
       </header>
       <div className="almanac-bookends-grid">
         {first ? (
-          <Reveal as="article" className="almanac-bookend almanac-bookend--first" i={0}>
+          // Bookends are colour-coded as a pair: the year's first piece opens
+          // in jade, the last closes in magenta — the top rule carries the
+          // accent so the names stay legible ink. Vars only → theme-correct.
+          <Reveal
+            as="article"
+            className="almanac-bookend almanac-bookend--first"
+            i={0}
+            style={{ borderTopColor: "var(--color-jade)" }}
+          >
             <span className="almanac-bookend-eyebrow">
               {t("yir.first_acquisition")}
             </span>
@@ -362,7 +428,12 @@ function Bookends({ first, last, t }) {
           </Reveal>
         ) : null}
         {last ? (
-          <Reveal as="article" className="almanac-bookend almanac-bookend--last" i={1}>
+          <Reveal
+            as="article"
+            className="almanac-bookend almanac-bookend--last"
+            i={1}
+            style={{ borderTopColor: "var(--color-neon-magenta)" }}
+          >
             <span className="almanac-bookend-eyebrow">
               {t("yir.last_acquisition")}
             </span>

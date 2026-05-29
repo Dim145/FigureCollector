@@ -143,7 +143,7 @@ function Row({ user, mine, t }) {
               onClick={toggleAdmin}
               disabled={patch.isPending}
               title={user.is_admin ? t("admin.users.action.demote") : t("admin.users.action.promote")}
-              className="text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] disabled:opacity-40 text-xs px-2 py-1 transition-colors"
+              className="tap-target text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] disabled:opacity-40 text-xs px-2 py-1 transition-colors"
             >
               {user.is_admin ? "▼" : "▲"}
             </button>
@@ -151,7 +151,7 @@ function Row({ user, mine, t }) {
               type="button"
               onClick={() => setEditing(true)}
               title={t("admin.users.action.edit")}
-              className="text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] text-xs px-2 py-1 transition-colors"
+              className="tap-target text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] text-xs px-2 py-1 transition-colors"
             >
               ✎
             </button>
@@ -160,7 +160,7 @@ function Row({ user, mine, t }) {
               onClick={() => setConfirming(true)}
               disabled={mine}
               title={mine ? t("admin.users.action.cant_delete_self") : t("admin.users.action.delete")}
-              className="text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] disabled:opacity-30 disabled:cursor-not-allowed text-xs px-2 py-1 transition-colors"
+              className="tap-target text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] disabled:opacity-30 disabled:cursor-not-allowed text-xs px-2 py-1 transition-colors"
             >
               ×
             </button>
@@ -275,6 +275,7 @@ function CreateUserDialog({ onClose, t }) {
     <div
       role="dialog"
       aria-modal
+      aria-labelledby="create-user-dialog-title"
       onClick={onClose}
       className="fixed inset-0 z-50 grid place-items-center bg-[var(--color-noir)]/85 backdrop-blur-sm"
     >
@@ -282,11 +283,11 @@ function CreateUserDialog({ onClose, t }) {
         onSubmit={onSubmit}
         onClick={(e) => e.stopPropagation()}
         className="bg-[var(--color-noir-soft)] border border-[var(--color-or)]/40 p-8 w-[92vw] max-w-md space-y-4"
-        style={{ boxShadow: "0 40px 90px -40px rgba(0,0,0,0.85)" }}
+        style={{ boxShadow: "0 40px 90px -40px color-mix(in oklab, var(--color-noir-deep) 85%, transparent)" }}
       >
         <header className="mb-2">
           <p className="micro">{t("admin.users.new.subtitle")}</p>
-          <h2 className="display text-2xl text-[var(--color-ivoire)] mt-1">
+          <h2 id="create-user-dialog-title" className="display text-2xl text-[var(--color-ivoire)] mt-1">
             {t("admin.users.new")}
           </h2>
           <div className="gold-rule w-16 mt-3" />
@@ -327,15 +328,16 @@ function ConfirmDialog({ title, body, onConfirm, onCancel, loading, danger, t })
     <div
       role="dialog"
       aria-modal
+      aria-labelledby="confirm-dialog-title"
       onClick={onCancel}
       className="fixed inset-0 z-50 grid place-items-center bg-[var(--color-noir)]/85 backdrop-blur-sm"
     >
       <div
         onClick={(e) => e.stopPropagation()}
         className="bg-[var(--color-noir-soft)] border border-[var(--color-or)]/40 p-8 w-[92vw] max-w-md"
-        style={{ boxShadow: "0 40px 90px -40px rgba(0,0,0,0.85)" }}
+        style={{ boxShadow: "0 40px 90px -40px color-mix(in oklab, var(--color-noir-deep) 85%, transparent)" }}
       >
-        <h2 className="display text-xl text-[var(--color-ivoire)]">{title}</h2>
+        <h2 id="confirm-dialog-title" className="display text-xl text-[var(--color-ivoire)]">{title}</h2>
         <p className="mt-3 text-[var(--color-ivoire-soft)]">{body}</p>
         <div className="flex items-center gap-3 justify-end mt-6">
           <Button variant="ghost" onClick={onCancel}>

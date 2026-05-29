@@ -12,6 +12,13 @@ import { ApiError } from "../lib/api.js";
 import AppShell from "../components/AppShell.jsx";
 import FigureCard from "../components/FigureCard.jsx";
 import Lightbox from "../components/Lightbox.jsx";
+import Reveal from "../components/motion/Reveal.jsx";
+
+/** The storefront's colour signature — a curated "nuit" indigo that sets the
+ *  boutique apart from the gold-default entity pages. Every consumer mixes
+ *  this theme var() to transparency so the hero wash + accents flip with the
+ *  light/dark theme. */
+const STORE_ACCENT = "var(--color-indigo)";
 
 /**
  * /stores/:slug — the storefront page.
@@ -71,9 +78,41 @@ export default function StorePage() {
   return (
     <AppShell>
       <main className="relative max-w-7xl mx-auto px-6 py-16">
+        {/* Localised colour-wash behind the storefront hero — a gold→indigo
+         *  mesh that gives the boutique its own atmosphere. Absolutely
+         *  positioned, aria-hidden and pointer-events-none so it's pure
+         *  decoration; every colour is a theme var() mixed to transparency, so
+         *  it flips light/dark and rides gently over the global aurora. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-10 -left-6 -right-6 h-[380px] -z-0"
+          style={{
+            background: `radial-gradient(46% 70% at 16% 0%, color-mix(in oklab, var(--color-or) 18%, transparent), transparent 70%), radial-gradient(48% 66% at 82% 6%, color-mix(in oklab, ${STORE_ACCENT} 22%, transparent), transparent 72%), radial-gradient(40% 56% at 52% 38%, color-mix(in oklab, var(--color-jade) 12%, transparent), transparent 75%)`,
+            maskImage:
+              "radial-gradient(80% 92% at 50% 28%, black, transparent 100%)",
+          }}
+        />
+
         {/* ── HERO ── */}
-        <header className="store-hero reveal" style={{ "--i": 0 }}>
-          <div className="store-hero-frame">
+        <header className="store-hero relative">
+          <Reveal
+            as="div"
+            y={20}
+            className="store-hero-frame group"
+            style={{
+              borderColor: `color-mix(in oklab, ${STORE_ACCENT} 38%, transparent)`,
+              boxShadow: `0 24px 60px -32px color-mix(in oklab, ${STORE_ACCENT} 55%, transparent), 0 0 0 1px color-mix(in oklab, var(--color-or) 14%, transparent)`,
+            }}
+          >
+            {/* Accent tint riding over the profile image — faint, GPU-cheap,
+             *  fades on hover so the photo reads clean when inspected. */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0 z-[1] opacity-70 transition-opacity duration-500 ease-out group-hover:opacity-30 motion-reduce:transition-none"
+              style={{
+                background: `linear-gradient(150deg, transparent 48%, color-mix(in oklab, ${STORE_ACCENT} 20%, transparent))`,
+              }}
+            />
             {imageUrl ? (
               // Click-to-zoom on the profile image. Opens the shared Lightbox
               // which already brings wheel/double-click/keyboard zoom on top
@@ -100,16 +139,33 @@ export default function StorePage() {
                 店
               </div>
             )}
-          </div>
-          <div>
-            <p className="micro">{t("store.eyebrow")}</p>
-            <h1 className="display text-5xl md:text-6xl text-[var(--color-ivoire)] mt-2 leading-none">
+          </Reveal>
+          <Reveal as="div" delay={0.08} y={20}>
+            <p
+              className="micro"
+              style={{
+                color: `color-mix(in oklab, ${STORE_ACCENT} 55%, var(--color-or-pale))`,
+              }}
+            >
+              {t("store.eyebrow")}
+            </p>
+            <h1
+              className="display text-5xl md:text-6xl text-[var(--color-ivoire)] mt-2 leading-none"
+              style={{
+                textShadow: `0 0 34px color-mix(in oklab, ${STORE_ACCENT} 28%, transparent)`,
+              }}
+            >
               {s.name}
             </h1>
             <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-[var(--color-or-pale)]/60 mt-3">
               /{s.slug}
             </p>
-            <div className="gold-rule w-16 mt-5" />
+            <div
+              className="gold-rule w-16 mt-5"
+              style={{
+                background: `linear-gradient(to right, ${STORE_ACCENT} 0%, var(--color-or) 70%, transparent)`,
+              }}
+            />
             {s.description ? (
               <p className="mt-5 text-[var(--color-ivoire-soft)] leading-relaxed max-w-2xl whitespace-pre-wrap">
                 {s.description}
@@ -125,12 +181,17 @@ export default function StorePage() {
                 ↗ {prettyHost(s.url)}
               </a>
             ) : null}
-          </div>
+          </Reveal>
         </header>
 
         {/* ── CATALOGUE ── */}
-        <section className="reveal" style={{ "--i": 1 }}>
-          <div className="flex items-baseline justify-between mb-6 gap-4">
+        <section className="relative">
+          <Reveal
+            as="div"
+            y={16}
+            amount={0.6}
+            className="flex items-baseline justify-between mb-6 gap-4"
+          >
             <h2 className="display text-2xl text-[var(--color-ivoire)]">
               {t("store.catalog.title")}
             </h2>
@@ -148,7 +209,7 @@ export default function StorePage() {
                 </button>
               ) : null}
             </div>
-          </div>
+          </Reveal>
 
           {bulkEditing ? (
             <BulkEditCatalog
@@ -166,7 +227,13 @@ export default function StorePage() {
           ) : (
             <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {figures.map((f, i) => (
-                <li key={f.id} className="reveal" style={{ "--i": Math.min(i, 10) + 2 }}>
+                <Reveal
+                  as="li"
+                  key={f.id}
+                  y={24}
+                  amount={0.15}
+                  delay={Math.min(i, 7) * 0.05}
+                >
                   <FigureCard
                     figureId={f.id}
                     href={`/figures/${f.id}`}
@@ -180,7 +247,7 @@ export default function StorePage() {
                     }
                     blurImage={f.is_nsfw && blurNsfw}
                   />
-                </li>
+                </Reveal>
               ))}
             </ul>
           )}

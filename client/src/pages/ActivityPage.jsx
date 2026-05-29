@@ -4,6 +4,7 @@ import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useActivity } from "../hooks/useActivity.js";
 import AppShell from "../components/AppShell.jsx";
+import Reveal from "../components/motion/Reveal.jsx";
 
 /**
  * Le Journal de bord — the user's chronological activity ledger.
@@ -22,16 +23,24 @@ import AppShell from "../components/AppShell.jsx";
 /** Six event kinds with their visual treatment.
  *  kanji   — calligraphic mark for the brass plate
  *  tone    — sentiment pip colour (`positive` / `negative` / `neutral`)
+ *  accent  — a theme CSS var giving each kind its own colour signature; the
+ *            margin spine, glyph ring and hover-wash all tone off this one
+ *            value. Every entry is a `var()` so the palette flips light/dark.
  *  i18nKey — formatEntry uses this to look up the line wording */
 const EVENT_KINDS = [
-  { id: "owned_added",            kanji: "入", tone: "positive" },
-  { id: "owned_removed",          kanji: "退", tone: "negative" },
-  { id: "preorder_created",       kanji: "予", tone: "neutral"  },
-  { id: "preorder_slipped",       kanji: "滑", tone: "negative" },
-  { id: "preorder_status_changed",kanji: "状", tone: "neutral"  },
-  { id: "preorder_received",      kanji: "受", tone: "positive" },
+  { id: "owned_added",            kanji: "入", tone: "positive", accent: "var(--color-jade)"        },
+  { id: "owned_removed",          kanji: "退", tone: "negative", accent: "var(--color-laque-bright)" },
+  { id: "preorder_created",       kanji: "予", tone: "neutral",  accent: "var(--color-indigo)"      },
+  { id: "preorder_slipped",       kanji: "滑", tone: "negative", accent: "var(--color-neon-amber)"  },
+  { id: "preorder_status_changed",kanji: "状", tone: "neutral",  accent: "var(--color-neon-cyan)"   },
+  { id: "preorder_received",      kanji: "受", tone: "positive", accent: "var(--color-or)"          },
 ];
 const KIND_META = Object.fromEntries(EVENT_KINDS.map((k) => [k.id, k]));
+
+/** The accent for an event kind, falling back to gold (always on-brand). */
+function kindAccent(kind) {
+  return KIND_META[kind]?.accent ?? "var(--color-or)";
+}
 
 export default function ActivityPage() {
   const t = useT();
@@ -69,6 +78,24 @@ export default function ActivityPage() {
   return (
     <AppShell>
       <main className="relative max-w-4xl mx-auto px-6 py-12">
+        {/* Localised colour-wash behind the header — three soft blooms in the
+         *  journal's signature accents (jade acquisition · indigo
+         *  anticipation · amber motion). Absolutely positioned, aria-hidden
+         *  and pointer-events-none so it's pure decoration; masked to fade
+         *  out before the timeline. Every colour is a theme var() mixed to
+         *  transparency, so the wash flips with the light/dark theme and
+         *  rides gently over the global aurora. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 -top-6 h-[340px] -z-0"
+          style={{
+            background:
+              "radial-gradient(52% 70% at 16% 8%, color-mix(in oklab, var(--color-jade) 18%, transparent), transparent 70%), radial-gradient(48% 64% at 84% 0%, color-mix(in oklab, var(--color-indigo) 20%, transparent), transparent 72%), radial-gradient(40% 56% at 56% 40%, color-mix(in oklab, var(--color-neon-amber) 12%, transparent), transparent 75%)",
+            maskImage:
+              "radial-gradient(82% 90% at 50% 30%, black, transparent 100%)",
+          }}
+        />
+
         <span
           aria-hidden
           className="kanji-mark text-[26rem] -top-24 -right-16 hidden md:block"
@@ -139,6 +166,13 @@ export default function ActivityPage() {
         {/* Daybook */}
         {activity.isLoading ? (
           <p className="text-center text-[var(--color-ivoire-soft)] italic py-16">…</p>
+        ) : activity.isError ? (
+          <p
+            role="alert"
+            className="text-center text-[var(--color-ivoire-soft)] italic py-16"
+          >
+            {t("error.unknown")}
+          </p>
         ) : events.length === 0 ? (
           <EmptyJournal t={t} />
         ) : days.length === 0 ? (
@@ -161,11 +195,12 @@ export default function ActivityPage() {
 // Day section — ribbon strap header + entries
 
 function DaySection({ day, index, t }) {
+  // Stagger each day's reveal down the timeline, capped so a long history
+  // never leaves the bottom days waiting too long. GPU-only (opacity/transform)
+  // via the shared Reveal — reduced-motion renders a plain element.
+  const dayDelay = Math.min(index * 0.05, 0.25);
   return (
-    <div
-      className="reveal"
-      style={{ "--i": Math.min(index + 5, 10) }}
-    >
+    <Reveal as="div" y={20} amount={0.15} delay={dayDelay}>
       <header className="day-strap">
         <div>
           <span className="day-strap-relative" aria-hidden>
@@ -184,27 +219,72 @@ function DaySection({ day, index, t }) {
       </header>
 
       <ol>
-        {day.events.map((ev) => (
-          <Entry key={ev.id} ev={ev} t={t} />
+        {day.events.map((ev, i) => (
+          <Entry key={ev.id} ev={ev} index={i} t={t} />
         ))}
       </ol>
-    </div>
+    </Reveal>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Entry — one manuscript line
 
-function Entry({ ev, t }) {
+function Entry({ ev, index = 0, t }) {
   const meta = KIND_META[ev.kind];
   const time = new Date(ev.created_at);
   const figureId = ev.payload?.figure_id;
   const figureName = ev.payload?.figure_name;
   const figureImage = ev.payload?.figure_image;
+  // This kind's colour signature, exposed as a single `--accent` custom
+  // property the decorative elements below reference. Pure styling.
+  const accent = kindAccent(ev.kind);
+  // Cascade entries within a day, capped so a busy day stays snappy.
+  const revealDelay = Math.min(index * 0.04, 0.2);
 
   return (
-    <li className="entry">
-      <div className={`entry-glyph entry-glyph--${meta?.tone ?? "neutral"}`}>
+    <Reveal
+      as="li"
+      y={16}
+      amount={0.4}
+      delay={revealDelay}
+      className="entry group"
+      style={{ "--accent": accent }}
+    >
+      {/* Margin spine — a thin colour-coded bar fused to the entry's left
+       *  edge in this kind's hue, echoing the journal's gold thread. Widens +
+       *  brightens on hover (transform/opacity only). Decorative,
+       *  pointer-events-none, theme-var driven. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute top-1 bottom-1 w-[2px] origin-left scale-x-50 opacity-60 transition-[transform,opacity] duration-300 ease-out group-hover:scale-x-100 group-hover:opacity-100 motion-reduce:transition-none"
+        style={{
+          left: "calc(-1 * clamp(0px, 4vw, 2.5rem))",
+          background: `linear-gradient(180deg, transparent, color-mix(in oklab, ${accent} 65%, transparent) 20%, color-mix(in oklab, ${accent} 40%, transparent) 80%, transparent)`,
+        }}
+      />
+      {/* Hover colour-wash — a faint accent bloom from the glyph corner that
+       *  fades in on hover, giving each row a moment of its own colour without
+       *  disturbing the resting layout. Opacity-only transition. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100 motion-reduce:transition-none motion-reduce:group-hover:opacity-0"
+        style={{
+          background: `radial-gradient(60% 80% at 0% 50%, color-mix(in oklab, ${accent} 9%, transparent), transparent 62%)`,
+        }}
+      />
+      <div
+        className={`entry-glyph entry-glyph--${meta?.tone ?? "neutral"} relative`}
+      >
+        {/* Accent ring riding over the brass plate — fuses each glyph to its
+         *  kind's hue and lights up on hover. GPU-cheap (opacity), theme var. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 opacity-70 transition-opacity duration-300 ease-out group-hover:opacity-100 motion-reduce:transition-none"
+          style={{
+            boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${accent} 60%, transparent), 0 0 16px -6px color-mix(in oklab, ${accent} 80%, transparent)`,
+          }}
+        />
         <span className="entry-glyph-kanji" aria-hidden>
           {meta?.kanji ?? "・"}
         </span>
@@ -233,7 +313,7 @@ function Entry({ ev, t }) {
         ) : null}
 
         <span className="entry-time">
-          <time dateTime={ev.created_at} title={time.toLocaleString()}>
+          <time dateTime={ev.created_at} title={time.toLocaleString(document.documentElement.lang || undefined)}>
             {formatTimeOfDay(time)} · {relativeShort(time)}
           </time>
         </span>
@@ -248,7 +328,7 @@ function Entry({ ev, t }) {
           </Link>
         ) : null}
       </div>
-    </li>
+    </Reveal>
   );
 }
 
@@ -380,9 +460,9 @@ function groupByDay(events) {
         key,
         date: {
           day: d.getDate(),
-          month: d.toLocaleDateString(undefined, { month: "long" }),
+          month: d.toLocaleDateString(document.documentElement.lang || undefined, { month: "long" }),
           year: d.getFullYear(),
-          weekday: d.toLocaleDateString(undefined, { weekday: "long" }),
+          weekday: d.toLocaleDateString(document.documentElement.lang || undefined, { weekday: "long" }),
           raw: d,
         },
         events: [],
@@ -410,7 +490,7 @@ function stripTime(d) {
 }
 
 function formatTimeOfDay(d) {
-  return d.toLocaleTimeString(undefined, {
+  return d.toLocaleTimeString(document.documentElement.lang || undefined, {
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -419,10 +499,14 @@ function formatTimeOfDay(d) {
 /** "il y a 3 h" — tight relative formatter for the entry margin. */
 function relativeShort(d) {
   const diff = Math.max(0, (Date.now() - d.getTime()) / 1000);
+  const en =
+    typeof document !== "undefined" &&
+    (document.documentElement.lang || "").startsWith("en");
   if (diff < 60) return `${Math.floor(diff)}s`;
   if (diff < 3600) return `${Math.floor(diff / 60)}m`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-  if (diff < 86400 * 30) return `${Math.floor(diff / 86400)}j`;
-  if (diff < 86400 * 365) return `${Math.floor(diff / 86400 / 30)} mo`;
-  return `${Math.floor(diff / 86400 / 365)} an${diff >= 86400 * 730 ? "s" : ""}`;
+  if (diff < 86400 * 30) return `${Math.floor(diff / 86400)}${en ? "d" : "j"}`;
+  if (diff < 86400 * 365) return `${Math.floor(diff / 86400 / 30)}mo`;
+  const y = Math.floor(diff / 86400 / 365);
+  return en ? `${y}y` : `${y} an${y >= 2 ? "s" : ""}`;
 }

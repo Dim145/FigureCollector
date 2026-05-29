@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import AppShell from "../components/AppShell.jsx";
 import FigureCard from "../components/FigureCard.jsx";
+import Reveal from "../components/motion/Reveal.jsx";
 import { useT } from "../i18n/index.jsx";
 import { api, ApiError } from "../lib/api.js";
 import { resolveFigureCover } from "../lib/coverUrl.js";
@@ -107,14 +108,19 @@ export default function EntityPage({ kind }) {
         <Header entity={entity} kind={kind} t={t} />
 
         <section className="mt-10">
-          <header className="flex items-baseline justify-between mb-6">
+          <Reveal
+            as="header"
+            y={16}
+            amount={0.6}
+            className="flex items-baseline justify-between mb-6"
+          >
             <h2 className="display text-2xl text-[var(--color-ivoire)]">
               {t("entity.figures_section.title")}
             </h2>
             <span className="micro-tight">
               {figures.length} {t("entity.figures_section.count")}
             </span>
-          </header>
+          </Reveal>
 
           {manageable && figures.length > 0 ? (
             <AdminBulkToolbar
@@ -137,10 +143,12 @@ export default function EntityPage({ kind }) {
               {figures.map((f, i) => {
                 const isSelected = selected.has(f.id);
                 return (
-                  <li
+                  <Reveal
+                    as="li"
                     key={f.id}
-                    className="reveal"
-                    style={{ "--i": Math.min(i, 10) + 5 }}
+                    y={24}
+                    amount={0.15}
+                    delay={Math.min(i, 7) * 0.05}
                   >
                     {/* Selection control sits ABOVE the card, not as a corner
                         overlay — both card corners are already taken (type
@@ -191,7 +199,7 @@ export default function EntityPage({ kind }) {
                         })()}
                       />
                     </div>
-                  </li>
+                  </Reveal>
                 );
               })}
             </ul>
@@ -286,6 +294,7 @@ function AdminBulkToolbar({ kind, entity, figures, selected, onSelectAll, onClea
         value={moveTo}
         onChange={(e) => setMoveTo(e.target.value)}
         disabled={selected.size === 0 || busy || targets.length === 0}
+        aria-label={t("entity.admin.move_to")}
         className="bg-[var(--color-noir-deep)] border border-[var(--color-or)]/30 px-2.5 py-1 text-[var(--color-ivoire)] disabled:opacity-30"
         style={{ minWidth: "14rem" }}
       >
@@ -320,30 +329,79 @@ function AdminBulkToolbar({ kind, entity, figures, selected, onSelectAll, onClea
 // Header — hero with image, name, optional metadata rows
 
 function Header({ entity, kind, t }) {
+  const accent = kindAccent(kind);
   return (
-    <header className="grid md:grid-cols-[260px_1fr] gap-8 items-start">
-      <div className="aspect-[3/4] bg-[var(--color-noir-deep)] border border-[var(--color-or)]/20 overflow-hidden">
-        {entity.image_url ? (
-          <img
-            src={entity.image_url}
-            alt={entity.name}
-            className="w-full h-full object-cover"
-            loading="eager"
-            decoding="async"
-          />
-        ) : (
-          <div className="w-full h-full grid place-items-center text-[var(--color-or)]/30 text-xs uppercase tracking-[0.2em]">
-            {t(`entity.${kind}.no_image`)}
-          </div>
-        )}
-      </div>
+    <header className="relative">
+      {/* Localised colour-wash behind the hero — a gold→accent mesh that
+          tones to the entity kind. Absolutely positioned, aria-hidden and
+          pointer-events-none so it's pure decoration; every colour is a
+          theme var() (mixed to transparency) so it flips light/dark. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-16 -left-6 -right-6 h-[360px] -z-0"
+        style={{
+          background: `radial-gradient(48% 70% at 14% 0%, color-mix(in oklab, var(--color-or) 20%, transparent), transparent 70%), radial-gradient(46% 64% at 82% 8%, color-mix(in oklab, ${accent} 20%, transparent), transparent 72%), radial-gradient(40% 56% at 52% 36%, color-mix(in oklab, ${accent} 11%, transparent), transparent 75%)`,
+        }}
+      />
 
-      <div>
-        <p className="micro">{t(`entity.${kind}.eyebrow`)}</p>
-        <h1 className="display text-4xl md:text-5xl mt-2 text-[var(--color-ivoire)] leading-tight">
-          {entity.name}
-        </h1>
-        <div className="gold-rule w-24 mt-5 mb-6 opacity-70" />
+      <div className="relative grid md:grid-cols-[260px_1fr] gap-8 items-start">
+        <Reveal
+          as="div"
+          y={20}
+          className="group relative aspect-[3/4] overflow-hidden border bg-[var(--color-noir-deep)]"
+          style={{
+            borderColor: `color-mix(in oklab, ${accent} 38%, transparent)`,
+            boxShadow: `0 24px 60px -32px color-mix(in oklab, ${accent} 55%, transparent), 0 0 0 1px color-mix(in oklab, var(--color-or) 14%, transparent)`,
+          }}
+        >
+          {/* Accent tint riding over the image — faint, GPU-cheap, fades on
+              hover so the photo reads clean when inspected. */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-10 opacity-70 transition-opacity duration-500 ease-out group-hover:opacity-30 motion-reduce:transition-none"
+            style={{
+              background: `linear-gradient(150deg, transparent 45%, color-mix(in oklab, ${accent} 22%, transparent))`,
+            }}
+          />
+          {entity.image_url ? (
+            <img
+              src={entity.image_url}
+              alt={entity.name}
+              className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+              loading="eager"
+              decoding="async"
+            />
+          ) : (
+            <div
+              className="w-full h-full grid place-items-center text-xs uppercase tracking-[0.2em]"
+              style={{ color: `color-mix(in oklab, ${accent} 45%, transparent)` }}
+            >
+              {t(`entity.${kind}.no_image`)}
+            </div>
+          )}
+        </Reveal>
+
+        <Reveal as="div" delay={0.08} y={20}>
+          <p
+            className="micro"
+            style={{ color: `color-mix(in oklab, ${accent} 60%, var(--color-or-pale))` }}
+          >
+            {t(`entity.${kind}.eyebrow`)}
+          </p>
+          <h1
+            className="display text-4xl md:text-5xl mt-2 text-[var(--color-ivoire)] leading-tight"
+            style={{
+              textShadow: `0 0 34px color-mix(in oklab, ${accent} 30%, transparent)`,
+            }}
+          >
+            {entity.name}
+          </h1>
+          <div
+            className="gold-rule w-24 mt-5 mb-6"
+            style={{
+              background: `linear-gradient(to right, transparent, ${accent} 30%, var(--color-or) 70%, transparent)`,
+            }}
+          />
 
         {/* Linked series for characters */}
         {kind === "character" && entity.series_name ? (
@@ -374,15 +432,16 @@ function Header({ entity, kind, t }) {
           </p>
         ) : null}
 
-        <MetaRows entity={entity} kind={kind} t={t} />
+          <MetaRows entity={entity} kind={kind} t={t} accent={accent} />
 
-        <ExternalLinks entity={entity} kind={kind} t={t} />
+          <ExternalLinks entity={entity} kind={kind} t={t} accent={accent} />
+        </Reveal>
       </div>
     </header>
   );
 }
 
-function MetaRows({ entity, kind, t }) {
+function MetaRows({ entity, kind, t, accent = "var(--color-or)" }) {
   const rows = [];
   if (kind === "manufacturer" && entity.country) {
     rows.push(["country", entity.country]);
@@ -395,7 +454,10 @@ function MetaRows({ entity, kind, t }) {
     <dl className="mt-5 grid grid-cols-[auto_1fr] gap-x-5 gap-y-1 text-sm">
       {rows.map(([k, v]) => (
         <div key={k} className="contents">
-          <dt className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)]/80">
+          <dt
+            className="text-[10px] uppercase tracking-[0.18em]"
+            style={{ color: `color-mix(in oklab, ${accent} 55%, var(--color-or-pale))` }}
+          >
             {t(`entity.meta.${k}`)}
           </dt>
           <dd className="text-[var(--color-ivoire)]">{v}</dd>
@@ -405,7 +467,7 @@ function MetaRows({ entity, kind, t }) {
   );
 }
 
-function ExternalLinks({ entity, kind, t }) {
+function ExternalLinks({ entity, kind, t, accent = "var(--color-or)" }) {
   const links = [];
   if (entity.external_url) {
     links.push({ href: entity.external_url, label: t("entity.link.website") });
@@ -436,7 +498,13 @@ function ExternalLinks({ entity, kind, t }) {
             href={l.href}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] border border-[var(--color-or)]/40 text-[var(--color-or-pale)] hover:border-[var(--color-or)] hover:text-[var(--color-or)] px-3 py-1.5 transition-all"
+            className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] px-3 py-1.5 border transition-colors duration-300 ease-out hover:-translate-y-0.5 hover:text-[var(--color-ivoire)] hover:[border-color:var(--_link-border-hover)] hover:[background:var(--_link-bg-hover)] motion-reduce:hover:translate-y-0 motion-reduce:transition-none"
+            style={{
+              borderColor: `color-mix(in oklab, ${accent} 42%, transparent)`,
+              background: `color-mix(in oklab, ${accent} 6%, transparent)`,
+              "--_link-border-hover": `color-mix(in oklab, ${accent} 80%, transparent)`,
+              "--_link-bg-hover": `color-mix(in oklab, ${accent} 14%, transparent)`,
+            }}
           >
             {l.label} ↗
           </a>
@@ -458,6 +526,20 @@ function kindToApiPath(kind) {
       return "characters";
     default:
       return kind;
+  }
+}
+
+/** A tasteful hero accent per entity kind. Series read as jade (céladon),
+ *  characters as indigo (nuit), manufacturers stay gold — every value is a
+ *  theme var() so the wash flips correctly between light and dark. */
+function kindAccent(kind) {
+  switch (kind) {
+    case "series":
+      return "var(--color-jade)";
+    case "character":
+      return "var(--color-indigo)";
+    default:
+      return "var(--color-or)";
   }
 }
 

@@ -15,6 +15,7 @@ import FormField from "../components/FormField.jsx";
 import Select from "../components/Select.jsx";
 import StoreAutocomplete from "../components/StoreAutocomplete.jsx";
 import TrackingChip from "../components/TrackingChip.jsx";
+import Reveal from "../components/motion/Reveal.jsx";
 import {
   countdownTone,
   deliveryCountdown,
@@ -61,6 +62,44 @@ const STATUS_KANJI = {
 };
 
 const IMMINENT_DAYS = 14;
+
+/**
+ * Lifecycle → accent colour (STYLING ONLY). Every value is a theme CSS var,
+ * so the whole palette flips with the light/dark theme. Early states glow
+ * indigo (the "nuit" of anticipation), the open/announce window leans gold,
+ * production warms to amber, shipping turns cyan (in motion), receipt settles
+ * to jade (in hand), and cancellation falls to laque red. The page exposes
+ * each entry's colour as a single `--accent` custom property (see
+ * `accentVars`) so borders, seals, chips and washes all tone together off
+ * one variable.
+ */
+const STATUS_ACCENT = {
+  announced: "var(--color-indigo)",
+  preorder_open: "var(--color-or)",
+  preordered: "var(--color-or-pale)",
+  in_production: "var(--color-neon-amber)",
+  released: "var(--color-neon-amber)",
+  shipped: "var(--color-neon-cyan)",
+  received: "var(--color-jade)",
+  cancelled: "var(--color-laque-bright)",
+};
+
+/** The accent for a given lifecycle status (falls back to gold). */
+function statusAccent(status) {
+  return STATUS_ACCENT[status] ?? "var(--color-or)";
+}
+
+/** Inline-style object exposing a status' accent as `--accent` so an
+ *  element's children/pseudo styling can reference one variable. Imminent
+ *  upcoming releases are nudged to neon-amber regardless of status, since
+ *  "it's almost here" is the more urgent signal than the lifecycle slot. */
+function accentVars(status, imminent) {
+  const accent =
+    imminent && status !== "cancelled" && status !== "received"
+      ? "var(--color-neon-amber)"
+      : statusAccent(status);
+  return { "--accent": accent };
+}
 
 // =============================================================================
 // Top-level page
@@ -143,6 +182,20 @@ export default function PreordersPage() {
 function Hero({ t }) {
   return (
     <header className="horarium-hero">
+      {/* Localised colour-wash — two soft accent blooms behind the title.
+       *  Absolutely positioned + pointer-events-none so it never intercepts
+       *  clicks, low-alpha theme vars so it flips with the theme and stays
+       *  tasteful over the global aurora. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 -top-8 -bottom-4 z-0"
+        style={{
+          background:
+            "radial-gradient(60% 70% at 30% 35%, color-mix(in oklab, var(--color-indigo) 22%, transparent), transparent 70%), radial-gradient(55% 65% at 72% 60%, color-mix(in oklab, var(--color-neon-amber) 16%, transparent), transparent 72%)",
+          maskImage:
+            "radial-gradient(80% 90% at 50% 45%, black, transparent 100%)",
+        }}
+      />
       <p className="horarium-hero-eyebrow">{t("preorders.subtitle")}</p>
       <h1 className="horarium-hero-title">{t("preorders.title")}</h1>
       <span className="horarium-hero-rule" aria-hidden />
@@ -155,18 +208,34 @@ function Hero({ t }) {
 // =============================================================================
 
 function StatRibbon({ stats, t }) {
+  // A hairline accent sits along the top edge of each lozenge — gold for the
+  // ledger total, amber for the next-up countdown (urgency), cyan for parcels
+  // in motion. All theme vars, so they flip with the theme.
+  const edge = (accent) => ({
+    boxShadow: `inset 0 2px 0 -1px color-mix(in oklab, ${accent} 55%, transparent)`,
+  });
   return (
-    <section className="horarium-stats" aria-label={t("preorders.title")}>
-      <div className="horarium-stat">
+    <Reveal as="section" y={16} className="horarium-stats" aria-label={t("preorders.title")}>
+      <div className="horarium-stat" style={edge("var(--color-or)")}>
         <span className="horarium-stat-label">{t("preorders.stat.total")}</span>
-        <span className="horarium-stat-value">{stats.total}</span>
+        <span
+          className="horarium-stat-value"
+          style={{ color: "var(--color-or)" }}
+        >
+          {stats.total}
+        </span>
       </div>
 
-      <div className="horarium-stat">
+      <div className="horarium-stat" style={edge("var(--color-neon-amber)")}>
         <span className="horarium-stat-label">{t("preorders.stat.next")}</span>
         {stats.next ? (
           <>
-            <span className="horarium-stat-value">{stats.next.label}</span>
+            <span
+              className="horarium-stat-value"
+              style={{ color: "var(--color-neon-amber)" }}
+            >
+              {stats.next.label}
+            </span>
             <span className="horarium-stat-sub">{stats.next.title}</span>
           </>
         ) : (
@@ -176,19 +245,24 @@ function StatRibbon({ stats, t }) {
         )}
       </div>
 
-      <div className="horarium-stat">
+      <div className="horarium-stat" style={edge("var(--color-neon-cyan)")}>
         <span className="horarium-stat-label">
           {t("preorders.stat.in_transit")}
         </span>
         {stats.inTransit > 0 ? (
-          <span className="horarium-stat-value">{stats.inTransit}</span>
+          <span
+            className="horarium-stat-value"
+            style={{ color: "var(--color-neon-cyan)" }}
+          >
+            {stats.inTransit}
+          </span>
         ) : (
           <span className="horarium-stat-value is-muted">
             {t("preorders.stat.in_transit_none")}
           </span>
         )}
       </div>
-    </section>
+    </Reveal>
   );
 }
 
@@ -205,6 +279,7 @@ function FilterRail({ filter, onChange, counts, t }) {
       <FilterChip
         active={filter === "all"}
         kanji="全"
+        accent="var(--color-or)"
         label={t("preorders.filter.all")}
         count={counts.all ?? 0}
         onClick={() => onChange("all")}
@@ -214,6 +289,7 @@ function FilterRail({ filter, onChange, counts, t }) {
           key={s}
           active={filter === s}
           kanji={STATUS_KANJI[s]}
+          accent={statusAccent(s)}
           label={t(`status.${s}`)}
           count={counts[s]}
           onClick={() => onChange(s)}
@@ -223,15 +299,30 @@ function FilterRail({ filter, onChange, counts, t }) {
   );
 }
 
-function FilterChip({ active, kanji, label, count, onClick }) {
+function FilterChip({ active, kanji, accent, label, count, onClick }) {
+  // The chip's kanji carries the lifecycle accent, turning the filter rail
+  // into a living colour-key. When active, the whole chip picks up a soft
+  // accent ring + wash on top of the existing .is-active gold styling.
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
       className={`horarium-filter-chip ${active ? "is-active" : ""}`}
+      style={
+        active
+          ? {
+              borderColor: `color-mix(in oklab, ${accent} 70%, transparent)`,
+              boxShadow: `0 0 0 1px color-mix(in oklab, ${accent} 30%, transparent), 0 6px 18px -12px color-mix(in oklab, ${accent} 60%, transparent)`,
+            }
+          : undefined
+      }
     >
-      <span className="horarium-filter-chip-kanji" aria-hidden>
+      <span
+        className="horarium-filter-chip-kanji"
+        aria-hidden
+        style={{ color: accent, opacity: active ? 1 : 0.75 }}
+      >
         {kanji}
       </span>
       <span>{label}</span>
@@ -249,35 +340,64 @@ function FilterChip({ active, kanji, label, count, onClick }) {
 function MonthGroup({ month, t }) {
   return (
     <section>
-      <header className="horarium-month">
-        <span className="horarium-month-kanji" aria-hidden>月</span>
+      <Reveal as="header" y={14} amount={0.6} className="horarium-month">
+        <span
+          className="horarium-month-kanji"
+          aria-hidden
+          style={{
+            color: "var(--color-indigo)",
+            borderColor:
+              "color-mix(in oklab, var(--color-indigo) 55%, transparent)",
+            boxShadow:
+              "0 0 18px -6px color-mix(in oklab, var(--color-indigo) 70%, transparent)",
+          }}
+        >
+          月
+        </span>
         <h2 className="horarium-month-label">{month.label}</h2>
         {month.year ? (
           <span className="horarium-month-year">{month.year}</span>
         ) : null}
-      </header>
-      {month.entries.map((p) => (
-        <TimelineEntry key={p.id} preorder={p} t={t} />
+        {/* A short accent rule trailing off the month label — adds horizon
+         *  and motion to an otherwise flat divider. Theme-var gradient. */}
+        <span
+          aria-hidden
+          className="pointer-events-none hidden sm:block h-px flex-1 self-center"
+          style={{
+            background:
+              "linear-gradient(90deg, color-mix(in oklab, var(--color-indigo) 40%, transparent), transparent)",
+          }}
+        />
+      </Reveal>
+      {month.entries.map((p, i) => (
+        <TimelineEntry key={p.id} preorder={p} index={i} t={t} />
       ))}
     </section>
   );
 }
 
-function TimelineEntry({ preorder: p, t }) {
+function TimelineEntry({ preorder: p, index = 0, t }) {
   const [editing, setEditing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const countdown = countdownInfo(p.release_date_current, t);
   const slipCount = p.slip_count ?? 0;
   const status = p.status ?? "preordered";
+  const imminent =
+    countdown.imminent && status !== "cancelled" && status !== "received";
+
+  // The accent for this lifecycle state, exposed as a single `--accent`
+  // custom property the decorative elements below reference. Pure styling.
+  const accent = accentVars(status, imminent)["--accent"];
+  // Stagger the scroll reveal within a month, but cap it so a long month
+  // never leaves the last rows waiting too long.
+  const revealDelay = Math.min(index * 0.06, 0.3);
 
   // Classes that drive the variant styling — cancelled, received, imminent
   const variantClasses = [
     status === "cancelled" ? "is-cancelled" : "",
     status === "received" ? "is-received" : "",
-    countdown.imminent && status !== "cancelled" && status !== "received"
-      ? "is-imminent"
-      : "",
+    imminent ? "is-imminent" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -294,7 +414,40 @@ function TimelineEntry({ preorder: p, t }) {
     .join(" ");
 
   return (
-    <article className={`horarium-entry ${variantClasses}`}>
+    <Reveal
+      as="article"
+      delay={revealDelay}
+      y={20}
+      className={`horarium-entry group ${variantClasses}`}
+      style={{
+        "--accent": accent,
+        // Lift the entry's border toward its lifecycle accent without
+        // overriding the variant-specific CSS that follows. (The :hover
+        // border shift defined in index.css still applies on top.)
+        borderColor: `color-mix(in oklab, ${accent} 22%, transparent)`,
+      }}
+    >
+      {/* Accent spine — a thin colour-coded bar fused to the entry's left
+       *  edge, echoing the gold thread but in the entry's own lifecycle hue.
+       *  Widens + brightens on hover (transform/opacity only). Decorative,
+       *  pointer-events-none, theme-var driven. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute left-0 top-0 bottom-0 w-[2px] origin-left scale-x-50 opacity-70 transition-[transform,opacity] duration-300 ease-out group-hover:scale-x-100 group-hover:opacity-100 motion-reduce:transition-none"
+        style={{
+          background: `linear-gradient(180deg, transparent, color-mix(in oklab, ${accent} 60%, transparent) 18%, color-mix(in oklab, ${accent} 38%, transparent) 82%, transparent)`,
+        }}
+      />
+      {/* Hover colour-wash — a faint accent bloom from the seal corner that
+       *  fades in on hover, giving each entry a moment of its own colour
+       *  without disturbing the resting layout. Opacity-only transition. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 ease-out group-hover:opacity-100 motion-reduce:transition-none motion-reduce:group-hover:opacity-0"
+        style={{
+          background: `radial-gradient(70% 80% at 0% 0%, color-mix(in oklab, ${accent} 12%, transparent), transparent 60%)`,
+        }}
+      />
       <div className="horarium-entry-head">
         {/* The kanji seal + plain-text status label — the visual anchor of
          * the entry. The kanji alone wasn't legible without the filter
@@ -305,10 +458,28 @@ function TimelineEntry({ preorder: p, t }) {
             className={`horarium-seal ${sealVariantClass}`}
             aria-label={t(`status.${status}`)}
             title={t(`status.${status}`)}
+            style={
+              // Received/cancelled keep their bespoke CSS treatment; every
+              // other state borrows its lifecycle accent for ring + glyph.
+              status === "received" || status === "cancelled"
+                ? undefined
+                : {
+                    color: accent,
+                    borderColor: `color-mix(in oklab, ${accent} 60%, transparent)`,
+                    boxShadow: `0 0 16px -6px color-mix(in oklab, ${accent} 75%, transparent)`,
+                  }
+            }
           >
             {STATUS_KANJI[status] ?? "予"}
           </div>
-          <span className={`horarium-status-label ${sealVariantClass}`}>
+          <span
+            className={`horarium-status-label ${sealVariantClass}`}
+            style={
+              status === "received" || status === "cancelled"
+                ? undefined
+                : { color: `color-mix(in oklab, ${accent} 85%, var(--color-ivoire-soft))` }
+            }
+          >
             {t(`status.${status}`)}
           </span>
         </div>
@@ -338,6 +509,18 @@ function TimelineEntry({ preorder: p, t }) {
             } ${countdown.past ? "is-past" : ""} ${
               countdown.unknown ? "is-tbc" : ""
             }`}
+            style={
+              // Colour-code a live (future, non-TBC) countdown with the
+              // entry's accent so "imminent" reads as warm amber, "in
+              // transit" as cyan, etc. Past / TBC keep the muted CSS look.
+              !countdown.past && !countdown.unknown
+                ? {
+                    color: accent,
+                    borderColor: `color-mix(in oklab, ${accent} ${imminent ? 70 : 40}%, transparent)`,
+                    background: `color-mix(in oklab, ${accent} ${imminent ? 16 : 8}%, transparent)`,
+                  }
+                : undefined
+            }
           >
             {countdown.label}
           </span>
@@ -472,7 +655,7 @@ function TimelineEntry({ preorder: p, t }) {
       )}
 
       {historyOpen ? <PreorderHistory id={p.id} t={t} /> : null}
-    </article>
+    </Reveal>
   );
 }
 
@@ -832,16 +1015,16 @@ function HistoryEntry({ preorderId, entry, t }) {
 
 function EmptyState({ t }) {
   return (
-    <div className="horarium-empty">
+    <Reveal className="horarium-empty" y={16}>
       <h2 className="horarium-empty-title">{t("preorders.empty")}</h2>
       <p className="horarium-empty-hint">{t("preorders.empty.hint")}</p>
-    </div>
+    </Reveal>
   );
 }
 
 function EmptyFilterState({ t, onClear }) {
   return (
-    <div className="horarium-empty">
+    <Reveal className="horarium-empty" y={16}>
       <h2 className="horarium-empty-title">{t("preorders.empty")}</h2>
       <button
         type="button"
@@ -850,7 +1033,7 @@ function EmptyFilterState({ t, onClear }) {
       >
         ↶ {t("preorders.filter.all")}
       </button>
-    </div>
+    </Reveal>
   );
 }
 

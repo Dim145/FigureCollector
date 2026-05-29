@@ -6,7 +6,9 @@ import { useFigureTypes } from "../hooks/useAdmin.js";
 import { useFigures } from "../hooks/useCollection.js";
 import AppShell from "../components/AppShell.jsx";
 import FigureCard from "../components/FigureCard.jsx";
+import Reveal from "../components/motion/Reveal.jsx";
 import { resolveFigureCover } from "../lib/coverUrl.js";
+import { typeHue } from "../lib/typeHue.js";
 import {
   preorderBadgeLabel,
   preorderPhaseFromFigure,
@@ -132,6 +134,22 @@ export default function BrowsePage() {
   return (
     <AppShell>
       <main className="relative max-w-7xl mx-auto px-6 py-16">
+        {/* Atmospheric colour wash behind the hero — gold→jade→indigo mesh,
+            theme-aware via the accent vars. Pure decoration, GPU-cheap. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-24 left-0 right-0 h-[420px] -z-0"
+          style={{
+            background:
+              "radial-gradient(50% 70% at 12% 0%, color-mix(in oklab, var(--color-or) 22%, transparent), transparent 70%), radial-gradient(45% 60% at 85% 10%, color-mix(in oklab, var(--color-jade) 16%, transparent), transparent 72%), radial-gradient(40% 55% at 55% 30%, color-mix(in oklab, var(--color-indigo) 12%, transparent), transparent 75%)",
+            // Feather the edges so the gradient fades instead of hard-cutting
+            // at the content column (the vertical seam).
+            WebkitMaskImage:
+              "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
+            maskImage:
+              "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
+          }}
+        />
         {/* ─── Hero ─── */}
         <header className="relative mb-10">
           <span
@@ -160,7 +178,7 @@ export default function BrowsePage() {
                   <span>{t("browse.total", { n: total })}</span>
                   <span
                     aria-hidden
-                    className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--color-or)] animate-pulse"
+                    className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--color-or)] motion-safe:animate-pulse"
                   />
                 </p>
               ) : null}
@@ -219,6 +237,7 @@ export default function BrowsePage() {
             {typeTiles.map((tt) => (
               <FilterTile
                 key={tt.id}
+                typeId={tt.id}
                 kanji={tt.kanji}
                 romaji={tt.label}
                 count={countsByType.get(tt.id) ?? 0}
@@ -231,16 +250,17 @@ export default function BrowsePage() {
 
         {/* ─── Grid ─── */}
         {figures.isLoading ? (
-          <p className="text-center text-[var(--color-ivoire-soft)] py-12">…</p>
+          <p role="status" aria-live="polite" className="text-center text-[var(--color-ivoire-soft)] py-12">…</p>
         ) : total === 0 ? (
           <EmptyResults t={t} />
         ) : (
           <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {sorted.map((f, i) => (
-              <li
+              <Reveal
+                as="li"
                 key={f.id}
-                className="reveal"
-                style={{ "--i": Math.min(i, 10) + 5 }}
+                delay={Math.min(i, 7) * 0.05}
+                y={24}
               >
                 <FigureCard
                   figureId={f.id}
@@ -263,7 +283,7 @@ export default function BrowsePage() {
                       : null;
                   })()}
                 />
-              </li>
+              </Reveal>
             ))}
           </ul>
         )}
@@ -275,20 +295,30 @@ export default function BrowsePage() {
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-components
 
-function FilterTile({ kanji, romaji, count, active, onClick }) {
+function FilterTile({ typeId, kanji, romaji, count, active, onClick }) {
+  // Each type tile carries its signature hue. At rest the kanji keeps the
+  // theme's neutral colour; active, it glows in the type's own colour so the
+  // rail reads as a spectrum of categories. Inline styles only (the .tile
+  // chrome lives in index.css).
+  const hue = typeId ? typeHue(typeId) : "var(--color-or)";
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
       className={`tile ${active ? "is-active" : ""}`}
+      style={{ "--hue": hue }}
     >
       {count > 0 || active ? (
         <span className="tile-count" aria-hidden>
           {count}
         </span>
       ) : null}
-      <span className="tile-kanji" aria-hidden>
+      <span
+        className="tile-kanji transition-colors duration-300"
+        aria-hidden
+        style={active ? { color: "var(--hue)" } : undefined}
+      >
         {kanji}
       </span>
       <span className="tile-romaji">{romaji}</span>

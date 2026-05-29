@@ -2,6 +2,7 @@ import { useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useI18n, useT } from "../i18n/index.jsx";
 import { useFigureTypes } from "../hooks/useAdmin.js";
+import { typeHue } from "../lib/typeHue.js";
 
 /**
  * Cabinet de curiosités — display-pedestal card.
@@ -66,12 +67,19 @@ export default function FigureCard({
     <div
       ref={ref}
       onMouseMove={onMove}
-      className="relative spotlight card-lift bg-[var(--color-noir-soft)] border border-[var(--color-or)]/20 h-full flex flex-col"
-      style={{
-        boxShadow:
-          "0 25px 60px -30px rgba(0,0,0,0.85), inset 0 1px 0 oklch(0.92 0.03 75 / 0.05)",
-      }}
+      className="fc-card relative spotlight bg-[var(--color-noir-soft)] h-full flex flex-col"
+      style={{ "--hue": typeHue(type) }}
     >
+      {/* Type-hue accent bar at the very top edge — each specimen's spotlight,
+          visible at rest so the catalogue reads as a band of colour. */}
+      <span
+        aria-hidden
+        className="absolute top-0 left-0 right-0 h-[2px] z-[4] opacity-70 group-hover/card:opacity-100 transition-opacity duration-500"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent, var(--hue) 28%, var(--hue) 72%, transparent)",
+        }}
+      />
       {/* Photo well — stage-lit specimen surface.
        *
        * Visual layering (back → front):
@@ -104,7 +112,7 @@ export default function FigureCard({
         {/* Ambient kanji watermark — fades in on hover */}
         <span
           aria-hidden
-          className="ja absolute right-2 bottom-8 text-[7rem] leading-none text-transparent transition-colors duration-700 select-none pointer-events-none z-[1] group-hover/card:text-[var(--color-or)]/12"
+          className="fc-kanji ja absolute right-2 bottom-8 text-[7rem] leading-none text-transparent transition-colors duration-700 select-none pointer-events-none z-[1]"
         >
           {typeMeta.kanji}
         </span>
@@ -153,6 +161,8 @@ export default function FigureCard({
           {name}
         </h3>
 
+        {/* Gold separator between title and caption (the divider was restored
+            to plain gold per preference; the type hue lives in the top bar). */}
         <div className="gold-rule mt-3 mb-3 w-10 opacity-60" />
 
         <dl className="text-[11px] tracking-wider text-[var(--color-ivoire-soft)] space-y-1 mt-auto">

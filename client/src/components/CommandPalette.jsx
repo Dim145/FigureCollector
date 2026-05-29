@@ -179,6 +179,7 @@ export default function CommandPalette() {
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={onKeyDown}
               placeholder={t("palette.placeholder")}
+              aria-label={t("palette.placeholder")}
               className="flex-1 bg-transparent text-[var(--color-ivoire)] outline-none placeholder:text-[var(--color-ivoire-soft)]"
               style={{ fontFamily: "var(--font-sans)" }}
             />

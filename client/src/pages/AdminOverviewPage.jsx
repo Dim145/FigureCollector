@@ -7,7 +7,7 @@ export default function AdminOverviewPage() {
   const overview = useAdminOverview();
 
   if (overview.isLoading) {
-    return <p className="text-center text-[var(--color-ivoire-soft)]">…</p>;
+    return <p role="status" aria-live="polite" className="text-center text-[var(--color-ivoire-soft)]">…</p>;
   }
   if (overview.error || !overview.data) {
     return (

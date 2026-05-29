@@ -9,6 +9,7 @@ import Card from "../components/Card.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import CountUp from "../components/CountUp.jsx";
 import FigureCard from "../components/FigureCard.jsx";
+import Reveal from "../components/motion/Reveal.jsx";
 import { resolveOwnedCover } from "../lib/coverUrl.js";
 import { preorderBadgeLabel, preorderPhase } from "../lib/preorderStatus.js";
 
@@ -88,6 +89,22 @@ export default function CollectionPage() {
   return (
     <AppShell>
       <main className="relative max-w-7xl mx-auto px-6 py-16">
+        {/* Hero colour-wash — jade-leaning (the "gathered" gallery) over the
+            global aurora. Theme-aware via the accent vars. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-24 left-0 right-0 h-[420px] -z-0"
+          style={{
+            background:
+              "radial-gradient(48% 65% at 16% 0%, color-mix(in oklab, var(--color-jade) 18%, transparent), transparent 70%), radial-gradient(46% 60% at 88% 8%, color-mix(in oklab, var(--color-or) 20%, transparent), transparent 72%), radial-gradient(40% 55% at 60% 30%, color-mix(in oklab, var(--color-neon-magenta) 9%, transparent), transparent 75%)",
+            // Feather the edges so the gradient fades instead of hard-cutting
+            // at the content column (the vertical seam).
+            WebkitMaskImage:
+              "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
+            maskImage:
+              "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
+          }}
+        />
         {/* ─── Hero ─── */}
         <header className="relative mb-12">
           <span
@@ -125,7 +142,7 @@ export default function CollectionPage() {
 
         {/* ─── Empty / loading / grid ─── */}
         {owned.isLoading ? (
-          <p className="text-center text-[var(--color-ivoire-soft)] py-12">…</p>
+          <p role="status" aria-live="polite" className="text-center text-[var(--color-ivoire-soft)] py-12">…</p>
         ) : owned.data?.length === 0 ? (
           <EmptyState t={t} />
         ) : (
@@ -173,7 +190,6 @@ export default function CollectionPage() {
             {showArchived && archivedCount > 0 ? (
               <p
                 className="mb-4 text-[10px] uppercase tracking-[0.22em] text-[var(--color-laque-bright)]"
-                style={{ "--i": 4 }}
               >
                 {t("collection.archived_shown", { n: archivedCount })}
                 <button
@@ -187,7 +203,6 @@ export default function CollectionPage() {
             ) : !showArchived ? (
               <p
                 className="mb-4 text-[10px] uppercase tracking-[0.22em] text-[var(--color-ivoire-soft)]/60"
-                style={{ "--i": 4 }}
               >
                 <button
                   type="button"
@@ -201,10 +216,11 @@ export default function CollectionPage() {
 
             <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filtered.map((item, i) => (
-                <li
+                <Reveal
+                  as="li"
                   key={item.id}
-                  className="reveal"
-                  style={{ "--i": Math.min(i, 10) + 5 }}
+                  delay={Math.min(i, 7) * 0.05}
+                  y={24}
                 >
                   <FigureCard
                     figureId={item.figure_id}
@@ -261,7 +277,7 @@ export default function CollectionPage() {
                       {t("collection.remove")}
                     </button>
                   </div>
-                </li>
+                </Reveal>
               ))}
             </ul>
 

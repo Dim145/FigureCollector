@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useIsAdmin, useMe } from "../hooks/useMe.js";
@@ -6,6 +6,7 @@ import { useFigure, useOwnedItems } from "../hooks/useCollection.js";
 import { useDeleteFigure } from "../hooks/useAdmin.js";
 import { useStoresForFigure } from "../hooks/useStores.js";
 import { ApiError } from "../lib/api.js";
+import { typeHue } from "../lib/typeHue.js";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
 import CoverPicker from "../components/CoverPicker.jsx";
@@ -201,7 +202,17 @@ function HeroSection({
   onShare,
 }) {
   return (
-    <section className="relative">
+    <section className="relative" style={{ "--hue": typeHue(f.figure_type) }}>
+      {/* The product page glows in its figure's TYPE colour — a hero wash
+          (type hue + gold) over the global aurora. Theme-aware. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-20 left-0 right-0 h-[460px] -z-0"
+        style={{
+          background:
+            "radial-gradient(46% 70% at 22% 0%, color-mix(in oklab, var(--hue) 24%, transparent), transparent 68%), radial-gradient(40% 60% at 84% 12%, color-mix(in oklab, var(--color-or) 18%, transparent), transparent 72%)",
+        }}
+      />
       <span
         aria-hidden
         className="kanji-mark text-[32rem] -top-16 -left-16 hidden md:block opacity-[0.07]"
@@ -260,7 +271,15 @@ function HeroSection({
             ) : null}
           </h1>
 
-          <div className="gold-rule w-32 my-7 reveal" style={{ "--i": 4 }} />
+          {/* Title rule carries the figure's type hue (fades to gold). */}
+          <div
+            className="w-32 my-7 h-px reveal"
+            style={{
+              "--i": 4,
+              background:
+                "linear-gradient(90deg, var(--hue), color-mix(in oklab, var(--color-or) 60%, transparent) 70%, transparent)",
+            }}
+          />
 
           {f.description ? (
             <DescriptionBlock text={f.description} t={t} delay={5} />
@@ -321,22 +340,51 @@ function ActionCluster({ canEdit, onEdit, onDelete, onShare, t }) {
   );
 }
 
+/** Split a scraped description into free prose + a `key: value` spec block.
+ *  Many imported descriptions are a story paragraph followed by a dump like
+ *  "Type: GK Statue / Height: 16-25cm / Pre-order: 2026/05/18 …". We only
+ *  treat it as a spec list when there's a real run of such lines (≥3), so
+ *  genuine prose (incl. sentences with a stray colon) is left untouched. */
+function parseDescription(text) {
+  const raw = text ?? "";
+  const specRe = /^([\p{L}][\p{L}\d .()/+&'-]{1,22}):\s*(\S.*?)\s*$/u;
+  const prose = [];
+  const specs = [];
+  for (const line of raw.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const m = trimmed.match(specRe);
+    const labelWords = m ? m[1].trim().split(/\s+/).length : 0;
+    // A spec row = short label, compact value, value not a full sentence.
+    if (m && labelWords <= 4 && m[2].length <= 70 && !/[.!?…]\s*$/.test(m[2])) {
+      specs.push([m[1].trim(), m[2].trim()]);
+    } else {
+      prose.push(trimmed);
+    }
+  }
+  if (specs.length < 3) return { prose: raw, specs: [] };
+  return { prose: prose.join("\n"), specs };
+}
+
 function DescriptionBlock({ text, t, delay = 5 }) {
   const [expanded, setExpanded] = useState(false);
-  const isLong = text.length > 240;
-  const display = !isLong || expanded ? text : text.slice(0, 220).trimEnd() + "…";
+  const { prose, specs } = useMemo(() => parseDescription(text), [text]);
+
+  const isLong = prose.length > 240;
+  const display = !isLong || expanded ? prose : prose.slice(0, 220).trimEnd() + "…";
+
   return (
     <div className="reveal mb-7" style={{ "--i": delay }}>
       {/* `break-words` + `overflow-wrap: anywhere` keep imported
-       *  descriptions sane when they contain bare URLs
-       *  (`https://www.orzgk.com/product/.../`) or other unbreakable
-       *  tokens — those would otherwise extend the column's min-content
-       *  past its grid track's share. Paired with `min-w-0` on the grid
-       *  item itself (see HeroSection), this is belt-and-braces. */}
-      <p className="text-[var(--color-ivoire-soft)] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-        {display}
-      </p>
-      {isLong ? (
+       *  descriptions sane when they contain bare URLs or other unbreakable
+       *  tokens — those would otherwise extend the column's min-content past
+       *  its grid track's share. */}
+      {prose ? (
+        <p className="text-[var(--color-ivoire-soft)] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+          {display}
+        </p>
+      ) : null}
+      {prose && isLong ? (
         <button
           type="button"
           onClick={() => setExpanded((x) => !x)}
@@ -346,6 +394,46 @@ function DescriptionBlock({ text, t, delay = 5 }) {
             ? "− " + t("figure.description.collapse")
             : "+ " + t("figure.description.expand")}
         </button>
+      ) : null}
+
+      {/* Spec block parsed out of the scraped dump — a clean key/value grid
+          instead of a wall of "Label: value" lines. */}
+      {specs.length > 0 ? (
+        <dl
+          className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-sm"
+          style={
+            prose
+              ? {
+                  marginTop: "1.25rem",
+                  paddingTop: "1.25rem",
+                  borderTop:
+                    "1px solid color-mix(in oklab, var(--color-or) 18%, transparent)",
+                }
+              : undefined
+          }
+        >
+          {specs.map(([k, v], i) => (
+            <div key={`${k}-${i}`} className="contents">
+              <dt className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] py-0.5 whitespace-nowrap">
+                {k}
+              </dt>
+              <dd className="text-[var(--color-ivoire)] py-0.5 break-words [overflow-wrap:anywhere]">
+                {/^https?:\/\//.test(v) ? (
+                  <a
+                    href={v}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className="text-[var(--color-or-pale)] hover:text-[var(--color-or)] underline underline-offset-2 transition-colors"
+                  >
+                    {v.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                  </a>
+                ) : (
+                  v
+                )}
+              </dd>
+            </div>
+          ))}
+        </dl>
       ) : null}
     </div>
   );
@@ -645,15 +733,6 @@ function OwnerStack({ f, owned, nsfwPref, t }) {
 // Misc helpers + states
 // =============================================================================
 
-function SectionRule({ label }) {
-  return (
-    <div className="fig-section-rule reveal" style={{ "--i": 0 }}>
-      <span className="fig-section-rule-label">{label}</span>
-      <span className="fig-section-rule-line" aria-hidden />
-    </div>
-  );
-}
-
 function kanjiForType(type) {
   switch (type) {
     case "nendoroid":  return "童";
@@ -671,12 +750,12 @@ function kanjiForType(type) {
 
 function DeleteConfirm({ name, t, busy, onCancel, onConfirm }) {
   return (
-    <div role="dialog" aria-modal onClick={onCancel} className="fig-pop">
+    <div role="dialog" aria-modal aria-labelledby="delete-confirm-title" aria-describedby="delete-confirm-body" onClick={onCancel} className="fig-pop">
       <div onClick={(e) => e.stopPropagation()} className="fig-pop-card">
-        <h2 className="display text-xl text-[var(--color-ivoire)]">
+        <h2 id="delete-confirm-title" className="display text-xl text-[var(--color-ivoire)]">
           {t("figure.edit.confirm_delete.title", { name })}
         </h2>
-        <p className="mt-3 text-[var(--color-ivoire-soft)]">
+        <p id="delete-confirm-body" className="mt-3 text-[var(--color-ivoire-soft)]">
           {t("figure.edit.confirm_delete.body")}
         </p>
         <div className="flex items-center gap-3 justify-end mt-6">

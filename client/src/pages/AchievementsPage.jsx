@@ -1,5 +1,6 @@
 import { useMemo, useRef } from "react";
 import { Link, Navigate } from "react-router-dom";
+import { motion, useReducedMotion } from "motion/react";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import {
@@ -7,6 +8,7 @@ import {
   useMyAchievements,
 } from "../hooks/useAchievements.js";
 import AppShell from "../components/AppShell.jsx";
+import Reveal from "../components/motion/Reveal.jsx";
 
 /**
  * /achievements — the Cabinet de Curiosités.
@@ -50,6 +52,28 @@ const CATEGORY_META = {
 
 const TIER_KANJI = { gold: "金", silver: "銀", bronze: "銅" };
 
+// Accent rhythm for unlocked seals. Rather than every seal glowing the same
+// category gold, an unlocked card borrows the next hue in this cycle (keyed
+// off its position in the grid) so a wall of earned seals reads as a chord,
+// not a monotone. Each entry feeds the existing --ach-tone / --ach-tone-soft
+// custom properties that .ach-card.is-unlocked already paints its border,
+// shadow, spotlight and foil from. Pure CSS vars → flips with the theme.
+const ACCENT_RHYTHM = [
+  "var(--color-or)",
+  "var(--color-jade)",
+  "var(--color-indigo)",
+  "var(--color-neon-cyan)",
+  "var(--color-neon-magenta)",
+];
+
+function accentFor(index) {
+  const tone = ACCENT_RHYTHM[index % ACCENT_RHYTHM.length];
+  return {
+    tone,
+    soft: `color-mix(in oklab, ${tone} 22%, transparent)`,
+  };
+}
+
 export default function AchievementsPage() {
   const t = useT();
   const me = useMe();
@@ -88,6 +112,32 @@ export default function AchievementsPage() {
 
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
+
+  if (catalog.isLoading || mine.isLoading) {
+    return (
+      <AppShell>
+        <div
+          role="status"
+          aria-live="polite"
+          className="text-center py-32 text-[var(--color-ivoire-soft)] italic"
+        >
+          …
+        </div>
+      </AppShell>
+    );
+  }
+  if (catalog.isError || mine.isError) {
+    return (
+      <AppShell>
+        <div
+          role="alert"
+          className="text-center py-32 text-[var(--color-ivoire-soft)] italic"
+        >
+          {t("error.unknown")}
+        </div>
+      </AppShell>
+    );
+  }
 
   const unlockedCount = mine.data?.length ?? 0;
   const totalCount = catalog.data?.length ?? 0;
@@ -132,6 +182,18 @@ function Hero({ unlocked, total, percent, t }) {
 
   return (
     <header className="ach-hero">
+      {/* Localized hero colour-wash: a soft multi-accent bloom that sits
+       *  behind the progress ring + title. Absolute + pointer-events-none so
+       *  it never intercepts clicks; low-alpha accent vars so it tints rather
+       *  than floods, and flips correctly between light/dark themes. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -inset-x-8 -top-10 bottom-0 z-0"
+        style={{
+          background:
+            "radial-gradient(60% 80% at 18% 30%, color-mix(in oklab, var(--color-or) 16%, transparent), transparent 70%), radial-gradient(55% 75% at 82% 60%, color-mix(in oklab, var(--color-indigo) 14%, transparent), transparent 72%), radial-gradient(50% 60% at 60% 0%, color-mix(in oklab, var(--color-jade) 10%, transparent), transparent 70%)",
+        }}
+      />
       <div className="ach-hero-ring" aria-hidden>
         <svg className="ach-hero-ring-svg" viewBox="0 0 144 144">
           <circle className="ach-hero-ring-track" cx="72" cy="72" r={r} />
@@ -170,25 +232,32 @@ function Hero({ unlocked, total, percent, t }) {
 
 function RecentStrip({ recent, t }) {
   return (
-    <section className="ach-recent">
+    <Reveal as="section" className="ach-recent" y={20}>
       <p className="ach-recent-heading">{t("achievements.recent")}</p>
       <div className="ach-recent-rail">
-        {recent.map((a) => (
-          <RecentChip key={a.code} unlock={a} t={t} />
+        {recent.map((a, i) => (
+          <RecentChip key={a.code} unlock={a} index={i} t={t} />
         ))}
       </div>
-    </section>
+    </Reveal>
   );
 }
 
-function RecentChip({ unlock, t }) {
-  const tone =
-    CATEGORY_META[unlock.category]?.tone ?? "var(--color-or)";
+function RecentChip({ unlock, index, t }) {
+  // Recent unlocks share the same accent rhythm as the grid so the rail and
+  // the wall feel like the same chord. The chip's --ach-tone is consumed by
+  // the inline halo below; CSS-var only, so it flips with the theme. (The rail
+  // as a whole is revealed by the section-level Reveal — keeping the chip a
+  // bare <Link> preserves both routing and the flex-rail sizing.)
+  const accent = accentFor(index);
   return (
     <Link
       to={unlock.trigger_figure_slug ? `/figures/${unlock.trigger_figure_id}` : "#"}
       className="ach-recent-chip"
-      style={{ "--ach-tone": tone }}
+      style={{
+        "--ach-tone": accent.tone,
+        boxShadow: `0 14px 30px -22px ${accent.tone}`,
+      }}
     >
       <span className="ach-recent-chip-img">
         {unlock.trigger_image_url ? (
@@ -264,8 +333,13 @@ function CategorySection({ category, items, t }) {
 
 function AchCard({ achievement: a, index, t }) {
   const ref = useRef(null);
+  const reduce = useReducedMotion();
   const unlocked = !!a.unlock;
   const u = a.unlock;
+
+  // Unlocked seals borrow a hue from the accent rhythm so the wall reads as a
+  // chord; locked seals stay on a single muted gold so they recede.
+  const accent = accentFor(index);
 
   // Mouse tracking for the spotlight — only meaningful on unlocked cards.
   const onMove = (e) => {
@@ -346,27 +420,46 @@ function AchCard({ achievement: a, index, t }) {
   const className = `ach-card tier-${a.tier} ${
     unlocked ? "is-unlocked" : "is-locked"
   }`;
-  const style = { "--i": index };
+  // Unlocked → paint the rhythm accent into the vars the stylesheet already
+  // consumes (border / shadow / spotlight). Locked → pin a single dim gold so
+  // they stay muted and uniform. Always pure CSS vars: theme-correct.
+  const style = unlocked
+    ? { "--i": index, "--ach-tone": accent.tone, "--ach-tone-soft": accent.soft }
+    : {
+        "--i": index,
+        "--ach-tone": "color-mix(in oklab, var(--color-or) 45%, transparent)",
+        "--ach-tone-soft": "transparent",
+      };
+
+  // Entrance is owned by the <Reveal> wrapper (the scroll-cascade the brief
+  // asks for). On top of that, an *earned* seal gets a springy "pop" when the
+  // pointer lands on it — a small reward gesture layered over the card's
+  // existing 3D tilt. Scale/opacity only → GPU-cheap; the whole wrapper is
+  // inert (no whileHover) under prefers-reduced-motion.
+  const popProps =
+    unlocked && !reduce
+      ? {
+          whileHover: { scale: 1.03 },
+          whileTap: { scale: 0.99 },
+          transition: { type: "spring", stiffness: 360, damping: 20 },
+        }
+      : null;
 
   // Unlocked cards with a known figure link to the figure page; otherwise
-  // the card is just a presentational tile.
-  if (unlocked && u.trigger_figure_id) {
-    return (
-      <li>
-        <Link
-          ref={ref}
-          to={`/figures/${u.trigger_figure_id}`}
-          onMouseMove={onMove}
-          className={className}
-          style={style}
-        >
-          {inner}
-        </Link>
-      </li>
-    );
-  }
-  return (
-    <li>
+  // the card is just a presentational tile. A motion wrapper carries the pop
+  // so the inner anchor/div keeps its existing 3D tilt + spotlight intact.
+  const cardEl =
+    unlocked && u.trigger_figure_id ? (
+      <Link
+        ref={ref}
+        to={`/figures/${u.trigger_figure_id}`}
+        onMouseMove={onMove}
+        className={className}
+        style={style}
+      >
+        {inner}
+      </Link>
+    ) : (
       <div
         ref={ref}
         onMouseMove={onMove}
@@ -375,6 +468,17 @@ function AchCard({ achievement: a, index, t }) {
       >
         {inner}
       </div>
-    </li>
+    );
+
+  return (
+    <Reveal as="li" y={24} delay={(index % 8) * 0.05}>
+      {popProps ? (
+        <motion.div style={{ height: "100%" }} {...popProps}>
+          {cardEl}
+        </motion.div>
+      ) : (
+        cardEl
+      )}
+    </Reveal>
   );
 }

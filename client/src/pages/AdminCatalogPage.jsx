@@ -112,6 +112,7 @@ function EntityList({ kind, onPick, onDelete }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={t("admin.catalog.search_placeholder")}
+          aria-label={t("admin.catalog.search")}
           className="w-full max-w-md bg-[var(--color-noir)] border border-[var(--color-or)]/30 px-3 py-2 text-sm text-[var(--color-ivoire)] outline-none focus:border-[var(--color-or)] transition-colors"
         />
       </div>
@@ -149,7 +150,7 @@ function EntityList({ kind, onPick, onDelete }) {
               <button
                 type="button"
                 onClick={() => onPick(row)}
-                className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] border border-[var(--color-or)]/30 hover:border-[var(--color-or)] px-3 py-1.5 transition-all"
+                className="tap-target text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] border border-[var(--color-or)]/30 hover:border-[var(--color-or)] px-3 py-1.5 transition-all"
               >
                 ✎ {t("admin.catalog.edit")}
               </button>
@@ -158,7 +159,7 @@ function EntityList({ kind, onPick, onDelete }) {
                   type="button"
                   onClick={() => onDelete(row)}
                   title={t("admin.catalog.delete")}
-                  className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] hover:text-[var(--color-laque-bright)] border border-[var(--color-or)]/30 hover:border-[var(--color-laque-bright)] px-3 py-1.5 transition-all"
+                  className="tap-target text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] hover:text-[var(--color-laque-bright)] border border-[var(--color-or)]/30 hover:border-[var(--color-laque-bright)] px-3 py-1.5 transition-all"
                 >
                   ×
                   <span className="sr-only">{t("admin.catalog.delete")}</span>
@@ -281,6 +282,7 @@ function EntityEditDrawer({ kind, entity, onClose }) {
     <div
       role="dialog"
       aria-modal
+      aria-labelledby="entity-edit-drawer-title"
       onClick={onClose}
       className="fixed inset-0 z-50 grid place-items-center bg-[var(--color-noir)]/85 backdrop-blur-sm p-4"
     >
@@ -290,13 +292,13 @@ function EntityEditDrawer({ kind, entity, onClose }) {
         className="bg-[var(--color-noir-soft)] border border-[var(--color-or)]/40 w-[95vw] max-w-2xl max-h-[92vh] flex flex-col frame-corners"
         style={{
           boxShadow:
-            "0 60px 120px -50px rgba(0,0,0,0.85), inset 0 1px 0 oklch(0.92 0.03 75 / 0.06)",
+            "0 60px 120px -50px color-mix(in oklab, var(--color-noir-deep) 85%, transparent), inset 0 1px 0 color-mix(in oklab, var(--color-ivoire) 6%, transparent)",
         }}
       >
         <header className="flex items-start justify-between gap-3 px-6 py-4 border-b border-[var(--color-or)]/20">
           <div className="min-w-0">
             <p className="micro-tight">{t(`admin.catalog.tab.${kind}`)}</p>
-            <h3 className="display text-xl text-[var(--color-ivoire)] mt-1 truncate">
+            <h3 id="entity-edit-drawer-title" className="display text-xl text-[var(--color-ivoire)] mt-1 truncate">
               {entity.name}
             </h3>
           </div>

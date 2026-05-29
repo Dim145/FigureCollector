@@ -28,6 +28,7 @@ export default function AdminFiguresPage() {
           type="text"
           value={q}
           placeholder={t("admin.figures.search")}
+          aria-label={t("admin.figures.search")}
           onChange={(e) => setQ(e.target.value)}
           className="mt-3 w-full md:max-w-md bg-[var(--color-noir)] border border-[var(--color-or)]/30 px-4 py-2 text-[var(--color-ivoire)] outline-none focus:border-[var(--color-or)] transition-colors"
         />
@@ -87,7 +88,7 @@ export default function AdminFiguresPage() {
                         type="button"
                         onClick={() => setEditing(f)}
                         title={t("admin.figures.action.edit")}
-                        className="text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] text-xs px-2 py-1 transition-colors"
+                        className="tap-target text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] text-xs px-2 py-1 transition-colors"
                       >
                         ✎
                       </button>
@@ -95,7 +96,7 @@ export default function AdminFiguresPage() {
                         type="button"
                         onClick={() => setDeleting(f)}
                         title={t("admin.figures.action.delete")}
-                        className="text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] text-xs px-2 py-1 transition-colors"
+                        className="tap-target text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] text-xs px-2 py-1 transition-colors"
                       >
                         ×
                       </button>
@@ -123,6 +124,7 @@ export default function AdminFiguresPage() {
         <div
           role="dialog"
           aria-modal
+          aria-labelledby="figures-delete-dialog-title"
           onClick={() => setDeleting(null)}
           className="fixed inset-0 z-50 grid place-items-center bg-[var(--color-noir)]/85 backdrop-blur-sm"
         >
@@ -130,7 +132,7 @@ export default function AdminFiguresPage() {
             onClick={(e) => e.stopPropagation()}
             className="bg-[var(--color-noir-soft)] border border-[var(--color-or)]/40 p-8 w-[92vw] max-w-md"
           >
-            <h2 className="display text-xl text-[var(--color-ivoire)]">
+            <h2 id="figures-delete-dialog-title" className="display text-xl text-[var(--color-ivoire)]">
               {t("admin.figures.confirm_delete.title", { name: deleting.name })}
             </h2>
             <p className="mt-3 text-[var(--color-ivoire-soft)]">

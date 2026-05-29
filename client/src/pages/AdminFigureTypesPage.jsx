@@ -165,6 +165,7 @@ function CreateRow({ t, onClose }) {
     label_en: "",
     kanji: "",
     position: 100,
+    accent_color: "",
   });
   const create = useCreateFigureType();
   const set = (k) => (v) => setForm((s) => ({ ...s, [k]: v }));
@@ -177,6 +178,7 @@ function CreateRow({ t, onClose }) {
       label_en: form.label_en.trim(),
       kanji: form.kanji.trim(),
       position: Number(form.position) || 100,
+      accent_color: form.accent_color.trim() || null,
     });
     onClose();
   };
@@ -223,6 +225,12 @@ function CreateRow({ t, onClose }) {
           value={form.label_en}
           onChange={set("label_en")}
         />
+        <ColorField
+          ty={{ id: form.id }}
+          value={form.accent_color}
+          onChange={set("accent_color")}
+          t={t}
+        />
       </div>
 
       {create.isError ? (
@@ -256,6 +264,7 @@ function EditRow({ ty, t, onClose }) {
     label_en: ty.label_en,
     kanji: ty.kanji,
     position: ty.position,
+    accent_color: ty.accent_color ?? "",
   });
   const patch = usePatchFigureType();
   const set = (k) => (v) => setForm((s) => ({ ...s, [k]: v }));
@@ -266,8 +275,9 @@ function EditRow({ ty, t, onClose }) {
       label_en: ty.label_en,
       kanji: ty.kanji,
       position: ty.position,
+      accent_color: ty.accent_color ?? "",
     });
-  }, [ty.id, ty.updated_at, ty.label_fr, ty.label_en, ty.kanji, ty.position]);
+  }, [ty.id, ty.updated_at, ty.label_fr, ty.label_en, ty.kanji, ty.position, ty.accent_color]);
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -278,6 +288,7 @@ function EditRow({ ty, t, onClose }) {
         label_en: form.label_en.trim(),
         kanji: form.kanji.trim(),
         position: Number(form.position) || 100,
+        accent_color: form.accent_color.trim() || null,
       },
     });
     onClose();
@@ -316,6 +327,12 @@ function EditRow({ ty, t, onClose }) {
           label={t("admin.types.field.label_en")}
           value={form.label_en}
           onChange={set("label_en")}
+        />
+        <ColorField
+          ty={ty}
+          value={form.accent_color}
+          onChange={set("accent_color")}
+          t={t}
         />
       </div>
 
@@ -401,6 +418,96 @@ function DeleteButton({ ty, t, inUse, usageCount }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Empty + Field
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Accent-colour control: a *single* swatch that doubles as the native colour
+// picker. The swatch paints the effective colour — the custom value, or the
+// pristine theme default `--type-<id>` when none is set (the admin override
+// lives in the separate `--type-accent-<id>`, so the base var is never shadowed
+// and reset/empty previews the real default) — with a transparent
+// <input type=color> on top, so the swatch you see is the selector you click.
+// Beside it: a free CSS-colour text field (oklch / rgb / name) and a reset that
+// clears back to null.
+function ColorField({ ty, value, onChange, t }) {
+  const id = ty.id || "";
+  const v = (value ?? "").trim();
+  const hasCustom = v.length > 0;
+  const effective = hasCustom ? v : `var(--type-${id}, var(--color-or))`;
+  // Pristine default hue, read from the (never-overridden) base var — used to
+  // seed the picker dialog when there's no custom value yet.
+  const pristineDefault =
+    typeof document !== "undefined" && id
+      ? getComputedStyle(document.documentElement)
+          .getPropertyValue(`--type-${id}`)
+          .trim()
+      : "";
+  // The native picker only accepts #rrggbb: feed it the custom colour (resolved
+  // from hex / oklch / name) when set, else the resolved pristine default — so
+  // the OS dialog always opens on the colour the swatch is showing.
+  const pickerValue = colorToHex(hasCustom ? v : pristineDefault);
+  return (
+    <label className="block col-span-full">
+      <span className="ftype-field-label">{t("admin.types.field.color")}</span>
+      <span className="flex items-center gap-2 mt-1">
+        <span className="relative w-9 h-9 shrink-0 inline-block">
+          <span
+            aria-hidden
+            style={{ background: effective }}
+            className="absolute inset-0 border border-[var(--color-or)]/30"
+          />
+          <input
+            type="color"
+            aria-label={t("admin.types.field.color_pick")}
+            value={pickerValue}
+            onChange={(e) => onChange(e.target.value)}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          />
+        </span>
+        <input
+          type="text"
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={t("admin.types.field.color_ph")}
+          className="ftype-field-input font-mono flex-1"
+        />
+        {hasCustom ? (
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            title={t("admin.types.field.color_reset")}
+            className="shrink-0 tap-target px-2 text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] transition-colors"
+          >
+            ↺<span className="sr-only">{t("admin.types.field.color_reset")}</span>
+          </button>
+        ) : null}
+      </span>
+      <span className="ftype-field-hint">{t("admin.types.field.color_hint")}</span>
+    </label>
+  );
+}
+
+// Resolve any CSS colour string (hex, oklch, lab, named…) to a #rrggbb so the
+// native <input type=color> can seed its dialog — it only accepts hex. A hex
+// passes straight through; anything else is painted onto a 1px canvas and read
+// back as rasterised sRGB bytes (the picker can't parse oklch directly). Falls
+// back to antique gold when empty or unresolvable.
+function colorToHex(input) {
+  const fallback = "#c8a24b";
+  const s = (input ?? "").toString().trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(s)) return s;
+  if (!s || typeof document === "undefined") return fallback;
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 1;
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#000";
+    ctx.fillStyle = s;
+    ctx.fillRect(0, 0, 1, 1);
+    const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+    return "#" + [r, g, b].map((x) => x.toString(16).padStart(2, "0")).join("");
+  } catch {
+    return fallback;
+  }
+}
 
 function EmptyState({ t, onAdd }) {
   return (
