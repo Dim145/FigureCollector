@@ -10,7 +10,7 @@ use axum::{
     Json, Router,
     extract::{Path, Query, State},
     http::StatusCode,
-    routing::{get, patch as patch_method, post as post_method},
+    routing::{get, patch as patch_method, post as post_method, put as put_method},
 };
 use serde::Deserialize;
 use tower_sessions::Session;
@@ -216,6 +216,47 @@ async fn patch_cover(
     Ok(Json(updated))
 }
 
+/// Body for `PUT /me/owned/{id}/value`. `amount: null` clears the manual
+/// valuation, reverting the displayed cote to the catalog-MSRP fallback.
+#[derive(Debug, Deserialize)]
+struct SetValueBody {
+    amount: Option<rust_decimal::Decimal>,
+    currency: Option<String>,
+}
+
+async fn set_value_mine(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+    Json(body): Json<SetValueBody>,
+) -> AppResult<Json<owned::OwnedItem>> {
+    let user_id = auth::require_user(&session).await?;
+    let updated = owned::set_value(&state.pool, user_id, id, body.amount, body.currency).await?;
+    state
+        .events
+        .publish(user_id, Event::OwnedItemUpdated { owned_id: id });
+    Ok(Json(updated))
+}
+
+/// Body for `PUT /me/owned/arrange` — re-home + re-order a cabinet's pieces in
+/// one shot (Vitrines drag-and-drop). `location: ""` is the unshelved group.
+#[derive(Debug, Deserialize)]
+struct ArrangeBody {
+    #[serde(default)]
+    location: String,
+    ordered_ids: Vec<Uuid>,
+}
+
+async fn arrange_mine(
+    State(state): State<AppState>,
+    session: Session,
+    Json(body): Json<ArrangeBody>,
+) -> AppResult<StatusCode> {
+    let user_id = auth::require_user(&session).await?;
+    owned::arrange(&state.pool, user_id, &body.location, &body.ordered_ids).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/me/owned", get(list_mine).post(add_mine))
@@ -224,6 +265,8 @@ pub fn router() -> Router<AppState> {
             patch_method(patch_mine).delete(delete_mine),
         )
         .route("/me/owned/{id}/cover", patch_method(patch_cover))
+        .route("/me/owned/{id}/value", put_method(set_value_mine))
+        .route("/me/owned/arrange", put_method(arrange_mine))
         // Archive / restore for cancelled-preorder bookkeeping. Separate
         // verbs (not just a PATCH on `archived_at`) so the intent is
         // explicit and we can wire activity-feed entries later if needed.

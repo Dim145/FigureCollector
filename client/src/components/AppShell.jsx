@@ -56,12 +56,14 @@ export default function AppShell({ children }) {
 
   const primary = [
     { to: "/collection", label: t("nav.collection.short") },
+    { to: "/vitrines", label: t("nav.vitrines") },
     { to: "/browse", label: t("nav.browse") },
     { to: "/preorders", label: t("nav.preorders.short") },
     { to: "/stats", label: t("nav.stats") },
   ];
 
   const secondary = [
+    { to: "/cote", label: t("cote.title") },
     { to: "/activity", label: t("activity.title") },
     { to: "/achievements", label: t("achievements.title") },
     ...(isAdmin

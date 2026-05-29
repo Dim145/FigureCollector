@@ -39,6 +39,9 @@ mod m20260526_000006_figure_stores;
 mod m20260526_000007_figure_type_fk;
 mod m20260528_000001_workers;
 mod m20260529_000001_figure_type_color;
+mod m20260529_000002_owned_item_value;
+mod m20260530_000001_collection_locations;
+mod m20260530_000002_owned_item_sort_order;
 
 pub struct Migrator;
 
@@ -73,6 +76,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20260526_000007_figure_type_fk::Migration),
             Box::new(m20260528_000001_workers::Migration),
             Box::new(m20260529_000001_figure_type_color::Migration),
+            Box::new(m20260529_000002_owned_item_value::Migration),
+            Box::new(m20260530_000001_collection_locations::Migration),
+            Box::new(m20260530_000002_owned_item_sort_order::Migration),
         ]
     }
 }

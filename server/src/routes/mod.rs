@@ -19,6 +19,7 @@ pub mod external;
 pub mod figure_photos;
 pub mod figures;
 pub mod health;
+pub mod location;
 pub mod me;
 pub mod notif_channels;
 pub mod notifications;
@@ -95,6 +96,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(figures::router())
         .merge(entities::router())
         .merge(owned::router())
+        .merge(location::router())
         .merge(preorders::router())
         .merge(profile::router())
         .merge(external::router())

@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FigureCollector — Lot 1 · Valeur & Vitrines (maquette)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300..600;1,300..500&family=Hanken+Grotesk:wght@300..700&family=JetBrains+Mono:wght@300..500&family=Noto+Serif+JP:wght@300..500&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    /* ───────────────────────────────────────────────────────────────────
+       Tokens lifted verbatim from client/src/index.css so the maquette
+       reads exactly like the live app ("Vitrine privée · Exposition").
+       ─────────────────────────────────────────────────────────────────── */
+    :root {
+      --font-display: "Cormorant Garamond", "Times New Roman", Georgia, serif;
+      --font-sans: "Hanken Grotesk", system-ui, sans-serif;
+      --font-ja: "Noto Serif JP", "Yu Mincho", serif;
+      --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+      --color-noir: oklch(0.14 0.005 50);
+      --color-noir-soft: oklch(0.19 0.008 50);
+      --color-noir-deep: oklch(0.10 0.004 50);
+      --color-laque: oklch(0.42 0.16 25);
+      --color-laque-bright: oklch(0.55 0.20 25);
+      --color-or: oklch(0.78 0.10 80);
+      --color-or-pale: oklch(0.88 0.06 80);
+      --color-or-deep: oklch(0.60 0.10 80);
+      --color-ivoire: oklch(0.92 0.03 75);
+      --color-ivoire-soft: oklch(0.92 0.03 75 / 0.8);
+      --color-jade: oklch(0.72 0.13 175);
+      --color-indigo: oklch(0.58 0.15 275);
+
+      --type-nendoroid: oklch(0.74 0.16 350);
+      --type-scale: oklch(0.72 0.13 175);
+      --type-figma: oklch(0.72 0.15 230);
+      --type-statue: oklch(0.68 0.13 50);
+      --type-bishoujo: oklch(0.68 0.21 360);
+      --type-prize: oklch(0.80 0.15 75);
+
+      --ease-curtain: cubic-bezier(0.22, 1, 0.36, 1);
+      --ease-quick: cubic-bezier(0.4, 0, 0.2, 1);
+
+      color-scheme: dark;
+    }
+
+    [data-theme="light"] {
+      color-scheme: light;
+      --color-noir: oklch(0.965 0.008 85);
+      --color-noir-soft: oklch(0.995 0.004 85);
+      --color-noir-deep: oklch(0.93 0.012 80);
+      --color-ivoire: oklch(0.26 0.02 55);
+      --color-ivoire-soft: oklch(0.40 0.02 55 / 0.86);
+      --color-or: oklch(0.58 0.12 72);
+      --color-or-pale: oklch(0.50 0.12 70);
+      --color-or-deep: oklch(0.42 0.10 68);
+      --color-laque: oklch(0.50 0.19 25);
+      --color-laque-bright: oklch(0.56 0.21 25);
+      --color-jade: oklch(0.55 0.13 175);
+      --color-indigo: oklch(0.50 0.16 275);
+      --type-nendoroid: oklch(0.58 0.18 350);
+      --type-scale: oklch(0.52 0.13 175);
+      --type-figma: oklch(0.55 0.16 230);
+      --type-statue: oklch(0.52 0.13 50);
+      --type-bishoujo: oklch(0.56 0.21 360);
+      --type-prize: oklch(0.62 0.15 70);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--color-noir);
+      color: var(--color-ivoire);
+      -webkit-font-smoothing: antialiased;
+      background-image:
+        radial-gradient(70% 60% at 30% 25%, oklch(0.78 0.10 80 / 0.09), transparent 65%),
+        radial-gradient(55% 50% at 80% 85%, oklch(0.42 0.16 25 / 0.05), transparent 70%),
+        radial-gradient(40% 35% at 55% 60%, oklch(0.92 0.03 75 / 0.02), transparent 70%);
+      background-attachment: fixed;
+    }
+    body::before {
+      content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image: radial-gradient(circle at 1px 1px, oklch(0.92 0.03 75 / 0.035) 1px, transparent 0);
+      background-size: 4px 4px;
+    }
+
+    /* Typography ---------------------------------------------------------- */
+    .display { font-family: var(--font-display); font-weight: 300; letter-spacing: -0.01em; line-height: 1; }
+    .display-italic { font-family: var(--font-display); font-style: italic; font-weight: 400; }
+    .ja { font-family: var(--font-ja); }
+    .micro { font-family: var(--font-sans); font-size: 10.5px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--color-or-pale); }
+    .micro-tight { font-family: var(--font-sans); font-size: 9.5px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--color-or-pale); }
+    .figural { font-family: var(--font-display); font-variant-numeric: oldstyle-nums; font-weight: 300; }
+    .mono { font-family: var(--font-mono); }
+
+    .figural-massive {
+      font-family: var(--font-display); font-weight: 200;
+      font-variant-numeric: lining-nums tabular-nums;
+      letter-spacing: -0.045em; line-height: 0.82;
+      font-size: clamp(5rem, 12vw, 10rem);
+      background:
+        linear-gradient(105deg, transparent 30%, oklch(1 0 0 / 0.22) 47%, transparent 64%),
+        linear-gradient(180deg, oklch(0.96 0.07 80) 0%, oklch(0.82 0.10 80) 40%, oklch(0.58 0.09 80) 95%);
+      background-size: 300% 100%, 100% 100%;
+      background-position: -100% 0, 0 0; background-repeat: no-repeat;
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      text-shadow: 0 1px 0 oklch(0.40 0.05 75 / 0.4), 0 0 30px color-mix(in oklab, var(--color-or) 18%, transparent);
+      animation: figural-sweep 2.4s var(--ease-quick) 0.2s 1 both;
+    }
+    @keyframes figural-sweep { 0% { background-position: -100% 0, 0 0; } 100% { background-position: 200% 0, 0 0; } }
+
+    .gold-rule { height: 1px; background: linear-gradient(to right, transparent, var(--color-or) 30%, var(--color-or) 70%, transparent); }
+
+    /* Chips --------------------------------------------------------------- */
+    .chip { display: inline-flex; align-items: center; gap: 0.4em; padding: 0.25em 0.7em; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent); color: var(--color-or-pale); background: color-mix(in oklab, var(--color-or) 4%, transparent); white-space: nowrap; }
+    .chip--jade { border-color: color-mix(in oklab, var(--color-jade) 55%, transparent); color: var(--color-jade); background: color-mix(in oklab, var(--color-jade) 9%, transparent); }
+    .chip--laque { border-color: color-mix(in oklab, var(--color-laque-bright) 50%, transparent); color: var(--color-laque-bright); background: color-mix(in oklab, var(--color-laque) 8%, transparent); }
+
+    /* Brass plaque -------------------------------------------------------- */
+    .label-plaque {
+      display: inline-flex; align-items: center; gap: 0.4em;
+      padding: 0.42em 0.85em 0.42em 0.7em;
+      font-family: var(--font-display); font-weight: 500; font-size: 10.5px;
+      letter-spacing: 0.32em; text-transform: uppercase; color: oklch(0.16 0.01 60);
+      background: linear-gradient(155deg, oklch(0.88 0.10 80) 0%, var(--color-or) 38%, oklch(0.68 0.09 80) 100%);
+      border: 1px solid oklch(0.50 0.07 75);
+      box-shadow: inset 0 1px 0 oklch(0.96 0.06 85 / 0.8), inset 0 -1px 0 oklch(0.45 0.06 75 / 0.55), 0 8px 14px -6px rgba(0,0,0,0.75);
+      position: relative; white-space: nowrap;
+    }
+    .label-plaque-kanji { font-family: var(--font-ja); font-size: 13px; line-height: 1; padding-right: 0.45em; margin-right: 0.3em; border-right: 1px solid oklch(0.40 0.06 75 / 0.5); color: oklch(0.20 0.02 60); }
+
+    /* Specimen well ------------------------------------------------------- */
+    .specimen-well {
+      position: relative; overflow: hidden; isolation: isolate;
+      background: radial-gradient(circle at 30% 18%, var(--color-noir-soft) 0%, var(--color-noir-deep) 50%, var(--color-noir-deep) 100%);
+    }
+    .specimen-well::before { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse 80% 60% at 25% 20%, oklch(0.92 0.05 80 / 0.10) 0%, transparent 60%); pointer-events: none; }
+
+    /* ───────────────────────────────────────────────────────────────────
+       Maquette scaffolding
+       ─────────────────────────────────────────────────────────────────── */
+    main { position: relative; z-index: 1; max-width: 1120px; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+    .screen { margin-bottom: 1rem; }
+    .screen-sep { display: flex; align-items: center; gap: 1rem; margin: 5rem 0; color: color-mix(in oklab, var(--color-or) 60%, transparent); }
+    .screen-sep::before, .screen-sep::after { content: ""; height: 1px; flex: 1; background: linear-gradient(to right, transparent, color-mix(in oklab, var(--color-or) 40%, transparent), transparent); }
+    .screen-sep .ja { font-size: 1.3rem; }
+
+    .head { position: relative; margin-bottom: 2.5rem; }
+    .head h1 { margin: 0.5rem 0 0; font-size: clamp(2.2rem, 5vw, 3.2rem); color: var(--color-ivoire); }
+    .head .rule { width: 4rem; margin-top: 1rem; }
+    .head p.lead { margin: 1.25rem 0 0; max-width: 38rem; line-height: 1.65; color: var(--color-ivoire-soft); }
+    .head .ghost-kanji { position: absolute; top: -2.5rem; right: -0.5rem; font-size: 9rem; line-height: 1; color: color-mix(in oklab, var(--color-or) 7%, transparent); pointer-events: none; user-select: none; }
+
+    .panel { background: color-mix(in oklab, var(--color-noir-soft) 80%, transparent); border: 1px solid color-mix(in oklab, var(--color-or) 16%, transparent); }
+
+    /* — Screen 1 : Valeur — */
+    .hero { display: grid; grid-template-columns: 1.2fr 1fr; gap: 2rem 3rem; align-items: end; margin-bottom: 3rem; }
+    .hero .total .cap { display: block; margin-bottom: 0.4rem; }
+    .hero .total .amt { display: flex; align-items: baseline; gap: 0.5rem; }
+    .hero .total .amt .unit { font-family: var(--font-display); font-weight: 300; font-size: clamp(2rem, 5vw, 3.5rem); color: var(--color-or-deep); }
+    .kpis { display: grid; gap: 1px; background: color-mix(in oklab, var(--color-or) 14%, transparent); border: 1px solid color-mix(in oklab, var(--color-or) 14%, transparent); }
+    .kpi { background: var(--color-noir); padding: 1.1rem 1.25rem; }
+    .kpi .v { font-family: var(--font-display); font-weight: 300; font-size: 1.9rem; line-height: 1; color: var(--color-ivoire); display: flex; align-items: baseline; gap: 0.5rem; }
+    .kpi .v.jade { color: var(--color-jade); }
+    .kpi .k { margin-bottom: 0.55rem; }
+    .kpi .sub { margin-top: 0.5rem; font-size: 11px; color: var(--color-ivoire-soft); letter-spacing: 0.04em; }
+
+    .pieces { padding: 0; }
+    .pieces .ph { display: flex; align-items: baseline; justify-content: space-between; padding: 1.1rem 1.4rem; border-bottom: 1px solid color-mix(in oklab, var(--color-or) 14%, transparent); }
+    .row { display: grid; grid-template-columns: 56px 1fr auto; gap: 1rem; align-items: center; padding: 0.9rem 1.4rem; border-bottom: 1px solid color-mix(in oklab, var(--color-or) 8%, transparent); }
+    .row:last-child { border-bottom: 0; }
+    .row .thumb { width: 56px; height: 70px; position: relative; border: 1px solid color-mix(in oklab, var(--hue, var(--color-or)) 30%, transparent); }
+    .row .thumb .bar { position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--hue, var(--color-or)) 30%, var(--hue, var(--color-or)) 70%, transparent); }
+    .row .thumb .k { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--font-ja); font-size: 2rem; color: color-mix(in oklab, var(--hue, var(--color-or)) 55%, transparent); }
+    .row .meta .nm { font-family: var(--font-display); font-size: 1.3rem; color: var(--color-ivoire); line-height: 1.1; }
+    .row .meta .sub { margin-top: 0.35rem; display: flex; align-items: center; gap: 0.6rem; }
+    .row .money { text-align: right; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; white-space: nowrap; }
+    .row .money .paid { color: var(--color-ivoire-soft); }
+    .row .money .val { color: var(--color-ivoire); font-size: 14px; }
+    .row .money .delta { font-size: 11px; }
+    .row .money .delta.up { color: var(--color-jade); }
+    .row .money .delta.down { color: var(--color-laque-bright); }
+    .row .editbtn { background: none; border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent); color: var(--color-or-pale); width: 30px; height: 30px; cursor: pointer; font-size: 13px; }
+    .row .editbtn:hover { border-color: var(--color-or); color: var(--color-or); }
+
+    /* edit-mode row */
+    .row.editing { background: color-mix(in oklab, var(--color-or) 5%, transparent); grid-template-columns: 56px 1fr auto; }
+    .editfield { display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-end; }
+    .editfield .inwrap { display: inline-flex; align-items: center; border: 1px solid var(--color-or); background: var(--color-noir); }
+    .editfield .inwrap span { padding: 0 0.5rem; color: var(--color-or-deep); font-family: var(--font-mono); font-size: 12px; }
+    .editfield input { width: 96px; background: none; border: 0; color: var(--color-ivoire); font-family: var(--font-mono); font-size: 14px; padding: 0.4rem 0.5rem 0.4rem 0; outline: none; text-align: right; }
+    .editfield .msrp { font-size: 10.5px; color: var(--color-ivoire-soft); font-family: var(--font-mono); letter-spacing: 0.02em; }
+    .editfield .acts { display: flex; gap: 0.4rem; margin-top: 0.15rem; }
+    .editfield .acts button { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; padding: 0.3rem 0.6rem; cursor: pointer; border: 1px solid; }
+    .editfield .acts .save { background: var(--color-or); border-color: var(--color-or); color: var(--color-noir); }
+    .editfield .acts .cancel { background: none; border-color: color-mix(in oklab, var(--color-or) 30%, transparent); color: var(--color-ivoire-soft); }
+
+    .footnote { margin-top: 1.25rem; font-size: 11.5px; line-height: 1.6; color: var(--color-ivoire-soft); border-left: 2px solid color-mix(in oklab, var(--color-or) 35%, transparent); padding-left: 0.85rem; max-width: 44rem; }
+
+    /* — Screen 2 : Vitrines — */
+    .search { display: flex; align-items: center; gap: 0.75rem; border: 1px solid var(--color-or); background: var(--color-noir); padding: 0.7rem 1rem; max-width: 30rem; margin-bottom: 0.6rem; }
+    .search svg { width: 16px; height: 16px; color: var(--color-or); flex: none; }
+    .search input { flex: 1; background: none; border: 0; outline: none; color: var(--color-ivoire); font-family: var(--font-display); font-size: 1.25rem; }
+    .search input::placeholder { color: color-mix(in oklab, var(--color-ivoire) 45%, transparent); }
+    .search .kbd { font-family: var(--font-mono); font-size: 10px; border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent); padding: 0.15em 0.45em; color: var(--color-or-pale); }
+    .search-hint { font-size: 12px; color: var(--color-ivoire-soft); margin: 0 0 2.5rem; padding-left: 0.2rem; }
+    .search-hint b { color: var(--color-jade); font-weight: 600; }
+    .search-hint .ja { color: var(--color-or-pale); }
+
+    .vitrines { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.75rem; }
+
+    .vitrine { position: relative; overflow: hidden;
+      background: linear-gradient(180deg, var(--color-noir-soft), var(--color-noir-deep));
+      border: 1px solid color-mix(in oklab, var(--color-or) 24%, transparent);
+      box-shadow: 0 24px 46px -24px rgba(0,0,0,0.7), inset 0 1px 0 color-mix(in oklab, var(--color-or) 18%, transparent);
+    }
+    .vitrine::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 3;
+      background: linear-gradient(118deg, transparent 38%, oklch(1 0 0 / 0.05) 49%, transparent 60%); }
+    .vitrine-head { position: relative; z-index: 2; display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; padding: 1rem 1.1rem 0.85rem; border-bottom: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent); }
+    .vitrine-head .nm { font-family: var(--font-display); font-size: 1.35rem; color: var(--color-ivoire); line-height: 1.05; }
+    .vitrine-head .sub { margin-top: 0.3rem; }
+    .vitrine-head .val { text-align: right; font-family: var(--font-display); font-size: 1.45rem; color: var(--color-or-pale); white-space: nowrap; }
+    .vitrine-head .val small { display: block; font-family: var(--font-sans); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--color-ivoire-soft); margin-top: 0.15rem; }
+
+    .shelf { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.65rem; padding: 0.9rem 1.1rem; }
+    .shelf + .shelf { border-top: 1px solid color-mix(in oklab, var(--color-or) 22%, transparent); box-shadow: 0 -3px 8px -6px color-mix(in oklab, var(--color-or) 40%, transparent); }
+
+    .spec { position: relative; aspect-ratio: 3/4; overflow: hidden; isolation: isolate;
+      background: radial-gradient(circle at 30% 18%, var(--color-noir-soft) 0%, var(--color-noir-deep) 60%);
+      border: 1px solid color-mix(in oklab, var(--hue, var(--color-or)) 26%, transparent); }
+    .spec .bar { position: absolute; top: 0; left: 0; right: 0; height: 2px; z-index: 2;
+      background: linear-gradient(90deg, transparent, var(--hue, var(--color-or)) 30%, var(--hue, var(--color-or)) 70%, transparent); }
+    .spec .k { position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--font-ja); font-size: 2.4rem; color: color-mix(in oklab, var(--hue, var(--color-or)) 50%, transparent); }
+    .spec .nm { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 0.3rem 0.4rem; font-size: 8.5px; letter-spacing: 0.04em; text-align: center; color: var(--color-ivoire-soft);
+      background: linear-gradient(to top, color-mix(in oklab, var(--color-noir-deep) 88%, transparent), transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* unshelved (Non rangées) */
+    .vitrine--loose { background: none; border-style: dashed; border-color: color-mix(in oklab, var(--color-or) 28%, transparent); box-shadow: none; }
+    .vitrine--loose .vitrine-head { border-bottom-style: dashed; }
+    .vitrine--loose .vitrine-head .nm { color: var(--color-ivoire-soft); font-style: italic; }
+    .loose-cta { grid-column: 1 / -1; margin: 0.4rem 0 0.2rem; display: flex; align-items: center; gap: 0.6rem; justify-content: center; }
+    .loose-cta button { font-family: var(--font-sans); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; padding: 0.55rem 1rem; cursor: pointer;
+      background: none; border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent); color: var(--color-or-pale); }
+    .loose-cta button:hover { border-color: var(--color-or); color: var(--color-or); }
+    .spec--assign { display: grid; place-items: center; }
+    .spec .assign-pop { position: absolute; inset: auto 0 0 0; z-index: 4; background: var(--color-noir); border-top: 1px solid var(--color-or); padding: 0.3rem; font-size: 9px; color: var(--color-or-pale); text-align: center; font-family: var(--font-sans); letter-spacing: 0.1em; text-transform: uppercase; }
+
+    /* annotation flags so the reviewer reads the interactions */
+    .anno { display: inline-flex; align-items: center; gap: 0.45em; margin-left: 0.6rem; padding: 0.18em 0.6em; font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; font-family: var(--font-sans); color: var(--color-indigo); border: 1px dashed color-mix(in oklab, var(--color-indigo) 55%, transparent); background: color-mix(in oklab, var(--color-indigo) 8%, transparent); vertical-align: middle; }
+
+    /* theme toggle */
+    .theme-switch { position: fixed; top: 1rem; right: 1rem; z-index: 10; display: inline-flex; gap: 0; border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent); background: color-mix(in oklab, var(--color-noir-soft) 90%, transparent); backdrop-filter: blur(6px); }
+    .theme-switch button { background: none; border: 0; color: var(--color-ivoire-soft); padding: 0.5rem 0.8rem; cursor: pointer; font-family: var(--font-sans); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; }
+    .theme-switch button.on { background: var(--color-or); color: var(--color-noir); }
+    .maq-tag { position: fixed; bottom: 0.9rem; left: 1rem; z-index: 10; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; color: color-mix(in oklab, var(--color-or) 60%, transparent); }
+
+    @media (max-width: 720px) {
+      .hero { grid-template-columns: 1fr; }
+      .row { grid-template-columns: 44px 1fr; grid-template-areas: "thumb meta" "money money"; }
+      .row .thumb { width: 44px; height: 56px; }
+      .row .money { grid-area: money; text-align: left; }
+    }
+  </style>
+</head>
+<body>
+  <div class="theme-switch">
+    <button id="t-dark" class="on" onclick="setTheme('dark')">Sombre</button>
+    <button id="t-light" onclick="setTheme('light')">Clair</button>
+  </div>
+  <div class="maq-tag">maquette · lot 1 · valeur &amp; vitrines</div>
+
+  <main>
+    <!-- ════════════════ SCREEN 1 — VALEUR DE COLLECTION ════════════════ -->
+    <section class="screen">
+      <header class="head">
+        <span class="ghost-kanji ja">価</span>
+        <p class="micro">Inventaire · Valorisation</p>
+        <h1 class="display">La Cote</h1>
+        <div class="gold-rule rule"></div>
+        <p class="lead">Ce que vaut la vitrine, pièce par pièce. La valeur estimée se saisit à la main ;
+          à défaut, on retombe sur le prix catalogue (MSRP). La plus-value se lit d'un coup d'œil.</p>
+      </header>
+
+      <div class="hero">
+        <div class="total">
+          <span class="cap micro-tight">Valeur estimée de la collection</span>
+          <span class="amt"><span class="figural-massive">3&nbsp;248</span><span class="unit">€</span></span>
+        </div>
+        <div class="kpis">
+          <div class="kpi">
+            <div class="k micro-tight">Total payé</div>
+            <div class="v"><span class="figural">2&nbsp;410</span> <span style="font-size:1rem;color:var(--color-or-deep)">€</span></div>
+          </div>
+          <div class="kpi">
+            <div class="k micro-tight">Plus-value latente</div>
+            <div class="v jade"><span class="figural">+838</span> <span style="font-size:1rem">€</span> <span class="chip chip--jade">+34,8 %</span></div>
+          </div>
+          <div class="kpi">
+            <div class="k micro-tight">Pièces évaluées</div>
+            <div class="v"><span class="figural">18</span> <span style="font-size:1rem;color:var(--color-ivoire-soft)">/ 24</span></div>
+            <div class="sub">6 pièces estimées au MSRP catalogue</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel pieces">
+        <div class="ph">
+          <span class="micro-tight">Pièces les mieux cotées</span>
+          <span class="micro-tight" style="color:var(--color-ivoire-soft)">Payé → Valeur · Δ</span>
+        </div>
+
+        <!-- normal rows -->
+        <div class="row" style="--hue: var(--type-statue)">
+          <div class="thumb"><span class="bar"></span><span class="k ja">彫</span></div>
+          <div class="meta">
+            <div class="nm">Ryuko Matoi — Senketsu</div>
+            <div class="sub"><span class="chip">Statue</span><span class="mono" style="font-size:10px;color:var(--color-ivoire-soft)">1/8 · Good Smile</span></div>
+          </div>
+          <div class="money">
+            <div class="paid">payé&nbsp;320&nbsp;€</div>
+            <div class="val">410&nbsp;€</div>
+            <div class="delta up">▲ +90&nbsp;€</div>
+          </div>
+        </div>
+
+        <div class="row" style="--hue: var(--type-scale)">
+          <div class="thumb"><span class="bar"></span><span class="k ja">像</span></div>
+          <div class="meta">
+            <div class="nm">Rem — Birthday</div>
+            <div class="sub"><span class="chip">Échelle</span><span class="mono" style="font-size:10px;color:var(--color-ivoire-soft)">1/7 · eStream</span></div>
+          </div>
+          <div class="money">
+            <div class="paid">payé&nbsp;180&nbsp;€</div>
+            <div class="val">245&nbsp;€</div>
+            <div class="delta up">▲ +65&nbsp;€</div>
+          </div>
+        </div>
+
+        <!-- edit-mode row (demonstrates inline value editing + MSRP fallback) -->
+        <div class="row editing" style="--hue: var(--type-nendoroid)">
+          <div class="thumb"><span class="bar"></span><span class="k ja">童</span></div>
+          <div class="meta">
+            <div class="nm">Hatsune Miku — Symphony 2024 <span class="anno">édition inline</span></div>
+            <div class="sub"><span class="chip">Nendoroid</span><span class="mono" style="font-size:10px;color:var(--color-ivoire-soft)">payé 38&nbsp;€</span></div>
+          </div>
+          <div class="editfield">
+            <label class="inwrap"><span>€</span><input type="text" value="52" /></label>
+            <div class="msrp">à défaut ≈ MSRP&nbsp;6&nbsp;800&nbsp;¥</div>
+            <div class="acts"><button class="save">Enregistrer</button><button class="cancel">↺ MSRP</button></div>
+          </div>
+        </div>
+
+        <div class="row" style="--hue: var(--type-figma)">
+          <div class="thumb"><span class="bar"></span><span class="k ja">動</span></div>
+          <div class="meta">
+            <div class="nm">Saber — Triumphant Excalibur</div>
+            <div class="sub"><span class="chip">figma</span><span class="mono" style="font-size:10px;color:var(--color-ivoire-soft)">Max Factory</span></div>
+          </div>
+          <div class="money">
+            <div class="paid">payé&nbsp;55&nbsp;€</div>
+            <div class="val">48&nbsp;€</div>
+            <div class="delta down">▼ −7&nbsp;€</div>
+          </div>
+        </div>
+
+        <div class="row" style="--hue: var(--type-bishoujo)">
+          <div class="thumb"><span class="bar"></span><span class="k ja">美</span></div>
+          <div class="meta">
+            <div class="nm">Zero Two — Darling</div>
+            <div class="sub"><span class="chip">Bishoujo</span><span class="mono" style="font-size:10px;color:var(--color-ivoire-soft)">estimé au MSRP</span></div>
+          </div>
+          <div class="money">
+            <div class="paid">payé&nbsp;—</div>
+            <div class="val" style="color:var(--color-ivoire-soft)">≈&nbsp;128&nbsp;€</div>
+            <div class="delta" style="color:var(--color-or-pale)">MSRP</div>
+          </div>
+        </div>
+      </div>
+
+      <p class="footnote">La valeur d'une pièce est <b>saisie manuellement</b> (champ ci-dessus). Sans valeur saisie,
+        on affiche le <b>MSRP catalogue</b> converti dans ta devise (badge « MSRP »). Le schéma est prévu pour qu'un
+        connecteur « marché secondaire » (eBay / Mandarake / Suruga-ya) puisse alimenter ces cotes plus tard, sans
+        rien changer à l'écran.</p>
+    </section>
+
+    <div class="screen-sep"><span class="ja">蔵</span></div>
+
+    <!-- ════════════════ SCREEN 2 — VITRINES / ÉTAGÈRES ════════════════ -->
+    <section class="screen">
+      <header class="head">
+        <span class="ghost-kanji ja">棚</span>
+        <p class="micro">Rangement · Topographie</p>
+        <h1 class="display">Les Vitrines</h1>
+        <div class="gold-rule rule"></div>
+        <p class="lead">Où se trouve chaque pièce. Tes figurines se regroupent par emplacement —
+          chaque vitrine est un meuble, du Detolf du salon au carton de la réserve.</p>
+      </header>
+
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input type="text" value="Rem" placeholder="Où est… ?" />
+        <span class="kbd">⏎</span>
+      </div>
+      <p class="search-hint">Trouvé : <b>Rem — Birthday · 1/7</b> dans <span class="ja">「</span>Detolf · Salon<span class="ja">」</span>, étagère du haut.</p>
+
+      <div class="vitrines">
+        <!-- Cabinet 1 -->
+        <article class="vitrine">
+          <div class="vitrine-head">
+            <div>
+              <div class="nm">Detolf · Salon</div>
+              <div class="sub micro-tight">8 pièces</div>
+            </div>
+            <div class="val">1&nbsp;240&nbsp;€<small>valeur du meuble</small></div>
+          </div>
+          <div class="shelf">
+            <div class="spec" style="--hue: var(--type-scale)"><span class="bar"></span><span class="k ja">像</span><span class="nm">Rem</span></div>
+            <div class="spec" style="--hue: var(--type-statue)"><span class="bar"></span><span class="k ja">彫</span><span class="nm">Ryuko</span></div>
+            <div class="spec" style="--hue: var(--type-bishoujo)"><span class="bar"></span><span class="k ja">美</span><span class="nm">Zero Two</span></div>
+          </div>
+          <div class="shelf">
+            <div class="spec" style="--hue: var(--type-figma)"><span class="bar"></span><span class="k ja">動</span><span class="nm">Saber</span></div>
+            <div class="spec" style="--hue: var(--type-nendoroid)"><span class="bar"></span><span class="k ja">童</span><span class="nm">Miku</span></div>
+            <div class="spec" style="--hue: var(--type-prize)"><span class="bar"></span><span class="k ja">賞</span><span class="nm">Asuka</span></div>
+          </div>
+        </article>
+
+        <!-- Cabinet 2 -->
+        <article class="vitrine">
+          <div class="vitrine-head">
+            <div>
+              <div class="nm">Étagère · Bureau</div>
+              <div class="sub micro-tight">6 pièces</div>
+            </div>
+            <div class="val">720&nbsp;€<small>valeur du meuble</small></div>
+          </div>
+          <div class="shelf">
+            <div class="spec" style="--hue: var(--type-nendoroid)"><span class="bar"></span><span class="k ja">童</span><span class="nm">Nezuko</span></div>
+            <div class="spec" style="--hue: var(--type-figma)"><span class="bar"></span><span class="k ja">動</span><span class="nm">Tanjiro</span></div>
+            <div class="spec" style="--hue: var(--type-scale)"><span class="bar"></span><span class="k ja">像</span><span class="nm">Marin</span></div>
+          </div>
+          <div class="shelf">
+            <div class="spec" style="--hue: var(--type-bishoujo)"><span class="bar"></span><span class="k ja">美</span><span class="nm">Power</span></div>
+            <div class="spec" style="--hue: var(--type-statue)"><span class="bar"></span><span class="k ja">彫</span><span class="nm">Gojo</span></div>
+            <div class="spec" style="--hue: var(--type-prize)"><span class="bar"></span><span class="k ja">賞</span><span class="nm">Frieren</span></div>
+          </div>
+        </article>
+
+        <!-- Cabinet 3 -->
+        <article class="vitrine">
+          <div class="vitrine-head">
+            <div>
+              <div class="nm">Réserve · Cartons</div>
+              <div class="sub micro-tight">4 pièces · scellées</div>
+            </div>
+            <div class="val">410&nbsp;€<small>valeur du meuble</small></div>
+          </div>
+          <div class="shelf">
+            <div class="spec" style="--hue: var(--type-scale)"><span class="bar"></span><span class="k ja">像</span><span class="nm">2B</span></div>
+            <div class="spec" style="--hue: var(--type-figma)"><span class="bar"></span><span class="k ja">動</span><span class="nm">Link</span></div>
+            <div class="spec" style="--hue: var(--type-nendoroid)"><span class="bar"></span><span class="k ja">童</span><span class="nm">Chihiro</span></div>
+          </div>
+        </article>
+
+        <!-- Non rangées -->
+        <article class="vitrine vitrine--loose">
+          <div class="vitrine-head">
+            <div>
+              <div class="nm">Non rangées</div>
+              <div class="sub micro-tight">6 pièces sans emplacement</div>
+            </div>
+          </div>
+          <div class="shelf">
+            <div class="spec spec--assign" style="--hue: var(--type-bishoujo)"><span class="bar"></span><span class="k ja">美</span><span class="nm">Mai</span>
+              <span class="assign-pop">Assigner ▾</span></div>
+            <div class="spec" style="--hue: var(--type-prize)"><span class="bar"></span><span class="k ja">賞</span><span class="nm">Megumin</span></div>
+            <div class="spec" style="--hue: var(--type-statue)"><span class="bar"></span><span class="k ja">彫</span><span class="nm">Esdeath</span></div>
+            <div class="loose-cta">
+              <button>Ranger ces pièces dans une vitrine</button>
+              <span class="anno">glisser-déposer / sélection</span>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function setTheme(t) {
+      document.documentElement.setAttribute('data-theme', t);
+      document.getElementById('t-dark').classList.toggle('on', t === 'dark');
+      document.getElementById('t-light').classList.toggle('on', t === 'light');
+    }
+  </script>
+</body>
+</html>

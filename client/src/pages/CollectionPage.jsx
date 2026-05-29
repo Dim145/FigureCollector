@@ -125,6 +125,26 @@ export default function CollectionPage() {
           </h1>
           <div className="gold-rule w-32 mt-6 reveal" style={{ "--i": 2 }} />
 
+          {/* Collection lenses — sibling views of the same pieces. */}
+          <nav
+            className="mt-6 flex flex-wrap gap-2 reveal"
+            style={{ "--i": 3 }}
+            aria-label={t("collection.lenses")}
+          >
+            <Link
+              to="/vitrines"
+              className="chip hover:border-[var(--color-or)] hover:text-[var(--color-or)] transition-colors"
+            >
+              {t("nav.vitrines")}
+            </Link>
+            <Link
+              to="/cote"
+              className="chip hover:border-[var(--color-or)] hover:text-[var(--color-or)] transition-colors"
+            >
+              {t("cote.title")}
+            </Link>
+          </nav>
+
           {owned.data?.length ? (
             <dl
               className="mt-8 flex flex-wrap items-baseline gap-x-10 gap-y-3 reveal"

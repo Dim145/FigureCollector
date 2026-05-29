@@ -33,6 +33,10 @@ pub struct CollectionStats {
     pub preorders: PreorderSummary,
     /// Money spent breakdown by ISO 4217 currency.
     pub spend_by_currency: Vec<SpendBucket>,
+    /// Estimated collection value by ISO 4217 currency (manual `value_amount`,
+    /// falling back to catalog MSRP). Pair with `spend_by_currency` to derive
+    /// the latent plus-value per currency.
+    pub value_by_currency: Vec<ValueBucket>,
     /// Counts by figure_type ("nendoroid", "scale", "figma", …), sorted desc.
     pub by_type: Vec<TypeBreakdown>,
     /// Counts by condition ("mib_sealed", "opened_box", "displayed", "loose", "damaged").
@@ -76,6 +80,20 @@ pub struct SpendBucket {
     /// Sum of item cost + shipping cost. The headline figure most users
     /// actually want — "how much did this collection drain my wallet".
     pub grand_total: Decimal,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ValueBucket {
+    pub currency: String,
+    /// Sum of the effective value: the manual `value_amount` when set, else
+    /// the figure's catalog MSRP.
+    pub estimated_total: Decimal,
+    /// Pieces with a manually-entered value.
+    pub pieces_valued: i64,
+    /// Pieces valued via the MSRP fallback (no manual value yet).
+    pub pieces_msrp: i64,
+    /// Total pieces contributing to this currency bucket.
+    pub pieces_total: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -205,6 +223,35 @@ pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<Collect
          WHERE amount IS NOT NULL AND currency IS NOT NULL
          GROUP BY currency
          ORDER BY 6 DESC",
+    )
+    .bind(user_id)
+    .fetch_all(pool);
+
+    // ----- Estimated value by currency --------------------------------------
+    // Effective value = the manual `value_amount` when present, else the
+    // figure's catalog MSRP. The bucket currency follows whichever amount won,
+    // so a JPY MSRP fallback isn't mislabelled with the user's price currency.
+    // Pairs with `spend_by_currency` for the latent plus-value delta.
+    let value_rows_fut = sqlx::query_as::<_, (String, Decimal, i64, i64, i64)>(
+        "WITH valued AS (
+             SELECT CASE WHEN o.value_amount IS NOT NULL
+                         THEN COALESCE(o.value_currency, o.price_currency, f.msrp_currency)
+                         ELSE f.msrp_currency END                  AS currency,
+                    COALESCE(o.value_amount, f.msrp_amount)         AS amount,
+                    (o.value_amount IS NOT NULL)                    AS is_manual
+             FROM owned_items o
+             JOIN figures f ON f.id = o.figure_id
+             WHERE o.user_id = $1
+         )
+         SELECT currency,
+                COALESCE(SUM(amount), 0)::numeric             AS estimated_total,
+                COUNT(*) FILTER (WHERE is_manual)::bigint     AS pieces_valued,
+                COUNT(*) FILTER (WHERE NOT is_manual)::bigint AS pieces_msrp,
+                COUNT(*)::bigint                              AS pieces_total
+         FROM valued
+         WHERE amount IS NOT NULL AND currency IS NOT NULL
+         GROUP BY currency
+         ORDER BY 2 DESC",
     )
     .bind(user_id)
     .fetch_all(pool);
@@ -346,6 +393,7 @@ pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<Collect
         (total_scans,),
         preorder_rows,
         spend_rows,
+        value_rows,
         type_rows,
         condition_rows,
         manufacturer_rows,
@@ -362,6 +410,7 @@ pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<Collect
         total_scans,
         preorder_rows_fut,
         spend_rows_fut,
+        value_rows_fut,
         type_rows_fut,
         condition_rows_fut,
         manufacturer_rows_fut,
@@ -400,6 +449,18 @@ pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<Collect
                     catalog_total,
                     grand_total,
                 }
+            },
+        )
+        .collect();
+    let value_by_currency = value_rows
+        .into_iter()
+        .map(
+            |(currency, estimated_total, pieces_valued, pieces_msrp, pieces_total)| ValueBucket {
+                currency,
+                estimated_total,
+                pieces_valued,
+                pieces_msrp,
+                pieces_total,
             },
         )
         .collect();
@@ -458,6 +519,7 @@ pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<Collect
         total_scans,
         preorders,
         spend_by_currency,
+        value_by_currency,
         by_type,
         by_condition,
         top_manufacturers,

@@ -91,6 +91,33 @@ export function useUpdateOwnedItem() {
   });
 }
 
+/** Set or clear an owned item's manual current value (the "cote").
+ *  `amount: null` clears it, reverting the displayed value to the catalog-MSRP
+ *  fallback. Invalidates the collection list AND `["stats"]` (the Cote
+ *  dashboard reads `value_by_currency`). */
+export function useSetOwnedValue() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, amount, currency }) =>
+      api.put(`/me/owned/${id}/value`, { amount, currency }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["owned"] });
+      qc.invalidateQueries({ queryKey: ["stats"] });
+    },
+  });
+}
+
+/** Re-home + re-order a whole Vitrines cabinet in one call (drag-and-drop):
+ *  every id in `ordered_ids` gets `location` + a sequential sort order. */
+export function useArrangeOwned() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ location, ordered_ids }) =>
+      api.put("/me/owned/arrange", { location, ordered_ids }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["owned"] }),
+  });
+}
+
 /** Archive an owned item (typically after a partial-refund cancellation).
  *  The row keeps existing on disk so the loss can be retraced, but it's
  *  hidden from default list views. */
@@ -110,6 +137,50 @@ export function useRestoreOwnedItem() {
   return useMutation({
     mutationFn: (id) => api.post(`/me/owned/${id}/restore`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["owned"] }),
+  });
+}
+
+// ----- Display cabinets (locations) -----------------------------------------
+
+/** The user's persistent display cabinets ("vitrines"), ordered. */
+export function useLocations() {
+  return useQuery({
+    queryKey: ["locations"],
+    queryFn: () => api.get("/me/locations"),
+  });
+}
+
+/** Create a cabinet (idempotent server-side — an existing name is returned). */
+export function useCreateLocation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name) => api.post("/me/locations", { name }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["locations"] }),
+  });
+}
+
+/** Rename a cabinet; the server re-points its items so `owned.location` stays
+ *  in sync, hence the `["owned"]` invalidation too. */
+export function useRenameLocation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }) => api.patch(`/me/locations/${id}`, { name }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["locations"] });
+      qc.invalidateQueries({ queryKey: ["owned"] });
+    },
+  });
+}
+
+/** Delete a cabinet; its pieces are un-shelved (location → ""). */
+export function useDeleteLocation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => api.delete(`/me/locations/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["locations"] });
+      qc.invalidateQueries({ queryKey: ["owned"] });
+    },
   });
 }
 

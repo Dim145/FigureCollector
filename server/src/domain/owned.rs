@@ -19,6 +19,13 @@ pub struct OwnedItem {
     /// Stored separately so the figure cost stays comparable to the
     /// catalog MSRP; total paid = `price_amount + shipping_amount`.
     pub shipping_amount: Option<Decimal>,
+    /// Manual current / market value (the "cote"). Null → the SPA falls back
+    /// to the figure's catalog MSRP. Currency held in `value_currency`.
+    pub value_amount: Option<Decimal>,
+    pub value_currency: Option<String>,
+    /// Manual sort order within a Vitrines cabinet (drag-and-drop). Null sinks
+    /// to the end, ordered by `created_at`.
+    pub sort_order: Option<i32>,
     /// FK to the `stores` table. Replaces the old free-text `store` column
     /// (migration 22). Callers send the *name* string in NewOwnedItem /
     /// OwnedPatch; the handler resolves it to an id via
@@ -44,6 +51,11 @@ pub struct OwnedItemWithFigure {
     pub price_amount: Option<Decimal>,
     pub price_currency: Option<String>,
     pub shipping_amount: Option<Decimal>,
+    /// Manual valuation (the "cote") + its currency. Null → fall back to MSRP.
+    pub value_amount: Option<Decimal>,
+    pub value_currency: Option<String>,
+    /// Manual sort order within a Vitrines cabinet (drag-and-drop).
+    pub sort_order: Option<i32>,
     /// Joined from `stores` — `None` when the user never picked a store or
     /// the store was deleted (FK is ON DELETE SET NULL).
     pub store_id: Option<Uuid>,
@@ -63,6 +75,10 @@ pub struct OwnedItemWithFigure {
     pub scale: Option<String>,
     pub height_mm: Option<i32>,
     pub version_name: Option<String>,
+    /// Catalog MSRP — the fallback "value" shown when the user hasn't set a
+    /// manual `value_amount`. Lets the SPA render the cote without a 2nd query.
+    pub msrp_amount: Option<Decimal>,
+    pub msrp_currency: Option<String>,
 
     /// Per-user cover preference. Either `cover_photo_id` (a `photos` row),
     /// `cover_scan_id` (a `scans` row), or both null — in the latter case
@@ -124,6 +140,7 @@ const ALLOWED_CONDITIONS: &[&str] = &["mib_sealed", "opened_box", "displayed", "
 
 const OWNED_RETURNING: &str =
     "id, user_id, figure_id, condition, price_amount, price_currency, shipping_amount, \
+     value_amount, value_currency, sort_order, \
      store_id, purchase_date, location, notes, cover_photo_id, cover_scan_id, \
      archived_at, created_at, updated_at";
 
@@ -231,6 +248,79 @@ pub async fn patch(
     row.ok_or(AppError::NotFound)
 }
 
+/// Set or clear the manual current value (the "cote") of an owned item.
+/// `amount = None` clears BOTH columns, reverting the displayed value to the
+/// catalog-MSRP fallback (so a reset never leaves an orphan currency behind).
+/// Unlike `patch`, this writes the columns directly (no COALESCE) precisely so
+/// that null can clear.
+pub async fn set_value(
+    pool: &PgPool,
+    user_id: Uuid,
+    id: Uuid,
+    amount: Option<Decimal>,
+    currency: Option<String>,
+) -> AppResult<OwnedItem> {
+    let (amount, currency) = match amount {
+        Some(a) => {
+            if let Some(c) = &currency {
+                if c.len() != 3 {
+                    return Err(AppError::BadRequest(
+                        "value_currency must be ISO 4217 (3 chars)",
+                    ));
+                }
+            }
+            (Some(a), currency)
+        }
+        // Clearing the value also drops its currency.
+        None => (None, None),
+    };
+
+    let sql = format!(
+        "UPDATE owned_items SET value_amount = $1, value_currency = $2
+         WHERE id = $3 AND user_id = $4
+         RETURNING {OWNED_RETURNING}"
+    );
+    let row: Option<OwnedItem> = sqlx::query_as(&sql)
+        .bind(amount)
+        .bind(&currency)
+        .bind(id)
+        .bind(user_id)
+        .fetch_optional(pool)
+        .await?;
+    row.ok_or(AppError::NotFound)
+}
+
+/// Re-home and re-order a whole cabinet's contents in one statement: every id
+/// in `ordered_ids` gets `location = $location` and a sequential `sort_order`
+/// matching its position. Items not listed are left untouched. Powers the
+/// Vitrines drag-and-drop (within-shelf reorder + cross-shelf move). `location`
+/// of "" means the unshelved group.
+pub async fn arrange(
+    pool: &PgPool,
+    user_id: Uuid,
+    location: &str,
+    ordered_ids: &[Uuid],
+) -> AppResult<()> {
+    if ordered_ids.is_empty() {
+        return Ok(());
+    }
+    sqlx::query(
+        "UPDATE owned_items o
+         SET location = $2, sort_order = data.ord
+         FROM (
+             SELECT id, ord::int AS ord
+             FROM unnest($3::uuid[]) WITH ORDINALITY AS t(id, ord)
+         ) data
+         WHERE o.id = data.id AND o.user_id = $1",
+    )
+    .bind(user_id)
+    .bind(location)
+    .bind(ordered_ids)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 pub async fn list_for_user(
     pool: &PgPool,
     user_id: Uuid,
@@ -245,6 +335,7 @@ pub async fn list_for_user(
         "SELECT
             o.id, o.figure_id, o.condition, o.price_amount, o.price_currency,
             o.shipping_amount,
+            o.value_amount, o.value_currency, o.sort_order,
             o.store_id,
             st.name AS store_name,
             st.slug AS store_slug,
@@ -254,6 +345,7 @@ pub async fn list_for_user(
             f.official_image_url AS figure_image,
             m.name AS manufacturer_name,
             f.scale, f.height_mm, f.version_name,
+            f.msrp_amount, f.msrp_currency,
             o.cover_photo_id, o.cover_scan_id,
             (
                 SELECT fp.id FROM figure_photos fp
