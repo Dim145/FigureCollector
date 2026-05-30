@@ -160,6 +160,17 @@ pub async fn find_by_id(pool: &PgPool, id: Uuid) -> AppResult<Option<User>> {
     Ok(row)
 }
 
+/// Resolve a gift-list share token to its owner. Used by the anonymous
+/// `/g/{token}` surface — the token is the only credential.
+pub async fn find_by_gift_token(pool: &PgPool, token: &str) -> AppResult<Option<User>> {
+    let sql = format!("SELECT {USER_COLUMNS} FROM users WHERE gift_share_token = $1");
+    let row = sqlx::query_as::<_, User>(&sql)
+        .bind(token)
+        .fetch_optional(pool)
+        .await?;
+    Ok(row)
+}
+
 pub async fn get_local_password_hash(pool: &PgPool, user_id: Uuid) -> AppResult<Option<String>> {
     let row: Option<(String,)> =
         sqlx::query_as("SELECT password_hash FROM local_credentials WHERE user_id = $1")

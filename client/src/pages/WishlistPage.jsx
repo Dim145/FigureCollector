@@ -5,6 +5,7 @@ import { useMe } from "../hooks/useMe.js";
 import { useWishlistItems, usePatchWishlistItem, useRemoveWishlistItem } from "../hooks/useWishlist.js";
 import { useAddOwnedItem } from "../hooks/useCollection.js";
 import AppShell from "../components/AppShell.jsx";
+import GiftSharePanel from "../components/GiftSharePanel.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import { typeHue } from "../lib/typeHue.js";
 import { fmtMoney } from "../lib/money.js";
@@ -112,6 +113,8 @@ export default function WishlistPage() {
           <EmptyState t={t} />
         ) : (
           <>
+            <GiftSharePanel />
+
             <div className="flex items-baseline gap-6 flex-wrap mb-7">
               <span className="flex items-baseline gap-2">
                 <span className="figural text-3xl text-[var(--color-ivoire)]">{items.length}</span>

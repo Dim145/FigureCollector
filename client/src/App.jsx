@@ -20,6 +20,7 @@ const CotePage             = lazy(() => import("./pages/CotePage.jsx"));
 const VitrinesPage         = lazy(() => import("./pages/VitrinesPage.jsx"));
 const WishlistPage         = lazy(() => import("./pages/WishlistPage.jsx"));
 const WishlistImportPage   = lazy(() => import("./pages/WishlistImportPage.jsx"));
+const SharedWishlistPage   = lazy(() => import("./pages/SharedWishlistPage.jsx"));
 const AddFigurePage        = lazy(() => import("./pages/AddFigurePage.jsx"));
 const FigureDetailPage     = lazy(() => import("./pages/FigureDetailPage.jsx"));
 const PreordersPage        = lazy(() => import("./pages/PreordersPage.jsx"));
@@ -126,6 +127,8 @@ export default function App() {
             <Route path="/collectionneurs" element={<DiscoverPage />} />
             <Route path="/u/:slug" element={<PublicProfilePage />} />
             <Route path="/compare/:slug" element={<ComparePage />} />
+            {/* Anonymous gift list — must render without a session/redirect */}
+            <Route path="/g/:token" element={<SharedWishlistPage />} />
             <Route path="*" element={<LandingPage />} />
           </Routes>
         </Suspense>
