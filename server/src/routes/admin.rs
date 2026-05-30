@@ -615,6 +615,104 @@ async fn delete_worker(
     Ok(StatusCode::NO_CONTENT)
 }
 
+// =============================================================================
+// Bulk operations (Lot 6) — best-effort multi-row delete. Each item reuses the
+// single-row domain delete so per-item guards / cascades still apply; a failed
+// row counts as skipped rather than aborting the whole batch.
+// =============================================================================
+
+#[derive(Deserialize)]
+struct BulkIds {
+    ids: Vec<Uuid>,
+}
+
+#[derive(Deserialize)]
+struct BulkStrIds {
+    ids: Vec<String>,
+}
+
+#[derive(serde::Serialize)]
+struct BulkResult {
+    deleted: i64,
+    skipped: i64,
+}
+
+async fn bulk_delete_figures(
+    State(state): State<AppState>,
+    session: Session,
+    Json(b): Json<BulkIds>,
+) -> AppResult<Json<BulkResult>> {
+    auth::require_admin(&session, &state.pool).await?;
+    let (mut deleted, mut skipped) = (0, 0);
+    for id in b.ids {
+        if figure::delete(&state.pool, id).await.is_ok() {
+            deleted += 1;
+        } else {
+            skipped += 1;
+        }
+    }
+    tracing::info!(deleted, skipped, "admin bulk-deleted figures");
+    Ok(Json(BulkResult { deleted, skipped }))
+}
+
+async fn bulk_delete_stores(
+    State(state): State<AppState>,
+    session: Session,
+    Json(b): Json<BulkIds>,
+) -> AppResult<Json<BulkResult>> {
+    auth::require_admin(&session, &state.pool).await?;
+    let (mut deleted, mut skipped) = (0, 0);
+    for id in b.ids {
+        if store::delete(&state.pool, id).await.is_ok() {
+            deleted += 1;
+        } else {
+            skipped += 1;
+        }
+    }
+    Ok(Json(BulkResult { deleted, skipped }))
+}
+
+async fn bulk_delete_figure_types(
+    State(state): State<AppState>,
+    session: Session,
+    Json(b): Json<BulkStrIds>,
+) -> AppResult<Json<BulkResult>> {
+    auth::require_admin(&session, &state.pool).await?;
+    let (mut deleted, mut skipped) = (0, 0);
+    for id in b.ids {
+        if figure_type::delete(&state.pool, &id).await.is_ok() {
+            deleted += 1;
+        } else {
+            skipped += 1;
+        }
+    }
+    Ok(Json(BulkResult { deleted, skipped }))
+}
+
+async fn bulk_delete_users(
+    State(state): State<AppState>,
+    session: Session,
+    Json(b): Json<BulkIds>,
+) -> AppResult<Json<BulkResult>> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    let (mut deleted, mut skipped) = (0, 0);
+    for id in b.ids {
+        // Never bulk-delete yourself or any admin — admins go one at a time.
+        if id == actor.id {
+            skipped += 1;
+            continue;
+        }
+        match crate::auth::user::find_by_id(&state.pool, id).await {
+            Ok(Some(u)) if !u.is_admin && admin::delete_user(&state.pool, id).await.is_ok() => {
+                deleted += 1;
+            }
+            _ => skipped += 1,
+        }
+    }
+    tracing::info!(deleted, skipped, by_admin = %actor.id, "admin bulk-deleted users");
+    Ok(Json(BulkResult { deleted, skipped }))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/admin/overview", get(overview))
@@ -624,6 +722,10 @@ pub fn router() -> Router<AppState> {
             axum::routing::patch(patch_user).delete(delete_user),
         )
         .route("/admin/figures", get(list_figures))
+        .route("/admin/figures/bulk-delete", post(bulk_delete_figures))
+        .route("/admin/users/bulk-delete", post(bulk_delete_users))
+        .route("/admin/figure-types/bulk-delete", post(bulk_delete_figure_types))
+        .route("/admin/stores/bulk-delete", post(bulk_delete_stores))
         // ─── catalog entities — JSON CRUD ────────────────────────────────
         .route("/admin/manufacturers", get(list_manufacturers))
         .route("/admin/manufacturers/{id}", patch(patch_manufacturer))

@@ -1,9 +1,16 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
-import { useAdminFigures, useDeleteFigure } from "../hooks/useAdmin.js";
+import {
+  useAdminFigures,
+  useBulkDeleteFigures,
+  useDeleteFigure,
+} from "../hooks/useAdmin.js";
+import { useRowSelection } from "../hooks/useRowSelection.js";
 import Button from "../components/Button.jsx";
+import BulkActionBar, { SelectCheckbox } from "../components/BulkActionBar.jsx";
 import Card from "../components/Card.jsx";
+import EmptyState from "../components/EmptyState.jsx";
 import FigureEditDialog from "../components/FigureEditDialog.jsx";
 
 export default function AdminFiguresPage() {
@@ -13,6 +20,10 @@ export default function AdminFiguresPage() {
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const del = useDeleteFigure();
+  const bulkDel = useBulkDeleteFigures();
+
+  const ids = useMemo(() => (figures.data ?? []).map((f) => f.id), [figures.data]);
+  const sel = useRowSelection(ids);
 
   const onDelete = async () => {
     if (!deleting) return;
@@ -38,9 +49,26 @@ export default function AdminFiguresPage() {
         <p className="text-center text-[var(--color-ivoire-soft)]">…</p>
       ) : figures.data?.length ? (
         <Card className="overflow-x-auto">
+          <BulkActionBar
+            selectedIds={sel.selectedIds}
+            onClear={sel.clear}
+            onDelete={(idList) => bulkDel.mutateAsync(idList)}
+            busy={bulkDel.isPending}
+            confirmBody={t("admin.bulk.confirm.body.figures", {
+              n: sel.selectedIds.length,
+            })}
+          />
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)] border-b border-[var(--color-or)]/15">
+                <th className="px-4 py-3 font-normal w-[34px]">
+                  <SelectCheckbox
+                    checked={sel.allSelected}
+                    indeterminate={sel.someSelected && !sel.allSelected}
+                    onChange={sel.toggleAll}
+                    label={t("admin.bulk.select_all")}
+                  />
+                </th>
                 <th className="px-4 py-3 font-normal">{t("admin.figures.col.name")}</th>
                 <th className="px-4 py-3 font-normal">{t("admin.figures.col.type")}</th>
                 <th className="px-4 py-3 font-normal">{t("admin.figures.col.scale")}</th>
@@ -54,8 +82,17 @@ export default function AdminFiguresPage() {
               {figures.data.map((f) => (
                 <tr
                   key={f.id}
-                  className="border-b border-[var(--color-or)]/10 hover:bg-[var(--color-or)]/5 transition-colors"
+                  className={`border-b border-[var(--color-or)]/10 hover:bg-[var(--color-or)]/5 transition-colors ${
+                    sel.isSelected(f.id) ? "adm-row-selected" : ""
+                  }`}
                 >
+                  <td className="px-4 py-3 align-middle">
+                    <SelectCheckbox
+                      checked={sel.isSelected(f.id)}
+                      onChange={() => sel.toggle(f.id)}
+                      label={t("admin.bulk.select_row")}
+                    />
+                  </td>
                   <td className="px-4 py-3 align-middle">
                     <Link
                       to={`/figures/${f.id}`}
@@ -108,9 +145,13 @@ export default function AdminFiguresPage() {
           </table>
         </Card>
       ) : (
-        <p className="text-center text-[var(--color-ivoire-soft)] italic">
-          {t("browse.empty")}
-        </p>
+        <EmptyState
+          compact
+          kanji="像"
+          hue="var(--color-jade)"
+          title={t("admin.empty.figures.title")}
+          body={t("admin.empty.figures.body")}
+        />
       )}
 
       {editing ? (

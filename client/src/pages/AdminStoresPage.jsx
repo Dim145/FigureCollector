@@ -11,6 +11,7 @@ import {
 } from "../hooks/useStores.js";
 import Button from "../components/Button.jsx";
 import FormField from "../components/FormField.jsx";
+import EmptyState from "../components/EmptyState.jsx";
 
 /**
  * Admin curates the stores registry — same registry vibe as the
@@ -67,12 +68,12 @@ export default function AdminStoresPage() {
       {stores.isLoading ? (
         <p className="text-center text-[var(--color-ivoire-soft)] py-12">…</p>
       ) : stores.data?.length === 0 ? (
-        <div className="text-center py-16">
-          <p className="ja text-[6rem] text-[var(--color-or)]/30 leading-none">店</p>
-          <p className="mt-3 text-[var(--color-ivoire-soft)] italic">
-            {t("admin.stores.empty")}
-          </p>
-        </div>
+        <EmptyState
+          compact
+          kanji="店"
+          title={t("admin.empty.stores.title")}
+          body={t("admin.empty.stores.body")}
+        />
       ) : (
         <ul className="space-y-3">
           {stores.data?.map((s) => (

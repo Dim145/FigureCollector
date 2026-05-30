@@ -10,6 +10,7 @@ import {
 } from "../hooks/useAchievements.js";
 import AppShell from "../components/AppShell.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
+import EmptyState from "../components/EmptyState.jsx";
 
 /**
  * /achievements — the Cabinet de Curiosités.
@@ -145,6 +146,22 @@ export default function AchievementsPage() {
   const totalCount = catalog.data?.length ?? 0;
   const pct =
     totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0;
+
+  // No achievements defined at all → a polished empty cabinet rather than a
+  // bare page (Lot 6).
+  if (totalCount === 0) {
+    return (
+      <AppShell>
+        <main className="ach-page max-w-6xl mx-auto px-6 pt-8 pb-20">
+          <EmptyState
+            kanji="勲"
+            title={t("achievements.empty.title")}
+            body={t("achievements.empty.body")}
+          />
+        </main>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>

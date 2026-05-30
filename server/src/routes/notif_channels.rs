@@ -324,6 +324,29 @@ async fn admin_generate_vapid(
 // Router
 // =============================================================================
 
+// =============================================================================
+// Do-not-disturb preset + quiet hours (Lot 6)
+// =============================================================================
+
+async fn get_prefs(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<notification::NotifPrefs>> {
+    let user_id = auth::require_user(&session).await?;
+    Ok(Json(notification::user_prefs(&state.pool, user_id).await?))
+}
+
+async fn patch_prefs(
+    State(state): State<AppState>,
+    session: Session,
+    Json(input): Json<notification::NotifPrefsPatch>,
+) -> AppResult<Json<notification::NotifPrefs>> {
+    let user_id = auth::require_user(&session).await?;
+    Ok(Json(
+        notification::update_prefs(&state.pool, user_id, input).await?,
+    ))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(
@@ -339,6 +362,10 @@ pub fn router() -> Router<AppState> {
             axum::routing::post(test_user_channel),
         )
         .route("/me/notification-routes", get(list_routes).put(put_routes))
+        .route(
+            "/me/notification-prefs",
+            get(get_prefs).patch(patch_prefs),
+        )
         .route(
             "/admin/notification-channels",
             get(admin_list_channels),

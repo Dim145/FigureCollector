@@ -1,13 +1,17 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 import {
   useAdminFigureTypes,
+  useBulkDeleteFigureTypes,
   useCreateFigureType,
   useDeleteFigureType,
   useFigureTypeUsage,
   usePatchFigureType,
 } from "../hooks/useAdmin.js";
+import { useRowSelection } from "../hooks/useRowSelection.js";
 import Button from "../components/Button.jsx";
+import BulkActionBar, { SelectCheckbox } from "../components/BulkActionBar.jsx";
+import EmptyStateBlock from "../components/EmptyState.jsx";
 
 /**
  * Admin curates the figure-type dropdown.
@@ -28,6 +32,10 @@ export default function AdminFigureTypesPage() {
   const t = useT();
   const types = useAdminFigureTypes();
   const [adding, setAdding] = useState(false);
+  const bulkDel = useBulkDeleteFigureTypes();
+
+  const ids = useMemo(() => (types.data ?? []).map((ty) => ty.id), [types.data]);
+  const sel = useRowSelection(ids);
 
   return (
     <section className="space-y-8">

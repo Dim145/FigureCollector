@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import {
   useAdminUsers,
+  useBulkDeleteUsers,
   useCreateAdminUser,
   useDeleteAdminUser,
   usePatchAdminUser,
 } from "../hooks/useAdmin.js";
+import { useRowSelection } from "../hooks/useRowSelection.js";
 import Button from "../components/Button.jsx";
+import BulkActionBar, { SelectCheckbox } from "../components/BulkActionBar.jsx";
 import Card from "../components/Card.jsx";
+import EmptyState from "../components/EmptyState.jsx";
 import FormField from "../components/FormField.jsx";
 
 export default function AdminUsersPage() {
@@ -17,6 +21,15 @@ export default function AdminUsersPage() {
   const me = useMe();
   const myId = me.data?.user?.id;
   const [creating, setCreating] = useState(false);
+  const bulkDel = useBulkDeleteUsers();
+
+  // Selectable rows exclude yourself — the server refuses to delete the
+  // caller anyway, so keep it out of the "select all" set entirely.
+  const ids = useMemo(
+    () => (users.data ?? []).filter((u) => u.id !== myId).map((u) => u.id),
+    [users.data, myId],
+  );
+  const sel = useRowSelection(ids);
 
   return (
     <div>
@@ -31,9 +44,26 @@ export default function AdminUsersPage() {
         <p className="text-center text-[var(--color-ivoire-soft)]">…</p>
       ) : users.data?.length ? (
         <Card className="overflow-x-auto">
+          <BulkActionBar
+            selectedIds={sel.selectedIds}
+            onClear={sel.clear}
+            onDelete={(idList) => bulkDel.mutateAsync(idList)}
+            busy={bulkDel.isPending}
+            confirmBody={t("admin.bulk.confirm.body.users", {
+              n: sel.selectedIds.length,
+            })}
+          />
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)] border-b border-[var(--color-or)]/15">
+                <th className="px-4 py-3 font-normal w-[34px]">
+                  <SelectCheckbox
+                    checked={sel.allSelected}
+                    indeterminate={sel.someSelected && !sel.allSelected}
+                    onChange={sel.toggleAll}
+                    label={t("admin.bulk.select_all")}
+                  />
+                </th>
                 <Th>{t("admin.users.col.username")}</Th>
                 <Th>{t("admin.users.col.email")}</Th>
                 <Th>{t("admin.users.col.role")}</Th>
@@ -45,15 +75,26 @@ export default function AdminUsersPage() {
             </thead>
             <tbody>
               {users.data.map((u) => (
-                <Row key={u.id} user={u} mine={u.id === myId} t={t} />
+                <Row
+                  key={u.id}
+                  user={u}
+                  mine={u.id === myId}
+                  selected={sel.isSelected(u.id)}
+                  onToggle={() => sel.toggle(u.id)}
+                  t={t}
+                />
               ))}
             </tbody>
           </table>
         </Card>
       ) : (
-        <p className="text-center text-[var(--color-ivoire-soft)] italic">
-          {t("admin.users.empty")}
-        </p>
+        <EmptyState
+          compact
+          kanji="人"
+          hue="var(--color-indigo)"
+          title={t("admin.empty.users.title")}
+          body={t("admin.empty.users.body")}
+        />
       )}
 
       {creating ? (
@@ -85,7 +126,7 @@ function Td({ children, right, className = "" }) {
   );
 }
 
-function Row({ user, mine, t }) {
+function Row({ user, mine, selected, onToggle, t }) {
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const patch = usePatchAdminUser();
@@ -102,7 +143,22 @@ function Row({ user, mine, t }) {
 
   return (
     <>
-      <tr className="border-b border-[var(--color-or)]/10 hover:bg-[var(--color-or)]/5 transition-colors">
+      <tr
+        className={`border-b border-[var(--color-or)]/10 hover:bg-[var(--color-or)]/5 transition-colors ${
+          selected ? "adm-row-selected" : ""
+        }`}
+      >
+        <Td>
+          {mine ? (
+            <span aria-hidden className="inline-block w-[18px]" />
+          ) : (
+            <SelectCheckbox
+              checked={selected}
+              onChange={onToggle}
+              label={t("admin.bulk.select_row")}
+            />
+          )}
+        </Td>
         <Td>
           <span className="font-mono text-[var(--color-ivoire)]">{user.username}</span>
           {mine ? (
@@ -170,7 +226,7 @@ function Row({ user, mine, t }) {
 
       {editing ? (
         <tr>
-          <td colSpan={7} className="bg-[var(--color-noir)]/40 border-b border-[var(--color-or)]/10">
+          <td colSpan={8} className="bg-[var(--color-noir)]/40 border-b border-[var(--color-or)]/10">
             <EditUserInline user={user} onClose={() => setEditing(false)} t={t} />
           </td>
         </tr>

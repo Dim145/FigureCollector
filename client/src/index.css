@@ -8435,5 +8435,238 @@ a.notif-page-row-title:hover {
 .ins-up { color: var(--color-jade); }
 .ins-down { color: var(--color-laque-bright); }
 
+/* ───────────────────────────────────────────────────────────────────────
+ * Lot 6 · EmptyState — one reusable empty/zero-data block (page + compact),
+ * ported from the validated lot6 maquette. `--hue` tints the wash + glyph.
+ * ─────────────────────────────────────────────────────────────────────── */
+.fc-empty {
+  position: relative;
+  text-align: center;
+  padding: 3.5rem 1.5rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--color-or) 14%, transparent);
+  background:
+    radial-gradient(60% 80% at 50% 0%, color-mix(in oklab, var(--hue, var(--color-or)) 7%, transparent), transparent 70%),
+    var(--color-noir-soft);
+}
+.fc-empty-k {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-ja);
+  font-size: 11rem;
+  line-height: 1;
+  color: color-mix(in oklab, var(--hue, var(--color-or)) 8%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+.fc-empty-rel { position: relative; }
+.fc-empty-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--hue, var(--color-or)) 80%, var(--color-or-pale));
+}
+.fc-empty-title {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: 1.9rem;
+  line-height: 1.1;
+  color: var(--color-ivoire);
+  margin: 0.5rem 0 0;
+}
+.fc-empty-body {
+  margin: 0.7rem auto 0;
+  max-width: 26rem;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-ivoire-soft);
+}
+.fc-empty-cta {
+  margin-top: 1.4rem;
+  display: flex;
+  gap: 0.7rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.fc-empty--compact { padding: 2.2rem 1.5rem; }
+.fc-empty--compact .fc-empty-k { font-size: 7rem; }
+.fc-empty--compact .fc-empty-title { font-size: 1.4rem; }
+
+/* ───────────────────────────────────────────────────────────────────────
+ * Lot 6 — notification preferences (quiet hours + DnD presets).
+ * Ported from docs/design/lot6-quality-settings.html.
+ * ─────────────────────────────────────────────────────────────────────── */
+.notif-section { margin-top: 1.75rem; }
+.notif-section:first-child { margin-top: 0; }
+
+.notif-qh {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+.notif-qh-label {
+  font-size: 12px;
+  color: var(--color-ivoire-soft);
+}
+.notif-qh-arrow { color: var(--color-or-pale); }
+.notif-qh-time {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  color: var(--color-ivoire);
+  background: var(--color-noir);
+  border: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
+  padding: 0.4rem 0.7rem;
+  outline: none;
+  transition: border-color 200ms var(--ease-quick);
+}
+.notif-qh-time:focus { border-color: var(--color-or); }
+.notif-qh-time:disabled { opacity: 0.5; cursor: not-allowed; }
+.notif-qh-note {
+  margin-top: 1rem;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-ivoire-soft);
+  border-left: 2px solid color-mix(in oklab, var(--color-indigo) 50%, transparent);
+  padding-left: 0.8rem;
+}
+
+.notif-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+.notif-preset {
+  position: relative;
+  text-align: left;
+  display: block;
+  border: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
+  background: var(--color-noir-soft);
+  padding: 1.1rem 1.2rem;
+  cursor: pointer;
+  transition: border-color 220ms var(--ease-quick),
+              background 220ms var(--ease-quick),
+              box-shadow 220ms var(--ease-quick);
+}
+.notif-preset:hover:not(.is-on) {
+  border-color: color-mix(in oklab, var(--color-or) 38%, transparent);
+}
+.notif-preset.is-on {
+  border-color: var(--color-or);
+  background: color-mix(in oklab, var(--color-or) 7%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-or) 30%, transparent);
+}
+.notif-preset:disabled { cursor: wait; }
+.notif-preset-tick {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.9rem;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklab, var(--color-or) 40%, transparent);
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  color: var(--color-noir);
+}
+.notif-preset.is-on .notif-preset-tick {
+  background: var(--color-or);
+  border-color: var(--color-or);
+}
+.notif-preset-k {
+  display: block;
+  font-size: 1.3rem;
+  color: var(--color-or-pale);
+}
+.notif-preset-title {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  color: var(--color-ivoire);
+  margin-top: 0.2rem;
+}
+.notif-preset-desc {
+  display: block;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-ivoire-soft);
+  margin-top: 0.35rem;
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+ * Lot 6 — admin bulk-action toolbar (multi-select + bulk delete).
+ * Gold-tinted bar that floats above the table head; red danger delete.
+ * ─────────────────────────────────────────────────────────────────────── */
+.adm-bulk-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.7rem 1rem;
+  background: color-mix(in oklab, var(--color-or) 12%, var(--color-noir-soft));
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  flex-wrap: wrap;
+  backdrop-filter: blur(6px);
+}
+.adm-bulk-count {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: var(--color-or-pale);
+}
+.adm-bulk-count b { color: var(--color-ivoire); }
+.adm-bulk-spacer { flex: 1; }
+.adm-bulk-act {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  color: var(--color-or-pale);
+  background: none;
+  cursor: pointer;
+  transition: border-color 200ms var(--ease-quick), color 200ms var(--ease-quick);
+}
+.adm-bulk-act:hover { border-color: var(--color-or); color: var(--color-or); }
+.adm-bulk-act.is-danger {
+  border-color: color-mix(in oklab, var(--color-laque-bright) 55%, transparent);
+  color: var(--color-laque-bright);
+}
+.adm-bulk-act.is-danger:hover {
+  border-color: var(--color-laque-bright);
+  background: color-mix(in oklab, var(--color-laque) 14%, transparent);
+  color: var(--color-laque-bright);
+}
+.adm-bulk-act:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Row checkbox — square, gold tick when on. Reused across every admin
+ * table + the figure-types / stores registry rows. */
+.adm-cbx {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in oklab, var(--color-or) 40%, transparent);
+  background: var(--color-noir);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--color-noir);
+  cursor: pointer;
+  transition: background 160ms var(--ease-quick), border-color 160ms var(--ease-quick);
+}
+.adm-cbx:hover { border-color: var(--color-or); }
+.adm-cbx.is-on {
+  background: var(--color-or);
+  border-color: var(--color-or);
+}
+.adm-row-selected { background: color-mix(in oklab, var(--color-or) 6%, transparent); }
+
 /* tail marker — append-only
  * keep this block last to anchor tail-append patches */

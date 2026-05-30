@@ -459,6 +459,133 @@ pub async fn record_tx(
 }
 
 // =============================================================================
+// Notification preferences (Lot 6) — do-not-disturb preset + quiet hours.
+// Gate EXTERNAL delivery only; the in-app row (journal) is always written.
+// =============================================================================
+
+/// Events that pierce the `essential` preset and quiet hours.
+pub const CRITICAL_EVENTS: &[&str] = &[
+    EVENT_PREORDER_RELEASE_TODAY,
+    EVENT_PREORDER_DELIVERY_TODAY,
+    EVENT_PREORDER_DELIVERY_OVERDUE,
+];
+
+#[derive(Debug, Clone, Serialize, FromRow)]
+pub struct NotifPrefs {
+    pub notification_preset: String,
+    pub quiet_hours_enabled: bool,
+    pub quiet_hours_start: i16,
+    pub quiet_hours_end: i16,
+}
+
+impl Default for NotifPrefs {
+    fn default() -> Self {
+        Self {
+            notification_preset: "all".into(),
+            quiet_hours_enabled: false,
+            quiet_hours_start: 22,
+            quiet_hours_end: 8,
+        }
+    }
+}
+
+impl NotifPrefs {
+    /// Whether `hour` (0–23) is inside the quiet window [start, end), wrapping
+    /// midnight. An empty window (start == end) is never active.
+    pub fn quiet_active(&self, hour: i16) -> bool {
+        if !self.quiet_hours_enabled {
+            return false;
+        }
+        let (s, e) = (self.quiet_hours_start, self.quiet_hours_end);
+        if s == e {
+            false
+        } else if s < e {
+            hour >= s && hour < e
+        } else {
+            hour >= s || hour < e
+        }
+    }
+
+    /// Whether `event_type` may reach EXTERNAL channels at `hour` under this
+    /// preset + quiet-hours config. Critical events pierce both gates.
+    pub fn allows_external(&self, event_type: &str, hour: i16) -> bool {
+        if matches!(self.notification_preset.as_str(), "in_app" | "silent") {
+            return false;
+        }
+        let critical = CRITICAL_EVENTS.contains(&event_type);
+        if self.notification_preset == "essential" && !critical {
+            return false;
+        }
+        if self.quiet_active(hour) && !critical {
+            return false;
+        }
+        true
+    }
+
+    /// `silent` records the in-app row already-read (no unread badge).
+    pub fn silences_inapp(&self) -> bool {
+        self.notification_preset == "silent"
+    }
+}
+
+pub async fn user_prefs(pool: &PgPool, user_id: Uuid) -> AppResult<NotifPrefs> {
+    Ok(sqlx::query_as::<_, NotifPrefs>(
+        "SELECT notification_preset, quiet_hours_enabled, quiet_hours_start, quiet_hours_end
+         FROM users WHERE id = $1",
+    )
+    .bind(user_id)
+    .fetch_one(pool)
+    .await?)
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct NotifPrefsPatch {
+    #[serde(default)]
+    pub notification_preset: Option<String>,
+    #[serde(default)]
+    pub quiet_hours_enabled: Option<bool>,
+    #[serde(default)]
+    pub quiet_hours_start: Option<i16>,
+    #[serde(default)]
+    pub quiet_hours_end: Option<i16>,
+}
+
+pub async fn update_prefs(
+    pool: &PgPool,
+    user_id: Uuid,
+    p: NotifPrefsPatch,
+) -> AppResult<NotifPrefs> {
+    if let Some(ref pr) = p.notification_preset {
+        if !matches!(pr.as_str(), "all" | "essential" | "in_app" | "silent") {
+            return Err(crate::error::AppError::BadRequest(
+                "notification_preset must be all, essential, in_app or silent",
+            ));
+        }
+    }
+    for h in [p.quiet_hours_start, p.quiet_hours_end].into_iter().flatten() {
+        if !(0..=23).contains(&h) {
+            return Err(crate::error::AppError::BadRequest("quiet hour must be 0–23"));
+        }
+    }
+    Ok(sqlx::query_as::<_, NotifPrefs>(
+        "UPDATE users SET
+            notification_preset = COALESCE($1, notification_preset),
+            quiet_hours_enabled = COALESCE($2, quiet_hours_enabled),
+            quiet_hours_start   = COALESCE($3, quiet_hours_start),
+            quiet_hours_end     = COALESCE($4, quiet_hours_end)
+         WHERE id = $5
+         RETURNING notification_preset, quiet_hours_enabled, quiet_hours_start, quiet_hours_end",
+    )
+    .bind(p.notification_preset)
+    .bind(p.quiet_hours_enabled)
+    .bind(p.quiet_hours_start)
+    .bind(p.quiet_hours_end)
+    .bind(user_id)
+    .fetch_one(pool)
+    .await?)
+}
+
+// =============================================================================
 // Web Push subscriptions
 // =============================================================================
 

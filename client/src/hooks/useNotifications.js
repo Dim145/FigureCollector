@@ -109,6 +109,33 @@ export function useTestChannel() {
   });
 }
 
+// =============================================================================
+// Notification preferences — quiet hours + "do not disturb" preset
+// =============================================================================
+
+/** The user's notification preferences: which preset is active + the quiet-
+ *  hours window. Shape:
+ *  `{ notification_preset, quiet_hours_enabled, quiet_hours_start, quiet_hours_end }`. */
+export function useNotificationPrefs() {
+  return useQuery({
+    queryKey: ["notification-prefs"],
+    queryFn: () => api.get("/me/notification-prefs"),
+  });
+}
+
+/** Patch any subset of the preference fields. The server returns the full,
+ *  updated prefs object — seed it straight back into the cache. */
+export function useUpdateNotificationPrefs() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch) => api.patch("/me/notification-prefs", patch),
+    onSuccess: (data) => {
+      if (data) qc.setQueryData(["notification-prefs"], data);
+      qc.invalidateQueries({ queryKey: ["notification-prefs"] });
+    },
+  });
+}
+
 /** Per-event x per-channel routing matrix. */
 export function useRoutes() {
   return useQuery({

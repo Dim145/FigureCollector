@@ -4,10 +4,12 @@ import {
   subscribeToWebPush,
   unsubscribeFromWebPush,
   useChannels,
+  useNotificationPrefs,
   useRoutes,
   useSaveRoutes,
   useTestChannel,
   useUpdateChannel,
+  useUpdateNotificationPrefs,
 } from "../hooks/useNotifications.js";
 
 /**
@@ -41,12 +43,143 @@ const EVENT_META = {
   preorder_delivery_overdue:  { kanji: "遅" },
 };
 
+// The four "do not disturb" presets, in display order. Kanji + i18n keys
+// mirror the validated lot6 maquette (全 / 要 / 内 / 無).
+const PRESETS = [
+  { value: "all", kanji: "全" },
+  { value: "essential", kanji: "要" },
+  { value: "in_app", kanji: "内" },
+  { value: "silent", kanji: "無" },
+];
+
 export default function NotificationSettings({ t }) {
   return (
     <div className="notif-settings">
+      <QuietHoursBlock t={t} />
+      <PresetBlock t={t} />
       <ChannelsBlock t={t} />
       <RoutingBlock t={t} />
     </div>
+  );
+}
+
+// =============================================================================
+// Quiet hours
+// =============================================================================
+
+function QuietHoursBlock({ t }) {
+  const prefs = useNotificationPrefs();
+  const update = useUpdateNotificationPrefs();
+
+  if (prefs.isLoading || !prefs.data) {
+    return <p className="atelier-drawer-desc">…</p>;
+  }
+
+  const enabled = prefs.data.quiet_hours_enabled ?? false;
+  const start = prefs.data.quiet_hours_start ?? 22;
+  const end = prefs.data.quiet_hours_end ?? 8;
+
+  return (
+    <section className="notif-section">
+      <p className="atelier-drawer-desc">{t("notifprefs.quiet.body")}</p>
+      <div className="notif-qh">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={enabled}
+          aria-label={t("notifprefs.quiet.toggle")}
+          onClick={() => update.mutate({ quiet_hours_enabled: !enabled })}
+          disabled={update.isPending}
+          className={`atelier-toggle ${enabled ? "is-on" : ""}`}
+        />
+        <span className="notif-qh-label">{t("notifprefs.quiet.from")}</span>
+        <HourSelect
+          value={start}
+          disabled={!enabled || update.isPending}
+          label={t("notifprefs.quiet.start")}
+          onChange={(v) => update.mutate({ quiet_hours_start: v })}
+        />
+        <span className="notif-qh-arrow" aria-hidden>
+          →
+        </span>
+        <HourSelect
+          value={end}
+          disabled={!enabled || update.isPending}
+          label={t("notifprefs.quiet.end")}
+          onChange={(v) => update.mutate({ quiet_hours_end: v })}
+        />
+      </div>
+      <p className="notif-qh-note">{t("notifprefs.quiet.note")}</p>
+    </section>
+  );
+}
+
+function HourSelect({ value, onChange, disabled, label }) {
+  return (
+    <select
+      className="notif-qh-time"
+      value={value}
+      disabled={disabled}
+      aria-label={label}
+      onChange={(e) => onChange(Number(e.target.value))}
+    >
+      {Array.from({ length: 24 }, (_, h) => (
+        <option key={h} value={h}>
+          {String(h).padStart(2, "0")}:00
+        </option>
+      ))}
+    </select>
+  );
+}
+
+// =============================================================================
+// "Do not disturb" preset cards
+// =============================================================================
+
+function PresetBlock({ t }) {
+  const prefs = useNotificationPrefs();
+  const update = useUpdateNotificationPrefs();
+
+  if (prefs.isLoading || !prefs.data) {
+    return null;
+  }
+
+  const active = prefs.data.notification_preset ?? "all";
+
+  return (
+    <section className="notif-section">
+      <p className="atelier-drawer-desc">{t("notifprefs.preset.body")}</p>
+      <div className="notif-preset-grid">
+        {PRESETS.map((p) => {
+          const on = active === p.value;
+          return (
+            <button
+              type="button"
+              key={p.value}
+              aria-pressed={on}
+              disabled={update.isPending}
+              onClick={() =>
+                update.mutate({ notification_preset: p.value })
+              }
+              className={`notif-preset ${on ? "is-on" : ""}`}
+            >
+              <span className="notif-preset-tick" aria-hidden>
+                {on ? "✓" : ""}
+              </span>
+              <span className="notif-preset-k ja" aria-hidden>
+                {p.kanji}
+              </span>
+              <span className="notif-preset-title">
+                {t(`notifprefs.preset.${p.value}.title`)}
+              </span>
+              <span className="notif-preset-desc">
+                {t(`notifprefs.preset.${p.value}.body`)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

@@ -312,3 +312,58 @@ export function useDeleteCharacter() {
     },
   });
 }
+
+// =============================================================================
+// Bulk delete — multi-select + one POST per table. Every endpoint returns
+// `{ deleted, skipped }`; the server enforces its own guards (users can't
+// delete themselves or other admins, figure-types in use are skipped, …).
+// Figure-types key on their STRING slug `id`; the rest on uuid `id`.
+// =============================================================================
+
+export function useBulkDeleteFigures() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids) => api.post("/admin/figures/bulk-delete", { ids }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["figures"] });
+      qc.invalidateQueries({ queryKey: ["admin", "figures"] });
+      qc.invalidateQueries({ queryKey: ["admin", "overview"] });
+      qc.invalidateQueries({ queryKey: ["owned"] });
+    },
+  });
+}
+
+export function useBulkDeleteUsers() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids) => api.post("/admin/users/bulk-delete", { ids }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "users"] });
+      qc.invalidateQueries({ queryKey: ["admin", "overview"] });
+    },
+  });
+}
+
+export function useBulkDeleteFigureTypes() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids) => api.post("/admin/figure-types/bulk-delete", { ids }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["figure-types"] });
+      qc.invalidateQueries({ queryKey: ["admin", "figure-types"] });
+    },
+  });
+}
+
+export function useBulkDeleteStores() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids) => api.post("/admin/stores/bulk-delete", { ids }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["stores"] });
+      qc.invalidateQueries({ queryKey: ["admin", "stores"] });
+      qc.invalidateQueries({ queryKey: ["owned"] });
+      qc.invalidateQueries({ queryKey: ["preorders"] });
+    },
+  });
+}

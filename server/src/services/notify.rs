@@ -26,6 +26,7 @@ use crate::domain::notification;
 use crate::entity::achievements;
 use crate::events::Event;
 use crate::state::AppState;
+use chrono::Timelike;
 use serde_json::json;
 use uuid::Uuid;
 
@@ -90,12 +91,28 @@ pub async fn dispatch(
         .events
         .publish(user_id, Event::NotificationCreated { id: n.id });
 
-    // External channel fan-out (best-effort, non-blocking).
-    let state2 = state.clone();
-    let event_type = event_type.to_string();
-    tokio::spawn(async move {
-        fan_out_external(&state2, user_id, &event_type, payload).await;
-    });
+    // Do-not-disturb preset + quiet hours (Lot 6) gate EXTERNAL delivery only;
+    // the in-app row above is always written. Default to "all" if the lookup
+    // fails — a missed mute beats a missed notification.
+    let prefs = notification::user_prefs(&state.pool, user_id)
+        .await
+        .unwrap_or_default();
+
+    // `silent` keeps the journal but clears the unread badge.
+    if prefs.silences_inapp() {
+        let _ = notification::mark_read(&state.pool, user_id, n.id).await;
+    }
+
+    // External channel fan-out (best-effort, non-blocking) — only when the
+    // preset + quiet hours allow this event right now.
+    let hour = chrono::Utc::now().hour() as i16;
+    if prefs.allows_external(event_type, hour) {
+        let state2 = state.clone();
+        let event_type = event_type.to_string();
+        tokio::spawn(async move {
+            fan_out_external(&state2, user_id, &event_type, payload).await;
+        });
+    }
 
     true
 }
