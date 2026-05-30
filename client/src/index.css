@@ -875,6 +875,36 @@ kbd {
   .imp-right { grid-column: 2 / -1; flex-direction: row; justify-content: flex-start; }
 }
 
+/* ─── Collection bulk-edit toolbar (buttons + the <select> menus) ─── */
+.bulk-act {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  color: var(--color-or-pale);
+  background: none;
+  cursor: pointer;
+  transition: color 150ms, border-color 150ms;
+}
+.bulk-act:hover:not(:disabled) {
+  color: var(--color-or);
+  border-color: var(--color-or);
+}
+.bulk-act-danger {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid color-mix(in oklab, var(--color-laque-bright) 55%, transparent);
+  color: var(--color-laque-bright);
+  background: none;
+  cursor: pointer;
+}
+.bulk-act-danger:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--color-laque) 12%, transparent);
+}
+
 /* ============================================================================
  * Filter tiles — kanji-faced rail used on /browse + /collection
  *

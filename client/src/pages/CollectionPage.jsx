@@ -2,7 +2,14 @@ import { useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
-import { useOwnedItems, useRemoveOwnedItem } from "../hooks/useCollection.js";
+import {
+  useOwnedItems,
+  useRemoveOwnedItem,
+  useUpdateOwnedItem,
+  useArchiveOwnedItem,
+  useLocations,
+} from "../hooks/useCollection.js";
+import { useRowSelection } from "../hooks/useRowSelection.js";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
 import Card from "../components/Card.jsx";
@@ -46,7 +53,15 @@ export default function CollectionPage() {
   const [showArchived, setShowArchived] = useState(false);
   const owned = useOwnedItems({ includeArchived: showArchived });
   const remove = useRemoveOwnedItem();
+  const update = useUpdateOwnedItem();
+  const archive = useArchiveOwnedItem();
+  const locations = useLocations();
   const [conditionFilter, setConditionFilter] = useState("all");
+  // Bulk-edit mode: turn the grid into a multi-select surface with a sticky
+  // action bar (set vitrine / condition, archive, delete).
+  const [selectMode, setSelectMode] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [pendingBulkDelete, setPendingBulkDelete] = useState(false);
   // Owned-item id queued for deletion confirmation; null when the dialog
   // is closed. Drives a styled ConfirmDialog rather than the unstylable
   // native `window.confirm()` we used to call.
@@ -83,8 +98,46 @@ export default function CollectionPage() {
     return owned.data.filter((o) => o.condition === conditionFilter);
   }, [owned.data, conditionFilter]);
 
+  const ids = useMemo(() => filtered.map((o) => o.id), [filtered]);
+  const sel = useRowSelection(ids);
+
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
+
+  // ── Bulk actions over the current selection ──────────────────────────────
+  const selectedItems = filtered.filter((o) => sel.isSelected(o.id));
+  const exitSelect = () => {
+    sel.clear();
+    setSelectMode(false);
+  };
+  // Run a per-item mutation across the selection, then drop the selection.
+  const runBulk = async (fn) => {
+    if (bulkBusy || selectedItems.length === 0) return;
+    setBulkBusy(true);
+    try {
+      for (const item of selectedItems) {
+        // Sequential, not Promise.all: keeps the request count gentle and the
+        // ["owned"] invalidation from thundering on every settled mutation.
+        await fn(item);
+      }
+    } finally {
+      setBulkBusy(false);
+      exitSelect();
+    }
+  };
+  const bulkSetLocation = (location) =>
+    runBulk((item) => update.mutateAsync({ id: item.id, patch: { location } }));
+  const bulkSetCondition = (condition) =>
+    runBulk((item) => update.mutateAsync({ id: item.id, patch: { condition } }));
+  const bulkArchive = () => runBulk((item) => archive.mutateAsync(item.id));
+  const bulkDelete = () => {
+    setPendingBulkDelete(false);
+    runBulk((item) => remove.mutateAsync(item.id));
+  };
+  const locationOptions = [
+    { value: "", label: t("bulk.unshelve") },
+    ...(locations.data ?? []).map((l) => ({ value: l.name, label: l.name })),
+  ];
 
   return (
     <AppShell>
@@ -143,6 +196,20 @@ export default function CollectionPage() {
             >
               {t("cote.title")}
             </Link>
+            {owned.data?.length ? (
+              <button
+                type="button"
+                onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
+                aria-pressed={selectMode}
+                className={`chip transition-colors ${
+                  selectMode
+                    ? "!border-[var(--color-or)] !text-[var(--color-or)]"
+                    : "hover:border-[var(--color-or)] hover:text-[var(--color-or)]"
+                }`}
+              >
+                {selectMode ? t("bulk.done") : t("bulk.select")}
+              </button>
+            ) : null}
           </nav>
 
           {owned.data?.length ? (
@@ -234,71 +301,143 @@ export default function CollectionPage() {
               </p>
             ) : null}
 
-            <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filtered.map((item, i) => (
-                <Reveal
-                  as="li"
-                  key={item.id}
-                  delay={Math.min(i, 7) * 0.05}
-                  y={24}
+            {selectMode ? (
+              <div className="sticky top-2 z-30 mb-5 flex flex-wrap items-center gap-2 p-3 border border-[color-mix(in_oklab,var(--color-or)_28%,transparent)] bg-[color-mix(in_oklab,var(--color-or)_10%,transparent)] backdrop-blur-md">
+                <span className="display text-xl text-[var(--color-or-pale)]">
+                  <b className="text-[var(--color-ivoire)]">{sel.selectedIds.length}</b>{" "}
+                  {t("bulk.selected_label")}
+                </span>
+                <button type="button" onClick={sel.toggleAll} className="bulk-act">
+                  {sel.allSelected ? t("bulk.none") : t("bulk.all")}
+                </button>
+                <span className="flex-1" />
+                <select
+                  aria-label={t("bulk.set_vitrine")}
+                  disabled={bulkBusy || !sel.someSelected}
+                  value="__"
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v !== "__") bulkSetLocation(v);
+                  }}
+                  className="bulk-act bg-[var(--color-noir)] disabled:opacity-40"
                 >
+                  <option value="__" disabled>{t("bulk.set_vitrine")}</option>
+                  {locationOptions.map((o) => (
+                    <option key={o.value || "__none"} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  aria-label={t("bulk.set_condition")}
+                  disabled={bulkBusy || !sel.someSelected}
+                  value="__"
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v !== "__") bulkSetCondition(v);
+                  }}
+                  className="bulk-act bg-[var(--color-noir)] disabled:opacity-40"
+                >
+                  <option value="__" disabled>{t("bulk.set_condition")}</option>
+                  {CONDITION_FILTERS.filter((c) => c !== "all").map((c) => (
+                    <option key={c} value={c}>
+                      {t(`condition.${c}`)}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={bulkBusy || !sel.someSelected}
+                  onClick={bulkArchive}
+                  className="bulk-act disabled:opacity-40"
+                >
+                  {t("bulk.archive")}
+                </button>
+                <button
+                  type="button"
+                  disabled={bulkBusy || !sel.someSelected}
+                  onClick={() => setPendingBulkDelete(true)}
+                  className="bulk-act-danger disabled:opacity-40"
+                >
+                  {t("bulk.delete")}
+                </button>
+                <button type="button" onClick={exitSelect} className="bulk-act" aria-label={t("bulk.done")}>
+                  ✕
+                </button>
+              </div>
+            ) : null}
+
+            <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {filtered.map((item, i) => {
+                const blur =
+                  item.is_nsfw &&
+                  (me.data?.user?.nsfw_visibility ?? "hide") === "blur";
+                const selected = sel.isSelected(item.id);
+                const card = (
                   <FigureCard
                     figureId={item.figure_id}
-                    href={`/figures/${item.figure_id}`}
+                    href={selectMode ? undefined : `/figures/${item.figure_id}`}
                     name={item.figure_name}
                     type={item.figure_type}
                     manufacturer={item.manufacturer_name}
                     imageUrl={resolveOwnedCover(item)}
                     scale={item.scale}
                     versionName={item.version_name}
-                    blurImage={
-                      item.is_nsfw &&
-                      (me.data?.user?.nsfw_visibility ?? "hide") === "blur"
-                    }
-                    badge={(() => {
-                      // Archived (cancelled-and-kept) wins all other badges
-                      // — that's the most important state to communicate.
-                      if (item.archived_at) {
-                        return {
-                          label: t("collection.archived_badge"),
-                          tone: "cancelled",
-                        };
-                      }
-                      // Pre-order phase wins — it's the more time-sensitive
-                      // signal. Cover-pinned badge falls back when there's
-                      // no lifecycle event to surface.
-                      const phase = preorderPhase(item);
-                      const label = preorderBadgeLabel(phase, t);
-                      if (label) {
-                        return {
-                          label,
-                          tone: phase === "imminent" ? "imminent" : "preorder",
-                        };
-                      }
-                      if (item.cover_photo_id || item.cover_scan_id) {
-                        return {
-                          label: t("collection.cover.pinned"),
-                          tone: "neutral",
-                        };
-                      }
-                      return null;
-                    })()}
+                    blurImage={blur}
+                    badge={ownedBadge(item, t)}
                   />
-                  <div className="mt-3 flex items-center justify-between gap-3 px-1">
-                    <span className="micro-tight">
-                      {t(`condition.${item.condition}`)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setPendingRemove(item)}
-                      disabled={remove.isPending}
-                      className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] transition-colors disabled:opacity-50"
-                    >
-                      {t("collection.remove")}
-                    </button>
-                  </div>
-                </Reveal>
-              ))}
+                );
+                return (
+                  <Reveal
+                    as="li"
+                    key={item.id}
+                    delay={Math.min(i, 7) * 0.05}
+                    y={24}
+                  >
+                    {selectMode ? (
+                      <button
+                        type="button"
+                        onClick={() => sel.toggle(item.id)}
+                        aria-pressed={selected}
+                        className="relative block w-full text-left"
+                      >
+                        <span
+                          aria-hidden
+                          className={`absolute top-2 left-2 z-[6] w-6 h-6 grid place-items-center text-[12px] ${
+                            selected
+                              ? "bg-[var(--color-or)] border border-[var(--color-or)] text-[var(--color-noir)]"
+                              : "bg-[color-mix(in_oklab,var(--color-noir-deep)_72%,transparent)] border border-[color-mix(in_oklab,var(--color-or)_45%,transparent)] text-transparent"
+                          }`}
+                        >
+                          ✓
+                        </span>
+                        <span
+                          className={`block ${selected ? "outline outline-2 outline-[var(--color-or)]" : ""}`}
+                        >
+                          {card}
+                        </span>
+                      </button>
+                    ) : (
+                      card
+                    )}
+                    <div className="mt-3 flex items-center justify-between gap-3 px-1">
+                      <span className="micro-tight">
+                        {t(`condition.${item.condition}`)}
+                      </span>
+                      {!selectMode ? (
+                        <button
+                          type="button"
+                          onClick={() => setPendingRemove(item)}
+                          disabled={remove.isPending}
+                          className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] transition-colors disabled:opacity-50"
+                        >
+                          {t("collection.remove")}
+                        </button>
+                      ) : null}
+                    </div>
+                  </Reveal>
+                );
+              })}
             </ul>
 
             {filtered.length === 0 ? (
@@ -332,8 +471,38 @@ export default function CollectionPage() {
           }
         }}
       />
+      <ConfirmDialog
+        open={pendingBulkDelete}
+        title={t("bulk.delete")}
+        body={t("bulk.delete.body", {
+          n: sel.selectedIds.length,
+          default: t("bulk.delete") + " ?",
+        })}
+        destructive
+        busy={bulkBusy}
+        onCancel={() => setPendingBulkDelete(false)}
+        onConfirm={bulkDelete}
+      />
     </AppShell>
   );
+}
+
+/** Badge for an owned-item card: archived (cancelled-and-kept) wins, then the
+ *  pre-order phase, then a pinned-cover marker. Extracted so both the normal
+ *  and the bulk-select renders share it. */
+function ownedBadge(item, t) {
+  if (item.archived_at) {
+    return { label: t("collection.archived_badge"), tone: "cancelled" };
+  }
+  const phase = preorderPhase(item);
+  const label = preorderBadgeLabel(phase, t);
+  if (label) {
+    return { label, tone: phase === "imminent" ? "imminent" : "preorder" };
+  }
+  if (item.cover_photo_id || item.cover_scan_id) {
+    return { label: t("collection.cover.pinned"), tone: "neutral" };
+  }
+  return null;
 }
 
 function Counter({ label, value }) {
