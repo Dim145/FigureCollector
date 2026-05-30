@@ -147,6 +147,47 @@ async fn orzgk_search(
     Ok(Json(orzgk::search(&state.pool, &state.http, &query).await?))
 }
 
+/// Fetch a public orzgk wishlist (wlfmc) by its share URL, following
+/// pagination. Used by the bulk wishlist importer's "récupérer" step.
+async fn orzgk_wishlist(
+    State(state): State<AppState>,
+    session: Session,
+    Query(q): Query<UrlQuery>,
+) -> AppResult<Json<Vec<orzgk::OrzgkWishItem>>> {
+    auth::require_user(&session).await?;
+    let url = q
+        .url
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .ok_or(AppError::BadRequest("missing url parameter"))?;
+    Ok(Json(
+        orzgk::fetch_wishlist(&state.pool, &state.http, url).await?,
+    ))
+}
+
+#[derive(Deserialize)]
+struct WishlistParseBody {
+    html: String,
+}
+
+/// Fallback for a wishlist the user keeps private: paste the page HTML and
+/// parse it with the exact same parser as the fetch path (no network).
+async fn orzgk_wishlist_parse(
+    State(_state): State<AppState>,
+    session: Session,
+    Json(body): Json<WishlistParseBody>,
+) -> AppResult<Json<Vec<orzgk::OrzgkWishItem>>> {
+    auth::require_user(&session).await?;
+    if body.html.trim().is_empty() {
+        return Err(AppError::BadRequest("paste the wishlist page HTML"));
+    }
+    if body.html.len() > 4_000_000 {
+        return Err(AppError::BadRequest("pasted HTML too large (max 4 MB)"));
+    }
+    Ok(Json(orzgk::parse_wishlist_html(&body.html)))
+}
+
 // =============================================================================
 // Boutique scraping proxy — `/api/external/proxy/{stores,search,product}`
 //
@@ -338,6 +379,8 @@ pub fn router() -> Router<AppState> {
         .route("/external/mfc/{id}", get(mfc_get))
         .route("/external/orzgk/search", get(orzgk_search))
         .route("/external/orzgk/detail", get(orzgk_detail))
+        .route("/external/orzgk/wishlist", get(orzgk_wishlist))
+        .route("/external/orzgk/wishlist/parse", post(orzgk_wishlist_parse))
         .route("/external/proxy/stores", get(proxy_stores))
         .route("/external/proxy/search", get(proxy_search))
         .route("/external/proxy/product", get(proxy_product))

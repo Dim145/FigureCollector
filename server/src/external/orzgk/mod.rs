@@ -23,12 +23,16 @@ use serde::{Deserialize, Serialize};
 mod common;
 mod detail;
 mod search;
+mod wishlist;
 
 // Only the entry-point fetchers escape the module; the pure parsers
 // (`parse_search_html`, `parse_detail_html`, `canonical_product_url`)
 // stay reachable only by the test modules in each submodule.
 pub use detail::detail;
 pub use search::search;
+// `parse_wishlist_html` is public so the paste-the-HTML fallback route can
+// reuse the exact same parser as the server-side fetch path.
+pub use wishlist::{fetch_wishlist, parse_wishlist_html};
 
 /// Cache provider name used in `external_lookups.provider`.
 const PROVIDER: &str = "orzgk";
@@ -54,6 +58,28 @@ pub struct OrzgkItem {
     /// Best resolution we can salvage from the lazy-loaded `<img>` (real
     /// `src` if non-placeholder, else `data-src`, else `srcset` first url).
     pub image_url: Option<String>,
+    pub detail_url: String,
+}
+
+/// One row of a public orzgk wishlist (wlfmc plugin, `tr.wlfmc-table-item`).
+/// Lighter than [`OrzgkItem`] — the bulk importer only needs enough to match
+/// against the catalogue and, for new figures, the product URL to fetch full
+/// detail at commit time.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OrzgkWishItem {
+    /// Product name with the `<studio> - ` prefix and the ` - <version>,
+    /// <payment>` suffix stripped, so it matches the catalogue cleanly.
+    pub title: String,
+    /// Studio / brand parsed from the `<studio> - …` prefix when present.
+    pub studio: Option<String>,
+    /// The variant the user wished (`"Pregnancy Version"`), from the row's
+    /// `dl.variation`. Used to pre-select the version when creating the figure.
+    pub version: Option<String>,
+    /// Display price as shown in the wishlist row, e.g. `"€241.87"`.
+    pub price: Option<String>,
+    /// Real (de-lazyloaded) thumbnail URL.
+    pub image_url: Option<String>,
+    /// Canonical `/product/<slug>/` URL (query + fragment stripped).
     pub detail_url: String,
 }
 

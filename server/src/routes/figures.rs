@@ -9,7 +9,7 @@ use axum::{
     Json, Router,
     extract::{Path, Query, State},
     http::StatusCode,
-    routing::get,
+    routing::{get, post},
 };
 use serde::Deserialize;
 use tower_sessions::Session;
@@ -39,6 +39,42 @@ async fn duplicates(
     Ok(Json(
         figure::find_duplicates(&state.pool, &name, jan, exclude).await?,
     ))
+}
+
+#[derive(Debug, Deserialize)]
+struct MatchQueryItem {
+    name: String,
+    #[serde(default)]
+    manufacturer: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MatchBody {
+    queries: Vec<MatchQueryItem>,
+}
+
+/// Batch fuzzy-match free-text figure names against the catalogue (trigram).
+/// Returns one result list per input query (top 3, best first), in the same
+/// order. Powers the bulk wishlist importer's "% chance this already exists".
+async fn match_figures(
+    State(state): State<AppState>,
+    session: Session,
+    Json(body): Json<MatchBody>,
+) -> AppResult<Json<Vec<Vec<figure::FigureMatch>>>> {
+    let viewer = auth::require_user_full(&session, &state.pool).await.ok();
+    let exclude = viewer
+        .as_ref()
+        .map(|u| u.nsfw_visibility.as_str())
+        .unwrap_or("hide")
+        == "hide";
+    if body.queries.len() > 60 {
+        return Err(AppError::BadRequest("too many queries (max 60)"));
+    }
+    let mut out = Vec::with_capacity(body.queries.len());
+    for q in &body.queries {
+        out.push(figure::match_one(&state.pool, &q.name, q.manufacturer.as_deref(), exclude).await?);
+    }
+    Ok(Json(out))
 }
 
 async fn list(
@@ -144,6 +180,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/figures", get(list).post(create))
         .route("/figures/duplicates", get(duplicates))
+        .route("/figures/match", post(match_figures))
         .route(
             "/figures/{id}",
             get(get_one)

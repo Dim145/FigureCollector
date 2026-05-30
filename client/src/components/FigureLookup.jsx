@@ -5,6 +5,7 @@ import {
   fetchProxyProduct,
   useProxyEnabled,
 } from "../hooks/useProxy.js";
+import { ORZGK_URL_RE, buildPick, pickImage } from "../lib/orzgkMap.js";
 import Button from "./Button.jsx";
 
 /**
@@ -798,8 +799,6 @@ function PricePicker({ prices, selected, onSelect, t }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Mapping detail+selection → form payload
 
-const ORZGK_URL_RE = /^https?:\/\/(www\.)?orzgk\.com\/product\//i;
-
 const TYPE_MAP = {
   "gk statue": "statue",
   "pvc figure": "scale",
@@ -823,52 +822,8 @@ function mapType(kind) {
   return undefined;
 }
 
-const SUPPORTED_CURRENCIES = ["EUR", "USD", "GBP", "JPY", "CHF", "CAD"];
-
-function mapCurrency(c) {
-  if (!c) return undefined;
-  const upper = c.toUpperCase();
-  return SUPPORTED_CURRENCIES.includes(upper) ? upper : undefined;
-}
-
-/** Convert various orzgk date formats into ISO `YYYY-MM-DD`:
- *   - `"2027/12"`        → `"2027-12-01"`
- *   - `"2027/12/15"`     → `"2027-12-15"`
- *   - `"2027 Q4"`        → `"2027-10-01"` (Q1/Q2/Q3/Q4 → 01/04/07/10)
- *   - `"2027"`           → `"2027-01-01"`
- *   - anything else      → `undefined`
- *
- * Tries each candidate string in order and returns the first match — call
- * with the most precise source first (`est_completion`, then `est_released_time`).
- */
-function parseReleaseDate(...candidates) {
-  for (const raw of candidates) {
-    if (!raw) continue;
-    const s = String(raw).trim();
-    // YYYY/MM[/DD]
-    const slash = s.match(/^(\d{4})\/(\d{1,2})(?:\/(\d{1,2}))?$/);
-    if (slash) {
-      return `${slash[1]}-${pad2(slash[2])}-${pad2(slash[3] ?? "01")}`;
-    }
-    // YYYY QN  /  YYYY-QN
-    const quarter = s.match(/^(\d{4})[\s-]*Q([1-4])$/i);
-    if (quarter) {
-      const month = { 1: "01", 2: "04", 3: "07", 4: "10" }[quarter[2]];
-      return `${quarter[1]}-${month}-01`;
-    }
-    // Plain year
-    const year = s.match(/^(\d{4})$/);
-    if (year) return `${year[1]}-01-01`;
-  }
-  return undefined;
-}
-
 function pad2(v) {
   return String(v).padStart(2, "0");
-}
-
-function pickImage(detail, version) {
-  return version?.image_url ?? detail?.primary_image_url ?? detail?.images?.[0] ?? null;
 }
 
 /** Map an orzgk payment slug to a translated label. Falls back to the raw
@@ -884,69 +839,6 @@ function paymentLabel(slug, t) {
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
-}
-
-function buildPick(detail, version, price) {
-  // NSFW heuristic: orzgk uses "18+" on adult listings; some pages also use
-  // "Adult", "R-18". Either source (spec row or description-mined) works.
-  const feature = (detail.feature ?? "").toLowerCase();
-  const isNsfw =
-    feature.includes("18+") ||
-    feature.includes("adult") ||
-    feature.includes("r-18") ||
-    feature.includes("r18");
-
-  // The description block has cleaner alternates to several spec rows —
-  // prefer them when available. `From:` famously returns "Anime Figure - One
-  // Punch Man", `Product IP:` returns just "One Punch Man".
-  const series = detail.product_ip ?? detail.origin;
-  const character = detail.product_role ?? detail.character;
-
-  const descLines = [];
-  if (detail.url) descLines.push(`Source: ${detail.url}`);
-  if (detail.kind) descLines.push(`Type: ${detail.kind}`);
-  if (detail.size) descLines.push(`Size: ${detail.size}`);
-  if (detail.height_range) descLines.push(`Height range: ${detail.height_range}`);
-  if (detail.feature) descLines.push(`Feature: ${detail.feature}`);
-  if (detail.limited_units) descLines.push(`Limited edition: ${detail.limited_units}`);
-  if (detail.preorder_start_date)
-    descLines.push(`Pre-order: ${detail.preorder_start_date}`);
-  if (detail.est_completion)
-    descLines.push(`Est. completion: ${detail.est_completion}`);
-  else if (detail.est_released_time)
-    descLines.push(`Est. release: ${detail.est_released_time}`);
-  if (detail.product_material)
-    descLines.push(`Material: ${detail.product_material}`);
-  if (detail.special_description)
-    descLines.push(`Special: ${detail.special_description}`);
-  if (version) descLines.push(`Version: ${version.label}`);
-  if (price) descLines.push(`Tariff: ${price.display} (${price.label})`);
-
-  return {
-    name: detail.title,
-    manufacturer_name: detail.brand,
-    series_name: series,
-    character_name: character,
-    figure_type: mapType(detail.kind),
-    scale: detail.scale,
-    height_mm: detail.height_mm ? String(detail.height_mm) : undefined,
-    materials: detail.product_material,
-    // The orzgk URL the user pasted — the backend uses its hostname to
-    // auto-link the new figure to the matching store at create time.
-    source_url: detail.url,
-    // Limited editions: surface the count via the `edition` field; the
-    // exclusivity slot is reserved for retailer / channel exclusives.
-    edition: detail.limited_units
-      ? `Limited ${detail.limited_units}`
-      : undefined,
-    official_image_url: pickImage(detail, version),
-    version_name: version?.label,
-    msrp_amount: price?.amount ? String(price.amount.toFixed(2)) : undefined,
-    msrp_currency: mapCurrency(price?.currency),
-    release_date: parseReleaseDate(detail.est_completion, detail.est_released_time),
-    is_nsfw: isNsfw || undefined,
-    description: descLines.length ? descLines.join("\n") : undefined,
-  };
 }
 
 /** Minimal payload for the (now legacy) MFC route shape — kept so users

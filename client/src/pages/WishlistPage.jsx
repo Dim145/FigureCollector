@@ -98,6 +98,12 @@ export default function WishlistPage() {
           <h1 className="display text-4xl md:text-5xl text-[var(--color-ivoire)] mt-2">{t("wishlist.title")}</h1>
           <div className="gold-rule w-16 mt-4" />
           <p className="mt-5 text-[var(--color-ivoire-soft)] leading-relaxed max-w-2xl">{t("wishlist.body")}</p>
+          <Link
+            to="/souhaits/import"
+            className="inline-flex items-center gap-2 mt-5 px-4 py-2.5 border border-[color-mix(in_oklab,var(--color-or)_40%,transparent)] text-[var(--color-or-pale)] text-[11px] uppercase tracking-[0.2em] hover:border-[var(--color-or)] hover:text-[var(--color-or)] transition-colors"
+          >
+            ↓ {t("wishlist.import.cta")}
+          </Link>
         </Reveal>
 
         {wishlist.isLoading ? (

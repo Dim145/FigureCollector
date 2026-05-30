@@ -230,6 +230,53 @@ pub async fn find_duplicates(
         .await?)
 }
 
+/// One candidate catalogue match for a free-text figure name, with a 0..~1
+/// confidence `score` from trigram name similarity plus a small manufacturer
+/// bonus. Drives the bulk wishlist importer's "% chance this figure already
+/// exists" + its auto-link-above-90% behaviour.
+#[derive(Debug, Clone, Serialize, FromRow)]
+pub struct FigureMatch {
+    pub figure_id: Uuid,
+    pub name: String,
+    pub manufacturer_name: Option<String>,
+    pub score: f32,
+}
+
+/// Up to 3 catalogue figures most similar to `name` (pg_trgm), best first.
+/// A close `manufacturer` match nudges the score so same-studio figures
+/// outrank coincidental name collisions. Requires the pg_trgm extension
+/// (migration 20260530000007); the `%` operator rides the trigram GIN index.
+pub async fn match_one(
+    pool: &PgPool,
+    name: &str,
+    manufacturer: Option<&str>,
+    exclude_nsfw: bool,
+) -> AppResult<Vec<FigureMatch>> {
+    let name = name.trim();
+    if name.chars().count() < 2 {
+        return Ok(vec![]);
+    }
+    let mfr = manufacturer.map(str::trim).unwrap_or("");
+    let sql = format!(
+        "SELECT f.id AS figure_id, f.name, m.name AS manufacturer_name,
+                (similarity(lower(f.name), lower($1))
+                 + CASE WHEN $2 <> '' AND m.name IS NOT NULL
+                        AND similarity(lower(m.name), lower($2)) > 0.4
+                        THEN 0.08::real ELSE 0::real END) AS score
+         FROM figures f
+         LEFT JOIN manufacturers m ON m.id = f.manufacturer_id
+         WHERE lower(f.name) % lower($1){nsfw}
+         ORDER BY score DESC, f.created_at DESC
+         LIMIT 3",
+        nsfw = if exclude_nsfw { " AND NOT f.is_nsfw" } else { "" },
+    );
+    Ok(sqlx::query_as::<_, FigureMatch>(&sql)
+        .bind(name)
+        .bind(mfr)
+        .fetch_all(pool)
+        .await?)
+}
+
 pub async fn create(pool: &PgPool, created_by: Uuid, input: NewFigure) -> AppResult<Figure> {
     // figure_type validation lives in the `figure_types` table now — admins
     // can add new types without a code change.

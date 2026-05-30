@@ -35,3 +35,26 @@ export function useRemoveWishlistItem() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["wishlist"] }),
   });
 }
+
+// ----- Bulk import (from an orzgk public wishlist) ---------------------------
+
+/** Resolve an import source into orzgk wishlist items. Pass `{ url }` for a
+ *  public share link (server fetch, paginated) or `{ html }` for the
+ *  paste-the-page fallback (private lists). Read-only — no cache to touch. */
+export function useResolveImport() {
+  return useMutation({
+    mutationFn: ({ url, html }) =>
+      html != null
+        ? api.post("/external/orzgk/wishlist/parse", { html })
+        : api.get(`/external/orzgk/wishlist?url=${encodeURIComponent(url)}`),
+  });
+}
+
+/** Batch fuzzy-match figure names against the catalogue (trigram). Input is
+ *  `[{ name, manufacturer? }]`; returns one candidate list (top 3) per query,
+ *  in the same order. */
+export function useFigureMatch() {
+  return useMutation({
+    mutationFn: (queries) => api.post("/figures/match", { queries }),
+  });
+}

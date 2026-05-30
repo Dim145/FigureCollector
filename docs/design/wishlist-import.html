@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FigureCollector — Import wishlist depuis orzgk (maquette)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300..600;1,300..500&family=Hanken+Grotesk:wght@300..700&family=JetBrains+Mono:wght@300..500&family=Noto+Serif+JP:wght@300..500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --font-display:"Cormorant Garamond",Georgia,serif; --font-sans:"Hanken Grotesk",system-ui,sans-serif;
+      --font-ja:"Noto Serif JP",serif; --font-mono:"JetBrains Mono",monospace;
+      --color-noir:oklch(0.14 0.005 50); --color-noir-soft:oklch(0.19 0.008 50); --color-noir-deep:oklch(0.10 0.004 50);
+      --color-laque:oklch(0.42 0.16 25); --color-laque-bright:oklch(0.55 0.20 25);
+      --color-or:oklch(0.78 0.10 80); --color-or-pale:oklch(0.88 0.06 80); --color-or-deep:oklch(0.60 0.10 80);
+      --color-ivoire:oklch(0.92 0.03 75); --color-ivoire-soft:oklch(0.92 0.03 75 / 0.8);
+      --color-jade:oklch(0.72 0.13 175); --color-indigo:oklch(0.58 0.15 275);
+      color-scheme:dark;
+    }
+    [data-theme="light"]{
+      color-scheme:light;
+      --color-noir:oklch(0.965 0.008 85); --color-noir-soft:oklch(0.995 0.004 85); --color-noir-deep:oklch(0.93 0.012 80);
+      --color-ivoire:oklch(0.26 0.02 55); --color-ivoire-soft:oklch(0.40 0.02 55 / 0.86);
+      --color-or:oklch(0.58 0.12 72); --color-or-pale:oklch(0.50 0.12 70); --color-or-deep:oklch(0.42 0.10 68);
+      --color-laque:oklch(0.50 0.19 25); --color-laque-bright:oklch(0.56 0.21 25);
+      --color-jade:oklch(0.55 0.13 175); --color-indigo:oklch(0.50 0.16 275);
+    }
+    *{box-sizing:border-box;}
+    html,body{margin:0;min-height:100%;}
+    body{font-family:var(--font-sans);background:var(--color-noir);color:var(--color-ivoire);-webkit-font-smoothing:antialiased;
+      background-image:radial-gradient(70% 60% at 25% 20%,oklch(0.78 0.10 80 / 0.08),transparent 65%),radial-gradient(55% 50% at 85% 90%,oklch(0.42 0.16 25 / 0.05),transparent 70%);background-attachment:fixed;}
+    .display{font-family:var(--font-display);font-weight:300;letter-spacing:-0.01em;line-height:1;}
+    .ja{font-family:var(--font-ja);}
+    .mono{font-family:var(--font-mono);}
+    .micro{font-family:var(--font-sans);font-size:10.5px;letter-spacing:0.3em;text-transform:uppercase;color:var(--color-or-pale);}
+    .gold-rule{height:1px;background:linear-gradient(to right,transparent,var(--color-or) 30%,var(--color-or) 70%,transparent);}
+    .tt{position:fixed;top:1rem;right:1rem;z-index:50;font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;padding:0.5rem 0.9rem;background:var(--color-noir-soft);border:1px solid color-mix(in oklab,var(--color-or) 30%,transparent);color:var(--color-or-pale);cursor:pointer;}
+    code{font-family:var(--font-mono);font-size:0.88em;color:var(--color-or-pale);}
+
+    main{position:relative;z-index:1;max-width:920px;margin:0 auto;padding:3.5rem 1.5rem 6rem;}
+    .head{position:relative;margin-bottom:2.5rem;}
+    .head .ghost{position:absolute;top:-3rem;right:-0.5rem;font-family:var(--font-ja);font-size:9rem;line-height:1;color:color-mix(in oklab,var(--color-or) 7%,transparent);pointer-events:none;}
+    .head h1{margin:0.4rem 0 0;font-size:clamp(2.1rem,5vw,3rem);color:var(--color-ivoire);}
+    .head .rule{width:4rem;margin-top:1rem;}
+    .head p.lead{margin:1rem 0 0;max-width:42rem;line-height:1.6;color:var(--color-ivoire-soft);}
+
+    /* step rail ①②③ */
+    .steps{display:flex;align-items:center;gap:0.6rem;margin:2.5rem 0 1.3rem;}
+    .steps .s{display:flex;align-items:center;gap:0.5rem;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--color-ivoire-soft);opacity:0.55;}
+    .steps .s .n{width:22px;height:22px;display:grid;place-items:center;border:1px solid color-mix(in oklab,var(--color-or) 35%,transparent);border-radius:50%;font-family:var(--font-mono);font-size:11px;color:var(--color-or-pale);}
+    .steps .s.on{opacity:1;color:var(--color-ivoire);}
+    .steps .s.on .n{background:var(--color-or);border-color:var(--color-or);color:var(--color-noir);}
+    .steps .arr{flex:0 0 auto;color:color-mix(in oklab,var(--color-or) 35%,transparent);}
+
+    .panel{border:1px solid color-mix(in oklab,var(--color-or) 16%,transparent);background:color-mix(in oklab,var(--color-noir-soft) 65%,transparent);padding:1.5rem;margin-bottom:1.2rem;position:relative;}
+    .phase-tag{font-family:var(--font-mono);font-size:9px;letter-spacing:0.24em;text-transform:uppercase;color:var(--color-jade);margin-bottom:1rem;}
+
+    /* phase 1 — paste */
+    .imp-paste{width:100%;min-height:96px;resize:vertical;background:var(--color-noir);border:1px solid color-mix(in oklab,var(--color-or) 25%,transparent);color:var(--color-ivoire);font-family:var(--font-mono);font-size:12px;line-height:1.6;padding:0.8rem 1rem;outline:none;}
+    .imp-paste:focus{border-color:var(--color-or);}
+    .imp-row1{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-top:0.9rem;flex-wrap:wrap;}
+    .imp-hint{font-size:11px;color:var(--color-ivoire-soft);max-width:30rem;line-height:1.5;}
+    .imp-hint b{color:var(--color-or-pale);font-family:var(--font-display);font-size:1.05em;}
+    .btn{font-family:var(--font-sans);font-size:11px;letter-spacing:0.18em;text-transform:uppercase;padding:0.7rem 1.3rem;border:1px solid;cursor:pointer;display:inline-flex;align-items:center;gap:0.5em;text-decoration:none;white-space:nowrap;}
+    .btn--primary{background:var(--color-or);border-color:var(--color-or);color:var(--color-noir);}
+    .btn--ghost{background:none;border-color:color-mix(in oklab,var(--color-or) 30%,transparent);color:var(--color-or-pale);}
+
+    /* phase 2 — select bar */
+    .imp-bar{display:flex;align-items:center;gap:1rem;padding:0.7rem 1rem;background:color-mix(in oklab,var(--color-or) 9%,transparent);border:1px solid color-mix(in oklab,var(--color-or) 22%,transparent);border-bottom:0;flex-wrap:wrap;}
+    .imp-bar .count{font-family:var(--font-display);font-size:1.25rem;color:var(--color-or-pale);}
+    .imp-bar .count b{color:var(--color-ivoire);}
+    .imp-bar .count.full b{color:var(--color-laque-bright);}
+    .imp-bar .spacer{flex:1;}
+    .imp-bar .lnk{font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--color-or-pale);background:none;border:0;cursor:pointer;}
+    .imp-bar .lnk:hover{color:var(--color-or);}
+
+    .imp-list{border:1px solid color-mix(in oklab,var(--color-or) 22%,transparent);}
+    .imp-item{display:grid;grid-template-columns:30px 56px 1fr auto;gap:0.9rem;align-items:center;padding:0.8rem 1rem;border-bottom:1px solid color-mix(in oklab,var(--color-or) 9%,transparent);}
+    .imp-item:last-child{border-bottom:0;}
+    .imp-item.sel{background:color-mix(in oklab,var(--color-or) 5%,transparent);}
+    .imp-item.off{opacity:0.5;}
+    .cbx{width:19px;height:19px;border:1px solid color-mix(in oklab,var(--color-or) 40%,transparent);display:grid;place-items:center;font-size:11px;color:var(--color-noir);cursor:pointer;background:var(--color-noir);}
+    .cbx.on{background:var(--color-or);border-color:var(--color-or);}
+    .cbx.dis{border-style:dashed;cursor:not-allowed;background:transparent;}
+    .imp-thumb{width:56px;height:70px;object-fit:cover;background:var(--color-noir-deep);border:1px solid color-mix(in oklab,var(--color-or) 15%,transparent);display:grid;place-items:center;font-size:1.6rem;}
+    .imp-meta{min-width:0;}
+    .imp-name{font-family:var(--font-display);font-size:1.2rem;color:var(--color-ivoire);line-height:1.1;}
+    .imp-sub{font-size:10.5px;letter-spacing:0.04em;color:var(--color-ivoire-soft);margin-top:0.2rem;}
+    .imp-assoc{font-size:11px;color:var(--color-ivoire-soft);margin-top:0.35rem;display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap;}
+    .imp-assoc .pick{font-family:var(--font-mono);font-size:10px;border:1px solid color-mix(in oklab,var(--color-or) 30%,transparent);background:var(--color-noir);color:var(--color-or-pale);padding:0.15rem 0.5rem;cursor:pointer;}
+    .imp-right{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:0.35rem;}
+
+    /* status chips */
+    .chip{display:inline-flex;align-items:center;gap:0.4em;padding:0.25em 0.7em;font-size:9.5px;letter-spacing:0.16em;text-transform:uppercase;border:1px solid;white-space:nowrap;}
+    .chip--new{color:var(--color-or);border-color:color-mix(in oklab,var(--color-or) 45%,transparent);background:color-mix(in oklab,var(--color-or) 8%,transparent);}
+    .chip--match{color:var(--color-jade);border-color:color-mix(in oklab,var(--color-jade) 50%,transparent);background:color-mix(in oklab,var(--color-jade) 10%,transparent);}
+    .chip--low{color:var(--color-indigo);border-color:color-mix(in oklab,var(--color-indigo) 50%,transparent);background:color-mix(in oklab,var(--color-indigo) 10%,transparent);}
+    .chip--skip{color:var(--color-ivoire-soft);border-color:color-mix(in oklab,var(--color-or) 20%,transparent);}
+    .chip--owned{color:var(--color-laque-bright);border-color:color-mix(in oklab,var(--color-laque-bright) 45%,transparent);background:color-mix(in oklab,var(--color-laque) 8%,transparent);}
+    .pct{font-family:var(--font-mono);font-size:1.1rem;}
+    .pct--hi{color:var(--color-jade);} .pct--lo{color:var(--color-indigo);}
+
+    /* phase 3 — progress + summary */
+    .prog{height:8px;background:var(--color-noir-deep);border:1px solid color-mix(in oklab,var(--color-or) 20%,transparent);overflow:hidden;}
+    .prog > i{display:block;height:100%;width:62%;background:linear-gradient(90deg,var(--color-or-deep),var(--color-or));}
+    .prog-label{display:flex;justify-content:space-between;font-size:11px;color:var(--color-ivoire-soft);margin:0.6rem 0 0.2rem;}
+    .summary{display:flex;gap:1.5rem;flex-wrap:wrap;margin-top:1.2rem;}
+    .summary .s{text-align:center;}
+    .summary .s b{font-family:var(--font-display);font-size:2rem;display:block;line-height:1;}
+    .summary .s.cr b{color:var(--color-or);} .summary .s.li b{color:var(--color-jade);} .summary .s.sk b{color:var(--color-ivoire-soft);}
+    .summary .s span{font-size:9.5px;letter-spacing:0.18em;text-transform:uppercase;color:var(--color-ivoire-soft);}
+
+    .footnote{margin-top:3rem;font-size:12px;color:var(--color-ivoire-soft);border-left:2px solid color-mix(in oklab,var(--color-indigo) 50%,transparent);padding-left:0.85rem;line-height:1.7;max-width:46rem;}
+    .footnote b{color:var(--color-ivoire);font-family:var(--font-display);font-size:1.05rem;}
+  </style>
+</head>
+<body>
+  <button class="tt" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'">Thème</button>
+
+  <main>
+    <header class="head">
+      <span class="ghost ja">蒐</span>
+      <p class="micro">Souhaits · import</p>
+      <h1 class="display">Importer dans mes souhaits</h1>
+      <div class="gold-rule rule"></div>
+      <p class="lead">Colle un lien de liste orzgk (recherche, catégorie) ou des liens de fiches produit — on récupère les figurines, tu choisis lesquelles ajouter à tes souhaits. Lot de 10 max par import.</p>
+    </header>
+
+    <!-- ① PASTE ───────────────────────────────────────────── -->
+    <div class="steps">
+      <span class="s on"><span class="n">1</span>Coller</span><span class="arr">→</span>
+      <span class="s"><span class="n">2</span>Choisir</span><span class="arr">→</span>
+      <span class="s"><span class="n">3</span>Importer</span>
+    </div>
+    <div class="panel">
+      <p class="phase-tag">① Source — lien public de ta liste</p>
+      <textarea class="imp-paste" placeholder="https://www.orzgk.com/wishlist-2/view/KRMLMYLC9JQ7/
+— ou des liens de fiches produit, un par ligne —
+https://www.orzgk.com/product/crown-studio-tatsumaki…/">https://www.orzgk.com/wishlist-2/view/KRMLMYLC9JQ7/</textarea>
+      <div class="imp-row1">
+        <p class="imp-hint">Rends ta liste publique sur orzgk (<b>Partager → Public → copier le lien</b>) puis colle-la : le serveur la récupère (pagination suivie). Ou colle des <b>liens de fiches</b> produit (un par ligne). <span style="opacity:0.6">Repli liste privée : coller le HTML de la page.</span></p>
+        <button class="btn btn--primary">Analyser ↓</button>
+      </div>
+    </div>
+
+    <!-- ② SELECT ──────────────────────────────────────────── -->
+    <div class="steps">
+      <span class="s"><span class="n">✓</span>Coller</span><span class="arr">→</span>
+      <span class="s on"><span class="n">2</span>Choisir</span><span class="arr">→</span>
+      <span class="s"><span class="n">3</span>Importer</span>
+    </div>
+    <div>
+      <div class="imp-bar">
+        <span class="count"><b>6</b> / 10 sélectionnées</span>
+        <span class="spacer"></span>
+        <button class="lnk">Tout sélectionner</button>
+        <button class="lnk">Aucune</button>
+      </div>
+      <div class="imp-list">
+        <!-- new -->
+        <div class="imp-item sel">
+          <span class="cbx on">✓</span>
+          <span class="imp-thumb">🎎</span>
+          <div class="imp-meta">
+            <div class="imp-name">GSC — Hatsune Miku Snow Princess 1/7</div>
+            <div class="imp-sub">GSC · 1/7 · €133.21</div>
+            <div class="imp-assoc">Absente du catalogue → <span style="color:var(--color-or-pale)">créée puis ajoutée aux souhaits</span></div>
+          </div>
+          <div class="imp-right"><span class="chip chip--new">Nouvelle</span></div>
+        </div>
+        <!-- high match auto-link -->
+        <div class="imp-item sel">
+          <span class="cbx on">✓</span>
+          <span class="imp-thumb">⛩️</span>
+          <div class="imp-meta">
+            <div class="imp-name">Kotobukiya — Asuka Langley Shikinami</div>
+            <div class="imp-sub">Kotobukiya · 1/7</div>
+            <div class="imp-assoc">↔ associée à <b style="color:var(--color-jade)">« Asuka Langley Shikinami 1/7 »</b> <button class="pick">changer ▾</button></div>
+          </div>
+          <div class="imp-right"><span class="chip chip--match">Existe · auto</span><span class="pct pct--hi">96%</span></div>
+        </div>
+        <!-- low match, manual -->
+        <div class="imp-item sel">
+          <span class="cbx on">✓</span>
+          <span class="imp-thumb">🗿</span>
+          <div class="imp-meta">
+            <div class="imp-name">Crown — Tatsumaki vs Tentacle</div>
+            <div class="imp-sub">Crown Studio · GK Statue</div>
+            <div class="imp-assoc">Correspondance incertaine → <button class="pick">associer à… ▾</button> ou <span style="color:var(--color-or-pale)">créer nouvelle</span></div>
+          </div>
+          <div class="imp-right"><span class="chip chip--low">À vérifier</span><span class="pct pct--lo">63%</span></div>
+        </div>
+        <!-- new -->
+        <div class="imp-item sel">
+          <span class="cbx on">✓</span>
+          <span class="imp-thumb">🧸</span>
+          <div class="imp-meta">
+            <div class="imp-name">Max Factory — Saber Alter</div>
+            <div class="imp-sub">Max Factory · 1/7 · €128.00</div>
+            <div class="imp-assoc">Absente du catalogue → <span style="color:var(--color-or-pale)">créée puis ajoutée aux souhaits</span></div>
+          </div>
+          <div class="imp-right"><span class="chip chip--new">Nouvelle</span></div>
+        </div>
+        <!-- already owned -> skip (owned≠wishlist) -->
+        <div class="imp-item off">
+          <span class="cbx dis"></span>
+          <span class="imp-thumb">🏆</span>
+          <div class="imp-meta">
+            <div class="imp-name">Taito — Megumin Coreful</div>
+            <div class="imp-sub">Taito · Prize</div>
+            <div class="imp-assoc">Déjà dans ta collection — non ajoutable aux souhaits</div>
+          </div>
+          <div class="imp-right"><span class="chip chip--owned">Possédée</span></div>
+        </div>
+        <!-- already wished -> skip -->
+        <div class="imp-item off">
+          <span class="cbx dis"></span>
+          <span class="imp-thumb">🎏</span>
+          <div class="imp-meta">
+            <div class="imp-name">Alter — Fate/Stay Night Rin Tohsaka</div>
+            <div class="imp-sub">Alter · 1/7</div>
+            <div class="imp-assoc">Déjà dans tes souhaits</div>
+          </div>
+          <div class="imp-right"><span class="chip chip--skip">Déjà souhaitée</span></div>
+        </div>
+      </div>
+      <div class="imp-row1" style="justify-content:flex-end">
+        <button class="btn btn--ghost">Annuler</button>
+        <button class="btn btn--primary">Importer 4 figurines →</button>
+      </div>
+    </div>
+
+    <!-- ③ IMPORT ──────────────────────────────────────────── -->
+    <div class="steps">
+      <span class="s"><span class="n">✓</span>Coller</span><span class="arr">→</span>
+      <span class="s"><span class="n">✓</span>Choisir</span><span class="arr">→</span>
+      <span class="s on"><span class="n">3</span>Importer</span>
+    </div>
+    <div class="panel">
+      <p class="phase-tag">③ Import en cours</p>
+      <div class="prog"><i></i></div>
+      <div class="prog-label"><span>Max Factory — Saber Alter… (création + souhait)</span><span class="mono">5 / 8</span></div>
+      <div class="summary">
+        <div class="s cr"><b>3</b><span>créées</span></div>
+        <div class="s li"><b>1</b><span>associées</span></div>
+        <div class="s sk"><b>2</b><span>ignorées</span></div>
+      </div>
+    </div>
+
+    <p class="footnote"><b>Côté technique.</b> Les listes orzgk peuvent être publiques (plugin wlfmc) : le serveur récupère le lien partagé <code>/wishlist-2/view/&lt;token&gt;/</code> (pagination <code>?pagenum=N</code> suivie) et parse les lignes <code>tr.wlfmc-table-item</code> (lien produit, titre, version, image, prix). Repli optionnel : coller le HTML d'une liste privée (même parseur). Le <b>%</b> vient d'une similarité de nom (trigramme Postgres) + fabricant ; ≥ 90% → association automatique, sinon choix manuel. À la validation, les correspondances rejoignent juste les souhaits (aucune méta-donnée touchée) ; les nouvelles passent par <code>orzgk/detail</code> (page produit publique) → création catalogue (même mapping que la page d'ajout, version pré-sélectionnée) → souhait. Possédées exclues (règle owned≠wishlist). Plafond : 10 par lot.</p>
+  </main>
+</body>
+</html>
