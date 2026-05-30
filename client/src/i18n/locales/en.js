@@ -101,6 +101,16 @@ export default {
   "cote.empty": "No pieces to value yet.",
   "cote.empty_cta": "Browse the catalogue",
 
+  // Optional display-currency conversion (Lot 7) — display-only overlay
+  "fx.convert": "Convert to one display currency",
+  "fx.on": "On",
+  "fx.off": "Off",
+  "fx.display": "Display currency",
+  "fx.hint": "Rates from the European Central Bank, refreshed daily. A display convenience — your figures keep their own currency.",
+  "fx.overrides": "Manual rates (optional)",
+  "fx.auto": "auto",
+  "fx.approx": "approx · converted",
+
   // Display cabinets ("Les Vitrines") — Lot 1
   "vitrines.eyebrow": "Storage · Topography",
   "vitrines.title": "Display cabinets",

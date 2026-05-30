@@ -109,6 +109,16 @@ export default {
   "cote.empty": "Aucune pièce à évaluer pour l'instant.",
   "cote.empty_cta": "Parcourir le catalogue",
 
+  // Conversion de devise optionnelle (Lot 7) — surcouche d'affichage
+  "fx.convert": "Convertir vers une devise d'affichage",
+  "fx.on": "Activé",
+  "fx.off": "Désactivé",
+  "fx.display": "Devise d'affichage",
+  "fx.hint": "Taux de la Banque centrale européenne, rafraîchis chaque jour. Confort d'affichage — tes figurines gardent leur propre devise.",
+  "fx.overrides": "Taux manuels (optionnel)",
+  "fx.auto": "auto",
+  "fx.approx": "approx · converti",
+
   // Vitrines / étagères (« Les Vitrines ») — Lot 1
   "vitrines.eyebrow": "Rangement · Topographie",
   "vitrines.title": "Les Vitrines",

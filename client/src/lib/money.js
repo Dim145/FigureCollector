@@ -45,6 +45,28 @@ export function effectiveValue(item) {
   return null;
 }
 
+/** Optional display-currency conversion (display-only — see useFx + external::fx).
+ *  `fx` is the shape from useFx(): `{ convert, display, rates, overrides }`.
+ *  Returns the "1 `from` = X display" multiplier, or null when conversion is off
+ *  or the rate is unknown. A manual override wins; else `1 / rates[from]` (the
+ *  proxy gives display-per-`from` when base = display). */
+export function fxMultiplier(fx, from) {
+  if (!fx?.convert || !fx.display || !from) return null;
+  const cur = String(from).toUpperCase();
+  if (cur === fx.display) return 1;
+  const ov = fx.overrides?.[cur];
+  if (ov != null && Number.isFinite(Number(ov)) && Number(ov) > 0) return Number(ov);
+  const r = fx.rates?.[cur];
+  return r != null && Number(r) > 0 ? 1 / Number(r) : null;
+}
+
+/** Convert `amount` (in `from`) into the display currency, or null when the
+ *  conversion isn't possible. */
+export function convertAmount(amount, from, fx) {
+  const m = fxMultiplier(fx, from);
+  return m == null ? null : Number(amount) * m;
+}
+
 /** Total amount paid for an item (figure price + shipping), in
  *  `price_currency`. Returns `null` when no price was recorded. */
 export function paidTotal(item) {

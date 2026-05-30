@@ -13,6 +13,7 @@
 
 pub mod anilist;
 pub mod cache;
+pub mod fx;
 pub mod mal;
 pub mod mfc;
 pub mod notify_channel;

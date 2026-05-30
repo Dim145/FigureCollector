@@ -4,10 +4,11 @@ import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useOwnedItems, useSetOwnedValue } from "../hooks/useCollection.js";
 import { useMyStats } from "../hooks/useStats.js";
+import { useFx } from "../hooks/useFx.js";
 import AppShell from "../components/AppShell.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import { typeHue } from "../lib/typeHue.js";
-import { fmtMoney, effectiveValue, paidTotal } from "../lib/money.js";
+import { fmtMoney, effectiveValue, paidTotal, convertAmount } from "../lib/money.js";
 
 /** Fallback kanji per type (mirrors FigureCard) — a small decorative glyph for
  *  the value-ledger thumbnails. */
@@ -48,6 +49,30 @@ export default function CotePage() {
     plusValue != null && primaryPaid && Number(primaryPaid.grand_total) > 0
       ? (plusValue / Number(primaryPaid.grand_total)) * 100
       : null;
+
+  // Optional display-currency overlay (off by default). Sums every per-currency
+  // bucket into the chosen display currency — approximate, never stored; the
+  // per-currency truth stays the footnote below the converted figure.
+  const fx = useFx();
+  const fxReady = fx.convert && Object.keys(fx.rates).length > 0;
+  const sumConverted = (buckets, field) =>
+    buckets.reduce((sum, b) => {
+      const c = convertAmount(b[field], b.currency, fx);
+      return c == null ? sum : sum + c;
+    }, 0);
+  const convValue = fxReady ? sumConverted(valueBuckets, "estimated_total") : null;
+  const convPaid = fxReady ? sumConverted(spendBuckets, "grand_total") : null;
+  const convPlus = convValue != null && convPaid != null ? convValue - convPaid : null;
+  const convPlusPct =
+    convPlus != null && convPaid > 0 ? (convPlus / convPaid) * 100 : null;
+
+  // Which figures the hero/KPIs actually show — converted (overlay on) or the
+  // dominant per-currency bucket (overlay off).
+  const showFx = fxReady && convValue != null;
+  const dispPaid = showFx ? convPaid : primaryPaid ? Number(primaryPaid.grand_total) : null;
+  const dispPlus = showFx ? convPlus : plusValue;
+  const dispPlusPct = showFx ? convPlusPct : plusPct;
+  const dispCur = showFx ? fx.display : primary?.currency;
 
   const valuedCount = valueBuckets.reduce((a, b) => a + b.pieces_valued, 0);
   const msrpCount = valueBuckets.reduce((a, b) => a + b.pieces_msrp, 0);
@@ -137,10 +162,28 @@ export default function CotePage() {
                       free of a comma whose descender bled into the panel below.
                       Exact amounts (cents) stay in the KPIs and the rows. */}
                   <span className="figural-massive text-[clamp(4rem,11vw,8rem)] leading-[0.9] pb-[0.06em] inline-block">
-                    {primary ? fmtMoney(Math.round(Number(primary.estimated_total)), primary.currency, locale) : "—"}
+                    {fxReady && convValue != null
+                      ? `≈ ${fmtMoney(Math.round(convValue), fx.display, locale)}`
+                      : primary
+                        ? fmtMoney(Math.round(Number(primary.estimated_total)), primary.currency, locale)
+                        : "—"}
                   </span>
                 </span>
-                {valueBuckets.length > 1 ? (
+                {fxReady && convValue != null ? (
+                  <p className="mt-3 text-[12px] text-[var(--color-ivoire-soft)]">
+                    <span className="uppercase tracking-[0.18em] text-[10px] text-[var(--color-or-pale)]">
+                      {t("fx.approx")}
+                    </span>
+                    {fx.date ? <span className="font-mono"> · {fx.date}</span> : null}
+                    {valueBuckets.length ? (
+                      <span className="block font-mono mt-1">
+                        {valueBuckets
+                          .map((b) => fmtMoney(b.estimated_total, b.currency, locale))
+                          .join(" · ")}
+                      </span>
+                    ) : null}
+                  </p>
+                ) : valueBuckets.length > 1 ? (
                   <p className="mt-3 text-[12px] text-[var(--color-ivoire-soft)] font-mono">
                     {valueBuckets.slice(1).map((b) => fmtMoney(b.estimated_total, b.currency, locale)).join(" · ")}
                   </p>
@@ -150,17 +193,19 @@ export default function CotePage() {
               <div className="grid gap-px bg-[color-mix(in_oklab,var(--color-or)_14%,transparent)] border border-[color-mix(in_oklab,var(--color-or)_14%,transparent)]">
                 <Kpi label={t("cote.total_paid")}>
                   <span className="figural text-3xl">
-                    {primaryPaid ? fmtMoney(primaryPaid.grand_total, primaryPaid.currency, locale) : "—"}
+                    {dispPaid != null
+                      ? `${showFx ? "≈ " : ""}${fmtMoney(showFx ? Math.round(dispPaid) : dispPaid, dispCur, locale)}`
+                      : "—"}
                   </span>
                 </Kpi>
                 <Kpi label={t("cote.plus_value")}>
-                  {plusValue != null ? (
-                    <span className={`figural text-3xl ${plusValue >= 0 ? "text-[var(--color-jade)]" : "text-[var(--color-laque-bright)]"}`}>
-                      {plusValue >= 0 ? "+" : ""}
-                      {fmtMoney(plusValue, primary.currency, locale)}
-                      {plusPct != null ? (
-                        <span className={`chip ml-2 align-middle ${plusValue >= 0 ? "chip--jade" : "chip--laque"}`}>
-                          {plusValue >= 0 ? "+" : ""}{plusPct.toFixed(1)} %
+                  {dispPlus != null && dispCur ? (
+                    <span className={`figural text-3xl ${dispPlus >= 0 ? "text-[var(--color-jade)]" : "text-[var(--color-laque-bright)]"}`}>
+                      {showFx ? "≈ " : ""}{dispPlus >= 0 ? "+" : ""}
+                      {fmtMoney(showFx ? Math.round(dispPlus) : dispPlus, dispCur, locale)}
+                      {dispPlusPct != null ? (
+                        <span className={`chip ml-2 align-middle ${dispPlus >= 0 ? "chip--jade" : "chip--laque"}`}>
+                          {dispPlus >= 0 ? "+" : ""}{dispPlusPct.toFixed(1)} %
                         </span>
                       ) : null}
                     </span>

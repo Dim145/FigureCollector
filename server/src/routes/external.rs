@@ -188,6 +188,30 @@ async fn orzgk_wishlist_parse(
     Ok(Json(orzgk::parse_wishlist_html(&body.html)))
 }
 
+#[derive(Deserialize)]
+struct FxQuery {
+    base: Option<String>,
+}
+
+/// Daily FX rates for the optional display-currency overlay (ECB via
+/// frankfurter, cached). `base` is the user's chosen display currency.
+async fn fx_latest(
+    State(state): State<AppState>,
+    session: Session,
+    Query(q): Query<FxQuery>,
+) -> AppResult<Json<crate::external::fx::FxRates>> {
+    auth::require_user(&session).await?;
+    let base = q
+        .base
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or("EUR");
+    Ok(Json(
+        crate::external::fx::latest(&state.pool, &state.http, base).await?,
+    ))
+}
+
 // =============================================================================
 // Boutique scraping proxy — `/api/external/proxy/{stores,search,product}`
 //
@@ -381,6 +405,7 @@ pub fn router() -> Router<AppState> {
         .route("/external/orzgk/detail", get(orzgk_detail))
         .route("/external/orzgk/wishlist", get(orzgk_wishlist))
         .route("/external/orzgk/wishlist/parse", post(orzgk_wishlist_parse))
+        .route("/external/fx", get(fx_latest))
         .route("/external/proxy/stores", get(proxy_stores))
         .route("/external/proxy/search", get(proxy_search))
         .route("/external/proxy/product", get(proxy_product))

@@ -9,6 +9,7 @@ import { useMyStats, useInsights } from "../hooks/useStats.js";
 import AppShell from "../components/AppShell.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import NotificationSettings from "../components/NotificationSettings.jsx";
+import FxSettings from "../components/FxSettings.jsx";
 import Select from "../components/Select.jsx";
 import { BG_MODEL_SIZES, getPref, setPref } from "../lib/userPrefs.js";
 
@@ -278,6 +279,7 @@ export default function SettingsPage() {
               />
             </div>
             <p className="atelier-select-hint">{t("settings.currency.hint")}</p>
+            <FxSettings />
           </Drawer>
 
           {/* BG model */}
