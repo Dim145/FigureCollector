@@ -42,6 +42,28 @@ async fn duplicates(
 }
 
 #[derive(Debug, Deserialize)]
+struct JanQuery {
+    jan: Option<String>,
+}
+
+/// Exact catalogue lookup by JAN/EAN barcode — backs the camera scanner.
+/// Returns the figure, or `null` when the barcode isn't in the catalogue.
+async fn by_jan(
+    State(state): State<AppState>,
+    session: Session,
+    Query(q): Query<JanQuery>,
+) -> AppResult<Json<Option<figure::Figure>>> {
+    auth::require_user(&session).await?;
+    let jan = q
+        .jan
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .ok_or(AppError::BadRequest("missing jan parameter"))?;
+    Ok(Json(figure::find_by_jan(&state.pool, jan).await?))
+}
+
+#[derive(Debug, Deserialize)]
 struct MatchQueryItem {
     name: String,
     #[serde(default)]
@@ -180,6 +202,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/figures", get(list).post(create))
         .route("/figures/duplicates", get(duplicates))
+        .route("/figures/by-jan", get(by_jan))
         .route("/figures/match", post(match_figures))
         .route(
             "/figures/{id}",

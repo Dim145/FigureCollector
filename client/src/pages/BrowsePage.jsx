@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
+import { api } from "../lib/api.js";
 import { useI18n, useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useFigureTypes } from "../hooks/useAdmin.js";
 import { useFigures, useOwnedItems } from "../hooks/useCollection.js";
 import { useWishlistItems } from "../hooks/useWishlist.js";
 import AppShell from "../components/AppShell.jsx";
+import BarcodeScanner from "../components/BarcodeScanner.jsx";
 import FigureCard from "../components/FigureCard.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import { resolveFigureCover } from "../lib/coverUrl.js";
@@ -57,6 +59,26 @@ export default function BrowsePage() {
   const [q, setQ] = useState("");
   const [type, setType] = useState("");
   const [sort, setSort] = useState("recent");
+  const navigate = useNavigate();
+  const [scanOpen, setScanOpen] = useState(false);
+  // Barcode scan → catalogue lookup by JAN: a hit opens the figure; an unknown
+  // barcode jumps to the add page with the JAN pre-filled.
+  const onScan = useCallback(
+    async (jan) => {
+      setScanOpen(false);
+      try {
+        const fig = await api.get(`/figures/by-jan?jan=${encodeURIComponent(jan)}`);
+        if (fig?.id) {
+          navigate(`/figures/${fig.id}`);
+          return;
+        }
+      } catch {
+        /* unknown / error → fall through to manual add */
+      }
+      navigate(`/figures/new?jan=${encodeURIComponent(jan)}`);
+    },
+    [navigate],
+  );
 
   // Live rail tiles. Falls back to the hard-coded list while the
   // `/figure-types` query is still loading or empty.
@@ -233,9 +255,18 @@ export default function BrowsePage() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder={t("browse.search_placeholder")}
-              className="w-full pl-11 pr-4 py-4 bg-[var(--color-noir)] border border-[var(--color-or)]/25 text-[var(--color-ivoire)] placeholder:text-[var(--color-ivoire-soft)]/40 text-lg outline-none focus:border-[var(--color-or)] transition-colors"
+              className="w-full pl-11 pr-14 py-4 bg-[var(--color-noir)] border border-[var(--color-or)]/25 text-[var(--color-ivoire)] placeholder:text-[var(--color-ivoire-soft)]/40 text-lg outline-none focus:border-[var(--color-or)] transition-colors"
               style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.005em" }}
             />
+            <button
+              type="button"
+              onClick={() => setScanOpen(true)}
+              title={t("scan.title")}
+              aria-label={t("scan.title")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-jade)] hover:text-[var(--color-or)] text-2xl leading-none transition-colors"
+            >
+              ⌗
+            </button>
           </div>
 
           <nav
@@ -304,6 +335,9 @@ export default function BrowsePage() {
             ))}
           </ul>
         )}
+        {scanOpen ? (
+          <BarcodeScanner onDetect={onScan} onClose={() => setScanOpen(false)} />
+        ) : null}
       </main>
     </AppShell>
   );

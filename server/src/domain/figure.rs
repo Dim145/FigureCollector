@@ -277,6 +277,26 @@ pub async fn match_one(
         .await?)
 }
 
+/// Exact lookup by JAN/EAN barcode — the camera scanner's "is this already in
+/// the catalogue?" probe. `jan` is uniquely indexed, so this returns at most
+/// one figure (None when the barcode is unknown).
+pub async fn find_by_jan(pool: &PgPool, jan: &str) -> AppResult<Option<Figure>> {
+    let jan = jan.trim();
+    if jan.is_empty() {
+        return Ok(None);
+    }
+    let sql = format!(
+        "SELECT {FIGURE_COLUMNS_PREFIXED}{FIGURE_NAME_PROJECTION}
+         FROM figures f {FIGURE_NAME_JOINS}
+         WHERE f.jan = $1
+         LIMIT 1"
+    );
+    Ok(sqlx::query_as::<_, Figure>(&sql)
+        .bind(jan)
+        .fetch_optional(pool)
+        .await?)
+}
+
 pub async fn create(pool: &PgPool, created_by: Uuid, input: NewFigure) -> AppResult<Figure> {
     // figure_type validation lives in the `figure_types` table now — admins
     // can add new types without a code change.

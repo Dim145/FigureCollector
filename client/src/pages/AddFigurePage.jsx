@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useAddOwnedItem, useCreateFigure } from "../hooks/useCollection.js";
@@ -13,6 +13,10 @@ export default function AddFigurePage() {
   const t = useT();
   const me = useMe();
   const navigate = useNavigate();
+  // A barcode scan that found no catalogue match lands here with ?jan=… so the
+  // form opens pre-filled with the scanned barcode.
+  const [searchParams] = useSearchParams();
+  const scannedJan = searchParams.get("jan");
   const createFigure = useCreateFigure();
   const addOwned = useAddOwnedItem();
   const [alsoAddToCollection, setAlsoAddToCollection] = useState(true);
@@ -80,6 +84,7 @@ export default function AddFigurePage() {
         <Card className="p-8">
           <FigureForm
             mode="create"
+            initial={scannedJan ? { jan: scannedJan } : undefined}
             onSubmit={onSubmit}
             busy={isPending}
             errorMessage={errorMessage}
