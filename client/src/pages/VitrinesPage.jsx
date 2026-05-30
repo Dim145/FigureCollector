@@ -74,18 +74,7 @@ export default function VitrinesPage() {
   // locations + loose, each sorted by sort_order (nulls last → created_at).
   const canonical = useMemo(() => {
     const items = owned.data ?? [];
-    const byLoc = new Map();
-    const loose = [];
-    for (const o of items) {
-      const loc = (o.location || "").trim();
-      if (!loc) loose.push(o);
-      else { if (!byLoc.has(loc)) byLoc.set(loc, []); byLoc.get(loc).push(o); }
-    }
     const registry = locations.data ?? [];
-    const names = registry.map((r) => r.name);
-    const nameSet = new Set(names);
-    const orphans = [...byLoc.keys()].filter((n) => !nameSet.has(n));
-    const order = [...names, ...orphans, LOOSE];
     const sortIds = (arr) =>
       [...arr]
         .sort((a, b) => {
@@ -95,10 +84,51 @@ export default function VitrinesPage() {
           return a.created_at < b.created_at ? 1 : -1;
         })
         .map((o) => o.id);
+
+    // Cabinets are matched CASE-INSENSITIVELY (the registry's unique index is on
+    // lower(name)). Canonical display name = the registry's casing when it
+    // exists, else the first location casing seen — so a registry "chambre"
+    // merges with items located in "Chambre" instead of showing two cabinets.
+    const displayByKey = new Map(); // lowerKey → display name
+    const registeredIds = new Map(); // display name → location id
+    for (const r of registry) {
+      const key = r.name.trim().toLowerCase();
+      if (!displayByKey.has(key)) displayByKey.set(key, r.name.trim());
+      registeredIds.set(displayByKey.get(key), r.id);
+    }
+    const byKey = new Map(); // lowerKey → items[]
+    const loose = [];
+    for (const o of items) {
+      const loc = (o.location || "").trim();
+      if (!loc) {
+        loose.push(o);
+        continue;
+      }
+      const key = loc.toLowerCase();
+      if (!displayByKey.has(key)) displayByKey.set(key, loc);
+      if (!byKey.has(key)) byKey.set(key, []);
+      byKey.get(key).push(o);
+    }
+    // Registry order first, then orphan locations (items only), then loose.
+    const orderedKeys = [];
+    const seen = new Set();
+    for (const r of registry) {
+      const key = r.name.trim().toLowerCase();
+      if (!seen.has(key)) { seen.add(key); orderedKeys.push(key); }
+    }
+    for (const key of byKey.keys()) {
+      if (!seen.has(key)) { seen.add(key); orderedKeys.push(key); }
+    }
     const board = {};
-    for (const n of [...names, ...orphans]) board[n] = sortIds(byLoc.get(n) ?? []);
+    const order = [];
+    for (const key of orderedKeys) {
+      const name = displayByKey.get(key);
+      board[name] = sortIds(byKey.get(key) ?? []);
+      order.push(name);
+    }
     board[LOOSE] = sortIds(loose);
-    return { order, board, registeredIds: new Map(registry.map((r) => [r.name, r.id])) };
+    order.push(LOOSE);
+    return { order, board, registeredIds };
   }, [owned.data, locations.data]);
 
   const [board, setBoard] = useState(canonical.board);
