@@ -25,6 +25,9 @@ pub struct User {
     /// Whether NSFW pieces are listed on the user's public profile.
     /// Only meaningful when `public_profile_enabled` is true.
     pub public_profile_show_nsfw: bool,
+    /// Whether the collection's monetary value (La Cote) is shown on the
+    /// public profile / discovery card. Opt-in, OFF by default.
+    pub public_profile_show_value: bool,
     pub created_at: DateTime<Utc>,
     pub last_login_at: Option<DateTime<Utc>>,
 }
@@ -51,6 +54,8 @@ pub struct PublicUser {
     pub public_profile_enabled: bool,
     /// Whether NSFW pieces are surfaced on /u/{username} when public.
     pub public_profile_show_nsfw: bool,
+    /// Whether the collection's value is shown publicly (opt-in, OFF by default).
+    pub public_profile_show_value: bool,
 }
 
 impl From<User> for PublicUser {
@@ -66,6 +71,7 @@ impl From<User> for PublicUser {
             preferred_currency: u.preferred_currency,
             public_profile_enabled: u.public_profile_enabled,
             public_profile_show_nsfw: u.public_profile_show_nsfw,
+            public_profile_show_value: u.public_profile_show_value,
         }
     }
 }
@@ -73,7 +79,7 @@ impl From<User> for PublicUser {
 const USER_COLUMNS: &str =
     "id, username, email, display_name, avatar_url, locale, is_admin, \
      nsfw_visibility, preferred_currency, \
-     public_profile_enabled, public_profile_show_nsfw, \
+     public_profile_enabled, public_profile_show_nsfw, public_profile_show_value, \
      created_at, last_login_at";
 
 pub async fn create_local(

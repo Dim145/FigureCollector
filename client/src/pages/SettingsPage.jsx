@@ -81,11 +81,17 @@ export default function SettingsPage() {
     update.data?.public_profile_show_nsfw ??
     me.data?.user?.public_profile_show_nsfw ??
     false;
+  const showValuePublic =
+    update.data?.public_profile_show_value ??
+    me.data?.user?.public_profile_show_value ??
+    false;
   const publicUrl = `${window.location.origin}/u/${user.username}`;
 
   const toggle = () => update.mutate({ public_profile_enabled: !flag });
   const toggleNsfwPublic = () =>
     update.mutate({ public_profile_show_nsfw: !showNsfwPublic });
+  const toggleValuePublic = () =>
+    update.mutate({ public_profile_show_value: !showValuePublic });
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(publicUrl);
@@ -193,6 +199,33 @@ export default function SettingsPage() {
                     onChange={toggleNsfwPublic}
                     disabled={update.isPending}
                     labelId="toggle-label-show-nsfw"
+                  />
+                </div>
+
+                {/* Sub-toggle — expose the collection's value (La Cote) on
+                  * the public profile / discovery card. OFF by default so a
+                  * public profile never leaks value unintentionally. */}
+                <p className="atelier-drawer-desc" style={{ marginTop: "1.5rem", marginBottom: "0.75rem" }}>
+                  {t("settings.public_profile.show_value.body")}
+                </p>
+                <div className="atelier-toggle-row">
+                  <div id="toggle-label-show-value" className="atelier-toggle-row-text">
+                    <span
+                      className={`atelier-toggle-row-state ${showValuePublic ? "is-on" : ""}`}
+                    >
+                      {showValuePublic
+                        ? t("settings.public_profile.show_value.on")
+                        : t("settings.public_profile.show_value.off")}
+                    </span>
+                    <span className="atelier-toggle-row-hint">
+                      {t("settings.public_profile.show_value")}
+                    </span>
+                  </div>
+                  <Toggle
+                    on={showValuePublic}
+                    onChange={toggleValuePublic}
+                    disabled={update.isPending}
+                    labelId="toggle-label-show-value"
                   />
                 </div>
               </>

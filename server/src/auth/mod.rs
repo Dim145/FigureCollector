@@ -18,6 +18,14 @@ pub async fn require_user(session: &Session) -> AppResult<Uuid> {
         .ok_or(AppError::Unauthorized)
 }
 
+/// Pull the authenticated user id from the session if present; `None` when
+/// the caller is anonymous. Use for viewer-aware *public* endpoints that must
+/// stay reachable without a session (the flags they compute just default to
+/// "no relationship" for anonymous callers).
+pub async fn optional_user(session: &Session) -> AppResult<Option<Uuid>> {
+    Ok(session.get::<Uuid>("user_id").await?)
+}
+
 /// Resolve the session to a full `User` row, or `Unauthorized` if the
 /// session is missing / dangling. Use this when the handler needs to read
 /// the role (or other profile bits) past the id.

@@ -17,6 +17,7 @@ pub mod auth;
 pub mod entities;
 pub mod external;
 pub mod figure_photos;
+pub mod follow;
 pub mod figures;
 pub mod health;
 pub mod location;
@@ -101,6 +102,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(wishlist::router())
         .merge(preorders::router())
         .merge(profile::router())
+        .merge(follow::router())
         .merge(external::router())
         .merge(activity::router())
         .merge(achievements::router())

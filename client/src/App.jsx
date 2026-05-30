@@ -24,6 +24,7 @@ const FigureDetailPage     = lazy(() => import("./pages/FigureDetailPage.jsx"));
 const PreordersPage        = lazy(() => import("./pages/PreordersPage.jsx"));
 const BrowsePage           = lazy(() => import("./pages/BrowsePage.jsx"));
 const PublicProfilePage    = lazy(() => import("./pages/PublicProfilePage.jsx"));
+const DiscoverPage         = lazy(() => import("./pages/DiscoverPage.jsx"));
 const ComparePage          = lazy(() => import("./pages/ComparePage.jsx"));
 const SettingsPage         = lazy(() => import("./pages/SettingsPage.jsx"));
 const ActivityPage         = lazy(() => import("./pages/ActivityPage.jsx"));
@@ -120,6 +121,7 @@ export default function App() {
               <Route path="workers" element={<AdminWorkersPage />} />
             </Route>
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/collectionneurs" element={<DiscoverPage />} />
             <Route path="/u/:slug" element={<PublicProfilePage />} />
             <Route path="/compare/:slug" element={<ComparePage />} />
             <Route path="*" element={<LandingPage />} />

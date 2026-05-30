@@ -7,6 +7,7 @@ pub mod entity;
 pub mod figure;
 pub mod figure_photo;
 pub mod figure_type;
+pub mod follow;
 pub mod location;
 pub mod notification;
 pub mod owned;

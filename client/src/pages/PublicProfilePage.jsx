@@ -1,18 +1,23 @@
+import { useState } from "react";
 import { Link, Navigate, useParams } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { usePublicProfile } from "../hooks/useProfile.js";
+import { fmtMoney } from "../lib/money.js";
 import AppShell from "../components/AppShell.jsx";
 import Card from "../components/Card.jsx";
 import FigureCard from "../components/FigureCard.jsx";
 import Button from "../components/Button.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
+import FollowButton from "../components/FollowButton.jsx";
+import FollowListModal from "../components/FollowListModal.jsx";
 
 export default function PublicProfilePage() {
   const { slug } = useParams();
   const t = useT();
   const me = useMe();
   const profile = usePublicProfile(slug);
+  const [list, setList] = useState(null);
 
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
@@ -28,8 +33,10 @@ export default function PublicProfilePage() {
       </AppShell>
     );
 
-  const { user, stats, collection } = profile.data;
-  const isSelf = me.data?.user?.username === user.username;
+  const { user, stats, collection, social, value } = profile.data;
+  const isSelf = social?.is_self ?? me.data?.user?.username === user.username;
+  const locale = me.data?.user?.locale;
+  const dominantValue = value && value.length ? value[0] : null;
 
   return (
     <AppShell>
@@ -64,11 +71,16 @@ export default function PublicProfilePage() {
               }}
             >
               @{user.username}
+              {social?.follows_viewer ? (
+                <span className="fc-chip fc-chip--jade ml-3 align-middle tracking-[0.12em]">
+                  {t("follow.follows_you")}
+                </span>
+              ) : null}
             </p>
             <div className="gold-rule mx-auto w-32 mt-6" />
           </Reveal>
 
-          <Reveal as="dl" delay={0.08} y={18} className="relative mt-8 flex justify-center gap-8 sm:gap-12">
+          <Reveal as="div" delay={0.08} y={18} className="relative mt-8 flex justify-center items-center gap-6 sm:gap-10 flex-wrap">
             <Stat label={t("profile.stat_pieces")} value={stats.pieces} accent="var(--color-or)" />
             <Stat label={t("profile.stat_series")} value={stats.series_count} accent="var(--color-jade)" />
             <Stat
@@ -76,10 +88,39 @@ export default function PublicProfilePage() {
               value={stats.manufacturers_count}
               accent="var(--color-neon-magenta)"
             />
+            <span
+              aria-hidden
+              className="hidden sm:block w-px h-10"
+              style={{
+                background:
+                  "linear-gradient(to bottom,transparent,color-mix(in oklab,var(--color-or) 40%,transparent),transparent)",
+              }}
+            />
+            <CountButton
+              value={social?.followers ?? 0}
+              label={t("profile.stat_followers")}
+              onClick={() => setList({ tab: "followers" })}
+            />
+            <CountButton
+              value={social?.following ?? 0}
+              label={t("profile.stat_following")}
+              onClick={() => setList({ tab: "following" })}
+            />
           </Reveal>
 
+          {dominantValue ? (
+            <Reveal as="p" delay={0.1} className="relative mt-5 micro-tight">
+              {t("profile.value_label")} ·{" "}
+              <span className="text-[var(--color-or-pale)]">
+                {fmtMoney(Math.round(Number(dominantValue.amount)), dominantValue.currency, locale)}
+                {value.length > 1 ? " …" : ""}
+              </span>
+            </Reveal>
+          ) : null}
+
           {!isSelf ? (
-            <Reveal as="div" delay={0.14} y={16} className="relative mt-8 flex justify-center gap-3">
+            <Reveal as="div" delay={0.14} y={16} className="relative mt-8 flex justify-center items-center gap-3">
+              <FollowButton username={user.username} isFollowing={social?.is_following} />
               <Link to={`/compare/${user.username}`}>
                 <Button variant="ghost">{t("compare.title", { name: user.display_name })}</Button>
               </Link>
@@ -109,6 +150,13 @@ export default function PublicProfilePage() {
             ))}
           </ul>
         )}
+        <FollowListModal
+          open={!!list}
+          slug={user.username}
+          initialTab={list?.tab ?? "followers"}
+          counts={{ followers: social?.followers ?? 0, following: social?.following ?? 0 }}
+          onClose={() => setList(null)}
+        />
       </main>
     </AppShell>
   );
@@ -174,6 +222,18 @@ function Stat({ label, value, accent = "var(--color-or)" }) {
       </p>
       <p className="micro mt-1">{label}</p>
     </div>
+  );
+}
+
+/** Clickable social counter — opens the followers / following list modal. */
+function CountButton({ value, label, onClick }) {
+  return (
+    <button type="button" onClick={onClick} className="text-center group">
+      <p className="display text-3xl sm:text-4xl text-[var(--color-or-pale)] transition-colors group-hover:text-[var(--color-ivoire)]">
+        {value}
+      </p>
+      <p className="micro mt-1">{label}</p>
+    </button>
   );
 }
 

@@ -5,6 +5,7 @@
 //! GET  /api/compare/{slug}      : 3-bucket diff between viewer and target
 
 use crate::auth;
+use crate::domain::follow::{self, CurrencyTotal};
 use crate::error::{AppError, AppResult};
 use crate::events::Event;
 use crate::state::AppState;
@@ -38,6 +39,9 @@ struct ProfileBasics {
     /// stats. We pull it here so the rest of the public-profile pipeline
     /// can branch on it without a second query.
     public_profile_show_nsfw: bool,
+    /// Opt-in: when true, the collection's per-currency value is included in
+    /// the public response. OFF by default.
+    public_profile_show_value: bool,
 }
 
 async fn load_public_user(pool: &PgPool, slug: &str) -> AppResult<ProfileBasics> {
@@ -46,7 +50,7 @@ async fn load_public_user(pool: &PgPool, slug: &str) -> AppResult<ProfileBasics>
     // public profile with a private one.
     let row: Option<ProfileBasics> = sqlx::query_as(
         "SELECT id, username, display_name, avatar_url, locale, created_at,
-                public_profile_enabled, public_profile_show_nsfw
+                public_profile_enabled, public_profile_show_nsfw, public_profile_show_value
          FROM users
          WHERE LOWER(username) = LOWER($1)
            AND public_profile_enabled = TRUE
@@ -65,6 +69,23 @@ struct PublicProfileResponse {
     user: PublicUserCard,
     collection: Vec<PublicCollectionEntry>,
     stats: PublicStats,
+    social: SocialInfo,
+    /// Per-currency effective value (manual value, else MSRP). Empty unless
+    /// the owner opted into `public_profile_show_value`.
+    value: Vec<CurrencyTotal>,
+}
+
+/// Follow relationship + counts for the viewer relative to this profile.
+#[derive(Serialize)]
+struct SocialInfo {
+    followers: i64,
+    following: i64,
+    /// viewer → this profile.
+    is_following: bool,
+    /// this profile → viewer (drives the "vous suit" hint).
+    follows_viewer: bool,
+    /// The viewer is looking at their own profile.
+    is_self: bool,
 }
 
 #[derive(Serialize)]
@@ -102,6 +123,7 @@ struct PublicStats {
 
 async fn get_public_profile(
     State(state): State<AppState>,
+    session: Session,
     Path(slug): Path<String>,
 ) -> AppResult<Json<PublicProfileResponse>> {
     let user = load_public_user(&state.pool, &slug).await?;
@@ -146,6 +168,45 @@ async fn get_public_profile(
     .fetch_one(&state.pool)
     .await?;
 
+    // Viewer-aware social block. Anonymous callers see no relationship; a
+    // viewer on their own profile gets `is_self` (the SPA hides the follow
+    // button for that case).
+    let viewer = auth::optional_user(&session).await?;
+    let (followers, following) = follow::counts(&state.pool, user.id).await?;
+    let (is_self, is_following, follows_viewer) = match viewer {
+        Some(v) if v == user.id => (true, false, false),
+        Some(v) => {
+            let (a, b) = follow::relationship(&state.pool, v, user.id).await?;
+            (false, a, b)
+        }
+        None => (false, false, false),
+    };
+
+    // Opt-in value, per currency, mirroring "La Cote" (manual `value_amount`
+    // when set, else catalog MSRP) and the profile's own NSFW preference.
+    let value: Vec<CurrencyTotal> = if user.public_profile_show_value {
+        sqlx::query_as(
+            "SELECT currency, SUM(amount)::numeric AS amount FROM (
+                SELECT CASE WHEN o.value_amount IS NOT NULL
+                            THEN COALESCE(o.value_currency, o.price_currency, f.msrp_currency)
+                            ELSE f.msrp_currency END           AS currency,
+                       COALESCE(o.value_amount, f.msrp_amount) AS amount
+                FROM owned_items o
+                JOIN figures f ON f.id = o.figure_id
+                WHERE o.user_id = $1 AND ($2 = FALSE OR f.is_nsfw = FALSE)
+             ) s
+             WHERE amount IS NOT NULL AND currency IS NOT NULL
+             GROUP BY currency
+             ORDER BY amount DESC",
+        )
+        .bind(user.id)
+        .bind(hide_nsfw)
+        .fetch_all(&state.pool)
+        .await?
+    } else {
+        Vec::new()
+    };
+
     Ok(Json(PublicProfileResponse {
         user: PublicUserCard {
             id: user.id,
@@ -157,6 +218,14 @@ async fn get_public_profile(
         },
         collection,
         stats,
+        social: SocialInfo {
+            followers,
+            following,
+            is_following,
+            follows_viewer,
+            is_self,
+        },
+        value,
     }))
 }
 
@@ -169,6 +238,9 @@ struct ProfilePatch {
     /// (the default), NSFW figures are excluded from the public listing
     /// and stats.
     public_profile_show_nsfw: Option<bool>,
+    /// Opt-in: expose the collection's value (La Cote) on the public profile
+    /// / discovery card. OFF by default.
+    public_profile_show_value: Option<bool>,
     nsfw_visibility: Option<String>,
     /// `Some("")` is treated as "clear the value" (revert to no preference).
     /// `Some("EUR")` etc. enforces the supported-currency whitelist below.
@@ -180,6 +252,7 @@ struct ProfilePatch {
 struct ProfileResponse {
     public_profile_enabled: bool,
     public_profile_show_nsfw: bool,
+    public_profile_show_value: bool,
     nsfw_visibility: String,
     preferred_currency: Option<String>,
 }
@@ -224,17 +297,20 @@ async fn patch_my_profile(
         Some(v) => (true, v),
     };
 
-    let row: (bool, bool, String, Option<String>) = sqlx::query_as(
+    let row: (bool, bool, bool, String, Option<String>) = sqlx::query_as(
         "UPDATE users SET
-            public_profile_enabled   = COALESCE($1, public_profile_enabled),
-            public_profile_show_nsfw = COALESCE($2, public_profile_show_nsfw),
-            nsfw_visibility          = COALESCE($3, nsfw_visibility),
-            preferred_currency       = CASE WHEN $4 THEN $5 ELSE preferred_currency END
-         WHERE id = $6
-         RETURNING public_profile_enabled, public_profile_show_nsfw, nsfw_visibility, preferred_currency",
+            public_profile_enabled    = COALESCE($1, public_profile_enabled),
+            public_profile_show_nsfw  = COALESCE($2, public_profile_show_nsfw),
+            public_profile_show_value = COALESCE($3, public_profile_show_value),
+            nsfw_visibility           = COALESCE($4, nsfw_visibility),
+            preferred_currency        = CASE WHEN $5 THEN $6 ELSE preferred_currency END
+         WHERE id = $7
+         RETURNING public_profile_enabled, public_profile_show_nsfw, public_profile_show_value,
+                   nsfw_visibility, preferred_currency",
     )
     .bind(input.public_profile_enabled)
     .bind(input.public_profile_show_nsfw)
+    .bind(input.public_profile_show_value)
     .bind(input.nsfw_visibility.as_deref())
     .bind(set_currency)
     .bind(currency_value.as_deref())
@@ -247,8 +323,9 @@ async fn patch_my_profile(
     Ok(Json(ProfileResponse {
         public_profile_enabled: row.0,
         public_profile_show_nsfw: row.1,
-        nsfw_visibility: row.2,
-        preferred_currency: row.3,
+        public_profile_show_value: row.2,
+        nsfw_visibility: row.3,
+        preferred_currency: row.4,
     }))
 }
 
