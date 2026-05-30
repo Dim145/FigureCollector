@@ -133,6 +133,9 @@ export default {
   "wishlist.edit_target": "Edit target price",
   "wishlist.remove": "Remove from wishlist",
   "wishlist.add": "Add to wishlist",
+  "wishlist.or": "or",
+  "catalog.mark.wished": "In your wishlist",
+  "catalog.mark.owned": "In your collection",
   "wishlist.empty": "Nothing on your wishlist yet.",
   "wishlist.empty_cta": "Browse the catalogue",
 

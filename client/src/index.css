@@ -715,6 +715,91 @@ kbd {
   text-decoration-thickness: 1px;
 }
 
+/* ─── Catalogue user-status markers (wished / owned). A single chip in the
+ *  card's top-right corner. Priority there is pre-order stamp > owned seal >
+ *  wished heart, so at most one element ever shows (see FigureCard). ─── */
+.fc-mark {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  line-height: 1;
+  background: color-mix(in oklab, var(--color-noir-deep) 78%, transparent);
+  backdrop-filter: blur(2px);
+  border: 1px solid;
+  box-shadow:
+    0 8px 14px -6px rgba(0, 0, 0, 0.75),
+    inset 0 1px 0 oklch(0.40 0.05 80 / 0.25);
+}
+.fc-mark--wished {
+  border-color: color-mix(in oklab, var(--color-laque-bright) 75%, transparent);
+  color: var(--color-laque-bright);
+}
+.fc-mark--owned {
+  border-color: color-mix(in oklab, var(--color-or) 70%, transparent);
+  color: var(--color-or);
+}
+
+/* ─── Prominent "add to wishlist" toggle on the figure detail page. Mirrors
+ *  the weight of the add-to-collection CTA; shown only when the piece isn't
+ *  already owned (the old buried action-cluster heart is gone). ─── */
+.wish-cta {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+  padding: 0.85rem 1rem;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  border: 1px solid;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.wish-cta:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.wish-cta-heart {
+  font-size: 15px;
+  line-height: 1;
+}
+.wish-cta--off {
+  border-color: color-mix(in oklab, var(--color-laque-bright) 45%, transparent);
+  color: var(--color-laque-bright);
+  background: color-mix(in oklab, var(--color-laque) 6%, transparent);
+}
+.wish-cta--off:hover {
+  background: color-mix(in oklab, var(--color-laque) 14%, transparent);
+  border-color: var(--color-laque-bright);
+}
+.wish-cta--on {
+  border-color: var(--color-laque-bright);
+  color: var(--color-ivoire);
+  background: color-mix(in oklab, var(--color-laque) 24%, transparent);
+}
+.wish-or {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 1.1rem 0;
+  font-size: 9px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--color-ivoire-soft);
+  opacity: 0.6;
+}
+.wish-or::before,
+.wish-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: color-mix(in oklab, var(--color-or) 18%, transparent);
+}
+
 /* ============================================================================
  * Filter tiles — kanji-faced rail used on /browse + /collection
  *

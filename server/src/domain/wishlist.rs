@@ -109,6 +109,23 @@ async fn find_one(pool: &PgPool, user_id: Uuid, figure_id: Uuid) -> AppResult<Wi
 /// updates its target price / note rather than erroring.
 pub async fn add(pool: &PgPool, user_id: Uuid, input: NewWishlistItem) -> AppResult<WishlistItem> {
     check_currency(&input.max_price_currency)?;
+
+    // "owned ≠ wishlist": a figure already in the user's collection can't be
+    // wished for. Only *active* ownership blocks it — an archived (cancelled)
+    // owned item leaves the user free to re-wish the piece.
+    let owned: Option<(Uuid,)> = sqlx::query_as(
+        "SELECT id FROM owned_items
+         WHERE user_id = $1 AND figure_id = $2 AND archived_at IS NULL
+         LIMIT 1",
+    )
+    .bind(user_id)
+    .bind(input.figure_id)
+    .fetch_optional(pool)
+    .await?;
+    if owned.is_some() {
+        return Err(AppError::Conflict("figure is already in your collection"));
+    }
+
     sqlx::query(
         "INSERT INTO wishlist_items (user_id, figure_id, max_price_amount, max_price_currency, note)
          VALUES ($1, $2, $3, $4, $5)

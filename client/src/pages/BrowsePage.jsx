@@ -3,7 +3,8 @@ import { Navigate } from "react-router-dom";
 import { useI18n, useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useFigureTypes } from "../hooks/useAdmin.js";
-import { useFigures } from "../hooks/useCollection.js";
+import { useFigures, useOwnedItems } from "../hooks/useCollection.js";
+import { useWishlistItems } from "../hooks/useWishlist.js";
 import AppShell from "../components/AppShell.jsx";
 import FigureCard from "../components/FigureCard.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
@@ -88,6 +89,20 @@ export default function BrowsePage() {
     q: debouncedQ.trim() || undefined,
     figure_type: type || undefined,
   });
+
+  // Per-user catalogue markers — derived from the already-cached wishlist and
+  // collection lists (no extra request). A card shows the gold "owned" seal or
+  // the laque "wished" heart in the badge corner (pre-order takes priority).
+  const wishlist = useWishlistItems();
+  const owned = useOwnedItems();
+  const wishedIds = useMemo(
+    () => new Set((wishlist.data ?? []).map((w) => w.figure_id)),
+    [wishlist.data],
+  );
+  const ownedIds = useMemo(
+    () => new Set((owned.data ?? []).map((o) => o.figure_id)),
+    [owned.data],
+  );
 
   // Per-type counts for the rail's superscript markers.
   const countsByType = useMemo(() => {
@@ -271,6 +286,8 @@ export default function BrowsePage() {
                   imageUrl={resolveFigureCover(f)}
                   scale={f.scale}
                   versionName={f.version_name}
+                  owned={ownedIds.has(f.id)}
+                  wished={wishedIds.has(f.id)}
                   blurImage={
                     f.is_nsfw &&
                     (me.data?.user?.nsfw_visibility ?? "hide") === "blur"

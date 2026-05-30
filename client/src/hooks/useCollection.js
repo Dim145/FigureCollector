@@ -83,7 +83,13 @@ export function useAddOwnedItem() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload) => api.post("/me/owned", payload),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["owned"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["owned"] });
+      // Owning a figure clears any matching wish server-side (owned ≠
+      // wishlist), so refresh the wishlist + the catalogue markers that
+      // derive from it.
+      qc.invalidateQueries({ queryKey: ["wishlist"] });
+    },
   });
 }
 

@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FigureCollector — Wishlist : marqueurs catalogue + bouton fiche (maquette)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300..600;1,300..500&family=Hanken+Grotesk:wght@300..700&family=JetBrains+Mono:wght@300..500&family=Noto+Serif+JP:wght@300..500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --font-display:"Cormorant Garamond",Georgia,serif; --font-sans:"Hanken Grotesk",system-ui,sans-serif;
+      --font-ja:"Noto Serif JP",serif; --font-mono:"JetBrains Mono",monospace;
+      --color-noir:oklch(0.14 0.005 50); --color-noir-soft:oklch(0.19 0.008 50); --color-noir-deep:oklch(0.10 0.004 50);
+      --color-laque:oklch(0.42 0.16 25); --color-laque-bright:oklch(0.55 0.20 25);
+      --color-or:oklch(0.78 0.10 80); --color-or-pale:oklch(0.88 0.06 80); --color-or-deep:oklch(0.60 0.10 80);
+      --color-ivoire:oklch(0.92 0.03 75); --color-ivoire-soft:oklch(0.92 0.03 75 / 0.8);
+      --color-jade:oklch(0.72 0.13 175); --color-indigo:oklch(0.58 0.15 275);
+      --ease-quick:cubic-bezier(0.22,1,0.36,1); --ease-curtain:cubic-bezier(0.16,1,0.3,1);
+      color-scheme:dark;
+    }
+    [data-theme="light"]{
+      color-scheme:light;
+      --color-noir:oklch(0.965 0.008 85); --color-noir-soft:oklch(0.995 0.004 85); --color-noir-deep:oklch(0.93 0.012 80);
+      --color-ivoire:oklch(0.26 0.02 55); --color-ivoire-soft:oklch(0.40 0.02 55 / 0.86);
+      --color-or:oklch(0.58 0.12 72); --color-or-pale:oklch(0.50 0.12 70); --color-or-deep:oklch(0.42 0.10 68);
+      --color-laque:oklch(0.50 0.19 25); --color-laque-bright:oklch(0.56 0.21 25);
+      --color-jade:oklch(0.55 0.13 175); --color-indigo:oklch(0.50 0.16 275);
+    }
+    *{box-sizing:border-box;}
+    html,body{margin:0;min-height:100%;}
+    body{font-family:var(--font-sans);background:var(--color-noir);color:var(--color-ivoire);-webkit-font-smoothing:antialiased;
+      background-image:radial-gradient(70% 60% at 30% 25%,oklch(0.78 0.10 80 / 0.09),transparent 65%),radial-gradient(55% 50% at 80% 85%,oklch(0.42 0.16 25 / 0.05),transparent 70%);background-attachment:fixed;}
+    .display{font-family:var(--font-display);font-weight:300;letter-spacing:-0.01em;line-height:1;}
+    .ja{font-family:var(--font-ja);}
+    .micro{font-family:var(--font-sans);font-size:10.5px;letter-spacing:0.3em;text-transform:uppercase;color:var(--color-or-pale);}
+    .gold-rule{height:1px;background:linear-gradient(to right,transparent,var(--color-or) 30%,var(--color-or) 70%,transparent);}
+    .anno{display:inline-flex;align-items:center;gap:0.45em;margin-left:0.6rem;padding:0.18em 0.6em;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--color-indigo);border:1px dashed color-mix(in oklab,var(--color-indigo) 55%,transparent);background:color-mix(in oklab,var(--color-indigo) 8%,transparent);vertical-align:middle;}
+    .tt{position:fixed;top:1rem;right:1rem;z-index:50;font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;padding:0.5rem 0.9rem;background:var(--color-noir-soft);border:1px solid color-mix(in oklab,var(--color-or) 30%,transparent);color:var(--color-or-pale);cursor:pointer;}
+
+    main{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:3.5rem 1.5rem 6rem;}
+    .head h1{margin:0.4rem 0 0;font-size:clamp(2rem,5vw,3rem);color:var(--color-ivoire);}
+    .head .rule{width:4rem;margin-top:1rem;}
+    .head p.lead{margin:1rem 0 0;max-width:44rem;line-height:1.6;color:var(--color-ivoire-soft);}
+    .sub{display:flex;align-items:center;gap:0.7rem;margin:3.5rem 0 1.4rem;}
+    .sub .k{font-family:var(--font-ja);font-size:1.2rem;color:color-mix(in oklab,var(--color-or) 70%,transparent);}
+    .sub .t{font-family:var(--font-display);font-size:1.6rem;color:var(--color-ivoire);}
+    .sub .ln{flex:1;height:1px;background:linear-gradient(to right,color-mix(in oklab,var(--color-or) 30%,transparent),transparent);}
+    .legend{display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:1.4rem;font-size:12px;color:var(--color-ivoire-soft);}
+    .legend b{color:var(--color-ivoire);font-weight:500;}
+
+    /* ════ FigureCard chrome — copied from client/src/index.css ════ */
+    .fc-card{--hue:var(--color-or);position:relative;background:var(--color-noir-soft);display:flex;flex-direction:column;height:100%;
+      border:1px solid color-mix(in oklab,var(--hue) 22%,transparent);
+      box-shadow:0 25px 60px -34px rgba(0,0,0,0.85),inset 0 1px 0 color-mix(in oklab,var(--color-ivoire) 5%,transparent);
+      background-image:radial-gradient(130% 80% at 50% -12%,color-mix(in oklab,var(--hue) 13%,transparent),transparent 58%);
+      transition:border-color 420ms var(--ease-quick),box-shadow 420ms var(--ease-quick),transform 520ms var(--ease-curtain);}
+    .fc-card:hover{transform:translateY(-5px);border-color:color-mix(in oklab,var(--hue) 60%,transparent);
+      box-shadow:0 38px 80px -32px color-mix(in oklab,var(--hue) 42%,transparent),0 0 0 1px color-mix(in oklab,var(--hue) 34%,transparent),0 0 36px -8px color-mix(in oklab,var(--hue) 30%,transparent);}
+    .hue-bar{position:absolute;top:0;left:0;right:0;height:2px;z-index:4;opacity:0.75;background:linear-gradient(90deg,transparent,var(--hue) 28%,var(--hue) 72%,transparent);}
+    .specimen-well{position:relative;aspect-ratio:4/5;overflow:hidden;isolation:isolate;
+      background:radial-gradient(circle at 30% 18%,var(--color-noir-soft) 0%,var(--color-noir-deep) 50%,var(--color-noir-deep) 100%);}
+    .specimen-well::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse 80% 60% at 25% 20%,oklch(0.92 0.05 80 / 0.10) 0%,transparent 60%);}
+    .well-kanji{position:absolute;right:8px;bottom:30px;font-size:7rem;line-height:1;color:color-mix(in oklab,var(--hue) 10%,transparent);z-index:1;user-select:none;}
+    .well-fig{position:absolute;inset:0;display:grid;place-items:center;z-index:2;font-size:3.5rem;opacity:0.9;}
+    .specimen-inscription{position:absolute;left:0;right:0;bottom:0;padding:0.55rem 0.85rem 0.65rem;display:flex;align-items:baseline;justify-content:space-between;font-family:var(--font-mono);font-size:9px;letter-spacing:0.22em;text-transform:uppercase;color:color-mix(in oklab,var(--color-or-pale) 65%,transparent);z-index:2;
+      background:linear-gradient(to top,color-mix(in oklab,var(--color-noir-deep) 85%,transparent) 0%,color-mix(in oklab,var(--color-noir-deep) 50%,transparent) 60%,transparent 100%);}
+
+    .label-plaque{display:inline-flex;align-items:center;gap:0.4em;padding:0.42em 0.85em 0.42em 0.7em;font-family:var(--font-display);font-weight:500;font-size:10.5px;letter-spacing:0.32em;text-transform:uppercase;color:oklch(0.16 0.01 60);position:relative;white-space:nowrap;
+      background:linear-gradient(155deg,oklch(0.88 0.10 80) 0%,var(--color-or) 38%,oklch(0.68 0.09 80) 100%);border:1px solid oklch(0.50 0.07 75);
+      box-shadow:inset 0 1px 0 oklch(0.96 0.06 85 / 0.8),inset 0 -1px 0 oklch(0.45 0.06 75 / 0.55),0 8px 14px -6px rgba(0,0,0,0.75);}
+    .label-plaque-kanji{font-family:var(--font-ja);font-size:13px;letter-spacing:0;line-height:1;padding-right:0.45em;margin-right:0.3em;border-right:1px solid oklch(0.40 0.06 75 / 0.5);color:oklch(0.20 0.02 60);}
+    .label-stamp{display:inline-flex;align-items:stretch;font-family:var(--font-display);font-weight:500;font-size:10.5px;letter-spacing:0.30em;text-transform:uppercase;color:var(--color-ivoire);background:var(--color-noir-deep);border:1px solid oklch(0.30 0.04 60);white-space:nowrap;box-shadow:0 8px 14px -6px rgba(0,0,0,0.75);}
+    .label-stamp::before{content:"";width:5px;background:linear-gradient(to bottom,var(--color-laque-bright) 0%,var(--color-laque) 60%,oklch(0.30 0.13 25) 100%);}
+    .label-stamp>span{padding:0.42em 0.85em 0.42em 0.7em;}
+    .label-stamp--gold::before{background:linear-gradient(to bottom,oklch(0.88 0.10 80) 0%,var(--color-or) 60%,oklch(0.62 0.09 80) 100%);}
+
+    /* ════ NEW — user-status markers, stacked above the pre-order stamp ════ */
+    .card-marks{position:absolute;top:12px;right:12px;z-index:3;display:flex;flex-direction:column;align-items:flex-end;gap:0.5rem;}
+    .fc-mark{width:30px;height:30px;display:grid;place-items:center;font-size:15px;line-height:1;
+      background:color-mix(in oklab,var(--color-noir-deep) 78%,transparent);backdrop-filter:blur(2px);border:1px solid;
+      box-shadow:0 8px 14px -6px rgba(0,0,0,0.75),inset 0 1px 0 oklch(0.40 0.05 80 / 0.25);}
+    .fc-mark--wished{border-color:color-mix(in oklab,var(--color-laque-bright) 75%,transparent);color:var(--color-laque-bright);}
+    .fc-mark--owned{border-color:color-mix(in oklab,var(--color-or) 70%,transparent);color:var(--color-or);}
+
+    .card-body{padding:1.25rem;flex:1;display:flex;flex-direction:column;}
+    .card-title{font-size:1.25rem;line-height:1.15;color:var(--color-ivoire);}
+    .card-body .gold-rule{width:2.5rem;opacity:0.6;margin:0.8rem 0;}
+    .card-specs{font-size:11px;letter-spacing:0.04em;color:var(--color-ivoire-soft);margin-top:auto;display:flex;justify-content:space-between;}
+    .card-specs dt{opacity:0.6;text-transform:uppercase;font-size:9.5px;letter-spacing:0.18em;}
+
+    .card-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1.5rem;}
+    .card-cap{margin-top:0.7rem;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--color-or-pale);opacity:0.8;text-align:center;}
+
+    /* ════ Detail-page right column (two states) ════ */
+    .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:2rem;}
+    @media(max-width:780px){.detail-grid{grid-template-columns:1fr;}}
+    .panel{border:1px solid color-mix(in oklab,var(--color-or) 16%,transparent);background:color-mix(in oklab,var(--color-noir-soft) 60%,transparent);padding:1.5rem;}
+    .panel-tag{font-family:var(--font-mono);font-size:9px;letter-spacing:0.24em;text-transform:uppercase;color:var(--color-or-pale);opacity:0.7;margin-bottom:1rem;}
+    .fig-title{font-family:var(--font-display);font-weight:300;font-size:2rem;color:var(--color-ivoire);line-height:1;margin:0 0 0.5rem;}
+    .fig-meta{font-size:12px;color:var(--color-ivoire-soft);margin-bottom:1.4rem;}
+
+    /* the NEW prominent wishlist CTA */
+    .wish-cta{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:0.6em;padding:0.85rem 1rem;font-family:var(--font-sans);font-size:11px;letter-spacing:0.2em;text-transform:uppercase;border:1px solid;cursor:pointer;transition:background .15s,border-color .15s,color .15s;}
+    .wish-cta .h{font-size:15px;line-height:1;}
+    .wish-cta--off{border-color:color-mix(in oklab,var(--color-laque-bright) 45%,transparent);color:var(--color-laque-bright);background:color-mix(in oklab,var(--color-laque) 6%,transparent);}
+    .wish-cta--off:hover{background:color-mix(in oklab,var(--color-laque) 14%,transparent);border-color:var(--color-laque-bright);}
+    .wish-cta--on{border-color:var(--color-laque-bright);color:var(--color-ivoire);background:color-mix(in oklab,var(--color-laque) 24%,transparent);}
+
+    .or-sep{display:flex;align-items:center;gap:0.8rem;margin:1.1rem 0;font-size:9px;letter-spacing:0.24em;text-transform:uppercase;color:var(--color-ivoire-soft);opacity:0.6;}
+    .or-sep::before,.or-sep::after{content:"";flex:1;height:1px;background:color-mix(in oklab,var(--color-or) 18%,transparent);}
+
+    /* faux add-to-collection form (sketch — exists already, unchanged) */
+    .addform{border:1px solid color-mix(in oklab,var(--color-or) 30%,transparent);background:color-mix(in oklab,var(--color-or) 3%,transparent);padding:1.1rem;}
+    .addform .micro{margin-bottom:0.8rem;display:block;}
+    .addform .field{height:38px;border:1px solid color-mix(in oklab,var(--color-or) 25%,transparent);background:var(--color-noir);margin-bottom:0.6rem;display:flex;align-items:center;padding:0 0.8rem;font-size:12px;color:var(--color-ivoire-soft);}
+    .btn-primary{width:100%;padding:0.8rem;background:var(--color-or);color:var(--color-noir);border:0;font-size:11px;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer;margin-top:0.4rem;}
+    .owned-confirm{display:flex;align-items:center;gap:0.75rem;padding:1rem 1.25rem;border:1px solid color-mix(in oklab,var(--color-or) 40%,transparent);background:color-mix(in oklab,var(--color-or) 5%,transparent);}
+    .owned-confirm .d{width:8px;height:8px;background:var(--color-or);transform:rotate(45deg);box-shadow:0 0 10px var(--color-or);}
+    .owned-note{margin-top:1rem;font-size:11px;line-height:1.6;color:var(--color-ivoire-soft);border-left:2px solid color-mix(in oklab,var(--color-or) 30%,transparent);padding-left:0.7rem;}
+
+    .footnote{margin-top:3.5rem;font-size:12px;color:var(--color-ivoire-soft);border-left:2px solid color-mix(in oklab,var(--color-indigo) 50%,transparent);padding-left:0.85rem;line-height:1.7;max-width:48rem;}
+    .footnote b{color:var(--color-ivoire);font-family:var(--font-display);font-size:1.05rem;}
+    code{font-family:var(--font-mono);font-size:0.9em;color:var(--color-or-pale);}
+  </style>
+</head>
+<body>
+  <button class="tt" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'">Thème</button>
+
+  <main>
+    <header class="head">
+      <p class="micro">Wishlist · retours</p>
+      <h1 class="display">Souhaits — plus visibles</h1>
+      <div class="gold-rule rule"></div>
+      <p class="lead">Trois ajustements : (1) un marqueur sur les cartes du catalogue, au coin du badge de pré-commande ; (2) un bouton « souhaits » bien visible sur la fiche, comme l'ajout à la collection ; (3) une figurine possédée ne peut plus être en souhaits.</p>
+    </header>
+
+    <!-- ───────── Section 1 : marqueurs catalogue ───────── -->
+    <div class="sub"><span class="k">蒐</span><span class="t">Catalogue — marqueurs au coin</span><span class="ln"></span></div>
+    <div class="legend">
+      <span><span class="fc-mark fc-mark--wished" style="display:inline-grid;width:22px;height:22px;font-size:12px;vertical-align:middle">♥</span> &nbsp;<b>Souhaitée</b> — dans ta wishlist (cœur laque)</span>
+      <span><span class="fc-mark fc-mark--owned" style="display:inline-grid;width:22px;height:22px;font-size:12px;vertical-align:middle">✓</span> &nbsp;<b>Possédée</b> — dans ta collection (sceau or)</span>
+    </div>
+
+    <div class="card-grid">
+      <!-- a) plain -->
+      <div>
+        <article class="fc-card" style="--hue:oklch(0.72 0.13 175)">
+          <span class="hue-bar"></span>
+          <div class="specimen-well"><span class="well-kanji ja">像</span><span class="well-fig">🗿</span>
+            <div style="position:absolute;top:12px;left:12px;z-index:3"><span class="label-plaque"><span class="label-plaque-kanji">像</span><span>Scale</span></span></div>
+            <div class="specimen-inscription"><span>nº 019E5B93</span><span>1/7</span></div>
+          </div>
+          <div class="card-body"><h3 class="card-title display">Rem · Wedding Ver.</h3><div class="gold-rule"></div><dl class="card-specs"><dt>Fabricant</dt><dd>Good Smile</dd></dl></div>
+        </article>
+        <p class="card-cap">neutre</p>
+      </div>
+
+      <!-- b) wished, no preorder -->
+      <div>
+        <article class="fc-card" style="--hue:oklch(0.58 0.15 275)">
+          <span class="hue-bar"></span>
+          <div class="specimen-well"><span class="well-kanji ja">動</span><span class="well-fig">🎎</span>
+            <div style="position:absolute;top:12px;left:12px;z-index:3"><span class="label-plaque"><span class="label-plaque-kanji">動</span><span>figma</span></span></div>
+            <div class="card-marks"><span class="fc-mark fc-mark--wished" title="Dans tes souhaits">♥</span></div>
+            <div class="specimen-inscription"><span>nº 02A1C7D0</span><span>—</span></div>
+          </div>
+          <div class="card-body"><h3 class="card-title display">Saber Alter</h3><div class="gold-rule"></div><dl class="card-specs"><dt>Fabricant</dt><dd>Max Factory</dd></dl></div>
+        </article>
+        <p class="card-cap">souhaitée</p>
+      </div>
+
+      <!-- c) owned, no preorder -->
+      <div>
+        <article class="fc-card" style="--hue:oklch(0.78 0.10 80)">
+          <span class="hue-bar"></span>
+          <div class="specimen-well"><span class="well-kanji ja">童</span><span class="well-fig">🧸</span>
+            <div style="position:absolute;top:12px;left:12px;z-index:3"><span class="label-plaque"><span class="label-plaque-kanji">童</span><span>Nendo</span></span></div>
+            <div class="card-marks"><span class="fc-mark fc-mark--owned" title="Dans ta collection">✓</span></div>
+            <div class="specimen-inscription"><span>nº 03B2D8E1</span><span>—</span></div>
+          </div>
+          <div class="card-body"><h3 class="card-title display">Hatsune Miku</h3><div class="gold-rule"></div><dl class="card-specs"><dt>Fabricant</dt><dd>GSC</dd></dl></div>
+        </article>
+        <p class="card-cap">possédée</p>
+      </div>
+
+      <!-- d) wished + preorder stamp -->
+      <div>
+        <article class="fc-card" style="--hue:oklch(0.65 0.18 25)">
+          <span class="hue-bar"></span>
+          <div class="specimen-well"><span class="well-kanji ja">彫</span><span class="well-fig">⛩️</span>
+            <div style="position:absolute;top:12px;left:12px;z-index:3"><span class="label-plaque"><span class="label-plaque-kanji">彫</span><span>Statue</span></span></div>
+            <div class="card-marks">
+              <span class="label-stamp"><span>Pré-commande</span></span>
+            </div>
+            <div class="specimen-inscription"><span>nº 04C3E9F2</span><span>1/4</span></div>
+          </div>
+          <div class="card-body"><h3 class="card-title display">Asuka Langley</h3><div class="gold-rule"></div><dl class="card-specs"><dt>Fabricant</dt><dd>Kotobukiya</dd></dl></div>
+        </article>
+        <p class="card-cap">souhaitée → la pré-commande gagne (cœur masqué)</p>
+      </div>
+
+      <!-- e) owned + imminent stamp -->
+      <div>
+        <article class="fc-card" style="--hue:oklch(0.72 0.13 175)">
+          <span class="hue-bar"></span>
+          <div class="specimen-well"><span class="well-kanji ja">賞</span><span class="well-fig">🏆</span>
+            <div style="position:absolute;top:12px;left:12px;z-index:3"><span class="label-plaque"><span class="label-plaque-kanji">賞</span><span>Prize</span></span></div>
+            <div class="card-marks">
+              <span class="label-stamp label-stamp--gold"><span>Imminent</span></span>
+            </div>
+            <div class="specimen-inscription"><span>nº 05D4F0A3</span><span>—</span></div>
+          </div>
+          <div class="card-body"><h3 class="card-title display">Megumin</h3><div class="gold-rule"></div><dl class="card-specs"><dt>Fabricant</dt><dd>Taito</dd></dl></div>
+        </article>
+        <p class="card-cap">possédée → l'imminent gagne (sceau masqué)</p>
+      </div>
+    </div>
+
+    <!-- ───────── Section 2 : bouton souhaits sur la fiche ───────── -->
+    <div class="sub"><span class="k">望</span><span class="t">Fiche — bouton « souhaits » bien visible</span><span class="ln"></span></div>
+    <div class="detail-grid">
+      <!-- not owned: wishlist CTA + add-to-collection -->
+      <div class="panel">
+        <p class="panel-tag">Pas encore possédée</p>
+        <h2 class="fig-title">Saber Alter</h2>
+        <p class="fig-meta">Max Factory · 1/7 · figma</p>
+
+        <!-- NEW prominent toggle, just above the existing collection form -->
+        <button class="wish-cta wish-cta--off"><span class="h">♡</span> Ajouter à mes souhaits</button>
+        <div class="or-sep">ou</div>
+        <div class="addform">
+          <span class="micro">Ajouter à ma collection</span>
+          <div class="field">Prix payé — 12 800 JPY</div>
+          <div class="field">État — Neuf scellé</div>
+          <button class="btn-primary">Ajouter à la collection</button>
+        </div>
+        <p class="owned-note" style="border-color:color-mix(in oklab,var(--color-laque-bright) 40%,transparent)">État « déjà souhaitée » : le bouton devient <span style="color:var(--color-laque-bright)">♥ Dans mes souhaits · retirer</span> (variante remplie ci-dessous).</p>
+        <button class="wish-cta wish-cta--on" style="margin-top:0.7rem"><span class="h">♥</span> Dans mes souhaits · retirer</button>
+      </div>
+
+      <!-- owned: NO wishlist button -->
+      <div class="panel">
+        <p class="panel-tag">Déjà dans la collection</p>
+        <h2 class="fig-title">Hatsune Miku</h2>
+        <p class="fig-meta">GSC · Nendoroid</p>
+        <div class="owned-confirm"><span class="d"></span><p class="micro" style="margin:0">Déjà dans ta collection</p></div>
+        <p class="owned-note">Aucun bouton « souhaits » ici <span class="anno">règle owned ≠ wishlist</span><br>Ajouter à la collection retire automatiquement la figurine des souhaits, et l'API refuse d'ajouter aux souhaits une pièce possédée.</p>
+      </div>
+    </div>
+
+    <p class="footnote"><b>Côté technique.</b> Au coin de la carte : un seul élément, priorité <b style="font-size:1em">Pré-commande > Possédée > Souhaitée</b>. Marqueurs dérivés côté client des listes déjà chargées (<code>/me/wishlist</code> + <code>/me/owned</code>) — aucune requête en plus. Règle owned≠wishlist appliquée au backend Rust : <code>owned::create</code> supprime l'entrée wishlist correspondante, et <code>POST /me/wishlist</code> refuse une figurine possédée. Un nettoyage unique retire les chevauchements déjà en base.</p>
+  </main>
+</body>
+</html>

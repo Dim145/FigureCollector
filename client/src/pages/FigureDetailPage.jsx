@@ -254,7 +254,6 @@ function HeroSection({
 
             <ActionCluster
               canEdit={canEdit}
-              figureId={f.id}
               onEdit={onEdit}
               onDelete={onDelete}
               onShare={onShare}
@@ -294,11 +293,15 @@ function HeroSection({
             {alreadyOwned ? (
               <OwnedConfirmation t={t} />
             ) : (
-              <AddToCollectionForm
-                figureId={f.id}
-                catalogMsrp={f.msrp_amount}
-                catalogCurrency={f.msrp_currency}
-              />
+              <>
+                <WishlistCta figureId={f.id} t={t} />
+                <div className="wish-or">{t("wishlist.or")}</div>
+                <AddToCollectionForm
+                  figureId={f.id}
+                  catalogMsrp={f.msrp_amount}
+                  catalogCurrency={f.msrp_currency}
+                />
+              </>
             )}
           </div>
         </div>
@@ -307,7 +310,7 @@ function HeroSection({
   );
 }
 
-function ActionCluster({ canEdit, figureId, onEdit, onDelete, onShare, t }) {
+function ActionCluster({ canEdit, onEdit, onDelete, onShare, t }) {
   return (
     <div className="fig-actions reveal" style={{ "--i": 2 }}>
       <button
@@ -318,7 +321,6 @@ function ActionCluster({ canEdit, figureId, onEdit, onDelete, onShare, t }) {
       >
         <span className="fig-actions-icon" aria-hidden>↗</span>
       </button>
-      <WishlistButton figureId={figureId} t={t} />
       {canEdit ? (
         <>
           <button
@@ -344,30 +346,30 @@ function ActionCluster({ canEdit, figureId, onEdit, onDelete, onShare, t }) {
   );
 }
 
-/** Heart toggle that adds/removes the figure from the user's wishlist. */
-function WishlistButton({ figureId, t }) {
+/** Prominent wishlist toggle shown in place of the old buried action-cluster
+ *  heart. Rendered only when the piece isn't already owned (owned ≠ wishlist),
+ *  so adding to the collection — which clears any wish server-side — simply
+ *  removes this control on the next render. */
+function WishlistCta({ figureId, t }) {
   const wishlist = useWishlistItems();
   const add = useAddWishlistItem();
   const remove = useRemoveWishlistItem();
   const wished = (wishlist.data ?? []).some((w) => w.figure_id === figureId);
   const busy = add.isPending || remove.isPending;
-  const label = wished ? t("wishlist.remove") : t("wishlist.add");
   return (
     <button
       type="button"
-      onClick={() => (wished ? remove.mutate(figureId) : add.mutate({ figure_id: figureId }))}
+      onClick={() =>
+        wished ? remove.mutate(figureId) : add.mutate({ figure_id: figureId })
+      }
       disabled={busy}
-      title={label}
-      aria-label={label}
       aria-pressed={wished}
+      className={`wish-cta ${wished ? "wish-cta--on" : "wish-cta--off"}`}
     >
-      <span
-        className="fig-actions-icon"
-        aria-hidden
-        style={wished ? { color: "var(--color-laque-bright)" } : undefined}
-      >
+      <span className="wish-cta-heart" aria-hidden>
         {wished ? "♥" : "♡"}
       </span>
+      {wished ? t("wishlist.remove") : t("wishlist.add")}
     </button>
   );
 }

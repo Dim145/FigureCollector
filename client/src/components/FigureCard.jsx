@@ -31,6 +31,10 @@ export default function FigureCard({
   versionName,
   badge,
   href,
+  /** Viewer already owns this figure (shows the gold seal). */
+  owned = false,
+  /** Viewer has wished this figure (shows the laque heart). */
+  wished = false,
   /** When true, applies a CSS blur on the cover image (NSFW + viewer pref=blur). */
   blurImage = false,
 }) {
@@ -139,10 +143,34 @@ export default function FigureCard({
           </span>
         </div>
 
-        {/* Stamp — lifecycle / status, when present */}
+        {/* Top-right corner — a SINGLE status element. Priority:
+         *  pre-order stamp > owned seal > wished heart. The corner never
+         *  stacks: a pre-order badge hides the user markers, and owning a
+         *  figure outranks wishing it (the two are mutually exclusive anyway,
+         *  enforced server-side). */}
         {badge ? (
           <div className="absolute top-3 right-3 z-[3]">
             <StatusStamp badge={badge} />
+          </div>
+        ) : owned ? (
+          <div className="absolute top-3 right-3 z-[3]">
+            <span
+              className="fc-mark fc-mark--owned"
+              title={t("catalog.mark.owned")}
+              aria-label={t("catalog.mark.owned")}
+            >
+              ✓
+            </span>
+          </div>
+        ) : wished ? (
+          <div className="absolute top-3 right-3 z-[3]">
+            <span
+              className="fc-mark fc-mark--wished"
+              title={t("catalog.mark.wished")}
+              aria-label={t("catalog.mark.wished")}
+            >
+              ♥
+            </span>
           </div>
         ) : null}
 

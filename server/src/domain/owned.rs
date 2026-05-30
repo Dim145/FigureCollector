@@ -175,7 +175,7 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewOwnedItem) -> AppRes
          RETURNING {OWNED_RETURNING}"
     );
 
-    sqlx::query_as(&sql)
+    let item: OwnedItem = sqlx::query_as(&sql)
         .bind(id)
         .bind(user_id)
         .bind(input.figure_id)
@@ -194,7 +194,26 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewOwnedItem) -> AppRes
                 AppError::BadRequest("figure_id does not exist")
             }
             other => AppError::Db(other),
-        })
+        })?;
+
+    // Owning a figure clears any standing wish for it — you can't wish for
+    // what you already have (the "owned ≠ wishlist" rule). Best-effort: the
+    // collection insert above already succeeded, so a hiccup clearing the
+    // wishlist must never fail the whole add.
+    if let Err(e) =
+        sqlx::query("DELETE FROM wishlist_items WHERE user_id = $1 AND figure_id = $2")
+            .bind(user_id)
+            .bind(input.figure_id)
+            .execute(pool)
+            .await
+    {
+        tracing::warn!(
+            error = ?e, %user_id, figure_id = %input.figure_id,
+            "failed to clear wishlist entry after collection add",
+        );
+    }
+
+    Ok(item)
 }
 
 pub async fn patch(

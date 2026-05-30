@@ -45,6 +45,7 @@ mod m20260530_000002_owned_item_sort_order;
 mod m20260530_000003_scan_progress_notify;
 mod m20260530_000004_follows;
 mod m20260530_000005_notification_prefs;
+mod m20260530_000006_wishlist_drop_owned;
 
 pub struct Migrator;
 
@@ -85,6 +86,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260530_000003_scan_progress_notify::Migration),
             Box::new(m20260530_000004_follows::Migration),
             Box::new(m20260530_000005_notification_prefs::Migration),
+            Box::new(m20260530_000006_wishlist_drop_owned::Migration),
         ]
     }
 }
