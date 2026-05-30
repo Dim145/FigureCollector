@@ -196,6 +196,40 @@ const FIGURE_NAME_PROJECTION: &str =
        s.name  AS series_name,       s.slug  AS series_slug, \
        c.name  AS character_name,    c.slug  AS character_slug";
 
+/// Find catalogue figures that look like a duplicate of one being created: an
+/// exact JAN match (strong signal) and/or name ILIKE matches (soft). Returns at
+/// most 6 rows, the JAN match first. The caller marks each row's "reason" by
+/// comparing its `jan` to the value being entered.
+pub async fn find_duplicates(
+    pool: &PgPool,
+    name: &str,
+    jan: Option<&str>,
+    exclude_nsfw: bool,
+) -> AppResult<Vec<Figure>> {
+    let name = name.trim();
+    let jan = jan.map(str::trim).filter(|s| !s.is_empty());
+    if name.chars().count() < 3 && jan.is_none() {
+        return Ok(vec![]);
+    }
+    let sql = format!(
+        "SELECT {FIGURE_COLUMNS_PREFIXED}{FIGURE_NAME_PROJECTION}
+         FROM figures f {FIGURE_NAME_JOINS}
+         WHERE (
+             ($2::text IS NOT NULL AND f.jan = $2)
+             OR (length($1) >= 3 AND f.name ILIKE '%' || $1 || '%')
+         ){nsfw}
+         ORDER BY (CASE WHEN $2::text IS NOT NULL AND f.jan = $2 THEN 0 ELSE 1 END),
+                  f.created_at DESC
+         LIMIT 6",
+        nsfw = if exclude_nsfw { " AND NOT f.is_nsfw" } else { "" },
+    );
+    Ok(sqlx::query_as::<_, Figure>(&sql)
+        .bind(name)
+        .bind(jan)
+        .fetch_all(pool)
+        .await?)
+}
+
 pub async fn create(pool: &PgPool, created_by: Uuid, input: NewFigure) -> AppResult<Figure> {
     // figure_type validation lives in the `figure_types` table now — admins
     // can add new types without a code change.

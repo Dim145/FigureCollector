@@ -31,6 +31,7 @@ pub mod scans;
 pub mod stats;
 pub mod stores;
 pub mod web_push;
+pub mod wishlist;
 pub mod ws;
 
 pub fn build_router(state: AppState) -> Router {
@@ -97,6 +98,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(entities::router())
         .merge(owned::router())
         .merge(location::router())
+        .merge(wishlist::router())
         .merge(preorders::router())
         .merge(profile::router())
         .merge(external::router())

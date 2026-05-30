@@ -168,6 +168,31 @@ pub fn parse_item_html(mfc_id: i64, html: &str) -> AppResult<MfcItem> {
     Ok(item)
 }
 
+/// Parse MFC item HTML pasted by the user — the "import-by-paste" path that
+/// sidesteps the Cloudflare wall (no fetch, just parse what the user copied).
+/// Extracts the item id from the markup when present so the imported figure
+/// can carry its `mfc_id`.
+pub fn parse_pasted(html: &str) -> AppResult<MfcItem> {
+    let mfc_id = extract_mfc_id(html).unwrap_or(0);
+    parse_item_html(mfc_id, html)
+}
+
+/// Best-effort extraction of the MFC item id from a pasted page — finds the
+/// first `.../item/<digits>` occurrence (canonical URL, og:url, breadcrumb…).
+fn extract_mfc_id(html: &str) -> Option<i64> {
+    const NEEDLE: &str = "/item/";
+    let mut from = 0;
+    while let Some(pos) = html[from..].find(NEEDLE) {
+        let start = from + pos + NEEDLE.len();
+        let digits: String = html[start..].chars().take_while(|c| c.is_ascii_digit()).collect();
+        if let Ok(id) = digits.parse::<i64>() {
+            return Some(id);
+        }
+        from = start + 1;
+    }
+    None
+}
+
 fn select_text(doc: &Html, sel: &str) -> Option<String> {
     let s = Selector::parse(sel).ok()?;
     doc.select(&s)

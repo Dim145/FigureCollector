@@ -18,6 +18,7 @@ const RegisterPage         = lazy(() => import("./pages/RegisterPage.jsx"));
 const CollectionPage       = lazy(() => import("./pages/CollectionPage.jsx"));
 const CotePage             = lazy(() => import("./pages/CotePage.jsx"));
 const VitrinesPage         = lazy(() => import("./pages/VitrinesPage.jsx"));
+const WishlistPage         = lazy(() => import("./pages/WishlistPage.jsx"));
 const AddFigurePage        = lazy(() => import("./pages/AddFigurePage.jsx"));
 const FigureDetailPage     = lazy(() => import("./pages/FigureDetailPage.jsx"));
 const PreordersPage        = lazy(() => import("./pages/PreordersPage.jsx"));
@@ -87,6 +88,7 @@ export default function App() {
             <Route path="/collection" element={<CollectionPage />} />
             <Route path="/cote" element={<CotePage />} />
             <Route path="/vitrines" element={<VitrinesPage />} />
+            <Route path="/souhaits" element={<WishlistPage />} />
             <Route path="/browse" element={<BrowsePage />} />
             <Route path="/figures/new" element={<AddFigurePage />} />
             <Route path="/figures/:id" element={<FigureDetailPage />} />

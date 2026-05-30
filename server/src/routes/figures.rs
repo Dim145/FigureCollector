@@ -11,8 +11,35 @@ use axum::{
     http::StatusCode,
     routing::get,
 };
+use serde::Deserialize;
 use tower_sessions::Session;
 use uuid::Uuid;
+
+#[derive(Debug, Deserialize)]
+struct DuplicateQuery {
+    name: Option<String>,
+    jan: Option<String>,
+}
+
+/// Live duplicate check for the create form: figures already in the catalogue
+/// matching by JAN (strong) or name (soft). The SPA derives the per-row reason.
+async fn duplicates(
+    State(state): State<AppState>,
+    session: Session,
+    Query(q): Query<DuplicateQuery>,
+) -> AppResult<Json<Vec<figure::Figure>>> {
+    let viewer = auth::require_user_full(&session, &state.pool).await.ok();
+    let exclude = viewer
+        .as_ref()
+        .map(|u| u.nsfw_visibility.as_str())
+        .unwrap_or("hide")
+        == "hide";
+    let name = q.name.unwrap_or_default();
+    let jan = q.jan.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    Ok(Json(
+        figure::find_duplicates(&state.pool, &name, jan, exclude).await?,
+    ))
+}
 
 async fn list(
     State(state): State<AppState>,
@@ -116,6 +143,7 @@ async fn list_figure_types(
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/figures", get(list).post(create))
+        .route("/figures/duplicates", get(duplicates))
         .route(
             "/figures/{id}",
             get(get_one)

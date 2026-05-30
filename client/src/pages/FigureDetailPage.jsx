@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useIsAdmin, useMe } from "../hooks/useMe.js";
 import { useFigure, useOwnedItems } from "../hooks/useCollection.js";
+import { useWishlistItems, useAddWishlistItem, useRemoveWishlistItem } from "../hooks/useWishlist.js";
 import { useDeleteFigure } from "../hooks/useAdmin.js";
 import { useStoresForFigure } from "../hooks/useStores.js";
 import { ApiError } from "../lib/api.js";
@@ -252,6 +253,7 @@ function HeroSection({
 
             <ActionCluster
               canEdit={canEdit}
+              figureId={f.id}
               onEdit={onEdit}
               onDelete={onDelete}
               onShare={onShare}
@@ -304,7 +306,7 @@ function HeroSection({
   );
 }
 
-function ActionCluster({ canEdit, onEdit, onDelete, onShare, t }) {
+function ActionCluster({ canEdit, figureId, onEdit, onDelete, onShare, t }) {
   return (
     <div className="fig-actions reveal" style={{ "--i": 2 }}>
       <button
@@ -315,6 +317,7 @@ function ActionCluster({ canEdit, onEdit, onDelete, onShare, t }) {
       >
         <span className="fig-actions-icon" aria-hidden>↗</span>
       </button>
+      <WishlistButton figureId={figureId} t={t} />
       {canEdit ? (
         <>
           <button
@@ -337,6 +340,34 @@ function ActionCluster({ canEdit, onEdit, onDelete, onShare, t }) {
         </>
       ) : null}
     </div>
+  );
+}
+
+/** Heart toggle that adds/removes the figure from the user's wishlist. */
+function WishlistButton({ figureId, t }) {
+  const wishlist = useWishlistItems();
+  const add = useAddWishlistItem();
+  const remove = useRemoveWishlistItem();
+  const wished = (wishlist.data ?? []).some((w) => w.figure_id === figureId);
+  const busy = add.isPending || remove.isPending;
+  const label = wished ? t("wishlist.remove") : t("wishlist.add");
+  return (
+    <button
+      type="button"
+      onClick={() => (wished ? remove.mutate(figureId) : add.mutate({ figure_id: figureId }))}
+      disabled={busy}
+      title={label}
+      aria-label={label}
+      aria-pressed={wished}
+    >
+      <span
+        className="fig-actions-icon"
+        aria-hidden
+        style={wished ? { color: "var(--color-laque-bright)" } : undefined}
+      >
+        {wished ? "♥" : "♡"}
+      </span>
+    </button>
   );
 }
 

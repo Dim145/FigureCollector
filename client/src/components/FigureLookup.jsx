@@ -36,6 +36,7 @@ export default function FigureLookup({ initial = "", onPick }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [mfcNotice, setMfcNotice] = useState(null);
+  const [mfcOpen, setMfcOpen] = useState(false);
   const inputRef = useRef(null);
   // Boutique proxy gate. `enabled` flips to true once the proxy is
   // configured AND its `/stores` endpoint returns at least one store.
@@ -307,6 +308,14 @@ export default function FigureLookup({ initial = "", onPick }) {
             : t("lookup.figure.paste_hint")}
         </p>
 
+        <button
+          type="button"
+          onClick={() => setMfcOpen(true)}
+          className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors mb-3 inline-block"
+        >
+          ↳ {t("mfc.open")}
+        </button>
+
         {ORZGK_URL_RE.test(query.trim()) ? (
           // URL paste mode — keep the panel quiet, the modal does the work.
           <p className="text-xs text-[var(--color-or-pale)] italic">
@@ -372,6 +381,13 @@ export default function FigureLookup({ initial = "", onPick }) {
           t={t}
         />
       ) : null}
+
+      <MfcPasteModal
+        open={mfcOpen}
+        onClose={() => setMfcOpen(false)}
+        onApply={applyPick}
+        t={t}
+      />
     </>
   );
 }
@@ -950,6 +966,186 @@ function legacyPick(row, t) {
       : undefined,
     source_url: row.detail_url,
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MFC import-by-paste — paste the page HTML, parse server-side, prefill.
+
+const MFC_MONTHS = {
+  january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
+  july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,
+};
+
+/** Best-effort normalise MFC's raw release-date text to ISO `YYYY-MM-DD`:
+ *  "December 2024" / "2024-08" / "2024/08/15" / "2024". Unparseable → undefined
+ *  (left blank for the user). */
+function mfcDate(raw) {
+  if (!raw) return undefined;
+  const s = String(raw).trim();
+  const month = s.match(/^([A-Za-z]+)\s+(\d{4})$/);
+  if (month) {
+    const mo = MFC_MONTHS[month[1].toLowerCase()];
+    if (mo) return `${month[2]}-${pad2(mo)}-01`;
+  }
+  const iso = s.match(/^(\d{4})[-/](\d{1,2})(?:[-/](\d{1,2}))?$/);
+  if (iso) return `${iso[1]}-${pad2(iso[2])}-${pad2(iso[3] ?? "01")}`;
+  const year = s.match(/^(\d{4})$/);
+  if (year) return `${year[1]}-01-01`;
+  return undefined;
+}
+
+/** Map a parsed MfcItem to the figure-form prefill payload. */
+function mapMfcItem(item) {
+  return {
+    name: item.name || undefined,
+    manufacturer_name: item.manufacturer || undefined,
+    sculptor_name: item.sculptor || undefined,
+    series_name: item.origin || undefined,
+    character_name: item.character || undefined,
+    figure_type: mapType(item.category),
+    scale: item.scale || undefined,
+    height_mm: item.height_mm != null ? String(item.height_mm) : undefined,
+    materials: item.materials?.length ? item.materials.join(", ") : undefined,
+    official_image_url: item.official_image_url || undefined,
+    jan: item.jan || undefined,
+    msrp_amount: item.release_price_jpy != null ? String(item.release_price_jpy) : undefined,
+    msrp_currency: item.release_price_jpy != null ? "JPY" : undefined,
+    release_date: mfcDate(item.release_date),
+  };
+}
+
+function MfcPasteModal({ open, onClose, onApply, t }) {
+  const [html, setHtml] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const [item, setItem] = useState(null);
+
+  useEffect(() => {
+    if (!open) {
+      setHtml("");
+      setItem(null);
+      setError(null);
+      setBusy(false);
+    }
+  }, [open]);
+  useEffect(() => {
+    const h = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  if (!open) return null;
+
+  const analyse = () => {
+    setBusy(true);
+    setError(null);
+    api.post("/external/mfc/parse", { html }).then(
+      (it) => {
+        setItem(it);
+        setBusy(false);
+      },
+      (e) => {
+        setError(e?.message ?? "parse failed");
+        setBusy(false);
+      },
+    );
+  };
+
+  const rows = item
+    ? [
+        ["name", item.name],
+        ["manufacturer", item.manufacturer],
+        ["sculptor", item.sculptor],
+        ["scale", item.scale],
+        ["release", item.release_date],
+        ["price", item.release_price_jpy != null ? `${item.release_price_jpy} ¥` : null],
+        ["jan", item.jan],
+      ].filter(([, v]) => !!v)
+    : [];
+
+  return (
+    <div
+      role="dialog"
+      aria-modal
+      onClick={onClose}
+      className="fixed inset-0 z-50 grid place-items-center bg-[var(--color-noir)]/85 backdrop-blur-sm p-4"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-[var(--color-noir-soft)] border border-[var(--color-or)]/40 w-[95vw] max-w-lg flex flex-col frame-corners"
+        style={{ boxShadow: "0 60px 120px -50px rgba(0,0,0,0.85)" }}
+      >
+        <header className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--color-or)]/20">
+          <h2 className="display text-xl text-[var(--color-ivoire)]">
+            <span className="ja text-[var(--color-or-pale)] mr-2">輸</span>
+            {t("mfc.title")}
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t("editor.cancel")}
+            className="text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] text-xl leading-none"
+          >
+            ✕
+          </button>
+        </header>
+        <div className="px-5 py-4">
+          {!item ? (
+            <>
+              <p className="text-[11px] leading-relaxed text-[var(--color-ivoire-soft)] border-l-2 border-[var(--color-or)]/35 pl-2.5 mb-3">
+                {t("mfc.note")}
+              </p>
+              <textarea
+                value={html}
+                onChange={(e) => setHtml(e.target.value)}
+                placeholder={t("mfc.textarea_ph")}
+                className="w-full h-40 resize-none bg-[var(--color-noir-deep)] border border-[var(--color-or)]/22 text-[var(--color-ivoire-soft)] font-mono text-[11px] p-2.5 outline-none focus:border-[var(--color-or)]"
+              />
+              {error ? (
+                <p role="alert" className="mt-2 text-xs text-[var(--color-laque-bright)]">
+                  {error}
+                </p>
+              ) : null}
+              <div className="flex justify-end gap-2 mt-3">
+                <Button variant="ghost" type="button" onClick={onClose}>
+                  {t("editor.cancel")}
+                </Button>
+                <Button variant="primary" type="button" loading={busy} disabled={!html.trim()} onClick={analyse}>
+                  {t("mfc.analyse")}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-[var(--color-jade)] mb-3">
+                ✓ {t("mfc.parsed", { id: item.mfc_id || "?" })}
+              </p>
+              <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
+                {rows.map(([k, v]) => (
+                  <div key={k} className="contents">
+                    <dt className="text-[9px] uppercase tracking-[0.16em] text-[var(--color-or-pale)] self-center">
+                      {t(`mfc.field.${k}`)}
+                    </dt>
+                    <dd className="m-0 font-mono text-[12px] text-[var(--color-ivoire)] truncate">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="ghost" type="button" onClick={() => setItem(null)}>
+                  {t("mfc.recoller")}
+                </Button>
+                <Button variant="primary" type="button" onClick={() => onApply(mapMfcItem(item))}>
+                  {t("mfc.prefill")}
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /** Extract a lowercase hostname (without the `www.` prefix) from a

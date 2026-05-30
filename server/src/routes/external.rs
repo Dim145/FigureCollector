@@ -9,7 +9,7 @@ use crate::state::AppState;
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
-    routing::get,
+    routing::{get, post},
 };
 use serde::Deserialize;
 use tower_sessions::Session;
@@ -109,6 +109,29 @@ async fn mfc_search(
         "MFC search needs a working fetcher (Cloudflare blocks direct HTTP). \
          Wire one in `external::mfc::fetch_item_html` and update this route.",
     ))
+}
+
+#[derive(Deserialize)]
+struct MfcParseBody {
+    html: String,
+}
+
+/// Import-by-paste: parse MFC item HTML the user pasted (sidesteps the
+/// Cloudflare wall — no fetch). Returns the normalised item to prefill the
+/// figure form.
+async fn mfc_parse(
+    State(_state): State<AppState>,
+    session: Session,
+    Json(body): Json<MfcParseBody>,
+) -> AppResult<Json<mfc::MfcItem>> {
+    auth::require_user(&session).await?;
+    if body.html.trim().is_empty() {
+        return Err(AppError::BadRequest("paste the MFC page HTML"));
+    }
+    if body.html.len() > 4_000_000 {
+        return Err(AppError::BadRequest("pasted HTML too large (max 4 MB)"));
+    }
+    Ok(Json(mfc::parse_pasted(&body.html)?))
 }
 
 async fn orzgk_search(
@@ -311,6 +334,7 @@ pub fn router() -> Router<AppState> {
         .route("/external/anilist/{id}", get(anilist_get))
         .route("/external/anilist/character/{id}", get(anilist_character_get))
         .route("/external/mfc/search", get(mfc_search))
+        .route("/external/mfc/parse", post(mfc_parse))
         .route("/external/mfc/{id}", get(mfc_get))
         .route("/external/orzgk/search", get(orzgk_search))
         .route("/external/orzgk/detail", get(orzgk_detail))

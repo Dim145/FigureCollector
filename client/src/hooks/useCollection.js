@@ -50,6 +50,22 @@ export function useCreateFigure() {
   });
 }
 
+/** Live duplicate check for the create form — catalogue figures matching by
+ *  JAN (strong) or name (soft). Disabled until there's something to match on. */
+export function useFigureDuplicates(name, jan, { enabled = true } = {}) {
+  const n = (name ?? "").trim();
+  const j = (jan ?? "").trim();
+  const search = new URLSearchParams();
+  if (n) search.set("name", n);
+  if (j) search.set("jan", j);
+  return useQuery({
+    queryKey: ["figure-duplicates", n, j],
+    queryFn: () => api.get(`/figures/duplicates?${search.toString()}`),
+    enabled: enabled && (n.length >= 3 || j.length >= 6),
+    staleTime: 15_000,
+  });
+}
+
 // ----- Owned items (collection) ---------------------------------------------
 
 export function useOwnedItems({ enabled = true, includeArchived = false } = {}) {

@@ -15,4 +15,5 @@ pub mod preorder;
 pub mod scan;
 pub mod stats;
 pub mod store;
+pub mod wishlist;
 pub mod worker;

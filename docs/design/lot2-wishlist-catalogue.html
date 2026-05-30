@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FigureCollector — Lot 2 · Wishlist & Catalogue (maquette)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300..600;1,300..500&family=Hanken+Grotesk:wght@300..700&family=JetBrains+Mono:wght@300..500&family=Noto+Serif+JP:wght@300..500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --font-display:"Cormorant Garamond",Georgia,serif; --font-sans:"Hanken Grotesk",system-ui,sans-serif;
+      --font-ja:"Noto Serif JP",serif; --font-mono:"JetBrains Mono",monospace;
+      --color-noir:oklch(0.14 0.005 50); --color-noir-soft:oklch(0.19 0.008 50); --color-noir-deep:oklch(0.10 0.004 50);
+      --color-laque:oklch(0.42 0.16 25); --color-laque-bright:oklch(0.55 0.20 25);
+      --color-or:oklch(0.78 0.10 80); --color-or-pale:oklch(0.88 0.06 80); --color-or-deep:oklch(0.60 0.10 80);
+      --color-ivoire:oklch(0.92 0.03 75); --color-ivoire-soft:oklch(0.92 0.03 75 / 0.8);
+      --color-jade:oklch(0.72 0.13 175); --color-indigo:oklch(0.58 0.15 275);
+      --type-nendoroid:oklch(0.74 0.16 350); --type-scale:oklch(0.72 0.13 175); --type-figma:oklch(0.72 0.15 230);
+      --type-statue:oklch(0.68 0.13 50); --type-bishoujo:oklch(0.68 0.21 360); --type-prize:oklch(0.80 0.15 75);
+      color-scheme:dark;
+    }
+    [data-theme="light"]{
+      color-scheme:light;
+      --color-noir:oklch(0.965 0.008 85); --color-noir-soft:oklch(0.995 0.004 85); --color-noir-deep:oklch(0.93 0.012 80);
+      --color-ivoire:oklch(0.26 0.02 55); --color-ivoire-soft:oklch(0.40 0.02 55 / 0.86);
+      --color-or:oklch(0.58 0.12 72); --color-or-pale:oklch(0.50 0.12 70); --color-or-deep:oklch(0.42 0.10 68);
+      --color-laque:oklch(0.50 0.19 25); --color-laque-bright:oklch(0.56 0.21 25);
+      --color-jade:oklch(0.55 0.13 175); --color-indigo:oklch(0.50 0.16 275);
+      --type-nendoroid:oklch(0.58 0.18 350); --type-scale:oklch(0.52 0.13 175); --type-figma:oklch(0.55 0.16 230);
+      --type-statue:oklch(0.52 0.13 50); --type-bishoujo:oklch(0.56 0.21 360); --type-prize:oklch(0.62 0.15 70);
+    }
+    *{box-sizing:border-box;}
+    html,body{margin:0;min-height:100%;}
+    body{font-family:var(--font-sans);background:var(--color-noir);color:var(--color-ivoire);-webkit-font-smoothing:antialiased;
+      background-image:radial-gradient(70% 60% at 30% 25%,oklch(0.78 0.10 80 / 0.09),transparent 65%),radial-gradient(55% 50% at 80% 85%,oklch(0.42 0.16 25 / 0.05),transparent 70%);background-attachment:fixed;}
+    body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background-image:radial-gradient(circle at 1px 1px,oklch(0.92 0.03 75 / 0.035) 1px,transparent 0);background-size:4px 4px;}
+    .display{font-family:var(--font-display);font-weight:300;letter-spacing:-0.01em;line-height:1;}
+    .ja{font-family:var(--font-ja);}
+    .mono{font-family:var(--font-mono);}
+    .micro{font-family:var(--font-sans);font-size:10.5px;letter-spacing:0.3em;text-transform:uppercase;color:var(--color-or-pale);}
+    .micro-tight{font-family:var(--font-sans);font-size:9.5px;letter-spacing:0.22em;text-transform:uppercase;color:var(--color-or-pale);}
+    .figural{font-family:var(--font-display);font-variant-numeric:lining-nums tabular-nums;font-weight:300;}
+    .gold-rule{height:1px;background:linear-gradient(to right,transparent,var(--color-or) 30%,var(--color-or) 70%,transparent);}
+    .chip{display:inline-flex;align-items:center;gap:0.4em;padding:0.25em 0.7em;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;border:1px solid color-mix(in oklab,var(--color-or) 35%,transparent);color:var(--color-or-pale);background:color-mix(in oklab,var(--color-or) 4%,transparent);white-space:nowrap;}
+    .chip--jade{border-color:color-mix(in oklab,var(--color-jade) 55%,transparent);color:var(--color-jade);background:color-mix(in oklab,var(--color-jade) 9%,transparent);}
+    .chip--laque{border-color:color-mix(in oklab,var(--color-laque-bright) 50%,transparent);color:var(--color-laque-bright);background:color-mix(in oklab,var(--color-laque) 8%,transparent);}
+
+    main{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:4rem 1.5rem 6rem;}
+    .screen-sep{display:flex;align-items:center;gap:1rem;margin:5rem 0;}
+    .screen-sep::before,.screen-sep::after{content:"";height:1px;flex:1;background:linear-gradient(to right,transparent,color-mix(in oklab,var(--color-or) 40%,transparent),transparent);}
+    .screen-sep .ja{font-size:1.3rem;color:color-mix(in oklab,var(--color-or) 70%,transparent);}
+    .head{position:relative;margin-bottom:2rem;}
+    .head h1{margin:0.5rem 0 0;font-size:clamp(2.2rem,5vw,3.2rem);color:var(--color-ivoire);}
+    .head .rule{width:4rem;margin-top:1rem;}
+    .head p.lead{margin:1.1rem 0 0;max-width:38rem;line-height:1.6;color:var(--color-ivoire-soft);}
+    .head .ghost{position:absolute;top:-2.5rem;right:-0.5rem;font-size:9rem;line-height:1;color:color-mix(in oklab,var(--color-or) 7%,transparent);pointer-events:none;}
+
+    /* ── Wishlist ── */
+    .wl-bar{display:flex;align-items:baseline;gap:1.5rem;margin:0 0 1.75rem;flex-wrap:wrap;}
+    .wl-bar .kpi{display:flex;align-items:baseline;gap:0.5rem;}
+    .wl-bar .kpi .v{font-family:var(--font-display);font-size:2rem;color:var(--color-ivoire);}
+    .wl-bar .kpi .v.gold{color:var(--color-or-pale);}
+    .wl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:1.5rem;}
+    .wl-card{position:relative;background:var(--color-noir-soft);border:1px solid color-mix(in oklab,var(--color-or) 16%,transparent);display:flex;flex-direction:column;}
+    .wl-well{position:relative;aspect-ratio:4/5;overflow:hidden;background:radial-gradient(circle at 30% 18%,var(--color-noir-soft),var(--color-noir-deep) 60%);}
+    .wl-well .bar{position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--hue) 28%,var(--hue) 72%,transparent);}
+    .wl-well .k{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--font-ja);font-size:4.5rem;color:color-mix(in oklab,var(--hue) 45%,transparent);}
+    .wl-well .heart{position:absolute;top:0.6rem;right:0.6rem;width:30px;height:30px;display:grid;place-items:center;background:color-mix(in oklab,var(--color-noir-deep) 70%,transparent);border:1px solid color-mix(in oklab,var(--color-laque-bright) 50%,transparent);color:var(--color-laque-bright);font-size:14px;}
+    .wl-target{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.7rem;font-family:var(--font-mono);font-size:11px;background:linear-gradient(to top,color-mix(in oklab,var(--color-noir-deep) 90%,transparent),transparent);}
+    .wl-target .lbl{font-size:8.5px;letter-spacing:0.18em;text-transform:uppercase;color:var(--color-or-pale);}
+    .wl-target .amt{color:var(--color-ivoire);font-size:13px;}
+    .wl-body{padding:0.9rem 1rem 1rem;flex:1;display:flex;flex-direction:column;}
+    .wl-name{font-family:var(--font-display);font-size:1.2rem;color:var(--color-ivoire);line-height:1.1;}
+    .wl-meta{margin-top:0.45rem;display:flex;align-items:center;gap:0.5rem;font-size:11px;color:var(--color-ivoire-soft);}
+    .wl-note{margin-top:0.6rem;font-size:11px;font-style:italic;color:var(--color-ivoire-soft);border-left:2px solid color-mix(in oklab,var(--color-or) 30%,transparent);padding-left:0.5rem;}
+    .wl-deal{margin-top:0.6rem;display:inline-flex;align-items:center;gap:0.4em;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-jade);}
+    .wl-actions{margin-top:auto;padding-top:0.9rem;display:flex;gap:0.5rem;align-items:center;}
+    .wl-actions .act{flex:1;text-align:center;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;padding:0.55rem 0.4rem;cursor:pointer;border:1px solid;background:none;}
+    .wl-actions .act--primary{background:var(--color-or);border-color:var(--color-or);color:var(--color-noir);}
+    .wl-actions .act--ghost{border-color:color-mix(in oklab,var(--color-or) 30%,transparent);color:var(--color-or-pale);}
+    .wl-actions .act--icon{flex:0 0 auto;width:34px;border-color:color-mix(in oklab,var(--color-or) 25%,transparent);color:var(--color-ivoire-soft);padding:0.55rem 0;}
+
+    /* ── shared form bits ── */
+    .panel{background:color-mix(in oklab,var(--color-noir-soft) 80%,transparent);border:1px solid color-mix(in oklab,var(--color-or) 16%,transparent);padding:1.5rem;}
+    .field{margin-bottom:1rem;}
+    .field label{display:block;font-size:9.5px;letter-spacing:0.22em;text-transform:uppercase;color:var(--color-or-pale);margin-bottom:0.45rem;}
+    .field input,.field textarea{width:100%;background:var(--color-noir);border:1px solid color-mix(in oklab,var(--color-or) 22%,transparent);color:var(--color-ivoire);padding:0.7rem 0.8rem;font-family:var(--font-sans);font-size:14px;outline:none;}
+    .field input:focus,.field textarea:focus{border-color:var(--color-or);}
+    .anno{display:inline-flex;align-items:center;gap:0.45em;margin-left:0.6rem;padding:0.18em 0.6em;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--color-indigo);border:1px dashed color-mix(in oklab,var(--color-indigo) 55%,transparent);background:color-mix(in oklab,var(--color-indigo) 8%,transparent);vertical-align:middle;}
+
+    /* ── Duplicate-detection panel ── */
+    .dup{margin-top:1rem;border:1px solid color-mix(in oklab,var(--color-or) 35%,transparent);background:color-mix(in oklab,var(--color-or) 5%,transparent);}
+    .dup-head{display:flex;align-items:center;gap:0.6rem;padding:0.8rem 1rem;border-bottom:1px solid color-mix(in oklab,var(--color-or) 20%,transparent);}
+    .dup-head .ic{color:var(--color-or);font-size:1.1rem;}
+    .dup-head .t{font-family:var(--font-display);font-size:1.15rem;color:var(--color-ivoire);}
+    .dup-row{display:grid;grid-template-columns:42px 1fr auto;gap:0.85rem;align-items:center;padding:0.7rem 1rem;border-bottom:1px solid color-mix(in oklab,var(--color-or) 10%,transparent);}
+    .dup-row:last-of-type{border-bottom:0;}
+    .dup-thumb{width:42px;height:52px;position:relative;border:1px solid color-mix(in oklab,var(--hue,var(--color-or)) 30%,transparent);overflow:hidden;}
+    .dup-thumb .k{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--font-ja);font-size:1.5rem;color:color-mix(in oklab,var(--hue,var(--color-or)) 55%,transparent);}
+    .dup-name{font-family:var(--font-display);font-size:1.15rem;color:var(--color-ivoire);line-height:1.1;}
+    .dup-sub{margin-top:0.25rem;display:flex;align-items:center;gap:0.5rem;font-size:11px;color:var(--color-ivoire-soft);}
+    .badge-strong{font-size:9px;letter-spacing:0.12em;text-transform:uppercase;padding:0.15em 0.5em;border:1px solid var(--color-laque-bright);color:var(--color-laque-bright);background:color-mix(in oklab,var(--color-laque) 10%,transparent);}
+    .badge-soft{font-size:9px;letter-spacing:0.12em;text-transform:uppercase;padding:0.15em 0.5em;border:1px solid color-mix(in oklab,var(--color-or) 40%,transparent);color:var(--color-or-pale);}
+    .dup-open{font-size:10px;letter-spacing:0.14em;text-transform:uppercase;border:1px solid color-mix(in oklab,var(--color-or) 35%,transparent);color:var(--color-or-pale);padding:0.45rem 0.8rem;cursor:pointer;background:none;white-space:nowrap;}
+    .dup-foot{display:flex;justify-content:flex-end;gap:0.6rem;padding:0.8rem 1rem;}
+    .dup-foot .proceed{font-size:10px;letter-spacing:0.14em;text-transform:uppercase;padding:0.5rem 1rem;border:1px solid color-mix(in oklab,var(--color-or) 30%,transparent);color:var(--color-ivoire-soft);background:none;cursor:pointer;}
+
+    /* ── MFC paste dialog ── */
+    .dlg-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;}
+    .dlg{background:var(--color-noir-soft);border:1px solid color-mix(in oklab,var(--color-or) 25%,transparent);box-shadow:0 30px 60px -30px rgba(0,0,0,.8);}
+    .dlg-head{display:flex;align-items:center;gap:0.6rem;padding:1rem 1.2rem;border-bottom:1px solid color-mix(in oklab,var(--color-or) 20%,transparent);}
+    .dlg-head .ja{font-size:1.3rem;color:var(--color-or-pale);}
+    .dlg-head .t{font-family:var(--font-display);font-size:1.3rem;color:var(--color-ivoire);}
+    .dlg-body{padding:1.2rem;}
+    .dlg-note{font-size:12px;line-height:1.55;color:var(--color-ivoire-soft);border-left:2px solid color-mix(in oklab,var(--color-or) 35%,transparent);padding-left:0.7rem;margin-bottom:1rem;}
+    .dlg textarea{width:100%;height:150px;resize:none;background:var(--color-noir-deep);border:1px solid color-mix(in oklab,var(--color-or) 22%,transparent);color:var(--color-ivoire-soft);font-family:var(--font-mono);font-size:11px;padding:0.7rem;outline:none;}
+    .dlg-actions{display:flex;justify-content:flex-end;gap:0.6rem;margin-top:1rem;}
+    .btn-primary{background:var(--color-or);border:1px solid var(--color-or);color:var(--color-noir);font-size:11px;letter-spacing:0.16em;text-transform:uppercase;padding:0.6rem 1.1rem;cursor:pointer;}
+    .btn-ghost{background:none;border:1px solid color-mix(in oklab,var(--color-or) 30%,transparent);color:var(--color-ivoire-soft);font-size:11px;letter-spacing:0.16em;text-transform:uppercase;padding:0.6rem 1.1rem;cursor:pointer;}
+    .extracted{display:grid;grid-template-columns:auto 1fr;gap:0.4rem 1rem;font-size:13px;}
+    .extracted dt{font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--color-or-pale);align-self:center;}
+    .extracted dd{margin:0;color:var(--color-ivoire);font-family:var(--font-mono);font-size:12px;}
+    .extracted .row{display:contents;}
+    .ok-line{margin:0 0 1rem;display:flex;align-items:center;gap:0.5rem;font-size:12px;color:var(--color-jade);}
+
+    .theme-switch{position:fixed;top:1rem;right:1rem;z-index:10;display:inline-flex;border:1px solid color-mix(in oklab,var(--color-or) 35%,transparent);background:color-mix(in oklab,var(--color-noir-soft) 90%,transparent);backdrop-filter:blur(6px);}
+    .theme-switch button{background:none;border:0;color:var(--color-ivoire-soft);padding:0.5rem 0.8rem;cursor:pointer;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;}
+    .theme-switch button.on{background:var(--color-or);color:var(--color-noir);}
+    .maq-tag{position:fixed;bottom:0.9rem;left:1rem;z-index:10;font-family:var(--font-mono);font-size:10px;letter-spacing:0.14em;color:color-mix(in oklab,var(--color-or) 60%,transparent);}
+    @media (max-width:760px){ .dlg-grid{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+  <div class="theme-switch"><button id="t-dark" class="on" onclick="setTheme('dark')">Sombre</button><button id="t-light" onclick="setTheme('light')">Clair</button></div>
+  <div class="maq-tag">maquette · lot 2 · wishlist &amp; catalogue</div>
+
+  <main>
+    <!-- ═══════════ SECTION 1 — SOUHAITS (WISHLIST) ═══════════ -->
+    <section>
+      <header class="head">
+        <span class="ghost ja">望</span>
+        <p class="micro">Désirs · à acquérir</p>
+        <h1 class="display">Souhaits</h1>
+        <div class="gold-rule rule"></div>
+        <p class="lead">Les pièces que tu convoites, avec un prix-cible. Quand tu craques, « Acquérir » la fait passer dans ta collection (ou en précommande) d'un geste.</p>
+      </header>
+
+      <div class="wl-bar">
+        <span class="kpi"><span class="v figural">7</span> <span class="micro-tight">pièces convoitées</span></span>
+        <span class="kpi"><span class="v gold figural">~ 940 €</span> <span class="micro-tight">budget des cibles</span></span>
+      </div>
+
+      <div class="wl-grid">
+        <!-- card 1 — deal reached -->
+        <article class="wl-card" style="--hue:var(--type-scale)">
+          <div class="wl-well"><span class="bar"></span><span class="k ja">像</span><span class="heart">♥</span>
+            <div class="wl-target"><span class="lbl">Cible</span><span class="amt">≤ 180 €</span></div></div>
+          <div class="wl-body">
+            <div class="wl-name">Asuka Langley — Last Mission</div>
+            <div class="wl-meta"><span class="chip">Échelle</span><span class="mono">1/6 · Alpha Omega</span></div>
+            <div class="wl-deal">◆ MSRP 165 € — sous ta cible</div>
+            <div class="wl-actions">
+              <button class="act act--primary">Acquérir</button>
+              <button class="act act--ghost">Précmder</button>
+              <button class="act act--icon" title="Retirer">×</button>
+            </div>
+          </div>
+        </article>
+        <!-- card 2 -->
+        <article class="wl-card" style="--hue:var(--type-nendoroid)">
+          <div class="wl-well"><span class="bar"></span><span class="k ja">童</span><span class="heart">♥</span>
+            <div class="wl-target"><span class="lbl">Cible</span><span class="amt">≤ 55 €</span></div></div>
+          <div class="wl-body">
+            <div class="wl-name">Frieren — Nendoroid</div>
+            <div class="wl-meta"><span class="chip">Nendoroid</span><span class="mono">Good Smile</span></div>
+            <div class="wl-note">attendre une remise AmiAmi</div>
+            <div class="wl-actions">
+              <button class="act act--primary">Acquérir</button>
+              <button class="act act--ghost">Précmder</button>
+              <button class="act act--icon" title="Retirer">×</button>
+            </div>
+          </div>
+        </article>
+        <!-- card 3 -->
+        <article class="wl-card" style="--hue:var(--type-statue)">
+          <div class="wl-well"><span class="bar"></span><span class="k ja">彫</span><span class="heart">♥</span>
+            <div class="wl-target"><span class="lbl">Cible</span><span class="amt">≤ 400 €</span></div></div>
+          <div class="wl-body">
+            <div class="wl-name">Gojo Satoru — Statue 1/4</div>
+            <div class="wl-meta"><span class="chip">Statue</span><span class="mono">Tsume</span></div>
+            <div class="wl-note">grail — guetter l'occasion</div>
+            <div class="wl-actions">
+              <button class="act act--primary">Acquérir</button>
+              <button class="act act--ghost">Précmder</button>
+              <button class="act act--icon" title="Retirer">×</button>
+            </div>
+          </div>
+        </article>
+        <!-- card 4 -->
+        <article class="wl-card" style="--hue:var(--type-bishoujo)">
+          <div class="wl-well"><span class="bar"></span><span class="k ja">美</span><span class="heart">♥</span>
+            <div class="wl-target"><span class="lbl">Cible</span><span class="amt">— libre</span></div></div>
+          <div class="wl-body">
+            <div class="wl-name">Mai Sakurajima — Bunny</div>
+            <div class="wl-meta"><span class="chip">Bishoujo</span><span class="mono">FREEing</span></div>
+            <div class="wl-actions">
+              <button class="act act--primary">Acquérir</button>
+              <button class="act act--ghost">Précmder</button>
+              <button class="act act--icon" title="Retirer">×</button>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <div class="screen-sep"><span class="ja">蒐</span></div>
+
+    <!-- ═══════════ SECTION 2 — DÉTECTION DE DOUBLONS (création) ═══════════ -->
+    <section>
+      <header class="head">
+        <span class="ghost ja">複</span>
+        <p class="micro">Catalogue · création</p>
+        <h1 class="display">Anti-doublon</h1>
+        <div class="gold-rule rule"></div>
+        <p class="lead">Pendant la saisie d'une figurine, on repère les pièces déjà au catalogue (même code-barres = sûr, nom + fabricant = probable) pour t'éviter les doublons.</p>
+      </header>
+
+      <div class="panel">
+        <div class="field">
+          <label>Nom de la figurine</label>
+          <input type="text" value="Rem — Birthday 1/7" />
+        </div>
+        <div class="field" style="margin-bottom:0;">
+          <label>Code-barres (JAN / EAN)</label>
+          <input type="text" value="4580416941938" />
+        </div>
+
+        <!-- duplicates surfaced -->
+        <div class="dup">
+          <div class="dup-head"><span class="ic">⚠</span><span class="t">2 figurines similaires existent déjà</span><span class="anno">live pendant la saisie</span></div>
+
+          <div class="dup-row" style="--hue:var(--type-scale)">
+            <div class="dup-thumb"><span class="k ja">像</span></div>
+            <div>
+              <div class="dup-name">Rem — Birthday</div>
+              <div class="dup-sub"><span class="badge-strong">Même JAN</span><span class="mono">1/7 · eStream</span></div>
+            </div>
+            <button class="dup-open">Ouvrir →</button>
+          </div>
+
+          <div class="dup-row" style="--hue:var(--type-scale)">
+            <div class="dup-thumb"><span class="k ja">像</span></div>
+            <div>
+              <div class="dup-name">Rem — Birthday (re-run)</div>
+              <div class="dup-sub"><span class="badge-soft">Nom proche</span><span class="mono">1/7 · eStream</span></div>
+            </div>
+            <button class="dup-open">Ouvrir →</button>
+          </div>
+
+          <div class="dup-foot">
+            <button class="proceed">Continuer la création quand même</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="screen-sep"><span class="ja">蒐</span></div>
+
+    <!-- ═══════════ SECTION 3 — IMPORT MFC PAR COLLAGE ═══════════ -->
+    <section>
+      <header class="head">
+        <span class="ghost ja">輸</span>
+        <p class="micro">Catalogue · import</p>
+        <h1 class="display">Import MFC — par collage</h1>
+        <div class="gold-rule rule"></div>
+        <p class="lead">MyFigureCollection bloque l'accès direct (Cloudflare). On contourne sans serveur tiers : tu colles le code source de la fiche, on l'analyse et on pré-remplit le formulaire. La saisie manuelle reste toujours possible à côté.</p>
+      </header>
+
+      <div class="dlg-grid">
+        <!-- empty/paste state -->
+        <div class="dlg">
+          <div class="dlg-head"><span class="ja">輸</span><span class="t">Coller depuis MFC</span></div>
+          <div class="dlg-body">
+            <p class="dlg-note">Ouvre la fiche sur myfigurecollection.net → clic droit « Afficher le code source » (Ctrl+U) → tout sélectionner (Ctrl+A) → copier → colle ici.</p>
+            <div class="field" style="margin-bottom:0;">
+              <label>Code source de la page</label>
+              <textarea placeholder="&lt;!doctype html&gt; … colle ici le HTML de la fiche MFC …"></textarea>
+            </div>
+            <div class="dlg-actions"><button class="btn-ghost">Annuler</button><button class="btn-primary">Analyser</button></div>
+          </div>
+        </div>
+
+        <!-- parsed/preview state -->
+        <div class="dlg">
+          <div class="dlg-head"><span class="ja">輸</span><span class="t">Champs extraits</span><span class="anno">aperçu avant import</span></div>
+          <div class="dlg-body">
+            <p class="ok-line">✓ Fiche analysée — MFC #1056421</p>
+            <dl class="extracted">
+              <div class="row"><dt>Nom</dt><dd>Rem — Birthday</dd></div>
+              <div class="row"><dt>Fabricant</dt><dd>eStream</dd></div>
+              <div class="row"><dt>Sculpteur</dt><dd>Aoki</dd></div>
+              <div class="row"><dt>Échelle</dt><dd>1/7</dd></div>
+              <div class="row"><dt>Sortie</dt><dd>2024-08</dd></div>
+              <div class="row"><dt>Prix</dt><dd>23 800 ¥</dd></div>
+              <div class="row"><dt>JAN</dt><dd>4580416941938</dd></div>
+            </dl>
+            <div class="dlg-actions"><button class="btn-ghost">Re-coller</button><button class="btn-primary">Pré-remplir le formulaire</button></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function setTheme(t){document.documentElement.setAttribute('data-theme',t);document.getElementById('t-dark').classList.toggle('on',t==='dark');document.getElementById('t-light').classList.toggle('on',t==='light');}
+  </script>
+</body>
+</html>

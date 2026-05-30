@@ -9,7 +9,9 @@ import {
   useSculptorsLookup,
   useSeriesLookup,
 } from "../hooks/useEntities.js";
-import { useIsAdmin } from "../hooks/useMe.js";
+import { useIsAdmin, useMe } from "../hooks/useMe.js";
+import { useFigureDuplicates } from "../hooks/useCollection.js";
+import { typeHue } from "../lib/typeHue.js";
 import AniListLookup from "./AniListLookup.jsx";
 import AniListCharacterLookup from "./AniListCharacterLookup.jsx";
 import Button from "./Button.jsx";
@@ -166,6 +168,9 @@ export default function FigureForm({
             }))
           }
         />
+        {mode === "create" ? (
+          <DuplicateWarning name={form.name} jan={form.jan} t={t} />
+        ) : null}
         <div className="grid sm:grid-cols-2 gap-5">
           <FormField
             label={t("addfig.field.version_name")}
@@ -466,6 +471,96 @@ export default function FigureForm({
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
+
+const DUP_KANJI = {
+  nendoroid: "童", scale: "像", figma: "動", prize: "賞", trading: "交",
+  statue: "彫", plamo: "組", bishoujo: "美", dakimakura: "枕", other: "玩",
+};
+
+/** Live "about to create a duplicate?" panel (create mode only). Debounces the
+ *  name/JAN, queries the catalogue, and surfaces strong (same JAN) and soft
+ *  (same name) matches with a link to the existing figure (opened in a new tab
+ *  so the in-progress form is preserved). */
+function DuplicateWarning({ name, jan, t }) {
+  const [dq, setDq] = useState({ name: "", jan: "" });
+  const [dismissed, setDismissed] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setDq({ name: name ?? "", jan: jan ?? "" }), 400);
+    return () => clearTimeout(id);
+  }, [name, jan]);
+  useEffect(() => {
+    setDismissed(false);
+  }, [dq.name, dq.jan]);
+
+  const me = useMe();
+  const nsfwBlur = (me.data?.user?.nsfw_visibility ?? "hide") === "blur";
+  const { data } = useFigureDuplicates(dq.name, dq.jan);
+  const matches = data ?? [];
+  const enteredJan = dq.jan.trim();
+  if (dismissed || matches.length === 0) return null;
+
+  return (
+    <div className="border border-[var(--color-or)]/35 bg-[var(--color-or)]/5">
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[var(--color-or)]/20">
+        <span aria-hidden className="text-[var(--color-or)]">⚠</span>
+        <span className="display text-base text-[var(--color-ivoire)]">
+          {t("figdup.title", { n: matches.length })}
+        </span>
+      </div>
+      <ul>
+        {matches.map((m) => {
+          const strong = !!enteredJan && m.jan === enteredJan;
+          const hue = typeHue(m.figure_type);
+          return (
+            <li
+              key={m.id}
+              className="grid grid-cols-[40px_1fr_auto] gap-3 items-center px-4 py-2.5 border-b border-[var(--color-or)]/10 last:border-0"
+            >
+              <span
+                className="relative w-10 h-[50px] border overflow-hidden grid place-items-center"
+                style={{ borderColor: `color-mix(in oklab, ${hue} 30%, transparent)` }}
+              >
+                {m.official_image_url ? (
+                  <img src={m.official_image_url} alt="" loading="lazy" className={`absolute inset-0 w-full h-full object-cover ${m.is_nsfw && nsfwBlur ? "nsfw-blur" : ""}`} />
+                ) : (
+                  <span aria-hidden className="ja text-lg" style={{ color: `color-mix(in oklab, ${hue} 55%, transparent)` }}>
+                    {DUP_KANJI[m.figure_type] || "玩"}
+                  </span>
+                )}
+              </span>
+              <span className="min-w-0">
+                <span className="block display text-base text-[var(--color-ivoire)] leading-tight truncate">{m.name}</span>
+                <span className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--color-ivoire-soft)]">
+                  <span className={strong ? "chip chip--laque" : "chip"} style={{ padding: "0.1em 0.45em", fontSize: "8.5px" }}>
+                    {strong ? t("figdup.badge_jan") : t("figdup.badge_name")}
+                  </span>
+                  {m.manufacturer_name ? <span className="font-mono truncate">{m.manufacturer_name}</span> : null}
+                </span>
+              </span>
+              <a
+                href={`/figures/${m.id}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[10px] uppercase tracking-[0.14em] border border-[var(--color-or)]/35 text-[var(--color-or-pale)] px-2.5 py-1.5 whitespace-nowrap hover:border-[var(--color-or)] transition-colors"
+              >
+                {t("figdup.open")} →
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+      <div className="flex justify-end px-4 py-2.5">
+        <button
+          type="button"
+          onClick={() => setDismissed(true)}
+          className="text-[10px] uppercase tracking-[0.14em] text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] transition-colors"
+        >
+          {t("figdup.proceed")}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const EMPTY = {
   name: "",

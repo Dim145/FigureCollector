@@ -63,6 +63,7 @@ export default function AppShell({ children }) {
   ];
 
   const secondary = [
+    { to: "/souhaits", label: t("wishlist.title") },
     { to: "/cote", label: t("cote.title") },
     { to: "/activity", label: t("activity.title") },
     { to: "/achievements", label: t("achievements.title") },
