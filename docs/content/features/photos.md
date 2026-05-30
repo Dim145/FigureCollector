@@ -17,6 +17,19 @@ On the figure detail page, the catalogue-photos section accepts **multiple files
 
 Per-file uploads fire **in parallel** via `Promise.all` — they don't block each other.
 
+## Editing a photo
+
+Any uploaded photo can be **edited in place** — the same editor that opens before
+a new upload (crop, rotate, filters, and local background removal) reopens on an
+existing shot via the ✎ button on its thumbnail. Saving replaces the image
+without changing its position or which photo is the cover.
+
+Permissions mirror upload: a **personal** photo can only be edited (and seen) by
+its owner; a **catalogue** photo can be edited by an admin or the figure's
+creator. Because photos are now mutable, the binary proxies revalidate with an
+`ETag` instead of caching forever — so an edit propagates everywhere the photo
+appears (cover, cards, hero, lightbox), not just the gallery you edited it in.
+
 ## Per-user cover
 
 The figure card on `/collection` shows, in order of priority:

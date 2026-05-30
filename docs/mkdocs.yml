@@ -78,11 +78,16 @@ nav:
   - Features:
       - features/index.md
       - Catalogue & collection: features/catalogue.md
+      - Vitrines (display cabinets): features/vitrines.md
+      - La Cote (value): features/cote.md
+      - Wishlist: features/wishlist.md
       - URL import (orzgk + proxy): features/url-import.md
       - Pre-orders: features/preorders.md
       - Photos & 360° scans: features/photos.md
+      - Collectors (social): features/social.md
+      - Achievements, stats & insights: features/achievements-stats.md
+      - Data export: features/exports.md
       - Notifications: features/notifications.md
-      - Achievements & stats: features/achievements-stats.md
       - NSFW handling: features/nsfw.md
       - PWA & offline: features/pwa.md
   - Self-hosting:

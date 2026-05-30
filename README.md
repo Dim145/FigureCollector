@@ -13,12 +13,17 @@ It works **offline-first**, is **installable on iOS / Android / Desktop**, and p
 ## Highlights
 
 - 📦 **Catalogue + collection** — every figure you own or want, with manufacturer / series / character / sculptor / scale / NSFW metadata.
+- 🗄️ **Vitrines** — arrange your collection into glass display cabinets with drag-and-drop, plus a "where is…?" search.
+- 💴 **La Cote** — what your collection is worth vs what you paid, aggregated per currency (no made-up FX), with a manual per-piece valuation.
+- ⭐ **Wishlist** — target prices, an owned≠wishlist rule with at-a-glance catalogue markers, and **bulk import from a public orzgk wishlist**.
 - 🛒 **Pre-orders with deposit tracking** — record the upfront acompte (OrzGK / AmiAmi style), see the balance left to pay, and get notified when delivery is overdue.
 - ✂️ **Cancellations with refund accounting** — cancelled preorder + partial refund? The piece is auto-archived, the loss surfaces in the yearly recap.
-- 📸 **Multi-upload photo gallery** + per-user covers, NSFW blurring, 360° turntable scans, fullscreen lightbox with pinch-zoom.
-- 🔔 **Notifications** — in-app + email + ntfy + webhook + Apprise + Web Push, with per-channel routing per event (release J-day, J-7, delivery today, delivery overdue, achievement unlocked, …).
-- 📊 **Year-in-review** — money spent, top manufacturer / series, slipped releases, losses on cancellations.
+- 📸 **Photo gallery** — multi-upload, **edit in place** (crop / filters / background removal), per-user covers, NSFW blurring, 360° turntable scans, fullscreen lightbox with pinch-zoom.
+- 👥 **Collectors** — an opt-in public profile; follow other collectors, discover by collection size, and compare collections.
+- 📊 **Insights & year-in-review** — spend over time, series completion, wishlist cost, next-milestone palier, and an annual recap with losses on cancellations.
 - 🏆 **Achievements** — milestone seals (印) the user collects as their collection grows.
+- 💾 **Data export** — your collection / wishlist / pre-orders as CSV or JSON, plus a one-file backup.
+- 🔔 **Notifications** — in-app + email + ntfy + webhook + Apprise + Web Push, with per-channel routing per event (release J-day, J-7, delivery today, delivery overdue, achievement unlocked, …).
 - 🔒 **Hardened from the kernel up** — `FROM scratch` backend, distroless nginx, read-only filesystems, dropped capabilities, no shell, no OpenSSL anywhere.
 
 ---
@@ -64,7 +69,7 @@ Other hardening:
 - **TLS:** Rustls + aws-lc-rs end-to-end on the backend.
 - **HTTP security headers:** strict CSP, COOP, CORP, Referrer-Policy, Permissions-Policy on the frontend (`client/nginx.conf`).
 - **Image uploads:** magic-bytes mimetype validation, EXIF strip, size and dimension caps.
-- **MFC scraping:** rate-limited (1 req/s per user), aggressive PG cache (24 h TTL), identifiable `User-Agent`.
+- **External scraping:** orzgk fetched server-side with an aggressive PG cache (24 h TTL) + identifiable `User-Agent`; MFC parsed from pasted page HTML (it blocks direct fetch behind Cloudflare).
 - **Session-fixation defense:** session token rotation on login.
 - **Rate limiting:** `tower_governor` on auth-sensitive routes.
 
@@ -91,7 +96,7 @@ FigureCollector/
 │   ├── mkdocs.yml
 │   ├── nginx.conf
 │   ├── Dockerfile
-│   └── design/preview.html  # Phase-0 visual-direction sketch
+│   └── design/             # per-feature visual-direction maquettes (HTML)
 ├── .github/workflows/
 │   ├── release.yml        # GHCR image push on tag
 │   └── docs.yml           # MkDocs → GitHub Pages
@@ -167,10 +172,10 @@ Detailed install / configuration / feature / API docs live at <https://dim145.gi
 Local browsing:
 
 ```bash
-cd documentation
-pip install mkdocs-material
+cd docs
+pip install -r requirements.txt
 mkdocs serve
-# → open http://localhost:8001
+# → open http://localhost:8000
 ```
 
 ---

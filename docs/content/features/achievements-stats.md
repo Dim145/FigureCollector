@@ -25,11 +25,23 @@ Each achievement has a **tier** (bronze / silver / gold) that escalates as the c
 - **Sortie la plus repoussée** — preorder with the most slips in the year (with the original → current date delta).
 - **Pièces par mois** — monthly histogram.
 - **Première / dernière acquisition** — bookends of the year.
+- **L'année en regard** — a side-by-side comparison with the previous year (pieces & spend).
 
 The page is intentionally print-friendly — you can print it as a yearly summary or export the layout to PDF via the browser.
 
-## Statistics
+## Insights
 
-`/statistics` (work in progress) layers a more analytical view on top of the data: spend over time, condition distribution, top scales, etc.
+`/stats` layers an analytical view over your data:
 
-Both surfaces are read-only — they aggregate from the existing tables, no separate cache.
+- **Dépense par année** — spending per year, per currency.
+- **Complétion de séries** — how complete each owned series is (owned vs catalogue).
+- **Coût des souhaits** — the estimated cost of your [wishlist](wishlist.md), per currency.
+- **Santé des pré-commandes** — open deposits, average slip days, open vs cancelled counts.
+
+## Prochain palier
+
+The achievements page also surfaces your **next milestone** — the closest
+unearned seal and exactly how many pieces / pre-orders / … remain to unlock it.
+
+All of these surfaces are read-only — they aggregate from the existing tables,
+with no separate cache.

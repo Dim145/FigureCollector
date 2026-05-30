@@ -5,13 +5,21 @@
 The **catalogue** (`/browse`) is the shared figure database. Every user sees the same figures, manufacturers, series, and characters. New figures can be added either:
 
 - **Manually** — name, type, manufacturer, scale, JAN/EAN barcode, release date, MSRP, NSFW flag, official image URL.
-- **From MFC** — paste a MyFigureCollection URL and the scraper imports the metadata. Rate-limited (1 req/s per user), cached 24 h in Postgres.
+- **From a product URL** — paste an **orzgk** link (native scraper, with a version / payment picker), or any other store through the optional [external proxy](url-import.md). Lookups are cached 24 h in Postgres.
+- **From MFC** — MyFigureCollection blocks direct scraping (Cloudflare), so you paste the item **page HTML** and the backend parses it.
 - **From AniList** — for series + character cross-references.
 
 !!! note "Manual entry is always available"
     Per hard project rule, **manual entry must always work alongside any external source**. If MFC is down or the URL is unknown, you can still create the figure from scratch.
 
 Figures support kanji type tags (statue, nendoroid, figma, prize, trading, statue, plamo, bishoujo, dakimakura, …) and a primary photo selected from the catalogue-side photo library.
+
+### Wishlist & owned markers
+
+Each catalogue card carries a **single** corner marker reflecting your
+relationship to that figure, in priority order: a **pre-order badge**, an
+**owned seal** (✓, gold), or a **wished heart** (♥, laque). A card never stacks
+two. See [Wishlist](wishlist.md) for the owned ≠ wishlist rule and bulk import.
 
 ## Collection (`/collection`)
 

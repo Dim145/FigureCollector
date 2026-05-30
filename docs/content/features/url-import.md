@@ -16,6 +16,11 @@ When no proxy is configured, the SPA hides the proxy-specific search
 column and the "paste a URL from store X" hint shrinks back to just
 orzgk. Nothing is broken — orzgk keeps working on its own.
 
+!!! tip "Bulk wishlist import"
+    The same orzgk scraper powers
+    [bulk wishlist import](wishlist.md#bulk-import-from-orzgk): paste a public
+    orzgk wishlist link and add many figures to your wishlist at once.
+
 ## Why an external proxy
 
 Scraping is fragile and site-specific. Each shop has its own DOM
