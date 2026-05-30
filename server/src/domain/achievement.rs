@@ -222,3 +222,67 @@ pub struct UnlockedAchievement {
     pub trigger_figure_type: Option<String>,
     pub trigger_image_url: Option<String>,
 }
+
+/// Progress toward the nearest *locked* achievements (Lot 5). For each locked,
+/// counter-based achievement, how far the user is from its threshold — ranked
+/// closest-to-completion first. Drives the "prochain palier" card.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct NextMilestone {
+    pub code: String,
+    pub category: String,
+    pub tier: String,
+    pub kind: String,
+    pub threshold: i32,
+    pub current: i64,
+    pub remaining: i64,
+    pub pct: i32,
+}
+
+pub async fn next_milestones(
+    db: &DatabaseConnection,
+    pool: &PgPool,
+    user_id: Uuid,
+) -> AppResult<Vec<NextMilestone>> {
+    let counters = counters_for(pool, user_id).await?;
+    let already: HashSet<String> = user_achievements::Entity::find()
+        .filter(user_achievements::Column::UserId.eq(user_id))
+        .all(db)
+        .await?
+        .into_iter()
+        .map(|m| m.achievement_code)
+        .collect();
+    let catalog = achievements::Entity::find().all(db).await?;
+
+    let mut out: Vec<NextMilestone> = catalog
+        .into_iter()
+        .filter(|a| !already.contains(&a.code))
+        .filter_map(|a| {
+            let current = match a.kind.as_str() {
+                "pieces_owned" => counters.pieces_owned,
+                "preorders_placed" => counters.preorders_placed,
+                "preorders_received" => counters.preorders_received,
+                "scans_created" => counters.scans_created,
+                _ => return None,
+            };
+            let threshold = a.threshold as i64;
+            if threshold <= 0 || current >= threshold {
+                return None;
+            }
+            let pct = ((current as f64 / threshold as f64) * 100.0).round() as i32;
+            Some(NextMilestone {
+                code: a.code,
+                category: a.category,
+                tier: a.tier,
+                kind: a.kind,
+                threshold: a.threshold,
+                current,
+                remaining: threshold - current,
+                pct,
+            })
+        })
+        .collect();
+    // Closest to completion first; tie-break on fewest remaining.
+    out.sort_by(|a, b| b.pct.cmp(&a.pct).then(a.remaining.cmp(&b.remaining)));
+    out.truncate(4);
+    Ok(out)
+}

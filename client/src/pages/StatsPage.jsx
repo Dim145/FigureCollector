@@ -7,7 +7,7 @@ import {
 } from "recharts";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
-import { useMyStats } from "../hooks/useStats.js";
+import { useMyStats, useInsights } from "../hooks/useStats.js";
 import AppShell from "../components/AppShell.jsx";
 import Card from "../components/Card.jsx";
 import CountUp from "../components/CountUp.jsx";
@@ -50,6 +50,7 @@ export default function StatsPage() {
   const t = useT();
   const me = useMe();
   const stats = useMyStats();
+  const insights = useInsights();
 
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
@@ -182,6 +183,9 @@ export default function StatsPage() {
               </>
             ) : null}
 
+            {/* VIII–XI — Lecture approfondie (Lot 5) */}
+            <InsightsChapters insights={insights.data} t={t} />
+
             {/* Colophon — printed-book footer */}
             <Colophon t={t} pieces={data.total_pieces} year={new Date().getFullYear()} />
           </>
@@ -230,6 +234,153 @@ function ChapterRule({ roman, label, kanji, accent = "var(--color-or)" }) {
 /** color-mix helper — keep accent translucency in oklab, theme-var safe. */
 function colorMix(accentVar, pct) {
   return `color-mix(in oklab, ${accentVar} ${pct}%, transparent)`;
+}
+
+// =============================================================================
+// VIII–XI — Lecture approfondie (Lot 5 insights). Reads /me/insights; each
+// chapter self-hides when its slice is empty, so the ledger never shows a
+// blank section. Reuses the in-file ChapterRule + fmtMoney + the ins-* classes
+// ported from the validated maquette.
+// =============================================================================
+function InsightsChapters({ insights, t }) {
+  if (!insights) return null;
+  const spend = insights.spend_by_year ?? [];
+  const completion = insights.series_completion ?? [];
+  const wl = insights.wishlist_value ?? [];
+  const ph = insights.preorder_health ?? {};
+  const hasSpend = spend.length > 0;
+  const hasComp = completion.length > 0;
+  const hasWl = wl.length > 0 || (insights.wishlist_count ?? 0) > 0;
+  const hasPh =
+    (ph.deposits?.length ?? 0) > 0 || (ph.open ?? 0) > 0 || (ph.cancellations ?? 0) > 0;
+  if (!hasSpend && !hasComp && !hasWl && !hasPh) return null;
+
+  return (
+    <>
+      {hasSpend ? <SpendByYear spend={spend} t={t} /> : null}
+
+      {hasComp ? (
+        <>
+          <ChapterRule
+            roman="IX"
+            label={t("insights.ch.completion")}
+            kanji="揃"
+            accent="var(--color-jade)"
+          />
+          <div className="ins-panel">
+            {completion.map((s) => (
+              <div className="ins-comp-row" key={s.series_id}>
+                <span className="ins-comp-name">{s.name}</span>
+                <span className="ins-comp-num">
+                  <b>{s.owned}</b>/{s.total} · {s.pct}%
+                </span>
+                <span className="ins-comp-track">
+                  <span
+                    className="ins-comp-fill"
+                    style={{ width: `${Math.min(100, Math.max(0, s.pct))}%` }}
+                  />
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
+
+      {hasWl ? (
+        <>
+          <ChapterRule
+            roman="X"
+            label={t("insights.ch.wishlist")}
+            kanji="望"
+            accent="var(--color-or)"
+          />
+          <div className="ins-panel">
+            <div className="ins-kpis">
+              <div className="ins-kpi">
+                <div className="v gold">
+                  {wl[0] ? fmtMoney(wl[0].amount, wl[0].currency) : "—"}
+                  {wl.length > 1 ? " …" : ""}
+                </div>
+                <div className="l">{t("insights.wishlist.total")}</div>
+                <div className="s">
+                  {t("insights.wishlist.count", { n: insights.wishlist_count ?? 0 })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {hasPh ? (
+        <>
+          <ChapterRule
+            roman="XI"
+            label={t("insights.ch.preorders")}
+            kanji="予"
+            accent="var(--color-indigo)"
+          />
+          <div className="ins-panel">
+            <div className="ins-kpis">
+              <div className="ins-kpi">
+                <div className="v jade">
+                  {ph.deposits?.[0]
+                    ? fmtMoney(ph.deposits[0].amount, ph.deposits[0].currency)
+                    : "—"}
+                </div>
+                <div className="l">{t("insights.preorders.deposits")}</div>
+              </div>
+              <div className="ins-kpi">
+                <div className="v">
+                  {ph.avg_slip_days != null ? t("insights.days", { n: ph.avg_slip_days }) : "—"}
+                </div>
+                <div className="l">{t("insights.preorders.avg_slip")}</div>
+              </div>
+              <div className="ins-kpi">
+                <div className="v laque">{ph.cancellations ?? 0}</div>
+                <div className="l">{t("insights.preorders.cancellations")}</div>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
+    </>
+  );
+}
+
+/** Spend-by-year bars for the dominant currency (largest total). */
+function SpendByYear({ spend, t }) {
+  const byCur = {};
+  for (const r of spend) byCur[r.currency] = (byCur[r.currency] || 0) + Number(r.total);
+  const currency = Object.keys(byCur).sort((a, b) => byCur[b] - byCur[a])[0];
+  const rows = spend
+    .filter((r) => r.currency === currency)
+    .sort((a, b) => a.year - b.year);
+  const max = Math.max(...rows.map((r) => Number(r.total)), 1);
+  const curYear = new Date().getFullYear();
+  return (
+    <>
+      <ChapterRule
+        roman="VIII"
+        label={t("insights.ch.spend")}
+        kanji="費"
+        accent="var(--color-laque-bright)"
+      />
+      <div className="ins-panel">
+        <div className="ins-bars">
+          {rows.map((r) => (
+            <div className={`ins-bar${r.year === curYear ? " cur" : ""}`} key={r.year}>
+              <span className="ins-bar-v">{fmtMoney(r.total, r.currency)}</span>
+              <span
+                className="ins-barfill"
+                style={{ height: `${Math.max(3, (Number(r.total) / max) * 100)}%` }}
+              />
+              <span className="ins-bar-y">{r.year}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
 }
 
 /**

@@ -530,3 +530,189 @@ pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<Collect
         price_distribution,
     })
 }
+
+// =============================================================================
+// Insights (Lot 5) — the deeper cuts that collection_stats didn't cover.
+// Kept as a separate endpoint (`GET /api/me/insights`) so the headline stats
+// query stays untouched and each surface can load independently.
+// =============================================================================
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Insights {
+    /// Money spent per year, per currency (mirrors acquisitions_by_year but on
+    /// the effective price — owned price, else catalog MSRP).
+    pub spend_by_year: Vec<YearCurrencySpend>,
+    /// Series the user owns part of, ranked by completion %. Singleton series
+    /// (catalog total < 2) are excluded — 1/1 = 100% is noise.
+    pub series_completion: Vec<SeriesCompletion>,
+    /// Estimated cost to clear the wishlist, per currency (target price, else
+    /// catalog MSRP).
+    pub wishlist_value: Vec<CurrencyAmount>,
+    pub wishlist_count: i64,
+    pub preorder_health: PreorderHealth,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct YearCurrencySpend {
+    pub year: i32,
+    pub currency: String,
+    pub total: Decimal,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SeriesCompletion {
+    pub series_id: Uuid,
+    pub name: String,
+    pub owned: i64,
+    pub total: i64,
+    pub pct: i32,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CurrencyAmount {
+    pub currency: String,
+    pub amount: Decimal,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct PreorderHealth {
+    /// Deposits locked in on still-open preorders (status not received/cancelled).
+    pub deposits: Vec<CurrencyAmount>,
+    /// Average slip in days over open preorders that slipped (NULL → none yet).
+    pub avg_slip_days: Option<i64>,
+    pub open: i64,
+    pub cancellations: i64,
+}
+
+pub async fn insights(pool: &PgPool, user_id: Uuid) -> AppResult<Insights> {
+    // ----- spend by year (per currency) -------------------------------------
+    let spend_year_rows: Vec<(i32, String, Decimal)> = sqlx::query_as(
+        "SELECT EXTRACT(YEAR FROM COALESCE(o.purchase_date, o.created_at::date))::int AS year,
+                COALESCE(o.price_currency, f.msrp_currency)                           AS currency,
+                COALESCE(SUM(COALESCE(o.price_amount, f.msrp_amount)), 0)::numeric     AS total
+         FROM owned_items o
+         JOIN figures f ON f.id = o.figure_id
+         WHERE o.user_id = $1
+           AND COALESCE(o.price_amount, f.msrp_amount) IS NOT NULL
+           AND COALESCE(o.price_currency, f.msrp_currency) IS NOT NULL
+         GROUP BY year, currency
+         ORDER BY year ASC",
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?;
+    let spend_by_year = spend_year_rows
+        .into_iter()
+        .map(|(year, currency, total)| YearCurrencySpend {
+            year,
+            currency,
+            total,
+        })
+        .collect();
+
+    // ----- series completion (owned vs catalog total) ----------------------
+    let completion_rows: Vec<(Uuid, String, i64, i64, i32)> = sqlx::query_as(
+        "WITH owned_s AS (
+             SELECT fs.series_id, COUNT(DISTINCT f.id)::bigint AS owned
+             FROM owned_items o
+             JOIN figures f       ON f.id = o.figure_id
+             JOIN figure_series fs ON fs.figure_id = f.id
+             WHERE o.user_id = $1
+             GROUP BY fs.series_id
+         ),
+         tot AS (
+             SELECT series_id, COUNT(DISTINCT figure_id)::bigint AS total
+             FROM figure_series
+             GROUP BY series_id
+         )
+         SELECT s.id AS series_id, s.name, os.owned, t.total,
+                ROUND(100.0 * os.owned / NULLIF(t.total, 0))::int AS pct
+         FROM owned_s os
+         JOIN tot t  ON t.series_id = os.series_id
+         JOIN series s ON s.id = os.series_id
+         WHERE t.total >= 2
+         ORDER BY pct DESC, t.total DESC, s.name ASC
+         LIMIT 8",
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?;
+    let series_completion = completion_rows
+        .into_iter()
+        .map(|(series_id, name, owned, total, pct)| SeriesCompletion {
+            series_id,
+            name,
+            owned,
+            total,
+            pct,
+        })
+        .collect();
+
+    // ----- wishlist value + count -------------------------------------------
+    let wishlist_rows: Vec<(String, Decimal)> = sqlx::query_as(
+        "SELECT COALESCE(w.max_price_currency, f.msrp_currency)                       AS currency,
+                COALESCE(SUM(COALESCE(w.max_price_amount, f.msrp_amount)), 0)::numeric AS amount
+         FROM wishlist_items w
+         JOIN figures f ON f.id = w.figure_id
+         WHERE w.user_id = $1
+           AND COALESCE(w.max_price_amount, f.msrp_amount) IS NOT NULL
+           AND COALESCE(w.max_price_currency, f.msrp_currency) IS NOT NULL
+         GROUP BY currency
+         ORDER BY amount DESC",
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?;
+    let wishlist_value = wishlist_rows
+        .into_iter()
+        .map(|(currency, amount)| CurrencyAmount { currency, amount })
+        .collect();
+    let (wishlist_count,): (i64,) =
+        sqlx::query_as("SELECT COUNT(*)::bigint FROM wishlist_items WHERE user_id = $1")
+            .bind(user_id)
+            .fetch_one(pool)
+            .await?;
+
+    // ----- preorder health ---------------------------------------------------
+    let deposit_rows: Vec<(String, Decimal)> = sqlx::query_as(
+        "SELECT price_currency AS currency, COALESCE(SUM(deposit_amount), 0)::numeric AS amount
+         FROM preorders
+         WHERE user_id = $1
+           AND status NOT IN ('received', 'cancelled')
+           AND deposit_amount IS NOT NULL
+           AND price_currency IS NOT NULL
+         GROUP BY price_currency
+         ORDER BY amount DESC",
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?;
+    let (avg_slip, open, cancellations): (Option<f64>, i64, i64) = sqlx::query_as(
+        "SELECT
+            (AVG(release_date_current - release_date_original)
+                FILTER (WHERE release_date_current > release_date_original
+                          AND status NOT IN ('received', 'cancelled')))::float8 AS avg_slip,
+            COUNT(*) FILTER (WHERE status NOT IN ('received', 'cancelled'))      AS open,
+            COUNT(*) FILTER (WHERE status = 'cancelled')                        AS cancellations
+         FROM preorders WHERE user_id = $1",
+    )
+    .bind(user_id)
+    .fetch_one(pool)
+    .await?;
+
+    Ok(Insights {
+        spend_by_year,
+        series_completion,
+        wishlist_value,
+        wishlist_count,
+        preorder_health: PreorderHealth {
+            deposits: deposit_rows
+                .into_iter()
+                .map(|(currency, amount)| CurrencyAmount { currency, amount })
+                .collect(),
+            avg_slip_days: avg_slip.map(|d| d.round() as i64),
+            open,
+            cancellations,
+        },
+    })
+}

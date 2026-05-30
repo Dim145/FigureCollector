@@ -8348,5 +8348,92 @@ a.notif-page-row-title:hover {
   background: color-mix(in oklab, var(--color-jade) 9%, transparent);
 }
 
+/* ───────────────────────────────────────────────────────────────────────
+ * Lot 5 · Archives — export download buttons (CSV gold / JSON ghost).
+ * ─────────────────────────────────────────────────────────────────────── */
+.dl-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.dl-btn--csv {
+  background: var(--color-or);
+  border-color: var(--color-or);
+  color: var(--color-noir);
+}
+.dl-btn--csv:hover {
+  background: var(--color-or-pale);
+  border-color: var(--color-or-pale);
+}
+.dl-btn--json {
+  background: none;
+  border-color: color-mix(in oklab, var(--color-or) 35%, transparent);
+  color: var(--color-or-pale);
+}
+.dl-btn--json:hover {
+  color: var(--color-ivoire);
+  border-color: var(--color-or);
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+ * Lot 5 · Insights / prochain palier / année-en-regard — ported verbatim
+ * from the validated lot5 maquette so the live sections match it exactly.
+ * ─────────────────────────────────────────────────────────────────────── */
+.ins-sub { display: flex; align-items: center; gap: 0.7rem; margin: 2.2rem 0 1rem; }
+.ins-sub .k { font-family: var(--font-ja); font-size: 1.2rem; color: color-mix(in oklab, var(--color-or) 70%, transparent); }
+.ins-sub .t { font-family: var(--font-display); font-size: 1.5rem; color: var(--color-ivoire); }
+.ins-sub .ln { flex: 1; height: 1px; background: linear-gradient(to right, color-mix(in oklab, var(--color-or) 30%, transparent), transparent); }
+.ins-panel { background: color-mix(in oklab, var(--color-noir-soft) 80%, transparent); border: 1px solid color-mix(in oklab, var(--color-or) 16%, transparent); padding: 1.4rem 1.5rem; }
+.ins-bars { display: flex; align-items: flex-end; gap: 0.9rem; height: 190px; padding-top: 1rem; }
+.ins-bar { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 0.5rem; }
+.ins-barfill { width: 100%; max-width: 46px; min-height: 2px; background: linear-gradient(to top, color-mix(in oklab, var(--color-or) 65%, transparent), color-mix(in oklab, var(--color-or) 25%, transparent)); border-top: 2px solid var(--color-or-pale); }
+.ins-bar.cur .ins-barfill { background: linear-gradient(to top, color-mix(in oklab, var(--color-laque) 60%, transparent), color-mix(in oklab, var(--color-laque) 20%, transparent)); border-top-color: var(--color-laque-bright); }
+.ins-bar-v { font-family: var(--font-display); font-size: 1rem; color: var(--color-ivoire); }
+.ins-bar-y { font-family: var(--font-mono); font-size: 10px; color: var(--color-or-pale); letter-spacing: 0.08em; }
+.ins-comp-row { display: grid; grid-template-columns: 1fr auto; gap: 0.4rem 1rem; align-items: center; padding: 0.7rem 0; border-bottom: 1px solid color-mix(in oklab, var(--color-or) 10%, transparent); }
+.ins-comp-row:last-child { border-bottom: 0; }
+.ins-comp-name { font-family: var(--font-display); font-size: 1.2rem; color: var(--color-ivoire); }
+.ins-comp-num { font-family: var(--font-mono); font-size: 12px; color: var(--color-ivoire-soft); white-space: nowrap; }
+.ins-comp-num b { color: var(--color-or-pale); }
+.ins-comp-track { grid-column: 1 / -1; height: 6px; overflow: hidden; background: color-mix(in oklab, var(--color-noir-deep) 80%, transparent); border: 1px solid color-mix(in oklab, var(--color-or) 14%, transparent); }
+.ins-comp-fill { height: 100%; background: linear-gradient(to right, var(--color-jade), color-mix(in oklab, var(--color-jade) 60%, var(--color-or))); }
+.ins-kpis { display: flex; flex-wrap: wrap; gap: 1.4rem 2.4rem; }
+.ins-kpi .v { font-family: var(--font-display); font-size: 2.2rem; line-height: 1; color: var(--color-ivoire); }
+.ins-kpi .v.gold { color: var(--color-or-pale); }
+.ins-kpi .v.jade { color: var(--color-jade); }
+.ins-kpi .v.laque { color: var(--color-laque-bright); }
+.ins-kpi .l { font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--color-or-pale); margin-top: 0.4rem; }
+.ins-kpi .s { font-size: 11px; color: var(--color-ivoire-soft); margin-top: 0.25rem; }
+.pal-row { display: grid; grid-template-columns: auto 1fr auto; gap: 0.6rem 1rem; align-items: center; padding: 0.85rem 0; border-bottom: 1px solid color-mix(in oklab, var(--color-or) 10%, transparent); }
+.pal-row:last-child { border-bottom: 0; }
+.pal-k { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-ja); font-size: 1.2rem; color: var(--color-or-pale); border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent); background: color-mix(in oklab, var(--color-or) 6%, transparent); }
+.pal-name { font-family: var(--font-display); font-size: 1.2rem; color: var(--color-ivoire); }
+.pal-hint { font-size: 11px; color: var(--color-ivoire-soft); }
+.pal-hint .need { color: var(--color-laque-bright); }
+.pal-tier { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; padding: 0.2em 0.6em; border: 1px solid; white-space: nowrap; }
+.pal-tier.gold { border-color: var(--color-or); color: var(--color-or-pale); background: color-mix(in oklab, var(--color-or) 8%, transparent); }
+.pal-tier.silver { border-color: oklch(0.80 0.02 250); color: oklch(0.85 0.02 250); background: oklch(0.80 0.02 250 / 0.08); }
+.pal-tier.bronze { border-color: oklch(0.62 0.09 50); color: oklch(0.74 0.10 50); background: oklch(0.62 0.09 50 / 0.10); }
+.pal-track { grid-column: 2 / -1; height: 6px; overflow: hidden; margin-top: -0.2rem; background: color-mix(in oklab, var(--color-noir-deep) 80%, transparent); border: 1px solid color-mix(in oklab, var(--color-or) 14%, transparent); }
+.pal-fill { height: 100%; background: linear-gradient(to right, var(--color-or-deep), var(--color-or-pale)); }
+.ins-cmp-row { display: grid; grid-template-columns: 1fr auto auto; gap: 1rem; align-items: baseline; padding: 0.8rem 0; border-bottom: 1px solid color-mix(in oklab, var(--color-or) 10%, transparent); }
+.ins-cmp-row:last-child { border-bottom: 0; }
+.ins-cmp-m { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--color-or-pale); }
+.ins-cmp-now { font-family: var(--font-display); font-size: 1.6rem; color: var(--color-ivoire); text-align: right; }
+.ins-cmp-was { font-family: var(--font-mono); font-size: 11px; color: var(--color-ivoire-soft); text-align: right; }
+.ins-cmp-delta { font-size: 12px; font-family: var(--font-mono); white-space: nowrap; }
+.ins-up { color: var(--color-jade); }
+.ins-down { color: var(--color-laque-bright); }
+
 /* tail marker — append-only
  * keep this block last to anchor tail-append patches */

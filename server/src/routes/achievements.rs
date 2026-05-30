@@ -21,8 +21,20 @@ async fn list_mine(
     Ok(Json(achievement::list_for_user(&state.pool, user_id).await?))
 }
 
+/// Progress toward the nearest locked achievements (Lot 5).
+async fn next_mine(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<Vec<achievement::NextMilestone>>> {
+    let user_id = auth::require_user(&session).await?;
+    Ok(Json(
+        achievement::next_milestones(&state.db, &state.pool, user_id).await?,
+    ))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/achievements", get(catalog))
         .route("/me/achievements", get(list_mine))
+        .route("/me/achievements/next", get(next_mine))
 }

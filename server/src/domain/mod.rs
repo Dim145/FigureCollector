@@ -4,6 +4,7 @@ pub mod achievement;
 pub mod activity;
 pub mod admin;
 pub mod entity;
+pub mod export;
 pub mod figure;
 pub mod figure_photo;
 pub mod figure_type;

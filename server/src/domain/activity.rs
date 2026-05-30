@@ -121,6 +121,15 @@ pub struct YearInReview {
     pub monthly_pieces: Vec<MonthCount>,
     pub first_acquisition: Option<MilestoneRef>,
     pub last_acquisition: Option<MilestoneRef>,
+    /// Same headline metrics for the previous year, for an N vs N-1 readout.
+    pub comparison: Option<YearComparison>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct YearComparison {
+    pub year: i32,
+    pub pieces_acquired: i64,
+    pub spend_by_currency: Vec<SpendRow>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -343,6 +352,42 @@ pub async fn year_in_review(pool: &PgPool, user_id: Uuid, year: i32) -> AppResul
         .map(|(currency, total)| SpendRow { currency, total })
         .collect();
 
+    // Previous year, same headline metrics, for an N vs N-1 comparison.
+    let prev_start = NaiveDate::from_ymd_opt(year - 1, 1, 1).unwrap();
+    let (prev_pieces,): (Option<i64>,) = sqlx::query_as(
+        "SELECT COUNT(*)::bigint FROM activity_events
+         WHERE user_id = $1 AND kind = 'owned_added'
+           AND created_at >= $2 AND created_at < $3",
+    )
+    .bind(user_id)
+    .bind(prev_start)
+    .bind(start)
+    .fetch_one(pool)
+    .await?;
+    let prev_spend_rows: Vec<(String, Decimal)> = sqlx::query_as(
+        "SELECT price_currency, COALESCE(SUM(price_amount), 0)::numeric
+         FROM owned_items
+         WHERE user_id = $1
+           AND price_amount IS NOT NULL AND price_currency IS NOT NULL
+           AND COALESCE(purchase_date, created_at::date) >= $2
+           AND COALESCE(purchase_date, created_at::date) <  $3
+         GROUP BY price_currency
+         ORDER BY 2 DESC",
+    )
+    .bind(user_id)
+    .bind(prev_start)
+    .bind(start)
+    .fetch_all(pool)
+    .await?;
+    let comparison = Some(YearComparison {
+        year: year - 1,
+        pieces_acquired: prev_pieces.unwrap_or(0),
+        spend_by_currency: prev_spend_rows
+            .into_iter()
+            .map(|(currency, total)| SpendRow { currency, total })
+            .collect(),
+    });
+
     Ok(YearInReview {
         year,
         pieces_acquired,
@@ -354,5 +399,6 @@ pub async fn year_in_review(pool: &PgPool, user_id: Uuid, year: i32) -> AppResul
         monthly_pieces,
         first_acquisition: first.map(|(at, figure_name)| MilestoneRef { at, figure_name }),
         last_acquisition: last.map(|(at, figure_name)| MilestoneRef { at, figure_name }),
+        comparison,
     })
 }

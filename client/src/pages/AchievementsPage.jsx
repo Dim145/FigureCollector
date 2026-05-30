@@ -6,6 +6,7 @@ import { useMe } from "../hooks/useMe.js";
 import {
   useAchievementsCatalog,
   useMyAchievements,
+  useNextMilestones,
 } from "../hooks/useAchievements.js";
 import AppShell from "../components/AppShell.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
@@ -79,6 +80,7 @@ export default function AchievementsPage() {
   const me = useMe();
   const catalog = useAchievementsCatalog();
   const mine = useMyAchievements();
+  const next = useNextMilestones();
 
   // Merge catalog + per-user data by code. Catalog is the source of truth
   // for what exists; mine just adds unlock metadata.
@@ -156,6 +158,8 @@ export default function AchievementsPage() {
 
         {recent.length > 0 ? <RecentStrip recent={recent} t={t} /> : null}
 
+        {(next.data?.length ?? 0) > 0 ? <NextPalier milestones={next.data} t={t} /> : null}
+
         {Object.entries(grouped).map(([category, items]) => (
           <CategorySection
             key={category}
@@ -166,6 +170,47 @@ export default function AchievementsPage() {
         ))}
       </main>
     </AppShell>
+  );
+}
+
+// =============================================================================
+// Prochain palier (Lot 5) — distance to the nearest locked achievements.
+// Reuses the ach-recent heading + the pal-* classes from the validated maquette.
+// =============================================================================
+function NextPalier({ milestones, t }) {
+  return (
+    <Reveal as="section" y={16} className="mt-2">
+      <p className="ach-recent-heading">{t("palier.title")}</p>
+      <div className="ins-panel" style={{ marginTop: "0.75rem" }}>
+        {milestones.map((m) => (
+          <div className="pal-row" key={m.code}>
+            <span className="pal-k ja" aria-hidden>
+              {TIER_KANJI[m.tier] ?? "印"}
+            </span>
+            <div>
+              <div className="pal-name">
+                {t(`achievements.label.${m.code}`, { default: m.code })}
+              </div>
+              <div className="pal-hint">
+                {t("palier.remaining")}{" "}
+                <span className="need">
+                  {t(`palier.need.${m.kind}`, { n: m.remaining, default: `${m.remaining}` })}
+                </span>
+              </div>
+            </div>
+            <span className={`pal-tier ${m.tier}`}>
+              {t(`palier.tier.${m.tier}`, { default: m.tier })} · {m.threshold}
+            </span>
+            <span className="pal-track">
+              <span
+                className="pal-fill"
+                style={{ width: `${Math.min(100, Math.max(0, m.pct))}%` }}
+              />
+            </span>
+          </div>
+        ))}
+      </div>
+    </Reveal>
   );
 }
 

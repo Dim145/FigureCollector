@@ -4,7 +4,7 @@
 //! payload is small (a handful of arrays, max 10 entries each).
 
 use crate::auth;
-use crate::domain::stats::{self, CollectionStats};
+use crate::domain::stats::{self, CollectionStats, Insights};
 use crate::error::AppResult;
 use crate::state::AppState;
 use axum::{Json, Router, extract::State, routing::get};
@@ -18,6 +18,19 @@ async fn my_stats(
     Ok(Json(stats::collection_stats(&state.pool, user_id).await?))
 }
 
+/// Deeper insights (Lot 5): spend-over-time, series completion, wishlist value,
+/// preorder health. Separate endpoint so it loads independently of the
+/// headline stats.
+async fn my_insights(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<Insights>> {
+    let user_id = auth::require_user(&session).await?;
+    Ok(Json(stats::insights(&state.pool, user_id).await?))
+}
+
 pub fn router() -> Router<AppState> {
-    Router::new().route("/me/stats", get(my_stats))
+    Router::new()
+        .route("/me/stats", get(my_stats))
+        .route("/me/insights", get(my_insights))
 }

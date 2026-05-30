@@ -12,3 +12,15 @@ export function useMyStats() {
     staleTime: 60_000,
   });
 }
+
+/**
+ * Deeper insights (Lot 5): spend-by-year, series completion, wishlist value,
+ * preorder health. Separate endpoint from the headline stats.
+ */
+export function useInsights() {
+  return useQuery({
+    queryKey: ["insights"],
+    queryFn: () => api.get("/me/insights"),
+    staleTime: 60_000,
+  });
+}

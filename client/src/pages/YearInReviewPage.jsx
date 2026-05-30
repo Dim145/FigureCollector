@@ -3,6 +3,7 @@ import { Link, Navigate, useParams } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useYearInReview } from "../hooks/useActivity.js";
+import { fmtMoney } from "../lib/money.js";
 import AppShell from "../components/AppShell.jsx";
 
 /**
@@ -79,6 +80,8 @@ export default function YearInReviewPage() {
                 t={t}
               />
             ) : null}
+
+            <YearCompare data={data} t={t} />
           </>
         )}
 
@@ -579,6 +582,89 @@ function fmtNumber(n, maxFrac = 2) {
     minimumFractionDigits: 0,
     maximumFractionDigits: maxFrac,
   });
+}
+
+// =============================================================================
+// L'année en regard (Lot 5) — this year vs the previous one. Hidden when the
+// prior year had no activity (nothing to compare). Uses the ins-cmp-* classes
+// ported from the validated maquette.
+// =============================================================================
+function YearCompare({ data, t }) {
+  const cmp = data.comparison;
+  if (!cmp) return null;
+  const prevHadData =
+    cmp.pieces_acquired > 0 || (cmp.spend_by_currency?.length ?? 0) > 0;
+  if (!prevHadData) return null;
+
+  // Spend on the dominant current-year currency, matched in the prior year.
+  const nowSpend = data.spend_by_currency?.[0] ?? null;
+  const prevSpend = nowSpend
+    ? (cmp.spend_by_currency ?? []).find((s) => s.currency === nowSpend.currency)
+    : (cmp.spend_by_currency?.[0] ?? null);
+  const spendCur = nowSpend?.currency ?? prevSpend?.currency;
+
+  return (
+    <Reveal i={5} as="section">
+      <div className="ins-sub">
+        <span className="k ja" aria-hidden>較</span>
+        <span className="t">{t("yrcmp.title")}</span>
+        <span className="ln" aria-hidden />
+      </div>
+      <div className="ins-panel">
+        <p style={{ marginBottom: "0.5rem" }}>
+          <span
+            className="display"
+            style={{ fontStyle: "italic", fontSize: "1.8rem", color: "var(--color-ivoire)" }}
+          >
+            {data.year}
+          </span>{" "}
+          <span className="micro-tight">{t("yrcmp.vs", { year: cmp.year })}</span>
+        </p>
+        <CmpRow
+          label={t("yrcmp.pieces")}
+          now={data.pieces_acquired}
+          prev={cmp.pieces_acquired}
+          prevYear={cmp.year}
+          fmt={(v) => fmtNumber(v)}
+        />
+        {spendCur ? (
+          <CmpRow
+            label={t("yrcmp.spend")}
+            now={Number(nowSpend?.total ?? 0)}
+            prev={Number(prevSpend?.total ?? 0)}
+            prevYear={cmp.year}
+            fmt={(v) => fmtMoney(v, spendCur)}
+          />
+        ) : null}
+        <CmpRow
+          label={t("yrcmp.velocity")}
+          now={data.pieces_acquired / 12}
+          prev={cmp.pieces_acquired / 12}
+          prevYear={cmp.year}
+          fmt={(v) => t("yrcmp.per_month", { n: fmtNumber(v, 1) })}
+        />
+      </div>
+    </Reveal>
+  );
+}
+
+function CmpRow({ label, now, prev, prevYear, fmt }) {
+  const delta = prev !== 0 ? Math.round(((now - prev) / prev) * 100) : null;
+  const up = now >= prev;
+  return (
+    <div className="ins-cmp-row">
+      <span className="ins-cmp-m">{label}</span>
+      <span>
+        <div className="ins-cmp-now">{fmt(now)}</div>
+        <div className="ins-cmp-was">
+          {prevYear} · {fmt(prev)}
+        </div>
+      </span>
+      <span className={`ins-cmp-delta ${up ? "ins-up" : "ins-down"}`}>
+        {delta != null ? `${up ? "↑" : "↓"} ${Math.abs(delta)}%` : now > 0 ? "↑" : "—"}
+      </span>
+    </div>
+  );
 }
 
 /** Inline counter span — animates from 0 to `value` then settles. */

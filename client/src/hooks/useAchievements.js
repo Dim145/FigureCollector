@@ -17,3 +17,11 @@ export function useMyAchievements() {
     queryFn: () => api.get("/me/achievements"),
   });
 }
+
+/** Progress toward the nearest locked achievements (Lot 5 — prochain palier). */
+export function useNextMilestones() {
+  return useQuery({
+    queryKey: ["me", "achievements", "next"],
+    queryFn: () => api.get("/me/achievements/next"),
+  });
+}

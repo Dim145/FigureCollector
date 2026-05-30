@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FigureCollector — Lot 5 · Insights &amp; Exports (maquette)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300..600;1,300..500&family=Hanken+Grotesk:wght@300..700&family=JetBrains+Mono:wght@300..500&family=Noto+Serif+JP:wght@300..500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --font-display:"Cormorant Garamond",Georgia,serif; --font-sans:"Hanken Grotesk",system-ui,sans-serif;
+      --font-ja:"Noto Serif JP",serif; --font-mono:"JetBrains Mono",monospace;
+      --color-noir:oklch(0.14 0.005 50); --color-noir-soft:oklch(0.19 0.008 50); --color-noir-deep:oklch(0.10 0.004 50);
+      --color-laque:oklch(0.42 0.16 25); --color-laque-bright:oklch(0.55 0.20 25);
+      --color-or:oklch(0.78 0.10 80); --color-or-pale:oklch(0.88 0.06 80); --color-or-deep:oklch(0.60 0.10 80);
+      --color-ivoire:oklch(0.92 0.03 75); --color-ivoire-soft:oklch(0.92 0.03 75 / 0.8);
+      --color-jade:oklch(0.72 0.13 175); --color-indigo:oklch(0.58 0.15 275); --color-magenta:oklch(0.74 0.16 350);
+      color-scheme:dark;
+    }
+    [data-theme="light"]{
+      color-scheme:light;
+      --color-noir:oklch(0.965 0.008 85); --color-noir-soft:oklch(0.995 0.004 85); --color-noir-deep:oklch(0.93 0.012 80);
+      --color-ivoire:oklch(0.26 0.02 55); --color-ivoire-soft:oklch(0.40 0.02 55 / 0.86);
+      --color-or:oklch(0.58 0.12 72); --color-or-pale:oklch(0.50 0.12 70); --color-or-deep:oklch(0.42 0.10 68);
+      --color-laque:oklch(0.50 0.19 25); --color-laque-bright:oklch(0.56 0.21 25);
+      --color-jade:oklch(0.55 0.13 175); --color-indigo:oklch(0.50 0.16 275); --color-magenta:oklch(0.58 0.18 350);
+    }
+    *{box-sizing:border-box;}
+    html,body{margin:0;min-height:100%;}
+    body{font-family:var(--font-sans);background:var(--color-noir);color:var(--color-ivoire);-webkit-font-smoothing:antialiased;
+      background-image:radial-gradient(70% 60% at 30% 25%,oklch(0.78 0.10 80 / 0.09),transparent 65%),radial-gradient(55% 50% at 80% 85%,oklch(0.42 0.16 25 / 0.05),transparent 70%);background-attachment:fixed;}
+    body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background-image:radial-gradient(circle at 1px 1px,oklch(0.92 0.03 75 / 0.035) 1px,transparent 0);background-size:4px 4px;}
+    .display{font-family:var(--font-display);font-weight:300;letter-spacing:-0.01em;line-height:1;}
+    .ja{font-family:var(--font-ja);}
+    .mono{font-family:var(--font-mono);}
+    .micro{font-family:var(--font-sans);font-size:10.5px;letter-spacing:0.3em;text-transform:uppercase;color:var(--color-or-pale);}
+    .micro-tight{font-family:var(--font-sans);font-size:9.5px;letter-spacing:0.22em;text-transform:uppercase;color:var(--color-or-pale);}
+    .figural{font-family:var(--font-display);font-variant-numeric:lining-nums tabular-nums;font-weight:300;}
+    .gold-rule{height:1px;background:linear-gradient(to right,transparent,var(--color-or) 30%,var(--color-or) 70%,transparent);}
+    .chip{display:inline-flex;align-items:center;gap:0.4em;padding:0.25em 0.7em;font-size:10px;letter-spacing:0.2em;text-transform:uppercase;border:1px solid color-mix(in oklab,var(--color-or) 35%,transparent);color:var(--color-or-pale);background:color-mix(in oklab,var(--color-or) 4%,transparent);white-space:nowrap;}
+    .chip--jade{border-color:color-mix(in oklab,var(--color-jade) 55%,transparent);color:var(--color-jade);background:color-mix(in oklab,var(--color-jade) 9%,transparent);}
+    .chip--laque{border-color:color-mix(in oklab,var(--color-laque-bright) 50%,transparent);color:var(--color-laque-bright);background:color-mix(in oklab,var(--color-laque) 8%,transparent);}
+
+    main{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:4rem 1.5rem 6rem;}
+    .screen-sep{display:flex;align-items:center;gap:1rem;margin:5rem 0;}
+    .screen-sep::before,.screen-sep::after{content:"";height:1px;flex:1;background:linear-gradient(to right,transparent,color-mix(in oklab,var(--color-or) 40%,transparent),transparent);}
+    .screen-sep .ja{font-size:1.3rem;color:color-mix(in oklab,var(--color-or) 70%,transparent);}
+    .head{position:relative;margin-bottom:2rem;}
+    .head h1{margin:0.5rem 0 0;font-size:clamp(2.2rem,5vw,3.2rem);color:var(--color-ivoire);}
+    .head .rule{width:4rem;margin-top:1rem;}
+    .head p.lead{margin:1.1rem 0 0;max-width:42rem;line-height:1.6;color:var(--color-ivoire-soft);}
+    .head .ghost{position:absolute;top:-2.5rem;right:-0.5rem;font-size:9rem;line-height:1;color:color-mix(in oklab,var(--color-or) 7%,transparent);pointer-events:none;}
+    .sub{display:flex;align-items:center;gap:0.7rem;margin:2.5rem 0 1.1rem;}
+    .sub .k{font-family:var(--font-ja);font-size:1.2rem;color:color-mix(in oklab,var(--color-or) 70%,transparent);}
+    .sub .t{font-family:var(--font-display);font-size:1.5rem;color:var(--color-ivoire);}
+    .sub .ln{flex:1;height:1px;background:linear-gradient(to right,color-mix(in oklab,var(--color-or) 30%,transparent),transparent);}
+
+    /* ── Export center ── */
+    .xp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:1.5rem;}
+    .xp-card{position:relative;background:var(--color-noir-soft);border:1px solid color-mix(in oklab,var(--color-or) 16%,transparent);padding:1.3rem 1.4rem 1.4rem;display:flex;flex-direction:column;}
+    .xp-card .k{position:absolute;top:1rem;right:1.1rem;font-family:var(--font-ja);font-size:2.4rem;color:color-mix(in oklab,var(--color-or) 12%,transparent);}
+    .xp-name{font-family:var(--font-display);font-size:1.5rem;color:var(--color-ivoire);}
+    .xp-count{display:flex;align-items:baseline;gap:0.45rem;margin-top:0.2rem;}
+    .xp-count .v{font-family:var(--font-display);font-size:1.6rem;color:var(--color-or-pale);}
+    .xp-cols{margin:1rem 0 1.2rem;font-size:11px;line-height:1.7;color:var(--color-ivoire-soft);border-left:2px solid color-mix(in oklab,var(--color-or) 25%,transparent);padding-left:0.7rem;}
+    .xp-cols b{color:var(--color-or-pale);font-weight:400;font-size:9px;letter-spacing:0.16em;text-transform:uppercase;display:block;margin-bottom:0.2rem;}
+    .xp-btns{margin-top:auto;display:flex;gap:0.6rem;}
+    .xp-btn{flex:1;display:inline-flex;align-items:center;justify-content:center;gap:0.45em;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;padding:0.6rem 0.5rem;cursor:pointer;border:1px solid;background:none;}
+    .xp-btn--csv{border-color:var(--color-or);color:var(--color-noir);background:var(--color-or);}
+    .xp-btn--json{border-color:color-mix(in oklab,var(--color-or) 35%,transparent);color:var(--color-or-pale);}
+    .xp-btn .ext{font-family:var(--font-mono);font-size:9px;opacity:0.7;}
+    .xp-all{margin-top:1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;padding:1rem 1.2rem;border:1px dashed color-mix(in oklab,var(--color-or) 30%,transparent);background:color-mix(in oklab,var(--color-or) 3%,transparent);}
+    .xp-all .lbl{font-size:12px;color:var(--color-ivoire-soft);}
+    .xp-all .lbl b{font-family:var(--font-display);font-size:1.1rem;color:var(--color-ivoire);}
+
+    /* ── card shell for insight blocks ── */
+    .panel{background:color-mix(in oklab,var(--color-noir-soft) 80%,transparent);border:1px solid color-mix(in oklab,var(--color-or) 16%,transparent);padding:1.4rem 1.5rem;}
+    .cards2{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;}
+    @media (max-width:760px){ .cards2{grid-template-columns:1fr;} }
+
+    /* ── spend over time (bars) ── */
+    .bars{display:flex;align-items:flex-end;gap:0.9rem;height:190px;padding-top:1rem;}
+    .bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:0.5rem;}
+    .bar-fill{width:100%;max-width:46px;background:linear-gradient(to top,color-mix(in oklab,var(--color-or) 65%,transparent),color-mix(in oklab,var(--color-or) 25%,transparent));border-top:2px solid var(--color-or-pale);position:relative;}
+    .bar-col.cur .bar-fill{background:linear-gradient(to top,color-mix(in oklab,var(--color-laque) 60%,transparent),color-mix(in oklab,var(--color-laque) 20%,transparent));border-top-color:var(--color-laque-bright);}
+    .bar-v{font-family:var(--font-display);font-size:1rem;color:var(--color-ivoire);}
+    .bar-y{font-family:var(--font-mono);font-size:10px;color:var(--color-or-pale);letter-spacing:0.08em;}
+
+    /* ── series completion ── */
+    .comp-row{display:grid;grid-template-columns:1fr auto;gap:0.4rem 1rem;align-items:center;padding:0.7rem 0;border-bottom:1px solid color-mix(in oklab,var(--color-or) 10%,transparent);}
+    .comp-row:last-child{border-bottom:0;}
+    .comp-name{font-family:var(--font-display);font-size:1.2rem;color:var(--color-ivoire);}
+    .comp-num{font-family:var(--font-mono);font-size:12px;color:var(--color-ivoire-soft);white-space:nowrap;}
+    .comp-num b{color:var(--color-or-pale);}
+    .comp-track{grid-column:1 / -1;height:6px;background:color-mix(in oklab,var(--color-noir-deep) 80%,transparent);border:1px solid color-mix(in oklab,var(--color-or) 14%,transparent);overflow:hidden;}
+    .comp-fill{height:100%;background:linear-gradient(to right,var(--color-jade),color-mix(in oklab,var(--color-jade) 60%,var(--color-or)));}
+
+    /* ── KPI rows ── */
+    .kpis{display:flex;flex-wrap:wrap;gap:1.6rem 2.4rem;}
+    .kpi .v{font-family:var(--font-display);font-size:2.2rem;line-height:1;color:var(--color-ivoire);}
+    .kpi .v.gold{color:var(--color-or-pale);} .kpi .v.jade{color:var(--color-jade);} .kpi .v.laque{color:var(--color-laque-bright);}
+    .kpi .l{font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--color-or-pale);margin-top:0.4rem;}
+    .kpi .sub2{font-size:11px;color:var(--color-ivoire-soft);margin-top:0.25rem;}
+
+    /* ── next achievement palier ── */
+    .palier-row{display:grid;grid-template-columns:auto 1fr auto;gap:0.6rem 1rem;align-items:center;padding:0.85rem 0;border-bottom:1px solid color-mix(in oklab,var(--color-or) 10%,transparent);}
+    .palier-row:last-child{border-bottom:0;}
+    .palier-k{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-family:var(--font-ja);font-size:1.2rem;color:var(--color-or-pale);border:1px solid color-mix(in oklab,var(--color-or) 35%,transparent);background:color-mix(in oklab,var(--color-or) 6%,transparent);}
+    .palier-name{font-family:var(--font-display);font-size:1.2rem;color:var(--color-ivoire);}
+    .palier-hint{font-size:11px;color:var(--color-ivoire-soft);}
+    .palier-hint .need{color:var(--color-laque-bright);}
+    .palier-tier{font-size:9px;letter-spacing:0.14em;text-transform:uppercase;padding:0.2em 0.6em;border:1px solid;white-space:nowrap;}
+    .tier-silver{border-color:oklch(0.80 0.02 250);color:oklch(0.85 0.02 250);background:oklch(0.80 0.02 250 / 0.08);}
+    .tier-gold{border-color:var(--color-or);color:var(--color-or-pale);background:color-mix(in oklab,var(--color-or) 8%,transparent);}
+    .palier-track{grid-column:2 / -1;height:6px;background:color-mix(in oklab,var(--color-noir-deep) 80%,transparent);border:1px solid color-mix(in oklab,var(--color-or) 14%,transparent);overflow:hidden;margin-top:-0.2rem;}
+    .palier-fill{height:100%;background:linear-gradient(to right,var(--color-or-deep),var(--color-or-pale));}
+
+    /* ── year comparison ── */
+    .cmp-head{display:flex;align-items:baseline;gap:1rem;margin-bottom:0.5rem;}
+    .cmp-head .y{font-family:var(--font-display);font-style:italic;font-size:2.4rem;color:var(--color-ivoire);}
+    .cmp-head .y.prev{font-size:1.4rem;color:var(--color-ivoire-soft);}
+    .cmp-row{display:grid;grid-template-columns:1fr auto auto;gap:1rem;align-items:baseline;padding:0.8rem 0;border-bottom:1px solid color-mix(in oklab,var(--color-or) 10%,transparent);}
+    .cmp-row:last-child{border-bottom:0;}
+    .cmp-m{font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--color-or-pale);}
+    .cmp-now{font-family:var(--font-display);font-size:1.6rem;color:var(--color-ivoire);text-align:right;}
+    .cmp-was{font-family:var(--font-mono);font-size:11px;color:var(--color-ivoire-soft);text-align:right;}
+    .cmp-delta{font-size:12px;font-family:var(--font-mono);white-space:nowrap;}
+    .up{color:var(--color-jade);} .down{color:var(--color-laque-bright);}
+
+    .theme-switch{position:fixed;top:1rem;right:1rem;z-index:10;display:inline-flex;border:1px solid color-mix(in oklab,var(--color-or) 35%,transparent);background:color-mix(in oklab,var(--color-noir-soft) 90%,transparent);backdrop-filter:blur(6px);}
+    .theme-switch button{background:none;border:0;color:var(--color-ivoire-soft);padding:0.5rem 0.8rem;cursor:pointer;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;}
+    .theme-switch button.on{background:var(--color-or);color:var(--color-noir);}
+    .maq-tag{position:fixed;bottom:0.9rem;left:1rem;z-index:10;font-family:var(--font-mono);font-size:10px;letter-spacing:0.14em;color:color-mix(in oklab,var(--color-or) 60%,transparent);}
+  </style>
+</head>
+<body>
+  <div class="theme-switch"><button id="t-dark" class="on" onclick="setTheme('dark')">Sombre</button><button id="t-light" onclick="setTheme('light')">Clair</button></div>
+  <div class="maq-tag">maquette · lot 5 · insights &amp; exports</div>
+
+  <main>
+    <!-- ═══════════ SECTION 1 — LE CABINET D'ARCHIVES (EXPORTS) ═══════════ -->
+    <section>
+      <header class="head">
+        <span class="ghost ja">蔵</span>
+        <p class="micro">Données · sauvegarde &amp; portabilité</p>
+        <h1 class="display">Le cabinet d'archives</h1>
+        <div class="gold-rule rule"></div>
+        <p class="lead">Tes données t'appartiennent. Exporte ta collection, tes souhaits et tes précommandes en <b>CSV</b> (tableur) ou <b>JSON</b> (sauvegarde fidèle, ré-import, migration). Rien ne quitte le serveur sans ton geste.</p>
+      </header>
+
+      <div class="xp-grid">
+        <article class="xp-card">
+          <span class="k ja">蒐</span>
+          <div class="xp-name">Collection</div>
+          <div class="xp-count"><span class="v figural">47</span><span class="micro-tight">pièces possédées</span></div>
+          <div class="xp-cols"><b>Colonnes</b>Nom · type · fabricant · échelle · état · prix payé · devise · valeur estimée · date d'achat · JAN</div>
+          <div class="xp-btns"><button class="xp-btn xp-btn--csv">↓ CSV</button><button class="xp-btn xp-btn--json">↓ JSON</button></div>
+        </article>
+
+        <article class="xp-card">
+          <span class="k ja">望</span>
+          <div class="xp-name">Souhaits</div>
+          <div class="xp-count"><span class="v figural">7</span><span class="micro-tight">pièces convoitées</span></div>
+          <div class="xp-cols"><b>Colonnes</b>Nom · fabricant · prix-cible · MSRP actuel · écart · note</div>
+          <div class="xp-btns"><button class="xp-btn xp-btn--csv">↓ CSV</button><button class="xp-btn xp-btn--json">↓ JSON</button></div>
+        </article>
+
+        <article class="xp-card">
+          <span class="k ja">予</span>
+          <div class="xp-name">Précommandes</div>
+          <div class="xp-count"><span class="v figural">5</span><span class="micro-tight">en cours</span></div>
+          <div class="xp-cols"><b>Colonnes</b>Nom · boutique · statut · date initiale · date actuelle · slips · acompte · devise</div>
+          <div class="xp-btns"><button class="xp-btn xp-btn--csv">↓ CSV</button><button class="xp-btn xp-btn--json">↓ JSON</button></div>
+        </article>
+      </div>
+
+      <div class="xp-all">
+        <span class="lbl"><b>Sauvegarde complète</b> — tout en un seul fichier JSON (collection + souhaits + précommandes + profil), prêt à ré-importer.</span>
+        <button class="xp-btn xp-btn--json" style="flex:0 0 auto;padding:0.6rem 1.2rem;">↓ figurecollector-2026-05-30.json</button>
+      </div>
+    </section>
+
+    <div class="screen-sep"><span class="ja">計</span></div>
+
+    <!-- ═══════════ SECTION 2 — INSIGHTS ÉTENDUS ═══════════ -->
+    <section>
+      <header class="head">
+        <span class="ghost ja">計</span>
+        <p class="micro">Statistiques · ce qui manquait</p>
+        <h1 class="display">Lecture approfondie</h1>
+        <div class="gold-rule rule"></div>
+        <p class="lead">De nouveaux chapitres viennent compléter la page Statistiques : la dépense dans le temps, la complétion des séries, le coût des souhaits et la santé des précommandes.</p>
+      </header>
+
+      <!-- spend over time -->
+      <div class="sub"><span class="k ja">費</span><span class="t">Dépense dans le temps</span><span class="ln"></span><span class="chip">EUR</span></div>
+      <div class="panel">
+        <div class="bars">
+          <div class="bar-col"><span class="bar-v figural">420 €</span><div class="bar-fill" style="height:20%"></div><span class="bar-y">2021</span></div>
+          <div class="bar-col"><span class="bar-v figural">980 €</span><div class="bar-fill" style="height:47%"></div><span class="bar-y">2022</span></div>
+          <div class="bar-col"><span class="bar-v figural">1 340 €</span><div class="bar-fill" style="height:64%"></div><span class="bar-y">2023</span></div>
+          <div class="bar-col"><span class="bar-v figural">2 100 €</span><div class="bar-fill" style="height:100%"></div><span class="bar-y">2024</span></div>
+          <div class="bar-col cur"><span class="bar-v figural">1 560 €</span><div class="bar-fill" style="height:74%"></div><span class="bar-y">2025</span></div>
+        </div>
+      </div>
+
+      <div class="cards2" style="margin-top:1.5rem;">
+        <!-- series completion -->
+        <div>
+          <div class="sub" style="margin-top:0;"><span class="k ja">揃</span><span class="t">Complétion de séries</span></div>
+          <div class="panel">
+            <div class="comp-row"><span class="comp-name">Re:Zero</span><span class="comp-num"><b>8</b>/12 · 67%</span><span class="comp-track"><span class="comp-fill" style="width:67%"></span></span></div>
+            <div class="comp-row"><span class="comp-name">Hololive</span><span class="comp-num"><b>6</b>/9 · 67%</span><span class="comp-track"><span class="comp-fill" style="width:67%"></span></span></div>
+            <div class="comp-row"><span class="comp-name">Fate/Grand Order</span><span class="comp-num"><b>15</b>/40 · 38%</span><span class="comp-track"><span class="comp-fill" style="width:38%"></span></span></div>
+            <div class="comp-row"><span class="comp-name">Evangelion</span><span class="comp-num"><b>4</b>/20 · 20%</span><span class="comp-track"><span class="comp-fill" style="width:20%"></span></span></div>
+          </div>
+        </div>
+
+        <!-- wishlist cost + preorder health stacked -->
+        <div>
+          <div class="sub" style="margin-top:0;"><span class="k ja">望</span><span class="t">Coût des souhaits</span></div>
+          <div class="panel">
+            <div class="kpis">
+              <div class="kpi"><div class="v gold figural">~ 940 €</div><div class="l">budget total des cibles</div><div class="sub2">7 pièces · 2 sous la cible aujourd'hui</div></div>
+            </div>
+          </div>
+          <div class="sub"><span class="k ja">予</span><span class="t">Santé des précommandes</span></div>
+          <div class="panel">
+            <div class="kpis">
+              <div class="kpi"><div class="v jade figural">380 €</div><div class="l">acomptes engagés</div></div>
+              <div class="kpi"><div class="v figural">47 j</div><div class="l">slip moyen</div></div>
+              <div class="kpi"><div class="v laque figural">1</div><div class="l">annulation</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="screen-sep"><span class="ja">次</span></div>
+
+    <!-- ═══════════ SECTION 3 — PROCHAIN PALIER + COMPARAISON ═══════════ -->
+    <section>
+      <header class="head">
+        <span class="ghost ja">較</span>
+        <p class="micro">Achievements · progression — Almanach · regard</p>
+        <h1 class="display">Cap &amp; comparaison</h1>
+        <div class="gold-rule rule"></div>
+        <p class="lead">Sur la page des achievements : à combien tu es du prochain palier. Et dans l'Almanach annuel : l'année en cours mise en regard de la précédente.</p>
+      </header>
+
+      <div class="cards2">
+        <!-- next palier -->
+        <div>
+          <div class="sub" style="margin-top:0;"><span class="k ja">次</span><span class="t">Prochain palier</span></div>
+          <div class="panel">
+            <div class="palier-row">
+              <span class="palier-k ja">蒐</span>
+              <div><div class="palier-name">Centurion</div><div class="palier-hint">il te manque <span class="need">37 pièces</span></div></div>
+              <span class="palier-tier tier-gold">Or · 100</span>
+              <span class="palier-track"><span class="palier-fill" style="width:63%"></span></span>
+            </div>
+            <div class="palier-row">
+              <span class="palier-k ja">企</span>
+              <div><div class="palier-name">Fidèle d'une marque</div><div class="palier-hint">encore <span class="need">13 fabricants</span></div></div>
+              <span class="palier-tier tier-silver">Argent · 25</span>
+              <span class="palier-track"><span class="palier-fill" style="width:48%"></span></span>
+            </div>
+            <div class="palier-row">
+              <span class="palier-k ja">予</span>
+              <div><div class="palier-name">Survivant des slips</div><div class="palier-hint">encore <span class="need">2 reports</span></div></div>
+              <span class="palier-tier tier-gold">Or · 5</span>
+              <span class="palier-track"><span class="palier-fill" style="width:60%"></span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- year compare -->
+        <div>
+          <div class="sub" style="margin-top:0;"><span class="k ja">較</span><span class="t">L'année en regard</span></div>
+          <div class="panel">
+            <div class="cmp-head"><span class="y display">2025</span><span class="y prev display">vs 2024</span></div>
+            <div class="cmp-row"><span class="cmp-m">Pièces acquises</span><span><div class="cmp-now figural">18</div><div class="cmp-was">2024 · 24</div></span><span class="cmp-delta down">↓ 25%</span></div>
+            <div class="cmp-row"><span class="cmp-m">Dépense</span><span><div class="cmp-now figural">1 560 €</div><div class="cmp-was">2024 · 2 100 €</div></span><span class="cmp-delta down">↓ 26%</span></div>
+            <div class="cmp-row"><span class="cmp-m">Vélocité</span><span><div class="cmp-now figural">1,5/mois</div><div class="cmp-was">2024 · 2,0/mois</div></span><span class="cmp-delta down">↓ 0,5</span></div>
+            <div class="cmp-row"><span class="cmp-m">Valeur ajoutée</span><span><div class="cmp-now figural">+ 2 240 €</div><div class="cmp-was">2024 · +2 980 €</div></span><span class="cmp-delta up">↑ tenue</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function setTheme(t){document.documentElement.setAttribute('data-theme',t);document.getElementById('t-dark').classList.toggle('on',t==='dark');document.getElementById('t-light').classList.toggle('on',t==='light');}
+  </script>
+</body>
+</html>
