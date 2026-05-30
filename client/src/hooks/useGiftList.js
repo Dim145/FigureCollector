@@ -31,11 +31,13 @@ export function useDisableGiftShare() {
 
 // ── Public side (anonymous, by token) ────────────────────────────────────────
 
-/** A shared gift list by token. Anonymous-friendly — no session required. */
-export function useSharedWishlist(token) {
+/** A shared gift list by token. Anonymous-friendly — no session required.
+ *  `revealNsfw` only matters for anonymous viewers (signed-in viewers are
+ *  gated by their own NSFW setting server-side); it appends `?nsfw=1`. */
+export function useSharedWishlist(token, revealNsfw = false) {
   return useQuery({
-    queryKey: ["gift", token],
-    queryFn: () => api.get(`/g/${token}`),
+    queryKey: ["gift", token, revealNsfw],
+    queryFn: () => api.get(`/g/${token}${revealNsfw ? "?nsfw=1" : ""}`),
     enabled: !!token,
     retry: false,
   });

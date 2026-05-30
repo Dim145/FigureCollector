@@ -221,6 +221,9 @@ export default {
   "gift.release": "Annuler",
   "gift.reserve_error": "Impossible de réserver — quelqu'un vient peut-être de la prendre. Actualise et réessaie.",
   "gift.not_found": "Ce lien cadeau est invalide ou n'est plus partagé.",
+  "gift.nsfw_reveal": "Afficher le contenu sensible ({n})",
+  "gift.nsfw_hide": "Masquer le contenu sensible",
+  "gift.nsfw_hidden_note": "{n} pièce(s) sensible(s) masquée(s) — selon ton réglage NSFW",
 
   // Détection de doublons à la création — Lot 2
   "figdup.title": "{n} figurines similaires déjà au catalogue",
@@ -319,7 +322,7 @@ export default {
   "collection.empty.cta": "Créer une fiche",
   "collection.empty.cta_browse": "Parcourir le catalogue",
   "collection.remove": "Retirer",
-  "bulk.select": "Sélectionner",
+  "bulk.select": "Sélection multiple",
   "bulk.done": "Terminé",
   "bulk.selected_label": "sélectionnée(s)",
   "bulk.all": "Tout",

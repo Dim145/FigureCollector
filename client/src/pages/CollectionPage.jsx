@@ -197,18 +197,27 @@ export default function CollectionPage() {
               {t("cote.title")}
             </Link>
             {owned.data?.length ? (
-              <button
-                type="button"
-                onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
-                aria-pressed={selectMode}
-                className={`chip transition-colors ${
-                  selectMode
-                    ? "!border-[var(--color-or)] !text-[var(--color-or)]"
-                    : "hover:border-[var(--color-or)] hover:text-[var(--color-or)]"
-                }`}
-              >
-                {selectMode ? t("bulk.done") : t("bulk.select")}
-              </button>
+              <>
+                {/* Action, not a lens — set it apart from Vitrines / La Cote so
+                    it reads as "start editing several pieces at once". */}
+                <span
+                  aria-hidden
+                  className="self-center mx-1 w-px h-4 bg-[color-mix(in_oklab,var(--color-or)_25%,transparent)]"
+                />
+                <button
+                  type="button"
+                  onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
+                  aria-pressed={selectMode}
+                  className={`chip inline-flex items-center gap-1.5 transition-colors ${
+                    selectMode
+                      ? "!border-[var(--color-or)] !text-[var(--color-or)]"
+                      : "hover:border-[var(--color-or)] hover:text-[var(--color-or)]"
+                  }`}
+                >
+                  <span aria-hidden>{selectMode ? "✓" : "☑"}</span>
+                  {selectMode ? t("bulk.done") : t("bulk.select")}
+                </button>
+              </>
             ) : null}
           </nav>
 

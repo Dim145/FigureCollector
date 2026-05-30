@@ -15,7 +15,7 @@ use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     routing::{get, post},
 };
@@ -79,13 +79,28 @@ struct PublicGiftList {
     /// True when the viewer is the owner — the SPA then hides reservations and
     /// the reserve buttons (reservations are already stripped server-side).
     is_owner: bool,
+    /// Whether the owner exposes NSFW pieces on their public surfaces. The SPA
+    /// only offers the anonymous "reveal" toggle when this is true.
+    owner_allows_nsfw: bool,
+    /// How many NSFW pieces are hidden from the current viewer right now (0 when
+    /// shown, or when the owner doesn't share NSFW at all — never leaks).
+    hidden_nsfw: i64,
     items: Vec<PublicItem>,
+}
+
+#[derive(Deserialize)]
+struct PublicQuery {
+    /// Anonymous NSFW reveal, from the viewer's localStorage. Ignored for
+    /// signed-in viewers — their own `nsfw_visibility` governs.
+    #[serde(default)]
+    nsfw: Option<String>,
 }
 
 async fn public_list(
     State(state): State<AppState>,
     session: Session,
     Path(token): Path<String>,
+    Query(q): Query<PublicQuery>,
 ) -> AppResult<Json<PublicGiftList>> {
     let owner = user::find_by_gift_token(&state.pool, &token)
         .await?
@@ -93,9 +108,27 @@ async fn public_list(
     let viewer = auth::optional_user(&session).await?;
     let is_owner = viewer == Some(owner.id);
 
-    // A public link must never expose NSFW pieces, whatever the owner's own
-    // visibility setting.
-    let items = wishlist::list(&state.pool, owner.id, true).await?;
+    // NSFW gate. The owner's public-profile NSFW switch is the hard ceiling;
+    // beyond that the viewer must opt in — their own visibility setting when
+    // signed in, an explicit `?nsfw=1` (from localStorage) when anonymous.
+    let owner_allows_nsfw = owner.public_profile_show_nsfw;
+    let viewer_wants_nsfw = match viewer {
+        Some(uid) if uid == owner.id => owner.nsfw_visibility != "hide",
+        Some(uid) => user::find_by_id(&state.pool, uid)
+            .await?
+            .map(|u| u.nsfw_visibility != "hide")
+            .unwrap_or(false),
+        None => q.nsfw.as_deref() == Some("1"),
+    };
+    let show_nsfw = owner_allows_nsfw && viewer_wants_nsfw;
+
+    let all = wishlist::list(&state.pool, owner.id, false).await?;
+    // Only ever reveal that NSFW exists when the owner actually shares it.
+    let hidden_nsfw = if owner_allows_nsfw && !show_nsfw {
+        all.iter().filter(|i| i.is_nsfw).count() as i64
+    } else {
+        0
+    };
 
     // Reservations are the surprise — strip them entirely for the owner.
     let reserved: HashMap<Uuid, String> = if is_owner {
@@ -108,8 +141,9 @@ async fn public_list(
             .collect()
     };
 
-    let items = items
+    let items = all
         .into_iter()
+        .filter(|it| show_nsfw || !it.is_nsfw)
         .map(|item| {
             let reserved_by = reserved.get(&item.figure_id).cloned();
             PublicItem {
@@ -123,6 +157,8 @@ async fn public_list(
     Ok(Json(PublicGiftList {
         owner_name: owner.display_name,
         is_owner,
+        owner_allows_nsfw,
+        hidden_nsfw,
         items,
     }))
 }

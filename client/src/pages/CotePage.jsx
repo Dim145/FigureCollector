@@ -161,13 +161,23 @@ export default function CotePage() {
                   {/* Rounded to whole units in the hero: keeps the giant figure
                       free of a comma whose descender bled into the panel below.
                       Exact amounts (cents) stay in the KPIs and the rows. */}
-                  <span className="figural-massive text-[clamp(4rem,11vw,8rem)] leading-[0.9] pb-[0.06em] inline-block">
-                    {fxReady && convValue != null
-                      ? `≈ ${fmtMoney(Math.round(convValue), fx.display, locale)}`
-                      : primary
+                  {fxReady && convValue != null ? (
+                    // Converted: keep the ≈ on the same line as the amount (a
+                    // subordinate, smaller glyph) and shrink the figure a touch
+                    // so "≈ 536 €" never wraps.
+                    <span className="figural-massive leading-[0.9] pb-[0.06em] inline-flex items-baseline">
+                      <span className="text-[clamp(2rem,5vw,3.75rem)] text-[var(--color-or-pale)] mr-3">≈</span>
+                      <span className="text-[clamp(3.25rem,8.5vw,6.5rem)] whitespace-nowrap">
+                        {fmtMoney(Math.round(convValue), fx.display, locale)}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="figural-massive text-[clamp(4rem,11vw,8rem)] leading-[0.9] pb-[0.06em] inline-block">
+                      {primary
                         ? fmtMoney(Math.round(Number(primary.estimated_total)), primary.currency, locale)
                         : "—"}
-                  </span>
+                    </span>
+                  )}
                 </span>
                 {fxReady && convValue != null ? (
                   <p className="mt-3 text-[12px] text-[var(--color-ivoire-soft)]">

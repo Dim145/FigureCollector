@@ -213,6 +213,9 @@ export default {
   "gift.release": "Release",
   "gift.reserve_error": "Couldn't claim this piece — someone may have just taken it. Refresh and try again.",
   "gift.not_found": "This gift link is invalid or no longer shared.",
+  "gift.nsfw_reveal": "Show sensitive content ({n})",
+  "gift.nsfw_hide": "Hide sensitive content",
+  "gift.nsfw_hidden_note": "{n} sensitive piece(s) hidden — per your NSFW setting",
 
   // Duplicate detection at creation — Lot 2
   "figdup.title": "{n} similar figures already in the catalogue",
@@ -310,7 +313,7 @@ export default {
   "collection.empty.cta": "Create a record",
   "collection.empty.cta_browse": "Browse the catalog",
   "collection.remove": "Remove",
-  "bulk.select": "Select",
+  "bulk.select": "Select multiple",
   "bulk.done": "Done",
   "bulk.selected_label": "selected",
   "bulk.all": "All",

@@ -6,6 +6,7 @@ import {
   useReserveGift,
   useReleaseGift,
 } from "../hooks/useGiftList.js";
+import { useMe } from "../hooks/useMe.js";
 import { typeHue } from "../lib/typeHue.js";
 import { fmtMoney } from "../lib/money.js";
 
@@ -47,6 +48,25 @@ const recallName = (token) => {
   }
 };
 
+// Anonymous "reveal sensitive content" comfort pref — global across any gift
+// link the viewer opens. Signed-in viewers are governed by their own NSFW
+// setting instead, server-side.
+const NSFW_PREF = "fc_gift_nsfw";
+const readNsfwReveal = () => {
+  try {
+    return localStorage.getItem(NSFW_PREF) === "1";
+  } catch {
+    return false;
+  }
+};
+const writeNsfwReveal = (on) => {
+  try {
+    localStorage.setItem(NSFW_PREF, on ? "1" : "0");
+  } catch {
+    /* ignore */
+  }
+};
+
 /**
  * Public, anonymous gift list at `/g/<token>` — the first SPA route that
  * renders without a session (no AppShell, no login redirect). Friends see the
@@ -59,13 +79,28 @@ export default function SharedWishlistPage() {
   const t = useT();
   const locale = document.documentElement.lang || undefined;
 
-  const list = useSharedWishlist(token);
+  const me = useMe();
+  const authed = !!me.data?.authenticated;
+  const viewerNsfw = me.data?.user?.nsfw_visibility; // "hide" | "blur" | "show" | undefined
+  const [anonReveal, setAnonReveal] = useState(() => readNsfwReveal());
+  // The ?nsfw flag only drives anonymous viewers; signed-in ones are gated by
+  // their own setting server-side.
+  const revealNsfw = !authed && anonReveal;
+  const blurNsfw = authed && viewerNsfw === "blur";
+
+  const list = useSharedWishlist(token, revealNsfw);
   const reserve = useReserveGift(token);
   const release = useReleaseGift(token);
 
   const [mine, setMine] = useState(() => readMine(token));
   const [openId, setOpenId] = useState(null); // figure whose claim form is open
   const [name, setName] = useState(() => recallName(token));
+
+  const toggleNsfw = () => {
+    const v = !anonReveal;
+    setAnonReveal(v);
+    writeNsfwReveal(v);
+  };
 
   const doReserve = (figureId) => {
     const nm = name.trim();
@@ -122,8 +157,9 @@ export default function SharedWishlistPage() {
     );
   }
 
-  const { owner_name, is_owner, items } = list.data;
+  const { owner_name, is_owner, owner_allows_nsfw, hidden_nsfw, items } = list.data;
   const claimedCount = items.filter((it) => it.reserved).length;
+  const showNsfwControl = owner_allows_nsfw && (hidden_nsfw > 0 || (!authed && anonReveal));
 
   return (
     <Shell t={t}>
@@ -141,6 +177,21 @@ export default function SharedWishlistPage() {
           <p className="mt-2 font-mono text-[11px] text-[var(--color-ivoire-soft)]">
             {t("gift.claimed_count", { n: claimedCount, total: items.length })}
           </p>
+        ) : null}
+        {showNsfwControl ? (
+          !authed ? (
+            <button
+              type="button"
+              onClick={toggleNsfw}
+              className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-[0.14em] border border-[color-mix(in_oklab,var(--color-laque)_45%,transparent)] text-[var(--color-laque-bright)] hover:border-[var(--color-laque-bright)] transition-colors"
+            >
+              {anonReveal ? t("gift.nsfw_hide") : t("gift.nsfw_reveal", { n: hidden_nsfw })}
+            </button>
+          ) : hidden_nsfw > 0 ? (
+            <p className="mt-3 text-[11px] text-[var(--color-ivoire-soft)] italic">
+              {t("gift.nsfw_hidden_note", { n: hidden_nsfw })}
+            </p>
+          ) : null
         ) : null}
       </header>
 
@@ -167,7 +218,12 @@ export default function SharedWishlistPage() {
                   style={{ background: "var(--color-noir-deep)", border: `1px solid color-mix(in oklab, ${hue} 22%, transparent)` }}
                 >
                   {cover ? (
-                    <img src={cover} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+                    <img
+                      src={cover}
+                      alt=""
+                      loading="lazy"
+                      className={`absolute inset-0 w-full h-full object-cover ${it.is_nsfw && blurNsfw ? "nsfw-blur" : ""}`}
+                    />
                   ) : (
                     <span aria-hidden className="ja text-[2rem]" style={{ color: `color-mix(in oklab, ${hue} 50%, transparent)` }}>
                       {typeKanji(it.figure_type)}
