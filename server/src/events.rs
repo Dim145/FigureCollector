@@ -31,6 +31,9 @@ pub enum Event {
     AchievementsUnlocked { codes: Vec<String> },
     /// A new in-app notification was dropped — bell badges should refresh.
     NotificationCreated { id: Uuid },
+    /// A scan changed state / progress (pushed from the Postgres NOTIFY
+    /// bridge, since the gsplat worker writes the scans row directly).
+    ScanUpdated { scan_id: Uuid, owned_id: Uuid },
 }
 
 #[derive(Clone, Default)]

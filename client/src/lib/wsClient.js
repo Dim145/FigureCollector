@@ -90,6 +90,13 @@ function handleEvent(msg, qc) {
       }
       qc.invalidateQueries({ queryKey: ["owned"] });
       return;
+    case "scan_updated":
+      // gsplat scan changed state / progress (pushed via the Postgres NOTIFY
+      // bridge) — refresh that owned item's scans live.
+      if (msg.owned_id) {
+        qc.invalidateQueries({ queryKey: ["scans", msg.owned_id] });
+      }
+      return;
     case "preorder_created":
     case "preorder_updated":
     case "preorder_deleted":

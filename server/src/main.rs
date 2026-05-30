@@ -115,6 +115,9 @@ async fn main() -> anyhow::Result<()> {
     // Daily release-date scheduler — fires J-day + J-7 notifications on
     // preorders that hit their release date.
     services::release_cron::spawn(state.clone());
+    // Bridges Postgres NOTIFY (scan rows written directly by the gsplat
+    // worker) to per-user WebSocket events so scans refresh live.
+    services::scan_listener::spawn(state.clone());
 
     let app = routes::build_router(state).layer(session_layer);
 

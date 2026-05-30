@@ -137,8 +137,18 @@ async def main() -> None:
                 continue
             scan_id = scan["id"]
             log.info("scan claimed", scan_id=str(scan_id))
+            loop = asyncio.get_running_loop()
+
+            def report(pct, _sid=scan_id):
+                # Best-effort progress from the worker thread → DB. Fire-and-
+                # forget onto the event loop; never let it fail the job.
+                try:
+                    asyncio.run_coroutine_threadsafe(set_progress(pool, _sid, pct), loop)
+                except Exception:  # noqa: BLE001
+                    pass
+
             try:
-                result_key = await asyncio.to_thread(process_scan, scan)
+                result_key = await asyncio.to_thread(process_scan, scan, report)
                 await mark_ready(pool, scan_id, result_key)
                 log.info("scan ready", scan_id=str(scan_id), result_key=result_key)
             except Exception as e:  # noqa: BLE001
@@ -304,7 +314,7 @@ async def claim_next_pending(pool: asyncpg.Pool) -> asyncpg.Record | None:
 async def mark_ready(pool: asyncpg.Pool, scan_id: Any, result_key: str) -> None:
     async with pool.acquire() as conn:
         await conn.execute(
-            "UPDATE scans SET state='ready', result_key=$1, error_message=NULL, updated_at=now() WHERE id=$2",
+            "UPDATE scans SET state='ready', result_key=$1, progress=100, error_message=NULL, updated_at=now() WHERE id=$2",
             result_key,
             scan_id,
         )
@@ -319,13 +329,27 @@ async def mark_failed(pool: asyncpg.Pool, scan_id: Any, error: str) -> None:
         )
 
 
+async def set_progress(pool: asyncpg.Pool, scan_id: Any, pct: int) -> None:
+    """Best-effort training progress (0–100); fires the scans NOTIFY trigger."""
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE scans SET progress = $1, updated_at = now() WHERE id = $2",
+            int(pct),
+            scan_id,
+        )
+
+
 # -----------------------------------------------------------------------------
 # Pipeline (blocking; called via asyncio.to_thread)
 # -----------------------------------------------------------------------------
 
 
-def process_scan(scan: asyncpg.Record) -> str:
-    """Run the full SfM + training pipeline and return the Garage key of the .ply."""
+def process_scan(scan: asyncpg.Record, report=None) -> str:
+    """Run the full SfM + training pipeline and return the Garage key of the .ply.
+
+    ``report(pct)`` is an optional best-effort progress callback (0–100) called
+    at phase boundaries; the server forwards it to the SPA via the scans NOTIFY
+    trigger. Never let a progress hiccup fail the job."""
     scan_id = scan["id"]
     prefix = scan["storage_prefix"]
     # This is the *client*-uploaded frame count — it's 0 for a video-only
@@ -333,6 +357,14 @@ def process_scan(scan: asyncpg.Record) -> str:
     # The real floor is enforced on `n_frames` after `_prepare_frames`.
     frame_count = scan["frame_count"]
 
+    def progress(pct: int) -> None:
+        if report:
+            try:
+                report(pct)
+            except Exception:  # noqa: BLE001
+                pass
+
+    progress(8)
     with tempfile.TemporaryDirectory(prefix="gsplat-") as tmp_str:
         tmp = Path(tmp_str)
         images = tmp / "images"
@@ -344,12 +376,14 @@ def process_scan(scan: asyncpg.Record) -> str:
         if n_frames < MIN_FRAMES:
             raise RuntimeError(f"only {n_frames} usable frames; need >= {MIN_FRAMES}")
 
+        progress(20)
         # 2. Optional foreground masking (huge quality win on turntables —
         #    without it COLMAP locks onto the static backdrop, the splat fits
         #    the void, and the figure ends up as a noise cloud).
         if ENABLE_MASKING:
             _make_masks(images, scan_id)
 
+        progress(32)
         # 3. Nerfstudio's image processor runs COLMAP internally and writes a
         #    nerfstudio-shaped dataset (transforms.json + images + sparse poses).
         processed = tmp / "processed"
@@ -362,6 +396,7 @@ def process_scan(scan: asyncpg.Record) -> str:
             "--no-skip-image-processing",
         )
 
+        progress(46)
         # 4. Train splatfacto. `--vis none` suppresses the viewer.
         trained = tmp / "trained"
         _run(
@@ -373,6 +408,7 @@ def process_scan(scan: asyncpg.Record) -> str:
             "--logging.local-writer.enable", "False",
         )
 
+        progress(88)
         # 5. Find the config.yml the trainer produced.
         configs = sorted(trained.rglob("config.yml"))
         if not configs:
@@ -394,6 +430,7 @@ def process_scan(scan: asyncpg.Record) -> str:
         size = ply_path.stat().st_size
         log.info("export finished", scan_id=str(scan_id), bytes=size)
 
+        progress(96)
         # 7. Upload result to Garage.
         result_key = f"{prefix}result.ply"
         s3.upload_file(

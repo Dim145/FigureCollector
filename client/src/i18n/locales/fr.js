@@ -492,6 +492,7 @@ export default {
   "preorders.tracking.carrier_unknown": "Lien externe",
   "preorders.tracking.open": "Ouvrir",
   "preorders.tracking.fetching": "Récupération du statut",
+  "preorders.tracking.refresh": "Rafraîchir le statut",
   "preorders.tracking.refresh_failed": "Statut en direct indisponible",
 
   // ----- Pre-order badges (cards + figure detail) -----

@@ -18,6 +18,8 @@ pub struct Scan {
     pub frame_count: i32,
     pub result_key: Option<String>,
     pub error_message: Option<String>,
+    /// Worker-reported training progress 0–100 (gsplat), null when N/A.
+    pub progress: Option<i16>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -39,7 +41,7 @@ pub async fn create(
         "INSERT INTO scans (id, owned_item_id, kind, state, storage_prefix)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING id, owned_item_id, kind, state, storage_prefix, frame_count,
-                   result_key, error_message, created_at, updated_at",
+                   result_key, error_message, progress, created_at, updated_at",
     )
     .bind(id)
     .bind(owned_item_id)
@@ -93,7 +95,7 @@ pub async fn mark_pending(pool: &PgPool, scan_id: Uuid) -> AppResult<()> {
 pub async fn list_for_owned(pool: &PgPool, owned_item_id: Uuid) -> AppResult<Vec<Scan>> {
     Ok(sqlx::query_as::<_, Scan>(
         "SELECT id, owned_item_id, kind, state, storage_prefix, frame_count,
-                result_key, error_message, created_at, updated_at
+                result_key, error_message, progress, created_at, updated_at
          FROM scans
          WHERE owned_item_id = $1
          ORDER BY created_at DESC",
@@ -106,7 +108,7 @@ pub async fn list_for_owned(pool: &PgPool, owned_item_id: Uuid) -> AppResult<Vec
 pub async fn find_by_id(pool: &PgPool, id: Uuid) -> AppResult<Option<Scan>> {
     Ok(sqlx::query_as::<_, Scan>(
         "SELECT id, owned_item_id, kind, state, storage_prefix, frame_count,
-                result_key, error_message, created_at, updated_at
+                result_key, error_message, progress, created_at, updated_at
          FROM scans WHERE id = $1",
     )
     .bind(id)

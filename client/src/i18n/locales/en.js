@@ -478,6 +478,7 @@ export default {
   "preorders.tracking.carrier_unknown": "External link",
   "preorders.tracking.open": "Open",
   "preorders.tracking.fetching": "Fetching status",
+  "preorders.tracking.refresh": "Refresh status",
   "preorders.tracking.refresh_failed": "Live status unavailable",
 
   // ----- Pre-order badges (cards + figure detail) -----

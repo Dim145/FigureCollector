@@ -106,9 +106,27 @@ export default function TrackingChip({ url, size = "full" }) {
             </p>
           </div>
         </div>
-        <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] opacity-60 group-hover/track:opacity-100 group-hover/track:text-[var(--color-or)] transition-colors whitespace-nowrap">
-          {t("preorders.tracking.open")} ↗
-        </span>
+        <div className="flex items-center gap-2.5 shrink-0">
+          {canLive ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                live.refetch();
+              }}
+              disabled={live.isFetching}
+              title={t("preorders.tracking.refresh")}
+              aria-label={t("preorders.tracking.refresh")}
+              className={`text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors leading-none ${live.isFetching ? "animate-spin opacity-60" : ""}`}
+            >
+              ↻
+            </button>
+          ) : null}
+          <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] opacity-60 group-hover/track:opacity-100 group-hover/track:text-[var(--color-or)] transition-colors whitespace-nowrap">
+            {t("preorders.tracking.open")} ↗
+          </span>
+        </div>
       </div>
 
       {parsed.number ? (

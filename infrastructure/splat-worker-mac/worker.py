@@ -150,8 +150,18 @@ async def main() -> None:
                 continue
             scan_id = scan["id"]
             log.info("scan claimed", scan_id=str(scan_id))
+            loop = asyncio.get_running_loop()
+
+            def report(pct, _sid=scan_id):
+                # Best-effort progress from the worker thread → DB. Fire-and-
+                # forget onto the event loop; never let it fail the job.
+                try:
+                    asyncio.run_coroutine_threadsafe(set_progress(pool, _sid, pct), loop)
+                except Exception:  # noqa: BLE001
+                    pass
+
             try:
-                result_key = await asyncio.to_thread(process_scan, scan)
+                result_key = await asyncio.to_thread(process_scan, scan, report)
                 await mark_ready(pool, scan_id, result_key)
                 log.info("scan ready", scan_id=str(scan_id), result_key=result_key)
             except Exception as e:  # noqa: BLE001
@@ -308,7 +318,7 @@ async def claim_next_pending(pool: asyncpg.Pool) -> asyncpg.Record | None:
 async def mark_ready(pool: asyncpg.Pool, scan_id: Any, result_key: str) -> None:
     async with pool.acquire() as conn:
         await conn.execute(
-            "UPDATE scans SET state='ready', result_key=$1, error_message=NULL, updated_at=now() WHERE id=$2",
+            "UPDATE scans SET state='ready', result_key=$1, progress=100, error_message=NULL, updated_at=now() WHERE id=$2",
             result_key,
             scan_id,
         )
@@ -323,13 +333,27 @@ async def mark_failed(pool: asyncpg.Pool, scan_id: Any, error: str) -> None:
         )
 
 
+async def set_progress(pool: asyncpg.Pool, scan_id: Any, pct: int) -> None:
+    """Best-effort training progress (0–100); fires the scans NOTIFY trigger."""
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE scans SET progress = $1, updated_at = now() WHERE id = $2",
+            int(pct),
+            scan_id,
+        )
+
+
 # -----------------------------------------------------------------------------
 # Pipeline (blocking; called via asyncio.to_thread)
 # -----------------------------------------------------------------------------
 
 
-def process_scan(scan: asyncpg.Record) -> str:
-    """Run COLMAP SfM + Brush training, return the Garage key of result.ply."""
+def process_scan(scan: asyncpg.Record, report=None) -> str:
+    """Run COLMAP SfM + Brush training, return the Garage key of result.ply.
+
+    ``report(pct)`` is an optional best-effort progress callback (0–100) called
+    at phase boundaries; the server forwards it to the SPA via the scans NOTIFY
+    trigger. Never let a progress hiccup fail the job."""
     scan_id = scan["id"]
     prefix = scan["storage_prefix"]
     # This is the *client*-uploaded frame count — it's 0 for a video-only
@@ -337,6 +361,14 @@ def process_scan(scan: asyncpg.Record) -> str:
     # The real floor is enforced on n_frames after _prepare_frames.
     frame_count = scan["frame_count"]
 
+    def progress(pct: int) -> None:
+        if report:
+            try:
+                report(pct)
+            except Exception:  # noqa: BLE001
+                pass
+
+    progress(8)
     with tempfile.TemporaryDirectory(prefix="brush-") as tmp_str:
         tmp = Path(tmp_str)
         dataset = tmp / "dataset"
@@ -352,15 +384,18 @@ def process_scan(scan: asyncpg.Record) -> str:
         # 2. Optional foreground masking (huge quality win on turntables).
         #    Kept OUTSIDE the dataset dir so Brush doesn't try to read the
         #    COLMAP-convention mask files as its own.
+        progress(20)
         mask_dir = None
         if ENABLE_MASKING:
             mask_dir = _make_masks(images, tmp / "colmap_masks", scan_id)
 
         # 3. COLMAP Structure-from-Motion -> sparse/0 (best component).
+        progress(32)
         sparse = dataset / "sparse"
         _colmap_sfm(images, sparse, mask_dir, scan_id, n_frames)
 
         # 4. Brush training on Metal -> result.ply.
+        progress(46)
         out = tmp / "out"
         out.mkdir()
         # NB: no --with-viewer. It's a presence flag (no value); passing a
@@ -382,6 +417,7 @@ def process_scan(scan: asyncpg.Record) -> str:
         log.info("training finished", scan_id=str(scan_id), ply=str(ply_path), bytes=size)
 
         # 5. Upload result to Garage under the scan's prefix.
+        progress(88)
         result_key = f"{prefix}result.ply"
         s3.upload_file(
             str(ply_path),
@@ -392,6 +428,7 @@ def process_scan(scan: asyncpg.Record) -> str:
                 "CacheControl": "public, max-age=31536000, immutable",
             },
         )
+        progress(96)
         return result_key
 
 

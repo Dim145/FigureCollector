@@ -100,6 +100,7 @@ export default function TurntableSection({ ownedId }) {
         ) : inFlightGsplat ? (
           <ProcessingNotice
             state={inFlightGsplat.state}
+            progress={inFlightGsplat.progress}
             fallback={latestTurntable}
             t={t}
           />
@@ -155,7 +156,8 @@ export default function TurntableSection({ ownedId }) {
   );
 }
 
-function ProcessingNotice({ state, fallback, t }) {
+function ProcessingNotice({ state, progress, fallback, t }) {
+  const pct = typeof progress === "number" ? Math.max(0, Math.min(100, progress)) : null;
   return (
     <div className="space-y-3">
       {fallback ? (
@@ -173,6 +175,17 @@ function ProcessingNotice({ state, fallback, t }) {
             : t("gsplat.pending")}
         </span>
       </div>
+      {pct != null ? (
+        <div className="space-y-1">
+          <div className="h-1 bg-[var(--color-or)]/15 overflow-hidden">
+            <div
+              className="h-full bg-[var(--color-or)] transition-[width] duration-500"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <p className="text-[10px] font-mono text-[var(--color-or-pale)]">{pct}%</p>
+        </div>
+      ) : null}
       <p className="text-xs text-[var(--color-ivoire-soft)]">
         {t("gsplat.processing_hint")}
       </p>

@@ -2,8 +2,9 @@ import { useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useIsAdmin, useMe } from "../hooks/useMe.js";
-import { useFigure, useOwnedItems } from "../hooks/useCollection.js";
+import { useFigure, useOwnedItems, usePreorderForOwned } from "../hooks/useCollection.js";
 import { useWishlistItems, useAddWishlistItem, useRemoveWishlistItem } from "../hooks/useWishlist.js";
+import TrackingChip from "../components/TrackingChip.jsx";
 import { useDeleteFigure } from "../hooks/useAdmin.js";
 import { useStoresForFigure } from "../hooks/useStores.js";
 import { ApiError } from "../lib/api.js";
@@ -371,6 +372,19 @@ function WishlistButton({ figureId, t }) {
   );
 }
 
+/** Live carrier-tracking chip for an owned item's linked preorder (if any). */
+function OwnedTracking({ ownedId, t }) {
+  const preorder = usePreorderForOwned(ownedId);
+  const url = preorder.data?.tracking_url;
+  if (!url) return null;
+  return (
+    <div className="mt-4">
+      <p className="micro-tight mb-1.5">{t("preorders.tracking.carrier")}</p>
+      <TrackingChip url={url} />
+    </div>
+  );
+}
+
 /** Split a scraped description into free prose + a `key: value` spec block.
  *  Many imported descriptions are a story paragraph followed by a dump like
  *  "Type: GK Statue / Height: 16-25cm / Pre-order: 2026/05/18 …". We only
@@ -728,6 +742,7 @@ function OwnerStack({ f, owned, nsfwPref, t }) {
           label={t("figure.owner.tab.preorder")}
         >
           <PreorderHistory ownedId={owned.id} />
+          <OwnedTracking ownedId={owned.id} t={t} />
         </Foldable>
       ) : null}
 
