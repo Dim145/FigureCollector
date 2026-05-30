@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import {
@@ -9,7 +9,10 @@ import {
   useStoreUsage,
   useUploadStorePhoto,
 } from "../hooks/useStores.js";
+import { useBulkDeleteStores } from "../hooks/useAdmin.js";
+import { useRowSelection } from "../hooks/useRowSelection.js";
 import Button from "../components/Button.jsx";
+import BulkActionBar, { SelectCheckbox } from "../components/BulkActionBar.jsx";
 import FormField from "../components/FormField.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 
@@ -26,6 +29,9 @@ export default function AdminStoresPage() {
   const t = useT();
   const stores = useAdminStores();
   const [adding, setAdding] = useState(false);
+  const ids = useMemo(() => (stores.data ?? []).map((s) => s.id), [stores.data]);
+  const sel = useRowSelection(ids);
+  const bulkDel = useBulkDeleteStores();
 
   return (
     <section className="space-y-8">
@@ -75,13 +81,42 @@ export default function AdminStoresPage() {
           body={t("admin.empty.stores.body")}
         />
       ) : (
-        <ul className="space-y-3">
-          {stores.data?.map((s) => (
-            <li key={s.id}>
-              <Row store={s} t={t} />
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 px-1">
+            <SelectCheckbox
+              checked={sel.allSelected}
+              indeterminate={sel.someSelected && !sel.allSelected}
+              onChange={sel.toggleAll}
+              label={t("admin.bulk.select_all")}
+            />
+            <span className="micro-tight">{t("admin.bulk.select_all")}</span>
+          </div>
+          <BulkActionBar
+            selectedIds={sel.selectedIds}
+            onClear={sel.clear}
+            onDelete={(idList) => bulkDel.mutateAsync(idList)}
+            busy={bulkDel.isPending}
+            confirmBody={t("admin.bulk.confirm.body.stores", {
+              n: sel.selectedIds.length,
+            })}
+          />
+          <ul className="space-y-3">
+            {stores.data?.map((s) => (
+              <li key={s.id} className="flex items-start gap-3">
+                <div className="pt-3 shrink-0">
+                  <SelectCheckbox
+                    checked={sel.isSelected(s.id)}
+                    onChange={() => sel.toggle(s.id)}
+                    label={t("admin.bulk.select_row")}
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <Row store={s} t={t} />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </section>
   );
