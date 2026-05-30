@@ -51,6 +51,30 @@ export function useUploadFigurePhoto(figureId) {
   });
 }
 
+export function useReplaceFigurePhoto(figureId) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ photoId, file }) => {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/figures/${figureId}/photos/${photoId}`, {
+        method: "PUT",
+        body: fd,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const err = new Error(body?.message ?? res.statusText);
+        err.code = body?.error;
+        err.status = res.status;
+        throw err;
+      }
+      return res.json();
+    },
+    onSuccess: () => invalidateFigureSurfaces(qc, figureId),
+  });
+}
+
 export function useSetPrimaryFigurePhoto(figureId) {
   const qc = useQueryClient();
   return useMutation({

@@ -70,6 +70,33 @@ export function useUploadPhoto(ownedId) {
   });
 }
 
+export function useReplacePhoto(ownedId) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ photoId, file }) => {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/me/owned/${ownedId}/photos/${photoId}`, {
+        method: "PUT",
+        body: fd,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const err = new Error(body?.message ?? res.statusText);
+        err.code = body?.error ?? `http_${res.status}`;
+        err.status = res.status;
+        throw err;
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["photos", ownedId] });
+      qc.invalidateQueries({ queryKey: ["owned"] });
+    },
+  });
+}
+
 export function useDeletePhoto(ownedId) {
   const qc = useQueryClient();
   return useMutation({

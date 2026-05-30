@@ -176,6 +176,41 @@ pub async fn delete_and_return_key(
     Ok(storage_key)
 }
 
+/// Edit-in-place: swap a catalog photo's stored image while keeping its
+/// `position`, `is_primary` and `created_at`. The caller has already
+/// authorised (admin / creator) and resolved the figure. Returns the updated
+/// row plus the OLD storage_key so the caller can drop the stale blob.
+pub async fn replace_image(
+    pool: &PgPool,
+    figure_id: Uuid,
+    photo_id: Uuid,
+    storage_key: &str,
+    mime: &str,
+    width: i32,
+    height: i32,
+    size_bytes: i64,
+) -> AppResult<(FigurePhoto, String)> {
+    let existing = find_by_id(pool, photo_id).await?.ok_or(AppError::NotFound)?;
+    if existing.figure_id != figure_id {
+        return Err(AppError::NotFound);
+    }
+    let updated = sqlx::query_as::<_, FigurePhoto>(
+        "UPDATE figure_photos SET storage_key = $1, mime = $2, width = $3, height = $4, size_bytes = $5 \
+         WHERE id = $6 AND figure_id = $7 \
+         RETURNING id, figure_id, storage_key, mime, width, height, size_bytes, position, uploaded_by, is_primary, created_at",
+    )
+    .bind(storage_key)
+    .bind(mime)
+    .bind(width)
+    .bind(height)
+    .bind(size_bytes)
+    .bind(photo_id)
+    .bind(figure_id)
+    .fetch_one(pool)
+    .await?;
+    Ok((updated, existing.storage_key))
+}
+
 /// Returns `(storage_key, is_primary)` for the figure's primary photo, if
 /// any. Used by the owned-items list to resolve a fallback cover.
 #[allow(dead_code)]

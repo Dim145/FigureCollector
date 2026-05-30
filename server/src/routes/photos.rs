@@ -147,12 +147,93 @@ async fn delete_photo(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Replace an existing photo's image in place (edit-in-place from the editor).
+/// Same validation pipeline as upload; keeps the row's position, swaps the
+/// stored blob, drops the old one. Owner-gated + NSFW gate, exactly like upload.
+async fn replace_photo(
+    State(state): State<AppState>,
+    session: Session,
+    Path((owned_id, photo_id)): Path<(Uuid, Uuid)>,
+    mut multipart: Multipart,
+) -> AppResult<Json<photo::Photo>> {
+    let user = auth::require_user_full(&session, &state.pool).await?;
+    photo::assert_owned_by(&state.pool, user.id, owned_id).await?;
+
+    if !state.storage.enabled() {
+        return Err(AppError::FeatureDisabled("object storage is not configured"));
+    }
+    if user.nsfw_visibility == "blur" {
+        let nsfw: Option<(bool,)> = sqlx::query_as(
+            "SELECT f.is_nsfw FROM owned_items o
+             JOIN figures f ON f.id = o.figure_id
+             WHERE o.id = $1",
+        )
+        .bind(owned_id)
+        .fetch_optional(&state.pool)
+        .await?;
+        if matches!(nsfw, Some((true,))) {
+            return Err(AppError::Forbidden);
+        }
+    }
+
+    let mut bytes: Option<Vec<u8>> = None;
+    while let Some(field) = multipart.next_field().await.map_err(|e| {
+        AppError::BadRequest(Box::leak(format!("multipart error: {e}").into_boxed_str()))
+    })? {
+        if field.name() == Some("file") {
+            let data = field
+                .bytes()
+                .await
+                .map_err(|_| AppError::BadRequest("could not read upload body"))?;
+            if data.len() > MAX_PHOTO_BYTES {
+                return Err(AppError::BadRequest("photo too large (max 5 MB)"));
+            }
+            bytes = Some(data.to_vec());
+            break;
+        }
+    }
+    let raw = bytes.ok_or(AppError::BadRequest("missing 'file' multipart field"))?;
+    let (cleaned, w, h) = photo_pipeline::sanitize_to_webp(raw, MAX_PHOTO_DIM).await?;
+
+    let storage_key = format!("photos/{}.webp", Uuid::now_v7());
+    state.storage.put(&storage_key, &cleaned, "image/webp").await?;
+
+    let (saved, old_key) = match photo::replace_image(
+        &state.pool,
+        user.id,
+        photo_id,
+        &storage_key,
+        "image/webp",
+        w as i32,
+        h as i32,
+        cleaned.len() as i64,
+    )
+    .await
+    {
+        Ok(v) => v,
+        Err(e) => {
+            if let Err(del_err) = state.storage.delete(&storage_key).await {
+                tracing::error!(error = ?del_err, %storage_key, "orphan blob cleanup failed after photo replace error");
+            }
+            return Err(e);
+        }
+    };
+    // Drop the previous blob (best-effort).
+    if let Err(e) = state.storage.delete(&old_key).await {
+        tracing::warn!(error = ?e, old_key, "failed to delete replaced photo blob");
+    }
+
+    state.events.publish(user.id, Event::OwnedItemPhotosChanged { owned_id });
+    Ok(Json(saved))
+}
+
 /// Public(-ish) photo proxy. Streams the WebP back through the backend so the
 /// Garage bucket itself can stay private. Auth check: the owning user, or
 /// anyone if the owning user has `public_profile_enabled = TRUE`.
 async fn fetch_photo(
     State(state): State<AppState>,
     session: Session,
+    req_headers: HeaderMap,
     Path(photo_id): Path<Uuid>,
 ) -> AppResult<Response> {
     let p = photo::find_by_id(&state.pool, photo_id)
@@ -176,6 +257,24 @@ async fn fetch_photo(
         return Err(AppError::Forbidden);
     }
 
+    // ETag = the storage_key (unique per stored image). Photos are now mutable
+    // (edit-in-place), so we can't promise `immutable`; instead we revalidate.
+    // An edit swaps storage_key → the ETag changes → the cached copy is
+    // replaced EVERYWHERE the photo appears (cover, cards, lightbox…), not just
+    // the gallery. Unchanged images cost only a cheap 304 (no storage read).
+    let etag = format!("\"{}\"", p.storage_key);
+    let cache = "private, max-age=0, must-revalidate";
+    if req_headers
+        .get(header::IF_NONE_MATCH)
+        .and_then(|v| v.to_str().ok())
+        == Some(etag.as_str())
+    {
+        let mut h = HeaderMap::new();
+        h.insert(header::ETAG, HeaderValue::from_str(&etag).unwrap());
+        h.insert(header::CACHE_CONTROL, HeaderValue::from_static(cache));
+        return Ok((StatusCode::NOT_MODIFIED, h).into_response());
+    }
+
     let (bytes, mime) = state.storage.get(&p.storage_key).await?;
     let content_type = mime.unwrap_or_else(|| p.mime.clone());
 
@@ -185,11 +284,10 @@ async fn fetch_photo(
         HeaderValue::from_str(&content_type)
             .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
     );
-    // 1 year cache; storage_key changes for every upload, so cache invalidation
-    // happens naturally.
+    headers.insert(header::CACHE_CONTROL, HeaderValue::from_static(cache));
     headers.insert(
-        header::CACHE_CONTROL,
-        HeaderValue::from_static("public, max-age=31536000, immutable"),
+        header::ETAG,
+        HeaderValue::from_str(&etag).unwrap_or_else(|_| HeaderValue::from_static("\"\"")),
     );
 
     Ok((headers, Body::from(bytes)).into_response())
@@ -203,7 +301,7 @@ pub fn router() -> Router<AppState> {
         )
         .route(
             "/me/owned/{owned_id}/photos/{photo_id}",
-            axum::routing::delete(delete_photo),
+            axum::routing::put(replace_photo).delete(delete_photo),
         )
         .route("/photos/{id}", get(fetch_photo))
 }

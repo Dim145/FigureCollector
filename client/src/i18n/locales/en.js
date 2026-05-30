@@ -546,6 +546,7 @@ export default {
   "photos.empty": "No photos for this piece yet.",
   "photos.uploading": "Uploading…",
   "photos.remove": "Remove this photo",
+  "photos.edit": "Edit this photo",
   "photos.view": "View full size",
   "photos.prev": "Previous photo",
   "photos.next": "Next photo",
@@ -559,6 +560,7 @@ export default {
   "figure.catalog_photos.primary": "Cover",
   "figure.catalog_photos.make_primary": "Make the cover",
   "figure.catalog_photos.delete": "Remove from catalog",
+  "figure.catalog_photos.edit": "Edit photo",
 
   "profile.public_title": "{name}'s shelf",
   "profile.member_since": "Member since {date}",

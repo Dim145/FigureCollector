@@ -3,6 +3,7 @@ import { useT } from "../i18n/index.jsx";
 import {
   useDeletePhoto,
   usePhotos,
+  useReplacePhoto,
   useUploadPhoto,
 } from "../hooks/useProfile.js";
 import PhotoEditor from "./PhotoEditor.jsx";
@@ -21,10 +22,12 @@ export default function PhotoStrip({ ownedId, figureName, uploadDisabled = false
   const t = useT();
   const photos = usePhotos(ownedId);
   const upload = useUploadPhoto(ownedId);
+  const replace = useReplacePhoto(ownedId);
   const remove = useDeletePhoto(ownedId);
   const fileInput = useRef(null);
 
   const [pickedFile, setPickedFile] = useState(null);
+  const [editTarget, setEditTarget] = useState(null);
   const [lightboxIndex, setLightboxIndex] = useState(null);
 
   const onFile = (e) => {
@@ -41,6 +44,29 @@ export default function PhotoStrip({ ownedId, figureName, uploadDisabled = false
     });
     await upload.mutateAsync(out);
     setPickedFile(null);
+  };
+
+  // Edit-in-place: pull the existing photo back into the editor, then PUT the
+  // edited result over the same row.
+  const startEdit = async (p) => {
+    try {
+      const res = await fetch(`/api/photos/${p.id}`, { credentials: "include" });
+      const blob = await res.blob();
+      setEditTarget({
+        id: p.id,
+        file: new File([blob], "edit.webp", { type: blob.type || "image/webp" }),
+      });
+    } catch {
+      /* network hiccup — leave the strip untouched */
+    }
+  };
+
+  const onReplace = async (editedBlob) => {
+    const out = new File([editedBlob], "edit.webp", {
+      type: editedBlob.type || "image/webp",
+    });
+    await replace.mutateAsync({ photoId: editTarget.id, file: out });
+    setEditTarget(null);
   };
 
   return (
@@ -93,7 +119,7 @@ export default function PhotoStrip({ ownedId, figureName, uploadDisabled = false
                 className="block focus:outline-none focus:ring-2 focus:ring-[var(--color-or)]/60"
               >
                 <img
-                  src={`/api/photos/${p.id}`}
+                  src={photoSrc(p)}
                   alt={`${figureName ?? t("photos.view")} — ${i + 1}`}
                   width={p.width}
                   height={p.height}
@@ -102,6 +128,17 @@ export default function PhotoStrip({ ownedId, figureName, uploadDisabled = false
                   decoding="async"
                 />
               </button>
+              {!uploadDisabled ? (
+                <button
+                  type="button"
+                  onClick={() => startEdit(p)}
+                  disabled={replace.isPending}
+                  title={t("photos.edit")}
+                  className="absolute top-1 right-8 bg-[var(--color-noir)]/80 border border-[var(--color-or)] text-[var(--color-or)] w-6 h-6 text-xs grid place-items-center opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
+                >
+                  ✎
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => remove.mutate(p.id)}
@@ -125,6 +162,14 @@ export default function PhotoStrip({ ownedId, figureName, uploadDisabled = false
           file={pickedFile}
           onUpload={onUpload}
           onCancel={() => setPickedFile(null)}
+        />
+      ) : null}
+
+      {editTarget ? (
+        <PhotoEditor
+          file={editTarget.file}
+          onUpload={onReplace}
+          onCancel={() => setEditTarget(null)}
         />
       ) : null}
 
@@ -215,7 +260,7 @@ function PhotoLightbox({ photos, index, onChange, onClose }) {
 
       <img
         key={photo.id}
-        src={`/api/photos/${photo.id}`}
+        src={photoSrc(photo)}
         alt=""
         onClick={(e) => e.stopPropagation()}
         className="max-w-[92vw] max-h-[88vh] object-contain border border-[var(--color-or)]/30 cursor-default"
@@ -229,6 +274,14 @@ function PhotoLightbox({ photos, index, onChange, onClose }) {
       ) : null}
     </div>
   );
+}
+
+/** Photo proxy URL with a cache-buster keyed on storage_key — the proxy
+ *  serves `immutable`, so editing in place (same id) needs the URL to change
+ *  for the new image to show without a hard reload. */
+function photoSrc(p) {
+  const token = (p.storage_key || "").split("/").pop() || p.id;
+  return `/api/photos/${p.id}?v=${encodeURIComponent(token)}`;
 }
 
 function deriveName(originalFile, blob) {

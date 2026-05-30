@@ -3,10 +3,12 @@ import { useT } from "../i18n/index.jsx";
 import {
   useDeleteFigurePhoto,
   useFigurePhotos,
+  useReplaceFigurePhoto,
   useSetPrimaryFigurePhoto,
   useUploadFigurePhoto,
 } from "../hooks/useFigurePhotos.js";
 import Lightbox from "./Lightbox.jsx";
+import PhotoEditor from "./PhotoEditor.jsx";
 
 /* Monotonic id for pending-upload tasks — uniquely identifies a tile
  * across the lifetime of the section even if the user picks 5 files
@@ -27,10 +29,12 @@ export default function FigurePhotosSection({ figureId, figureName, canEdit, upl
   const t = useT();
   const photos = useFigurePhotos(figureId);
   const upload = useUploadFigurePhoto(figureId);
+  const replace = useReplaceFigurePhoto(figureId);
   const setPrimary = useSetPrimaryFigurePhoto(figureId);
   const del = useDeleteFigurePhoto(figureId);
   const fileInput = useRef(null);
   const [lightbox, setLightbox] = useState(null);
+  const [editTarget, setEditTarget] = useState(null);
   // Per-file upload tasks rendered as placeholder tiles AHEAD of the
   // grid. Each carries its own status (uploading / error) so the user
   // sees granular progress when they batch 5+ photos at once.
@@ -85,13 +89,36 @@ export default function FigurePhotosSection({ figureId, figureName, canEdit, upl
     setPendingUploads((prev) => prev.filter((t) => t.id !== id));
   };
 
+  // Edit-in-place: pull an existing catalog photo back into the editor, then
+  // PUT the edited result over the same row (admin/creator only — the band
+  // that exposes this is already gated by `canEdit`, and the backend re-checks).
+  const startEdit = async (p) => {
+    try {
+      const res = await fetch(`/api/figure-photos/${p.id}`, { credentials: "include" });
+      const blob = await res.blob();
+      setEditTarget({
+        id: p.id,
+        file: new File([blob], "edit.webp", { type: blob.type || "image/webp" }),
+      });
+    } catch {
+      /* leave the grid untouched on a fetch hiccup */
+    }
+  };
+  const onReplace = async (editedBlob) => {
+    const out = new File([editedBlob], "edit.webp", {
+      type: editedBlob.type || "image/webp",
+    });
+    await replace.mutateAsync({ photoId: editTarget.id, file: out });
+    setEditTarget(null);
+  };
+
   const list = photos.data ?? [];
   // Pre-compute the shape the shared Lightbox expects: a flat
   // `{ src, alt }` list, indexed the same way as `list`.
   const lightboxSlides = useMemo(
     () =>
       list.map((p, i) => ({
-        src: `/api/figure-photos/${p.id}`,
+        src: fbSrc(p),
         alt: `${figureName ?? ""} — ${i + 1}`,
       })),
     [list, figureName],
@@ -180,7 +207,7 @@ export default function FigurePhotosSection({ figureId, figureName, canEdit, upl
                   `object-contain` so landscape figure shots don't read
                   as half-empty next to portrait ones. */}
               <img
-                src={`/api/figure-photos/${p.id}`}
+                src={fbSrc(p)}
                 alt=""
                 aria-hidden
                 loading="lazy"
@@ -194,7 +221,7 @@ export default function FigurePhotosSection({ figureId, figureName, canEdit, upl
                 className="absolute inset-0 w-full h-full z-[1]"
               >
                 <img
-                  src={`/api/figure-photos/${p.id}`}
+                  src={fbSrc(p)}
                   alt={`${figureName ?? t("photos.view")} — ${i + 1}`}
                   loading="lazy"
                   decoding="async"
@@ -239,15 +266,28 @@ export default function FigurePhotosSection({ figureId, figureName, canEdit, upl
                       ★ {t("figure.catalog_photos.primary")}
                     </span>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => del.mutate(p.id)}
-                    disabled={del.isPending}
-                    title={t("figure.catalog_photos.delete")}
-                    className="text-[12px] text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] disabled:opacity-50 transition-colors"
-                  >
-                    ×
-                  </button>
+                  <div className="flex items-center gap-2.5">
+                    {!uploadDisabled ? (
+                      <button
+                        type="button"
+                        onClick={() => startEdit(p)}
+                        disabled={replace.isPending}
+                        title={t("figure.catalog_photos.edit")}
+                        className="text-[12px] text-[var(--color-or)] hover:text-[var(--color-or-pale)] disabled:opacity-50 transition-colors"
+                      >
+                        ✎
+                      </button>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={() => del.mutate(p.id)}
+                      disabled={del.isPending}
+                      title={t("figure.catalog_photos.delete")}
+                      className="text-[12px] text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] disabled:opacity-50 transition-colors"
+                    >
+                      ×
+                    </button>
+                  </div>
                 </div>
               ) : null}
             </li>
@@ -262,8 +302,24 @@ export default function FigurePhotosSection({ figureId, figureName, canEdit, upl
         onChange={setLightbox}
         onClose={() => setLightbox(null)}
       />
+
+      {editTarget ? (
+        <PhotoEditor
+          file={editTarget.file}
+          onUpload={onReplace}
+          onCancel={() => setEditTarget(null)}
+        />
+      ) : null}
     </section>
   );
+}
+
+/** Catalog-photo proxy URL with a cache-buster keyed on storage_key — the
+ *  proxy serves `immutable`, so editing in place (same id) needs the URL to
+ *  change for the new image to show without a hard reload. */
+function fbSrc(p) {
+  const token = (p.storage_key || "").split("/").pop() || p.id;
+  return `/api/figure-photos/${p.id}?v=${encodeURIComponent(token)}`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

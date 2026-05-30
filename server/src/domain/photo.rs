@@ -94,6 +94,38 @@ pub async fn delete_and_return_key(
     row.map(|(k,)| k).ok_or(AppError::NotFound)
 }
 
+/// Edit-in-place: swap an existing photo's stored image while keeping its
+/// `position` + `created_at`. Verifies the photo belongs to `user_id` and
+/// returns the updated row plus the OLD storage_key so the caller can drop the
+/// stale blob.
+pub async fn replace_image(
+    pool: &PgPool,
+    user_id: Uuid,
+    photo_id: Uuid,
+    storage_key: &str,
+    mime: &str,
+    width: i32,
+    height: i32,
+    size_bytes: i64,
+) -> AppResult<(Photo, String)> {
+    let existing = find_by_id(pool, photo_id).await?.ok_or(AppError::NotFound)?;
+    assert_owned_by(pool, user_id, existing.owned_item_id).await?;
+    let updated = sqlx::query_as::<_, Photo>(
+        "UPDATE photos SET storage_key = $1, mime = $2, width = $3, height = $4, size_bytes = $5 \
+         WHERE id = $6 \
+         RETURNING id, owned_item_id, storage_key, mime, width, height, size_bytes, position, created_at",
+    )
+    .bind(storage_key)
+    .bind(mime)
+    .bind(width)
+    .bind(height)
+    .bind(size_bytes)
+    .bind(photo_id)
+    .fetch_one(pool)
+    .await?;
+    Ok((updated, existing.storage_key))
+}
+
 /// Check that `owned_item_id` belongs to `user_id`.
 pub async fn assert_owned_by(pool: &PgPool, user_id: Uuid, owned_item_id: Uuid) -> AppResult<()> {
     let row: Option<(Uuid,)> =

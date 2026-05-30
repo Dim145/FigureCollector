@@ -564,6 +564,7 @@ export default {
   "photos.empty": "Aucune photo pour cette pièce.",
   "photos.uploading": "Envoi en cours…",
   "photos.remove": "Retirer cette photo",
+  "photos.edit": "Modifier cette photo",
   "photos.view": "Voir en grand",
   "photos.prev": "Photo précédente",
   "photos.next": "Photo suivante",
@@ -577,6 +578,7 @@ export default {
   "figure.catalog_photos.primary": "Couverture",
   "figure.catalog_photos.make_primary": "Définir comme couverture",
   "figure.catalog_photos.delete": "Retirer du catalogue",
+  "figure.catalog_photos.edit": "Modifier la photo",
 
   // Profile public
   "profile.public_title": "Profil de {name}",
