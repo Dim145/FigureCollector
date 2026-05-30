@@ -615,7 +615,6 @@ export default {
   "collector.pieces_n": "{n} pièces",
   "collector.view_vitrine": "Voir la vitrine",
   "collector.empty_shelf": "Étagère vide",
-  "nav.archives": "Archives",
   "archives.eyebrow": "Données · sauvegarde & portabilité",
   "archives.title": "Le cabinet d'archives",
   "archives.subtitle": "Tes données t'appartiennent. Exporte ta collection, tes souhaits et tes précommandes en CSV (tableur) ou JSON (sauvegarde fidèle, ré-import, migration). Rien ne quitte le serveur sans ton geste.",
@@ -712,6 +711,7 @@ export default {
   "settings.nav.currency": "Devise",
   "settings.nav.bg_model": "Détourage",
   "settings.nav.nsfw": "Sensibilité",
+  "settings.nav.archives": "Archives",
   "settings.copy_url.done": "Copié !",
   // Notifications
   "notifications.title": "Notifications",

@@ -32,7 +32,6 @@ const YearInReviewPage     = lazy(() => import("./pages/YearInReviewPage.jsx"));
 const AchievementsPage     = lazy(() => import("./pages/AchievementsPage.jsx"));
 const NotificationsPage    = lazy(() => import("./pages/NotificationsPage.jsx"));
 const StatsPage            = lazy(() => import("./pages/StatsPage.jsx"));
-const ArchivesPage         = lazy(() => import("./pages/ArchivesPage.jsx"));
 const EntityPage           = lazy(() => import("./pages/EntityPage.jsx"));
 const AdminLayout          = lazy(() => import("./pages/AdminLayout.jsx"));
 const AdminOverviewPage    = lazy(() => import("./pages/AdminOverviewPage.jsx"));
@@ -111,7 +110,6 @@ export default function App() {
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/achievements" element={<AchievementsPage />} />
             <Route path="/stats" element={<StatsPage />} />
-            <Route path="/archives" element={<ArchivesPage />} />
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminOverviewPage />} />
               <Route path="users" element={<AdminUsersPage />} />

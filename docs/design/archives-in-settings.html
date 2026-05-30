@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FigureCollector — Archives → section des paramètres (maquette)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300..600;1,300..500&family=Hanken+Grotesk:wght@300..700&family=JetBrains+Mono:wght@300..500&family=Noto+Serif+JP:wght@300..500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --font-display:"Cormorant Garamond",Georgia,serif; --font-sans:"Hanken Grotesk",system-ui,sans-serif;
+      --font-ja:"Noto Serif JP",serif; --font-mono:"JetBrains Mono",monospace;
+      --color-noir:oklch(0.14 0.005 50); --color-noir-soft:oklch(0.19 0.008 50); --color-noir-deep:oklch(0.10 0.004 50);
+      --color-laque:oklch(0.42 0.16 25); --color-laque-bright:oklch(0.55 0.20 25);
+      --color-or:oklch(0.78 0.10 80); --color-or-pale:oklch(0.88 0.06 80); --color-or-deep:oklch(0.60 0.10 80);
+      --color-ivoire:oklch(0.92 0.03 75); --color-ivoire-soft:oklch(0.92 0.03 75 / 0.8);
+      --color-jade:oklch(0.72 0.13 175); --color-indigo:oklch(0.58 0.15 275); --color-magenta:oklch(0.74 0.16 350);
+      --ease-quick:cubic-bezier(0.22,1,0.36,1);
+      color-scheme:dark;
+    }
+    [data-theme="light"]{
+      color-scheme:light;
+      --color-noir:oklch(0.965 0.008 85); --color-noir-soft:oklch(0.995 0.004 85); --color-noir-deep:oklch(0.93 0.012 80);
+      --color-ivoire:oklch(0.26 0.02 55); --color-ivoire-soft:oklch(0.40 0.02 55 / 0.86);
+      --color-or:oklch(0.58 0.12 72); --color-or-pale:oklch(0.50 0.12 70); --color-or-deep:oklch(0.42 0.10 68);
+      --color-laque:oklch(0.50 0.19 25); --color-laque-bright:oklch(0.56 0.21 25);
+      --color-jade:oklch(0.55 0.13 175); --color-indigo:oklch(0.50 0.16 275); --color-magenta:oklch(0.58 0.18 350);
+    }
+    *{box-sizing:border-box;}
+    html,body{margin:0;min-height:100%;}
+    body{font-family:var(--font-sans);background:var(--color-noir);color:var(--color-ivoire);-webkit-font-smoothing:antialiased;
+      background-image:radial-gradient(70% 60% at 30% 25%,oklch(0.78 0.10 80 / 0.09),transparent 65%),radial-gradient(55% 50% at 80% 85%,oklch(0.42 0.16 25 / 0.05),transparent 70%);background-attachment:fixed;}
+    body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;background-image:radial-gradient(circle at 1px 1px,oklch(0.92 0.03 75 / 0.035) 1px,transparent 0);background-size:4px 4px;}
+    .ja{font-family:var(--font-ja);}
+    .anno{display:inline-flex;align-items:center;gap:0.45em;margin-left:0.6rem;padding:0.18em 0.6em;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:var(--color-indigo);border:1px dashed color-mix(in oklab,var(--color-indigo) 55%,transparent);background:color-mix(in oklab,var(--color-indigo) 8%,transparent);vertical-align:middle;}
+
+    /* theme toggle */
+    .tt{position:fixed;top:1rem;right:1rem;z-index:50;font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;padding:0.5rem 0.9rem;background:var(--color-noir-soft);border:1px solid color-mix(in oklab,var(--color-or) 30%,transparent);color:var(--color-or-pale);cursor:pointer;}
+
+    /* ════════ L'Atelier — copied verbatim from client/src/index.css ════════ */
+    .atelier{position:relative;z-index:1;display:grid;grid-template-columns:14rem 1fr;gap:3rem;align-items:start;
+      max-width:72rem;margin:0 auto;padding:1rem 1.5rem 5rem;
+      --atelier-laque:oklch(0.65 0.18 25);--atelier-laque-soft:oklch(0.55 0.18 25 / 0.18);
+      --atelier-jade:oklch(0.62 0.13 175);--atelier-jade-soft:oklch(0.62 0.13 175 / 0.18);}
+    @media(max-width:880px){.atelier{grid-template-columns:1fr;gap:1.5rem;}}
+
+    .atelier-hero{grid-column:1 / -1;position:relative;padding:2rem 0 1rem;text-align:center;}
+    .atelier-hero::before{content:"工";position:absolute;top:-2rem;left:50%;transform:translateX(-50%);font-family:var(--font-ja);font-size:clamp(12rem,22vw,20rem);line-height:1;color:color-mix(in oklab,var(--color-or) 4%,transparent);pointer-events:none;user-select:none;z-index:0;}
+    .atelier-hero>*{position:relative;z-index:1;}
+    .atelier-hero-eyebrow{font-family:var(--font-mono);font-size:10px;letter-spacing:0.42em;text-transform:uppercase;color:var(--color-jade);margin-bottom:0.5rem;}
+    .atelier-hero-title{font-family:var(--font-display);font-style:italic;font-weight:300;font-size:clamp(2.8rem,6vw,4.2rem);letter-spacing:-0.02em;line-height:0.95;color:var(--color-ivoire);margin:0 0 0.6rem;}
+    .atelier-hero-sub{font-family:var(--font-display);font-style:italic;font-size:0.92rem;color:var(--color-ivoire-soft);opacity:0.75;max-width:32rem;margin:0 auto;line-height:1.5;}
+
+    .atelier-nav{position:sticky;top:1.5rem;padding:0;}
+    .atelier-nav-heading{font-family:var(--font-mono);font-size:9px;letter-spacing:0.42em;text-transform:uppercase;color:var(--color-or-pale);opacity:0.6;margin-bottom:1.2rem;padding-bottom:0.7rem;border-bottom:1px solid color-mix(in oklab,var(--color-or) 18%,transparent);}
+    .atelier-nav-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0.4rem;}
+    .atelier-nav-link{display:grid;grid-template-columns:1.8rem 1fr;align-items:center;gap:0.7rem;padding:0.5rem 0.3rem 0.5rem 0.6rem;font-family:var(--font-display);font-size:0.95rem;color:var(--color-ivoire-soft);background:transparent;border:0;border-left:2px solid transparent;text-align:left;cursor:pointer;text-decoration:none;transition:color 220ms var(--ease-quick),border-color 220ms var(--ease-quick);}
+    .atelier-nav-link-kanji{font-family:var(--font-ja);font-size:18px;line-height:1;color:var(--color-or-pale);opacity:0.6;transition:opacity 220ms var(--ease-quick),color 220ms var(--ease-quick);}
+    @media(hover:hover){.atelier-nav-link:hover{color:var(--color-ivoire);}.atelier-nav-link:hover .atelier-nav-link-kanji{opacity:0.95;}}
+    .atelier-nav-link.is-active{color:var(--color-or);border-left-color:var(--color-or);}
+    .atelier-nav-link.is-active .atelier-nav-link-kanji{color:var(--color-or);opacity:1;}
+    @media(max-width:880px){
+      .atelier-nav{position:static;}
+      .atelier-nav-heading{display:none;}
+      .atelier-nav-list{flex-direction:row;gap:0.5rem;overflow-x:auto;scrollbar-width:none;padding:0.4rem 0;}
+      .atelier-nav-link{grid-template-columns:auto auto;gap:0.45rem;padding:0.45rem 0.85rem;border-left:0;border:1px solid color-mix(in oklab,var(--color-or) 20%,transparent);flex-shrink:0;white-space:nowrap;font-size:0.85rem;}
+      .atelier-nav-link.is-active{border-color:var(--color-or);background:color-mix(in oklab,var(--color-or) 8%,transparent);}
+    }
+
+    .atelier-content{display:flex;flex-direction:column;gap:2.5rem;min-width:0;}
+    .atelier-drawer{position:relative;padding:2rem 2rem 1.75rem;border:1px solid color-mix(in oklab,var(--color-or) 16%,transparent);
+      background:linear-gradient(180deg,color-mix(in oklab,var(--color-noir-soft) 85%,transparent) 0%,color-mix(in oklab,var(--color-noir-deep) 95%,transparent) 100%);overflow:hidden;}
+    @media(max-width:880px){.atelier-drawer{padding:1.5rem 1.25rem 1.4rem;}}
+    .atelier-drawer::before{content:attr(data-kanji);position:absolute;top:-2.5rem;right:-1rem;font-family:var(--font-ja);font-size:clamp(10rem,14vw,13rem);line-height:1;color:var(--atelier-tone,var(--color-or));opacity:0.06;pointer-events:none;user-select:none;z-index:0;transition:opacity 600ms var(--ease-quick);}
+    .atelier-drawer:hover::before{opacity:0.09;}
+    .atelier-drawer-header{position:relative;display:flex;align-items:baseline;gap:0.9rem;margin-bottom:1.5rem;z-index:1;flex-wrap:wrap;}
+    .atelier-drawer-kanji{font-family:var(--font-ja);font-size:32px;line-height:1;color:var(--atelier-tone,var(--color-or));}
+    .atelier-drawer-title{font-family:var(--font-display);font-weight:400;font-size:clamp(1.5rem,3vw,1.9rem);letter-spacing:0.005em;line-height:1;color:var(--color-ivoire);margin:0;}
+    .atelier-drawer-rule{flex:1;min-width:2rem;height:1px;background:linear-gradient(90deg,var(--atelier-tone,var(--color-or)) 0%,transparent 100%);opacity:0.4;align-self:center;}
+    .atelier-drawer-body{position:relative;z-index:1;}
+    .atelier-drawer-desc{font-family:var(--font-display);font-style:italic;font-size:0.95rem;line-height:1.6;color:var(--color-ivoire-soft);margin-bottom:1.5rem;max-width:38rem;}
+
+    /* ── context strip: the existing settings drawers, unchanged ── */
+    .ctx{display:flex;align-items:center;gap:0.9rem;flex-wrap:wrap;padding:1.05rem 1.4rem;border:1px dashed color-mix(in oklab,var(--color-or) 16%,transparent);background:color-mix(in oklab,var(--color-noir-soft) 40%,transparent);color:var(--color-ivoire-soft);}
+    .ctx .lab{font-family:var(--font-mono);font-size:9px;letter-spacing:0.24em;text-transform:uppercase;color:var(--color-or-pale);opacity:0.7;}
+    .ctx .item{display:inline-flex;align-items:center;gap:0.4rem;font-family:var(--font-display);font-size:1.05rem;color:var(--color-ivoire);opacity:0.75;}
+    .ctx .item .k{font-family:var(--font-ja);font-size:0.95rem;color:color-mix(in oklab,var(--color-or) 50%,transparent);}
+    .ctx .sep{color:color-mix(in oklab,var(--color-or) 30%,transparent);}
+
+    /* ── export cards (relocated from /archives, drawer-native) ── */
+    .exp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(14.5rem,1fr));gap:1rem;}
+    .exp-card{position:relative;display:flex;flex-direction:column;padding:1.3rem 1.4rem 1.4rem;border:1px solid color-mix(in oklab,var(--color-or) 16%,transparent);background:color-mix(in oklab,var(--color-noir-soft) 70%,transparent);overflow:hidden;}
+    .exp-card .ek{position:absolute;top:0.85rem;right:1rem;font-family:var(--font-ja);font-size:2.4rem;line-height:1;color:color-mix(in oklab,var(--color-or) 12%,transparent);pointer-events:none;user-select:none;}
+    .exp-card .et{font-family:var(--font-display);font-size:1.5rem;color:var(--color-ivoire);line-height:1.05;}
+    .exp-card .ec{display:flex;align-items:baseline;gap:0.4rem;margin-top:0.2rem;}
+    .exp-card .ec b{font-family:var(--font-display);font-weight:400;font-size:1.5rem;color:var(--color-or-pale);}
+    .exp-card .ec span{font-family:var(--font-sans);font-size:9.5px;letter-spacing:0.22em;text-transform:uppercase;color:var(--color-or-pale);opacity:0.85;}
+    .exp-card .cols{margin:1rem 0;font-size:11px;line-height:1.55;color:var(--color-ivoire-soft);border-left:2px solid color-mix(in oklab,var(--color-or) 25%,transparent);padding-left:0.75rem;}
+    .exp-card .cols .lbl{display:block;font-size:9px;letter-spacing:0.16em;text-transform:uppercase;color:var(--color-or-pale);margin-bottom:0.3rem;}
+    .exp-card .dls{margin-top:auto;display:flex;gap:0.5rem;}
+
+    .dl-btn{display:inline-flex;align-items:center;justify-content:center;gap:0.4em;font-family:var(--font-sans);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;padding:0.6rem 0.9rem;border:1px solid;text-decoration:none;cursor:pointer;transition:color .15s,border-color .15s,background .15s;}
+    .dl-btn--csv{background:var(--color-or);border-color:var(--color-or);color:var(--color-noir);flex:1;}
+    .dl-btn--csv:hover{background:var(--color-or-pale);border-color:var(--color-or-pale);}
+    .dl-btn--json{background:none;border-color:color-mix(in oklab,var(--color-or) 35%,transparent);color:var(--color-or-pale);flex:1;}
+    .dl-btn--json:hover{color:var(--color-ivoire);border-color:var(--color-or);}
+
+    .exp-backup{margin-top:1rem;display:flex;align-items:center;justify-content:space-between;gap:1.2rem;flex-wrap:wrap;padding:1.1rem 1.3rem;border:1px dashed color-mix(in oklab,var(--color-or) 30%,transparent);background:color-mix(in oklab,var(--color-or) 3%,transparent);}
+    .exp-backup p{margin:0;font-size:13px;line-height:1.5;color:var(--color-ivoire-soft);max-width:32rem;}
+    .exp-backup p b{font-family:var(--font-display);font-size:1.15rem;color:var(--color-ivoire);}
+    .exp-backup .dl-btn{flex:0 0 auto;white-space:nowrap;}
+
+    .footnote{position:relative;z-index:1;max-width:72rem;margin:0 auto;padding:0 1.5rem;}
+    .footnote .note{margin:0 0 3rem;font-size:12px;color:var(--color-ivoire-soft);border-left:2px solid color-mix(in oklab,var(--color-indigo) 50%,transparent);padding-left:0.85rem;line-height:1.7;max-width:46rem;}
+    .footnote .note b{color:var(--color-ivoire);font-family:var(--font-display);font-size:1.05rem;}
+  </style>
+</head>
+<body>
+  <button class="tt" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'">Thème</button>
+
+  <main class="atelier">
+    <!-- Hero (unchanged settings header) -->
+    <header class="atelier-hero">
+      <p class="atelier-hero-eyebrow">Dim145</p>
+      <h1 class="atelier-hero-title">L'Atelier</h1>
+      <p class="atelier-hero-sub">Le poste de travail du conservateur — chaque réglage dans son tiroir.</p>
+    </header>
+
+    <!-- Nav rail: Archives ajouté en dernier, actif -->
+    <nav class="atelier-nav" aria-label="Réglages">
+      <p class="atelier-nav-heading">Réglages</p>
+      <ul class="atelier-nav-list">
+        <li><a class="atelier-nav-link" href="#"><span class="atelier-nav-link-kanji">公</span><span>Profil</span></a></li>
+        <li><a class="atelier-nav-link" href="#"><span class="atelier-nav-link-kanji">銭</span><span>Devise</span></a></li>
+        <li><a class="atelier-nav-link" href="#"><span class="atelier-nav-link-kanji">影</span><span>Détourage</span></a></li>
+        <li><a class="atelier-nav-link" href="#"><span class="atelier-nav-link-kanji">鈴</span><span>Notifications</span></a></li>
+        <li><a class="atelier-nav-link" href="#"><span class="atelier-nav-link-kanji">禁</span><span>Sensibilité</span></a></li>
+        <li><a class="atelier-nav-link is-active" href="#archives"><span class="atelier-nav-link-kanji">蔵</span><span>Archives</span></a></li>
+      </ul>
+    </nav>
+
+    <!-- Content column -->
+    <div class="atelier-content">
+      <!-- The existing drawers, unchanged — shown compacted for context -->
+      <div class="ctx">
+        <span class="lab">Réglages existants ↑</span>
+        <span class="item"><span class="k">公</span>Profil</span><span class="sep">·</span>
+        <span class="item"><span class="k">銭</span>Devise</span><span class="sep">·</span>
+        <span class="item"><span class="k">影</span>Détourage</span><span class="sep">·</span>
+        <span class="item"><span class="k">鈴</span>Notifications</span><span class="sep">·</span>
+        <span class="item"><span class="k">禁</span>Sensibilité</span>
+      </div>
+
+      <!-- NEW: the Archives drawer (relocated from /archives) -->
+      <section id="archives" class="atelier-drawer" data-kanji="蔵" style="--atelier-tone:var(--color-or)">
+        <header class="atelier-drawer-header">
+          <span class="atelier-drawer-kanji">蔵</span>
+          <h2 class="atelier-drawer-title">Le cabinet d'archives</h2>
+          <span class="atelier-drawer-rule"></span>
+          <span class="anno">déplacé depuis /archives</span>
+        </header>
+        <div class="atelier-drawer-body">
+          <p class="atelier-drawer-desc">Tes données t'appartiennent. Exporte ta collection, tes souhaits et tes précommandes en CSV (tableur) ou JSON (sauvegarde fidèle, ré-import, migration). Rien ne quitte le serveur sans ton geste.</p>
+
+          <div class="exp-grid">
+            <article class="exp-card">
+              <span class="ek">蒐</span>
+              <div class="et">Collection</div>
+              <div class="ec"><b>128</b><span>pièces possédées</span></div>
+              <p class="cols"><span class="lbl">Colonnes</span>Nom · type · fabricant · échelle · état · prix payé · devise · valeur estimée · date d'achat · JAN</p>
+              <div class="dls"><a class="dl-btn dl-btn--csv">↓ CSV</a><a class="dl-btn dl-btn--json">↓ JSON</a></div>
+            </article>
+            <article class="exp-card">
+              <span class="ek">望</span>
+              <div class="et">Souhaits</div>
+              <div class="ec"><b>23</b><span>pièces convoitées</span></div>
+              <p class="cols"><span class="lbl">Colonnes</span>Nom · fabricant · prix-cible · MSRP actuel · note</p>
+              <div class="dls"><a class="dl-btn dl-btn--csv">↓ CSV</a><a class="dl-btn dl-btn--json">↓ JSON</a></div>
+            </article>
+            <article class="exp-card">
+              <span class="ek">予</span>
+              <div class="et">Précommandes</div>
+              <div class="ec"><b>7</b><span>en cours</span></div>
+              <p class="cols"><span class="lbl">Colonnes</span>Nom · boutique · statut · date initiale · date actuelle · reports · acompte · devise</p>
+              <div class="dls"><a class="dl-btn dl-btn--csv">↓ CSV</a><a class="dl-btn dl-btn--json">↓ JSON</a></div>
+            </article>
+          </div>
+
+          <div class="exp-backup">
+            <p><b>Sauvegarde complète</b> — tout en un seul fichier JSON (collection + souhaits + précommandes + profil), prêt à ré-importer.</p>
+            <a class="dl-btn dl-btn--json">↓ Sauvegarde complète (JSON)</a>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <div class="footnote">
+    <p class="note"><b>Ce qui change.</b> La page <code>/archives</code> disparaît : son contenu devient le dernier tiroir des paramètres (蔵, accent or), juste sous « Sensibilité ». L'entrée « Archives » du menu avatar est retirée. Les liens de téléchargement restent identiques (<code>/api/me/export/*.csv|json</code>, <code>/api/me/export/backup.json</code>) — seul l'emplacement change. Le scroll-spy du rail surligne « Archives » quand le tiroir est à l'écran.</p>
+  </div>
+</body>
+</html>

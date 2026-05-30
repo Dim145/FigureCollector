@@ -5,6 +5,7 @@ import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useChannels } from "../hooks/useNotifications.js";
 import { useUpdateProfile } from "../hooks/useProfile.js";
+import { useMyStats, useInsights } from "../hooks/useStats.js";
 import AppShell from "../components/AppShell.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import NotificationSettings from "../components/NotificationSettings.jsx";
@@ -42,6 +43,7 @@ const ALL_SECTIONS = [
   { id: "bg_model",   kanji: "影", tone: "var(--atelier-jade)",   toneSoft: "var(--atelier-jade-soft)" },
   { id: "notif_chan", kanji: "鈴", tone: "var(--color-or)",       toneSoft: "color-mix(in oklab, var(--color-or) 18%, transparent)" },
   { id: "nsfw",       kanji: "禁", tone: "var(--atelier-laque)",  toneSoft: "var(--atelier-laque-soft)" },
+  { id: "archives",   kanji: "蔵", tone: "var(--color-or)",       toneSoft: "color-mix(in oklab, var(--color-or) 18%, transparent)" },
 ];
 
 export default function SettingsPage() {
@@ -49,6 +51,11 @@ export default function SettingsPage() {
   const me = useMe();
   const update = useUpdateProfile();
   const channels = useChannels();
+  // Feed the Archives drawer's per-dataset counts. React-Query-cached, so
+  // the figures shown there are the same ones the rest of the app already
+  // fetched; default to 0 while loading / on error.
+  const stats = useMyStats();
+  const insights = useInsights();
   const [bgModel, setBgModel] = useState(() => getPref("bgModel"));
   const [active, setActive] = useState("profile");
   const [copied, setCopied] = useState(false);
@@ -86,6 +93,11 @@ export default function SettingsPage() {
     me.data?.user?.public_profile_show_value ??
     false;
   const publicUrl = `${window.location.origin}/u/${user.username}`;
+
+  // Archives drawer counts.
+  const pieces = stats.data?.total_pieces ?? 0;
+  const placedPreorders = stats.data?.preorders?.placed ?? 0;
+  const wishes = insights.data?.wishlist_count ?? 0;
 
   const toggle = () => update.mutate({ public_profile_enabled: !flag });
   const toggleNsfwPublic = () =>
@@ -351,9 +363,104 @@ export default function SettingsPage() {
               })}
             </div>
           </Drawer>
+
+          {/* Archives — data export (relocated from the standalone /archives
+            * page). Each dataset downloads as CSV (spreadsheet) or JSON
+            * (faithful backup); the dashed footer bar bundles everything into
+            * one re-importable JSON snapshot. */}
+          <Drawer
+            id="archives"
+            kanji="蔵"
+            title={t("archives.title")}
+            tone={toneOf("archives").tone}
+            toneSoft={toneOf("archives").toneSoft}
+            delay={0.24}
+            refMap={drawerRefs}
+          >
+            <p className="atelier-drawer-desc">{t("archives.subtitle")}</p>
+            <div className="exp-grid">
+              <ExportCard
+                kanji="蒐"
+                title={t("archives.collection")}
+                count={pieces}
+                countLabel={t("archives.count.pieces")}
+                cols={t("archives.cols.collection")}
+                base="collection"
+                t={t}
+              />
+              <ExportCard
+                kanji="望"
+                title={t("archives.wishlist")}
+                count={wishes}
+                countLabel={t("archives.count.wishes")}
+                cols={t("archives.cols.wishlist")}
+                base="wishlist"
+                t={t}
+              />
+              <ExportCard
+                kanji="予"
+                title={t("archives.preorders")}
+                count={placedPreorders}
+                countLabel={t("archives.count.preorders")}
+                cols={t("archives.cols.preorders")}
+                base="preorders"
+                t={t}
+              />
+            </div>
+            <div className="exp-backup">
+              <p>
+                <b>{t("archives.backup.title")}</b> — {t("archives.backup.body")}
+              </p>
+              <a
+                href="/api/me/export/backup.json"
+                download
+                className="dl-btn dl-btn--json"
+              >
+                ↓ {t("archives.backup.download")}
+              </a>
+            </div>
+          </Drawer>
         </div>
       </main>
     </AppShell>
+  );
+}
+
+// One dataset's export card inside the Archives drawer. Downloads are plain
+// authenticated <a> links — the session cookie rides along and the server
+// replies with Content-Disposition: attachment.
+function ExportCard({ kanji, title, count, countLabel, cols, base, t }) {
+  return (
+    <article className="exp-card">
+      <span className="exp-card-kanji" aria-hidden>
+        {kanji}
+      </span>
+      <div className="exp-card-title">{title}</div>
+      <div className="exp-card-count">
+        <b>{count}</b>
+        <span>{countLabel}</span>
+      </div>
+      <p className="exp-card-cols">
+        <span className="exp-card-cols-label">{t("archives.columns")}</span>
+        {cols}
+      </p>
+      <div className="exp-card-dls">
+        <a
+          href={`/api/me/export/${base}.csv`}
+          download
+          className="dl-btn dl-btn--csv"
+        >
+          ↓ CSV
+        </a>
+        <a
+          href={`/api/me/export/${base}.json`}
+          download
+          className="dl-btn dl-btn--json"
+        >
+          ↓ JSON
+        </a>
+      </div>
+    </article>
   );
 }
 

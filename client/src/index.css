@@ -5507,6 +5507,112 @@ a.horarium-entry-title:hover {
   opacity: 0.75;
 }
 
+/* ─── Archives drawer — data export, relocated from /archives into L'Atelier.
+ * Reuses the shared .dl-btn / .dl-btn--csv / .dl-btn--json buttons; the
+ * cards reflow 3→2→1 inside the (narrower) drawer via auto-fit. ─── */
+.exp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14.5rem, 1fr));
+  gap: 1rem;
+}
+.exp-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 1.3rem 1.4rem 1.4rem;
+  border: 1px solid color-mix(in oklab, var(--color-or) 16%, transparent);
+  background: color-mix(in oklab, var(--color-noir-soft) 70%, transparent);
+  overflow: hidden;
+}
+.exp-card-kanji {
+  position: absolute;
+  top: 0.85rem;
+  right: 1rem;
+  font-family: var(--font-ja);
+  font-size: 2.4rem;
+  line-height: 1;
+  color: color-mix(in oklab, var(--color-or) 12%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+.exp-card-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  line-height: 1.05;
+  color: var(--color-ivoire);
+}
+.exp-card-count {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-top: 0.2rem;
+}
+.exp-card-count b {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.5rem;
+  color: var(--color-or-pale);
+}
+.exp-card-count span {
+  font-family: var(--font-sans);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.85;
+}
+.exp-card-cols {
+  margin: 1rem 0;
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--color-ivoire-soft);
+  border-left: 2px solid color-mix(in oklab, var(--color-or) 25%, transparent);
+  padding-left: 0.75rem;
+}
+.exp-card-cols-label {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  margin-bottom: 0.3rem;
+}
+.exp-card-dls {
+  margin-top: auto;
+  display: flex;
+  gap: 0.5rem;
+}
+.exp-card-dls .dl-btn {
+  flex: 1;
+}
+.exp-backup {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+  padding: 1.1rem 1.3rem;
+  border: 1px dashed color-mix(in oklab, var(--color-or) 30%, transparent);
+  background: color-mix(in oklab, var(--color-or) 3%, transparent);
+}
+.exp-backup p {
+  margin: 0;
+  max-width: 32rem;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-ivoire-soft);
+}
+.exp-backup p b {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--color-ivoire);
+}
+.exp-backup .dl-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 /* ============================================================================
  * Year in review — L'Almanach
  *
