@@ -12,6 +12,7 @@ pub mod follow;
 pub mod location;
 pub mod notification;
 pub mod owned;
+pub mod owned_document;
 pub mod photo;
 pub mod preorder;
 pub mod scan;

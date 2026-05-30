@@ -14,6 +14,7 @@ pub mod achievements;
 pub mod activity;
 pub mod admin;
 pub mod auth;
+pub mod documents;
 pub mod entities;
 pub mod export;
 pub mod external;
@@ -86,6 +87,11 @@ pub fn build_router(state: AppState) -> Router {
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(256 * 1024 * 1024));
 
+    // Proof-of-purchase documents (receipts/invoices) — 10 MB cap + framing.
+    let document_routes = documents::router()
+        .layer(DefaultBodyLimit::disable())
+        .layer(RequestBodyLimitLayer::new(12 * 1024 * 1024));
+
     // Admin uploads (entity logos / cover / portrait) — 5 MB cap, single
     // file, gated by `require_admin` inside the handler.
     let admin_photo_routes = admin::photo_upload_router()
@@ -117,6 +123,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(photo_routes)
         .merge(figure_photo_routes)
         .merge(scan_routes)
+        .merge(document_routes)
         .merge(admin_photo_routes)
         .merge(auth_routes);
 

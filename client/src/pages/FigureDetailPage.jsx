@@ -21,6 +21,7 @@ import Foldable from "../components/Foldable.jsx";
 import LinkedStoresModal from "../components/LinkedStoresModal.jsx";
 import OwnedItemEditor from "../components/OwnedItemEditor.jsx";
 import PhotoStrip from "../components/PhotoStrip.jsx";
+import DocumentsSection from "../components/DocumentsSection.jsx";
 import PreorderHistory from "../components/PreorderHistory.jsx";
 import ShareDialog from "../components/ShareDialog.jsx";
 import TurntableSection from "../components/TurntableSection.jsx";
@@ -762,6 +763,16 @@ function OwnerStack({ f, owned, nsfwPref, t }) {
           uploadDisabled={f.is_nsfw && nsfwPref === "blur"}
           blurImages={f.is_nsfw && nsfwPref === "blur"}
         />
+      </Foldable>
+
+      {/* Proof-of-purchase documents — receipts / invoices / customs slips,
+       *  private to the owner. */}
+      <Foldable
+        size="minor"
+        kanji="証"
+        label={t("figure.owner.tab.documents")}
+      >
+        <DocumentsSection ownedId={owned.id} />
       </Foldable>
 
       {/* 360° viewer — rendered inline. The capture wizard (TurntableWizard)
