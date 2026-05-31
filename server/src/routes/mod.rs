@@ -146,7 +146,37 @@ pub fn build_router(state: AppState) -> Router {
         .merge(scan_routes)
         .merge(document_routes)
         .merge(admin_photo_routes)
-        .merge(auth_routes);
+        .merge(auth_routes)
+        // CSRF backstop (defense-in-depth on top of SameSite=Lax): block any
+        // state-changing request a browser reports as cross-site.
+        .layer(axum::middleware::from_fn(csrf_fetch_metadata_guard));
 
     Router::new().nest("/api", api).with_state(state)
+}
+
+/// Fetch-Metadata CSRF guard. Refuses mutating requests (POST/PUT/PATCH/DELETE)
+/// whose `Sec-Fetch-Site` is `cross-site`. Same-origin (the SPA), same-site,
+/// direct navigations (`none`), and clients that omit the header are allowed —
+/// SameSite=Lax remains the primary control, this is the modern backstop.
+async fn csrf_fetch_metadata_guard(
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    use axum::http::Method;
+    use axum::response::IntoResponse;
+
+    let mutating = matches!(
+        *req.method(),
+        Method::POST | Method::PUT | Method::PATCH | Method::DELETE
+    );
+    if mutating
+        && req
+            .headers()
+            .get("sec-fetch-site")
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|s| s.eq_ignore_ascii_case("cross-site"))
+    {
+        return crate::error::AppError::Forbidden.into_response();
+    }
+    next.run(req).await
 }

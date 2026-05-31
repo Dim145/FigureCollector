@@ -8,7 +8,7 @@ use crate::state::AppState;
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Redirect, Response},
     routing::{get, post},
 };
@@ -144,8 +144,22 @@ struct OidcCallbackQuery {
 async fn login_oidc_redirect(
     State(state): State<AppState>,
     Path(provider_id): Path<String>,
+    headers: HeaderMap,
     session: Session,
 ) -> AppResult<Redirect> {
+    // Login-CSRF guard: this GET primes the session with a fresh OIDC flow, so a
+    // cross-site top-level navigation could prime/clobber a victim's pending
+    // login. A same-origin button click reports `same-origin`, a typed URL /
+    // bookmark reports `none` — both fine; `cross-site` is refused. (Browsers
+    // that don't send Sec-Fetch-Site fall through to SameSite=Lax.)
+    if headers
+        .get("sec-fetch-site")
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|s| s.eq_ignore_ascii_case("cross-site"))
+    {
+        return Err(AppError::Forbidden);
+    }
+
     let provider = state.oidc.get(&provider_id).ok_or(AppError::NotFound)?;
 
     let (url, pending) = oidc::build_auth_request(&provider, "/");
