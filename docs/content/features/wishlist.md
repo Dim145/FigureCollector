@@ -49,3 +49,24 @@ The **Importer** button opens `/souhaits/import`, which bulk-adds figures from a
     Creating a not-yet-catalogued figure costs one orzgk product fetch each, so a
     single import run is capped at 10 items. Re-run it for the rest — already-
     imported pieces show as *déjà souhaitée* and are skipped.
+
+## Shared gift lists
+
+Turn your wishlist into a **public gift list** so friends and family can
+coordinate presents — no account required on their end.
+
+From `/souhaits`, **Créer le lien** mints a share link (`/g/<token>`); **Arrêter
+le partage** kills it and wipes every reservation. Anyone with the link sees your
+wished pieces and can **claim** one by typing a name — the secret that lets them
+release it later lives in their browser, so no sign-in is needed. Other
+gift-givers see *réservé · «name»*, so two people don't buy the same thing. It's
+the SPA's only anonymous route (it renders without a session, no login redirect).
+
+!!! note "The surprise is safe"
+    **Reservations are hidden from you** — even on your own link. You only ever
+    see the link, never who claimed what.
+
+NSFW pieces never surface on the public link unless **you** expose NSFW on your
+[public profile](social.md) *and* the viewer opts in — their own
+[NSFW setting](nsfw.md) when signed in, a local *Afficher le contenu sensible*
+toggle when anonymous.

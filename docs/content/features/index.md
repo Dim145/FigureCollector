@@ -12,10 +12,10 @@ FigureCollector is built around a small set of overlapping mental models:
 
 Each feature has its own page below:
 
-- [Catalogue & collection](catalogue.md) — browse, add, filter, mark conditions
+- [Catalogue & collection](catalogue.md) — browse, add (incl. **barcode scan**), filter, mark conditions, **bulk edit**, attach **receipts**
 - [Vitrines](vitrines.md) — your collection arranged into glass display cabinets
-- [La Cote](cote.md) — collection value vs what you paid, per currency
-- [Wishlist](wishlist.md) — target prices, owned≠wishlist rule, bulk import from orzgk
+- [La Cote](cote.md) — collection value vs what you paid, per currency (+ optional display-currency conversion)
+- [Wishlist](wishlist.md) — target prices, owned≠wishlist rule, bulk import from orzgk, **shareable gift list**
 - [URL import](url-import.md) — paste an orzgk (or proxy-backed store) URL to import metadata
 - [Pre-orders](preorders.md) — release dates, slip history, **deposits**, **cancellations with refund tracking**, **delivery ETAs**
 - [Photos & 360° scans](photos.md) — multi-upload, **edit in place**, covers, lightbox, turntable

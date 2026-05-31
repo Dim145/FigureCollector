@@ -13,9 +13,12 @@ It works **offline-first**, is **installable on iOS / Android / Desktop**, and p
 ## Highlights
 
 - 📦 **Catalogue + collection** — every figure you own or want, with manufacturer / series / character / sculptor / scale / NSFW metadata.
+- 📷 **Barcode scan** — point your camera at a JAN / EAN / UPC to open a catalogued figure or jump to adding it (native `BarcodeDetector`, manual fallback — no extra dependency).
+- ☑️ **Bulk collection edit** — multi-select pieces to re-shelve, set condition, archive, or delete in one pass.
+- 🧾 **Proof-of-purchase** — attach receipts / invoices / customs slips (PDF / JPG / PNG / WebP) to a piece, stored as-is behind an owner-only proxy.
 - 🗄️ **Vitrines** — arrange your collection into glass display cabinets with drag-and-drop, plus a "where is…?" search.
-- 💴 **La Cote** — what your collection is worth vs what you paid, aggregated per currency (no made-up FX), with a manual per-piece valuation.
-- ⭐ **Wishlist** — target prices, an owned≠wishlist rule with at-a-glance catalogue markers, and **bulk import from a public orzgk wishlist**.
+- 💴 **La Cote** — what your collection is worth vs what you paid, aggregated per currency, with a manual per-piece valuation and an **optional display-currency overlay** (ECB rates, off by default, never stored).
+- ⭐ **Wishlist** — target prices, an owned≠wishlist rule with at-a-glance catalogue markers, **bulk import from a public orzgk wishlist**, and a **shareable gift list** (public link, anonymous reservations hidden from you).
 - 🛒 **Pre-orders with deposit tracking** — record the upfront acompte (OrzGK / AmiAmi style), see the balance left to pay, and get notified when delivery is overdue.
 - ✂️ **Cancellations with refund accounting** — cancelled preorder + partial refund? The piece is auto-archived, the loss surfaces in the yearly recap.
 - 📸 **Photo gallery** — multi-upload, **edit in place** (crop / filters / background removal), per-user covers, NSFW blurring, 360° turntable scans, fullscreen lightbox with pinch-zoom.
