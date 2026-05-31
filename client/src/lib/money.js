@@ -29,15 +29,19 @@ export function fmtMoney(amount, currency, locale) {
  *  `{ amount, currency, isManual }` or `null` when neither is known. */
 export function effectiveValue(item) {
   if (item?.value_amount != null) {
+    const amount = Number(item.value_amount);
+    if (!Number.isFinite(amount)) return null;
     return {
-      amount: Number(item.value_amount),
+      amount,
       currency: item.value_currency || item.price_currency || null,
       isManual: true,
     };
   }
   if (item?.msrp_amount != null) {
+    const amount = Number(item.msrp_amount);
+    if (!Number.isFinite(amount)) return null;
     return {
-      amount: Number(item.msrp_amount),
+      amount,
       currency: item.msrp_currency || null,
       isManual: false,
     };
@@ -61,18 +65,23 @@ export function fxMultiplier(fx, from) {
 }
 
 /** Convert `amount` (in `from`) into the display currency, or null when the
- *  conversion isn't possible. */
+ *  conversion isn't possible. Returns null for a non-finite `amount` too, so a
+ *  garbage value can't poison a running sum with NaN. */
 export function convertAmount(amount, from, fx) {
   const m = fxMultiplier(fx, from);
-  return m == null ? null : Number(amount) * m;
+  if (m == null) return null;
+  const n = Number(amount);
+  return Number.isFinite(n) ? n * m : null;
 }
 
 /** Total amount paid for an item (figure price + shipping), in
  *  `price_currency`. Returns `null` when no price was recorded. */
 export function paidTotal(item) {
   if (item?.price_amount == null) return null;
+  const amount = Number(item.price_amount) + Number(item.shipping_amount || 0);
+  if (!Number.isFinite(amount)) return null;
   return {
-    amount: Number(item.price_amount) + Number(item.shipping_amount || 0),
+    amount,
     currency: item.price_currency || null,
   };
 }

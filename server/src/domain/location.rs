@@ -120,12 +120,17 @@ pub async fn patch(
     .bind(user_id)
     .fetch_one(&mut *tx)
     .await?;
-    sqlx::query("UPDATE owned_items SET location = $1 WHERE user_id = $2 AND location = $3")
-        .bind(&name)
-        .bind(user_id)
-        .bind(&old_name)
-        .execute(&mut *tx)
-        .await?;
+    // Match case-insensitively — cabinets bind to items by lower(name), so a
+    // case-sensitive `location = $old` would orphan differently-cased items.
+    sqlx::query(
+        "UPDATE owned_items SET location = $1
+         WHERE user_id = $2 AND lower(location) = lower($3)",
+    )
+    .bind(&name)
+    .bind(user_id)
+    .bind(&old_name)
+    .execute(&mut *tx)
+    .await?;
     tx.commit().await?;
     Ok(row)
 }
@@ -143,11 +148,16 @@ pub async fn delete(pool: &PgPool, user_id: Uuid, id: Uuid) -> AppResult<()> {
     let Some((name,)) = row else {
         return Err(AppError::NotFound);
     };
-    sqlx::query("UPDATE owned_items SET location = '' WHERE user_id = $1 AND location = $2")
-        .bind(user_id)
-        .bind(&name)
-        .execute(&mut *tx)
-        .await?;
+    // Case-insensitive match (see rename) so every item under this cabinet,
+    // whatever its casing, gets un-shelved rather than left dangling.
+    sqlx::query(
+        "UPDATE owned_items SET location = ''
+         WHERE user_id = $1 AND lower(location) = lower($2)",
+    )
+    .bind(user_id)
+    .bind(&name)
+    .execute(&mut *tx)
+    .await?;
     sqlx::query("DELETE FROM collection_locations WHERE id = $1 AND user_id = $2")
         .bind(id)
         .bind(user_id)

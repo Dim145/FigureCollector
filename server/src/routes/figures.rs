@@ -53,14 +53,17 @@ async fn by_jan(
     session: Session,
     Query(q): Query<JanQuery>,
 ) -> AppResult<Json<Option<figure::Figure>>> {
-    auth::require_user(&session).await?;
+    // Gate NSFW catalogue hits behind the viewer's preference — the barcode
+    // scan must not surface NSFW figures to a user who set `hide`.
+    let user = auth::require_user_full(&session, &state.pool).await?;
+    let exclude = user.nsfw_visibility == "hide";
     let jan = q
         .jan
         .as_deref()
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .ok_or(AppError::BadRequest("missing jan parameter"))?;
-    Ok(Json(figure::find_by_jan(&state.pool, jan).await?))
+    Ok(Json(figure::find_by_jan(&state.pool, jan, exclude).await?))
 }
 
 #[derive(Debug, Deserialize)]

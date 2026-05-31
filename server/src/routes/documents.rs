@@ -161,6 +161,17 @@ async fn fetch_document(
         header::CACHE_CONTROL,
         HeaderValue::from_static("private, no-store"),
     );
+    // Defense-in-depth: even if the front proxy is bypassed, an owner-uploaded
+    // PDF/image must not be MIME-sniffed or able to execute script. `sandbox`
+    // (with no allow-tokens) drops scripts, plugins, same-origin, popups, etc.
+    headers.insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
+    headers.insert(
+        header::CONTENT_SECURITY_POLICY,
+        HeaderValue::from_static("sandbox; default-src 'none'"),
+    );
     // ASCII-safe disposition; the SPA already knows the real filename.
     let ascii: String = filename
         .chars()

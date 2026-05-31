@@ -12,6 +12,10 @@ pub struct AppConfig {
     /// branches on it right now.
     #[allow(dead_code)]
     pub frontend_url: String,
+    /// Whether the session cookie carries the `Secure` attribute. Defaults to
+    /// `true`; only flips to `false` when `FC_COOKIE_INSECURE=true` so plain
+    /// HTTP works during local dev. Production (behind TLS) keeps it on.
+    pub cookie_secure: bool,
     pub auth: AuthConfig,
     pub tracking: TrackingConfig,
     pub proxy: ProxyConfig,
@@ -88,6 +92,16 @@ impl AppConfig {
         let frontend_url =
             env::var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:5173".into());
 
+        // Session cookie `Secure`: derived from the public scheme so it's ON in
+        // any HTTPS deployment (production) but OFF for plain-HTTP local dev —
+        // otherwise the browser would refuse to send the cookie over http://
+        // and log everyone out. An explicit FC_COOKIE_INSECURE=true/false
+        // overrides the derivation.
+        let cookie_secure = match env::var("FC_COOKIE_INSECURE") {
+            Ok(v) => v.trim().to_lowercase() != "true",
+            Err(_) => frontend_url.starts_with("https://"),
+        };
+
         // OIDC redirect base defaults to FRONTEND_URL (which goes through the nginx
         // reverse proxy and lands on the backend via /api/*).
         let oidc_redirect_base =
@@ -136,6 +150,7 @@ impl AppConfig {
             bind_addr,
             database_url,
             frontend_url,
+            cookie_secure,
             auth,
             tracking,
             proxy,

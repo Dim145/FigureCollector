@@ -7,6 +7,7 @@ import Reveal from "../components/motion/Reveal.jsx";
 import { useT } from "../i18n/index.jsx";
 import { api, ApiError } from "../lib/api.js";
 import { resolveFigureCover } from "../lib/coverUrl.js";
+import { safeHref } from "../lib/safeUrl.js";
 import { useIsAdmin, useMe } from "../hooks/useMe.js";
 import {
   useUnlinkSeriesFigures,
@@ -492,10 +493,13 @@ function ExternalLinks({ entity, kind, t, accent = "var(--color-or)" }) {
   if (links.length === 0) return null;
   return (
     <ul className="mt-6 flex flex-wrap gap-2">
-      {links.map((l) => (
+      {links.map((l) => {
+        const href = safeHref(l.href);
+        if (!href) return null;
+        return (
         <li key={l.href}>
           <a
-            href={l.href}
+            href={href}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] px-3 py-1.5 border transition-colors duration-300 ease-out hover:-translate-y-0.5 hover:text-[var(--color-ivoire)] hover:[border-color:var(--_link-border-hover)] hover:[background:var(--_link-bg-hover)] motion-reduce:hover:translate-y-0 motion-reduce:transition-none"
@@ -509,7 +513,8 @@ function ExternalLinks({ entity, kind, t, accent = "var(--color-or)" }) {
             {l.label} ↗
           </a>
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }

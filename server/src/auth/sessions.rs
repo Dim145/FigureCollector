@@ -7,11 +7,13 @@ use tower_sessions_sqlx_store::PostgresStore;
 
 /// Build the session layer and (concurrently) ensure the session table exists.
 ///
-/// The cookie is HttpOnly + SameSite=Lax. `with_secure(false)` keeps it usable
-/// on plain HTTP during local dev — production deployments terminate TLS in
-/// front (Traefik), and the reverse proxy can be configured to set Secure on
-/// outgoing Set-Cookie headers.
-pub async fn build(pool: &PgPool) -> anyhow::Result<SessionManagerLayer<PostgresStore>> {
+/// The cookie is HttpOnly + SameSite=Lax. `cookie_secure` adds the `Secure`
+/// attribute; it defaults to `true` (see `AppConfig::cookie_secure`) and is
+/// only turned off via `FC_COOKIE_INSECURE=true` for plain-HTTP local dev.
+pub async fn build(
+    pool: &PgPool,
+    cookie_secure: bool,
+) -> anyhow::Result<SessionManagerLayer<PostgresStore>> {
     let store = PostgresStore::new(pool.clone());
     store.migrate().await?;
     tracing::info!("session store migrated");
@@ -20,7 +22,7 @@ pub async fn build(pool: &PgPool) -> anyhow::Result<SessionManagerLayer<Postgres
         .with_name("fc_session")
         .with_http_only(true)
         .with_same_site(SameSite::Lax)
-        .with_secure(false) // dev default; flip to true behind HTTPS
+        .with_secure(cookie_secure)
         .with_expiry(Expiry::OnInactivity(Duration::days(30)));
 
     Ok(layer)

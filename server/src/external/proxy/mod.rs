@@ -146,6 +146,22 @@ impl<'a> ProxyClient<'a> {
     }
 
     pub async fn product(&self, url: &str) -> AppResult<ProxyProduct> {
+        // Defense-in-depth: the `url` here is user-supplied (a pasted product
+        // link) and is forwarded verbatim to the operator proxy. Reject
+        // anything that isn't a well-formed http(s) URL with a host so we
+        // can't be coerced into handing the proxy a `file://`, schemeless, or
+        // host-less target.
+        let parsed = url::Url::parse(url)
+            .map_err(|_| AppError::BadRequest("product url is not a valid URL"))?;
+        if !matches!(parsed.scheme(), "http" | "https") {
+            return Err(AppError::BadRequest(
+                "product url must use the http or https scheme",
+            ));
+        }
+        if parsed.host_str().is_none_or(str::is_empty) {
+            return Err(AppError::BadRequest("product url has no host"));
+        }
+
         self.get_json::<ProxyProduct>("/product", &[("url", url)])
             .await
     }

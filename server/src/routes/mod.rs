@@ -66,6 +66,25 @@ pub fn build_router(state: AppState) -> Router {
         auth::router()
     };
 
+    // Public gift-list routes (`/api/g/{token}`, `…/reserve`, `…/release`) are
+    // anonymous and abuse-prone (reservation spam, token probing), so they get
+    // their own IP-keyed limiter, gated by the same RATE_LIMIT_ENABLED toggle.
+    // We reuse the auth tunables for the sustained rate but allow a slightly
+    // larger burst (10) since loading a list fans out a couple of GETs.
+    let gift_routes = if state.config.auth.rate_limit_enabled {
+        let gift_conf = Arc::new(
+            GovernorConfigBuilder::default()
+                .per_second(state.config.auth.auth_rate_limit_per_second)
+                .burst_size(10)
+                .key_extractor(SmartIpKeyExtractor)
+                .finish()
+                .expect("valid governor configuration"),
+        );
+        gift::router().layer(GovernorLayer::new(gift_conf))
+    } else {
+        gift::router()
+    };
+
     // Multipart photo uploads — 5 MB per file + multipart framing.
     // Both layers are needed: `DefaultBodyLimit::disable()` removes the
     // 2-MB default that axum applies to every route (otherwise the Multipart
@@ -108,7 +127,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(owned::router())
         .merge(location::router())
         .merge(wishlist::router())
-        .merge(gift::router())
+        .merge(gift_routes)
         .merge(preorders::router())
         .merge(profile::router())
         .merge(follow::router())

@@ -239,11 +239,13 @@ async fn set_value_mine(
 }
 
 /// Body for `PUT /me/owned/arrange` — re-home + re-order a cabinet's pieces in
-/// one shot (Vitrines drag-and-drop). `location: ""` is the unshelved group.
+/// one shot (Vitrines drag-and-drop). `location: ""` moves pieces to the
+/// unshelved group; an OMITTED `location` reorders in place without touching
+/// the shelf (a pure within-cabinet reorder).
 #[derive(Debug, Deserialize)]
 struct ArrangeBody {
     #[serde(default)]
-    location: String,
+    location: Option<String>,
     ordered_ids: Vec<Uuid>,
 }
 
@@ -253,7 +255,13 @@ async fn arrange_mine(
     Json(body): Json<ArrangeBody>,
 ) -> AppResult<StatusCode> {
     let user_id = auth::require_user(&session).await?;
-    owned::arrange(&state.pool, user_id, &body.location, &body.ordered_ids).await?;
+    owned::arrange(
+        &state.pool,
+        user_id,
+        body.location.as_deref(),
+        &body.ordered_ids,
+    )
+    .await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

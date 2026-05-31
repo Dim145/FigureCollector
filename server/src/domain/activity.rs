@@ -325,20 +325,22 @@ pub async fn year_in_review(pool: &PgPool, user_id: Uuid, year: i32) -> AppResul
     // EUR preorders gets two distinct lines.
     //
     // Currency falls back from the preorder itself to the linked
-    // owned_item's `price_currency`, then to 'EUR' as a last-resort default
-    // — many auto-created preorder rows never get their own currency set,
-    // so without this fallback they'd be silently dropped from the report.
+    // owned_item's `price_currency`. Rows with no real currency on either
+    // side are EXCLUDED (mirrors the year-spend query above) rather than
+    // fabricating a default — inventing 'EUR' both mislabels JPY/USD losses
+    // and lets mismatched currencies collapse into one bogus total.
     let cancellation_rows: Vec<(String, Decimal)> = sqlx::query_as(
         "SELECT
-            COALESCE(p.price_currency, o.price_currency, 'EUR') AS currency,
+            COALESCE(p.price_currency, o.price_currency) AS currency,
             COALESCE(SUM(p.deposit_amount - COALESCE(p.deposit_refund_amount, 0)), 0)::numeric AS loss
          FROM preorders p
          LEFT JOIN owned_items o ON o.id = p.owned_item_id
          WHERE p.user_id = $1
            AND p.status = 'cancelled'
            AND p.deposit_amount IS NOT NULL
+           AND COALESCE(p.price_currency, o.price_currency) IS NOT NULL
            AND p.updated_at >= $2 AND p.updated_at < $3
-         GROUP BY COALESCE(p.price_currency, o.price_currency, 'EUR')
+         GROUP BY COALESCE(p.price_currency, o.price_currency)
          HAVING COALESCE(SUM(p.deposit_amount - COALESCE(p.deposit_refund_amount, 0)), 0) > 0
          ORDER BY 2 DESC",
     )

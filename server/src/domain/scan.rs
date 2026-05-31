@@ -132,21 +132,25 @@ pub async fn delete_for_user(pool: &PgPool, user_id: Uuid, scan_id: Uuid) -> App
 
 /// Authorise the viewer: owner OR (owner has public profile + scan is ready).
 pub async fn assert_visible(pool: &PgPool, viewer: Option<Uuid>, scan: &Scan) -> AppResult<()> {
-    let owner: Option<(Uuid, bool)> = sqlx::query_as(
-        "SELECT u.id, u.public_profile_enabled
-         FROM owned_items o JOIN users u ON u.id = o.user_id
+    let owner: Option<(Uuid, bool, bool, bool)> = sqlx::query_as(
+        "SELECT u.id, u.public_profile_enabled, u.public_profile_show_nsfw, f.is_nsfw
+         FROM owned_items o
+         JOIN users u ON u.id = o.user_id
+         JOIN figures f ON f.id = o.figure_id
          WHERE o.id = $1",
     )
     .bind(scan.owned_item_id)
     .fetch_optional(pool)
     .await?;
-    let Some((owner_id, is_public)) = owner else {
+    let Some((owner_id, is_public, show_nsfw, is_nsfw)) = owner else {
         return Err(AppError::NotFound);
     };
     if viewer == Some(owner_id) {
         return Ok(());
     }
-    if is_public && scan.state == "ready" {
+    // Non-owner: public profile, scan finished, and either the owner shares
+    // NSFW or the underlying piece isn't NSFW.
+    if is_public && scan.state == "ready" && (show_nsfw || !is_nsfw) {
         return Ok(());
     }
     Err(AppError::Forbidden)

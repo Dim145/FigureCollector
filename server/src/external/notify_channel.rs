@@ -46,10 +46,14 @@ use uuid::Uuid;
 
 /// Reject URLs whose target is loopback, private/RFC-1918, link-local,
 /// multicast, broadcast, unspecified, carrier-grade NAT, or a known alias
-/// hostname for loopback. Domain-name URLs (with a real DNS lookup down the
-/// line) are accepted as-is — full DNS-rebinding mitigation would require
-/// pinning the resolved IP into the connect step; left as a follow-up.
-fn validate_outbound_url(url: &str) -> Result<(), ChannelError> {
+/// hostname for loopback. Domain-name URLs are RESOLVED via DNS and every
+/// returned address is run through the same forbidden-IP check, so a
+/// hostname like `postgres` or `169-254-169-254.nip.io` that maps to an
+/// internal/metadata IP is rejected up front. Pinning the resolved IP into
+/// the connect step would additionally close the TOCTOU/DNS-rebinding window
+/// between this check and the actual request — that is a further hardening
+/// step; this resolve-and-check is the baseline guard.
+async fn validate_outbound_url(url: &str) -> Result<(), ChannelError> {
     let parsed = reqwest::Url::parse(url)
         .map_err(|e| ChannelError::Misconfigured(format!("invalid URL: {e}")))?;
 
@@ -105,6 +109,33 @@ fn validate_outbound_url(url: &str) -> Result<(), ChannelError> {
                         "IP '{ip}' targets a private/loopback/link-local range"
                     )));
                 }
+            }
+            // Resolve the hostname and run the same forbidden-IP check on
+            // every address it maps to. This catches DNS names that point at
+            // internal hosts (`postgres`, `169-254-169-254.nip.io`, …) which
+            // the literal/alias checks above can't see. Note: the resolution
+            // here is advisory — pinning the chosen IP into the connect step
+            // would also close the DNS-rebinding window; see fn doc-comment.
+            let port = parsed.port_or_known_default().unwrap_or(80);
+            let resolved = tokio::net::lookup_host((lower.as_str(), port))
+                .await
+                .map_err(|e| {
+                    ChannelError::Misconfigured(format!("host '{name}' did not resolve: {e}"))
+                })?;
+            let mut saw_any = false;
+            for addr in resolved {
+                saw_any = true;
+                if is_blocked_ip(&addr.ip()) {
+                    return Err(ChannelError::Misconfigured(format!(
+                        "host '{name}' resolves to '{}', a private/loopback/link-local range",
+                        addr.ip()
+                    )));
+                }
+            }
+            if !saw_any {
+                return Err(ChannelError::Misconfigured(format!(
+                    "host '{name}' resolved to no addresses"
+                )));
             }
         }
     }
@@ -362,7 +393,7 @@ async fn send_ntfy(
 
     // SSRF guard on the admin-set server URL + format guard on the user-set
     // topic (path traversal / @host injection via the format!() below).
-    validate_outbound_url(server_url)?;
+    validate_outbound_url(server_url).await?;
     validate_ntfy_topic(topic)?;
 
     let url = format!("{server_url}/{topic}");
@@ -414,7 +445,7 @@ async fn send_webhook(
     // means an attacker can't (a) point a webhook at http://169.254.169.254/...
     // to read cloud metadata, (b) probe internal services on the Docker
     // network, or (c) bounce via a 302 from an attacker-controlled host.
-    validate_outbound_url(url)?;
+    validate_outbound_url(url).await?;
 
     let body = serde_json::json!({
         "event_type": event_type,
@@ -460,7 +491,7 @@ async fn send_apprise(
     // Defense in depth — even though the Apprise URL is admin-controlled, an
     // attacker who gains admin (or a misconfiguration) can't pivot to the
     // metadata service through the Apprise sidecar.
-    validate_outbound_url(server_url)?;
+    validate_outbound_url(server_url).await?;
     let urls = destination
         .get("urls")
         .ok_or_else(|| ChannelError::Misconfigured("missing apprise URLs".into()))?;
@@ -687,68 +718,84 @@ fn try_to_auth(bytes: &[u8]) -> Option<web_push_native::Auth> {
 mod tests {
     use super::*;
 
-    #[test]
-    fn ssrf_guard_blocks_loopback_v4() {
+    #[tokio::test]
+    async fn ssrf_guard_blocks_loopback_v4() {
         for u in [
             "http://127.0.0.1/x",
             "https://127.0.0.1:8080/",
             "http://127.255.255.254/",
         ] {
-            assert!(validate_outbound_url(u).is_err(), "should block {u}");
+            assert!(validate_outbound_url(u).await.is_err(), "should block {u}");
         }
     }
 
-    #[test]
-    fn ssrf_guard_blocks_loopback_v6() {
-        assert!(validate_outbound_url("http://[::1]/").is_err());
+    #[tokio::test]
+    async fn ssrf_guard_blocks_loopback_v6() {
+        assert!(validate_outbound_url("http://[::1]/").await.is_err());
     }
 
-    #[test]
-    fn ssrf_guard_blocks_link_local_metadata() {
+    #[tokio::test]
+    async fn ssrf_guard_blocks_link_local_metadata() {
         // AWS / GCP / Azure cloud-metadata IP — the classic SSRF target.
-        assert!(validate_outbound_url("http://169.254.169.254/latest/meta-data/").is_err());
+        assert!(
+            validate_outbound_url("http://169.254.169.254/latest/meta-data/")
+                .await
+                .is_err()
+        );
     }
 
-    #[test]
-    fn ssrf_guard_blocks_rfc1918() {
+    #[tokio::test]
+    async fn ssrf_guard_blocks_rfc1918() {
         for u in [
             "http://10.0.0.1/",
             "http://172.16.0.1/",
             "http://192.168.1.1/",
         ] {
-            assert!(validate_outbound_url(u).is_err(), "should block {u}");
+            assert!(validate_outbound_url(u).await.is_err(), "should block {u}");
         }
     }
 
-    #[test]
-    fn ssrf_guard_blocks_unspecified_and_multicast() {
-        assert!(validate_outbound_url("http://0.0.0.0/").is_err());
-        assert!(validate_outbound_url("http://224.0.0.1/").is_err());
+    #[tokio::test]
+    async fn ssrf_guard_blocks_unspecified_and_multicast() {
+        assert!(validate_outbound_url("http://0.0.0.0/").await.is_err());
+        assert!(validate_outbound_url("http://224.0.0.1/").await.is_err());
     }
 
-    #[test]
-    fn ssrf_guard_blocks_carrier_grade_nat() {
-        assert!(validate_outbound_url("http://100.64.0.1/").is_err());
-        assert!(validate_outbound_url("http://100.127.255.254/").is_err());
+    #[tokio::test]
+    async fn ssrf_guard_blocks_carrier_grade_nat() {
+        assert!(validate_outbound_url("http://100.64.0.1/").await.is_err());
+        assert!(
+            validate_outbound_url("http://100.127.255.254/")
+                .await
+                .is_err()
+        );
         // 100.128.x.x is outside CGNAT, should pass IP-level check.
-        assert!(validate_outbound_url("http://100.128.0.1/").is_ok());
+        assert!(validate_outbound_url("http://100.128.0.1/").await.is_ok());
     }
 
-    #[test]
-    fn ssrf_guard_blocks_v6_unique_local_and_link_local() {
-        assert!(validate_outbound_url("http://[fc00::1]/").is_err());
-        assert!(validate_outbound_url("http://[fe80::1]/").is_err());
+    #[tokio::test]
+    async fn ssrf_guard_blocks_v6_unique_local_and_link_local() {
+        assert!(validate_outbound_url("http://[fc00::1]/").await.is_err());
+        assert!(validate_outbound_url("http://[fe80::1]/").await.is_err());
     }
 
-    #[test]
-    fn ssrf_guard_blocks_v6_mapped_v4_loopback() {
+    #[tokio::test]
+    async fn ssrf_guard_blocks_v6_mapped_v4_loopback() {
         // IPv4-mapped IPv6 forms — must recurse on the embedded V4.
-        assert!(validate_outbound_url("http://[::ffff:127.0.0.1]/").is_err());
-        assert!(validate_outbound_url("http://[::ffff:169.254.169.254]/").is_err());
+        assert!(
+            validate_outbound_url("http://[::ffff:127.0.0.1]/")
+                .await
+                .is_err()
+        );
+        assert!(
+            validate_outbound_url("http://[::ffff:169.254.169.254]/")
+                .await
+                .is_err()
+        );
     }
 
-    #[test]
-    fn ssrf_guard_blocks_localhost_aliases() {
+    #[tokio::test]
+    async fn ssrf_guard_blocks_localhost_aliases() {
         for u in [
             "http://localhost/",
             "https://LOCALHOST:8080/x",
@@ -756,35 +803,27 @@ mod tests {
             "http://ip6-loopback/",
             "http://anything.localhost/",
         ] {
-            assert!(validate_outbound_url(u).is_err(), "should block {u}");
+            assert!(validate_outbound_url(u).await.is_err(), "should block {u}");
         }
     }
 
-    #[test]
-    fn ssrf_guard_blocks_non_http_schemes() {
+    #[tokio::test]
+    async fn ssrf_guard_blocks_non_http_schemes() {
         for u in [
             "file:///etc/passwd",
             "gopher://example.com/",
             "javascript:alert(1)",
             "ftp://example.com/",
         ] {
-            assert!(validate_outbound_url(u).is_err(), "should block {u}");
+            assert!(validate_outbound_url(u).await.is_err(), "should block {u}");
         }
     }
 
-    #[test]
-    fn ssrf_guard_allows_public_dns_targets() {
-        // We accept DNS names without resolving — the guard's job is the
-        // IP-literal denylist + alias hostnames. Full DNS-rebinding mitigation
-        // would require pinning the resolved IP through the connect step.
-        for u in [
-            "https://example.com/hook",
-            "https://api.github.com/webhooks",
-            "http://ntfy.sh/topic",
-        ] {
-            assert!(validate_outbound_url(u).is_ok(), "should accept {u}");
-        }
-    }
+    // NOTE: a "happy path" DNS test (accepting public hostnames like
+    // example.com) is intentionally omitted — the guard now performs a real
+    // `lookup_host`, so such a test would depend on live DNS/network and be
+    // flaky in CI. The forbidden-IP logic is exercised exhaustively above via
+    // IP-literal inputs, which share the same `is_blocked_ip` check.
 
     #[test]
     fn ntfy_topic_rejects_traversal_and_meta_chars() {

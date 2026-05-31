@@ -57,10 +57,31 @@ async fn main() -> anyhow::Result<()> {
         env!("CARGO_PKG_VERSION"),
         " (+https://github.com/Dim145/FigureCollector)"
     );
+    // Same-host-only redirect policy. The orzgk / fx scrapers validate only
+    // the INITIAL host they're handed, so a plain `limited(5)` would let a
+    // hostile shop 30x us onto an arbitrary internal target (SSRF). We follow
+    // a redirect ONLY when its host matches the immediately-previous URL's
+    // host (covers the benign trailing-slash / http→https-upgrade cases) and
+    // stop on any cross-host hop, capped at 5 in case of a same-host loop.
     let http_client = reqwest::Client::builder()
         .user_agent(user_agent)
         .timeout(Duration::from_secs(15))
-        .redirect(reqwest::redirect::Policy::limited(5))
+        .redirect(reqwest::redirect::Policy::custom(|attempt| {
+            let prev_host = attempt
+                .previous()
+                .last()
+                .and_then(|u| u.host_str())
+                .map(str::to_ascii_lowercase);
+            let next_host = attempt.url().host_str().map(str::to_ascii_lowercase);
+            if prev_host != next_host {
+                // Cross-host redirect — refuse to follow (SSRF guard).
+                attempt.stop()
+            } else if attempt.previous().len() > 5 {
+                attempt.error("too many same-host redirects")
+            } else {
+                attempt.follow()
+            }
+        }))
         .build()?;
     // Sibling client for outbound calls whose target URL is user-controlled
     // (webhook, ntfy server_url, apprise server_url). The SSRF guard in
@@ -81,7 +102,7 @@ async fn main() -> anyhow::Result<()> {
     .await;
 
     let (pool, db) = db::connect_and_migrate(&config).await?;
-    let session_layer = auth::sessions::build(&pool).await?;
+    let session_layer = auth::sessions::build(&pool, config.cookie_secure).await?;
     let storage = Storage::from_env()?;
     let events = EventBus::new();
 

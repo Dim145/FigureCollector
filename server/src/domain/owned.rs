@@ -149,7 +149,7 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewOwnedItem) -> AppRes
         return Err(AppError::BadRequest("invalid condition"));
     }
     if let Some(c) = &input.price_currency {
-        if c.len() != 3 {
+        if c.len() != 3 || !c.bytes().all(|b| b.is_ascii_uppercase()) {
             return Err(AppError::BadRequest("price_currency must be ISO 4217 (3 chars)"));
         }
     }
@@ -282,7 +282,7 @@ pub async fn set_value(
     let (amount, currency) = match amount {
         Some(a) => {
             if let Some(c) = &currency {
-                if c.len() != 3 {
+                if c.len() != 3 || !c.bytes().all(|b| b.is_ascii_uppercase()) {
                     return Err(AppError::BadRequest(
                         "value_currency must be ISO 4217 (3 chars)",
                     ));
@@ -310,14 +310,19 @@ pub async fn set_value(
 }
 
 /// Re-home and re-order a whole cabinet's contents in one statement: every id
-/// in `ordered_ids` gets `location = $location` and a sequential `sort_order`
-/// matching its position. Items not listed are left untouched. Powers the
-/// Vitrines drag-and-drop (within-shelf reorder + cross-shelf move). `location`
-/// of "" means the unshelved group.
+/// in `ordered_ids` gets a sequential `sort_order` matching its position, and
+/// optionally a new `location`. Items not listed are left untouched. Powers
+/// the Vitrines drag-and-drop (within-shelf reorder + cross-shelf move).
+///
+/// `location` semantics (three states, via COALESCE):
+/// - `None`        → reorder only, leave each item's existing shelf untouched.
+/// - `Some("")`    → move to the unshelved group (empty string is NOT NULL in
+///                   SQL, so COALESCE returns it and the column is set to '').
+/// - `Some(name)`  → move to that named cabinet.
 pub async fn arrange(
     pool: &PgPool,
     user_id: Uuid,
-    location: &str,
+    location: Option<&str>,
     ordered_ids: &[Uuid],
 ) -> AppResult<()> {
     if ordered_ids.is_empty() {
@@ -325,7 +330,7 @@ pub async fn arrange(
     }
     sqlx::query(
         "UPDATE owned_items o
-         SET location = $2, sort_order = data.ord
+         SET location = COALESCE($2, location), sort_order = data.ord
          FROM (
              SELECT id, ord::int AS ord
              FROM unnest($3::uuid[]) WITH ORDINALITY AS t(id, ord)

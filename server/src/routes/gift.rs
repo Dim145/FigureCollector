@@ -194,7 +194,16 @@ async fn reserve(
         return Err(AppError::BadRequest("reserver_name must be 1–60 characters"));
     }
 
-    let reserver_token = gift::reserve(&state.pool, owner.id, body.figure_id, name).await?;
+    // The owner's public-profile NSFW switch is the same ceiling applied to the
+    // public read view — a hidden NSFW piece can't be reserved either.
+    let reserver_token = gift::reserve(
+        &state.pool,
+        owner.id,
+        body.figure_id,
+        name,
+        owner.public_profile_show_nsfw,
+    )
+    .await?;
     Ok(Json(ReserveResult { reserver_token }))
 }
 

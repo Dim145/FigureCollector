@@ -240,19 +240,23 @@ async fn fetch_photo(
         .await?
         .ok_or(AppError::NotFound)?;
 
-    // Resolve the owning user + their public flag.
-    let owner: Option<(Uuid, bool)> = sqlx::query_as(
-        "SELECT u.id, u.public_profile_enabled
-         FROM owned_items o JOIN users u ON u.id = o.user_id
+    // Resolve the owning user + their public/NSFW flags + the piece's NSFW
+    // flag (joined via owned_items → figures), so a non-owner can't pull an
+    // NSFW photo off a public profile that opted out of sharing NSFW.
+    let owner: Option<(Uuid, bool, bool, bool)> = sqlx::query_as(
+        "SELECT u.id, u.public_profile_enabled, u.public_profile_show_nsfw, f.is_nsfw
+         FROM owned_items o
+         JOIN users u ON u.id = o.user_id
+         JOIN figures f ON f.id = o.figure_id
          WHERE o.id = $1",
     )
     .bind(p.owned_item_id)
     .fetch_optional(&state.pool)
     .await?;
-    let (owner_id, is_public) = owner.ok_or(AppError::NotFound)?;
+    let (owner_id, is_public, show_nsfw, is_nsfw) = owner.ok_or(AppError::NotFound)?;
 
     let viewer: Option<Uuid> = session.get("user_id").await?;
-    let allowed = is_public || viewer == Some(owner_id);
+    let allowed = viewer == Some(owner_id) || (is_public && (show_nsfw || !is_nsfw));
     if !allowed {
         return Err(AppError::Forbidden);
     }

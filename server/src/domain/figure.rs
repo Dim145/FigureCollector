@@ -280,7 +280,11 @@ pub async fn match_one(
 /// Exact lookup by JAN/EAN barcode — the camera scanner's "is this already in
 /// the catalogue?" probe. `jan` is uniquely indexed, so this returns at most
 /// one figure (None when the barcode is unknown).
-pub async fn find_by_jan(pool: &PgPool, jan: &str) -> AppResult<Option<Figure>> {
+pub async fn find_by_jan(
+    pool: &PgPool,
+    jan: &str,
+    exclude_nsfw: bool,
+) -> AppResult<Option<Figure>> {
     let jan = jan.trim();
     if jan.is_empty() {
         return Ok(None);
@@ -289,10 +293,12 @@ pub async fn find_by_jan(pool: &PgPool, jan: &str) -> AppResult<Option<Figure>> 
         "SELECT {FIGURE_COLUMNS_PREFIXED}{FIGURE_NAME_PROJECTION}
          FROM figures f {FIGURE_NAME_JOINS}
          WHERE f.jan = $1
+           AND ($2 = FALSE OR f.is_nsfw = FALSE)
          LIMIT 1"
     );
     Ok(sqlx::query_as::<_, Figure>(&sql)
         .bind(jan)
+        .bind(exclude_nsfw)
         .fetch_optional(pool)
         .await?)
 }
@@ -304,8 +310,10 @@ pub async fn create(pool: &PgPool, created_by: Uuid, input: NewFigure) -> AppRes
         return Err(AppError::BadRequest("invalid figure_type"));
     }
     if let Some(c) = &input.msrp_currency {
-        if c.len() != ALLOWED_CURRENCIES_LEN {
-            return Err(AppError::BadRequest("msrp_currency must be ISO 4217 (3 chars)"));
+        if c.len() != ALLOWED_CURRENCIES_LEN || !c.bytes().all(|b| b.is_ascii_uppercase()) {
+            return Err(AppError::BadRequest(
+                "msrp_currency must be a 3-letter ISO 4217 code",
+            ));
         }
     }
     if input.name.trim().is_empty() {
@@ -419,7 +427,7 @@ pub async fn create(pool: &PgPool, created_by: Uuid, input: NewFigure) -> AppRes
     // returns only the bare figure columns).
     Ok(find_by_id(pool, figure.id)
         .await?
-        .expect("figure just inserted should exist"))
+        .ok_or_else(|| AppError::Internal(anyhow::anyhow!("figure vanished after write")))?)
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -547,8 +555,10 @@ pub async fn patch(pool: &PgPool, id: Uuid, input: FigurePatch) -> AppResult<Fig
         }
     }
     if let Some(c) = &input.msrp_currency {
-        if c.len() != ALLOWED_CURRENCIES_LEN {
-            return Err(AppError::BadRequest("msrp_currency must be ISO 4217 (3 chars)"));
+        if c.len() != ALLOWED_CURRENCIES_LEN || !c.bytes().all(|b| b.is_ascii_uppercase()) {
+            return Err(AppError::BadRequest(
+                "msrp_currency must be a 3-letter ISO 4217 code",
+            ));
         }
     }
     if let Some(n) = &input.name {
@@ -664,7 +674,7 @@ pub async fn patch(pool: &PgPool, id: Uuid, input: FigurePatch) -> AppResult<Fig
     // UPDATE's RETURNING clause runs).
     Ok(find_by_id(pool, figure_id)
         .await?
-        .expect("figure just updated should exist"))
+        .ok_or_else(|| AppError::Internal(anyhow::anyhow!("figure vanished after write")))?)
 }
 
 /// Hard-delete a figure. Cascading is handled by the schema:
@@ -707,7 +717,7 @@ async fn upsert_manufacturer(
     .bind(&slug)
     .bind(&meta.description)
     .bind(&meta.logo_url)
-    .bind(&meta.website_url)
+    .bind(safe_http_url(&meta.website_url))
     .bind(&meta.country)
     .fetch_one(&mut **tx)
     .await?;
@@ -799,7 +809,7 @@ async fn upsert_series(
     .bind(meta.mal_id)
     .bind(&meta.description)
     .bind(&meta.cover_url)
-    .bind(&meta.external_url)
+    .bind(safe_http_url(&meta.external_url))
     .fetch_one(&mut **tx)
     .await?;
     Ok(row.get(0))
@@ -828,7 +838,7 @@ async fn apply_series_meta(
     .bind(meta.mal_id)
     .bind(&meta.description)
     .bind(&meta.cover_url)
-    .bind(&meta.external_url)
+    .bind(safe_http_url(&meta.external_url))
     .execute(&mut **tx)
     .await?;
     Ok(())
@@ -908,7 +918,7 @@ async fn upsert_character(
     .bind(meta.mal_id)
     .bind(&meta.description)
     .bind(&meta.portrait_url)
-    .bind(&meta.external_url)
+    .bind(safe_http_url(&meta.external_url))
     .fetch_one(&mut **tx)
     .await?;
     Ok(row.get(0))
@@ -936,7 +946,7 @@ async fn apply_character_meta(
     .bind(meta.mal_id)
     .bind(&meta.description)
     .bind(&meta.portrait_url)
-    .bind(&meta.external_url)
+    .bind(safe_http_url(&meta.external_url))
     .execute(&mut **tx)
     .await?;
     Ok(())
@@ -993,6 +1003,24 @@ fn map_unique_violation(e: sqlx::Error) -> AppError {
             AppError::Conflict("figure with that identifier already exists")
         }
         _ => AppError::Db(e),
+    }
+}
+
+/// Validate a user-supplied URL before it's stored on an entity row and later
+/// rendered into an `<a href>` on the SPA. Returns the URL unchanged only when
+/// it parses and its scheme is `http`/`https`; anything else (unparseable, or a
+/// `javascript:` / `data:` / `file:` scheme) collapses to `None` so the bad
+/// value is simply not persisted — figure creation still succeeds, the link is
+/// just absent. Closes a stored-XSS sink (`external_url`, `website_url`).
+fn safe_http_url(s: &Option<String>) -> Option<String> {
+    let raw = s.as_deref()?.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    let url = url::Url::parse(raw).ok()?;
+    match url.scheme() {
+        "http" | "https" => Some(raw.to_string()),
+        _ => None,
     }
 }
 

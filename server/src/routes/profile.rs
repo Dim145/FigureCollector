@@ -359,6 +359,11 @@ async fn compare(
     if them.id == viewer {
         return Err(AppError::BadRequest("cannot compare against yourself"));
     }
+    // Same guard get_public_profile uses: when the target opts out of sharing
+    // NSFW, exclude their NSFW pieces from the diff. Filtering on the final
+    // figures join covers both the `theirs` and `common` buckets (a `common`
+    // figure that's NSFW would otherwise still leak the target owns it).
+    let hide_nsfw = !them.public_profile_show_nsfw;
 
     // Single-pass diff: materialise the two user-id sets once, FULL OUTER
     // JOIN them on figure_id, then label each row as 'common' / 'yours' /
@@ -398,10 +403,12 @@ async fn compare(
          FROM both b
          JOIN figures f ON f.id = b.figure_id
          LEFT JOIN manufacturers m ON m.id = f.manufacturer_id
+         WHERE ($3 = FALSE OR f.is_nsfw = FALSE)
          ORDER BY f.name",
     )
     .bind(viewer)
     .bind(them.id)
+    .bind(hide_nsfw)
     .fetch_all(&state.pool)
     .await?;
 

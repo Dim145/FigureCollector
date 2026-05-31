@@ -102,22 +102,46 @@ pub async fn reservations_for_owner(pool: &PgPool, owner_id: Uuid) -> AppResult<
 }
 
 /// Claim a wished figure. The figure must actually be on the owner's wishlist
-/// (so a forged `figure_id` can't seed arbitrary rows). Returns the secret
+/// (so a forged `figure_id` can't seed arbitrary rows), and — when the figure
+/// is NSFW — the owner must share NSFW publicly (`owner_allows_nsfw`); this
+/// mirrors the read-side ceiling in `routes::gift::public_list` so a hidden
+/// piece can't be reserved through the back door. Returns the secret
 /// `reserver_token`. `Conflict` if the piece is already claimed.
+///
+/// The membership check and the insert run in one transaction, with the
+/// wishlist row locked `FOR UPDATE`, to close the TOCTOU window (the piece
+/// can't be un-wishlisted between the check and the insert).
 pub async fn reserve(
     pool: &PgPool,
     owner_id: Uuid,
     figure_id: Uuid,
     reserver_name: &str,
+    owner_allows_nsfw: bool,
 ) -> AppResult<String> {
-    let on_wishlist: Option<(Uuid,)> =
-        sqlx::query_as("SELECT figure_id FROM wishlist_items WHERE user_id = $1 AND figure_id = $2")
-            .bind(owner_id)
-            .bind(figure_id)
-            .fetch_optional(pool)
-            .await?;
-    if on_wishlist.is_none() {
-        return Err(AppError::NotFound);
+    let mut tx = pool.begin().await?;
+
+    // Lock the wishlist row while we verify it's eligible. `FOR UPDATE OF w`
+    // locks only the `wishlist_items` row (not the joined `figures` row), which
+    // is exactly what we need: nothing can remove it before we insert.
+    let eligible: Option<(bool,)> = sqlx::query_as(
+        "SELECT f.is_nsfw
+         FROM wishlist_items w
+         JOIN figures f ON f.id = w.figure_id
+         WHERE w.user_id = $1 AND w.figure_id = $2
+         FOR UPDATE OF w",
+    )
+    .bind(owner_id)
+    .bind(figure_id)
+    .fetch_optional(&mut *tx)
+    .await?;
+
+    // Not wishlisted, or an NSFW piece the owner doesn't share publicly. Return
+    // the *same* `NotFound` as a non-wishlisted figure so this can't be used as
+    // an oracle to probe which pieces are NSFW.
+    match eligible {
+        Some((is_nsfw,)) if is_nsfw && !owner_allows_nsfw => return Err(AppError::NotFound),
+        Some(_) => {}
+        None => return Err(AppError::NotFound),
     }
 
     let token = mint_token();
@@ -129,11 +153,14 @@ pub async fn reserve(
     .bind(figure_id)
     .bind(reserver_name)
     .bind(&token)
-    .execute(pool)
+    .execute(&mut *tx)
     .await;
 
     match res {
-        Ok(_) => Ok(token),
+        Ok(_) => {
+            tx.commit().await?;
+            Ok(token)
+        }
         Err(sqlx::Error::Database(db)) if db.is_unique_violation() => {
             Err(AppError::Conflict("this piece is already reserved"))
         }

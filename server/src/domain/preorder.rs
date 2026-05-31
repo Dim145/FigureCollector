@@ -108,14 +108,27 @@ pub struct PreorderPatch {
     pub deposit_amount: Option<Decimal>,
     /// Special semantics for PATCH: pass an explicit `null` JSON literal
     /// to CLEAR the refund (e.g. when un-cancelling). Omitting the field
-    /// leaves it unchanged via COALESCE — see the patch SQL.
-    pub deposit_refund_amount: Option<Decimal>,
+    /// leaves it unchanged. Double-option: absent → `None` (keep), JSON
+    /// `null` → `Some(None)` (clear), value → `Some(Some(v))` (set) — see
+    /// the patch SQL's CASE clause.
+    #[serde(default, deserialize_with = "double_option")]
+    pub deposit_refund_amount: Option<Option<Decimal>>,
     pub estimated_delivery_days: Option<i32>,
     pub notes: Option<String>,
 }
 
 fn default_status() -> String {
     "preordered".to_string()
+}
+
+/// Double-option deserializer so a PATCH field distinguishes three states:
+/// absent → `None`, JSON `null` → `Some(None)`, value → `Some(Some(v))`.
+fn double_option<'de, D, T>(d: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: serde::Deserialize<'de>,
+{
+    Ok(Some(Option::deserialize(d)?))
 }
 
 const ALLOWED_STATUS: &[&str] = &[
@@ -132,6 +145,13 @@ const ALLOWED_STATUS: &[&str] = &[
 pub async fn create(pool: &PgPool, user_id: Uuid, input: NewPreorder) -> AppResult<Preorder> {
     if !ALLOWED_STATUS.contains(&input.status.as_str()) {
         return Err(AppError::BadRequest("invalid status"));
+    }
+    if let Some(c) = &input.price_currency {
+        if c.len() != 3 || !c.bytes().all(|b| b.is_ascii_uppercase()) {
+            return Err(AppError::BadRequest(
+                "price_currency must be a 3-letter ISO 4217 code",
+            ));
+        }
     }
 
     // Resolve free-text store name → stores.id (find-or-create by slug).
@@ -228,6 +248,13 @@ pub async fn patch(
             return Err(AppError::BadRequest("invalid status"));
         }
     }
+    if let Some(c) = &input.price_currency {
+        if c.len() != 3 || !c.bytes().all(|b| b.is_ascii_uppercase()) {
+            return Err(AppError::BadRequest(
+                "price_currency must be a 3-letter ISO 4217 code",
+            ));
+        }
+    }
 
     // Free-text store name → stores.id (same find-or-create flow as on
     // owned_items). Done outside the tx because find_or_create may itself
@@ -281,8 +308,12 @@ pub async fn patch(
             price_amount            = COALESCE($6, price_amount),
             price_currency          = COALESCE($7, price_currency),
             deposit_amount          = COALESCE($8, deposit_amount),
-            deposit_refund_amount   = COALESCE($9, deposit_refund_amount),
-            estimated_delivery_days = COALESCE($10, estimated_delivery_days),
+            -- Three-state refund update: $9 (should_update) is true only when
+            -- the field was present in the JSON body — an explicit null then
+            -- clears via $10 (refund_val) being NULL; an omitted field leaves
+            -- the column untouched.
+            deposit_refund_amount   = CASE WHEN $9 THEN $10 ELSE deposit_refund_amount END,
+            estimated_delivery_days = COALESCE($11, estimated_delivery_days),
             -- Auto-stamp shipped_at on the FIRST transition to 'shipped'.
             -- COALESCE keeps any previous value so re-saving the same
             -- status doesn't reset the timestamp.
@@ -290,8 +321,8 @@ pub async fn patch(
                 WHEN $1 = 'shipped' AND shipped_at IS NULL THEN NOW()
                 ELSE shipped_at
             END,
-            notes                   = COALESCE($11, notes)
-         WHERE id = $12 AND user_id = $13
+            notes                   = COALESCE($12, notes)
+         WHERE id = $13 AND user_id = $14
          RETURNING id, user_id, figure_id, status, store_id, order_ref, tracking_url,
                    release_date_original, release_date_current,
                    price_amount, price_currency,
@@ -307,7 +338,10 @@ pub async fn patch(
     .bind(input.price_amount)
     .bind(&input.price_currency)
     .bind(input.deposit_amount)
-    .bind(input.deposit_refund_amount)
+    // $9 should_update: was the field present at all? $10 refund_val: the
+    // inner value (None when explicit null → clears the column).
+    .bind(input.deposit_refund_amount.is_some())
+    .bind(input.deposit_refund_amount.flatten())
     .bind(input.estimated_delivery_days)
     .bind(&input.notes)
     .bind(id)

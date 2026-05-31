@@ -9,6 +9,7 @@ import {
   useStoreCatalog,
 } from "../hooks/useStores.js";
 import { ApiError } from "../lib/api.js";
+import { safeHref } from "../lib/safeUrl.js";
 import AppShell from "../components/AppShell.jsx";
 import FigureCard from "../components/FigureCard.jsx";
 import Lightbox from "../components/Lightbox.jsx";
@@ -171,9 +172,9 @@ export default function StorePage() {
                 {s.description}
               </p>
             ) : null}
-            {s.url ? (
+            {safeHref(s.url) ? (
               <a
-                href={s.url}
+                href={safeHref(s.url)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="store-hero-url"

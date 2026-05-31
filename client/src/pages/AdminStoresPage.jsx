@@ -15,6 +15,7 @@ import Button from "../components/Button.jsx";
 import BulkActionBar, { SelectCheckbox } from "../components/BulkActionBar.jsx";
 import FormField from "../components/FormField.jsx";
 import EmptyState from "../components/EmptyState.jsx";
+import { safeHref } from "../lib/safeUrl.js";
 
 /**
  * Admin curates the stores registry — same registry vibe as the
@@ -164,9 +165,9 @@ function Row({ store, t }) {
           </span>
         </div>
         <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-mono uppercase tracking-[0.18em]">
-          {store.url ? (
+          {safeHref(store.url) ? (
             <a
-              href={store.url}
+              href={safeHref(store.url)}
               target="_blank"
               rel="noopener noreferrer"
               className="text-[var(--color-or-pale)] hover:text-[var(--color-or)]"

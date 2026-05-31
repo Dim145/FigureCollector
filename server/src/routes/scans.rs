@@ -111,10 +111,16 @@ async fn create_scan(
                     .map(|e| e.to_ascii_lowercase())
                     .filter(|e| matches!(e.as_str(), "mp4" | "mov" | "m4v" | "webm" | "avi"))
                     .unwrap_or_else(|| "mp4".to_string());
-                let mime = field
-                    .content_type()
-                    .map(|s| s.to_string())
-                    .unwrap_or_else(|| "video/mp4".to_string());
+                // Never trust the client-declared content_type — derive the
+                // stored MIME from the already-validated extension allow-list.
+                let mime = match ext.as_str() {
+                    "mov" => "video/quicktime",
+                    "webm" => "video/webm",
+                    "avi" => "video/x-msvideo",
+                    // mp4 / m4v (and the safe default) → canonical MP4.
+                    _ => "video/mp4",
+                }
+                .to_string();
                 let data = field.bytes().await.map_err(|e| {
                     tracing::warn!(error = ?e, "scan video read failed");
                     AppError::BadRequest("could not read video")
@@ -355,9 +361,11 @@ async fn fetch_frame(
         HeaderValue::from_str(mime.as_deref().unwrap_or("image/webp"))
             .unwrap_or_else(|_| HeaderValue::from_static("image/webp")),
     );
+    // Visibility hangs on the owner's mutable public_profile flag, so a shared
+    // cache must never retain it (mirrors the per-user photo proxy).
     headers.insert(
         header::CACHE_CONTROL,
-        HeaderValue::from_static("public, max-age=31536000, immutable"),
+        HeaderValue::from_static("private, no-store"),
     );
     Ok((headers, Body::from(bytes)).into_response())
 }
@@ -390,9 +398,11 @@ async fn fetch_splat(
         HeaderValue::from_str(mime.as_deref().unwrap_or("model/ply"))
             .unwrap_or_else(|_| HeaderValue::from_static("model/ply")),
     );
+    // Visibility hangs on the owner's mutable public_profile flag, so a shared
+    // cache must never retain it (mirrors the per-user photo proxy).
     headers.insert(
         header::CACHE_CONTROL,
-        HeaderValue::from_static("public, max-age=31536000, immutable"),
+        HeaderValue::from_static("private, no-store"),
     );
     Ok((headers, Body::from(bytes)).into_response())
 }

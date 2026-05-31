@@ -328,6 +328,7 @@ pub async fn list_relations(
          FROM follows fo
          JOIN users u ON u.id = fo.{join_col}
          WHERE fo.{where_col} = $1
+           AND u.public_profile_enabled = TRUE
          ORDER BY fo.created_at DESC"
     );
 
