@@ -155,19 +155,22 @@ export default function CotePage() {
           <>
             {/* ─── Value hero + KPI ─── */}
             <Reveal as="section" delay={0.05} className="grid md:grid-cols-[1.2fr_1fr] gap-8 md:gap-12 items-end mb-12">
-              <div>
+              <div className="@container min-w-0">
                 <span className="micro-tight block mb-2">{t("cote.estimated_total")}</span>
-                <span className="flex items-baseline gap-2">
+                <span className="flex items-baseline gap-2 min-w-0">
                   {/* Rounded to whole units in the hero: keeps the giant figure
                       free of a comma whose descender bled into the panel below.
                       Exact amounts (cents) stay in the KPIs and the rows. */}
                   {fxReady && convValue != null ? (
-                    // Converted: keep the ≈ on the same line as the amount (a
-                    // subordinate, smaller glyph) and shrink the figure a touch
-                    // so "≈ 536 €" never wraps.
-                    <span className="figural-massive leading-[0.9] pb-[0.06em] inline-flex items-baseline">
-                      <span className="text-[clamp(2rem,5vw,3.75rem)] text-[var(--color-or-pale)] mr-3">≈</span>
-                      <span className="text-[clamp(3.25rem,8.5vw,6.5rem)] whitespace-nowrap">
+                    // Converted: ≈ stays on the same line as the amount (a
+                    // subordinate, smaller glyph). `figural-massive` lives on the
+                    // *number* — its gold gradient is clipped to text, so putting
+                    // it on the wrapper would stretch the gradient across "≈ 536 €"
+                    // and leave the € on the dark end. Sized in `cqi` against the
+                    // hero column so it scales to fit and never spills right.
+                    <span className="inline-flex items-baseline whitespace-nowrap max-w-full leading-[0.9] pb-[0.06em]">
+                      <span className="figural text-[clamp(1.5rem,6cqi,3.5rem)] text-[var(--color-or-pale)] mr-3">≈</span>
+                      <span className="figural-massive text-[clamp(2.25rem,15cqi,6rem)]">
                         {fmtMoney(Math.round(convValue), fx.display, locale)}
                       </span>
                     </span>
