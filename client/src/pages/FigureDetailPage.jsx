@@ -732,6 +732,7 @@ function OwnerStack({ f, owned, nsfwPref, t }) {
         size="minor"
         kanji="扉"
         label={t("figure.owner.tab.cover")}
+        defaultOpen={false}
       >
         <CoverPicker owned={owned} />
       </Foldable>
@@ -771,6 +772,7 @@ function OwnerStack({ f, owned, nsfwPref, t }) {
         size="minor"
         kanji="証"
         label={t("figure.owner.tab.documents")}
+        defaultOpen={false}
       >
         <DocumentsSection ownedId={owned.id} />
       </Foldable>
@@ -781,6 +783,7 @@ function OwnerStack({ f, owned, nsfwPref, t }) {
         size="minor"
         kanji="巡"
         label={t("figure.owner.tab.scan")}
+        defaultOpen={false}
       >
         <TurntableSection ownedId={owned.id} />
       </Foldable>

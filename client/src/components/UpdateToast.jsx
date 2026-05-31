@@ -10,8 +10,10 @@ import { useT } from "../i18n/index.jsx";
  * mid-action, but also never gets stranded on a stale bundle (the old
  * behaviour: a toast they could ignore forever, leaving them on yesterday's
  * code). The toast is still shown as a fallback for users who sit on one
- * route, repositioned to bottom-centre so it can't occlude right-aligned
- * controls (the entity move-picker, worker row actions, donut hints).
+ * route. The toast is a compact pill anchored to the bottom-right corner —
+ * out of the main centred content flow (cards, hero, KPI panels) — and is
+ * dismissible. Since it auto-applies on the next navigation, it's only ever a
+ * fallback for someone who sits on a single route.
  */
 export default function UpdateToast() {
   const t = useT();
@@ -51,7 +53,7 @@ export default function UpdateToast() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(92vw,24rem)]"
+      className="fixed bottom-4 right-4 z-50 w-[min(92vw,22rem)]"
     >
       <div
         className="bg-[var(--color-noir-soft)] border border-[var(--color-or)]/40 p-4"

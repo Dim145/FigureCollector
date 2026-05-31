@@ -35,7 +35,7 @@
   --color-noir-soft: oklch(0.19 0.008 50);       /* cards */
   --color-noir-deep: oklch(0.10 0.004 50);       /* wells, hero bg */
   --color-laque: oklch(0.42 0.16 25);            /* accent red */
-  --color-laque-bright: oklch(0.55 0.20 25);     /* hover red */
+  --color-laque-bright: oklch(0.62 0.19 25);     /* hover / error / loss text — AA on noir (5.0:1) */
   --color-or: oklch(0.78 0.10 80);               /* gold lines */
   --color-or-pale: oklch(0.88 0.06 80);          /* gold text */
   --color-or-deep: oklch(0.60 0.10 80);          /* gold shadow */
@@ -47,7 +47,7 @@
    *    states, glows, focus, progress). Tuned to read on both themes. */
   --color-jade: oklch(0.72 0.13 175);            /* céladon / teal */
   --color-jade-deep: oklch(0.55 0.12 175);
-  --color-indigo: oklch(0.58 0.15 275);          /* nuit / periwinkle */
+  --color-indigo: oklch(0.60 0.15 275);          /* nuit / periwinkle — AA on noir (4.85:1) */
   --color-indigo-bright: oklch(0.66 0.17 272);
   --color-neon-cyan: oklch(0.82 0.16 195);
   --color-neon-magenta: oklch(0.72 0.25 350);
@@ -3038,6 +3038,9 @@ html {
 .fig-actions > a {
   display: grid;
   place-items: center;
+  /* ≥44px hit area (WCAG 2.5.5 / touch) — icon-only actions otherwise sat ~30px */
+  min-width: 44px;
+  min-height: 44px;
   padding: 0.55rem 0.75rem;
   font-family: var(--font-mono);
   font-size: 10px;

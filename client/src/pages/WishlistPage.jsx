@@ -179,8 +179,8 @@ export default function WishlistPage() {
                           {dealMet ? <p className="mt-2.5 text-[10px] uppercase tracking-[0.1em] text-[var(--color-jade)]">◆ {t("wishlist.under_target", { p: fmtMoney(it.msrp_amount, it.msrp_currency || prefCurrency, locale) })}</p> : null}
                           <div className="mt-auto pt-3 flex gap-2">
                             <button type="button" onClick={() => acquire(it)} disabled={addOwned.isPending} className="flex-1 text-[10px] uppercase tracking-[0.12em] py-2 bg-[var(--color-or)] text-[var(--color-noir)]">{t("wishlist.acquire")}</button>
-                            <button type="button" onClick={() => startEdit(it)} title={t("wishlist.edit_target")} className="w-9 grid place-items-center border border-[color-mix(in_oklab,var(--color-or)_25%,transparent)] text-[var(--color-or-pale)]">✎</button>
-                            <button type="button" onClick={() => remove.mutate(it.figure_id)} title={t("wishlist.remove")} className="w-9 grid place-items-center border border-[color-mix(in_oklab,var(--color-or)_25%,transparent)] text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] transition-colors">×</button>
+                            <button type="button" onClick={() => startEdit(it)} title={t("wishlist.edit_target")} className="w-11 min-h-[44px] grid place-items-center border border-[color-mix(in_oklab,var(--color-or)_25%,transparent)] text-[var(--color-or-pale)]">✎</button>
+                            <button type="button" onClick={() => remove.mutate(it.figure_id)} title={t("wishlist.remove")} className="w-11 min-h-[44px] grid place-items-center border border-[color-mix(in_oklab,var(--color-or)_25%,transparent)] text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] transition-colors">×</button>
                           </div>
                         </>
                       )}

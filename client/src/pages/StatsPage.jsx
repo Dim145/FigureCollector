@@ -491,21 +491,23 @@ function TitlePage({ data, t, year }) {
 function Satellite({ kanji, label, value, accent = "var(--color-or)" }) {
   // Accent only paints the value digits + a soft glow, leaving the left border
   // and kanji to CSS so their existing hover transitions keep firing.
+  // The accent lives on the ornamental kanji (decorative variety per satellite);
+  // the value stays gold so a number's colour never reads as a status — jade
+  // (gain) and cyan (en route) carry meaning elsewhere, and a coloured figure
+  // here would muddy that code.
   return (
     <div className="satellite relative border-l border-[var(--color-or)]/30 pl-4 py-1">
       <span
         aria-hidden
-        className="sat-kanji ja absolute -top-2 right-2 text-3xl text-[var(--color-or)]/15 leading-none select-none"
+        className="sat-kanji ja absolute -top-2 right-2 text-3xl leading-none select-none"
+        style={{ color: colorMix(accent, 28) }}
       >
         {kanji}
       </span>
       <p className="label-mono">{label}</p>
       <p
-        className="sat-value display text-3xl md:text-4xl mt-1.5 leading-none"
-        style={{
-          color: accent,
-          textShadow: `0 0 22px ${colorMix(accent, 30)}`,
-        }}
+        className="sat-value display text-3xl md:text-4xl mt-1.5 leading-none text-[var(--color-or)]"
+        style={{ textShadow: `0 0 22px ${colorMix("var(--color-or)", 25)}` }}
       >
         <CountUp value={Number(value) || 0} />
       </p>

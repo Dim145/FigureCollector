@@ -165,7 +165,11 @@ export default function AppShell({ children }) {
 
             <ThemeToggle />
 
-            <LocaleSwitcher />
+            {/* Locale lives inline only at lg+; below that it folds into the
+             *  hamburger drawer to keep the mobile bar uncluttered. */}
+            <span className="hidden lg:inline-flex">
+              <LocaleSwitcher />
+            </span>
 
             {authed ? (
               <UserMenu
@@ -219,6 +223,12 @@ export default function AppShell({ children }) {
                   {it.label}
                 </NavLink>
               ))}
+              {/* Language switcher — folded in here on mobile (hidden from the
+               *  top bar below lg). */}
+              <div className="col-span-2 mt-1 pt-3 border-t border-[var(--color-or)]/15 flex items-center justify-between normal-case tracking-normal">
+                <span className="text-[11px] text-[var(--color-ivoire-soft)]">Langue · Language</span>
+                <LocaleSwitcher />
+              </div>
               {authed ? (
                 <button
                   type="button"

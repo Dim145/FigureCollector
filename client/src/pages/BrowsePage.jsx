@@ -87,7 +87,9 @@ export default function BrowsePage() {
     if (Array.isArray(rows) && rows.length > 0) {
       return rows.map((ft) => ({
         id: ft.id,
-        kanji: ft.kanji || "玩",
+        // Only accept a real Han glyph — a stray Latin kanji (e.g. a "tests"
+        // type saved with kanji "t") falls back to 玩 rather than showing "t".
+        kanji: ft.kanji && /\p{Script=Han}/u.test(ft.kanji) ? ft.kanji : "玩",
         label: (locale === "fr" ? ft.label_fr : ft.label_en) || ft.id,
       }));
     }
@@ -263,7 +265,7 @@ export default function BrowsePage() {
               onClick={() => setScanOpen(true)}
               title={t("scan.title")}
               aria-label={t("scan.title")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-jade)] hover:text-[var(--color-or)] text-2xl leading-none transition-colors"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 grid place-items-center w-11 h-11 text-[var(--color-jade)] hover:text-[var(--color-or)] text-2xl leading-none transition-colors"
             >
               ⌗
             </button>
