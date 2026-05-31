@@ -68,4 +68,4 @@ It is the figurine companion to [MangaCollector](https://github.com/Dim145/Manga
 
 ## License
 
-[AGPL-3.0-or-later](https://www.gnu.org/licenses/agpl-3.0.en.html) — same as MangaCollector.
+[MIT](https://opensource.org/licenses/MIT) — © 2026 Dimitri Dubois.

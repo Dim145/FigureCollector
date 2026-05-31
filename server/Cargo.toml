@@ -1,9 +1,9 @@
 [package]
 name = "figurecollector-server"
-version = "0.14.0"
+version = "0.14.1"
 edition = "2024"
 rust-version = "1.95"
-license = "AGPL-3.0-or-later"
+license = "MIT"
 description = "FigureCollector backend — hardened Rust/Axum API for self-hosted figurine collection management"
 repository = "https://github.com/Dim145/FigureCollector"
 publish = false

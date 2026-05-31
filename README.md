@@ -185,4 +185,4 @@ mkdocs serve
 
 ## License
 
-AGPL-3.0-or-later — same as MangaCollector.
+[MIT](LICENSE) — © 2026 Dimitri Dubois.

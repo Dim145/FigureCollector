@@ -16,14 +16,16 @@ A short reference of what FigureCollector guarantees, what it doesn't, and where
 
 - Only **one host port** exposed in production — the frontend nginx. Backend + Postgres + Garage are internal-only. Source: `docker-compose.prod.yml`.
 - Strict CSP, COOP, CORP, Referrer-Policy, Permissions-Policy on the frontend nginx. Source: `client/nginx.conf`.
-- **Rate limiting** on auth-sensitive routes via `tower_governor`. Source: `server/src/main.rs` middleware stack.
+- **Rate limiting** on auth-sensitive *and* anonymous gift-share routes via `tower_governor`. Source: `server/src/routes/mod.rs`.
+- **WebSocket** upgrades validate the `Origin` header against the configured frontend URL (anti-CSWSH). Source: `server/src/routes/ws.rs`.
 
 ### Auth
 
 - **OIDC** with PKCE (`openidconnect` crate).
 - **Local accounts** with Argon2id (`argon2` crate), default parameters m=19456,t=2,p=1.
-- **Session-fixation defense**: session token rotation on login.
-- **CSRF**: same-site cookies + state token on OIDC redirect.
+- **Session-fixation defense**: session id rotation on every login.
+- **Cookies**: `HttpOnly`, `SameSite=Lax`, and `Secure` derived from the public scheme (on for any HTTPS deployment).
+- **CSRF**: SameSite=Lax plus a Fetch-Metadata backstop that refuses cross-site state-changing requests; OIDC carries `state` + PKCE + nonce, and the login initiation itself refuses a cross-site navigation (login-CSRF guard). Source: `server/src/routes/mod.rs`, `server/src/routes/auth.rs`.
 
 ### Data handling
 
@@ -36,6 +38,7 @@ A short reference of what FigureCollector guarantees, what it doesn't, and where
 
 - **MFC scraping**: rate-limited (1 req/s per user), aggressive 24 h Postgres cache, identifiable `User-Agent` so MFC ops can contact us if there's a problem.
 - **AniList**: same rate-limit pattern.
+- **SSRF egress filter**: user-settable outbound URLs (notification webhook / ntfy / Apprise) are scheme-allow-listed and their *resolved* IPs rejected when private / loopback / link-local / CGNAT / ULA / metadata; the shared HTTP client follows only **same-host** redirects, so a 3xx can't pivot to an internal target. Source: `server/src/external/notify_channel.rs`, `server/src/main.rs`.
 
 ## What we don't guarantee
 
@@ -50,7 +53,8 @@ A short reference of what FigureCollector guarantees, what it doesn't, and where
 | Hardening posture | `docker-compose*.yml`, `*/Dockerfile`, `*/nginx.conf` |
 | CSP + security headers | `client/nginx.conf`, `docs/nginx.conf` |
 | Auth flows | `server/src/auth/`, `server/src/routes/auth.rs` |
-| Rate limiting | `server/src/main.rs` (tower_governor) |
+| Rate limiting | `server/src/routes/mod.rs` (tower_governor) |
+| CSRF + egress filtering | `server/src/routes/mod.rs` (Fetch-Metadata), `server/src/external/notify_channel.rs` (SSRF) |
 | Image upload validation | `server/src/domain/photo.rs` |
 | Migrations + schema | `server/migrations/` (SQL), `server/src/migration/` (Rust wrappers) |
 | Dependency policy | `server/Cargo.toml` (Rustls everywhere; no openssl-sys), `client/package.json` (pnpm-only) |

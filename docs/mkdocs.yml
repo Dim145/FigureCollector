@@ -9,7 +9,7 @@ edit_uri: edit/main/docs/content/
 # every doc-related artefact under one top-level /docs directory instead
 # of scattering the config in a sibling folder.
 docs_dir: content
-copyright: AGPL-3.0-or-later · 像 FigureCollector
+copyright: MIT · 像 FigureCollector
 
 theme:
   name: material
