@@ -387,12 +387,15 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
         # 3. Nerfstudio's image processor runs COLMAP internally and writes a
         #    nerfstudio-shaped dataset (transforms.json + images + sparse poses).
         processed = tmp / "processed"
+        # NB: no `--num-frames-target` here — that flag is `ns-process-data
+        # video`-only (it samples N frames from a clip). We feed an already-
+        # extracted image set, so COLMAP uses every frame in `images/`; the
+        # frame count is governed upstream by ffmpeg's `fps=` in `_prepare_frames`.
         _run(
             "ns-process-data", "images",
             "--data", str(images),
             "--output-dir", str(processed),
             "--num-downscales", "0",
-            "--num-frames-target", "999",
             "--no-skip-image-processing",
         )
 
