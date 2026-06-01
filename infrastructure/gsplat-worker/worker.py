@@ -127,6 +127,69 @@ class WorkerState:
     enabled: bool
 
 
+def log_gpu_diagnostics() -> None:
+    """Boot-time GPU self-test. Logs (1) the CUDA device torch sees — that's what
+    `ns-train splatfacto` actually uses — and (2) the OpenGL renderer COLMAP's
+    GPU SIFT would bind to. Under Xvfb that renderer is typically Mesa/llvmpipe
+    (software → CPU): if you see that, COLMAP_USE_GPU=true buys nothing, so set
+    it false. The GPU still trains the splat regardless of this."""
+    # (1) CUDA compute — the splat-training path (the GPU work that matters).
+    try:
+        import torch  # local import: heavy, only needed for the probe
+        if torch.cuda.is_available():
+            devs = []
+            for i in range(torch.cuda.device_count()):
+                p = torch.cuda.get_device_properties(i)
+                devs.append(f"{p.name} ({p.total_memory // (1024 * 1024)} MiB)")
+            log.info("gpu: CUDA available (used by splat training)",
+                     devices=devs, cuda=torch.version.cuda)
+        else:
+            log.warning("gpu: CUDA NOT available to torch — splat training would be unusably slow")
+    except Exception as e:  # noqa: BLE001
+        log.warning("gpu: torch/CUDA probe failed", error=str(e))
+
+    # (2) Does the NVIDIA runtime even expose the card to the container?
+    try:
+        smi = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,memory.total,driver_version",
+             "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=15,
+        )
+        if smi.returncode == 0:
+            log.info("gpu: nvidia-smi", gpus=smi.stdout.strip())
+        else:
+            log.warning("gpu: nvidia-smi failed", err=smi.stderr.strip()[:200])
+    except Exception as e:  # noqa: BLE001
+        log.warning("gpu: nvidia-smi unavailable (graphics/compute not exposed?)", error=str(e))
+
+    # (3) The OpenGL renderer COLMAP's GPU SIFT would get (GPU mode only). On a
+    #     headless host under Xvfb this is almost always software (Mesa/llvmpipe);
+    #     a HARDWARE line (NVIDIA/GeForce/RTX) is what you need for real GPU SIFT.
+    if COLMAP_USE_GPU:
+        try:
+            gl = subprocess.run(
+                ["xvfb-run", "-a", "-s", "-screen 0 1280x1024x24",
+                 "sh", "-c", "glxinfo 2>/dev/null | grep -iE 'OpenGL (renderer|vendor) string'"],
+                capture_output=True, text=True, timeout=30,
+            )
+            info = " | ".join(l.strip() for l in gl.stdout.splitlines() if l.strip())
+            r = info.lower()
+            if any(k in r for k in ("nvidia", "geforce", "rtx", "quadro")):
+                log.info("gpu: OpenGL renderer is HARDWARE — COLMAP SIFT runs on the GPU",
+                         renderer=info)
+            elif info:
+                log.warning(
+                    "gpu: OpenGL renderer is SOFTWARE (Mesa/llvmpipe) — COLMAP SIFT runs on "
+                    "CPU despite COLMAP_USE_GPU=true. Set COLMAP_USE_GPU=false; the GPU still "
+                    "trains the splat.",
+                    renderer=info,
+                )
+            else:
+                log.warning("gpu: could not read the OpenGL renderer (glxinfo/mesa-utils missing?)")
+        except Exception as e:  # noqa: BLE001
+            log.warning("gpu: OpenGL probe failed", error=str(e))
+
+
 async def main() -> None:
     pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=4)
     state = await _register_worker(pool)
@@ -140,6 +203,7 @@ async def main() -> None:
         bucket=S3_BUCKET,
         iterations=TRAINING_ITERATIONS,
     )
+    log_gpu_diagnostics()
     heartbeat_task = asyncio.create_task(_heartbeat_loop(pool, state))
     try:
         while True:

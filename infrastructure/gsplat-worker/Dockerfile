@@ -70,7 +70,7 @@ RUN mkdir -p /opt/u2net && \
 # the heavy CUDA / torch / nerfstudio layers above stay cached on rebuild.
 # (xauth is what xvfb-run uses for the per-display auth cookie.)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    xvfb xauth \
+    xvfb xauth mesa-utils \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
