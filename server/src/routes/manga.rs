@@ -1,22 +1,24 @@
 //! MangaCollector synergy.
 //!
-//! Two surfaces:
+//! Surfaces:
+//!   * `/api/manga-servers` — owner-only: the admin-approved servers a user can
+//!     pick from when linking (the registry's `approved` rows).
 //!   * `/api/me/manga-link*` — owner-only (require_user / require_user_full):
-//!     read / set / clear the link to the user's MangaCollector instance, and
-//!     read the computed cross-links (series they both read + own, figures to
-//!     buy for series they read, and the per-figure "you're at X% in the
-//!     manga" badge).
+//!     read / set / clear the link, and read the computed cross-links. A link is
+//!     `(manga_server_id, slug)`; its live status comes from the server's
+//!     registry status (`pending` → awaiting an admin, `approved` → active,
+//!     `revoked` → disabled). Crossings + the per-figure badge only resolve for
+//!     an `approved` server.
 //!   * `/api/public/figures/by-mal/{mal_id}` — **anonymous**: the reverse
-//!     direction, so a MangaCollector instance (or anyone) can ask "which
-//!     figures exist for this MAL series?". SFW by default; `?nsfw=1` opts in.
+//!     direction. SFW by default; `?nsfw=1` opts in.
 //!
-//! Every outbound call to the user's MangaCollector instance goes through the
-//! SSRF-guarded, 24h-cached `domain::manga::fetch_profile`, using the
-//! no-redirect HTTP client so a validated URL can't be bounced to an internal
-//! host via a 30x.
+//! Every outbound call to a MangaCollector instance goes through the
+//! SSRF-guarded, 24h-cached `domain::manga::fetch_profile` over the no-redirect
+//! HTTP client. Submitting a new server SSRF-validates the origin up front, so a
+//! private/loopback target never even reaches the registry.
 
 use crate::auth;
-use crate::domain::manga;
+use crate::domain::{manga, manga_servers};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use axum::{
@@ -49,54 +51,105 @@ impl From<&manga::MangaProfile> for ProfileSummary {
     }
 }
 
+/// The server a link points at, as echoed in the status payload.
+#[derive(Serialize)]
+struct LinkServerInfo {
+    id: Uuid,
+    base_url: String,
+    label: Option<String>,
+}
+
 #[derive(Serialize)]
 struct LinkStatus {
+    /// Whether the user has a link at all (any status). The SPA shows the
+    /// connected card vs. the picker off this; it drives feature activation off
+    /// `status` instead.
     connected: bool,
-    base_url: Option<String>,
+    /// `"pending" | "approved" | "revoked"`, or `None` when unlinked.
+    status: Option<String>,
+    server: Option<LinkServerInfo>,
     slug: Option<String>,
-    /// `None` when not connected, or when connected but the instance couldn't
-    /// be reached right now (we don't fail the whole call for that).
+    /// Only populated for an `approved` server that was reachable just now.
     profile: Option<ProfileSummary>,
+    /// The admin's revocation reason, surfaced only when `status == "revoked"`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    revoked_reason: Option<String>,
+}
+
+/// `GET /api/manga-servers` — the approved servers a user can pick from.
+async fn list_servers(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<Vec<manga_servers::MangaServerOption>>> {
+    auth::require_user(&session).await?;
+    Ok(Json(manga_servers::list_approved(&state.pool).await?))
 }
 
 async fn get_link(State(state): State<AppState>, session: Session) -> AppResult<Json<LinkStatus>> {
     let user_id = auth::require_user(&session).await?;
-    let (base_url, slug) = manga::get_config(&state.pool, user_id).await?;
-    let connected = base_url.is_some() && slug.is_some();
 
-    // Best-effort profile fetch: a transient instance outage must not 500 the
-    // status endpoint, so on error we return connected:true, profile:null.
-    let profile = match (connected, &base_url, &slug) {
-        (true, Some(b), Some(s)) => {
-            match manga::fetch_profile(&state.pool, &state.http_no_redirect, b, s).await {
-                Ok(p) => Some(ProfileSummary::from(&p)),
-                Err(e) => {
-                    tracing::debug!(error = %e, "manga profile fetch failed on status read");
-                    None
-                }
-            }
-        }
-        _ => None,
+    let Some(link) = manga_servers::get_link(&state.pool, user_id).await? else {
+        return Ok(Json(LinkStatus {
+            connected: false,
+            status: None,
+            server: None,
+            slug: None,
+            profile: None,
+            revoked_reason: None,
+        }));
     };
 
+    // Best-effort profile, only for an approved server: a transient outage must
+    // not 500 the status read, and we never fetch a pending/revoked instance.
+    let profile = if link.is_approved() {
+        match manga::fetch_profile(&state.pool, &state.http_no_redirect, &link.base_url, &link.slug)
+            .await
+        {
+            Ok(p) => Some(ProfileSummary::from(&p)),
+            Err(e) => {
+                tracing::debug!(error = %e, "manga profile fetch failed on status read");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    let revoked_reason = (link.status == manga_servers::STATUS_REVOKED)
+        .then(|| link.note.clone())
+        .flatten();
+
     Ok(Json(LinkStatus {
-        connected,
-        base_url,
-        slug,
+        connected: true,
+        status: Some(link.status.clone()),
+        server: Some(LinkServerInfo {
+            id: link.server_id,
+            base_url: link.base_url.clone(),
+            label: link.label.clone(),
+        }),
+        slug: Some(link.slug.clone()),
         profile,
+        revoked_reason,
     }))
 }
 
+/// Either pick an approved server by id, or submit a new one by URL — plus the
+/// public slug. Exactly one of `server_id` / `new_base_url` is expected.
 #[derive(Deserialize)]
 struct SetLinkBody {
-    base_url: String,
+    #[serde(default)]
+    server_id: Option<Uuid>,
+    #[serde(default)]
+    new_base_url: Option<String>,
     slug: String,
 }
 
 #[derive(Serialize)]
 struct SetLinkResult {
     connected: bool,
-    profile: ProfileSummary,
+    /// `"approved"` (active immediately) or `"pending"` (awaiting an admin).
+    status: String,
+    profile: Option<ProfileSummary>,
 }
 
 async fn set_link(
@@ -105,31 +158,63 @@ async fn set_link(
     Json(body): Json<SetLinkBody>,
 ) -> AppResult<Json<SetLinkResult>> {
     let user_id = auth::require_user(&session).await?;
-    let base_url = body.base_url.trim();
     let slug = body.slug.trim();
-    if base_url.is_empty() || slug.is_empty() {
-        return Err(AppError::BadRequest("base_url and slug are required"));
+    if slug.is_empty() {
+        return Err(AppError::BadRequest("slug is required"));
     }
 
-    // Test the connection before persisting — this runs the SSRF guard and the
-    // actual fetch, so a save only succeeds for a reachable, allowed instance.
-    // Any failure propagates (BadRequest / ServiceUnavailable) so the UI can
-    // say "couldn't connect".
-    let profile = manga::fetch_profile(&state.pool, &state.http_no_redirect, base_url, slug).await?;
-    manga::set_config(&state.pool, user_id, base_url, slug).await?;
+    // Resolve the target server from the registry.
+    let new_url = body.new_base_url.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let server = match (body.server_id, new_url) {
+        // Pick an existing server — it must be approved.
+        (Some(id), _) => {
+            let s = manga_servers::find_by_id(&state.pool, id)
+                .await?
+                .ok_or(AppError::NotFound)?;
+            if s.status != manga_servers::STATUS_APPROVED {
+                return Err(AppError::BadRequest("that server isn't available"));
+            }
+            s
+        }
+        // Submit (or resolve an existing) server by URL.
+        (None, Some(url)) => {
+            let s = manga_servers::submit(&state.pool, user_id, url).await?;
+            if s.status == manga_servers::STATUS_REVOKED {
+                return Err(AppError::BadRequest("that server has been revoked"));
+            }
+            s
+        }
+        (None, None) => {
+            return Err(AppError::BadRequest("server_id or new_base_url is required"));
+        }
+    };
 
-    Ok(Json(SetLinkResult {
-        connected: true,
-        profile: ProfileSummary::from(&profile),
-    }))
+    if server.status == manga_servers::STATUS_APPROVED {
+        // Test-fetch before persisting so a bad slug / dead instance surfaces as
+        // an error instead of a silently-broken link.
+        let profile =
+            manga::fetch_profile(&state.pool, &state.http_no_redirect, &server.base_url, slug)
+                .await?;
+        manga_servers::set_link(&state.pool, user_id, server.id, slug).await?;
+        Ok(Json(SetLinkResult {
+            connected: true,
+            status: server.status,
+            profile: Some(ProfileSummary::from(&profile)),
+        }))
+    } else {
+        // pending — persist the link but don't fetch an unapproved instance.
+        manga_servers::set_link(&state.pool, user_id, server.id, slug).await?;
+        Ok(Json(SetLinkResult {
+            connected: true,
+            status: server.status,
+            profile: None,
+        }))
+    }
 }
 
-async fn delete_link(
-    State(state): State<AppState>,
-    session: Session,
-) -> AppResult<StatusCode> {
+async fn delete_link(State(state): State<AppState>, session: Session) -> AppResult<StatusCode> {
     let user_id = auth::require_user(&session).await?;
-    manga::clear_config(&state.pool, user_id).await?;
+    manga_servers::clear_link(&state.pool, user_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -165,8 +250,8 @@ async fn get_figure_link(
     Path(figure_id): Path<Uuid>,
 ) -> AppResult<Json<FigureLinkResult>> {
     let user = auth::require_user_full(&session, &state.pool).await?;
-    let link = manga::figure_manga_link(&state.pool, &state.http_no_redirect, user.id, figure_id)
-        .await?;
+    let link =
+        manga::figure_manga_link(&state.pool, &state.http_no_redirect, user.id, figure_id).await?;
     Ok(Json(match link {
         Some(e) => FigureLinkResult {
             in_library: true,
@@ -220,6 +305,7 @@ async fn figures_by_mal(
 
 pub fn router() -> Router<AppState> {
     Router::new()
+        .route("/manga-servers", get(list_servers))
         .route(
             "/me/manga-link",
             get(get_link).put(set_link).delete(delete_link),

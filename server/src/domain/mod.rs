@@ -12,6 +12,7 @@ pub mod follow;
 pub mod gift;
 pub mod location;
 pub mod manga;
+pub mod manga_servers;
 pub mod notification;
 pub mod owned;
 pub mod owned_document;

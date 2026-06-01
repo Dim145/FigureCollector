@@ -25,7 +25,11 @@ export default function CroisementsPage() {
   const me = useMe();
   const link = useMangaLink();
   const connected = !!link.data?.connected;
-  const crossings = useCrossings(connected);
+  const status = link.data?.status ?? null;
+  // Crossings only resolve for an APPROVED server; pending/revoked links get a
+  // status banner instead of a (necessarily empty) result.
+  const active = status === "approved";
+  const crossings = useCrossings(active);
 
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
@@ -64,6 +68,8 @@ export default function CroisementsPage() {
 
         {!connected ? (
           <NotLinked t={t} />
+        ) : !active ? (
+          <NotActive t={t} status={status} reason={link.data?.revoked_reason} />
         ) : crossings.isLoading ? (
           <p className="relative text-center text-[var(--color-ivoire-soft)] py-12">
             …
@@ -266,6 +272,41 @@ function NotLinked({ t }) {
         style={{
           background: `color-mix(in oklab, ${INDIGO} 18%, transparent)`,
           border: `1px solid ${INDIGO}`,
+        }}
+      >
+        {t("manga.croisements.unlinked.cta")}
+      </Link>
+    </Reveal>
+  );
+}
+
+/** Linked, but the server is pending or revoked — features are dormant. */
+function NotActive({ t, status, reason }) {
+  const revoked = status === "revoked";
+  const tone = revoked ? "var(--color-laque-bright)" : "var(--color-or)";
+  return (
+    <Reveal as="div" className="relative text-center max-w-md mx-auto py-16" y={16}>
+      <span aria-hidden className="ja text-5xl" style={{ color: tone }}>
+        {revoked ? "禁" : "待"}
+      </span>
+      <h2 className="display text-2xl text-[var(--color-ivoire)] mt-4">
+        {revoked
+          ? t("manga.croisements.revoked.title")
+          : t("manga.croisements.pending.title")}
+      </h2>
+      <p className="mt-3 text-[var(--color-ivoire-soft)] leading-relaxed">
+        {revoked
+          ? reason
+            ? t("manga.croisements.revoked.body_reason", { reason })
+            : t("manga.croisements.revoked.body")
+          : t("manga.croisements.pending.body")}
+      </p>
+      <Link
+        to="/settings"
+        className="inline-flex items-center gap-2 mt-6 px-5 py-3 text-[11px] uppercase tracking-[0.2em] text-[var(--color-ivoire)]"
+        style={{
+          background: `color-mix(in oklab, ${tone} 16%, transparent)`,
+          border: `1px solid ${tone}`,
         }}
       >
         {t("manga.croisements.unlinked.cta")}

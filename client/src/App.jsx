@@ -44,6 +44,7 @@ const AdminCatalogPage     = lazy(() => import("./pages/AdminCatalogPage.jsx"));
 const AdminFigureTypesPage = lazy(() => import("./pages/AdminFigureTypesPage.jsx"));
 const AdminStoresPage      = lazy(() => import("./pages/AdminStoresPage.jsx"));
 const AdminNotificationsPage = lazy(() => import("./pages/AdminNotificationsPage.jsx"));
+const AdminMangaServersPage = lazy(() => import("./pages/AdminMangaServersPage.jsx"));
 const AdminWorkersPage     = lazy(() => import("./pages/AdminWorkersPage.jsx"));
 const StorePage            = lazy(() => import("./pages/StorePage.jsx"));
 
@@ -121,6 +122,7 @@ export default function App() {
               <Route path="catalog" element={<AdminCatalogPage />} />
               <Route path="figure-types" element={<AdminFigureTypesPage />} />
               <Route path="stores" element={<AdminStoresPage />} />
+              <Route path="manga-servers" element={<AdminMangaServersPage />} />
               <Route path="notifications" element={<AdminNotificationsPage />} />
               <Route path="workers" element={<AdminWorkersPage />} />
             </Route>

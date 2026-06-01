@@ -6,9 +6,12 @@ use crate::domain::admin::{self, NewAdminUser, UserPatch};
 use crate::domain::entity::{self as ent, CharacterPatch, ManufacturerPatch, SeriesPatch};
 use crate::domain::figure;
 use crate::domain::figure_type::{self, FigureTypePatch, NewFigureType};
+use crate::domain::manga_servers::{self, MangaServer, MangaServerAdmin};
+use crate::domain::notification;
 use crate::domain::store::{self, NewStore, StorePatch, StoreUsage};
 use crate::domain::worker::{self, WorkerPatch, WorkerView};
 use crate::error::{AppError, AppResult};
+use crate::services::notify;
 use crate::state::AppState;
 use axum::{
     Json, Router,
@@ -17,6 +20,7 @@ use axum::{
     routing::{get, patch, post, put},
 };
 use serde::Deserialize;
+use serde_json::json;
 use tower_sessions::Session;
 use uuid::Uuid;
 
@@ -713,6 +717,101 @@ async fn bulk_delete_users(
     Ok(Json(BulkResult { deleted, skipped }))
 }
 
+// ---------- /admin/manga-servers — MangaCollector allow-list ----------------
+//
+// Users submit servers (→ pending); admins approve / revoke / relabel / delete.
+// Approving or revoking notifies every user currently linked to that server via
+// the in-app + real-time notification pipeline (`services::notify`).
+
+async fn list_manga_servers(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<Vec<MangaServerAdmin>>> {
+    auth::require_admin(&session, &state.pool).await?;
+    Ok(Json(manga_servers::list_all_admin(&state.pool).await?))
+}
+
+async fn approve_manga_server(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<MangaServer>> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    let server = manga_servers::approve(&state.pool, id, actor.id).await?;
+    // Linked users were waiting on this — tell them it's live now.
+    for uid in manga_servers::linked_user_ids(&state.pool, id).await? {
+        notify::dispatch(
+            &state,
+            uid,
+            notification::EVENT_MANGA_SERVER_APPROVED,
+            json!({ "base_url": server.base_url, "label": server.label }),
+            None,
+        )
+        .await;
+    }
+    tracing::info!(server = %id, by_admin = %actor.id, "admin approved manga server");
+    Ok(Json(server))
+}
+
+#[derive(Deserialize)]
+struct RevokeServerBody {
+    #[serde(default)]
+    note: Option<String>,
+}
+
+async fn revoke_manga_server(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+    Json(body): Json<RevokeServerBody>,
+) -> AppResult<Json<MangaServer>> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    let (server, affected) =
+        manga_servers::revoke(&state.pool, id, actor.id, body.note.as_deref()).await?;
+    // Notify everyone whose link just went dormant; the reason rides along.
+    for uid in affected {
+        notify::dispatch(
+            &state,
+            uid,
+            notification::EVENT_MANGA_SERVER_REVOKED,
+            json!({ "base_url": server.base_url, "label": server.label, "reason": server.note }),
+            None,
+        )
+        .await;
+    }
+    tracing::info!(server = %id, by_admin = %actor.id, "admin revoked manga server");
+    Ok(Json(server))
+}
+
+#[derive(Deserialize)]
+struct LabelServerBody {
+    #[serde(default)]
+    label: Option<String>,
+}
+
+async fn patch_manga_server(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+    Json(body): Json<LabelServerBody>,
+) -> AppResult<Json<MangaServer>> {
+    auth::require_admin(&session, &state.pool).await?;
+    Ok(Json(
+        manga_servers::set_label(&state.pool, id, body.label.as_deref()).await?,
+    ))
+}
+
+async fn delete_manga_server(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+) -> AppResult<StatusCode> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    manga_servers::delete(&state.pool, id).await?;
+    tracing::info!(server = %id, by_admin = %actor.id, "admin deleted manga server");
+    Ok(StatusCode::NO_CONTENT)
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/admin/overview", get(overview))
@@ -780,6 +879,14 @@ pub fn router() -> Router<AppState> {
             "/admin/workers/{id}",
             patch(patch_worker).delete(delete_worker),
         )
+        // ─── manga servers — MangaCollector allow-list curation ─────────────
+        .route("/admin/manga-servers", get(list_manga_servers))
+        .route(
+            "/admin/manga-servers/{id}",
+            patch(patch_manga_server).delete(delete_manga_server),
+        )
+        .route("/admin/manga-servers/{id}/approve", post(approve_manga_server))
+        .route("/admin/manga-servers/{id}/revoke", post(revoke_manga_server))
 }
 
 /// Photo upload routes for catalog entities. Split out so `routes::mod` can

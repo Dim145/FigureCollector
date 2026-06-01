@@ -24,6 +24,8 @@ const TONE_BY_EVENT = {
   preorder_release_j7: "var(--color-jade)",
   preorder_delivery_today: "var(--color-indigo)",
   preorder_delivery_overdue: "var(--color-laque-bright)",
+  manga_server_approved: "var(--color-jade)",
+  manga_server_revoked: "var(--color-laque-bright)",
 };
 const toneForEvent = (eventType) =>
   TONE_BY_EVENT[eventType] ?? "var(--color-or)";

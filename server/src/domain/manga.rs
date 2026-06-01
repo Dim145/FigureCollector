@@ -88,39 +88,13 @@ impl MangaProfile {
     }
 }
 
-// ─── Config (per-user base URL + slug) ───────────────────────────────────────
-
-/// `(base_url, slug)` for the user, each `None` when unset. Both being `Some`
-/// is what "connected" means.
-pub async fn get_config(pool: &PgPool, user_id: Uuid) -> AppResult<(Option<String>, Option<String>)> {
-    let row: Option<(Option<String>, Option<String>)> =
-        sqlx::query_as("SELECT manga_base_url, manga_slug FROM users WHERE id = $1")
-            .bind(user_id)
-            .fetch_optional(pool)
-            .await?;
-    Ok(row.unwrap_or((None, None)))
-}
-
-/// Persist the link. Caller is expected to have already validated + test-fetched
-/// the profile (see [`fetch_profile`]); we store the trimmed values verbatim.
-pub async fn set_config(pool: &PgPool, user_id: Uuid, base_url: &str, slug: &str) -> AppResult<()> {
-    sqlx::query("UPDATE users SET manga_base_url = $1, manga_slug = $2 WHERE id = $3")
-        .bind(base_url.trim())
-        .bind(slug.trim())
-        .bind(user_id)
-        .execute(pool)
-        .await?;
-    Ok(())
-}
-
-/// Remove the link (both columns back to NULL).
-pub async fn clear_config(pool: &PgPool, user_id: Uuid) -> AppResult<()> {
-    sqlx::query("UPDATE users SET manga_base_url = NULL, manga_slug = NULL WHERE id = $1")
-        .bind(user_id)
-        .execute(pool)
-        .await?;
-    Ok(())
-}
+// ─── Config (per-user server link + slug) ────────────────────────────────────
+//
+// The link itself — which admin-curated server + which public slug — lives in
+// `domain::manga_servers` (`get_link` / `set_link` / `clear_link`), keyed on the
+// `manga_servers` registry. Everything below only ever fetches when the linked
+// server is `approved`; a `pending` or `revoked` server resolves to "no
+// crossings / no badge", so the integration is dormant until an admin clears it.
 
 // ─── Profile fetch (SSRF-guarded, cached 24h) ────────────────────────────────
 
@@ -303,13 +277,21 @@ pub async fn crossings(
     user_id: Uuid,
     exclude_nsfw: bool,
 ) -> AppResult<Crossings> {
-    let (base, slug) = get_config(pool, user_id).await?;
-    let (Some(base), Some(slug)) = (base, slug) else {
+    // Only an APPROVED linked server drives a fetch — pending / revoked / unlinked
+    // all collapse to "no crossings".
+    let Some(link) = crate::domain::manga_servers::get_link(pool, user_id).await? else {
         return Ok(Crossings {
             dual: Vec::new(),
             reading: Vec::new(),
         });
     };
+    if !link.is_approved() {
+        return Ok(Crossings {
+            dual: Vec::new(),
+            reading: Vec::new(),
+        });
+    }
+    let (base, slug) = (link.base_url, link.slug);
 
     let profile = fetch_profile(pool, http, &base, &slug).await?;
 
@@ -450,10 +432,13 @@ pub async fn figure_manga_link(
         return Ok(None);
     };
 
-    let (base, slug) = get_config(pool, user_id).await?;
-    let (Some(base), Some(slug)) = (base, slug) else {
+    let Some(link) = crate::domain::manga_servers::get_link(pool, user_id).await? else {
         return Ok(None);
     };
+    if !link.is_approved() {
+        return Ok(None);
+    }
+    let (base, slug) = (link.base_url, link.slug);
 
     let profile = fetch_profile(pool, http, &base, &slug).await?;
     let entry = profile.library.iter().find(|e| e.mal_id == Some(mal_id));

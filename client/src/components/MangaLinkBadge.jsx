@@ -17,17 +17,19 @@ const INDIGO_BRIGHT = "var(--color-indigo-bright)";
 export default function MangaLinkBadge({ figureId }) {
   const t = useT();
   const link = useMangaLink();
-  const connected = !!link.data?.connected;
-  const manga = useFigureManga(figureId, connected);
+  // The badge only resolves when the linked server is approved (active).
+  const active = link.data?.status === "approved";
+  const manga = useFigureManga(figureId, active);
 
-  if (!connected) return null;
+  if (!active) return null;
   if (!manga.data?.in_library) return null;
 
   const { name, read_percent, volumes_owned, volumes } = manga.data;
   const pct = clampPct(read_percent);
   // Open the public profile on the linked instance. safeHref blocks any
   // non-http(s) scheme that a poisoned base_url could carry.
-  const href = safeHref(`${link.data.base_url}/u/${link.data.slug}`);
+  const base = link.data.server?.base_url;
+  const href = base ? safeHref(`${base}/u/${link.data.slug}`) : null;
 
   return (
     <div

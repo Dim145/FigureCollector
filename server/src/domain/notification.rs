@@ -46,6 +46,13 @@ pub const EVENT_PREORDER_DELIVERY_TODAY: &str = "preorder_delivery_today";
 /// Fires the day AFTER the projected delivery date when the preorder
 /// isn't already marked received. Fires ONCE per preorder.
 pub const EVENT_PREORDER_DELIVERY_OVERDUE: &str = "preorder_delivery_overdue";
+/// An admin approved a MangaCollector server the user was linked to (was
+/// pending) — their integration is now active. Payload: `{ base_url, label? }`.
+pub const EVENT_MANGA_SERVER_APPROVED: &str = "manga_server_approved";
+/// An admin revoked a MangaCollector server the user was linked to — the
+/// integration is disabled until they pick another. Payload:
+/// `{ base_url, label?, reason? }`.
+pub const EVENT_MANGA_SERVER_REVOKED: &str = "manga_server_revoked";
 
 /// All event types the system can fire. Keep in lockstep with the SPA's
 /// i18n message keys (`notifications.event.<event_type>.*`).
