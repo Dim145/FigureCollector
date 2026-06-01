@@ -16,8 +16,19 @@ and flips the row to `state = 'ready'`.
 docker compose -f docker-compose.yml -f docker-compose.gsplat.yml build gsplat-worker
 ```
 
-The first build takes ~15-20 minutes — Nerfstudio + gsplat compile a few CUDA
-kernels from source. Subsequent builds reuse the cached layer unless deps move.
+The image is **rebased on the official Nerfstudio image**
+(`ghcr.io/nerfstudio-project/nerfstudio`), which already ships a **CUDA-built
+COLMAP**, the `ns-*` CLIs, gsplat, tinycudann, hloc and ffmpeg. We only layer the
+worker's runtime deps on top, so the build is quick (no torch/nerfstudio/gsplat
+compile). Pin the base for reproducibility:
+`--build-arg NERFSTUDIO_IMAGE=ghcr.io/nerfstudio-project/nerfstudio:<tag>`.
+
+Because COLMAP is built with CUDA, feature extraction + matching run **on the
+GPU, headless** (`COLMAP_USE_GPU=true`, the default) — no X server / Xvfb. Only
+the COLMAP mapper + the splat training's CPU glue remain on CPU; the heavy work
+(SIFT on GPU, `ns-train splatfacto` on GPU) is GPU-bound. Verify with
+`nvidia-smi` during the `ns-process-data` step, or read the `gpu: …` lines the
+worker logs at startup.
 
 ## Run
 

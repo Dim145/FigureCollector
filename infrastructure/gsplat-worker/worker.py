@@ -25,8 +25,8 @@ Environment:
     VIDEO_MAX_DIM         optional, max-dim cap on extracted frames (default 2048)
     ENABLE_MASKING        optional, bake rembg foreground masks into the training
                           images (default false; mandatory for turntable captures)
-    COLMAP_USE_GPU        optional, GPU SIFT via Xvfb (default true); needs the
-                          NVIDIA `graphics` capability, else set false for CPU
+    COLMAP_USE_GPU        optional, run COLMAP feature extraction on the GPU via
+                          its CUDA path (default true); set false to force CPU
 """
 
 from __future__ import annotations
@@ -76,21 +76,17 @@ VIDEO_MAX_DIM = int(os.environ.get("VIDEO_MAX_DIM", "2048"))
 # doesn't move with the figure — without it COLMAP locks onto the static
 # backdrop and the splat is junk.
 ENABLE_MASKING = os.environ.get("ENABLE_MASKING", "false").lower() in ("1", "true", "yes")
-# Run COLMAP feature extraction/matching on the GPU. SiftGPU needs an OpenGL
-# context → a display, so on a headless host we wrap `ns-process-data` in a
-# virtual framebuffer (xvfb-run). This needs the NVIDIA `graphics` driver
-# capability in the container (NVIDIA_DRIVER_CAPABILITIES=all|graphics); without
-# it the X server falls back to software GL (CPU) and you gain nothing — set
-# COLMAP_USE_GPU=false to take the plain, reliable CPU path instead. The COLMAP
-# mapper / bundle-adjustment is CPU either way.
+# Run COLMAP feature extraction + matching on the GPU. This image ships a
+# CUDA-built COLMAP, which selects its CUDA SIFT automatically on a headless host
+# (no OpenGL, no display) — so GPU mode "just works". Set COLMAP_USE_GPU=false to
+# force the CPU path (`--no-gpu`). Either way the COLMAP mapper / bundle-
+# adjustment stays on CPU (incompressible).
 COLMAP_USE_GPU = os.environ.get("COLMAP_USE_GPU", "true").lower() in ("1", "true", "yes")
 
-# CPU feature extraction needs no display. But if any COLMAP CLI step still pokes
-# Qt, force the offscreen platform — ONLY in CPU mode: in GPU mode xvfb-run
-# provides the real display SiftGPU's GL context binds to, and offscreen would
-# override (and break) it.
-if not COLMAP_USE_GPU:
-    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+# COLMAP is Qt-linked; force Qt's offscreen platform so the CLI initialises with
+# no X server. The Dockerfile sets this too — this is belt-and-suspenders for
+# running the worker outside the image. CUDA SIFT needs no GL context.
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 # Worker registration. The backend's offline detector waits 3 × this interval
 # (per `domain::worker::OFFLINE_MISS_THRESHOLD`) before flagging us offline,
@@ -128,11 +124,10 @@ class WorkerState:
 
 
 def log_gpu_diagnostics() -> None:
-    """Boot-time GPU self-test. Logs (1) the CUDA device torch sees — that's what
-    `ns-train splatfacto` actually uses — and (2) the OpenGL renderer COLMAP's
-    GPU SIFT would bind to. Under Xvfb that renderer is typically Mesa/llvmpipe
-    (software → CPU): if you see that, COLMAP_USE_GPU=true buys nothing, so set
-    it false. The GPU still trains the splat regardless of this."""
+    """Boot-time GPU self-test. Logs the CUDA device torch sees and what
+    nvidia-smi reports — i.e. the GPU that runs COLMAP's CUDA SIFT (feature
+    extraction + matching) AND trains the splat (`ns-train splatfacto`). If CUDA
+    is missing here, COLMAP_USE_GPU=true won't help and training would crawl."""
     # (1) CUDA compute — the splat-training path (the GPU work that matters).
     try:
         import torch  # local import: heavy, only needed for the probe
@@ -162,32 +157,11 @@ def log_gpu_diagnostics() -> None:
     except Exception as e:  # noqa: BLE001
         log.warning("gpu: nvidia-smi unavailable (graphics/compute not exposed?)", error=str(e))
 
-    # (3) The OpenGL renderer COLMAP's GPU SIFT would get (GPU mode only). On a
-    #     headless host under Xvfb this is almost always software (Mesa/llvmpipe);
-    #     a HARDWARE line (NVIDIA/GeForce/RTX) is what you need for real GPU SIFT.
-    if COLMAP_USE_GPU:
-        try:
-            gl = subprocess.run(
-                ["xvfb-run", "-a", "-s", "-screen 0 1280x1024x24",
-                 "sh", "-c", "glxinfo 2>/dev/null | grep -iE 'OpenGL (renderer|vendor) string'"],
-                capture_output=True, text=True, timeout=30,
-            )
-            info = " | ".join(l.strip() for l in gl.stdout.splitlines() if l.strip())
-            r = info.lower()
-            if any(k in r for k in ("nvidia", "geforce", "rtx", "quadro")):
-                log.info("gpu: OpenGL renderer is HARDWARE — COLMAP SIFT runs on the GPU",
-                         renderer=info)
-            elif info:
-                log.warning(
-                    "gpu: OpenGL renderer is SOFTWARE (Mesa/llvmpipe) — COLMAP SIFT runs on "
-                    "CPU despite COLMAP_USE_GPU=true. Set COLMAP_USE_GPU=false; the GPU still "
-                    "trains the splat.",
-                    renderer=info,
-                )
-            else:
-                log.warning("gpu: could not read the OpenGL renderer (glxinfo/mesa-utils missing?)")
-        except Exception as e:  # noqa: BLE001
-            log.warning("gpu: OpenGL probe failed", error=str(e))
+    # (3) Which COLMAP feature path will run this boot.
+    log.info(
+        "gpu: COLMAP feature extraction",
+        mode="CUDA (GPU)" if COLMAP_USE_GPU else "CPU (--no-gpu)",
+    )
 
 
 async def main() -> None:
@@ -480,14 +454,12 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
             "--no-skip-image-processing",
         ]
         if COLMAP_USE_GPU:
-            # GPU SIFT (SiftGPU) needs an OpenGL context → a display. Hand it a
-            # virtual one with xvfb-run (24-bit depth — GL wants ≥24). Requires
-            # the NVIDIA `graphics` capability in the container; without it the X
-            # server is software GL (CPU) and there's no win — fall back to
-            # COLMAP_USE_GPU=false. The mapper / bundle-adjustment is CPU regardless.
-            _run("xvfb-run", "-a", "-s", "-screen 0 1280x1024x24", *nsproc)
+            # CUDA-built COLMAP selects its CUDA SIFT automatically on a headless
+            # host — no display, no Xvfb. Feature extraction + matching run on the
+            # GPU; only the mapper / bundle-adjustment stays on CPU.
+            _run(*nsproc)
         else:
-            # CPU feature extraction + matching — no display required, always works.
+            # Force the CPU path — no GPU / no display dependency at all.
             _run(*nsproc, "--no-gpu")
 
         progress(46)

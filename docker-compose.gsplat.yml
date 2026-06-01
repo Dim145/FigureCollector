@@ -34,14 +34,15 @@ services:
       S3_REGION: ${S3_REGION:-garage}
       POLL_INTERVAL: ${POLL_INTERVAL:-10}
       TRAINING_ITERATIONS: ${TRAINING_ITERATIONS:-15000}
-      # COLMAP SfM preprocessing (the heavy CPU/RAM step). GPU SIFT runs under a
-      # virtual display (Xvfb); it needs hardware GL, which the NVIDIA runtime
-      # only mounts when `graphics` is in NVIDIA_DRIVER_CAPABILITIES. If your host
-      # can't expose GL to the container, set COLMAP_USE_GPU=false for the CPU path.
+      # COLMAP feature extraction + matching on the GPU. The image ships a
+      # CUDA-built COLMAP that auto-uses CUDA on a headless host — no display, no
+      # Xvfb, no `graphics` capability needed (plain `compute,utility` is enough).
+      # Set COLMAP_USE_GPU=false to force the CPU path. The mapper stays on CPU.
       COLMAP_USE_GPU: ${COLMAP_USE_GPU:-true}
-      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES:-all}
-      # Lighter defaults for modest hosts (e.g. a NAS): fewer + smaller frames cut
-      # the COLMAP feature/matching cost a lot. Bump to 150 / 2048 on a beefy box.
+      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
+      # Frame budget. With CUDA SIFT the feature step is cheap; the cost left on
+      # CPU is the mapper. 100 frames is a good default; raise to 150 (and
+      # VIDEO_MAX_DIM to 2048) for more detail if your host has the RAM.
       VIDEO_TARGET_FRAMES: ${VIDEO_TARGET_FRAMES:-100}
       VIDEO_MAX_DIM: ${VIDEO_MAX_DIM:-1600}
       ENABLE_MASKING: ${ENABLE_MASKING:-false}
