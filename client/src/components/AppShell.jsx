@@ -66,6 +66,7 @@ export default function AppShell({ children }) {
     { to: "/souhaits", label: t("wishlist.title") },
     { to: "/cote", label: t("cote.title") },
     { to: "/collectionneurs", label: t("nav.discover") },
+    { to: "/croisements", label: t("nav.croisements") },
     { to: "/activity", label: t("activity.title") },
     { to: "/achievements", label: t("achievements.title") },
     ...(isAdmin

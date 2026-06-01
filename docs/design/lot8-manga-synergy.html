@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FigureCollector — Lot 8 · synergie MangaCollector (maquette)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300..600;1,300..500&family=Hanken+Grotesk:wght@300..700&family=JetBrains+Mono:wght@300..500&family=Noto+Serif+JP:wght@300..500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --font-display:"Cormorant Garamond",Georgia,serif; --font-sans:"Hanken Grotesk",system-ui,sans-serif;
+      --font-ja:"Noto Serif JP",serif; --font-mono:"JetBrains Mono",monospace;
+      --color-noir:oklch(0.14 0.005 50); --color-noir-soft:oklch(0.19 0.008 50); --color-noir-deep:oklch(0.10 0.004 50);
+      --color-laque:oklch(0.42 0.16 25); --color-laque-bright:oklch(0.62 0.19 25);
+      --color-or:oklch(0.78 0.10 80); --color-or-pale:oklch(0.88 0.06 80); --color-or-deep:oklch(0.60 0.10 80);
+      --color-ivoire:oklch(0.92 0.03 75); --color-ivoire-soft:oklch(0.92 0.03 75 / 0.8);
+      --color-jade:oklch(0.72 0.13 175); --color-indigo:oklch(0.60 0.15 275); --color-indigo-bright:oklch(0.66 0.17 272);
+      /* The manga realm gets its own quiet accent — periwinkle indigo, distinct
+         from gold/laque/jade without being a neon. */
+      --color-manga:var(--color-indigo); --color-manga-bright:var(--color-indigo-bright);
+      color-scheme:dark;
+    }
+    [data-theme="light"]{
+      color-scheme:light;
+      --color-noir:oklch(0.965 0.008 85); --color-noir-soft:oklch(0.995 0.004 85); --color-noir-deep:oklch(0.93 0.012 80);
+      --color-ivoire:oklch(0.26 0.02 55); --color-ivoire-soft:oklch(0.40 0.02 55 / 0.86);
+      --color-or:oklch(0.58 0.12 72); --color-or-pale:oklch(0.50 0.12 70); --color-or-deep:oklch(0.42 0.10 68);
+      --color-laque:oklch(0.50 0.19 25); --color-laque-bright:oklch(0.56 0.21 25);
+      --color-jade:oklch(0.55 0.13 175); --color-indigo:oklch(0.50 0.16 275); --color-indigo-bright:oklch(0.46 0.17 272);
+    }
+    *{box-sizing:border-box;}
+    html,body{margin:0;min-height:100%;}
+    body{font-family:var(--font-sans);background:var(--color-noir);color:var(--color-ivoire);-webkit-font-smoothing:antialiased;
+      background-image:radial-gradient(70% 60% at 28% 22%,oklch(0.78 0.10 80 / 0.07),transparent 65%),radial-gradient(55% 55% at 82% 80%,oklch(0.60 0.15 275 / 0.07),transparent 70%);background-attachment:fixed;}
+    .display{font-family:var(--font-display);font-weight:300;letter-spacing:-0.01em;line-height:1;}
+    .ja{font-family:var(--font-ja);} .mono{font-family:var(--font-mono);}
+    .micro{font-family:var(--font-sans);font-size:10.5px;letter-spacing:0.3em;text-transform:uppercase;color:var(--color-or-pale);}
+    .gold-rule{height:1px;background:linear-gradient(to right,transparent,var(--color-or) 30%,var(--color-or) 70%,transparent);}
+    .tt{position:fixed;top:1rem;right:1rem;z-index:50;font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;padding:0.5rem 0.9rem;background:var(--color-noir-soft);border:1px solid color-mix(in oklab,var(--color-or) 30%,transparent);color:var(--color-or-pale);cursor:pointer;}
+    code{font-family:var(--font-mono);font-size:0.88em;color:var(--color-manga-bright);}
+
+    main{position:relative;z-index:1;max-width:1040px;margin:0 auto;padding:3.5rem 1.5rem 6rem;}
+    .head h1{margin:0.3rem 0 0;font-size:clamp(2rem,5vw,2.8rem);color:var(--color-ivoire);}
+    .head p.lead{margin:1rem 0 0;max-width:46rem;line-height:1.6;color:var(--color-ivoire-soft);}
+    /* page watermark — 連 (renketsu / link) */
+    .wm{position:fixed;font-family:var(--font-ja);pointer-events:none;z-index:0;color:color-mix(in oklab,var(--color-manga) 8%,transparent);user-select:none;}
+    .wm.a{font-size:34rem;top:-6rem;right:-7rem;line-height:0.8;}
+
+    .screen-sep{display:flex;align-items:center;gap:1rem;margin:4rem 0 1.6rem;}
+    .screen-sep::before{content:"";height:1px;flex:0 0 2rem;background:var(--hue,var(--color-or));opacity:0.6;}
+    .screen-sep::after{content:"";height:1px;flex:1;background:linear-gradient(to right,color-mix(in oklab,var(--hue,var(--color-or)) 40%,transparent),transparent);}
+    .screen-sep .k{font-family:var(--font-ja);font-size:1.5rem;color:var(--hue,var(--color-or));}
+    .screen-sep .t{font-family:var(--font-display);font-size:1.7rem;color:var(--color-ivoire);}
+    .screen-sep .n{font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;color:var(--color-or-pale);opacity:0.7;}
+
+    .panel{border:1px solid color-mix(in oklab,var(--color-or) 16%,transparent);background:color-mix(in oklab,var(--color-noir-soft) 62%,transparent);padding:1.4rem 1.5rem;position:relative;}
+    .panel.manga{border-color:color-mix(in oklab,var(--color-manga) 28%,transparent);}
+    .cap{font-size:11px;color:var(--color-ivoire-soft);margin-top:0.7rem;line-height:1.55;}
+    .cap b{color:var(--color-or-pale);font-family:var(--font-display);font-size:1.05em;}
+    .row2{display:grid;grid-template-columns:1fr 1fr;gap:1.2rem;}
+    @media(max-width:760px){.row2{grid-template-columns:1fr;}}
+    .btn{font-family:var(--font-sans);font-size:11px;letter-spacing:0.16em;text-transform:uppercase;padding:0.6rem 1rem;border:1px solid;cursor:pointer;display:inline-flex;align-items:center;gap:0.45em;text-decoration:none;white-space:nowrap;}
+    .btn--manga{background:color-mix(in oklab,var(--color-manga) 18%,transparent);border-color:var(--color-manga);color:var(--color-ivoire);}
+    .btn--ghost{background:none;border-color:color-mix(in oklab,var(--color-or) 30%,transparent);color:var(--color-or-pale);}
+    .field{height:38px;width:100%;border:1px solid color-mix(in oklab,var(--color-or) 25%,transparent);background:var(--color-noir);display:flex;align-items:center;padding:0 0.8rem;font-size:12px;color:var(--color-ivoire);font-family:var(--font-mono);}
+    .field .ph{color:var(--color-ivoire-soft);opacity:0.6;}
+    .lbl{font-family:var(--font-sans);font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--color-or-pale);display:block;margin:0 0 0.4rem;}
+
+    /* ① connected state */
+    .conn{display:flex;align-items:center;gap:1rem;margin-top:1.2rem;padding-top:1.2rem;border-top:1px dashed color-mix(in oklab,var(--color-manga) 22%,transparent);}
+    .hanko{flex:0 0 auto;width:56px;height:56px;border-radius:50%;display:grid;place-items:center;font-family:var(--font-ja);font-size:1.5rem;color:var(--color-laque-bright);border:2px solid color-mix(in oklab,var(--color-laque-bright) 60%,transparent);background:color-mix(in oklab,var(--color-laque) 12%,transparent);}
+    .conn .who{flex:1;min-width:0;}
+    .conn .who b{font-family:var(--font-display);font-size:1.4rem;color:var(--color-ivoire);display:flex;align-items:center;gap:0.5rem;}
+    .dot{width:7px;height:7px;border-radius:50%;background:var(--color-jade);box-shadow:0 0 7px var(--color-jade);display:inline-block;}
+    .conn .who span{font-size:11px;color:var(--color-ivoire-soft);}
+    .conn .who .stat{font-family:var(--font-mono);color:var(--color-manga-bright);}
+
+    /* ② link badge */
+    .mlink{display:inline-flex;flex-direction:column;gap:0.5rem;border:1px solid color-mix(in oklab,var(--color-manga) 40%,transparent);background:color-mix(in oklab,var(--color-manga) 8%,transparent);padding:0.7rem 0.85rem;min-width:230px;}
+    .mlink .top{display:flex;align-items:center;gap:0.5rem;font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--color-manga-bright);}
+    .mlink .ttl{font-family:var(--font-display);font-size:1.05rem;color:var(--color-ivoire);text-transform:none;letter-spacing:0;}
+    .mbar{height:5px;background:color-mix(in oklab,var(--color-manga) 18%,transparent);position:relative;overflow:hidden;}
+    .mbar i{position:absolute;inset:0 auto 0 0;background:var(--color-manga-bright);}
+    .mlink .meta{display:flex;align-items:center;justify-content:space-between;font-family:var(--font-mono);font-size:10.5px;color:var(--color-ivoire-soft);}
+    .mlink a{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-manga-bright);text-decoration:none;}
+
+    .specimen{display:flex;gap:1rem;align-items:flex-start;}
+    .well{flex:0 0 auto;width:96px;height:120px;display:grid;place-items:center;background:radial-gradient(circle at 30% 20%,var(--color-noir-soft),var(--color-noir-deep) 65%);border:1px solid color-mix(in oklab,var(--color-or) 18%,transparent);font-family:var(--font-ja);font-size:2.6rem;color:color-mix(in oklab,var(--color-or) 45%,transparent);position:relative;}
+    .well::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,transparent,var(--color-or) 30%,var(--color-or) 70%,transparent);}
+
+    /* reverse export card */
+    .expose{border:1px dashed color-mix(in oklab,var(--color-jade) 40%,transparent);background:color-mix(in oklab,var(--color-jade) 6%,transparent);padding:1rem 1.1rem;}
+    .expose .ttl{display:flex;align-items:center;gap:0.5rem;font-family:var(--font-display);font-size:1.2rem;color:var(--color-ivoire);}
+    .codeblk{font-family:var(--font-mono);font-size:11px;line-height:1.7;color:var(--color-ivoire-soft);background:var(--color-noir-deep);border:1px solid color-mix(in oklab,var(--color-or) 12%,transparent);padding:0.7rem 0.85rem;margin-top:0.7rem;overflow:auto;}
+    .codeblk .k{color:var(--color-jade);} .codeblk .s{color:var(--color-or-pale);} .codeblk .n{color:var(--color-manga-bright);}
+
+    /* ③ crossings */
+    .xref{display:flex;align-items:center;gap:0.7rem;padding:0.7rem 0;border-bottom:1px solid color-mix(in oklab,var(--color-or) 10%,transparent);}
+    .xref:last-child{border-bottom:0;}
+    .xthumb{flex:0 0 auto;width:38px;height:48px;display:grid;place-items:center;background:var(--color-noir-deep);border:1px solid color-mix(in oklab,var(--color-or) 16%,transparent);font-family:var(--font-ja);font-size:1.2rem;color:color-mix(in oklab,var(--color-or) 45%,transparent);}
+    .xthumb.jak{border-color:color-mix(in oklab,var(--color-manga) 40%,transparent);color:var(--color-manga-bright);}
+    .xconn{flex:0 0 auto;color:color-mix(in oklab,var(--color-manga) 60%,transparent);font-family:var(--font-ja);font-size:1rem;}
+    .xref .body{flex:1;min-width:0;}
+    .xref .body b{font-family:var(--font-display);font-size:1.15rem;color:var(--color-ivoire);display:block;line-height:1.15;}
+    .xref .body span{font-size:10.5px;color:var(--color-ivoire-soft);font-family:var(--font-mono);}
+    .pill{font-size:9px;letter-spacing:0.1em;text-transform:uppercase;padding:0.18em 0.5em;border:1px solid;white-space:nowrap;}
+    .pill.m{color:var(--color-manga-bright);border-color:color-mix(in oklab,var(--color-manga) 45%,transparent);}
+    .pill.f{color:var(--color-or-pale);border-color:color-mix(in oklab,var(--color-or) 40%,transparent);}
+    .colhd{font-family:var(--font-display);font-size:1.35rem;color:var(--color-ivoire);margin:0 0 0.2rem;}
+    .colhd + .micro{margin-bottom:0.6rem;display:block;}
+
+    .footnote{margin-top:3.5rem;font-size:12px;color:var(--color-ivoire-soft);border-left:2px solid color-mix(in oklab,var(--color-manga) 55%,transparent);padding-left:0.85rem;line-height:1.7;}
+    .footnote b{color:var(--color-ivoire);font-family:var(--font-display);font-size:1.05rem;}
+
+    .reveal{opacity:0;transform:translateY(10px);animation:rise 0.7s cubic-bezier(0.22,1,0.36,1) forwards;animation-delay:calc(var(--i,0)*0.07s);}
+    @keyframes rise{to{opacity:1;transform:none;}}
+    @media(prefers-reduced-motion:reduce){.reveal{animation:none;opacity:1;transform:none;}}
+  </style>
+</head>
+<body>
+  <span class="wm a ja" aria-hidden="true">連</span>
+  <button class="tt" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'">Thème</button>
+
+  <main>
+    <header class="head reveal">
+      <p class="micro">Synergie · Deux vitrines, un univers</p>
+      <h1 class="display">Lien MangaCollector</h1>
+      <div class="gold-rule" style="width:5rem;margin:1.1rem 0;"></div>
+      <p class="lead">Tes figurines et tes mangas parlent la même langue : <b style="font-family:var(--font-display);color:var(--color-or-pale);">l'identifiant MAL de la série</b>. FigureCollector lit ta collection manga (profil public, lecture seule) pour relier les deux mondes — et expose la donnée miroir pour que MangaCollector puisse faire le chemin inverse.</p>
+    </header>
+
+    <!-- ① RÉGLAGE ──────────────────────────────────────── -->
+    <div class="screen-sep reveal" style="--hue:var(--color-manga);--i:1"><span class="k ja">漫</span><span class="t">Lier ma collection manga</span><span class="n">paramètres · drawer</span></div>
+
+    <div class="panel manga reveal" style="--i:2">
+      <div class="row2">
+        <div>
+          <label class="lbl">URL de ton instance MangaCollector</label>
+          <div class="field mono">https://manga.sixmon.net</div>
+        </div>
+        <div>
+          <label class="lbl">Slug de profil public</label>
+          <div class="field mono">dim145</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.7rem;margin-top:1rem;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn--manga">連 Connecter / Tester</button>
+        <span class="cap" style="margin:0;">Lecture seule, via ton <b>profil public</b> — aucun mot de passe ni jeton. FigureCollector ne lit que ce que tu exposes publiquement.</span>
+      </div>
+
+      <div class="conn">
+        <div class="hanko ja">蔵</div>
+        <div class="who">
+          <b>Dim145 <span class="dot" title="connecté"></span></b>
+          <span><span class="stat">42 séries</span> · <span class="stat">318 volumes</span> lus · profil <code>/u/dim145</code> · rafraîchi il y a 2 h</span>
+        </div>
+        <button class="btn btn--ghost">Délier</button>
+      </div>
+    </div>
+
+    <!-- ② LIAISON ──────────────────────────────────────── -->
+    <div class="screen-sep reveal" style="--hue:var(--color-manga);--i:3"><span class="k ja">連</span><span class="t">Liaison sur la pièce</span><span class="n">fiche figurine · page série</span></div>
+
+    <div class="row2">
+      <!-- (a) sens FC → manga : badge sur une fiche -->
+      <div class="panel reveal" style="--i:4">
+        <p class="micro" style="margin-bottom:0.9rem;">A · Sur ta fiche figurine</p>
+        <div class="specimen">
+          <div class="well ja">彫</div>
+          <div style="flex:1;min-width:0;">
+            <div class="display" style="font-size:1.5rem;color:var(--color-ivoire);">Rem — 1/7</div>
+            <div class="cap" style="margin:0.2rem 0 0.9rem;">Re:Zero · Good Smile Company</div>
+            <div class="mlink">
+              <div class="top">📚 <span>Dans ta collection manga</span></div>
+              <div class="ttl">Re:Zero kara Hajimeru…</div>
+              <div class="mbar"><i style="right:42%"></i></div>
+              <div class="meta"><span>vol. 7 / 12 · 58 % lu</span><a href="#">Ouvrir ↗</a></div>
+            </div>
+          </div>
+        </div>
+        <p class="cap">Le badge n'apparaît que si la série de la figurine (<code>series.mal_id</code>) figure dans ta biblio manga. Jointure directe — l'ID MAL est déjà stocké des deux côtés.</p>
+      </div>
+
+      <!-- (b) sens inverse exposé -->
+      <div class="panel reveal" style="--i:5">
+        <p class="micro" style="margin-bottom:0.9rem;">B · Ce que FigureCollector expose</p>
+        <div class="expose">
+          <div class="ttl">🎏 3 figurines pour cette série</div>
+          <p class="cap" style="margin-top:0.35rem;">MangaCollector (ou tout autre) peut appeler cet endpoint public pour afficher « figurines dispo » à côté d'un manga :</p>
+          <div class="codeblk">
+            <span class="k">GET</span> /api/public/figures/by-mal/<span class="n">31706</span><br>
+            <span style="opacity:0.6;">→</span> { <span class="s">"mal_id"</span>:<span class="n">31706</span>, <span class="s">"count"</span>:<span class="n">3</span>,<br>
+            &nbsp;&nbsp;<span class="s">"figures"</span>:[ { <span class="s">"name"</span>:<span class="s">"Rem 1/7"</span>, <span class="s">"slug"</span>:… } … ] }
+          </div>
+        </div>
+        <p class="cap">Sans authentification ; <b>le NSFW suit tes réglages</b> — exclu par défaut, inclus si l'appelant passe <code>?nsfw=1</code>. C'est <b>la moitié « miroir »</b> : le snippet à coller dans MangaCollector (hors de ce dépôt) consomme cette API — je te le fournis quand tu veux.</p>
+      </div>
+    </div>
+
+    <!-- ③ CROISEMENTS ──────────────────────────────────── -->
+    <div class="screen-sep reveal" style="--hue:var(--color-manga);--i:6"><span class="k ja">双</span><span class="t">Croisements</span><span class="n">page découverte · /croisements</span></div>
+
+    <div class="row2">
+      <!-- col A -->
+      <div class="panel reveal" style="--i:7">
+        <h3 class="colhd display">Figurines des séries que tu lis</h3>
+        <span class="micro">tu possèdes le manga, pas (encore) la figurine</span>
+        <div class="xref">
+          <div class="xthumb ja">彫</div><span class="xconn ja">連</span><div class="xthumb jak ja">漫</div>
+          <div class="body"><b>Anya Forger</b><span>Spy×Family</span></div>
+          <span class="pill m">📖 vol. 12/13</span>
+        </div>
+        <div class="xref">
+          <div class="xthumb ja">動</div><span class="xconn ja">連</span><div class="xthumb jak ja">漫</div>
+          <div class="body"><b>Frieren — figma</b><span>Sōsō no Frieren</span></div>
+          <span class="pill m">📖 vol. 4/13</span>
+        </div>
+        <div class="xref">
+          <div class="xthumb ja">彫</div><span class="xconn ja">連</span><div class="xthumb jak ja">漫</div>
+          <div class="body"><b>Power — 1/7</b><span>Chainsaw Man</span></div>
+          <span class="pill m">📖 lu à 100 %</span>
+        </div>
+        <p class="cap">Une raison d'ajouter à ta wishlist FigureCollector — la série est déjà sur ton étagère manga.</p>
+      </div>
+
+      <!-- col B -->
+      <div class="panel reveal" style="--i:8">
+        <h3 class="colhd display">Séries en double</h3>
+        <span class="micro">manga + figurine — le cœur de ta collection</span>
+        <div class="xref">
+          <div class="xthumb ja">彫</div><span class="xconn ja">⇄</span><div class="xthumb jak ja">漫</div>
+          <div class="body"><b>Re:Zero</b><span>Rem 1/7 + 2 autres</span></div>
+          <div style="display:flex;flex-direction:column;gap:0.25rem;align-items:flex-end;"><span class="pill m">📖 58 %</span><span class="pill f">🎏 3</span></div>
+        </div>
+        <div class="xref">
+          <div class="xthumb ja">童</div><span class="xconn ja">⇄</span><div class="xthumb jak ja">漫</div>
+          <div class="body"><b>Jujutsu Kaisen</b><span>Gojō nendoroid</span></div>
+          <div style="display:flex;flex-direction:column;gap:0.25rem;align-items:flex-end;"><span class="pill m">📖 92 %</span><span class="pill f">🎏 1</span></div>
+        </div>
+        <div class="xref">
+          <div class="xthumb ja">彫</div><span class="xconn ja">⇄</span><div class="xthumb jak ja">漫</div>
+          <div class="body"><b>Oshi no Ko</b><span>Ai Hoshino 1/7</span></div>
+          <div style="display:flex;flex-direction:column;gap:0.25rem;align-items:flex-end;"><span class="pill m">📖 100 %</span><span class="pill f">🎏 2</span></div>
+        </div>
+        <p class="cap">La vraie « complétude » d'une série : tu la lis <i>et</i> tu l'exposes.</p>
+      </div>
+    </div>
+
+    <p class="footnote reveal" style="--i:9">
+      <b>Comment ça marche.</b> Clé de jointure = <code>mal_id</code> de la série, déjà stocké des deux côtés (FC le tient de l'<code>idMal</code> AniList). FC lit ta biblio via <code>GET {instance}/api/public/u/{slug}</code> — <b>côté serveur, en cache 24 h, derrière la garde SSRF</b> (mêmes protections que les webhooks : résolution DNS + denylist IP privées). Sens inverse : FC expose <code>/api/public/figures/by-mal/{mal_id}</code> que MangaCollector peut consommer. SSO <b>optionnel</b> — pointer les deux apps sur le même émetteur OIDC donne un compte unique, mais le lien fonctionne sans, via ton slug public. Le <b>NSFW</b> suit tes réglages existants : la vue cross-link respecte <code>nsfw_visibility</code> (masquer / flouter / montrer), l'endpoint miroir public suit <code>public_profile_show_nsfw</code> + l'opt-in <code>?nsfw=1</code>.
+    </p>
+  </main>
+</body>
+</html>

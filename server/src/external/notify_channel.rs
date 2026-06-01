@@ -53,7 +53,7 @@ use uuid::Uuid;
 /// the connect step would additionally close the TOCTOU/DNS-rebinding window
 /// between this check and the actual request — that is a further hardening
 /// step; this resolve-and-check is the baseline guard.
-async fn validate_outbound_url(url: &str) -> Result<(), ChannelError> {
+pub(crate) async fn validate_outbound_url(url: &str) -> Result<(), ChannelError> {
     let parsed = reqwest::Url::parse(url)
         .map_err(|e| ChannelError::Misconfigured(format!("invalid URL: {e}")))?;
 

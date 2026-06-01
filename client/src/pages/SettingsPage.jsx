@@ -10,6 +10,7 @@ import AppShell from "../components/AppShell.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import NotificationSettings from "../components/NotificationSettings.jsx";
 import FxSettings from "../components/FxSettings.jsx";
+import MangaSettings from "../components/MangaSettings.jsx";
 import Select from "../components/Select.jsx";
 import { BG_MODEL_SIZES, getPref, setPref } from "../lib/userPrefs.js";
 
@@ -41,6 +42,7 @@ import { BG_MODEL_SIZES, getPref, setPref } from "../lib/userPrefs.js";
 const ALL_SECTIONS = [
   { id: "profile",    kanji: "公", tone: "var(--color-or)",       toneSoft: "color-mix(in oklab, var(--color-or) 18%, transparent)" },
   { id: "currency",   kanji: "銭", tone: "var(--color-or)",       toneSoft: "color-mix(in oklab, var(--color-or) 18%, transparent)" },
+  { id: "manga",      kanji: "漫", tone: "var(--color-indigo)",   toneSoft: "color-mix(in oklab, var(--color-indigo) 18%, transparent)" },
   { id: "bg_model",   kanji: "影", tone: "var(--atelier-jade)",   toneSoft: "var(--atelier-jade-soft)" },
   { id: "notif_chan", kanji: "鈴", tone: "var(--color-or)",       toneSoft: "color-mix(in oklab, var(--color-or) 18%, transparent)" },
   { id: "nsfw",       kanji: "禁", tone: "var(--atelier-laque)",  toneSoft: "var(--atelier-laque-soft)" },
@@ -280,6 +282,19 @@ export default function SettingsPage() {
             </div>
             <p className="atelier-select-hint">{t("settings.currency.hint")}</p>
             <FxSettings />
+          </Drawer>
+
+          {/* MangaCollector link */}
+          <Drawer
+            id="manga"
+            kanji="漫"
+            title={t("settings.manga.title")}
+            tone={toneOf("manga").tone}
+            toneSoft={toneOf("manga").toneSoft}
+            delay={0.1}
+            refMap={drawerRefs}
+          >
+            <MangaSettings />
           </Drawer>
 
           {/* BG model */}

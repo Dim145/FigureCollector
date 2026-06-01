@@ -24,6 +24,7 @@ pub mod figures;
 pub mod gift;
 pub mod health;
 pub mod location;
+pub mod manga;
 pub mod me;
 pub mod notif_channels;
 pub mod notifications;
@@ -126,6 +127,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(entities::router())
         .merge(owned::router())
         .merge(location::router())
+        .merge(manga::router())
         .merge(wishlist::router())
         .merge(gift_routes)
         .merge(preorders::router())

@@ -14,6 +14,7 @@ import Button from "../components/Button.jsx";
 import CoverPicker from "../components/CoverPicker.jsx";
 import FigureEditDialog from "../components/FigureEditDialog.jsx";
 import FigureHero from "../components/FigureHero.jsx";
+import MangaLinkBadge from "../components/MangaLinkBadge.jsx";
 import AddToCollectionForm from "../components/AddToCollectionForm.jsx";
 import BarcodeDialog from "../components/BarcodeDialog.jsx";
 import FigurePhotosSection from "../components/FigurePhotosSection.jsx";
@@ -289,6 +290,11 @@ function HeroSection({
           ) : null}
 
           <HeadlineSpecs f={f} t={t} delay={6} />
+
+          {/* MangaCollector synergy — renders only when the user has linked
+           *  their manga library AND this figure's series is in it. Returns
+           *  null otherwise, so no empty box / stray margin appears. */}
+          <MangaLinkBadge figureId={f.id} />
 
           <div className="mt-9 reveal" style={{ "--i": 7 }}>
             {alreadyOwned ? (

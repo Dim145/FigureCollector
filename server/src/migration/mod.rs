@@ -49,6 +49,7 @@ mod m20260530_000006_wishlist_drop_owned;
 mod m20260530_000007_external_trgm;
 mod m20260531_000001_owned_documents;
 mod m20260531_000002_gift_list;
+mod m20260601_000001_manga_link;
 
 pub struct Migrator;
 
@@ -93,6 +94,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260530_000007_external_trgm::Migration),
             Box::new(m20260531_000001_owned_documents::Migration),
             Box::new(m20260531_000002_gift_list::Migration),
+            Box::new(m20260601_000001_manga_link::Migration),
         ]
     }
 }
