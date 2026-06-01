@@ -463,14 +463,19 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
             _run(*nsproc, "--no-gpu")
 
         progress(46)
-        # 4. Train splatfacto. `--vis none` suppresses the viewer.
+        # 4. Train splatfacto, headless. Recent nerfstudio dropped `--vis none`;
+        #    `--vis tensorboard` is the documented headless choice — no viewer, no
+        #    server, just event files in the (discarded) output dir, and tensorboard
+        #    is a core nerfstudio dependency so nothing extra to install.
+        #    `--logging.local-writer.enable False` silences the refreshing progress
+        #    table (which we'd otherwise capture in full over every iteration).
         trained = tmp / "trained"
         _run(
             "ns-train", "splatfacto",
             "--data", str(processed),
             "--output-dir", str(trained),
             "--max-num-iterations", str(TRAINING_ITERATIONS),
-            "--vis", "none",
+            "--vis", "tensorboard",
             "--logging.local-writer.enable", "False",
         )
 
