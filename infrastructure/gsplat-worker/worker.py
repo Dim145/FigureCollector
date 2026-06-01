@@ -47,6 +47,13 @@ import structlog
 from botocore.config import Config as BotoConfig
 from PIL import Image
 
+# COLMAP (run under the hood by `ns-process-data`) is a Qt application — even the
+# CLI `feature_extractor` constructs a QApplication, which aborts on a headless
+# host with "qt.qpa.xcb: could not connect to display". Force Qt's offscreen
+# platform so it initialises without an X server. (Belt-and-suspenders alongside
+# `--no-gpu` below, which keeps COLMAP's feature step off the GL path entirely.)
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
 # -----------------------------------------------------------------------------
 # Config
 # -----------------------------------------------------------------------------
@@ -391,11 +398,18 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
         # video`-only (it samples N frames from a clip). We feed an already-
         # extracted image set, so COLMAP uses every frame in `images/`; the
         # frame count is governed upstream by ffmpeg's `fps=` in `_prepare_frames`.
+        #
+        # `--no-gpu` runs COLMAP feature extraction + matching on CPU. GPU SIFT
+        # (SiftGPU) needs an OpenGL context + a display; on a headless container
+        # it aborts with "qt.qpa.xcb: could not connect to display". CPU SIFT on
+        # a ~150-frame set is cheap, and the GPU still does the heavy lifting
+        # where it counts — `ns-train splatfacto` below.
         _run(
             "ns-process-data", "images",
             "--data", str(images),
             "--output-dir", str(processed),
             "--num-downscales", "0",
+            "--no-gpu",
             "--no-skip-image-processing",
         )
 
