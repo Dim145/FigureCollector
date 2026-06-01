@@ -25,6 +25,8 @@ Environment:
     VIDEO_MAX_DIM         optional, max-dim cap on extracted frames (default 2048)
     ENABLE_MASKING        optional, bake rembg foreground masks into the training
                           images (default false; mandatory for turntable captures)
+    COLMAP_USE_GPU        optional, GPU SIFT via Xvfb (default true); needs the
+                          NVIDIA `graphics` capability, else set false for CPU
 """
 
 from __future__ import annotations
@@ -46,13 +48,6 @@ import boto3
 import structlog
 from botocore.config import Config as BotoConfig
 from PIL import Image
-
-# COLMAP (run under the hood by `ns-process-data`) is a Qt application — even the
-# CLI `feature_extractor` constructs a QApplication, which aborts on a headless
-# host with "qt.qpa.xcb: could not connect to display". Force Qt's offscreen
-# platform so it initialises without an X server. (Belt-and-suspenders alongside
-# `--no-gpu` below, which keeps COLMAP's feature step off the GL path entirely.)
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 # -----------------------------------------------------------------------------
 # Config
@@ -81,6 +76,21 @@ VIDEO_MAX_DIM = int(os.environ.get("VIDEO_MAX_DIM", "2048"))
 # doesn't move with the figure — without it COLMAP locks onto the static
 # backdrop and the splat is junk.
 ENABLE_MASKING = os.environ.get("ENABLE_MASKING", "false").lower() in ("1", "true", "yes")
+# Run COLMAP feature extraction/matching on the GPU. SiftGPU needs an OpenGL
+# context → a display, so on a headless host we wrap `ns-process-data` in a
+# virtual framebuffer (xvfb-run). This needs the NVIDIA `graphics` driver
+# capability in the container (NVIDIA_DRIVER_CAPABILITIES=all|graphics); without
+# it the X server falls back to software GL (CPU) and you gain nothing — set
+# COLMAP_USE_GPU=false to take the plain, reliable CPU path instead. The COLMAP
+# mapper / bundle-adjustment is CPU either way.
+COLMAP_USE_GPU = os.environ.get("COLMAP_USE_GPU", "true").lower() in ("1", "true", "yes")
+
+# CPU feature extraction needs no display. But if any COLMAP CLI step still pokes
+# Qt, force the offscreen platform — ONLY in CPU mode: in GPU mode xvfb-run
+# provides the real display SiftGPU's GL context binds to, and offscreen would
+# override (and break) it.
+if not COLMAP_USE_GPU:
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 # Worker registration. The backend's offline detector waits 3 × this interval
 # (per `domain::worker::OFFLINE_MISS_THRESHOLD`) before flagging us offline,
@@ -398,20 +408,23 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
         # video`-only (it samples N frames from a clip). We feed an already-
         # extracted image set, so COLMAP uses every frame in `images/`; the
         # frame count is governed upstream by ffmpeg's `fps=` in `_prepare_frames`.
-        #
-        # `--no-gpu` runs COLMAP feature extraction + matching on CPU. GPU SIFT
-        # (SiftGPU) needs an OpenGL context + a display; on a headless container
-        # it aborts with "qt.qpa.xcb: could not connect to display". CPU SIFT on
-        # a ~150-frame set is cheap, and the GPU still does the heavy lifting
-        # where it counts — `ns-train splatfacto` below.
-        _run(
+        nsproc = [
             "ns-process-data", "images",
             "--data", str(images),
             "--output-dir", str(processed),
             "--num-downscales", "0",
-            "--no-gpu",
             "--no-skip-image-processing",
-        )
+        ]
+        if COLMAP_USE_GPU:
+            # GPU SIFT (SiftGPU) needs an OpenGL context → a display. Hand it a
+            # virtual one with xvfb-run (24-bit depth — GL wants ≥24). Requires
+            # the NVIDIA `graphics` capability in the container; without it the X
+            # server is software GL (CPU) and there's no win — fall back to
+            # COLMAP_USE_GPU=false. The mapper / bundle-adjustment is CPU regardless.
+            _run("xvfb-run", "-a", "-s", "-screen 0 1280x1024x24", *nsproc)
+        else:
+            # CPU feature extraction + matching — no display required, always works.
+            _run(*nsproc, "--no-gpu")
 
         progress(46)
         # 4. Train splatfacto. `--vis none` suppresses the viewer.

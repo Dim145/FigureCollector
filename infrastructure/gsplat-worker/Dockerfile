@@ -65,6 +65,14 @@ RUN mkdir -p /opt/u2net && \
     python3 -c "from rembg import new_session; new_session()" || true && \
     chmod -R a+rX /opt/u2net
 
+# Xvfb — a virtual X server so COLMAP's GPU SIFT (SiftGPU/OpenGL) gets a display
+# on a headless host when COLMAP_USE_GPU=true. Added as a late, cheap layer so
+# the heavy CUDA / torch / nerfstudio layers above stay cached on rebuild.
+# (xauth is what xvfb-run uses for the per-display auth cookie.)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    xvfb xauth \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY worker.py /app/worker.py
 
