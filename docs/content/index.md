@@ -53,6 +53,11 @@ It is the figurine companion to [MangaCollector](https://github.com/Dim145/Manga
     ---
     Money spent, top manufacturer, top series, longest slip, losses on cancellations. Painted in gold and laque-red.
 
+- :material-link-variant:{ .lg .middle } **MangaCollector synergy**
+
+    ---
+    Cross-link the manga you read with the figures you collect, via the series' MAL id — over an admin-curated, SSRF-guarded server allow-list.
+
 </div>
 
 ---

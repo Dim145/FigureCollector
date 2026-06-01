@@ -4,7 +4,7 @@ export default {
   "app.tagline_jp": "雪 の 蒐 集 者",
   "app.tagline_en": "Catalogue your shelf, figure by figure.",
   "app.tagline": "Catalogue your shelf, figure by figure.",
-  "app.phase": "v0.14.1",
+  "app.phase": "v0.15.0",
 
   "nav.signin": "Sign in",
   "nav.signup": "Create account",

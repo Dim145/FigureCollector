@@ -85,6 +85,7 @@ nav:
       - Pre-orders: features/preorders.md
       - Photos & 360° scans: features/photos.md
       - Collectors (social): features/social.md
+      - MangaCollector synergy: features/manga.md
       - Achievements, stats & insights: features/achievements-stats.md
       - Data export: features/exports.md
       - Notifications: features/notifications.md

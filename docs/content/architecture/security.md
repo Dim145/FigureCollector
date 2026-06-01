@@ -39,6 +39,7 @@ A short reference of what FigureCollector guarantees, what it doesn't, and where
 - **MFC scraping**: rate-limited (1 req/s per user), aggressive 24 h Postgres cache, identifiable `User-Agent` so MFC ops can contact us if there's a problem.
 - **AniList**: same rate-limit pattern.
 - **SSRF egress filter**: user-settable outbound URLs (notification webhook / ntfy / Apprise) are scheme-allow-listed and their *resolved* IPs rejected when private / loopback / link-local / CGNAT / ULA / metadata; the shared HTTP client follows only **same-host** redirects, so a 3xx can't pivot to an internal target. Source: `server/src/external/notify_channel.rs`, `server/src/main.rs`.
+- **MangaCollector server allow-list**: the instance a user links to is **not** free-form — it must be an **admin-approved origin** (a user submits → `pending` → admin approves / revokes). Submitting runs the SSRF guard *before* the origin is stored, and every cross-link fetch is gated on `status = 'approved'` over the same no-redirect client, so a `pending`/`revoked` server is never fetched. Revoking an origin notifies every linked user and disables their integration. Source: `server/src/domain/manga_servers.rs`, `server/src/routes/manga.rs`.
 
 ## What we don't guarantee
 

@@ -44,6 +44,14 @@ The **bolded** columns are the recent additions (deposit, cancellation refund, d
 | `notification_dedup` | Prevents double-fires | `user_id`, `dedup_key`, `created_at` |
 | `web_push_subscriptions` | VAPID subscriptions | `user_id`, `endpoint`, `keys` |
 
+## MangaCollector synergy
+
+| Table | Purpose | Key fields |
+|---|---|---|
+| `manga_servers` | Admin-curated allow-list of MangaCollector origins | `base_url` (unique, normalized origin), `status` (`pending` / `approved` / `revoked`), `submitted_by`, `reviewed_by`, `reviewed_at`, `note` |
+
+The link itself lives on `users` — `manga_server_id` (→ `manga_servers`) + `manga_slug`. The join to the catalogue is `series.mal_id` (populated from the AniList `idMal`), so a figure's series and a MangaCollector library entry line up with no manual mapping. Cross-link fetches only fire when the linked server is `approved`.
+
 ## Activity + achievements
 
 | Table | Purpose | Key fields |

@@ -8,6 +8,7 @@ FigureCollector is built around a small set of overlapping mental models:
 - **Pre-order lifecycle** — preorder → shipped → delivered → received, with deposit & refund accounting along the way.
 - **Photos** — both catalogue-side (shared) and personal (yours).
 - **Collectors** — an opt-in social layer: follow others, browse public profiles, compare collections.
+- **MangaCollector synergy** — cross-link the manga you read with the figures you collect, via the series' shared MAL id (over an admin-curated server allow-list).
 - **Notifications** — events fire from the backend, dispatched per channel based on user routing.
 
 Each feature has its own page below:
@@ -20,6 +21,7 @@ Each feature has its own page below:
 - [Pre-orders](preorders.md) — release dates, slip history, **deposits**, **cancellations with refund tracking**, **delivery ETAs**
 - [Photos & 360° scans](photos.md) — multi-upload, **edit in place**, covers, lightbox, turntable
 - [Collectors](social.md) — follow, discover, compare (opt-in public profile)
+- [MangaCollector synergy](manga.md) — cross-link with MangaCollector via the series' MAL id, over an admin-curated server allow-list
 - [Achievements, stats & insights](achievements-stats.md) — milestone seals, next palier, year-in-review, deeper charts
 - [Data export](exports.md) — CSV / JSON per dataset + full backup
 - [Notifications](notifications.md) — channels (in-app, email, ntfy, webhook, Apprise, Web Push) + per-event routing
