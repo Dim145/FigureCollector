@@ -26,3 +26,16 @@ export function typeHue(slug) {
 export function hueVars(slug) {
   return { "--hue": typeHue(slug) };
 }
+
+// Single-kanji glyph for each figure_type — the "museum specimen" mark used as
+// a thumbnail fallback across the app. `玩` ("toy") covers unknown / admin-added
+// types so a new type never renders a stray Latin letter.
+const TYPE_KANJI = {
+  nendoroid: "童", scale: "像", figma: "動", prize: "賞", trading: "交",
+  statue: "彫", plamo: "組", bishoujo: "美", dakimakura: "枕", other: "玩",
+};
+
+/** Kanji glyph for a figure_type slug, with the `玩` fallback. */
+export function typeKanji(slug) {
+  return TYPE_KANJI[slug] || "玩";
+}

@@ -4,6 +4,7 @@ import { useMe } from "../hooks/useMe.js";
 import { useMangaLink, useCrossings } from "../hooks/useMangaLink.js";
 import AppShell from "../components/AppShell.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
+import { typeKanji } from "../lib/typeHue.js";
 
 const INDIGO = "var(--color-indigo)";
 const INDIGO_BRIGHT = "var(--color-indigo-bright)";
@@ -131,7 +132,7 @@ function ReadingRow({ r, t }) {
   return (
     <li className="flex items-center gap-3 py-3 border-b border-[color-mix(in_oklab,var(--color-or)_10%,transparent)] last:border-b-0">
       {/* figure thumb (catalogue image, or a kanji fallback by type) */}
-      <Thumb image={r.image} kanji={kanjiForType(r.figure_type)} />
+      <Thumb image={r.image} kanji={typeKanji(r.figure_type)} />
       <span
         aria-hidden
         className="ja shrink-0 text-base"
@@ -298,19 +299,3 @@ function cssUrl(u) {
   return String(u).replace(/["'()\\]/g, encodeURIComponent);
 }
 
-// Figure-type → kanji glyph (matches the convention used across the catalogue
-// surfaces — see FigureDetailPage / FigureCard).
-function kanjiForType(type) {
-  switch (type) {
-    case "nendoroid":  return "童";
-    case "scale":      return "像";
-    case "figma":      return "動";
-    case "prize":      return "賞";
-    case "trading":    return "交";
-    case "statue":     return "彫";
-    case "plamo":      return "組";
-    case "bishoujo":   return "美";
-    case "dakimakura": return "枕";
-    default:           return "玩";
-  }
-}

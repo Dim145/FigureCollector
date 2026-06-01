@@ -17,16 +17,11 @@ import {
 import AppShell from "../components/AppShell.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
-import { typeHue } from "../lib/typeHue.js";
+import { typeHue, typeKanji } from "../lib/typeHue.js";
 import { fmtMoney, effectiveValue } from "../lib/money.js";
 import { resolveOwnedCover } from "../lib/coverUrl.js";
 
 const LOOSE = "__loose__";
-const TYPE_KANJI = {
-  nendoroid: "童", scale: "像", figma: "動", prize: "賞", trading: "交",
-  statue: "彫", plamo: "組", bishoujo: "美", dakimakura: "枕", other: "玩",
-};
-const typeKanji = (t) => TYPE_KANJI[t] || "玩";
 
 function cabinetValue(items) {
   const byCur = new Map();

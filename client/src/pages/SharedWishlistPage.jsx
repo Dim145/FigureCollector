@@ -7,16 +7,10 @@ import {
   useReleaseGift,
 } from "../hooks/useGiftList.js";
 import { useMe } from "../hooks/useMe.js";
-import { typeHue } from "../lib/typeHue.js";
+import { typeHue, typeKanji } from "../lib/typeHue.js";
 import { fmtMoney } from "../lib/money.js";
 
 const MAGENTA = "var(--color-neon-magenta)";
-
-const TYPE_KANJI = {
-  nendoroid: "童", scale: "像", figma: "動", prize: "賞", trading: "交",
-  statue: "彫", plamo: "組", bishoujo: "美", dakimakura: "枕", other: "玩",
-};
-const typeKanji = (ty) => TYPE_KANJI[ty] || "玩";
 const coverFor = (it) =>
   it.catalog_cover_photo_id
     ? `/api/figure-photos/${it.catalog_cover_photo_id}`

@@ -8,7 +8,7 @@ import TrackingChip from "../components/TrackingChip.jsx";
 import { useDeleteFigure } from "../hooks/useAdmin.js";
 import { useStoresForFigure } from "../hooks/useStores.js";
 import { ApiError } from "../lib/api.js";
-import { typeHue } from "../lib/typeHue.js";
+import { typeHue, typeKanji } from "../lib/typeHue.js";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
 import CoverPicker from "../components/CoverPicker.jsx";
@@ -221,14 +221,14 @@ function HeroSection({
         aria-hidden
         className="kanji-mark text-[32rem] -top-16 -left-16 hidden md:block opacity-[0.07]"
       >
-        {kanjiForType(f.figure_type)}
+        {typeKanji(f.figure_type)}
       </span>
 
       <div className="relative max-w-7xl mx-auto px-6 pt-12 md:pt-16 grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-14 items-start">
         <FigureHero
           figure={f}
           ownedItemId={ownedRecord?.id ?? null}
-          figureTypeKanji={kanjiForType(f.figure_type)}
+          figureTypeKanji={typeKanji(f.figure_type)}
           nsfwBlurClass={nsfwClass(f.is_nsfw, nsfwPref)}
         />
 
@@ -800,21 +800,6 @@ function OwnerStack({ f, owned, nsfwPref, t }) {
 // =============================================================================
 // Misc helpers + states
 // =============================================================================
-
-function kanjiForType(type) {
-  switch (type) {
-    case "nendoroid":  return "童";
-    case "scale":      return "像";
-    case "figma":      return "動";
-    case "prize":      return "賞";
-    case "trading":    return "交";
-    case "statue":     return "彫";
-    case "plamo":      return "組";
-    case "bishoujo":   return "美";
-    case "dakimakura": return "枕";
-    default:           return "玩";
-  }
-}
 
 function DeleteConfirm({ name, t, busy, onCancel, onConfirm }) {
   return (

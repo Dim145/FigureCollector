@@ -11,7 +11,7 @@ import {
 } from "../hooks/useEntities.js";
 import { useIsAdmin, useMe } from "../hooks/useMe.js";
 import { useFigureDuplicates } from "../hooks/useCollection.js";
-import { typeHue } from "../lib/typeHue.js";
+import { typeHue, typeKanji } from "../lib/typeHue.js";
 import AniListLookup from "./AniListLookup.jsx";
 import AniListCharacterLookup from "./AniListCharacterLookup.jsx";
 import Button from "./Button.jsx";
@@ -472,11 +472,6 @@ export default function FigureForm({
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 
-const DUP_KANJI = {
-  nendoroid: "童", scale: "像", figma: "動", prize: "賞", trading: "交",
-  statue: "彫", plamo: "組", bishoujo: "美", dakimakura: "枕", other: "玩",
-};
-
 /** Live "about to create a duplicate?" panel (create mode only). Debounces the
  *  name/JAN, queries the catalogue, and surfaces strong (same JAN) and soft
  *  (same name) matches with a link to the existing figure (opened in a new tab
@@ -524,7 +519,7 @@ function DuplicateWarning({ name, jan, t }) {
                   <img src={m.official_image_url} alt="" loading="lazy" className={`absolute inset-0 w-full h-full object-cover ${m.is_nsfw && nsfwBlur ? "nsfw-blur" : ""}`} />
                 ) : (
                   <span aria-hidden className="ja text-lg" style={{ color: `color-mix(in oklab, ${hue} 55%, transparent)` }}>
-                    {DUP_KANJI[m.figure_type] || "玩"}
+                    {typeKanji(m.figure_type)}
                   </span>
                 )}
               </span>

@@ -7,16 +7,8 @@ import { useMyStats } from "../hooks/useStats.js";
 import { useFx } from "../hooks/useFx.js";
 import AppShell from "../components/AppShell.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
-import { typeHue } from "../lib/typeHue.js";
+import { typeHue, typeKanji } from "../lib/typeHue.js";
 import { fmtMoney, effectiveValue, paidTotal, convertAmount } from "../lib/money.js";
-
-/** Fallback kanji per type (mirrors FigureCard) — a small decorative glyph for
- *  the value-ledger thumbnails. */
-const TYPE_KANJI = {
-  nendoroid: "童", scale: "像", figma: "動", prize: "賞", trading: "交",
-  statue: "彫", plamo: "組", bishoujo: "美", dakimakura: "枕", other: "玩",
-};
-const typeKanji = (t) => TYPE_KANJI[t] || "玩";
 
 /**
  * « La Cote » — collection-value dashboard.
