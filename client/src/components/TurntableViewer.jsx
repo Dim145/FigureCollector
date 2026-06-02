@@ -39,6 +39,9 @@ export default function TurntableViewer({ scanId, frameCount, embedded = false }
   // Fullscreen overlay. `embedded` instances (the ones rendered *inside*
   // the overlay) never re-open it — that's what stops the recursion.
   const [fullscreen, setFullscreen] = useState(false);
+  // Inline instance with the overlay open: stop spinning + unmount the frame
+  // stack so it isn't rendering behind the fullscreen copy.
+  const paused = !embedded && fullscreen;
 
   // -- Zoom + pan ----------------------------------------------------------
   // Same UX model as the Lightbox's useImageZoom, inlined because here the
@@ -170,12 +173,12 @@ export default function TurntableViewer({ scanId, frameCount, embedded = false }
   // if the user zooms back out, the spin picks up where it left off.
   const [autoSpin, setAutoSpin] = useState(true);
   useEffect(() => {
-    if (!autoSpin || !ready || isZoomed) return;
+    if (!autoSpin || !ready || isZoomed || paused) return;
     const id = setInterval(() => {
       setCurrent((c) => (c + 1) % frameCount);
     }, 80);
     return () => clearInterval(id);
-  }, [autoSpin, ready, frameCount, isZoomed]);
+  }, [autoSpin, ready, frameCount, isZoomed, paused]);
 
   // -- Fullscreen: close on Esc --------------------------------------------
   useEffect(() => {
@@ -596,7 +599,15 @@ export default function TurntableViewer({ scanId, frameCount, embedded = false }
 
   return (
     <>
-      {stage}
+      {paused ? (
+        <div className="relative aspect-square bg-[var(--color-noir)] border border-[var(--color-or)]/20 grid place-items-center">
+          <p className="micro text-[var(--color-ivoire-soft)]">
+            ⛶ {t("scan.viewer.paused")}
+          </p>
+        </div>
+      ) : (
+        stage
+      )}
       {fullscreen && typeof document !== "undefined"
         ? createPortal(
             <div

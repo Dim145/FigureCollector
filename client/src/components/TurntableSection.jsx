@@ -12,12 +12,16 @@ import TurntableWizard from "./TurntableWizard.jsx";
 
 /**
  * Section rendered on FigureDetailPage when the user owns the figure.
- * Phase 5A: turntable viewer. Phase 5B: branches on the latest scan's kind
- * and state to render either:
- *   - turntable + ready                → drag-to-rotate viewer
- *   - gsplat   + ready + result_key    → Gaussian Splatting WebGL viewer
- *   - gsplat   + pending / processing  → "Training in progress" state
- *   - gsplat   + failed                → error + retry button
+ *
+ * Two distinct artifacts can coexist on one item:
+ *   · 360° view — a `turntable` scan (drag-to-rotate frames)
+ *   · 3D model  — a ready `gsplat` scan (Gaussian-Splatting WebGL)
+ *
+ * Display rules:
+ *   - both present        → a segmented toggle (360° | 3D), defaulting to 360°
+ *   - one present         → that view, with its label, no toggle
+ *   - 360° present + a 3D job still training / failed → 360° + a status strip
+ *   - no ready view       → the gsplat job's processing / failed / empty notice
  */
 export default function TurntableSection({ ownedId }) {
   const t = useT();
@@ -25,8 +29,9 @@ export default function TurntableSection({ ownedId }) {
   const create = useCreateScan(ownedId);
   const remove = useDeleteScan(ownedId);
   const [wizardOpen, setWizardOpen] = useState(false);
+  // Which view the toggle shows when both exist. Defaults to 360°.
+  const [view, setView] = useState("360");
   // Scan-id queued for confirmation; null when the dialog is closed.
-  // Replaces a `window.confirm()` that couldn't be styled or focus-trapped.
   const [pendingReplaceId, setPendingReplaceId] = useState(null);
 
   const all = scans.data ?? [];
@@ -38,6 +43,8 @@ export default function TurntableSection({ ownedId }) {
   );
   const failedGsplat = all.find((s) => s.kind === "gsplat" && s.state === "failed");
   const latestTurntable = all.find((s) => s.kind === "turntable" && s.state === "ready");
+
+  const both = latestTurntable && readyGsplat;
 
   const onUpload = async (frames, kind, video = null) => {
     try {
@@ -53,6 +60,24 @@ export default function TurntableSection({ ownedId }) {
     if (!scanId) return;
     setPendingReplaceId(scanId);
   };
+
+  const view3d = (
+    <>
+      <GsplatViewer scanId={readyGsplat?.id} />
+      <p className="micro mt-2">{t("gsplat.viewer_label")}</p>
+    </>
+  );
+  const view360 = latestTurntable ? (
+    <>
+      <TurntableViewer
+        scanId={latestTurntable.id}
+        frameCount={latestTurntable.frame_count}
+      />
+      <p className="micro mt-2">
+        {t("turntable.section.frame_count", { n: latestTurntable.frame_count })}
+      </p>
+    </>
+  ) : null;
 
   return (
     <section>
@@ -92,16 +117,27 @@ export default function TurntableSection({ ownedId }) {
       ) : null}
 
       <div className="max-w-md">
-        {readyGsplat ? (
+        {both ? (
           <>
-            <GsplatViewer scanId={readyGsplat.id} />
-            <p className="micro mt-2">{t("gsplat.viewer_label")}</p>
+            <ViewToggle view={view} setView={setView} t={t} />
+            {view === "3d" ? view3d : view360}
+          </>
+        ) : readyGsplat ? (
+          view3d
+        ) : latestTurntable ? (
+          <>
+            {view360}
+            {inFlightGsplat ? (
+              <Status3dStrip kind="processing" progress={inFlightGsplat.progress} t={t} />
+            ) : failedGsplat ? (
+              <Status3dStrip kind="failed" t={t} onRetry={() => setWizardOpen(true)} />
+            ) : null}
           </>
         ) : inFlightGsplat ? (
           <ProcessingNotice
             state={inFlightGsplat.state}
             progress={inFlightGsplat.progress}
-            fallback={latestTurntable}
+            fallback={null}
             t={t}
           />
         ) : failedGsplat ? (
@@ -110,18 +146,6 @@ export default function TurntableSection({ ownedId }) {
             t={t}
             onRetry={() => setWizardOpen(true)}
           />
-        ) : latestTurntable ? (
-          <>
-            <TurntableViewer
-              scanId={latestTurntable.id}
-              frameCount={latestTurntable.frame_count}
-            />
-            <p className="micro mt-2">
-              {t("turntable.section.frame_count", {
-                n: latestTurntable.frame_count,
-              })}
-            </p>
-          </>
         ) : (
           <p className="text-sm text-[var(--color-ivoire-soft)] italic">
             {t("turntable.section.empty")}
@@ -153,6 +177,66 @@ export default function TurntableSection({ ownedId }) {
         }}
       />
     </section>
+  );
+}
+
+/** Segmented control: 回 Vue 360° | 像 Modèle 3D. Equal-width, ≥40px tall so
+ *  the pills are comfortable touch targets on mobile. */
+function ViewToggle({ view, setView, t }) {
+  const Pill = ({ id, kanji, label }) => (
+    <button
+      type="button"
+      onClick={() => setView(id)}
+      aria-pressed={view === id}
+      className={`flex-1 inline-flex items-center justify-center gap-1.5 min-h-[40px] text-[11px] uppercase tracking-[0.14em] transition-colors ${
+        id === "3d" ? "border-l border-[var(--color-or)]/20" : ""
+      } ${
+        view === id
+          ? "bg-[color-mix(in_oklab,var(--color-or)_16%,transparent)] text-[var(--color-or)]"
+          : "text-[var(--color-ivoire-soft)] hover:text-[var(--color-or-pale)]"
+      }`}
+    >
+      <span className="ja text-base not-italic" aria-hidden>{kanji}</span>
+      {label}
+    </button>
+  );
+  return (
+    <div className="flex border border-[var(--color-or)]/30 mb-2.5">
+      <Pill id="360" kanji="回" label={t("scan.view.360")} />
+      <Pill id="3d" kanji="像" label={t("scan.view.3d")} />
+    </div>
+  );
+}
+
+/** Under a 360° view, a one-line status of a 3D job that's still training or
+ *  failed — so the user sees the working 360° AND the 3D's state. */
+function Status3dStrip({ kind, progress, t, onRetry }) {
+  const pct = typeof progress === "number" ? Math.max(0, Math.min(100, progress)) : null;
+  const failed = kind === "failed";
+  return (
+    <div
+      className="mt-2 flex items-center gap-2 text-[11px] border-l-2 pl-2 py-0.5"
+      style={{
+        borderColor: failed
+          ? "var(--color-laque-bright)"
+          : "color-mix(in oklab, var(--color-or) 45%, transparent)",
+        color: failed ? "var(--color-laque-bright)" : "var(--color-or-pale)",
+      }}
+    >
+      {failed ? (
+        <>
+          <span>{t("scan.strip.3d_failed")}</span>
+          <button type="button" onClick={onRetry} className="underline hover:no-underline">
+            {t("gsplat.retry")}
+          </button>
+        </>
+      ) : (
+        <>
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--color-or)] animate-pulse" />
+          <span>{t("scan.strip.3d_processing", { pct: pct ?? 0 })}</span>
+        </>
+      )}
+    </div>
   );
 }
 

@@ -9,6 +9,20 @@ import { useT } from "../i18n/index.jsx";
  * three.js peer dependency). Dynamic-imported so the chunk only ships when
  * a user actually opens a gsplat scan.
  */
+
+// Module-level cache of fetched PLY buffers, keyed by scanId. Opening the
+// fullscreen overlay mounts a SECOND viewer instance, and the inline one
+// re-inits when it closes — without this they'd each re-download the (multi-MB)
+// model. Bounded to the few most-recent scans to cap memory.
+const PLY_CACHE = new Map();
+const PLY_CACHE_MAX = 4;
+function cachePly(scanId, buf) {
+  PLY_CACHE.set(scanId, buf);
+  if (PLY_CACHE.size > PLY_CACHE_MAX) {
+    PLY_CACHE.delete(PLY_CACHE.keys().next().value);
+  }
+}
+
 export default function GsplatViewer({ scanId, embedded = false }) {
   const t = useT();
   const canvasRef = useRef(null);
@@ -18,6 +32,9 @@ export default function GsplatViewer({ scanId, embedded = false }) {
   // Fullscreen overlay. `embedded` instances (the ones rendered *inside* the
   // overlay) never re-open it — matches the TurntableViewer pattern.
   const [fullscreen, setFullscreen] = useState(false);
+  // While the inline instance has the overlay open, it must stop rendering:
+  // otherwise two WebGL contexts run at once and the model "loads twice".
+  const paused = !embedded && fullscreen;
 
   useEffect(() => {
     if (!fullscreen) return undefined;
@@ -27,6 +44,10 @@ export default function GsplatViewer({ scanId, embedded = false }) {
   }, [fullscreen]);
 
   useEffect(() => {
+    // Inline instance with the overlay open → don't run a renderer at all
+    // (the prior run's cleanup below has already torn it down).
+    if (paused) return undefined;
+
     let cancelled = false;
     let raf = 0;
 
@@ -41,24 +62,29 @@ export default function GsplatViewer({ scanId, embedded = false }) {
         const camera = new gsplat.Camera();
         const controls = new gsplat.OrbitControls(camera, canvas);
 
-        // gsplat's PLYLoader.LoadAsync fetches the URL from inside its own
-        // web worker, whose request doesn't carry our session cookie (and can
-        // be served a stale error by the service worker) → 403 on private
-        // scans. Fetch the PLY ourselves on the main thread — authenticated
-        // and bypassing the SW cache — then hand the buffer to the parser.
-        const res = await fetch(`/api/scans/${scanId}/splat`, {
-          credentials: "include",
-          cache: "no-store",
-        });
-        if (!res.ok) {
-          throw new Error(`${res.status} ${res.statusText}`.trim());
+        // Reuse the cached buffer when present (fullscreen open / re-open).
+        // gsplat's PLYLoader.LoadAsync fetches from inside its own web worker,
+        // whose request doesn't carry our session cookie (→ 403 on private
+        // scans) and can be served a stale SW error — so we fetch on the main
+        // thread (authenticated, no-store) and hand the buffer to the parser.
+        let buf = PLY_CACHE.get(scanId);
+        if (!buf) {
+          const res = await fetch(`/api/scans/${scanId}/splat`, {
+            credentials: "include",
+            cache: "no-store",
+          });
+          if (!res.ok) {
+            throw new Error(`${res.status} ${res.statusText}`.trim());
+          }
+          buf = await res.arrayBuffer();
+          if (cancelled || !canvasRef.current) {
+            renderer.dispose?.();
+            return;
+          }
+          cachePly(scanId, buf);
         }
-        const buf = await res.arrayBuffer();
-        if (cancelled || !canvasRef.current) {
-          renderer.dispose?.();
-          return;
-        }
-        gsplat.PLYLoader.LoadFromArrayBuffer(buf, scene);
+        // Hand the loader a COPY so the cached buffer isn't detached/consumed.
+        gsplat.PLYLoader.LoadFromArrayBuffer(buf.slice(0), scene);
 
         const handleResize = () => {
           const { clientWidth, clientHeight } = canvas;
@@ -98,7 +124,7 @@ export default function GsplatViewer({ scanId, embedded = false }) {
         /* ignore */
       }
     };
-  }, [scanId]);
+  }, [scanId, paused]);
 
   const stage = (
     <div className="relative aspect-square w-full bg-[var(--color-noir)] border border-[var(--color-or)]/20 overflow-hidden">
@@ -123,9 +149,6 @@ export default function GsplatViewer({ scanId, embedded = false }) {
         <button
           type="button"
           onClick={() => setFullscreen(true)}
-          // gsplat's OrbitControls listens on the canvas (not the container),
-          // so the button doesn't *need* stopPropagation — but defensive in
-          // case the listener wiring ever changes.
           onPointerDown={(e) => e.stopPropagation()}
           title={t("turntable.viewer.fullscreen")}
           aria-label={t("turntable.viewer.fullscreen")}
@@ -141,7 +164,17 @@ export default function GsplatViewer({ scanId, embedded = false }) {
 
   return (
     <>
-      {stage}
+      {/* Inline slot: a paused placeholder while the overlay is open so the
+          model isn't held by two live WebGL contexts at once. */}
+      {paused ? (
+        <div className="relative aspect-square w-full bg-[var(--color-noir)] border border-[var(--color-or)]/20 grid place-items-center">
+          <p className="micro text-[var(--color-ivoire-soft)]">
+            ⛶ {t("scan.viewer.paused")}
+          </p>
+        </div>
+      ) : (
+        stage
+      )}
       {fullscreen && typeof document !== "undefined"
         ? createPortal(
             <div

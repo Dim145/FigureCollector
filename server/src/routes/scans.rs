@@ -361,11 +361,14 @@ async fn fetch_frame(
         HeaderValue::from_str(mime.as_deref().unwrap_or("image/webp"))
             .unwrap_or_else(|_| HeaderValue::from_static("image/webp")),
     );
-    // Visibility hangs on the owner's mutable public_profile flag, so a shared
-    // cache must never retain it (mirrors the per-user photo proxy).
+    // `private` keeps frames out of any SHARED cache (the owner's
+    // public_profile flag is mutable) but lets the viewer's OWN browser keep
+    // them briefly — so opening the fullscreen 360° viewer reuses the frames
+    // instead of re-fetching all ~96. Frames are immutable per (scan, idx);
+    // the short max-age bounds staleness if the scan is deleted / unshared.
     headers.insert(
         header::CACHE_CONTROL,
-        HeaderValue::from_static("private, no-store"),
+        HeaderValue::from_static("private, max-age=300"),
     );
     Ok((headers, Body::from(bytes)).into_response())
 }
