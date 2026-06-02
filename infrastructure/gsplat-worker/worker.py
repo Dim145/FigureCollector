@@ -34,11 +34,13 @@ from __future__ import annotations
 import asyncio
 import os
 import platform
+import re
 import socket
 import subprocess
 import tempfile
 import traceback
 import uuid
+from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -463,20 +465,35 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
             _run(*nsproc, "--no-gpu")
 
         progress(46)
-        # 4. Train splatfacto, headless. Recent nerfstudio dropped `--vis none`;
-        #    `--vis tensorboard` is the documented headless choice — no viewer, no
-        #    server, just event files in the (discarded) output dir, and tensorboard
-        #    is a core nerfstudio dependency so nothing extra to install.
-        #    `--logging.local-writer.enable False` silences the refreshing progress
-        #    table (which we'd otherwise capture in full over every iteration).
+        # 4. Train splatfacto, headless, streaming live progress to the SPA.
+        #    `--vis tensorboard` is the documented headless choice (no viewer /
+        #    server; tensorboard is a core nerfstudio dep). We KEEP nerfstudio's
+        #    local writer on so it prints per-step lines like "1010 (6.73%)";
+        #    `_run` streams them, we pull the step out and map training 0→100%
+        #    into our 46→88 band — so the bar climbs the whole time instead of
+        #    sitting at 46 for the full ~10-20 min train.
         trained = tmp / "trained"
+        step_re = re.compile(r"(\d+)\s*\(\s*\d{1,3}(?:\.\d+)?\s*%\s*\)")
+        train_pct = [46]
+
+        def on_train_line(line: str) -> None:
+            m = step_re.search(line)
+            if not m:
+                return
+            step = int(m.group(1))
+            done = min(1.0, step / max(1, TRAINING_ITERATIONS))
+            overall = 46 + int((88 - 46) * done)
+            if overall > train_pct[0]:
+                train_pct[0] = overall
+                progress(overall)
+
         _run(
             "ns-train", "splatfacto",
             "--data", str(processed),
             "--output-dir", str(trained),
             "--max-num-iterations", str(TRAINING_ITERATIONS),
             "--vis", "tensorboard",
-            "--logging.local-writer.enable", "False",
+            on_line=on_train_line,
         )
 
         progress(88)
@@ -614,12 +631,35 @@ def _make_masks(images: Path, scan_id: Any) -> None:
     log.info("masks baked", scan_id=str(scan_id), count=count)
 
 
-def _run(*cmd: str) -> None:
-    """Subprocess wrapper that logs the command + raises on failure."""
+def _run(*cmd: str, on_line=None) -> None:
+    """Run `cmd`, streaming its combined stdout+stderr line by line. This lets us
+    (a) keep only a bounded tail for the error message instead of buffering a
+    whole training run in memory, and (b) feed each line to an optional
+    `on_line(line)` hook for live progress. Raises RuntimeError with the tail on
+    a non-zero exit. `on_line` is best-effort — an exception in it never breaks
+    the run."""
     log.info("running", cmd=" ".join(cmd))
-    proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
+    # stderr→stdout so progress + errors stream in order; text mode's universal
+    # newlines also splits on `\r`, so a carriage-return-refreshed progress line
+    # is yielded as its own line.
+    proc = subprocess.Popen(
+        cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1
+    )
+    tail = deque(maxlen=400)
+    assert proc.stdout is not None
+    for line in proc.stdout:
+        tail.append(line)
+        if on_line is not None:
+            try:
+                on_line(line)
+            except Exception:  # noqa: BLE001 — progress parsing must never break the run
+                pass
+    proc.wait()
     if proc.returncode != 0:
-        msg = f"{' '.join(cmd)} exited {proc.returncode}\n--- stdout ---\n{proc.stdout[-2000:]}\n--- stderr ---\n{proc.stderr[-2000:]}"
+        msg = (
+            f"{' '.join(cmd)} exited {proc.returncode}\n"
+            f"--- output (tail) ---\n{''.join(tail)}"
+        )
         raise RuntimeError(msg)
 
 
