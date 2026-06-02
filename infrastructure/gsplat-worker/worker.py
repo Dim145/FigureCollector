@@ -547,6 +547,12 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
             "colmap",
             "--images-path", "images",
             "--colmap-path", "colmap/sparse/0",
+            # Train on the full-res images as-is. Without this the colmap
+            # dataparser auto-picks downscale 2, finds no images_2/ folder, and
+            # tries to INTERACTIVELY prompt to generate it ("downscale now? [y/n]")
+            # → EOFError in our headless run. (VRAM lever for the 6 GB card is
+            # VIDEO_MAX_DIM, not this.)
+            "--downscale-factor", "1",
         ]
         if masked:
             # Per-frame loss masks (0 = ignore) → splatfacto skips the background.
