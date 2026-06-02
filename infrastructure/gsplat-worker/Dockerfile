@@ -37,16 +37,24 @@ RUN --mount=type=cache,target=/root/.cache/pip \
       "boto3==1.35.*" \
       "structlog==24.4.*"
 
-# Optional: rembg for foreground masking (used only when ENABLE_MASKING=true).
-# Isolated in its own NON-FATAL layer — it drags in a big dep tree (onnxruntime,
-# scikit-image, …) that could clash with the base's pinned numpy/torch. If the
-# build trips here it's skipped and the worker runs with masking disabled (it
-# degrades gracefully); fix this line if you need masks.
+# rembg for foreground masking (ENABLE_MASKING, default on). onnxruntime is its
+# inference backend, which rembg 2.0.x moved OUT of the core deps into extras —
+# so we MUST request the `[cpu]` extra; a bare `rembg` installs fine but then
+# fails at import with "No module named 'onnxruntime'". CPU on purpose: the
+# `[gpu]` extra (onnxruntime-gpu) would couple to the base image's CUDA/cuDNN and
+# risk clashing with torch, and rembg isn't the bottleneck (training is).
+# onnxruntime's only version floor is numpy>=1.21.6, which the base already
+# satisfies, so this doesn't drag a numpy upgrade onto torch/nerfstudio.
+# Fatal on failure: masking is a default-on quality feature, so a broken install
+# must surface at build time, not silently ship a worker that can't mask.
 RUN --mount=type=cache,target=/root/.cache/pip \
-    python3 -m pip install "rembg==2.0.*" \
-    || echo "WARN: rembg install failed — foreground masking will be unavailable"
+    python3 -m pip install "rembg[cpu]==2.0.*"
+# Pre-bake the u2net model INTO the image: the worker runs read-only as uid
+# 65532 (`/opt/u2net` is a+rX — not writable), so it can't fetch the model at
+# runtime. Fatal too — a missing model means masking is dead on arrival, and a
+# successful build now doubles as proof that onnxruntime + the model both work.
 RUN mkdir -p /opt/u2net && \
-    python3 -c "from rembg import new_session; new_session()" 2>/dev/null || true && \
+    python3 -c "from rembg import new_session; new_session()" && \
     chmod -R a+rX /opt/u2net
 
 COPY worker.py /app/worker.py
