@@ -212,6 +212,45 @@ export function useDeleteWorker() {
 }
 
 // =============================================================================
+// Tasks / queue — the gsplat scan job queue (admin "Tâches" page).
+// =============================================================================
+
+/** Live task list. Admins don't receive the per-user scan WebSocket events, so
+ *  we poll on a short interval to track 'processing' progress + state changes. */
+export function useAdminScans() {
+  return useQuery({
+    queryKey: ["admin", "scans"],
+    queryFn: () => api.get("/admin/scans"),
+    staleTime: 3_000,
+    refetchInterval: 6_000,
+  });
+}
+
+export function useRetryScan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => api.post(`/admin/scans/${id}/retry`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "scans"] }),
+  });
+}
+
+export function useFailScan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => api.post(`/admin/scans/${id}/fail`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "scans"] }),
+  });
+}
+
+export function useDeleteScan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => api.delete(`/admin/scans/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "scans"] }),
+  });
+}
+
+// =============================================================================
 // Entity bulk ops — unlink/move figures, delete with optional merge target.
 //
 // Same shape twice (series / characters) so the EntityPage admin toolbar and

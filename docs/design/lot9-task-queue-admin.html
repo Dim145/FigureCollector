@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="fr" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FigureCollector — Lot 9 · Admin Tâches / file de traitement (maquette)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300..600;1,300..500&family=Hanken+Grotesk:wght@300..700&family=JetBrains+Mono:wght@300..500&family=Noto+Serif+JP:wght@300..500&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --font-display:"Cormorant Garamond",Georgia,serif; --font-sans:"Hanken Grotesk",system-ui,sans-serif;
+      --font-ja:"Noto Serif JP",serif; --font-mono:"JetBrains Mono",monospace;
+      --color-noir:oklch(0.14 0.005 50); --color-noir-soft:oklch(0.19 0.008 50); --color-noir-deep:oklch(0.10 0.004 50);
+      --color-laque:oklch(0.42 0.16 25); --color-laque-bright:oklch(0.62 0.19 25);
+      --color-or:oklch(0.78 0.10 80); --color-or-pale:oklch(0.88 0.06 80); --color-or-deep:oklch(0.60 0.10 80);
+      --color-ivoire:oklch(0.92 0.03 75); --color-ivoire-soft:oklch(0.92 0.03 75 / 0.8);
+      --color-jade:oklch(0.72 0.13 175); --color-indigo:oklch(0.60 0.15 275); --color-indigo-bright:oklch(0.66 0.17 272);
+      color-scheme:dark;
+    }
+    [data-theme="light"]{
+      color-scheme:light;
+      --color-noir:oklch(0.965 0.008 85); --color-noir-soft:oklch(0.995 0.004 85); --color-noir-deep:oklch(0.93 0.012 80);
+      --color-ivoire:oklch(0.26 0.02 55); --color-ivoire-soft:oklch(0.40 0.02 55 / 0.86);
+      --color-or:oklch(0.58 0.12 72); --color-or-pale:oklch(0.50 0.12 70); --color-or-deep:oklch(0.42 0.10 68);
+      --color-laque:oklch(0.50 0.19 25); --color-laque-bright:oklch(0.56 0.21 25);
+      --color-jade:oklch(0.55 0.13 175); --color-indigo:oklch(0.50 0.16 275); --color-indigo-bright:oklch(0.46 0.17 272);
+    }
+    *{box-sizing:border-box;}
+    html,body{margin:0;min-height:100%;}
+    body{font-family:var(--font-sans);background:var(--color-noir);color:var(--color-ivoire);-webkit-font-smoothing:antialiased;
+      background-image:radial-gradient(70% 60% at 28% 22%,oklch(0.78 0.10 80 / 0.06),transparent 65%),radial-gradient(55% 55% at 82% 80%,oklch(0.60 0.15 275 / 0.06),transparent 70%);background-attachment:fixed;}
+    .display{font-family:var(--font-display);font-weight:300;letter-spacing:-0.01em;line-height:1;}
+    .ja{font-family:var(--font-ja);} .mono{font-family:var(--font-mono);}
+    .micro{font-family:var(--font-sans);font-size:10.5px;letter-spacing:0.3em;text-transform:uppercase;color:var(--color-or-pale);}
+    .gold-rule{height:1px;background:linear-gradient(to right,transparent,var(--color-or) 30%,var(--color-or) 70%,transparent);}
+    .tt{position:fixed;top:1rem;right:1rem;z-index:50;font-family:var(--font-mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;padding:0.5rem 0.9rem;background:var(--color-noir-soft);border:1px solid color-mix(in oklab,var(--color-or) 30%,transparent);color:var(--color-or-pale);cursor:pointer;}
+    code{font-family:var(--font-mono);font-size:0.88em;color:var(--color-indigo-bright);}
+
+    main{position:relative;z-index:1;max-width:1040px;margin:0 auto;padding:3rem 1.5rem 6rem;}
+    header.head{position:relative;}
+    header.head .seal{position:absolute;top:-2.2rem;right:-0.5rem;font-family:var(--font-ja);font-size:10rem;line-height:1;color:color-mix(in oklab,var(--color-indigo) 8%,transparent);user-select:none;pointer-events:none;}
+    .head h1{margin:0.3rem 0 0;font-size:clamp(2rem,5vw,2.6rem);color:var(--color-ivoire);}
+    .head p.lead{margin:1rem 0 0;max-width:46rem;line-height:1.6;color:var(--color-ivoire-soft);}
+
+    /* toolbar */
+    .toolbar{display:flex;align-items:center;gap:1rem;margin:2rem 0 1.2rem;flex-wrap:wrap;}
+    .chips{display:flex;gap:0.4rem;}
+    .chip{font-size:10px;letter-spacing:0.16em;text-transform:uppercase;padding:0.4rem 0.8rem;border:1px solid color-mix(in oklab,var(--color-or) 25%,transparent);color:var(--color-ivoire-soft);background:none;cursor:pointer;}
+    .chip.on{border-color:var(--color-or);color:var(--color-or);background:color-mix(in oklab,var(--color-or) 10%,transparent);}
+    .toolbar .count{font-family:var(--font-mono);font-size:10px;letter-spacing:0.18em;color:var(--color-ivoire-soft);}
+    .toolbar .grow{flex:1;}
+    .cleanup{font-size:11px;color:var(--color-ivoire-soft);display:flex;align-items:center;gap:0.4rem;}
+    .cleanup b{color:var(--color-or-pale);font-family:var(--font-display);font-size:1.1em;}
+
+    /* task row */
+    .row{display:grid;grid-template-columns:auto 1fr auto;gap:1rem;align-items:start;padding:1rem 1.1rem;margin-bottom:0.7rem;
+      border:1px solid color-mix(in oklab,var(--color-or) 13%,transparent);background:color-mix(in oklab,var(--color-noir-soft) 50%,transparent);position:relative;}
+    .row::before{content:"";position:absolute;inset:0 auto 0 0;width:2px;background:var(--tone,var(--color-or));opacity:0.85;}
+    .badge{display:inline-flex;align-items:center;gap:0.45em;font-size:9px;letter-spacing:0.14em;text-transform:uppercase;padding:0.3em 0.65em;border:1px solid;white-space:nowrap;margin-top:0.15rem;}
+    .badge .d{width:6px;height:6px;border-radius:50%;background:var(--tone);box-shadow:0 0 6px var(--tone);}
+    .badge{color:var(--tone);border-color:color-mix(in oklab,var(--tone) 50%,transparent);}
+    .row.pending{--tone:var(--color-or);} .row.processing{--tone:var(--color-indigo-bright);}
+    .row.ready{--tone:var(--color-jade);} .row.failed{--tone:var(--color-laque-bright);}
+
+    .main{min-width:0;}
+    .name{font-family:var(--font-display);font-size:1.35rem;color:var(--color-ivoire);line-height:1.1;}
+    .name .obj{color:var(--color-or-pale);text-decoration:none;border-bottom:1px solid color-mix(in oklab,var(--color-or) 30%,transparent);}
+    .meta{margin-top:0.4rem;display:flex;flex-wrap:wrap;gap:0.3rem 1.1rem;font-family:var(--font-mono);font-size:10px;letter-spacing:0.03em;color:var(--color-ivoire-soft);}
+    .meta .w{color:var(--color-indigo-bright);}
+    .meta .t{color:var(--color-or-pale);}
+    .body{margin-top:0.6rem;}
+    /* progress */
+    .pbar{height:5px;background:color-mix(in oklab,var(--color-indigo) 16%,transparent);position:relative;overflow:hidden;max-width:360px;}
+    .pbar i{position:absolute;inset:0 auto 0 0;background:var(--color-indigo-bright);}
+    .pct{font-family:var(--font-mono);font-size:10px;color:var(--color-indigo-bright);margin-top:0.25rem;display:block;}
+    .result-ok{font-size:11.5px;color:var(--color-jade);}
+    .result-err{font-size:11.5px;color:var(--color-laque-bright);font-family:var(--font-mono);background:var(--color-noir-deep);border-left:2px solid color-mix(in oklab,var(--color-laque-bright) 55%,transparent);padding:0.4rem 0.6rem;max-width:520px;}
+
+    .acts{display:flex;flex-direction:column;gap:0.4rem;align-items:stretch;}
+    .btn{font-family:var(--font-sans);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;padding:0.45rem 0.7rem;border:1px solid;background:none;cursor:pointer;white-space:nowrap;text-align:center;}
+    .btn--retry{color:var(--color-jade);border-color:color-mix(in oklab,var(--color-jade) 55%,transparent);}
+    .btn--fail{color:var(--color-laque-bright);border-color:color-mix(in oklab,var(--color-laque-bright) 50%,transparent);}
+    .btn--del{color:var(--color-or-pale);border-color:color-mix(in oklab,var(--color-or) 30%,transparent);}
+
+    .footnote{margin-top:2.5rem;font-size:12px;color:var(--color-ivoire-soft);border-left:2px solid color-mix(in oklab,var(--color-indigo) 55%,transparent);padding-left:0.85rem;line-height:1.7;}
+    .footnote b{color:var(--color-ivoire);font-family:var(--font-display);font-size:1.05rem;}
+    @media(max-width:720px){.row{grid-template-columns:auto 1fr;}.acts{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;margin-top:0.4rem;}}
+
+    .reveal{opacity:0;transform:translateY(10px);animation:rise 0.6s cubic-bezier(0.22,1,0.36,1) forwards;animation-delay:calc(var(--i,0)*0.05s);}
+    @keyframes rise{to{opacity:1;transform:none;}}
+    @media(prefers-reduced-motion:reduce){.reveal{animation:none;opacity:1;transform:none;}}
+  </style>
+</head>
+<body>
+  <button class="tt" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark'">Thème</button>
+
+  <main>
+    <header class="head reveal">
+      <span class="seal ja" aria-hidden="true">列</span>
+      <p class="micro">Administration · File de traitement</p>
+      <h1 class="display">Tâches</h1>
+      <div class="gold-rule" style="width:5rem;margin:1.1rem 0;"></div>
+      <p class="lead">L'historique des jobs de calcul 3D (gsplat). Suis leur état en temps réel, relance un échec, marque une tâche bloquée comme échouée, ou purge une entrée terminée. Les vidéos 360° (turntable) ne sont pas des tâches et n'apparaissent pas ici.</p>
+    </header>
+
+    <div class="toolbar reveal" style="--i:1">
+      <div class="chips">
+        <button class="chip on">Toutes</button>
+        <button class="chip">Actives</button>
+        <button class="chip">Échouées</button>
+        <button class="chip">Réussies</button>
+      </div>
+      <span class="count">5 tâches</span>
+      <span class="grow"></span>
+      <span class="cleanup">🧹 Nettoyage auto : on garde les <b>5</b> derniers succès <b>par figurine</b></span>
+    </div>
+
+    <!-- PROCESSING -->
+    <div class="row processing reveal" style="--i:2">
+      <span class="badge"><span class="d"></span>En cours</span>
+      <div class="main">
+        <div class="name">Scan 3D · <a class="obj" href="#">Rem — 1/7</a></div>
+        <div class="meta">
+          <span class="w">⚙ NAS-3050</span>
+          <span>màj il y a 6 s</span>
+          <span class="t">⏱ écoulé 4 min 12 s</span>
+        </div>
+        <div class="body">
+          <div class="pbar"><i style="right:38%"></i></div>
+          <span class="pct">entraînement · 62 %</span>
+        </div>
+      </div>
+      <div class="acts">
+        <button class="btn btn--fail">Marquer échouée</button>
+      </div>
+    </div>
+
+    <!-- PENDING -->
+    <div class="row pending reveal" style="--i:3">
+      <span class="badge"><span class="d"></span>En attente</span>
+      <div class="main">
+        <div class="name">Scan 3D · <a class="obj" href="#">Anya Forger — nendoroid</a></div>
+        <div class="meta">
+          <span>en file depuis 1 min</span>
+          <span>màj il y a 1 min</span>
+          <span style="opacity:0.55">aucun worker assigné</span>
+        </div>
+      </div>
+      <div class="acts">
+        <button class="btn btn--fail">Marquer échouée</button>
+      </div>
+    </div>
+
+    <!-- READY -->
+    <div class="row ready reveal" style="--i:4">
+      <span class="badge"><span class="d"></span>Réussie</span>
+      <div class="main">
+        <div class="name">Scan 3D · <a class="obj" href="#">Frieren — figma</a></div>
+        <div class="meta">
+          <span class="w">⚙ NAS-3050</span>
+          <span>màj il y a 2 h</span>
+          <span class="t">⏱ exécuté en 14 min 03 s</span>
+        </div>
+        <div class="body">
+          <span class="result-ok">✓ modèle prêt — <code>scans/…/result.ply</code></span>
+        </div>
+      </div>
+      <div class="acts">
+        <button class="btn btn--del">Supprimer</button>
+      </div>
+    </div>
+
+    <!-- FAILED -->
+    <div class="row failed reveal" style="--i:5">
+      <span class="badge"><span class="d"></span>Échouée</span>
+      <div class="main">
+        <div class="name">Scan 3D · <a class="obj" href="#">Gojō Satoru — 1/7</a></div>
+        <div class="meta">
+          <span class="w">⚙ NAS-3050</span>
+          <span>màj il y a 25 min</span>
+          <span class="t">⏱ échoué après 6 min</span>
+          <span>tentative 2</span>
+        </div>
+        <div class="body">
+          <div class="result-err">ns-process-data : failed to create sparse model (no good initial image pair) — capture insuffisante / fond non masqué</div>
+        </div>
+      </div>
+      <div class="acts">
+        <button class="btn btn--retry">↻ Relancer</button>
+        <button class="btn btn--del">Supprimer</button>
+      </div>
+    </div>
+
+    <!-- READY (older) -->
+    <div class="row ready reveal" style="--i:6">
+      <span class="badge"><span class="d"></span>Réussie</span>
+      <div class="main">
+        <div class="name">Scan 3D · <a class="obj" href="#">Power — 1/7</a></div>
+        <div class="meta">
+          <span class="w">⚙ NAS-3050</span>
+          <span>màj hier</span>
+          <span class="t">⏱ exécuté en 12 min 47 s</span>
+        </div>
+        <div class="body">
+          <span class="result-ok">✓ modèle prêt — <code>scans/…/result.ply</code></span>
+        </div>
+      </div>
+      <div class="acts">
+        <button class="btn btn--del">Supprimer</button>
+      </div>
+    </div>
+
+    <p class="footnote reveal" style="--i:7">
+      <b>Sous le capot.</b> Pas de nouvelle queue : on étend la table <code>scans</code> (déjà une queue Postgres en <code>FOR&nbsp;UPDATE&nbsp;SKIP&nbsp;LOCKED</code>) avec <code>worker_id</code>, <code>claimed_at</code>, <code>finished_at</code>, <code>attempts</code>. <b>Relancer</b> remet l'état à <code>pending</code> (worker/erreur effacés). <b>Marquer échouée</b> force <code>failed</code> même en cours. <b>Supprimer</b> (état terminal) retire la ligne + les blobs Garage. Au redémarrage, un worker reprend ses scans restés <code>processing</code> (activable par env). Nettoyage auto : 5 derniers succès <b>par figurine</b> (<code>GSPLAT_KEEP_COMPLETED</code>), jamais les turntables.
+    </p>
+  </main>
+</body>
+</html>

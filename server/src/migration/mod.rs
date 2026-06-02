@@ -51,6 +51,7 @@ mod m20260531_000001_owned_documents;
 mod m20260531_000002_gift_list;
 mod m20260601_000001_manga_link;
 mod m20260601_000002_manga_servers;
+mod m20260602_000001_scan_queue;
 
 pub struct Migrator;
 
@@ -97,6 +98,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260531_000002_gift_list::Migration),
             Box::new(m20260601_000001_manga_link::Migration),
             Box::new(m20260601_000002_manga_servers::Migration),
+            Box::new(m20260602_000001_scan_queue::Migration),
         ]
     }
 }

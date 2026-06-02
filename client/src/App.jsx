@@ -46,6 +46,7 @@ const AdminStoresPage      = lazy(() => import("./pages/AdminStoresPage.jsx"));
 const AdminNotificationsPage = lazy(() => import("./pages/AdminNotificationsPage.jsx"));
 const AdminMangaServersPage = lazy(() => import("./pages/AdminMangaServersPage.jsx"));
 const AdminWorkersPage     = lazy(() => import("./pages/AdminWorkersPage.jsx"));
+const AdminTasksPage       = lazy(() => import("./pages/AdminTasksPage.jsx"));
 const StorePage            = lazy(() => import("./pages/StorePage.jsx"));
 
 import CommandPalette from "./components/CommandPalette.jsx";
@@ -125,6 +126,7 @@ export default function App() {
               <Route path="manga-servers" element={<AdminMangaServersPage />} />
               <Route path="notifications" element={<AdminNotificationsPage />} />
               <Route path="workers" element={<AdminWorkersPage />} />
+              <Route path="tasks" element={<AdminTasksPage />} />
             </Route>
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/collectionneurs" element={<DiscoverPage />} />

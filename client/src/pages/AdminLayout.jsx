@@ -35,6 +35,7 @@ export default function AdminLayout() {
             <SubLink to="/admin/manga-servers">{t("admin.tab.manga_servers")}</SubLink>
             <SubLink to="/admin/notifications">{t("admin.tab.notifications")}</SubLink>
             <SubLink to="/admin/workers">{t("admin.tab.workers")}</SubLink>
+            <SubLink to="/admin/tasks">{t("admin.tab.tasks")}</SubLink>
           </nav>
         </div>
       </header>

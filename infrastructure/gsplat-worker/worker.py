@@ -27,6 +27,8 @@ Environment:
                           images (default false; mandatory for turntable captures)
     COLMAP_USE_GPU        optional, run COLMAP feature extraction on the GPU via
                           its CUDA path (default true); set false to force CPU
+    RECOVER_ABANDONED     optional, at boot re-queue this worker's 'processing'
+                          scans abandoned on a restart (default true)
 """
 
 from __future__ import annotations
@@ -89,6 +91,10 @@ COLMAP_USE_GPU = os.environ.get("COLMAP_USE_GPU", "true").lower() in ("1", "true
 # no X server. The Dockerfile sets this too — this is belt-and-suspenders for
 # running the worker outside the image. CUDA SIFT needs no GL context.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+# At boot, re-queue scans this worker left in 'processing' when its previous
+# incarnation was restarted mid-job. Disable with RECOVER_ABANDONED=false.
+RECOVER_ABANDONED = os.environ.get("RECOVER_ABANDONED", "true").lower() in ("1", "true", "yes")
 
 # Worker registration. The backend's offline detector waits 3 × this interval
 # (per `domain::worker::OFFLINE_MISS_THRESHOLD`) before flagging us offline,
@@ -180,6 +186,13 @@ async def main() -> None:
         iterations=TRAINING_ITERATIONS,
     )
     log_gpu_diagnostics()
+    if RECOVER_ABANDONED:
+        try:
+            n = await recover_abandoned(pool, state.id)
+            if n:
+                log.info("recovered abandoned scans → re-queued", count=n, worker_id=str(state.id))
+        except Exception as e:  # noqa: BLE001
+            log.warning("recover_abandoned failed", error=str(e))
     heartbeat_task = asyncio.create_task(_heartbeat_loop(pool, state))
     try:
         while True:
@@ -188,7 +201,7 @@ async def main() -> None:
             if not state.enabled:
                 await asyncio.sleep(POLL_INTERVAL)
                 continue
-            scan = await claim_next_pending(pool)
+            scan = await claim_next_pending(pool, state.id)
             if scan is None:
                 await asyncio.sleep(POLL_INTERVAL)
                 continue
@@ -350,12 +363,13 @@ async def _heartbeat_loop(pool: asyncpg.Pool, state: WorkerState) -> None:
 # -----------------------------------------------------------------------------
 
 
-async def claim_next_pending(pool: asyncpg.Pool) -> asyncpg.Record | None:
+async def claim_next_pending(pool: asyncpg.Pool, worker_id: Any) -> asyncpg.Record | None:
     async with pool.acquire() as conn:
         return await conn.fetchrow(
             """
             UPDATE scans
-               SET state = 'processing', updated_at = now()
+               SET state = 'processing', worker_id = $1, claimed_at = now(),
+                   finished_at = NULL, attempts = attempts + 1, updated_at = now()
              WHERE id = (
                  SELECT id FROM scans
                   WHERE state = 'pending' AND kind = 'gsplat'
@@ -364,14 +378,33 @@ async def claim_next_pending(pool: asyncpg.Pool) -> asyncpg.Record | None:
                   LIMIT 1
              )
          RETURNING id, storage_prefix, frame_count
-            """
+            """,
+            worker_id,
         )
+
+
+async def recover_abandoned(pool: asyncpg.Pool, worker_id: Any) -> int:
+    """Re-queue scans this worker left in 'processing' — i.e. abandoned when its
+    previous incarnation restarted mid-job. Reset to 'pending' so the normal poll
+    re-claims them (which bumps `attempts` again). Returns how many were recovered."""
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            UPDATE scans
+               SET state = 'pending', worker_id = NULL, claimed_at = NULL,
+                   progress = NULL, updated_at = now()
+             WHERE worker_id = $1 AND state = 'processing' AND kind = 'gsplat'
+         RETURNING id
+            """,
+            worker_id,
+        )
+    return len(rows)
 
 
 async def mark_ready(pool: asyncpg.Pool, scan_id: Any, result_key: str) -> None:
     async with pool.acquire() as conn:
         await conn.execute(
-            "UPDATE scans SET state='ready', result_key=$1, progress=100, error_message=NULL, updated_at=now() WHERE id=$2",
+            "UPDATE scans SET state='ready', result_key=$1, progress=100, error_message=NULL, finished_at=now(), updated_at=now() WHERE id=$2",
             result_key,
             scan_id,
         )
@@ -380,7 +413,7 @@ async def mark_ready(pool: asyncpg.Pool, scan_id: Any, result_key: str) -> None:
 async def mark_failed(pool: asyncpg.Pool, scan_id: Any, error: str) -> None:
     async with pool.acquire() as conn:
         await conn.execute(
-            "UPDATE scans SET state='failed', error_message=$1, updated_at=now() WHERE id=$2",
+            "UPDATE scans SET state='failed', error_message=$1, finished_at=now(), updated_at=now() WHERE id=$2",
             error[:8000],
             scan_id,
         )

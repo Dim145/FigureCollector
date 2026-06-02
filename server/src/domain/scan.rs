@@ -26,6 +26,139 @@ pub struct Scan {
 
 pub const ALLOWED_KINDS: &[&str] = &["turntable", "gsplat"];
 
+// =============================================================================
+// Admin queue management (Lot 9) — the gsplat task queue surfaced to admins.
+// Every function here is scoped to `kind = 'gsplat'`; turntables are user
+// content (no worker), never touched.
+// =============================================================================
+
+/// One row of the admin "Tasks" view: a gsplat scan enriched with the figurine
+/// it belongs to, its owner, and the worker that claimed it.
+#[derive(Debug, Clone, Serialize, FromRow)]
+pub struct AdminScan {
+    pub id: Uuid,
+    pub owned_item_id: Uuid,
+    pub state: String,
+    pub frame_count: i32,
+    pub result_key: Option<String>,
+    pub error_message: Option<String>,
+    pub progress: Option<i16>,
+    pub attempts: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub claimed_at: Option<DateTime<Utc>>,
+    pub finished_at: Option<DateTime<Utc>>,
+    pub figure_id: Uuid,
+    pub figure_name: String,
+    pub figure_slug: String,
+    pub owner_username: String,
+    pub worker_id: Option<Uuid>,
+    /// display_name when set, else hostname; `None` if no worker has claimed it.
+    pub worker_name: Option<String>,
+}
+
+/// All gsplat tasks, most-recent activity first, capped.
+pub async fn admin_list(pool: &PgPool, limit: i64) -> AppResult<Vec<AdminScan>> {
+    let limit = limit.clamp(1, 500);
+    Ok(sqlx::query_as::<_, AdminScan>(
+        "SELECT s.id, s.owned_item_id, s.state, s.frame_count, s.result_key,
+                s.error_message, s.progress, s.attempts, s.created_at, s.updated_at,
+                s.claimed_at, s.finished_at,
+                f.id AS figure_id, f.name AS figure_name, f.slug AS figure_slug,
+                u.username AS owner_username,
+                s.worker_id,
+                COALESCE(w.display_name, w.hostname) AS worker_name
+         FROM scans s
+         JOIN owned_items o ON o.id = s.owned_item_id
+         JOIN figures f      ON f.id = o.figure_id
+         JOIN users u        ON u.id = o.user_id
+         LEFT JOIN workers w ON w.id = s.worker_id
+         WHERE s.kind = 'gsplat'
+         ORDER BY s.updated_at DESC
+         LIMIT $1",
+    )
+    .bind(limit)
+    .fetch_all(pool)
+    .await?)
+}
+
+/// Re-queue a FAILED task: back to `pending`, ownership + failure cleared.
+pub async fn admin_retry(pool: &PgPool, id: Uuid) -> AppResult<()> {
+    let res = sqlx::query(
+        "UPDATE scans
+            SET state='pending', worker_id=NULL, claimed_at=NULL, finished_at=NULL,
+                error_message=NULL, progress=NULL, updated_at=now()
+          WHERE id=$1 AND kind='gsplat' AND state='failed'",
+    )
+    .bind(id)
+    .execute(pool)
+    .await?;
+    if res.rows_affected() == 0 {
+        return Err(AppError::BadRequest("not a failed gsplat task"));
+    }
+    Ok(())
+}
+
+/// Force a non-terminal task (pending/processing) to `failed` — the manual
+/// escape hatch for a wedged job. If a worker is still on it, its later
+/// completion may overwrite this; that's acceptable (the admin gave up on it).
+pub async fn admin_mark_failed(pool: &PgPool, id: Uuid) -> AppResult<()> {
+    let res = sqlx::query(
+        "UPDATE scans
+            SET state='failed', finished_at=now(),
+                error_message=COALESCE(NULLIF(error_message, ''),
+                                       'Marquée comme échouée par un administrateur'),
+                updated_at=now()
+          WHERE id=$1 AND kind='gsplat' AND state IN ('pending','processing')",
+    )
+    .bind(id)
+    .execute(pool)
+    .await?;
+    if res.rows_affected() == 0 {
+        return Err(AppError::BadRequest("task is not pending or processing"));
+    }
+    Ok(())
+}
+
+/// Delete a TERMINAL task; returns `(storage_prefix, result_key)` so the caller
+/// can purge the Garage blobs. Refuses non-terminal tasks.
+pub async fn admin_delete(pool: &PgPool, id: Uuid) -> AppResult<(String, Option<String>)> {
+    sqlx::query_as::<_, (String, Option<String>)>(
+        "DELETE FROM scans
+          WHERE id=$1 AND kind='gsplat' AND state IN ('ready','failed')
+        RETURNING storage_prefix, result_key",
+    )
+    .bind(id)
+    .fetch_optional(pool)
+    .await?
+    .ok_or(AppError::BadRequest("task is not in a terminal state"))
+}
+
+/// Auto-cleanup: keep the `keep` most-recent SUCCESSFUL gsplat scans PER
+/// owned_item, delete the rest. Returns their `(storage_prefix, result_key)`
+/// for Garage purge. Never touches turntables, failures, or in-flight jobs —
+/// so a figurine never loses its only model, just stale re-scans.
+pub async fn cleanup_completed(pool: &PgPool, keep: i64) -> AppResult<Vec<(String, Option<String>)>> {
+    let keep = keep.max(1);
+    Ok(sqlx::query_as::<_, (String, Option<String>)>(
+        "WITH ranked AS (
+            SELECT id, storage_prefix, result_key,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY owned_item_id
+                       ORDER BY finished_at DESC NULLS LAST, created_at DESC
+                   ) AS rn
+            FROM scans
+            WHERE kind='gsplat' AND state='ready'
+         )
+         DELETE FROM scans
+          WHERE id IN (SELECT id FROM ranked WHERE rn > $1)
+        RETURNING storage_prefix, result_key",
+    )
+    .bind(keep)
+    .fetch_all(pool)
+    .await?)
+}
+
 pub async fn create(
     pool: &PgPool,
     owned_item_id: Uuid,

@@ -8,6 +8,7 @@ use crate::domain::figure;
 use crate::domain::figure_type::{self, FigureTypePatch, NewFigureType};
 use crate::domain::manga_servers::{self, MangaServer, MangaServerAdmin};
 use crate::domain::notification;
+use crate::domain::scan::{self, AdminScan};
 use crate::domain::store::{self, NewStore, StorePatch, StoreUsage};
 use crate::domain::worker::{self, WorkerPatch, WorkerView};
 use crate::error::{AppError, AppResult};
@@ -812,6 +813,53 @@ async fn delete_manga_server(
     Ok(StatusCode::NO_CONTENT)
 }
 
+// ---------- /admin/scans — gsplat task queue --------------------------------
+//
+// The scans table is already a Postgres queue; these surface it to admins +
+// expose retry / force-fail / delete. All scoped to kind='gsplat' in the domain.
+
+async fn list_scans_admin(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<Vec<AdminScan>>> {
+    auth::require_admin(&session, &state.pool).await?;
+    Ok(Json(scan::admin_list(&state.pool, 200).await?))
+}
+
+async fn retry_scan(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+) -> AppResult<StatusCode> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    scan::admin_retry(&state.pool, id).await?;
+    tracing::info!(scan = %id, by_admin = %actor.id, "admin re-queued scan");
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn fail_scan(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+) -> AppResult<StatusCode> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    scan::admin_mark_failed(&state.pool, id).await?;
+    tracing::info!(scan = %id, by_admin = %actor.id, "admin marked scan failed");
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn delete_scan_admin(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+) -> AppResult<StatusCode> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    let (prefix, result_key) = scan::admin_delete(&state.pool, id).await?;
+    crate::services::scan_cleanup::purge_scan_blobs(&state, &prefix, result_key.as_deref()).await;
+    tracing::info!(scan = %id, by_admin = %actor.id, "admin deleted scan");
+    Ok(StatusCode::NO_CONTENT)
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/admin/overview", get(overview))
@@ -887,6 +935,11 @@ pub fn router() -> Router<AppState> {
         )
         .route("/admin/manga-servers/{id}/approve", post(approve_manga_server))
         .route("/admin/manga-servers/{id}/revoke", post(revoke_manga_server))
+        // ─── scans — gsplat task queue ──────────────────────────────────────
+        .route("/admin/scans", get(list_scans_admin))
+        .route("/admin/scans/{id}", axum::routing::delete(delete_scan_admin))
+        .route("/admin/scans/{id}/retry", post(retry_scan))
+        .route("/admin/scans/{id}/fail", post(fail_scan))
 }
 
 /// Photo upload routes for catalog entities. Split out so `routes::mod` can
