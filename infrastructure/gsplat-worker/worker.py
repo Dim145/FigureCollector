@@ -35,6 +35,7 @@ Environment:
 from __future__ import annotations
 
 import asyncio
+import gc
 import json
 import os
 import platform
@@ -109,6 +110,11 @@ WORKER_KIND = "cuda"
 WORKER_VERSION = "0.1.0"
 
 MIN_FRAMES = 6
+# COLMAP must register at least this many frames for a non-degenerate sparse
+# model. Fewer (e.g. a turntable COLMAP couldn't solve) yields a near-empty
+# point cloud → ~0 gaussians → splatfacto dies deep in CUDA ("invalid
+# configuration argument" from a zero-config kernel launch). Fail clean instead.
+MIN_REGISTERED = 10
 
 log = structlog.get_logger()
 
@@ -472,10 +478,15 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
             raise RuntimeError(f"only {n_frames} usable frames; need >= {MIN_FRAMES}")
 
         progress(20)
-        # 2. (Masking moved AFTER COLMAP — see step 3b.) COLMAP runs on the
-        #    untouched frames, so the camera poses are exactly the ones that
-        #    already reconstruct well; masking the *loss* is what keeps the
-        #    background out of the fit, without risking the registration.
+        # 2. Mask the background BEFORE COLMAP. On a turntable the camera is
+        #    fixed and only the figure rotates, so COLMAP (which assumes a static
+        #    scene + a moving camera) locks onto the static backdrop and registers
+        #    almost nothing — we saw 2/100. Compositing the rembg cutout onto
+        #    solid black strips the backdrop's features, so SfM tracks the
+        #    rotating figure instead (an object-orbit it CAN solve). This mirrors
+        #    what the macOS worker does via COLMAP's mask_path.
+        if ENABLE_MASKING:
+            _mask_for_colmap(images, scan_id)
 
         progress(32)
         # 3. Nerfstudio's image processor runs COLMAP internally and writes a
@@ -500,6 +511,23 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
         else:
             # Force the CPU path — no GPU / no display dependency at all.
             _run(*nsproc, "--no-gpu")
+
+        # COLMAP done — how many frames actually registered? ns-process-data
+        # silently drops the ones it couldn't, and too few means a degenerate
+        # sparse model that makes splatfacto crash deep in CUDA ("invalid
+        # configuration argument" from a near-zero-gaussian kernel launch).
+        # Fail loud and early with an actionable message instead.
+        n_reg = _count_registered_frames(processed)
+        log.info("colmap registered frames", scan_id=str(scan_id),
+                 registered=n_reg, extracted=n_frames)
+        if n_reg < MIN_REGISTERED:
+            raise RuntimeError(
+                f"COLMAP registered only {n_reg}/{n_frames} frames — too few for a "
+                f"usable splat (needs >= {MIN_REGISTERED}). Usually a capture/SfM "
+                f"issue: a glossy or low-texture figure, too-fast rotation, or a "
+                f"busy background. Try a slower, steadier turntable and even, "
+                f"diffuse lighting."
+            )
 
         # 3b. Wire foreground masks into the COLMAP-processed dataset so
         #     splatfacto's LOSS ignores the background. It multiplies gt+pred by
@@ -647,6 +675,53 @@ def _extract_video_frames(video: Path, images: Path, scan_id: Any) -> int:
     return len(list(images.glob("frame_*.png")))
 
 
+def _mask_for_colmap(images: Path, scan_id: Any) -> None:
+    """Composite each frame's rembg foreground onto solid black, IN PLACE, before
+    COLMAP runs. On a turntable the background is static while the figure rotates,
+    which COLMAP can't solve (it sees a still camera) so it registers almost
+    nothing. A uniform black backdrop yields no SIFT features, so SfM tracks the
+    figure instead — the nerfstudio-friendly equivalent of the macOS worker's
+    COLMAP mask_path. Best-effort: on any failure COLMAP just runs on the raw
+    frames (fine for non-turntable captures)."""
+    try:
+        from rembg import new_session, remove  # type: ignore
+    except Exception:  # noqa: BLE001
+        log.warning("masking on but rembg unavailable; COLMAP runs on raw frames",
+                    scan_id=str(scan_id))
+        return
+    try:
+        session = new_session(
+            "u2net", providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
+        )
+        n = 0
+        for img in sorted(images.glob("*.png")):
+            with Image.open(img) as im:
+                cut = remove(im.convert("RGBA"), session=session)
+            flat = Image.new("RGB", cut.size, (0, 0, 0))
+            flat.paste(cut, mask=cut.split()[-1])
+            flat.save(img)
+            n += 1
+        # Free rembg's GPU memory before COLMAP/ns-train claim the card (6 GB).
+        del session
+        gc.collect()
+        log.info("frames masked for COLMAP (black background)",
+                 scan_id=str(scan_id), count=n)
+    except Exception as e:  # noqa: BLE001 — masking must never fail the job
+        log.warning("COLMAP masking failed; using raw frames",
+                    scan_id=str(scan_id), error=str(e))
+
+
+def _count_registered_frames(processed: Path) -> int:
+    """How many frames COLMAP registered, per the nerfstudio transforms.json."""
+    tj = processed / "transforms.json"
+    if not tj.exists():
+        return 0
+    try:
+        return len(json.loads(tj.read_text()).get("frames") or [])
+    except Exception:  # noqa: BLE001
+        return 0
+
+
 def _apply_loss_masks(processed: Path, scan_id: Any) -> int:
     """Generate per-frame foreground masks (rembg) for the COLMAP-processed
     dataset and wire them into transforms.json so splatfacto's loss ignores the
@@ -721,6 +796,9 @@ def _apply_loss_masks(processed: Path, scan_id: Any) -> int:
             mask = cut.split()[-1].point(lambda a: 255 if a > 10 else 0).convert("L")
             mask.save(masks_dir / mask_name)
             fr["mask_path"] = f"masks/{mask_name}"
+        # Free rembg's GPU memory before ns-train claims the card (6 GB is tight).
+        del session
+        gc.collect()
         # Every frame masked → commit transforms.json in one shot.
         tj.write_text(json.dumps(data, indent=2))
         log.info("loss masks wired into transforms.json", scan_id=str(scan_id), count=len(frames))
