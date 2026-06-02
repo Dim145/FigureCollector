@@ -104,8 +104,21 @@ RUN micromamba create -y -n sfm -c conda-forge "colmap=*=cpu*" && \
 # trainer as the macOS worker. splatfacto on this data was soft + hazy; Brush is
 # crisper and masks via the per-frame alpha. Install the Vulkan runtime + tools,
 # then drop in the prebuilt Linux binary from the GitHub release.
+#
+# Vulkan loader: Ubuntu 22.04's stock libvulkan1 (1.3.204) is TOO OLD to
+# initialise the host's 575 driver ICD — the NVIDIA libs are injected fine
+# (libGLX_nvidia.so.575…) but the loader↔ICD handshake fails ("Could not get
+# vkCreateInstance via vk_icdGetInstanceProcAddr" → ERROR_INCOMPATIBLE_DRIVER),
+# which is the documented driver-570+ container-Vulkan break. Pull a recent
+# loader from the LunarG SDK repo instead of the stale distro one.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      libvulkan1 vulkan-tools xz-utils ca-certificates curl && \
+      ca-certificates curl xz-utils && \
+    curl -fSL https://packages.lunarg.com/lunarg-signing-key-pub.asc \
+      -o /etc/apt/trusted.gpg.d/lunarg.asc && \
+    curl -fSL https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list \
+      -o /etc/apt/sources.list.d/lunarg-vulkan-jammy.list && \
+    apt-get update && apt-get install -y --no-install-recommends \
+      libvulkan1 vulkan-tools && \
     rm -rf /var/lib/apt/lists/*
 ARG BRUSH_VERSION=v0.3.0
 RUN curl -fSL -o /tmp/brush.tar.xz \
