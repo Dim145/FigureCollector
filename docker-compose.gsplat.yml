@@ -33,10 +33,16 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
       S3_REGION: ${S3_REGION:-garage}
       POLL_INTERVAL: ${POLL_INTERVAL:-10}
+      # gsplat MCMC training iterations. 30k is the splatting standard; 15k is a
+      # faster, slightly softer fit.
       TRAINING_ITERATIONS: ${TRAINING_ITERATIONS:-30000}
-      # Longest image side Brush trains on — the VRAM lever for the 6 GB card;
-      # raise for sharper results if VRAM allows.
-      BRUSH_MAX_RESOLUTION: ${BRUSH_MAX_RESOLUTION:-1600}
+      # MCMC Gaussian cap — the dominant VRAM lever (MCMC grows to the cap and
+      # holds it). 250k fits a single figure on a 6 GB card; lower on OOM, raise
+      # for more detail if VRAM allows.
+      GSPLAT_CAP_MAX: ${GSPLAT_CAP_MAX:-250000}
+      # Longest image side trained on — the other VRAM lever. Raise for sharper
+      # results if VRAM allows; lower on OOM.
+      GSPLAT_MAX_RES: ${GSPLAT_MAX_RES:-1600}
       # COLMAP feature extraction + matching on the GPU (CUDA). Set
       # COLMAP_USE_GPU=false to force CPU. The COLMAP 4.x mapper stays on CPU.
       COLMAP_USE_GPU: ${COLMAP_USE_GPU:-true}
@@ -45,18 +51,17 @@ services:
       # mapper-speed lever (GPU doesn't help at this scale). Bump to 16384 if
       # registration drops on a hard capture. Pair with a higher `cpus` below.
       COLMAP_MAX_FEATURES: ${COLMAP_MAX_FEATURES:-8192}
-      # `all` (or at least compute,utility,graphics): `graphics` is REQUIRED for
-      # Brush, which trains via Vulkan (wgpu) — `compute,utility` alone leaves the
-      # NVIDIA Vulkan ICD un-injected and Brush sees no GPU.
-      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES:-all}
+      # Everything here is CUDA (COLMAP SIFT, rembg, gsplat training), so
+      # compute,utility is enough — no `graphics`/Vulkan needed any more.
+      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
       # Frame budget. With CUDA SIFT the feature step is cheap; the cost left on
       # CPU is the mapper. 100 frames is a good default; raise to 150 (and
       # VIDEO_MAX_DIM to 2048) for more detail if your host has the RAM.
       VIDEO_TARGET_FRAMES: ${VIDEO_TARGET_FRAMES:-100}
       VIDEO_MAX_DIM: ${VIDEO_MAX_DIM:-1600}
-      # rembg-mask the figure (on by default — it's an object scanner). The
-      # cutout's alpha is baked into the frames (Brush skips the background) and
-      # a binary mask feeds COLMAP's mask_path (SfM tracks the figure).
+      # rembg-mask the figure (on by default — it's an object scanner). One pass
+      # feeds COLMAP's mask_path (SfM tracks the figure) and the trainer's loss
+      # (background pixels contribute zero loss → no haze).
       ENABLE_MASKING: ${ENABLE_MASKING:-true}
     deploy:
       resources:

@@ -25,9 +25,10 @@ compile). Pin the base for reproducibility:
 
 Because COLMAP is built with CUDA, feature extraction + matching run **on the
 GPU, headless** (`COLMAP_USE_GPU=true`, the default) — no X server / Xvfb. The
-COLMAP 4.x mapper runs on CPU (Ceres); the splat training (**Brush**) runs on the
-GPU via **Vulkan**. Read the `gpu: …` lines the worker logs at startup — they
-report the CUDA device (COLMAP SIFT) AND whether Vulkan sees the GPU (Brush).
+COLMAP 4.x mapper runs on CPU (Ceres); the splat training runs on the GPU via
+**CUDA gsplat** (the rasteriser splatfacto builds on — no Vulkan). Read the
+`gpu: …` lines the worker logs at startup — they report the CUDA device that
+runs COLMAP SIFT, rembg and gsplat training.
 
 ## Run
 
@@ -57,8 +58,9 @@ docker compose logs -f gsplat-worker
    - otherwise decode the stored WebP frames to PNG.
 3. *(default on)* **Foreground masks** — when `ENABLE_MASKING=true`, `rembg`
    segments each frame **on the GPU** (`onnxruntime-gpu` / CUDA EP, logged per
-   scan; degrades to CPU if it can't bind) into two mask sets: COLMAP's
-   `mask_path` form and nerfstudio's per-frame masks. Best-effort.
+   scan; degrades to CPU if it can't bind) into two binary mask sets from one
+   pass (the frames stay clean RGB): COLMAP's `mask_path` form (SfM tracks the
+   figure) and the trainer's per-frame loss masks. Best-effort.
 4. **SfM** — COLMAP feature extraction + **sequential** matching on the GPU (the
    image's CUDA COLMAP 3.9.1; many weak SIFT features + `mask_path` so SfM tracks
    the figure, not the static backdrop), then the **COLMAP 4.x** incremental
@@ -67,21 +69,25 @@ docker compose logs -f gsplat-worker
    one run and 100/100 the next). COLMAP 4.0's reworked mapper is what the macOS
    Homebrew COLMAP runs. Keeps the largest sub-model; fails with an actionable
    message if fewer than 10 frames register.
-5. **Brush** (wgpu → Vulkan on the NVIDIA GPU) trains the Gaussian splat from the
-   COLMAP dataset (`images/` + `sparse/0`), using each frame's baked alpha as the
-   foreground mask. `TRAINING_ITERATIONS` iters, capped to `BRUSH_MAX_RESOLUTION`
-   for the 6 GB card. Runs headless and exports the `.ply` directly.
+5. **gsplat MCMC** (`gsplat_mcmc.py`, pure CUDA) trains the Gaussian splat from
+   the COLMAP dataset (`images/` + `sparse/0`). The MCMC strategy caps the
+   Gaussian count (`GSPLAT_CAP_MAX`) and *relocates* low-opacity Gaussians
+   instead of letting them linger, and the per-frame loss masks make the
+   background contribute zero loss — together that's the haze fix. Runs as a
+   subprocess (VRAM freed on exit) for `TRAINING_ITERATIONS` iters at up to
+   `GSPLAT_MAX_RES` px, and writes the `.ply` directly.
 6. **Upload** the `.ply` back to Garage at `scans/{scan_id}/result.ply`.
 7. **Mark** the scan `state='ready', result_key=…`.
 
 If anything fails, the scan is set to `state='failed'` with the truncated
 traceback in `error_message`.
 
-> This worker now mirrors the macOS [`splat-worker-mac`](../splat-worker-mac/)
-> end to end: same ffmpeg sampling, tuned SIFT extraction + `mask_path`,
-> sequential matching, the **same COLMAP 4.x incremental mapper** (conda-forge
-> here, Homebrew on the Mac), and the **same Brush trainer** — wgpu→Vulkan on the
-> NVIDIA GPU here vs wgpu→Metal on the Mac.
+> This worker shares the macOS [`splat-worker-mac`](../splat-worker-mac/)
+> front-end end to end — same ffmpeg sampling, tuned SIFT extraction +
+> `mask_path`, sequential matching, and the **same COLMAP 4.x incremental
+> mapper** (conda-forge here, Homebrew on the Mac) — but trains differently: the
+> Mac uses Brush (wgpu→Metal), while here we train with **CUDA gsplat (MCMC)**,
+> since Brush's Vulkan backend can't initialise the host's 575 driver in-container.
 
 ## Tunables
 
@@ -93,12 +99,13 @@ traceback in `error_message`.
 | `S3_ACCESS_KEY` / `S3_SECRET_KEY` | — | required |
 | `S3_REGION` | `garage` | matches the value in `infrastructure/garage/garage.toml` |
 | `POLL_INTERVAL` | `10` | seconds between polls when the queue is empty |
-| `TRAINING_ITERATIONS` | `30000` | Brush `--total-train-iters` (matches the macOS worker) |
+| `TRAINING_ITERATIONS` | `30000` | gsplat MCMC training iterations (30k standard; 15k faster/softer) |
 | `VIDEO_TARGET_FRAMES` | `150` | frames sampled from a source video (if present) |
 | `VIDEO_MAX_DIM` | `2048` | max-dim cap on extracted frames |
 | `COLMAP_MAX_FEATURES` | `8192` | SIFT features/image; 8192 ~halves matching + the CPU mapper vs 16384 with no quality loss on glossy turntables (the main mapper-speed lever — GPU BA doesn't help at ~150 imgs); bump to 16384 if registration drops |
-| `BRUSH_MAX_RESOLUTION` | `1600` | longest image side Brush trains on — the VRAM lever for the 6 GB 3050; raise for sharper results if VRAM allows |
-| `ENABLE_MASKING` | `true` | rembg-mask the figure → COLMAP `mask_path` (SfM tracks the figure, essential on a turntable) + baked alpha that Brush uses to skip the background |
+| `GSPLAT_CAP_MAX` | `250000` | MCMC Gaussian cap — the dominant VRAM lever (MCMC grows to the cap, then holds it); lower on OOM, raise for more detail |
+| `GSPLAT_MAX_RES` | `1600` | longest image side the trainer renders — the other VRAM lever; raise for sharper results if VRAM allows |
+| `ENABLE_MASKING` | `true` | rembg-mask the figure (one pass) → COLMAP `mask_path` (SfM tracks the figure, essential on a turntable) + per-frame loss masks (background contributes zero loss → no haze) |
 
 ## Recovering a stuck scan
 
