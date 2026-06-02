@@ -20,12 +20,13 @@ Environment:
     S3_SECRET_KEY         required
     S3_REGION             optional, defaults to "garage"
     POLL_INTERVAL         optional, seconds between polls (default 10)
-    TRAINING_ITERATIONS   optional, splatfacto max-num-iterations (default 30000)
+    TRAINING_ITERATIONS   optional, Brush --total-train-iters (default 30000)
     VIDEO_TARGET_FRAMES   optional, frames sampled from a source video (default 150)
     VIDEO_MAX_DIM         optional, max-dim cap on extracted frames (default 2048)
-    ENABLE_MASKING        optional, rembg-mask the figure (default true) — fed to
-                          COLMAP's mask_path so SfM tracks the figure not the
-                          backdrop, and to splatfacto's loss to drop the bg
+    BRUSH_MAX_RESOLUTION  optional, longest image side Brush trains on (default 1600)
+    ENABLE_MASKING        optional, rembg-mask the figure (default true) — its alpha
+                          is baked into the frames (Brush skips the bg) and a binary
+                          mask feeds COLMAP's mask_path (SfM tracks the figure)
     COLMAP_USE_GPU        optional, run COLMAP feature extraction on the GPU via
                           its CUDA path (default true); set false to force CPU
     RECOVER_ABANDONED     optional, at boot re-queue this worker's 'processing'
@@ -83,10 +84,9 @@ VIDEO_MAX_DIM = int(os.environ.get("VIDEO_MAX_DIM", "2048"))
 # Background masking. On by default — this is an object scanner, so the figure
 # should be isolated from whatever it sits on. When on, rembg masks each frame
 # (before COLMAP) and we feed them BOTH to COLMAP's mask_path (so SfM ignores the
-# static turntable backdrop — essential, or it registers almost nothing) AND to
-# splatfacto's loss via the colmap dataparser (so the background never accretes
-# gaussians). Best-effort: if rembg is missing or errors, COLMAP and training
-# run unmasked.
+# static turntable backdrop — essential, or it registers almost nothing) AND its
+# alpha is baked into the frames so Brush skips the background during the fit.
+# Best-effort: if rembg is missing or errors, COLMAP and training run unmasked.
 ENABLE_MASKING = os.environ.get("ENABLE_MASKING", "true").lower() in ("1", "true", "yes")
 # Run COLMAP feature extraction + matching on the GPU. This image ships a
 # CUDA-built COLMAP, which selects its CUDA SIFT automatically on a headless host
@@ -114,9 +114,24 @@ WORKER_VERSION = "0.1.0"
 MIN_FRAMES = 6
 # COLMAP must register at least this many frames for a non-degenerate sparse
 # model. Fewer (e.g. a turntable COLMAP couldn't solve) yields a near-empty
-# point cloud → ~0 gaussians → splatfacto dies deep in CUDA ("invalid
-# configuration argument" from a zero-config kernel launch). Fail clean instead.
+# point cloud → too few gaussians → a degenerate splat or a hard crash in the
+# trainer. Fail clean with an actionable message instead.
 MIN_REGISTERED = 10
+
+# SIFT features per image for COLMAP extraction. 8192 is plenty for a turntable
+# (closely-spaced views) and roughly halves matching + the CPU mapper's bundle
+# adjustment vs 16384 — on glossy figures the extra detections are mostly
+# unstable, view-dependent highlight noise. Bump to 16384 if registration drops
+# on a hard capture (it's the macOS worker's value).
+COLMAP_MAX_FEATURES = int(os.environ.get("COLMAP_MAX_FEATURES", "8192"))
+
+# Brush — the Gaussian-splat trainer (wgpu → Vulkan on the NVIDIA GPU), same
+# trainer as the macOS worker. BRUSH_BIN is the binary baked into the image;
+# BRUSH_MAX_RESOLUTION caps the longest image side Brush trains on — the dominant
+# VRAM lever on the 6 GB 3050 (Brush's own default is 1920; we go a touch lower
+# for headroom). Raise it for sharper results if VRAM allows.
+BRUSH_BIN = os.environ.get("BRUSH_BIN", "/usr/local/bin/brush")
+BRUSH_MAX_RESOLUTION = int(os.environ.get("BRUSH_MAX_RESOLUTION", "1600"))
 
 log = structlog.get_logger()
 
@@ -145,11 +160,11 @@ class WorkerState:
 
 
 def log_gpu_diagnostics() -> None:
-    """Boot-time GPU self-test. Logs the CUDA device torch sees and what
-    nvidia-smi reports — i.e. the GPU that runs COLMAP's CUDA SIFT (feature
-    extraction + matching) AND trains the splat (`ns-train splatfacto`). If CUDA
-    is missing here, COLMAP_USE_GPU=true won't help and training would crawl."""
-    # (1) CUDA compute — the splat-training path (the GPU work that matters).
+    """Boot-time GPU self-test. Logs the CUDA device torch sees + nvidia-smi (the
+    GPU that runs COLMAP's CUDA SIFT — feature extraction + matching), then probes
+    Vulkan, which Brush uses to train the splat. If CUDA is missing here,
+    COLMAP_USE_GPU=true won't help; if Vulkan can't see the GPU, Brush can't train."""
+    # (1) CUDA compute — drives COLMAP's GPU SIFT (extraction + matching).
     try:
         import torch  # local import: heavy, only needed for the probe
         if torch.cuda.is_available():
@@ -183,6 +198,30 @@ def log_gpu_diagnostics() -> None:
         "gpu: COLMAP feature extraction",
         mode="CUDA (GPU)" if COLMAP_USE_GPU else "CPU (--no-gpu)",
     )
+
+    # (4) Vulkan — Brush trains via wgpu → Vulkan, so confirm the NVIDIA GPU is
+    #     visible to the Vulkan loader (needs NVIDIA_DRIVER_CAPABILITIES to
+    #     include `graphics`/`all`). If only llvmpipe shows up the NVIDIA ICD
+    #     wasn't injected → Brush would fall back to CPU (unusably slow) or fail.
+    #     This front-loads the check to BOOT so a broken Vulkan setup shows here,
+    #     not after a ~30-min SfM.
+    try:
+        vk = subprocess.run(
+            ["vulkaninfo", "--summary"], capture_output=True, text=True, timeout=30,
+        )
+        out = (vk.stdout or "") + (vk.stderr or "")
+        if "NVIDIA" in out:
+            dev = next((ln.strip() for ln in out.splitlines()
+                        if "deviceName" in ln and "NVIDIA" in ln), "NVIDIA device present")
+            log.info("gpu: Vulkan available (used by Brush training)", device=dev)
+        elif "llvmpipe" in out.lower():
+            log.warning("gpu: Vulkan sees only llvmpipe (CPU) — NVIDIA ICD missing; Brush "
+                        "would be unusably slow. Check NVIDIA_DRIVER_CAPABILITIES=all and "
+                        "/etc/vulkan/icd.d/nvidia_icd.json")
+        else:
+            log.warning("gpu: vulkaninfo found no NVIDIA Vulkan device", tail=out.strip()[-300:])
+    except Exception as e:  # noqa: BLE001
+        log.warning("gpu: vulkaninfo unavailable (vulkan-tools / libvulkan1 missing?)", error=str(e))
 
 
 async def main() -> None:
@@ -470,8 +509,14 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
     progress(8)
     with tempfile.TemporaryDirectory(prefix="gsplat-") as tmp_str:
         tmp = Path(tmp_str)
-        images = tmp / "images"
-        images.mkdir()
+        # COLMAP/Brush dataset layout: <dataset>/images + <dataset>/sparse/0 — the
+        # standard COLMAP layout Brush reads directly. colmap_masks/ (COLMAP's
+        # mask_path) lives OUTSIDE the dataset so Brush doesn't ingest it.
+        dataset = tmp / "dataset"
+        images = dataset / "images"
+        images.mkdir(parents=True, exist_ok=True)
+        colmap_masks_dir = tmp / "colmap_masks"
+        sparse = dataset / "sparse"
 
         # 1. Get frames into images/ — preferring the scan's original video
         #    (full-res, ffmpeg-sampled) over the client's downscaled WebP set.
@@ -480,31 +525,21 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
             raise RuntimeError(f"only {n_frames} usable frames; need >= {MIN_FRAMES}")
 
         progress(20)
-        # Lay out a COLMAP dataset under tmp/: images/ (SfM input + training),
-        # colmap/sparse/0 (the model), masks/ (nerfstudio loss masks),
-        # colmap_masks/ (COLMAP's mask_path). The `colmap` dataparser reads
-        # images/ + colmap/sparse/0 (+ masks/) directly — no transforms.json.
-        masks_dir = tmp / "masks"
-        colmap_masks_dir = tmp / "colmap_masks"
-        sparse = tmp / "colmap" / "sparse"
-
-        # 2. Foreground masks (rembg) — ONE pass, BEFORE COLMAP, in both
-        #    conventions: COLMAP's mask_path (so SfM ignores the static turntable
-        #    backdrop and tracks the rotating figure) and nerfstudio's per-frame
-        #    loss masks (so splatfacto never fits the background). Same binary
-        #    mask, two filenames. We run COLMAP ourselves, so frames are never
-        #    renamed and masks stay aligned by name throughout.
+        # 2. Foreground masks (rembg), BEFORE COLMAP. We bake the cutout's ALPHA
+        #    into each images/<frame>.png (RGBA, transparent background): Brush
+        #    reads that alpha and skips the background during the gaussian fit (the
+        #    macOS recipe), so no haze. The same cutout writes COLMAP-convention
+        #    binary masks to colmap_masks/ for --ImageReader.mask_path, so SfM
+        #    tracks the figure, not the static backdrop. COLMAP reads the RGB (the
+        #    transparent pixels are black), so it's happy with the RGBA frames.
         masked = False
         if ENABLE_MASKING:
-            masked = _make_masks(images, masks_dir, colmap_masks_dir, scan_id)
+            masked = _make_masks(images, colmap_masks_dir, scan_id)
 
         progress(30)
-        # 3. COLMAP SfM, ported from the macOS worker and tuned for the hard case
-        #    (glossy / low-texture figures on a single-ring turntable): many weak
-        #    SIFT features, sequential matching on the ordered video frames, a
-        #    lenient mapper, then keep the largest registered sub-model. ns-process
-        #    -data's stock COLMAP managed only 2/100 here (and took 38 min — the
-        #    wrong matcher). Raises an actionable error if too few frames register.
+        # 3. COLMAP SfM (GPU feature extraction + sequential matching on the
+        #    image's CUDA COLMAP 3.9.1; incremental mapping on COLMAP 4.x from the
+        #    conda env), keeping the largest sub-model → sparse/0.
         _colmap_sfm(
             images, sparse,
             colmap_masks_dir if masked else None,
@@ -512,77 +547,48 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
         )
 
         progress(46)
-        # 4. Train splatfacto on the COLMAP model via the `colmap` dataparser
-        #    (reads images/ + colmap/sparse/0 + masks/ directly). `--vis
-        #    tensorboard` is the documented headless choice. nerfstudio's local
-        #    writer prints per-step "1010 (6.73%)" lines; `_run` streams them and
-        #    we map training 0→100% into our 46→88 band so the bar climbs the
-        #    whole time instead of sitting at 46.
-        trained = tmp / "trained"
-        step_re = re.compile(r"(\d+)\s*\(\s*\d{1,3}(?:\.\d+)?\s*%\s*\)")
+        # 4. Train the Gaussian splat with Brush (wgpu → Vulkan on the NVIDIA GPU)
+        #    — the same trainer as the macOS worker. Brush reads the COLMAP dataset
+        #    (images/ + sparse/0) directly, uses the per-frame alpha as the
+        #    foreground mask, and runs HEADLESS the moment it's given a dataset
+        #    path (no --with-viewer). We cap resolution for the 6 GB card and
+        #    stream Brush's step counter into our 46→88 progress band.
+        out = tmp / "out"
+        out.mkdir()
+        brush_re = re.compile(rf"(\d+)\s*/\s*{TRAINING_ITERATIONS}\b")
         train_pct = [46]
 
         def on_train_line(line: str) -> None:
-            m = step_re.search(line)
+            m = brush_re.search(line)
             if not m:
                 return
-            step = int(m.group(1))
-            done = min(1.0, step / max(1, TRAINING_ITERATIONS))
+            done = min(1.0, int(m.group(1)) / max(1, TRAINING_ITERATIONS))
             overall = 46 + int((88 - 46) * done)
             if overall > train_pct[0]:
                 train_pct[0] = overall
                 progress(overall)
 
-        train_cmd = [
-            "ns-train", "splatfacto",
-            "--data", str(tmp),
-            "--output-dir", str(trained),
-            "--max-num-iterations", str(TRAINING_ITERATIONS),
-            # Penalise long, spikey gaussians (PhysGaussian scale regulariser,
-            # max_gauss_ratio=10) — nerfstudio's documented fix for the
-            # needle/starburst artifact. Off by default upstream.
-            "--pipeline.model.use-scale-regularization", "True",
-            "--vis", "tensorboard",
-            # `colmap` dataparser: read the COLMAP model + images directly.
-            "colmap",
-            "--images-path", "images",
-            "--colmap-path", "colmap/sparse/0",
-            # Train on the full-res images as-is. Without this the colmap
-            # dataparser auto-picks downscale 2, finds no images_2/ folder, and
-            # tries to INTERACTIVELY prompt to generate it ("downscale now? [y/n]")
-            # → EOFError in our headless run. (VRAM lever for the 6 GB card is
-            # VIDEO_MAX_DIM, not this.)
-            "--downscale-factor", "1",
-        ]
-        if masked:
-            # Per-frame loss masks (0 = ignore) → splatfacto skips the background.
-            train_cmd += ["--masks-path", "masks"]
-        _run(*train_cmd, on_line=on_train_line)
+        _run(
+            BRUSH_BIN, str(dataset),
+            "--total-train-iters", str(TRAINING_ITERATIONS),
+            "--max-resolution", str(BRUSH_MAX_RESOLUTION),
+            "--export-every", str(TRAINING_ITERATIONS),
+            "--export-path", str(out),
+            "--export-name", "result.ply",
+            on_line=on_train_line,
+        )
 
         progress(88)
-        # 5. Find the config.yml the trainer produced.
-        configs = sorted(trained.rglob("config.yml"))
-        if not configs:
-            raise RuntimeError("ns-train produced no config.yml")
-        config_path = configs[-1]
-        log.info("training finished", scan_id=str(scan_id), config=str(config_path))
-
-        # 6. Export the Gaussian Splat to .ply.
-        export_dir = tmp / "export"
-        _run(
-            "ns-export", "gaussian-splat",
-            "--load-config", str(config_path),
-            "--output-dir", str(export_dir),
-        )
-        plys = list(export_dir.glob("*.ply"))
+        # 5. Find the .ply Brush exported.
+        plys = sorted(out.rglob("*.ply"), key=lambda p: p.stat().st_mtime)
         if not plys:
-            raise RuntimeError("ns-export produced no .ply")
-        ply_path = plys[0]
-        size = ply_path.stat().st_size
-        log.info("export finished", scan_id=str(scan_id), bytes=size)
+            raise RuntimeError("Brush produced no .ply")
+        ply_path = plys[-1]
+        log.info("training finished", scan_id=str(scan_id), ply=str(ply_path),
+                 bytes=ply_path.stat().st_size)
 
         progress(96)
-        # 7. Upload result to Garage.
+        # 6. Upload result to Garage.
         result_key = f"{prefix}result.ply"
         s3.upload_file(
             str(ply_path),
@@ -660,29 +666,26 @@ def _extract_video_frames(video: Path, images: Path, scan_id: Any) -> int:
     return len(list(images.glob("frame_*.png")))
 
 
-def _make_masks(images: Path, masks_dir: Path, colmap_masks_dir: Path, scan_id: Any) -> bool:
-    """Segment the figure with rembg and write masks in BOTH conventions, BEFORE
-    COLMAP runs:
+def _make_masks(images: Path, colmap_masks_dir: Path, scan_id: Any) -> bool:
+    """Segment the figure with rembg, BEFORE COLMAP, and apply it two ways:
 
-      * ``colmap_masks/<image>.png`` — COLMAP's ``--ImageReader.mask_path`` form
-        (0 = ignore). With it SfM extracts no features in the static turntable
-        backdrop and tracks the rotating figure instead.
-      * ``masks/<stem>.png`` — nerfstudio's per-frame mask (0 = ignore), which the
-        ``colmap`` dataparser feeds to splatfacto's loss so the background never
-        accretes gaussians.
+      * Bake the cutout's ALPHA into each images/<frame>.png (RGBA, transparent
+        background). Brush reads that alpha and skips background pixels during the
+        gaussian fit — the macOS recipe — so the background never accretes
+        gaussians (no haze). COLMAP reads only the RGB (transparent → black), so
+        it's happy with the RGBA frames too.
+      * Write a COLMAP-convention binary mask to colmap_masks/<image>.png
+        (0 = ignore, 255 = use) for ``--ImageReader.mask_path``, so SfM extracts
+        no features in the static turntable backdrop and tracks the figure.
 
-    Same binary mask (white = figure); only the filename differs (COLMAP appends
-    .png to the full image name; nerfstudio uses the stem). We run COLMAP
-    ourselves so frames keep their names and masks align throughout. GPU rembg;
-    the session is freed before COLMAP/ns-train claim the card. Best-effort:
-    returns False (COLMAP + training run unmasked) on any failure."""
+    GPU rembg; the session is freed before COLMAP/Brush claim the card.
+    Best-effort: returns False (COLMAP + training run unmasked) on any failure."""
     try:
         from rembg import new_session, remove  # type: ignore
     except Exception:  # noqa: BLE001
         log.warning("masking on but rembg unavailable; running unmasked", scan_id=str(scan_id))
         return False
     try:
-        masks_dir.mkdir(parents=True, exist_ok=True)
         colmap_masks_dir.mkdir(parents=True, exist_ok=True)
         session = new_session(
             "u2net", providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
@@ -697,9 +700,11 @@ def _make_masks(images: Path, masks_dir: Path, colmap_masks_dir: Path, scan_id: 
         for img in sorted(images.glob("*.png")):
             with Image.open(img) as im:
                 cut = remove(im.convert("RGBA"), session=session)
+            # Brush: bake the cutout (RGBA, transparent background) into the frame.
+            cut.save(img)
+            # COLMAP: binary mask named "<image>.png" (0 = ignore, 255 = use).
             mask = cut.split()[-1].point(lambda a: 255 if a > 10 else 0).convert("L")
-            mask.save(masks_dir / f"{img.stem}.png")          # nerfstudio: <stem>.png
-            mask.save(colmap_masks_dir / f"{img.name}.png")   # COLMAP: <image>.png
+            mask.save(colmap_masks_dir / f"{img.name}.png")
             n += 1
         del session
         gc.collect()
@@ -733,7 +738,7 @@ def _colmap_sfm(images: Path, sparse: Path, mask_dir: Path | None,
         "--image_path", str(images),
         "--ImageReader.single_camera", "1",
         "--ImageReader.camera_model", "OPENCV",
-        "--SiftExtraction.max_num_features", "16384",
+        "--SiftExtraction.max_num_features", str(COLMAP_MAX_FEATURES),
         "--SiftExtraction.peak_threshold", "0.004",
         "--SiftExtraction.edge_threshold", "16",
     ]
@@ -778,7 +783,7 @@ def _colmap_sfm(images: Path, sparse: Path, mask_dir: Path | None,
 
     # COLMAP can split a hard scene into several sub-models (sparse/0, sparse/1,
     # …); keep the one with the most registered images, collapsed to sparse/0
-    # (the colmap dataparser's colmap_path).
+    # (the standard COLMAP path Brush reads).
     comps = [
         (d, _count_registered(d))
         for d in sparse.iterdir()

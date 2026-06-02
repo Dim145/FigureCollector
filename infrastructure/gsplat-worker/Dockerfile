@@ -100,6 +100,34 @@ RUN micromamba create -y -n sfm -c conda-forge "colmap=*=cpu*" && \
     test -x /opt/micromamba/envs/sfm/bin/colmap && \
     chmod -R a+rX /opt/micromamba
 
+# Brush — the Gaussian-splat TRAINER (wgpu → Vulkan on the NVIDIA GPU), the same
+# trainer as the macOS worker. splatfacto on this data was soft + hazy; Brush is
+# crisper and masks via the per-frame alpha. Install the Vulkan runtime + tools,
+# then drop in the prebuilt Linux binary from the GitHub release.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libvulkan1 vulkan-tools xz-utils ca-certificates curl && \
+    rm -rf /var/lib/apt/lists/*
+ARG BRUSH_VERSION=v0.3.0
+RUN curl -fSL -o /tmp/brush.tar.xz \
+      "https://github.com/ArthurBrussee/brush/releases/download/${BRUSH_VERSION}/brush-app-x86_64-unknown-linux-gnu.tar.xz" && \
+    mkdir -p /tmp/brush-x && tar -xJf /tmp/brush.tar.xz -C /tmp/brush-x && \
+    BIN="$(find /tmp/brush-x -type f -name 'brush*' | head -n1)" && \
+    test -n "$BIN" && install -m 0755 "$BIN" /usr/local/bin/brush && \
+    rm -rf /tmp/brush.tar.xz /tmp/brush-x && \
+    test -x /usr/local/bin/brush
+
+# NVIDIA Vulkan ICD — belt-and-suspenders for a known container-toolkit bug where
+# the ICD loader file isn't injected even with the `graphics` capability. The
+# NVIDIA Vulkan driver IS libGLX_nvidia.so.0 (despite the GLX name); the lib is
+# mounted from the host driver at runtime. Requires NVIDIA_DRIVER_CAPABILITIES to
+# include `graphics` (or `all`) in the compose — see docker-compose.gsplat.yml.
+RUN mkdir -p /etc/vulkan/icd.d && \
+    printf '%s\n' \
+      '{' \
+      '    "file_format_version": "1.0.0",' \
+      '    "ICD": { "library_path": "libGLX_nvidia.so.0", "api_version": "1.3.0" }' \
+      '}' > /etc/vulkan/icd.d/nvidia_icd.json
+
 COPY worker.py /app/worker.py
 
 # Drop privileges — matches the compose hardening (no-new-privileges:true).
