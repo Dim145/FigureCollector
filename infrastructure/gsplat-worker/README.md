@@ -56,13 +56,18 @@ docker compose logs -f gsplat-worker
      samples ~`VIDEO_TARGET_FRAMES` full-resolution frames from it (much better
      than the client's downscaled WebP set);
    - otherwise decode the stored WebP frames to PNG.
-3. *(optional)* **Background-mask** the object with `rembg` when
-   `ENABLE_MASKING=true`. Mandatory for turntable captures — without it
-   COLMAP locks onto the static backdrop and the splat fits the void.
-4. **`ns-process-data images`** — runs COLMAP feature extraction, matching, and
-   sparse reconstruction → produces a Nerfstudio-shaped dataset.
+3. **`ns-process-data images`** — runs COLMAP feature extraction, matching, and
+   sparse reconstruction on the **untouched** frames → produces a
+   Nerfstudio-shaped dataset (so the camera poses are unaffected by masking).
+4. *(default on)* **Background masks** — when `ENABLE_MASKING=true`, `rembg`
+   segments each processed frame and the per-frame masks are wired into
+   `transforms.json`. splatfacto multiplies gt+pred by the mask in its loss, so
+   the background contributes no gradient and never accretes gaussians — no
+   background plane, no spikey floater halo. Best-effort: skipped on any error.
 5. **`ns-train splatfacto`** — Gaussian Splatting training,
-   `TRAINING_ITERATIONS` iterations (default 15000, ~10-20 minutes on a 3060).
+   `TRAINING_ITERATIONS` iterations (default 30000, ~20-40 min on a 3050/3060),
+   with `--pipeline.model.use-scale-regularization True` to suppress the long
+   "needle" gaussians (the PhysGaussian scale regulariser).
 6. **`ns-export gaussian-splat`** — writes the trained splat as `.ply`.
 7. **Upload** the `.ply` back to Garage at `scans/{scan_id}/result.ply`.
 8. **Mark** the scan `state='ready', result_key=…`.
@@ -85,10 +90,10 @@ traceback in `error_message`.
 | `S3_ACCESS_KEY` / `S3_SECRET_KEY` | — | required |
 | `S3_REGION` | `garage` | matches the value in `infrastructure/garage/garage.toml` |
 | `POLL_INTERVAL` | `10` | seconds between polls when the queue is empty |
-| `TRAINING_ITERATIONS` | `15000` | splatfacto `max-num-iterations` |
+| `TRAINING_ITERATIONS` | `30000` | splatfacto `max-num-iterations` (matches the macOS worker; `stop_split_at` is 15000, so this gets the full densify-then-refine schedule) |
 | `VIDEO_TARGET_FRAMES` | `150` | frames sampled from a source video (if present) |
 | `VIDEO_MAX_DIM` | `2048` | max-dim cap on extracted frames |
-| `ENABLE_MASKING` | `false` | bake rembg foreground masks into the training PNGs |
+| `ENABLE_MASKING` | `true` | rembg masks wired into `transforms.json` → splatfacto loss ignores the background (no plane/floaters); poses untouched |
 
 ## Recovering a stuck scan
 

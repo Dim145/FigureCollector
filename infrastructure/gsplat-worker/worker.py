@@ -20,11 +20,12 @@ Environment:
     S3_SECRET_KEY         required
     S3_REGION             optional, defaults to "garage"
     POLL_INTERVAL         optional, seconds between polls (default 10)
-    TRAINING_ITERATIONS   optional, splatfacto max-num-iterations (default 15000)
+    TRAINING_ITERATIONS   optional, splatfacto max-num-iterations (default 30000)
     VIDEO_TARGET_FRAMES   optional, frames sampled from a source video (default 150)
     VIDEO_MAX_DIM         optional, max-dim cap on extracted frames (default 2048)
-    ENABLE_MASKING        optional, bake rembg foreground masks into the training
-                          images (default false; mandatory for turntable captures)
+    ENABLE_MASKING        optional, mask the background out of splatfacto's loss
+                          so the fit ignores it (default true; rembg foreground
+                          masks wired into transforms.json after COLMAP)
     COLMAP_USE_GPU        optional, run COLMAP feature extraction on the GPU via
                           its CUDA path (default true); set false to force CPU
     RECOVER_ABANDONED     optional, at boot re-queue this worker's 'processing'
@@ -34,6 +35,7 @@ Environment:
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import platform
 import re
@@ -64,7 +66,7 @@ S3_ACCESS_KEY = os.environ["S3_ACCESS_KEY"]
 S3_SECRET_KEY = os.environ["S3_SECRET_KEY"]
 S3_REGION = os.environ.get("S3_REGION", "garage")
 POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "10"))
-TRAINING_ITERATIONS = int(os.environ.get("TRAINING_ITERATIONS", "15000"))
+TRAINING_ITERATIONS = int(os.environ.get("TRAINING_ITERATIONS", "30000"))
 # When a scan ships its original video (key `{prefix}source.*`), we extract
 # our own frames from it with ffmpeg — far more of them, and from a lossless
 # source, than the downscaled WebP set the client uploads for the 360° viewer.
@@ -75,11 +77,14 @@ VIDEO_TARGET_FRAMES = int(os.environ.get("VIDEO_TARGET_FRAMES", "150"))
 # splatting and makes COLMAP matching / training crawl; ~2048 px is the sweet
 # spot (well above the client's 1920 px WebP, still fast).
 VIDEO_MAX_DIM = int(os.environ.get("VIDEO_MAX_DIM", "2048"))
-# Foreground masking. Off by default (the rembg model is heavy and only helps
-# turntable-style captures); flip it on for any scan where the background
-# doesn't move with the figure — without it COLMAP locks onto the static
-# backdrop and the splat is junk.
-ENABLE_MASKING = os.environ.get("ENABLE_MASKING", "false").lower() in ("1", "true", "yes")
+# Background masking. On by default — this is an object scanner, so the figure
+# should be isolated from whatever it sits on. When on, after COLMAP we run
+# rembg over the processed frames and wire per-frame masks into transforms.json;
+# splatfacto multiplies gt+pred by the mask in get_loss_dict, so the background
+# contributes no gradient and never accretes gaussians (no plane, no floaters).
+# It does NOT touch COLMAP — poses come from the untouched frames. Best-effort:
+# if rembg is missing or errors, the job still trains, just unmasked.
+ENABLE_MASKING = os.environ.get("ENABLE_MASKING", "true").lower() in ("1", "true", "yes")
 # Run COLMAP feature extraction + matching on the GPU. This image ships a
 # CUDA-built COLMAP, which selects its CUDA SIFT automatically on a headless host
 # (no OpenGL, no display) — so GPU mode "just works". Set COLMAP_USE_GPU=false to
@@ -467,11 +472,10 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
             raise RuntimeError(f"only {n_frames} usable frames; need >= {MIN_FRAMES}")
 
         progress(20)
-        # 2. Optional foreground masking (huge quality win on turntables —
-        #    without it COLMAP locks onto the static backdrop, the splat fits
-        #    the void, and the figure ends up as a noise cloud).
-        if ENABLE_MASKING:
-            _make_masks(images, scan_id)
+        # 2. (Masking moved AFTER COLMAP — see step 3b.) COLMAP runs on the
+        #    untouched frames, so the camera poses are exactly the ones that
+        #    already reconstruct well; masking the *loss* is what keeps the
+        #    background out of the fit, without risking the registration.
 
         progress(32)
         # 3. Nerfstudio's image processor runs COLMAP internally and writes a
@@ -497,6 +501,14 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
             # Force the CPU path — no GPU / no display dependency at all.
             _run(*nsproc, "--no-gpu")
 
+        # 3b. Wire foreground masks into the COLMAP-processed dataset so
+        #     splatfacto's LOSS ignores the background. It multiplies gt+pred by
+        #     batch['mask'] in get_loss_dict, so masked-out pixels get no
+        #     gradient and the background never accretes gaussians — no plane,
+        #     no floater halo like the unmasked runs produced. Best-effort.
+        if ENABLE_MASKING:
+            _apply_loss_masks(processed, scan_id)
+
         progress(46)
         # 4. Train splatfacto, headless, streaming live progress to the SPA.
         #    `--vis tensorboard` is the documented headless choice (no viewer /
@@ -504,7 +516,7 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
         #    local writer on so it prints per-step lines like "1010 (6.73%)";
         #    `_run` streams them, we pull the step out and map training 0→100%
         #    into our 46→88 band — so the bar climbs the whole time instead of
-        #    sitting at 46 for the full ~10-20 min train.
+        #    sitting at 46 for the full (now ~30k-iter) train.
         trained = tmp / "trained"
         step_re = re.compile(r"(\d+)\s*\(\s*\d{1,3}(?:\.\d+)?\s*%\s*\)")
         train_pct = [46]
@@ -525,6 +537,11 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
             "--data", str(processed),
             "--output-dir", str(trained),
             "--max-num-iterations", str(TRAINING_ITERATIONS),
+            # Penalise long, spikey gaussians — nerfstudio's documented fix for
+            # the needle/starburst artifact (PhysGaussian scale regulariser,
+            # keyed off max_gauss_ratio=10). Off by default upstream; this is
+            # the single biggest lever against what the screenshot showed.
+            "--pipeline.model.use-scale-regularization", "True",
             "--vis", "tensorboard",
             on_line=on_train_line,
         )
@@ -630,38 +647,70 @@ def _extract_video_frames(video: Path, images: Path, scan_id: Any) -> int:
     return len(list(images.glob("frame_*.png")))
 
 
-def _make_masks(images: Path, scan_id: Any) -> None:
-    """Bake rembg foreground segmentation into the training images.
+def _apply_loss_masks(processed: Path, scan_id: Any) -> int:
+    """Generate per-frame foreground masks (rembg) for the COLMAP-processed
+    dataset and wire them into transforms.json so splatfacto's loss ignores the
+    background.
 
-    rembg writes the cutout as an RGBA image with the background set to
-    transparent black ``(0, 0, 0, 0)``, which solves both halves of the
-    turntable-capture problem in one pass even though `ns-process-data`
-    doesn't expose COLMAP's `--ImageReader.mask_path`:
+    splatfacto multiplies both gt and pred by ``batch['mask']`` in
+    ``get_loss_dict``, so masked-out pixels contribute no gradient — the
+    background never accretes gaussians (no plane, no floater halo). nerfstudio's
+    mask convention: a single-channel image where BLACK (0) = ignore, and EVERY
+    frame must carry one (it asserts all-or-none).
 
-      * COLMAP reads RGB only — a uniform black backdrop yields no SIFT
-        features, so SfM can't lock onto the static turntable plate.
-      * splatfacto sees the alpha channel and ignores transparent pixels
-        during the gaussian fit, so no gaussians waste capacity on the void.
+    Robustness (this runs unattended on the NAS):
+      * COLMAP is left untouched — masks only steer the *fit*, not the poses.
+      * transforms.json is rewritten exactly once, at the very end, so a failure
+        partway through leaves the original file in place and training simply
+        proceeds unmasked instead of tripping the all-or-none assert.
+      * Any error (rembg absent, model load, a missing frame) is swallowed: we
+        log and return 0 rather than fail the job.
 
-    Best-effort: if rembg isn't installed (image rebuilt without the dep) we
-    log + skip rather than fail — the worker still runs, just without the
-    quality lift."""
+    Returns the number of masks wired in (0 = masking skipped)."""
+    tj = processed / "transforms.json"
+    if not tj.exists():
+        log.warning("no transforms.json; skipping loss masks", scan_id=str(scan_id))
+        return 0
     try:
         from rembg import new_session, remove  # type: ignore
     except Exception:  # noqa: BLE001
-        log.warning(
-            "masking requested but rembg not installed; skipping",
-            scan_id=str(scan_id),
-        )
-        return
-    session = new_session()
-    count = 0
-    for img in sorted(images.glob("*.png")):
-        with Image.open(img) as im:
-            cut = remove(im.convert("RGBA"), session=session)
-        cut.save(img)
-        count += 1
-    log.info("masks baked", scan_id=str(scan_id), count=count)
+        log.warning("masking on but rembg unavailable; training unmasked", scan_id=str(scan_id))
+        return 0
+    try:
+        data = json.loads(tj.read_text())
+        frames = data.get("frames") or []
+        if not frames:
+            log.warning("transforms.json has no frames; skipping masks", scan_id=str(scan_id))
+            return 0
+        masks_dir = processed / "masks"
+        masks_dir.mkdir(exist_ok=True)
+        session = new_session()
+        for fr in frames:
+            rel = fr.get("file_path")
+            if not rel:
+                raise RuntimeError("frame without file_path")
+            img_path = processed / rel
+            if not img_path.exists():
+                # Tolerate a leading "./", a missing extension, or a flat layout
+                # by matching the basename's stem anywhere under processed/.
+                cands = sorted(processed.glob(f"**/{Path(rel).stem}.*"))
+                if not cands:
+                    raise RuntimeError(f"image not found for frame {rel!r}")
+                img_path = cands[0]
+            mask_name = Path(rel).with_suffix(".png").name
+            with Image.open(img_path) as im:
+                cut = remove(im.convert("RGBA"), session=session)
+            # Alpha → binary single-channel mask (white = keep, black = ignore).
+            mask = cut.split()[-1].point(lambda a: 255 if a > 10 else 0).convert("L")
+            mask.save(masks_dir / mask_name)
+            fr["mask_path"] = f"masks/{mask_name}"
+        # Every frame masked → commit transforms.json in one shot.
+        tj.write_text(json.dumps(data, indent=2))
+        log.info("loss masks wired into transforms.json", scan_id=str(scan_id), count=len(frames))
+        return len(frames)
+    except Exception as e:  # noqa: BLE001 — masking must never fail the job
+        log.warning("loss masking failed; training unmasked", scan_id=str(scan_id), error=str(e))
+        return 0
 
 
 def _run(*cmd: str, on_line=None) -> None:

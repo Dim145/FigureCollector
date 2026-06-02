@@ -33,7 +33,7 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
       S3_REGION: ${S3_REGION:-garage}
       POLL_INTERVAL: ${POLL_INTERVAL:-10}
-      TRAINING_ITERATIONS: ${TRAINING_ITERATIONS:-15000}
+      TRAINING_ITERATIONS: ${TRAINING_ITERATIONS:-30000}
       # COLMAP feature extraction + matching on the GPU. The image ships a
       # CUDA-built COLMAP that auto-uses CUDA on a headless host — no display, no
       # Xvfb, no `graphics` capability needed (plain `compute,utility` is enough).
@@ -45,7 +45,10 @@ services:
       # VIDEO_MAX_DIM to 2048) for more detail if your host has the RAM.
       VIDEO_TARGET_FRAMES: ${VIDEO_TARGET_FRAMES:-100}
       VIDEO_MAX_DIM: ${VIDEO_MAX_DIM:-1600}
-      ENABLE_MASKING: ${ENABLE_MASKING:-false}
+      # Mask the background out of splatfacto's loss (rembg → transforms.json).
+      # On by default — this is an object scanner; without it the fit grows a
+      # background plane + spikey floaters. COLMAP poses are left untouched.
+      ENABLE_MASKING: ${ENABLE_MASKING:-true}
     deploy:
       resources:
         reservations:
