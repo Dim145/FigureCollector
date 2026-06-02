@@ -56,20 +56,22 @@ docker compose logs -f gsplat-worker
      samples ~`VIDEO_TARGET_FRAMES` full-resolution frames from it (much better
      than the client's downscaled WebP set);
    - otherwise decode the stored WebP frames to PNG.
-3. **`ns-process-data images`** — runs COLMAP feature extraction, matching, and
-   sparse reconstruction on the **untouched** frames → produces a
-   Nerfstudio-shaped dataset (so the camera poses are unaffected by masking).
-4. *(default on)* **Background masks** — when `ENABLE_MASKING=true`, `rembg`
-   segments each processed frame **on the GPU** (`onnxruntime-gpu` / CUDA EP —
-   the bound provider is logged per scan; degrades to CPU if the CUDA EP can't
-   bind) and the per-frame masks are wired into `transforms.json`. splatfacto
-   multiplies gt+pred by the mask in its loss, so the background contributes no
-   gradient and never accretes gaussians — no background plane, no spikey
-   floater halo. Best-effort: skipped on any error.
-5. **`ns-train splatfacto`** — Gaussian Splatting training,
-   `TRAINING_ITERATIONS` iterations (default 30000, ~20-40 min on a 3050/3060),
-   with `--pipeline.model.use-scale-regularization True` to suppress the long
-   "needle" gaussians (the PhysGaussian scale regulariser).
+3. *(default on)* **Foreground masks** — when `ENABLE_MASKING=true`, `rembg`
+   segments each frame **on the GPU** (`onnxruntime-gpu` / CUDA EP, logged per
+   scan; degrades to CPU if it can't bind) into two mask sets: COLMAP's
+   `mask_path` form and nerfstudio's per-frame masks. Best-effort.
+4. **COLMAP SfM** — ported from the macOS worker and tuned for glossy /
+   low-texture figures on a turntable: feature extraction with many weak SIFT
+   features + `mask_path` (so SfM tracks the figure, not the static backdrop),
+   **sequential** matching on the ordered video frames, a lenient mapper, then
+   keep the largest registered sub-model. Fails with an actionable message if
+   fewer than 10 frames register (instead of letting splatfacto crash on a
+   degenerate model).
+5. **`ns-train splatfacto`** via the **`colmap` dataparser** (reads the COLMAP
+   model + images + masks directly) — `TRAINING_ITERATIONS` iters (default 30000,
+   ~20-40 min on a 3050/3060), with `--pipeline.model.use-scale-regularization
+   True` to suppress long "needle" gaussians, and the masks fed to the loss so
+   the background never accretes gaussians (no plane, no floater halo).
 6. **`ns-export gaussian-splat`** — writes the trained splat as `.ply`.
 7. **Upload** the `.ply` back to Garage at `scans/{scan_id}/result.ply`.
 8. **Mark** the scan `state='ready', result_key=…`.
@@ -77,10 +79,11 @@ docker compose logs -f gsplat-worker
 If anything fails, the scan is set to `state='failed'` with the truncated
 traceback in `error_message`.
 
-> The video-direct path keeps this worker behaviourally aligned with the
-> macOS [`splat-worker-mac`](../splat-worker-mac/): same env defaults
-> (`VIDEO_TARGET_FRAMES=150`, `VIDEO_MAX_DIM=2048`), same source-of-truth
-> object key (`{prefix}source.*`).
+> This worker now mirrors the macOS [`splat-worker-mac`](../splat-worker-mac/)
+> end to end: same ffmpeg frame sampling, the **same tuned COLMAP recipe** (16k
+> features, `mask_path`, sequential matching, lenient mapper, largest-model), and
+> the same source-of-truth object key (`{prefix}source.*`). Only the trainer
+> differs — splatfacto here, Brush on the Mac.
 
 ## Tunables
 
@@ -95,7 +98,7 @@ traceback in `error_message`.
 | `TRAINING_ITERATIONS` | `30000` | splatfacto `max-num-iterations` (matches the macOS worker; `stop_split_at` is 15000, so this gets the full densify-then-refine schedule) |
 | `VIDEO_TARGET_FRAMES` | `150` | frames sampled from a source video (if present) |
 | `VIDEO_MAX_DIM` | `2048` | max-dim cap on extracted frames |
-| `ENABLE_MASKING` | `true` | rembg masks wired into `transforms.json` → splatfacto loss ignores the background (no plane/floaters); poses untouched |
+| `ENABLE_MASKING` | `true` | rembg-mask the figure → COLMAP `mask_path` (SfM tracks the figure, essential on a turntable) + splatfacto loss mask (drops the background) |
 
 ## Recovering a stuck scan
 
