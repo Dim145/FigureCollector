@@ -96,6 +96,7 @@ traceback in `error_message`.
 | `TRAINING_ITERATIONS` | `30000` | Brush `--total-train-iters` (matches the macOS worker) |
 | `VIDEO_TARGET_FRAMES` | `150` | frames sampled from a source video (if present) |
 | `VIDEO_MAX_DIM` | `2048` | max-dim cap on extracted frames |
+| `COLMAP_MAX_FEATURES` | `8192` | SIFT features/image; 8192 ~halves matching + the CPU mapper vs 16384 with no quality loss on glossy turntables (the main mapper-speed lever — GPU BA doesn't help at ~150 imgs); bump to 16384 if registration drops |
 | `BRUSH_MAX_RESOLUTION` | `1600` | longest image side Brush trains on — the VRAM lever for the 6 GB 3050; raise for sharper results if VRAM allows |
 | `ENABLE_MASKING` | `true` | rembg-mask the figure → COLMAP `mask_path` (SfM tracks the figure, essential on a turntable) + baked alpha that Brush uses to skip the background |
 

@@ -34,9 +34,17 @@ services:
       S3_REGION: ${S3_REGION:-garage}
       POLL_INTERVAL: ${POLL_INTERVAL:-10}
       TRAINING_ITERATIONS: ${TRAINING_ITERATIONS:-30000}
+      # Longest image side Brush trains on — the VRAM lever for the 6 GB card;
+      # raise for sharper results if VRAM allows.
+      BRUSH_MAX_RESOLUTION: ${BRUSH_MAX_RESOLUTION:-1600}
       # COLMAP feature extraction + matching on the GPU (CUDA). Set
       # COLMAP_USE_GPU=false to force CPU. The COLMAP 4.x mapper stays on CPU.
       COLMAP_USE_GPU: ${COLMAP_USE_GPU:-true}
+      # SIFT features per image. 8192 ~halves matching + the CPU mapper's bundle
+      # adjustment vs 16384, with no quality loss on glossy turntables — the main
+      # mapper-speed lever (GPU doesn't help at this scale). Bump to 16384 if
+      # registration drops on a hard capture. Pair with a higher `cpus` below.
+      COLMAP_MAX_FEATURES: ${COLMAP_MAX_FEATURES:-8192}
       # `all` (or at least compute,utility,graphics): `graphics` is REQUIRED for
       # Brush, which trains via Vulkan (wgpu) — `compute,utility` alone leaves the
       # NVIDIA Vulkan ICD un-injected and Brush sees no GPU.
