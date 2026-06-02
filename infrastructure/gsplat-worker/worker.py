@@ -712,18 +712,18 @@ def _make_masks(images: Path, masks_dir: Path, colmap_masks_dir: Path, scan_id: 
 
 def _colmap_sfm(images: Path, sparse: Path, mask_dir: Path | None,
                 scan_id: Any, frame_count: int, use_gpu: bool) -> None:
-    """COLMAP feature extraction + exhaustive matching (on the GPU), then GLOMAP
-    GLOBAL Structure-from-Motion instead of COLMAP's incremental mapper.
+    """COLMAP feature extraction + sequential matching on the GPU (the image's
+    CUDA COLMAP 3.9.1), then incremental mapping with COLMAP **4.x** (from a
+    conda-forge env), keeping the largest sub-model.
 
-    The incremental mapper (this image's COLMAP 3.9.1) is multi-threaded and
-    NON-deterministic — on a glossy / low-texture turntable it flips between a
-    full model and a 2-frame stub run to run. GLOMAP solves all cameras at once
-    (rotation averaging + global positioning), so it's reliable AND 1-2 orders of
-    magnitude faster. Feature extraction is tuned for the hard case (many weak
-    SIFT features) and uses COLMAP's mask_path so SfM tracks the figure, not the
-    static backdrop. Exhaustive matching closes the turntable ring (frame 99 ↔
-    frame 0 are adjacent angles), which sequential matching misses — a
-    well-conditioned, ring-closed view graph is what GLOMAP needs."""
+    Why 4.x for the mapper: this image's 3.9.1 incremental mapper is
+    multi-threaded NON-deterministic — on a glossy / low-texture turntable it
+    flips between a full model and a 2-frame stub run to run. COLMAP 4.0's
+    reworked mapper is what the macOS Homebrew COLMAP (4.x) runs, and why the Mac
+    is reliable. Extraction is tuned for the hard case (many weak SIFT features) +
+    `mask_path` so SfM tracks the figure, not the static backdrop; sequential
+    matching keeps correspondences local (exhaustive invites false matches
+    between look-alike turntable angles → the confetti-ball failure)."""
     sparse.mkdir(parents=True, exist_ok=True)
     db = sparse.parent / "colmap.db"
 
@@ -745,52 +745,66 @@ def _colmap_sfm(images: Path, sparse: Path, mask_dir: Path | None,
         extract += ["--SiftExtraction.use_gpu", "1"]
     _run(*extract)
 
-    # Exhaustive matching: O(n²) but cheap on the GPU at our frame counts
-    # (~100-150), and — crucially for a turntable — it matches the wrap-around
-    # (frame 99 ↔ frame 0 are adjacent angles), CLOSING THE RING. Sequential
-    # matching misses that, leaving global SfM an open path that can drift. The
-    # dense, ring-closed view graph is what makes GLOMAP below reliable.
-    matcher = ["colmap", "exhaustive_matcher", "--database_path", str(db)]
+    # Sequential matching (ordered video frames + a window) — the macOS recipe.
+    # On a turntable, EXHAUSTIVE matching tempts SfM with FALSE matches between
+    # look-alike opposite-angle frames — that's what folded the GLOMAP run into a
+    # confetti ball. Sequential keeps matches local and clean. (Exhaustive only
+    # for tiny, unordered sets.)
+    if frame_count >= 60:
+        matcher = ["colmap", "sequential_matcher", "--database_path", str(db),
+                   "--SequentialMatching.overlap", "20"]
+    else:
+        matcher = ["colmap", "exhaustive_matcher", "--database_path", str(db)]
     if not use_gpu:
         matcher += ["--SiftMatching.use_gpu", "0"]
     _run(*matcher)
 
-    # GLOMAP — GLOBAL Structure-from-Motion, instead of COLMAP's incremental
-    # mapper. The incremental mapper (3.9.1 here) is multi-threaded
-    # NON-deterministic: the same DB gives a full 100-frame model one run and a
-    # 2-frame stub the next. GLOMAP solves ALL cameras at once (rotation averaging
-    # + global positioning) — no init-pair lottery, so it reliably reconstructs
-    # the whole connected graph, and it's 1-2 orders of magnitude faster than
-    # incremental BA. CPU/Ceres (no GPU stage), but quick. It consumes the COLMAP
-    # DB we just built and writes a COLMAP-format model to sparse/0. We run it from
-    # its isolated micromamba env (`sfm`) so its libs never clash with the system
-    # COLMAP / torch.
+    # Incremental mapping with COLMAP 4.x — NOT the image's 3.9.1 mapper. 3.9.1's
+    # incremental mapper is non-deterministic on a marginal turntable (2/100 one
+    # run, 100/100 the next); COLMAP 4.0's reworked mapper is what the macOS
+    # Homebrew COLMAP (4.x) runs, and why the Mac is reliable. We pull it from
+    # conda-forge into the `sfm` micromamba env and run it on the database the
+    # image's CUDA COLMAP just built (the DB format is backward-compatible). The
+    # mapper is CPU/Ceres, so the conda CPU build is enough. Lenient registration
+    # admits more of the marginal turntable views.
     _run(
-        "micromamba", "run", "-n", "sfm", "glomap", "mapper",
+        "micromamba", "run", "-n", "sfm", "colmap", "mapper",
         "--database_path", str(db),
         "--image_path", str(images),
         "--output_path", str(sparse),
+        "--Mapper.init_min_num_inliers", "50",
+        "--Mapper.abs_pose_min_num_inliers", "20",
     )
 
-    # GLOMAP normally writes sparse/0; if it wrote straight into sparse/, relocate
-    # the model into sparse/0 (the colmap dataparser's colmap_path).
-    model = sparse / "0"
-    if not (model / "images.bin").exists() and (sparse / "images.bin").exists():
-        model.mkdir(exist_ok=True)
-        for f in ("cameras.bin", "images.bin", "points3D.bin"):
-            if (sparse / f).exists():
-                shutil.move(str(sparse / f), str(model / f))
-    n_reg = _count_registered(model)
-    log.info("glomap registered frames", scan_id=str(scan_id),
-             registered=n_reg, total=frame_count)
-    if n_reg < MIN_REGISTERED:
+    # COLMAP can split a hard scene into several sub-models (sparse/0, sparse/1,
+    # …); keep the one with the most registered images, collapsed to sparse/0
+    # (the colmap dataparser's colmap_path).
+    comps = [
+        (d, _count_registered(d))
+        for d in sparse.iterdir()
+        if d.is_dir() and (d / "images.bin").exists()
+    ]
+    comps.sort(key=lambda c: c[1], reverse=True)
+    best_n = comps[0][1] if comps else 0
+    log.info("colmap components", scan_id=str(scan_id),
+             components={d.name: n for d, n in comps}, registered=best_n,
+             total=frame_count)
+    if best_n < MIN_REGISTERED:
         raise RuntimeError(
-            f"GLOMAP registered only {n_reg}/{frame_count} frames — too few for a "
-            f"usable splat (needs >= {MIN_REGISTERED}). With global SfM a low count "
-            f"means a genuine capture problem, not a stochastic miss: a glossy or "
-            f"low-texture figure, too-fast rotation, or a busy background. Try a "
-            f"slower, steadier turntable and even, diffuse lighting."
+            f"COLMAP registered only {best_n}/{frame_count} frames — too few for a "
+            f"usable splat (needs >= {MIN_REGISTERED}). Likely a capture/SfM issue: "
+            f"a glossy or low-texture figure, too-fast rotation, or a busy "
+            f"background. Try a slower, steadier turntable and even, diffuse lighting."
         )
+    # Collapse the best sub-model to sparse/0.
+    keep = sparse / "__best__"
+    shutil.move(str(comps[0][0]), str(keep))
+    for d in list(sparse.iterdir()):
+        if d.is_dir() and d.name != "__best__":
+            shutil.rmtree(d, ignore_errors=True)
+    shutil.move(str(keep), str(sparse / "0"))
+    log.info("colmap best model kept", scan_id=str(scan_id),
+             registered=best_n, total=frame_count)
 
 
 def _count_registered(model_dir: Path) -> int:

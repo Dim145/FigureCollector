@@ -60,15 +60,14 @@ docker compose logs -f gsplat-worker
    segments each frame **on the GPU** (`onnxruntime-gpu` / CUDA EP, logged per
    scan; degrades to CPU if it can't bind) into two mask sets: COLMAP's
    `mask_path` form and nerfstudio's per-frame masks. Best-effort.
-4. **SfM** — COLMAP feature extraction on the GPU (many weak SIFT features +
-   `mask_path`, so SfM tracks the figure, not the static backdrop) and
-   **exhaustive** matching (closes the turntable ring — frame 99 ↔ frame 0 are
-   adjacent angles), then **GLOMAP** for the actual reconstruction. GLOMAP is
-   *global* SfM (solves all cameras at once) instead of COLMAP's incremental
-   mapper, which is multi-threaded non-deterministic — the same capture gave
-   2/100 frames one run and 100/100 the next. GLOMAP is reliable and 1-2 orders
-   of magnitude faster (CPU/Ceres, runs from an isolated micromamba env). Fails
-   with an actionable message if fewer than 10 frames register.
+4. **SfM** — COLMAP feature extraction + **sequential** matching on the GPU (the
+   image's CUDA COLMAP 3.9.1; many weak SIFT features + `mask_path` so SfM tracks
+   the figure, not the static backdrop), then the **COLMAP 4.x** incremental
+   mapper (from a conda-forge micromamba env) — *not* the image's 3.9.1 mapper,
+   which is multi-threaded non-deterministic (the same capture gave 2/100 frames
+   one run and 100/100 the next). COLMAP 4.0's reworked mapper is what the macOS
+   Homebrew COLMAP runs. Keeps the largest sub-model; fails with an actionable
+   message if fewer than 10 frames register.
 5. **`ns-train splatfacto`** via the **`colmap` dataparser** (reads the COLMAP
    model + images + masks directly) — `TRAINING_ITERATIONS` iters (default 30000,
    ~20-40 min on a 3050/3060), with `--pipeline.model.use-scale-regularization
@@ -81,13 +80,12 @@ docker compose logs -f gsplat-worker
 If anything fails, the scan is set to `state='failed'` with the truncated
 traceback in `error_message`.
 
-> This worker mirrors the macOS [`splat-worker-mac`](../splat-worker-mac/) on
-> the front end (same ffmpeg sampling, tuned SIFT extraction + `mask_path`, same
-> `{prefix}source.*` key) but uses **GLOMAP** for global SfM — which is also what
-> the Mac's newer Homebrew COLMAP (4.x, glomap built in) effectively does, and
-> why the Mac was reliable while this image's COLMAP 3.9.1 incremental mapper was
-> not. Only the trainer
-> differs — splatfacto here, Brush on the Mac.
+> This worker mirrors the macOS [`splat-worker-mac`](../splat-worker-mac/): same
+> ffmpeg sampling, tuned SIFT extraction + `mask_path`, sequential matching, and
+> the **same COLMAP 4.x incremental mapper** (conda-forge here, Homebrew on the
+> Mac) — which is why the Mac was reliable while this image's bundled COLMAP
+> 3.9.1 mapper was not. The remaining difference is the trainer: splatfacto here
+> vs Brush on the Mac (a GPU/Vulkan Brush backend is the planned next step).
 
 ## Tunables
 

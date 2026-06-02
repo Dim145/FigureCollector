@@ -84,21 +84,20 @@ RUN mkdir -p /opt/u2net && \
     python3 -c "from rembg import new_session; new_session('u2net', providers=['CPUExecutionProvider'])" && \
     chmod -R a+rX /opt/u2net
 
-# GLOMAP — GLOBAL Structure-from-Motion, used INSTEAD of COLMAP 3.9.1's
-# incremental mapper. The incremental mapper is multi-threaded non-deterministic:
-# the same turntable capture registered 2/100 frames one run and 100/100 the
-# next. GLOMAP solves all cameras at once (rotation averaging) → reliable and
-# 1-2 orders of magnitude faster. It's not in this image and not on PyPI, but
-# conda-forge ships a prebuilt binary, so we install it into an isolated
-# micromamba env. GLOMAP's global SfM is CPU/Ceres (no CUDA stage) → no clash
-# with torch; the image's CUDA COLMAP still does GPU feature extraction +
-# matching, then `glomap mapper` consumes the database. The worker invokes it as
-# `micromamba run -n sfm glomap mapper …`.
+# COLMAP 4.x — for the incremental MAPPER only. This image's COLMAP 3.9.1
+# incremental mapper is multi-threaded non-deterministic (the same turntable
+# registered 2/100 frames one run, 100/100 the next); COLMAP 4.0's reworked
+# mapper is what the macOS Homebrew COLMAP (4.x) runs — and why the Mac is
+# reliable. It's not in this image; conda-forge has it prebuilt, so we install
+# the CPU build (the mapper is CPU/Ceres — no CUDA, small) into an isolated
+# micromamba env. The image's CUDA COLMAP 3.9.1 still does GPU feature extraction
+# + matching; then `micromamba run -n sfm colmap mapper` consumes the database
+# (the COLMAP DB format is backward-compatible 3.x → 4.x).
 COPY --from=mambaorg/micromamba:latest /bin/micromamba /usr/local/bin/micromamba
 ENV MAMBA_ROOT_PREFIX=/opt/micromamba
-RUN micromamba create -y -n sfm -c conda-forge glomap && \
+RUN micromamba create -y -n sfm -c conda-forge "colmap=*=cpu*" && \
     micromamba clean -a -y && \
-    test -x /opt/micromamba/envs/sfm/bin/glomap && \
+    test -x /opt/micromamba/envs/sfm/bin/colmap && \
     chmod -R a+rX /opt/micromamba
 
 COPY worker.py /app/worker.py
