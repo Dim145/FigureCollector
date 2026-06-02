@@ -56,6 +56,25 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     if [ "$CUDA_MAJOR" = "11" ]; then ORT="onnxruntime-gpu==1.18.*"; else ORT="onnxruntime-gpu"; fi && \
     echo "installing ${ORT}" && \
     python3 -m pip install "rembg==2.0.*" "$ORT"
+
+# onnxruntime-gpu's CUDA EP (cuDNN 8 runtime-fusion) dlopens the BARE soname
+# `libnvrtc.so`. The base bundles NVRTC only under torch's hash-mangled name
+# (libnvrtc-<hash>.so.11.2), so cuDNN can't resolve `libnvrtc.so` and ABORTS the
+# process — the `Could not load library libcudnn_cnn_infer.so.8 … libnvrtc.so`
+# crash-loop. Install a clean-named NVRTC (+ its builtins), drop it in
+# /usr/local/lib under the bare name, and put that dir on LD_LIBRARY_PATH — a
+# bare-soname dlopen scans LD_LIBRARY_PATH, whereas ldconfig's cache only
+# resolves versioned SONAMEs, not the unversioned `.so` symlink.
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python3 -m pip install nvidia-cuda-nvrtc-cu11 && \
+    src="$(find /usr -path '*/nvidia/cuda_nvrtc/lib' -type d | head -n1)" && \
+    test -n "$src" && \
+    cp -dn "$src"/libnvrtc* /usr/local/lib/ && \
+    ln -sf "$(ls /usr/local/lib/libnvrtc.so.11* | head -n1)" /usr/local/lib/libnvrtc.so && \
+    ldconfig && \
+    echo "NVRTC wired:" && ls -l /usr/local/lib/libnvrtc*
+ENV LD_LIBRARY_PATH=/usr/local/lib:${LD_LIBRARY_PATH}
+
 # Pre-bake the u2net model INTO the image: the worker runs read-only as uid 65532
 # (`/opt/u2net` is a+rX — not writable), so it can't fetch the model at runtime.
 # The BUILD host has no GPU, so download via the CPU provider — the model files
