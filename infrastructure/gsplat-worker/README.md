@@ -60,10 +60,12 @@ docker compose logs -f gsplat-worker
    sparse reconstruction on the **untouched** frames → produces a
    Nerfstudio-shaped dataset (so the camera poses are unaffected by masking).
 4. *(default on)* **Background masks** — when `ENABLE_MASKING=true`, `rembg`
-   segments each processed frame and the per-frame masks are wired into
-   `transforms.json`. splatfacto multiplies gt+pred by the mask in its loss, so
-   the background contributes no gradient and never accretes gaussians — no
-   background plane, no spikey floater halo. Best-effort: skipped on any error.
+   segments each processed frame **on the GPU** (`onnxruntime-gpu` / CUDA EP —
+   the bound provider is logged per scan; degrades to CPU if the CUDA EP can't
+   bind) and the per-frame masks are wired into `transforms.json`. splatfacto
+   multiplies gt+pred by the mask in its loss, so the background contributes no
+   gradient and never accretes gaussians — no background plane, no spikey
+   floater halo. Best-effort: skipped on any error.
 5. **`ns-train splatfacto`** — Gaussian Splatting training,
    `TRAINING_ITERATIONS` iterations (default 30000, ~20-40 min on a 3050/3060),
    with `--pipeline.model.use-scale-regularization True` to suppress the long

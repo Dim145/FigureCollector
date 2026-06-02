@@ -684,7 +684,24 @@ def _apply_loss_masks(processed: Path, scan_id: Any) -> int:
             return 0
         masks_dir = processed / "masks"
         masks_dir.mkdir(exist_ok=True)
-        session = new_session()
+        # rembg on the GPU: request the CUDA execution provider, keep CPU as a
+        # fallback so a CUDA/cuDNN mismatch degrades instead of failing. Then log
+        # the provider that actually bound, so "is it really on GPU?" is
+        # answerable straight from the worker logs.
+        session = new_session(
+            "u2net", providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
+        )
+        try:
+            active = session.inner_session.get_providers()
+        except Exception:  # noqa: BLE001
+            active = []
+        if "CUDAExecutionProvider" in active:
+            log.info("rembg on GPU (CUDA)", scan_id=str(scan_id), providers=active)
+        else:
+            log.warning(
+                "rembg fell back to CPU — CUDA EP did not bind (CUDA/cuDNN mismatch?)",
+                scan_id=str(scan_id), providers=active,
+            )
         for fr in frames:
             rel = fr.get("file_path")
             if not rel:

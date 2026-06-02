@@ -37,24 +37,32 @@ RUN --mount=type=cache,target=/root/.cache/pip \
       "boto3==1.35.*" \
       "structlog==24.4.*"
 
-# rembg for foreground masking (ENABLE_MASKING, default on). onnxruntime is its
-# inference backend, which rembg 2.0.x moved OUT of the core deps into extras —
-# so we MUST request the `[cpu]` extra; a bare `rembg` installs fine but then
-# fails at import with "No module named 'onnxruntime'". CPU on purpose: the
-# `[gpu]` extra (onnxruntime-gpu) would couple to the base image's CUDA/cuDNN and
-# risk clashing with torch, and rembg isn't the bottleneck (training is).
-# onnxruntime's only version floor is numpy>=1.21.6, which the base already
-# satisfies, so this doesn't drag a numpy upgrade onto torch/nerfstudio.
-# Fatal on failure: masking is a default-on quality feature, so a broken install
-# must surface at build time, not silently ship a worker that can't mask.
+# rembg for foreground masking (ENABLE_MASKING, default on) — on the GPU. rembg's
+# inference backend is onnxruntime, which rembg 2.0.x moved OUT of its core deps
+# into extras, so a bare `rembg` fails at import with "No module named
+# 'onnxruntime'". We want the GPU build → install `onnxruntime-gpu`.
+#
+# onnxruntime-gpu is HARD-LOCKED to a CUDA + cuDNN line, so pin to the wheel that
+# matches the base image. This base is CUDA 11.8 / cuDNN 8 → the 1.18.x line is
+# the last default-PyPI wheel for that combo (1.19+ switched the default to
+# CUDA 12 / cuDNN 9). We read torch's CUDA major from the base so the pin still
+# resolves if the image ever moves to CUDA 12 (latest onnxruntime-gpu = CUDA 12).
+# onnxruntime-gpu also carries the CPU provider, so the worker degrades to CPU if
+# the CUDA EP can't bind at runtime (it logs which provider actually bound).
+# Fatal: masking is default-on, so a broken install must surface at build time.
 RUN --mount=type=cache,target=/root/.cache/pip \
-    python3 -m pip install "rembg[cpu]==2.0.*"
-# Pre-bake the u2net model INTO the image: the worker runs read-only as uid
-# 65532 (`/opt/u2net` is a+rX — not writable), so it can't fetch the model at
-# runtime. Fatal too — a missing model means masking is dead on arrival, and a
-# successful build now doubles as proof that onnxruntime + the model both work.
+    CUDA_MAJOR="$(python3 -c 'import torch,sys; v=torch.version.cuda or ""; sys.stdout.write(v.split(".")[0] if v else "")')" && \
+    echo "base torch CUDA major=${CUDA_MAJOR:-unknown}" && \
+    if [ "$CUDA_MAJOR" = "11" ]; then ORT="onnxruntime-gpu==1.18.*"; else ORT="onnxruntime-gpu"; fi && \
+    echo "installing ${ORT}" && \
+    python3 -m pip install "rembg==2.0.*" "$ORT"
+# Pre-bake the u2net model INTO the image: the worker runs read-only as uid 65532
+# (`/opt/u2net` is a+rX — not writable), so it can't fetch the model at runtime.
+# The BUILD host has no GPU, so download via the CPU provider — the model files
+# are identical; the worker picks the CUDA provider at runtime. Fatal too — a
+# green build now proves onnxruntime-gpu imports cleanly and the model is present.
 RUN mkdir -p /opt/u2net && \
-    python3 -c "from rembg import new_session; new_session()" && \
+    python3 -c "from rembg import new_session; new_session('u2net', providers=['CPUExecutionProvider'])" && \
     chmod -R a+rX /opt/u2net
 
 COPY worker.py /app/worker.py
