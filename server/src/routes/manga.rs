@@ -25,7 +25,7 @@ use axum::{
     Json, Router,
     extract::{Path, Query, State},
     http::StatusCode,
-    routing::get,
+    routing::{get, post},
 };
 use serde::{Deserialize, Serialize};
 use tower_sessions::Session;
@@ -272,6 +272,39 @@ async fn get_figure_link(
     }))
 }
 
+#[derive(Serialize)]
+struct SyncResult {
+    /// How many of the user's series got a (real) manga MAL id this run.
+    backfilled: u32,
+}
+
+/// `POST /api/me/manga-link/sync` — recompute the crossings *now* instead of
+/// waiting on the 24h profile cache / the daily backfill. Resolves the manga-side
+/// MAL id for the series in the user's own collection (via AniList relations),
+/// and force-refreshes their cached MangaCollector profile. Owner-only; a
+/// no-op-safe success when unlinked.
+async fn sync_link(State(state): State<AppState>, session: Session) -> AppResult<Json<SyncResult>> {
+    let user_id = auth::require_user(&session).await?;
+    // (1) Fill series.manga_mal_id for the user's owned series (the dual side).
+    let backfilled = manga::backfill_manga_mal(&state.pool, &state.http, 500, Some(user_id))
+        .await
+        .unwrap_or(0);
+    // (2) Drop the 24h profile cache so the next crossings read pulls a fresh
+    //     library — only for an approved, reachable link.
+    if let Some(link) = manga_servers::get_link(&state.pool, user_id).await? {
+        if link.is_approved() {
+            let _ = manga::refresh_profile(
+                &state.pool,
+                &state.http_no_redirect,
+                &link.base_url,
+                &link.slug,
+            )
+            .await;
+        }
+    }
+    Ok(Json(SyncResult { backfilled }))
+}
+
 // ── Public side (anonymous) ───────────────────────────────────────────────────
 
 #[derive(Deserialize)]
@@ -311,6 +344,7 @@ pub fn router() -> Router<AppState> {
             get(get_link).put(set_link).delete(delete_link),
         )
         .route("/me/manga-link/crossings", get(get_crossings))
+        .route("/me/manga-link/sync", post(sync_link))
         .route("/me/manga-link/figure/{figure_id}", get(get_figure_link))
         .route("/public/figures/by-mal/{mal_id}", get(figures_by_mal))
 }

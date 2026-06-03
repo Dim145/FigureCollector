@@ -288,6 +288,137 @@ pub struct MediaDetail {
     pub characters: Vec<AniListCharacter>,
 }
 
+/// Resolve the MANGA-side MAL id for an AniList media — the join key the
+/// MangaCollector library uses. For a manga, that's its own `idMal`; for an
+/// anime, it's the MAL id of its related source/adaptation manga (an anime and
+/// its manga have *different* MAL ids, so a figure tagged with the anime would
+/// never line up with a manga shelf otherwise). Returns `Ok(None)` when there's
+/// no manga side (an anime original, or AniList has no MAL mapping). Cached 24h,
+/// including the negative result, so the daily backfill is cheap on re-runs.
+pub async fn resolve_manga_mal(
+    pool: &PgPool,
+    http: &reqwest::Client,
+    anilist_id: i64,
+) -> AppResult<Option<i32>> {
+    cache::cached_fetch::<Option<i32>, _, _>(
+        pool,
+        PROVIDER,
+        "manga-mal",
+        &anilist_id.to_string(),
+        Duration::hours(CACHE_TTL_HOURS),
+        || async {
+            #[derive(Deserialize)]
+            struct Resp {
+                data: Option<Data>,
+                errors: Option<Vec<serde_json::Value>>,
+            }
+            #[derive(Deserialize)]
+            struct Data {
+                #[serde(rename = "Media")]
+                media: Option<MediaP>,
+            }
+            #[derive(Deserialize)]
+            struct MediaP {
+                #[serde(rename = "idMal")]
+                id_mal: Option<i64>,
+                #[serde(rename = "type")]
+                media_type: Option<String>,
+                relations: Option<Relations>,
+            }
+            #[derive(Deserialize)]
+            struct Relations {
+                edges: Vec<Edge>,
+            }
+            #[derive(Deserialize)]
+            struct Edge {
+                #[serde(rename = "relationType")]
+                relation_type: Option<String>,
+                node: Option<Node>,
+            }
+            #[derive(Deserialize)]
+            struct Node {
+                #[serde(rename = "idMal")]
+                id_mal: Option<i64>,
+                #[serde(rename = "type")]
+                media_type: Option<String>,
+                format: Option<String>,
+            }
+
+            let body = serde_json::json!({
+                "query": r#"
+                    query ($id: Int) {
+                        Media(id: $id) {
+                            idMal
+                            type
+                            relations { edges { relationType node { idMal type format } } }
+                        }
+                    }
+                "#,
+                "variables": { "id": anilist_id },
+            });
+
+            let resp: Resp = http
+                .post(ANILIST_ENDPOINT)
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| AppError::Internal(anyhow::anyhow!("AniList request failed: {e}")))?
+                .json()
+                .await
+                .map_err(|e| AppError::Internal(anyhow::anyhow!("AniList JSON parse failed: {e}")))?;
+
+            if let Some(errs) = resp.errors {
+                return Err(AppError::Internal(anyhow::anyhow!("AniList errors: {errs:?}")));
+            }
+            let Some(media) = resp.data.and_then(|d| d.media) else {
+                return Ok(None);
+            };
+
+            // A manga's own MAL id is the join key directly.
+            if media.media_type.as_deref() == Some("MANGA") {
+                return Ok(media.id_mal.map(|v| v as i32));
+            }
+
+            // An anime: pick its related manga's MAL id. Prefer the strongest
+            // relation (SOURCE > ADAPTATION > PARENT > anything) and a MANGA
+            // format over a one-shot / light-novel, so a spin-off doesn't win
+            // over the actual source manga.
+            fn rel_rank(rel: Option<&str>) -> u8 {
+                match rel {
+                    Some("SOURCE") => 0,
+                    Some("ADAPTATION") => 1,
+                    Some("PARENT") => 2,
+                    _ => 3,
+                }
+            }
+            fn fmt_rank(fmt: Option<&str>) -> u8 {
+                match fmt {
+                    Some("MANGA") => 0,
+                    Some("ONE_SHOT") => 1,
+                    _ => 2,
+                }
+            }
+            let best = media
+                .relations
+                .map(|r| r.edges)
+                .unwrap_or_default()
+                .into_iter()
+                .filter_map(|e| {
+                    let n = e.node?;
+                    if n.media_type.as_deref() != Some("MANGA") {
+                        return None;
+                    }
+                    let mal = n.id_mal?;
+                    Some((rel_rank(e.relation_type.as_deref()), fmt_rank(n.format.as_deref()), mal))
+                })
+                .min_by_key(|(rel, fmt, _)| (*rel, *fmt));
+
+            Ok(best.map(|(_, _, mal)| mal as i32))
+        },
+    )
+    .await
+}
+
 /// Fetch a single AniList character by id. Cached for 24h.
 ///
 /// Surfaces the full character — name + image + long-form description +

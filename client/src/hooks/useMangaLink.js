@@ -49,6 +49,22 @@ export function useSetMangaLink() {
   });
 }
 
+/** Resync — re-fetches the linked MangaCollector library and recomputes
+ *  crossings. No body; a 2xx (e.g. `{ backfilled }`) is success. Only meaningful
+ *  on an `approved` link. Refreshes the link state (the library tally) and the
+ *  crossings list. */
+export function useSyncMangaLink() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post("/me/manga-link/sync"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: KEY });
+      qc.invalidateQueries({ queryKey: ["manga-crossings"] });
+      qc.invalidateQueries({ queryKey: ["manga-figure"] });
+    },
+  });
+}
+
 /** Unlink — forgets the server + slug and drops the cached library. */
 export function useClearMangaLink() {
   const qc = useQueryClient();

@@ -141,6 +141,8 @@ async fn main() -> anyhow::Result<()> {
     services::scan_listener::spawn(state.clone());
     // Hourly purge of stale completed gsplat scans (keep N per figurine).
     services::scan_cleanup::spawn(state.clone());
+    // Daily backfill of series.manga_mal_id (the MangaCollector crossings key).
+    services::manga_sync::spawn(state.clone());
 
     let app = routes::build_router(state).layer(session_layer);
 

@@ -5,6 +5,7 @@
 //! notifications domain plus external channel fan-out. Putting that
 //! orchestration here keeps both domains self-contained.
 
+pub mod manga_sync;
 pub mod notify;
 pub mod release_cron;
 pub mod scan_cleanup;

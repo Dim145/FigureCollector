@@ -5,6 +5,7 @@ import {
   useClearMangaLink,
   useMangaLink,
   useSetMangaLink,
+  useSyncMangaLink,
 } from "../hooks/useMangaLink.js";
 
 const INDIGO = "var(--color-indigo)";
@@ -87,6 +88,7 @@ export default function MangaSettings() {
 // ── Connected · approved (active) ──────────────────────────────────────────────
 function ApprovedCard({ t, link, onUnlink, unlinking }) {
   const [confirmOff, setConfirmOff] = useState(false);
+  const sync = useSyncMangaLink();
   const profile = link.profile;
   return (
     <div
@@ -132,6 +134,44 @@ function ApprovedCard({ t, link, onUnlink, unlinking }) {
               </code>
             </>
           ) : null}
+        </p>
+        {/* Resync — re-pull the library + recompute crossings on demand. */}
+        <div className="mt-3 flex items-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={() => sync.mutate()}
+            disabled={sync.isPending}
+            className="inline-flex items-center gap-2 px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] text-[var(--color-ivoire)] disabled:opacity-50 transition-opacity"
+            style={{
+              background: `color-mix(in oklab, ${INDIGO} 14%, transparent)`,
+              border: `1px solid color-mix(in oklab, ${INDIGO} 70%, transparent)`,
+            }}
+          >
+            <span className="ja" aria-hidden>
+              {sync.isPending ? "…" : "同"}
+            </span>
+            {sync.isPending ? t("settings.manga.connecting") : t("settings.manga.sync.cta")}
+          </button>
+          {sync.isSuccess ? (
+            <span
+              className="inline-flex items-center gap-1.5 text-[11px]"
+              style={{ color: "var(--color-jade)" }}
+            >
+              <span
+                aria-hidden
+                className="w-[6px] h-[6px] rounded-full"
+                style={{ background: "var(--color-jade)", boxShadow: "0 0 6px var(--color-jade)" }}
+              />
+              {t("settings.manga.sync.done")}
+            </span>
+          ) : sync.isError ? (
+            <span className="text-[11px] text-[var(--color-laque-bright)]">
+              {t("settings.manga.sync.error")}
+            </span>
+          ) : null}
+        </div>
+        <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--color-ivoire-soft)]">
+          {t("settings.manga.sync.hint")}
         </p>
       </div>
       {confirmOff ? (

@@ -171,6 +171,22 @@ pub async fn fetch_profile(
     .await
 }
 
+/// Force a fresh pull of the profile: drop the cached copy, then re-fetch (and
+/// re-cache). Used by the manual sync so a just-updated MangaCollector library
+/// shows up immediately instead of after the 24h TTL.
+pub async fn refresh_profile(
+    pool: &PgPool,
+    http: &reqwest::Client,
+    base_url: &str,
+    slug: &str,
+) -> AppResult<MangaProfile> {
+    // Recompute the exact cache key `fetch_profile` uses (trimmed base + slug).
+    let base = base_url.trim().trim_end_matches('/');
+    let slug_t = slug.trim();
+    cache::invalidate(pool, PROVIDER, "profile", &format!("{base}|{slug_t}")).await?;
+    fetch_profile(pool, http, base_url, slug).await
+}
+
 // ─── Reverse direction: figures for a MAL series (public) ────────────────────
 
 /// A catalogue figure linked to a given MAL series, trimmed for the public
@@ -196,7 +212,7 @@ pub async fn figures_by_mal(
          FROM figures f
          JOIN figure_series fs ON fs.figure_id = f.id
          JOIN series s ON s.id = fs.series_id
-         WHERE s.mal_id = $1{nsfw}
+         WHERE (s.mal_id = $1 OR s.manga_mal_id = $1){nsfw}
          ORDER BY f.name",
         nsfw = if exclude_nsfw { " AND NOT f.is_nsfw" } else { "" },
     );
@@ -249,10 +265,12 @@ pub struct Crossings {
     pub reading: Vec<ReadingItem>,
 }
 
-/// Internal row shape for the `dual` query.
+/// Internal row shape for the `dual` query. Both ids are nullable: a row can
+/// match the library via its own `mal_id` OR its cross-media `manga_mal_id`.
 #[derive(sqlx::FromRow)]
 struct DualRow {
-    mal_id: i32,
+    mal_id: Option<i32>,
+    manga_mal_id: Option<i32>,
     series_name: String,
     figure_count: i64,
 }
@@ -260,7 +278,8 @@ struct DualRow {
 /// Internal row shape for the `reading` query.
 #[derive(sqlx::FromRow)]
 struct ReadingRow {
-    mal_id: i32,
+    mal_id: Option<i32>,
+    manga_mal_id: Option<i32>,
     name: String,
     slug: String,
     figure_type: String,
@@ -319,13 +338,13 @@ pub async fn crossings(
         ""
     };
     let dual_sql = format!(
-        "SELECT s.mal_id AS mal_id, s.name AS series_name, COUNT(DISTINCT o.figure_id) AS figure_count
+        "SELECT s.mal_id AS mal_id, s.manga_mal_id AS manga_mal_id, s.name AS series_name, COUNT(DISTINCT o.figure_id) AS figure_count
          FROM series s
          JOIN figure_series fs ON fs.series_id = s.id
          JOIN owned_items o ON o.figure_id = fs.figure_id
             AND o.user_id = $1 AND o.archived_at IS NULL{dual_nsfw}
-         WHERE s.mal_id = ANY($2::int[])
-         GROUP BY s.id, s.mal_id, s.name
+         WHERE (s.manga_mal_id = ANY($2::int[]) OR s.mal_id = ANY($2::int[]))
+         GROUP BY s.id, s.mal_id, s.manga_mal_id, s.name
          ORDER BY figure_count DESC, s.name"
     );
     let dual_rows: Vec<DualRow> = sqlx::query_as(&dual_sql)
@@ -335,29 +354,35 @@ pub async fn crossings(
         .await?;
     let dual = dual_rows
         .into_iter()
-        .map(|r| {
-            let entry = by_mal.get(&r.mal_id);
-            DualItem {
-                mal_id: r.mal_id,
+        .filter_map(|r| {
+            // Whichever of the two ids is actually in the library is the match
+            // (manga_mal_id wins; the 0 sentinel is never a library key).
+            let key = [r.manga_mal_id, r.mal_id]
+                .into_iter()
+                .flatten()
+                .find(|id| by_mal.contains_key(id))?;
+            let entry = by_mal.get(&key);
+            Some(DualItem {
+                mal_id: key,
                 series_name: r.series_name,
                 manga_name: entry.map(|e| e.name.clone()).unwrap_or_default(),
                 figure_count: r.figure_count,
                 read_percent: entry.and_then(|e| e.read_percent),
                 volumes_owned: entry.and_then(|e| e.volumes_owned),
                 volumes: entry.and_then(|e| e.volumes),
-            }
+            })
         })
         .collect();
 
     // ── reading: catalogue figures for a read series the user does NOT own —
     // purchase suggestions. NOT EXISTS scopes "doesn't own" to active items.
     let reading_sql = format!(
-        "SELECT s.mal_id AS mal_id, f.name AS name, f.slug AS slug, f.figure_type AS figure_type,
+        "SELECT s.mal_id AS mal_id, s.manga_mal_id AS manga_mal_id, f.name AS name, f.slug AS slug, f.figure_type AS figure_type,
                 f.official_image_url AS image, s.name AS series_name
          FROM figures f
          JOIN figure_series fs ON fs.figure_id = f.id
          JOIN series s ON s.id = fs.series_id
-         WHERE s.mal_id = ANY($2::int[])
+         WHERE (s.manga_mal_id = ANY($2::int[]) OR s.mal_id = ANY($2::int[]))
            AND NOT EXISTS (
                 SELECT 1 FROM owned_items o
                 WHERE o.user_id = $1 AND o.figure_id = f.id AND o.archived_at IS NULL
@@ -374,10 +399,14 @@ pub async fn crossings(
         .await?;
     let reading = reading_rows
         .into_iter()
-        .map(|r| {
-            let entry = by_mal.get(&r.mal_id);
-            ReadingItem {
-                mal_id: r.mal_id,
+        .filter_map(|r| {
+            let key = [r.manga_mal_id, r.mal_id]
+                .into_iter()
+                .flatten()
+                .find(|id| by_mal.contains_key(id))?;
+            let entry = by_mal.get(&key);
+            Some(ReadingItem {
+                mal_id: key,
                 name: r.name,
                 slug: r.slug,
                 figure_type: r.figure_type,
@@ -387,11 +416,84 @@ pub async fn crossings(
                 read_percent: entry.and_then(|e| e.read_percent),
                 volumes_owned: entry.and_then(|e| e.volumes_owned),
                 volumes: entry.and_then(|e| e.volumes),
-            }
+            })
         })
         .collect();
 
     Ok(Crossings { dual, reading })
+}
+
+// ─── Backfill: the cross-media join key (series.manga_mal_id) ─────────────────
+
+/// Fill `series.manga_mal_id` for series that carry an AniList id but haven't
+/// been resolved yet (NULL). For each, ask AniList for the manga-side MAL id
+/// (cached 24h) and store it — or store the sentinel `0` ("no manga side") so it
+/// isn't reprocessed and never matches a real id. `limit` caps one run;
+/// `only_user` scopes to the series of that user's owned figures (the per-user
+/// "sync"), `None` sweeps the whole catalogue (the daily cron). `http` is the
+/// regular (redirect-following) client — AniList, not a user instance. Returns
+/// how many got a *real* manga id this run.
+pub async fn backfill_manga_mal(
+    pool: &PgPool,
+    http: &reqwest::Client,
+    limit: i64,
+    only_user: Option<Uuid>,
+) -> AppResult<u32> {
+    let todo: Vec<(Uuid, i32)> = if let Some(uid) = only_user {
+        sqlx::query_as(
+            "SELECT DISTINCT s.id, s.anilist_id
+             FROM series s
+             JOIN figure_series fs ON fs.series_id = s.id
+             JOIN owned_items o ON o.figure_id = fs.figure_id
+                AND o.user_id = $1 AND o.archived_at IS NULL
+             WHERE s.anilist_id IS NOT NULL AND s.manga_mal_id IS NULL
+             LIMIT $2",
+        )
+        .bind(uid)
+        .bind(limit)
+        .fetch_all(pool)
+        .await?
+    } else {
+        sqlx::query_as(
+            "SELECT id, anilist_id FROM series
+             WHERE anilist_id IS NOT NULL AND manga_mal_id IS NULL
+             ORDER BY updated_at DESC
+             LIMIT $1",
+        )
+        .bind(limit)
+        .fetch_all(pool)
+        .await?
+    };
+
+    let mut filled = 0u32;
+    for (series_id, anilist_id) in todo {
+        match crate::external::anilist::resolve_manga_mal(pool, http, anilist_id as i64).await {
+            Ok(Some(mal)) => {
+                sqlx::query(
+                    "UPDATE series SET manga_mal_id = $1 WHERE id = $2 AND manga_mal_id IS NULL",
+                )
+                .bind(mal)
+                .bind(series_id)
+                .execute(pool)
+                .await?;
+                filled += 1;
+            }
+            // No manga side — mark with the 0 sentinel so it isn't reprocessed.
+            Ok(None) => {
+                sqlx::query(
+                    "UPDATE series SET manga_mal_id = 0 WHERE id = $1 AND manga_mal_id IS NULL",
+                )
+                .bind(series_id)
+                .execute(pool)
+                .await?;
+            }
+            Err(e) => {
+                tracing::debug!(error = %e, series = %series_id,
+                    "manga-mal resolve failed; will retry next run");
+            }
+        }
+    }
+    Ok(filled)
 }
 
 // ─── Per-figure manga link ───────────────────────────────────────────────────
@@ -418,19 +520,27 @@ pub async fn figure_manga_link(
     user_id: Uuid,
     figure_id: Uuid,
 ) -> AppResult<Option<FigureMangaLink>> {
-    // First MAL id among the figure's series (figures can carry several).
-    let mal: Option<(i32,)> = sqlx::query_as(
-        "SELECT s.mal_id FROM figure_series fs
+    // The figure's series ids (figures can carry several) — both the own mal_id
+    // and the cross-media manga_mal_id, since the library is keyed on the manga.
+    let ids: Option<(Option<i32>, Option<i32>)> = sqlx::query_as(
+        "SELECT s.mal_id, s.manga_mal_id FROM figure_series fs
          JOIN series s ON s.id = fs.series_id
-         WHERE fs.figure_id = $1 AND s.mal_id IS NOT NULL
+         WHERE fs.figure_id = $1
+           AND (s.mal_id IS NOT NULL OR (s.manga_mal_id IS NOT NULL AND s.manga_mal_id <> 0))
          LIMIT 1",
     )
     .bind(figure_id)
     .fetch_optional(pool)
     .await?;
-    let Some((mal_id,)) = mal else {
+    let Some((mal_id, manga_mal_id)) = ids else {
         return Ok(None);
     };
+    // Candidate keys to match the library on (manga side first; never the 0
+    // sentinel).
+    let candidates: Vec<i32> = [manga_mal_id.filter(|v| *v != 0), mal_id]
+        .into_iter()
+        .flatten()
+        .collect();
 
     let Some(link) = crate::domain::manga_servers::get_link(pool, user_id).await? else {
         return Ok(None);
@@ -441,7 +551,10 @@ pub async fn figure_manga_link(
     let (base, slug) = (link.base_url, link.slug);
 
     let profile = fetch_profile(pool, http, &base, &slug).await?;
-    let entry = profile.library.iter().find(|e| e.mal_id == Some(mal_id));
+    let entry = profile
+        .library
+        .iter()
+        .find(|e| e.mal_id.is_some_and(|m| candidates.contains(&m)));
     Ok(entry.map(|e| FigureMangaLink {
         name: e.name.clone(),
         read_percent: e.read_percent,

@@ -78,6 +78,19 @@ pub async fn put<T: Serialize>(
     Ok(())
 }
 
+/// Drop a cached entry so the next [`cached_fetch`] re-fetches upstream. Used by
+/// the manual "sync" actions to force a fresh pull instead of waiting out the
+/// TTL. A missing row is a no-op.
+pub async fn invalidate(pool: &PgPool, provider: &str, resource: &str, key: &str) -> AppResult<()> {
+    sqlx::query("DELETE FROM external_lookups WHERE provider = $1 AND resource = $2 AND key = $3")
+        .bind(provider)
+        .bind(resource)
+        .bind(key)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
 // ─── Singleflight ──────────────────────────────────────────────────────────
 
 /// In-flight cache misses, keyed by `(provider, resource, key)`.
