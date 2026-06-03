@@ -6,17 +6,18 @@ Why this exists: splatfacto's default densification left a soft, hazy halo
 around the figure on a turntable (the static-relative-to-the-rotating-figure
 background accretes drifted Gaussians the masked loss never penalises), and the
 Brush trainer needs Vulkan, which the host's 575 driver won't expose inside the
-container. gsplat is the CUDA rasteriser splatfacto already builds on (it ships
-in the Nerfstudio image), and its **MCMC** strategy is the clean fix: it caps
-the Gaussian count (`--cap-max`) and *relocates* low-opacity Gaussians instead
-of letting them linger, so floaters/haze are recycled into the figure and VRAM
-stays bounded. Pair that with a foreground **loss mask** (background pixels
-contribute zero loss) and the halo is gone.
+container. gsplat is the CUDA rasteriser splatfacto builds on, and its **MCMC**
+strategy is the clean fix: it caps the Gaussian count (`--cap-max`) and
+*relocates* low-opacity Gaussians instead of letting them linger, so
+floaters/haze are recycled into the figure and VRAM stays bounded. Pair that with
+a foreground **loss mask** (background pixels contribute zero loss) and the halo
+is gone.
 
-It depends ONLY on what the Nerfstudio image already provides — torch, numpy,
-gsplat (pinned 1.4.0, splatfacto's backend) and Pillow — so there is nothing to
-vendor (no gsplat `examples/` tree, no `pycolmap.SceneManager`, no `fused_ssim`,
-no viewer deps). The API calls below target gsplat **1.4.0** exactly.
+It depends ONLY on what the image installs — torch, numpy, gsplat and Pillow — so
+there is nothing to vendor (no gsplat `examples/` tree, no `pycolmap.SceneManager`,
+no `fused_ssim`, no viewer deps). The MCMC + rasterization calls below target the
+gsplat **1.4.0** API, which is identical through **1.5.3** (the pinned version) —
+verified: same MCMCStrategy / step_post_backward / initialize_state signatures.
 
 Input: an **undistorted** COLMAP dataset (run `colmap image_undistorter` first
 so the cameras are PINHOLE — gsplat rasterises a pinhole model and does not

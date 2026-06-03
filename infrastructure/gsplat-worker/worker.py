@@ -23,13 +23,18 @@ Environment:
     TRAINING_ITERATIONS   optional, gsplat MCMC training iters (default 30000)
     VIDEO_TARGET_FRAMES   optional, frames sampled from a source video (default 150)
     VIDEO_MAX_DIM         optional, max-dim cap on extracted frames (default 2048)
+    FFMPEG_USE_GPU        optional, GPU NVDEC decode for frame extraction (default
+                          true); falls back to CPU on any failure
     GSPLAT_CAP_MAX        optional, MCMC Gaussian cap — the VRAM lever (default 250000)
     GSPLAT_MAX_RES        optional, longest image side trained on (default 1600)
     ENABLE_MASKING        optional, rembg-mask the figure (default true) — a binary
                           mask feeds COLMAP's mask_path (SfM tracks the figure) AND the
                           trainer's loss (background pixels contribute zero loss)
-    COLMAP_USE_GPU        optional, run COLMAP feature extraction on the GPU via
-                          its CUDA path (default true); set false to force CPU
+    COLMAP_USE_GPU        optional, GPU COLMAP SIFT extraction + matching (default
+                          true); false forces CPU (deterministic).
+    COLMAP_BA_USE_GPU     optional, GPU bundle adjustment in the mapper (default
+                          false); rarely helps at ~150 frames, falls back to CPU if
+                          Ceres lacks CUDA. Otherwise the mapper is CPU/Ceres.
     RECOVER_ABANDONED     optional, at boot re-queue this worker's 'processing'
                           scans abandoned on a restart (default true)
 """
@@ -82,6 +87,11 @@ VIDEO_TARGET_FRAMES = int(os.environ.get("VIDEO_TARGET_FRAMES", "150"))
 # splatting and makes COLMAP matching / training crawl; ~2048 px is the sweet
 # spot (well above the client's 1920 px WebP, still fast).
 VIDEO_MAX_DIM = int(os.environ.get("VIDEO_MAX_DIM", "2048"))
+# Decode the source video on the GPU (NVDEC) when extracting frames. Needs the
+# `video` driver capability (NVIDIA_DRIVER_CAPABILITIES=all, which we set). Only
+# the DECODE moves to the GPU — the PNG encode stays CPU, so the win is modest.
+# Any failure (a codec/profile NVDEC can't handle, no GPU) falls back to CPU.
+FFMPEG_USE_GPU = os.environ.get("FFMPEG_USE_GPU", "true").lower() in ("1", "true", "yes")
 # Background masking. On by default — this is an object scanner, so the figure
 # should be isolated from whatever it sits on. When on, rembg masks each frame
 # (before COLMAP) and we feed them BOTH to COLMAP's mask_path (so SfM ignores the
@@ -89,12 +99,28 @@ VIDEO_MAX_DIM = int(os.environ.get("VIDEO_MAX_DIM", "2048"))
 # per-frame loss masks so the gsplat trainer ignores the background (no haze).
 # Best-effort: if rembg is missing or errors, COLMAP and training run unmasked.
 ENABLE_MASKING = os.environ.get("ENABLE_MASKING", "true").lower() in ("1", "true", "yes")
-# Run COLMAP feature extraction + matching on the GPU. This image ships a
-# CUDA-built COLMAP, which selects its CUDA SIFT automatically on a headless host
-# (no OpenGL, no display) — so GPU mode "just works". Set COLMAP_USE_GPU=false to
-# force CPU (passes --Sift*.use_gpu 0). Either way the COLMAP mapper / bundle-
-# adjustment stays on CPU (incompressible).
+# rembg segmentation model. isnet-general-use (ISNet/DIS, 2022) — newer + crisper
+# than u2net, and its CNN architecture FITS 6 GB (~1-2 GB at 1024²). BiRefNet,
+# though higher quality, OOMs a 6 GB card at its 1024² input (needs ~8 GB+), so we
+# don't default to it. ~170 MB. MUST match the model baked into the image (the
+# container is read-only — rembg can't fetch a different one at runtime); rebuild
+# with a new Dockerfile bake to change it (and on a bigger GPU you could pick
+# birefnet-general-lite / -general here).
+REMBG_MODEL = os.environ.get("REMBG_MODEL", "isnet-general-use")
+# COLMAP SIFT feature extraction + matching on the GPU (the conda env ships the
+# CUDA build of COLMAP 4.0.4). Default on. Set COLMAP_USE_GPU=false to force CPU
+# for both — slower, but COLMAP's CUDA SIFT extraction is non-deterministic (GPU
+# float atomics), so if a glossy turntable flaps between a full model and a
+# 2-frame stub, flip this off (the macOS worker extracts on CPU on purpose). The
+# incremental mapper is always CPU/Ceres.
 COLMAP_USE_GPU = os.environ.get("COLMAP_USE_GPU", "true").lower() in ("1", "true", "yes")
+# Bundle adjustment in the incremental mapper runs on CPU (Ceres) by default.
+# COLMAP_BA_USE_GPU=true passes --Mapper.ba_use_gpu 1 to try Ceres' CUDA solver.
+# Rarely worth it here: GPU BA only pays off on LARGE reconstructions (~1500+
+# images) — at ~150 frames it's usually no faster, often slower (host<->GPU
+# transfer) — and it silently falls back to CPU if this COLMAP's Ceres wasn't
+# built with CUDA. Off by default; flip it on to experiment.
+COLMAP_BA_USE_GPU = os.environ.get("COLMAP_BA_USE_GPU", "false").lower() in ("1", "true", "yes")
 
 # COLMAP is Qt-linked; force Qt's offscreen platform so the CLI initialises with
 # no X server. The Dockerfile sets this too — this is belt-and-suspenders for
@@ -163,10 +189,10 @@ class WorkerState:
 
 def log_gpu_diagnostics() -> None:
     """Boot-time GPU self-test. Logs the CUDA device torch sees + nvidia-smi — the
-    one GPU that runs everything here: COLMAP's CUDA SIFT (feature extraction +
-    matching), rembg, and the gsplat MCMC training. If CUDA is missing here,
-    COLMAP_USE_GPU=true won't help and training would be unusably slow."""
-    # (1) CUDA compute — drives COLMAP's GPU SIFT, rembg, and gsplat training.
+    one GPU that runs the CUDA work here: COLMAP 4.0.4 SIFT (extraction + matching,
+    unless COLMAP_USE_GPU=false), rembg masking and the gsplat MCMC training. If
+    CUDA is missing here, this would all be unusably slow."""
+    # (1) CUDA compute — drives COLMAP SIFT, rembg, and gsplat training.
     try:
         import torch  # local import: heavy, only needed for the probe
         if torch.cuda.is_available():
@@ -195,11 +221,12 @@ def log_gpu_diagnostics() -> None:
     except Exception as e:  # noqa: BLE001
         log.warning("gpu: nvidia-smi unavailable (compute not exposed?)", error=str(e))
 
-    # (3) Which COLMAP feature path will run this boot.
-    log.info(
-        "gpu: COLMAP feature extraction",
-        mode="CUDA (GPU)" if COLMAP_USE_GPU else "CPU (--no-gpu)",
-    )
+    # (3) COLMAP 4.0.4 SfM — GPU feature extraction + matching unless
+    #     COLMAP_USE_GPU=false; the mapper's bundle adjustment is CPU unless
+    #     COLMAP_BA_USE_GPU.
+    log.info("gpu: COLMAP 4.0.4",
+             extraction_matching="CUDA (GPU)" if COLMAP_USE_GPU else "CPU",
+             mapper_ba="CUDA (GPU)" if COLMAP_BA_USE_GPU else "CPU")
 
 
 async def main() -> None:
@@ -514,9 +541,10 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
             masked = _make_masks(images, colmap_masks_dir, loss_masks_dir, scan_id)
 
         progress(30)
-        # 3. COLMAP SfM (GPU feature extraction + sequential matching on the
-        #    image's CUDA COLMAP 3.9.1; incremental mapping on COLMAP 4.x from the
-        #    conda env), keeping the largest sub-model → sparse/0.
+        # 3. COLMAP 4.0.4 SfM from the conda `sfm` env (CUDA build): GPU feature
+        #    extraction + sequential matching (COLMAP_USE_GPU, default on), then
+        #    the CPU incremental mapper — the macOS 4.0.4 recipe. Keep the largest
+        #    sub-model → sparse/0.
         _colmap_sfm(
             images, sparse,
             colmap_masks_dir if masked else None,
@@ -598,8 +626,7 @@ def _prepare_frames(
         log.info("frames from video", scan_id=str(scan_id), key=video_key, frames=n)
         return n
     # Decode the WebP frames to PNG: COLMAP and rembg both read PNG reliably,
-    # while WebP support is hit-or-miss across the OpenCV / PIL versions
-    # Nerfstudio drags in.
+    # while WebP support is hit-or-miss across OpenCV / PIL versions.
     for i in range(frame_count):
         webp = tmp / f"src_{i:03}.webp"
         s3.download_file(S3_BUCKET, f"{prefix}frame_{i:03}.webp", str(webp))
@@ -620,7 +647,8 @@ def _find_source_video(prefix: str) -> str | None:
 
 def _extract_video_frames(video: Path, images: Path, scan_id: Any) -> int:
     """Sample ~VIDEO_TARGET_FRAMES evenly-spaced PNG frames from the video with
-    ffmpeg, downscaled to VIDEO_MAX_DIM on the longest side (never upscaled)."""
+    ffmpeg, downscaled to VIDEO_MAX_DIM on the longest side (never upscaled).
+    Decodes on the GPU (NVDEC) when FFMPEG_USE_GPU, falling back to CPU."""
     probe = subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries", "format=duration",
          "-of", "default=nokey=1:noprint_wrappers=1", str(video)],
@@ -640,10 +668,25 @@ def _extract_video_frames(video: Path, images: Path, scan_id: Any) -> int:
         f"scale='min({VIDEO_MAX_DIM},iw)':'min({VIDEO_MAX_DIM},ih)'"
         ":force_original_aspect_ratio=decrease"
     )
-    _run(
-        "ffmpeg", "-loglevel", "error", "-i", str(video),
-        "-vf", f"{fps},{scale}", str(images / "frame_%04d.png"),
-    )
+    tail = ["-i", str(video), "-vf", f"{fps},{scale}", str(images / "frame_%04d.png")]
+    # Try GPU decode (NVDEC) first — offloads only the decode (PNG encode stays
+    # CPU), and falls back to CPU on any failure: a codec/profile NVDEC can't
+    # handle, or no GPU. `-hwaccel cuda` auto-selects the cuvid decoder and
+    # downloads frames to host memory for the CPU fps/scale + PNG steps.
+    if FFMPEG_USE_GPU:
+        try:
+            _run("ffmpeg", "-loglevel", "error", "-hwaccel", "cuda", *tail)
+            n = len(list(images.glob("frame_*.png")))
+            if n > 0:
+                log.info("frames via NVDEC (GPU decode)", scan_id=str(scan_id), frames=n)
+                return n
+            log.warning("NVDEC produced no frames; retrying on CPU", scan_id=str(scan_id))
+        except Exception as e:  # noqa: BLE001
+            log.warning("NVDEC decode failed; falling back to CPU",
+                        scan_id=str(scan_id), error=str(e))
+        for f in images.glob("frame_*.png"):  # clear partial output before retry
+            f.unlink(missing_ok=True)
+    _run("ffmpeg", "-loglevel", "error", *tail)
     return len(list(images.glob("frame_*.png")))
 
 
@@ -660,78 +703,98 @@ def _make_masks(images: Path, colmap_masks_dir: Path, loss_masks_dir: Path,
         background pixels contribute zero loss, so no Gaussians accrete in the
         background — the haze fix, together with MCMC relocation.
 
-    GPU rembg; the session is freed before COLMAP / training claim the card.
-    Best-effort: returns False (COLMAP + training run unmasked) on any failure."""
+    Runs rembg on the GPU; if that fails (e.g. a CUDA OOM — heavier models don't
+    fit a 6 GB card), it RETRIES on CPU so a turntable is never silently left
+    unmasked (which wrecks SfM and leaves haze). Best-effort: returns False only if
+    CPU also fails. The session is freed before COLMAP / training claim the card."""
     try:
         from rembg import new_session, remove  # type: ignore
     except Exception:  # noqa: BLE001
         log.warning("masking on but rembg unavailable; running unmasked", scan_id=str(scan_id))
         return False
-    try:
-        colmap_masks_dir.mkdir(parents=True, exist_ok=True)
-        loss_masks_dir.mkdir(parents=True, exist_ok=True)
-        session = new_session(
-            "u2net", providers=["CUDAExecutionProvider", "CPUExecutionProvider"]
-        )
+    colmap_masks_dir.mkdir(parents=True, exist_ok=True)
+    loss_masks_dir.mkdir(parents=True, exist_ok=True)
+
+    def _segment(providers) -> int:
+        session = new_session(REMBG_MODEL, providers=providers)
         try:
             active = session.inner_session.get_providers()
         except Exception:  # noqa: BLE001
             active = []
-        log.info("rembg session", scan_id=str(scan_id), providers=active,
-                 gpu="CUDAExecutionProvider" in active)
+        log.info("rembg session", scan_id=str(scan_id), model=REMBG_MODEL,
+                 providers=active, gpu="CUDAExecutionProvider" in active)
         n = 0
         for img in sorted(images.glob("*.png")):
             with Image.open(img) as im:
                 cut = remove(im.convert("RGBA"), session=session)
             # Binary foreground mask from the cutout's alpha (0 = bg, 255 = fg).
             mask = cut.split()[-1].point(lambda a: 255 if a > 10 else 0).convert("L")
-            # COLMAP mask_path convention: "<image_name>.png".
-            mask.save(colmap_masks_dir / f"{img.name}.png")
-            # Trainer loss-mask convention: "<stem>.png".
-            mask.save(loss_masks_dir / f"{img.stem}.png")
+            mask.save(colmap_masks_dir / f"{img.name}.png")   # COLMAP: "<image>.png"
+            mask.save(loss_masks_dir / f"{img.stem}.png")     # trainer: "<stem>.png"
             n += 1
         del session
         gc.collect()
-        log.info("masks generated", scan_id=str(scan_id), count=n)
-        return n > 0
-    except Exception as e:  # noqa: BLE001 — masking must never fail the job
-        log.warning("masking failed; running unmasked", scan_id=str(scan_id), error=str(e))
-        return False
+        return n
+
+    # GPU first; fall back to CPU (slower, but no VRAM ceiling) on any failure.
+    attempts = [["CUDAExecutionProvider", "CPUExecutionProvider"], ["CPUExecutionProvider"]]
+    for i, providers in enumerate(attempts):
+        try:
+            n = _segment(providers)
+            log.info("masks generated", scan_id=str(scan_id), count=n)
+            return n > 0
+        except Exception as e:  # noqa: BLE001 — masking must never fail the job
+            gc.collect()
+            for d in (colmap_masks_dir, loss_masks_dir):  # drop partial output before retry
+                for f in d.glob("*.png"):
+                    f.unlink(missing_ok=True)
+            if i + 1 < len(attempts):
+                log.warning("rembg failed on GPU (CUDA OOM?); retrying on CPU",
+                            scan_id=str(scan_id), error=str(e))
+            else:
+                log.warning("masking failed on GPU and CPU; running unmasked",
+                            scan_id=str(scan_id), error=str(e))
+    return False
 
 
 def _colmap_sfm(images: Path, sparse: Path, mask_dir: Path | None,
                 scan_id: Any, frame_count: int, use_gpu: bool) -> None:
-    """COLMAP feature extraction + sequential matching on the GPU (the image's
-    CUDA COLMAP 3.9.1), then incremental mapping with COLMAP **4.x** (from a
-    conda-forge env), keeping the largest sub-model.
+    """Full COLMAP **4.0.4** Structure-from-Motion from the conda `sfm` env (a
+    CUDA build), keeping the largest sub-model. Same COLMAP version as the macOS
+    worker (Homebrew ships 4.0.4) and the same flags — COLMAP 4.0's reworked
+    incremental mapper is what makes turntables reconstruct reliably. The image's
+    bundled COLMAP is only 3.9.1 and conda-forge's `=cpu*` silently resolved to
+    3.11.1, so neither was ever the 4.x mapper we thought we had — hence the
+    explicit 4.0.4 pin (Dockerfile).
 
-    Why 4.x for the mapper: this image's 3.9.1 incremental mapper is
-    multi-threaded NON-deterministic — on a glossy / low-texture turntable it
-    flips between a full model and a 2-frame stub run to run. COLMAP 4.0's
-    reworked mapper is what the macOS Homebrew COLMAP (4.x) runs, and why the Mac
-    is reliable. Extraction is tuned for the hard case (many weak SIFT features) +
-    `mask_path` so SfM tracks the figure, not the static backdrop; sequential
-    matching keeps correspondences local (exhaustive invites false matches
-    between look-alike turntable angles → the confetti-ball failure)."""
+    Feature extraction + matching run on the GPU when ``use_gpu`` (default), else
+    CPU. COLMAP 4.0 renamed the toggles to FeatureExtraction.* / FeatureMatching.*
+    (max_num_features etc. kept the SiftExtraction.* name). Caveat worth knowing:
+    COLMAP's CUDA SIFT extraction is non-deterministic (GPU float atomics) — if a
+    glossy turntable flaps between a full model and a 2-frame stub, set
+    COLMAP_USE_GPU=false (the macOS worker extracts on CPU for exactly this
+    reason). The mapper is CPU/Ceres regardless. Extraction is tuned for the hard
+    case (many weak SIFT features) + `mask_path` so SfM tracks the figure, not the
+    static backdrop; sequential matching keeps correspondences local (exhaustive
+    invites false matches between look-alike angles → the confetti ball)."""
     sparse.mkdir(parents=True, exist_ok=True)
     db = sparse.parent / "colmap.db"
+    colmap = ["micromamba", "run", "-n", "sfm", "colmap"]
+    gpu = "1" if use_gpu else "0"
 
     extract = [
-        "colmap", "feature_extractor",
+        *colmap, "feature_extractor",
         "--database_path", str(db),
         "--image_path", str(images),
         "--ImageReader.single_camera", "1",
         "--ImageReader.camera_model", "OPENCV",
+        "--FeatureExtraction.use_gpu", gpu,
         "--SiftExtraction.max_num_features", str(COLMAP_MAX_FEATURES),
         "--SiftExtraction.peak_threshold", "0.004",
         "--SiftExtraction.edge_threshold", "16",
     ]
     if mask_dir is not None:
         extract += ["--ImageReader.mask_path", str(mask_dir)]
-    if not use_gpu:
-        extract += ["--SiftExtraction.use_gpu", "0"]
-    else:
-        extract += ["--SiftExtraction.use_gpu", "1"]
     _run(*extract)
 
     # Sequential matching (ordered video frames + a window) — the macOS recipe.
@@ -740,30 +803,28 @@ def _colmap_sfm(images: Path, sparse: Path, mask_dir: Path | None,
     # confetti ball. Sequential keeps matches local and clean. (Exhaustive only
     # for tiny, unordered sets.)
     if frame_count >= 60:
-        matcher = ["colmap", "sequential_matcher", "--database_path", str(db),
+        matcher = [*colmap, "sequential_matcher", "--database_path", str(db),
+                   "--FeatureMatching.use_gpu", gpu,
                    "--SequentialMatching.overlap", "20"]
     else:
-        matcher = ["colmap", "exhaustive_matcher", "--database_path", str(db)]
-    if not use_gpu:
-        matcher += ["--SiftMatching.use_gpu", "0"]
+        matcher = [*colmap, "exhaustive_matcher", "--database_path", str(db),
+                   "--FeatureMatching.use_gpu", gpu]
     _run(*matcher)
 
-    # Incremental mapping with COLMAP 4.x — NOT the image's 3.9.1 mapper. 3.9.1's
-    # incremental mapper is non-deterministic on a marginal turntable (2/100 one
-    # run, 100/100 the next); COLMAP 4.0's reworked mapper is what the macOS
-    # Homebrew COLMAP (4.x) runs, and why the Mac is reliable. We pull it from
-    # conda-forge into the `sfm` micromamba env and run it on the database the
-    # image's CUDA COLMAP just built (the DB format is backward-compatible). The
-    # mapper is CPU/Ceres, so the conda CPU build is enough. Lenient registration
-    # admits more of the marginal turntable views.
-    _run(
-        "micromamba", "run", "-n", "sfm", "colmap", "mapper",
+    # Incremental mapping — same COLMAP 4.0.4. Lenient registration thresholds
+    # admit more of the marginal turntable views. Bundle adjustment is CPU/Ceres
+    # unless COLMAP_BA_USE_GPU (rarely worth it at ~150 frames — see the constant).
+    mapper = [
+        *colmap, "mapper",
         "--database_path", str(db),
         "--image_path", str(images),
         "--output_path", str(sparse),
         "--Mapper.init_min_num_inliers", "50",
         "--Mapper.abs_pose_min_num_inliers", "20",
-    )
+    ]
+    if COLMAP_BA_USE_GPU:
+        mapper += ["--Mapper.ba_use_gpu", "1"]
+    _run(*mapper)
 
     # COLMAP can split a hard scene into several sub-models (sparse/0, sparse/1,
     # …); keep the one with the most registered images, collapsed to sparse/0

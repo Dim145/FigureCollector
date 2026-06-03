@@ -2,8 +2,8 @@
 # FigureCollector — Phase 5B overlay: Gaussian Splatting worker
 #
 # Opt-in sidecar that trains a 3D Gaussian Splatting model from a scan's
-# frames. Heavy: ~10-15 GB image, needs an NVIDIA GPU with ≥8 GB VRAM and
-# the NVIDIA Container Toolkit installed on the host.
+# frames. Heavy: ~8 GB image (slim CUDA 12 base), needs an NVIDIA GPU with
+# ≥6 GB VRAM and the NVIDIA Container Toolkit installed on the host.
 #
 # Run alongside the dev stack:
 #   docker compose -f docker-compose.yml -f docker-compose.gsplat.yml up -d
@@ -43,22 +43,34 @@ services:
       # Longest image side trained on — the other VRAM lever. Raise for sharper
       # results if VRAM allows; lower on OOM.
       GSPLAT_MAX_RES: ${GSPLAT_MAX_RES:-1600}
-      # COLMAP feature extraction + matching on the GPU (CUDA). Set
-      # COLMAP_USE_GPU=false to force CPU. The COLMAP 4.x mapper stays on CPU.
-      COLMAP_USE_GPU: ${COLMAP_USE_GPU:-true}
-      # SIFT features per image. 8192 ~halves matching + the CPU mapper's bundle
-      # adjustment vs 16384, with no quality loss on glossy turntables — the main
-      # mapper-speed lever (GPU doesn't help at this scale). Bump to 16384 if
-      # registration drops on a hard capture. Pair with a higher `cpus` below.
+      # SIFT features per image. 8192 ~halves matching + the mapper's bundle
+      # adjustment vs 16384, with no quality loss on glossy turntables; bump to
+      # 16384 if registration drops on a hard capture.
       COLMAP_MAX_FEATURES: ${COLMAP_MAX_FEATURES:-8192}
-      # Everything here is CUDA (COLMAP SIFT, rembg, gsplat training), so
-      # compute,utility is enough — no `graphics`/Vulkan needed any more.
-      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
-      # Frame budget. With CUDA SIFT the feature step is cheap; the cost left on
-      # CPU is the mapper. 100 frames is a good default; raise to 150 (and
-      # VIDEO_MAX_DIM to 2048) for more detail if your host has the RAM.
+      # GPU COLMAP SIFT extraction + matching (CUDA build of 4.0.4). false forces
+      # CPU for both — deterministic, slower. NB: GPU SIFT extraction is
+      # non-deterministic; if a glossy turntable flaps between a full model and a
+      # 2-frame stub, set this false (the macOS worker extracts on CPU on purpose).
+      # The incremental mapper is always CPU.
+      COLMAP_USE_GPU: ${COLMAP_USE_GPU:-true}
+      # GPU bundle adjustment in the mapper (--Mapper.ba_use_gpu). Off by default:
+      # it only pays off on large reconstructions (~1500+ images), so at ~150
+      # frames it's usually no faster (often slower); falls back to CPU if Ceres
+      # has no CUDA. Flip on to experiment.
+      COLMAP_BA_USE_GPU: ${COLMAP_BA_USE_GPU:-false}
+      # `all` exposes the `graphics` capability COLMAP's CUDA SIFT (SiftGPU) may
+      # need on top of compute/utility (rembg + gsplat training only need
+      # compute). No Vulkan is used any more; `all` is just the safe superset for
+      # GPU COLMAP.
+      NVIDIA_DRIVER_CAPABILITIES: ${NVIDIA_DRIVER_CAPABILITIES:-all}
+      # Frame budget. 100 is a good default; raise to 150 (and VIDEO_MAX_DIM to
+      # 2048) for more detail if your host has the RAM. The CPU mapper is the cost.
       VIDEO_TARGET_FRAMES: ${VIDEO_TARGET_FRAMES:-100}
       VIDEO_MAX_DIM: ${VIDEO_MAX_DIM:-1600}
+      # Decode the source video on the GPU (NVDEC) during frame extraction; only
+      # the decode is offloaded (PNG encode stays CPU), and it falls back to CPU on
+      # any failure. Needs the `video` driver cap (covered by `all` above).
+      FFMPEG_USE_GPU: ${FFMPEG_USE_GPU:-true}
       # rembg-mask the figure (on by default — it's an object scanner). One pass
       # feeds COLMAP's mask_path (SfM tracks the figure) and the trainer's loss
       # (background pixels contribute zero loss → no haze).
