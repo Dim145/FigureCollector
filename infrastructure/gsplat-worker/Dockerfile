@@ -119,9 +119,17 @@ RUN mkdir -p /opt/u2net && \
 # Then smoke-test that colmap's shared libs resolve — a missing one fails the BUILD.
 COPY --from=mambaorg/micromamba:latest /bin/micromamba /usr/local/bin/micromamba
 ENV MAMBA_ROOT_PREFIX=/opt/micromamba
-RUN CONDA_OVERRIDE_CUDA=12.9 micromamba create -y -n sfm -c conda-forge \
+# Cache the downloaded conda packages (~2 GB) on a build cache mount: if this big
+# layer is ever re-run (Docker GC'd it, or the daemon restarted after an OOM), it
+# re-links from the cache in seconds instead of re-downloading. The pkgs cache is
+# a separate mount from the env (/opt/micromamba/envs/sfm), so micromamba COPIES
+# into the env (cross-device — no hardlinks) → the env is self-contained in the
+# image and the pkgs stay OUT of it (so no `micromamba clean` is needed). The
+# `colmap help` smoke test below would catch any incomplete env.
+RUN --mount=type=cache,target=/root/.mamba/pkgs,sharing=locked \
+    CONDA_PKGS_DIRS=/root/.mamba/pkgs CONDA_OVERRIDE_CUDA=12.9 \
+    micromamba create -y -n sfm -c conda-forge \
       "colmap=4.0.4=cuda_*" "libfaiss=*=cpu_openblas*" && \
-    micromamba clean -a -y && \
     test -x /opt/micromamba/envs/sfm/bin/colmap && \
     micromamba list -n sfm colmap && micromamba list -n sfm libfaiss && \
     ( micromamba run -n sfm colmap help 2>&1 | grep -qi "error while loading" \
