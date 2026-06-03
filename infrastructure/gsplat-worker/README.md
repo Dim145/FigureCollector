@@ -100,7 +100,10 @@ docker compose logs -f gsplat-worker
    instead of letting them linger, and the per-frame loss masks make the
    background contribute zero loss — together that's the haze fix. Runs as a
    subprocess (VRAM freed on exit) for `TRAINING_ITERATIONS` iters at up to
-   `GSPLAT_MAX_RES` px, and writes the `.ply` directly.
+   `GSPLAT_MAX_RES` px. On export it **prunes residual floaters** (drops faint
+   gaussians below `GSPLAT_MIN_OPACITY` + spatial outliers beyond `GSPLAT_CROP_MARGIN`×
+   the figure radius) and **recenters** the model at the origin, then writes the
+   `.ply`. (The web viewer also auto-frames the orbit on the figure's center.)
 6. **Upload** the `.ply` back to Garage at `scans/{scan_id}/result.ply`.
 7. **Mark** the scan `state='ready', result_key=…`.
 
@@ -132,6 +135,8 @@ traceback in `error_message`.
 | `COLMAP_BA_USE_GPU` | `false` | GPU bundle adjustment in the mapper (`--Mapper.ba_use_gpu`). Rarely helps at ~150 frames (only pays off ~1500+ images, often slower); falls back to CPU if Ceres lacks CUDA |
 | `GSPLAT_CAP_MAX` | `250000` | MCMC Gaussian cap — the dominant VRAM lever (MCMC grows to the cap, then holds it); lower on OOM, raise for more detail |
 | `GSPLAT_MAX_RES` | `1600` | longest image side the trainer renders — the other VRAM lever; raise for sharper results if VRAM allows |
+| `GSPLAT_MIN_OPACITY` | `0.08` | export prune: drop gaussians fainter than this (kills haze). Raise (e.g. 0.15) if floaters remain |
+| `GSPLAT_CROP_MARGIN` | `1.5` | export prune: drop gaussians beyond this × the figure's p98 radius (kills far floaters). Lower (e.g. 1.2) if artifacts remain; raise / set `0` if the figure gets clipped |
 | `ENABLE_MASKING` | `true` | rembg-mask the figure (one pass) → COLMAP `mask_path` (SfM tracks the figure, essential on a turntable) + per-frame loss masks (background contributes zero loss → no haze) |
 
 ## Recovering a stuck scan

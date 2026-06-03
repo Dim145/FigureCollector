@@ -43,6 +43,13 @@ services:
       # Longest image side trained on — the other VRAM lever. Raise for sharper
       # results if VRAM allows; lower on OOM.
       GSPLAT_MAX_RES: ${GSPLAT_MAX_RES:-1600}
+      # Floater/haze pruning at export. Drop gaussians fainter than MIN_OPACITY,
+      # and (CROP_MARGIN>0) those farther than CROP_MARGIN x the p98 radius from
+      # the figure's centre. If artifacts remain, lower CROP_MARGIN (e.g. 1.2) or
+      # raise MIN_OPACITY (e.g. 0.15); if the figure gets clipped, raise CROP_MARGIN
+      # or set it to 0 to disable the spatial crop.
+      GSPLAT_MIN_OPACITY: ${GSPLAT_MIN_OPACITY:-0.08}
+      GSPLAT_CROP_MARGIN: ${GSPLAT_CROP_MARGIN:-1.5}
       # SIFT features per image. 8192 ~halves matching + the mapper's bundle
       # adjustment vs 16384, with no quality loss on glossy turntables; bump to
       # 16384 if registration drops on a hard capture.

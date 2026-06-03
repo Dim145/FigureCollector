@@ -23,6 +23,45 @@ function cachePly(scanId, buf) {
   }
 }
 
+// Compute where to point the orbit camera. A gsplat `.ply` from COLMAP sits in
+// COLMAP's arbitrary frame — NOT centred on the origin — so the default controls
+// orbit empty space beside the figure ("the camera rotates in place"). We derive
+// a robust centre (per-axis median, so stray floaters don't drag it) and a
+// distance from a percentile radius (ignores the few far-flung floaters), then
+// seed OrbitControls with them.
+function frameSplat(scene, gsplat) {
+  const fallback = { center: new gsplat.Vector3(0, 0, 0), radius: 5 };
+  const splat = scene.findObjectOfType?.(gsplat.Splat);
+  const pos = splat?.data?.positions;
+  if (!pos || pos.length < 3) return fallback;
+  const n = pos.length / 3;
+  const xs = new Float32Array(n);
+  const ys = new Float32Array(n);
+  const zs = new Float32Array(n);
+  for (let i = 0; i < n; i += 1) {
+    xs[i] = pos[3 * i];
+    ys[i] = pos[3 * i + 1];
+    zs[i] = pos[3 * i + 2];
+  }
+  xs.sort();
+  ys.sort();
+  zs.sort();
+  const mid = n >> 1;
+  const cx = xs[mid];
+  const cy = ys[mid];
+  const cz = zs[mid];
+  const d = new Float32Array(n);
+  for (let i = 0; i < n; i += 1) {
+    const dx = pos[3 * i] - cx;
+    const dy = pos[3 * i + 1] - cy;
+    const dz = pos[3 * i + 2] - cz;
+    d[i] = Math.sqrt(dx * dx + dy * dy + dz * dz);
+  }
+  d.sort();
+  const r = d[Math.min(n - 1, Math.floor(n * 0.9))] || 1; // 90th-pct radius
+  return { center: new gsplat.Vector3(cx, cy, cz), radius: Math.max(r * 2.3, 0.1) };
+}
+
 export default function GsplatViewer({ scanId, embedded = false }) {
   const t = useT();
   const canvasRef = useRef(null);
@@ -59,8 +98,6 @@ export default function GsplatViewer({ scanId, embedded = false }) {
         const canvas = canvasRef.current;
         const renderer = new gsplat.WebGLRenderer(canvas);
         const scene = new gsplat.Scene();
-        const camera = new gsplat.Camera();
-        const controls = new gsplat.OrbitControls(camera, canvas);
 
         // Reuse the cached buffer when present (fullscreen open / re-open).
         // gsplat's PLYLoader.LoadAsync fetches from inside its own web worker,
@@ -86,6 +123,14 @@ export default function GsplatViewer({ scanId, embedded = false }) {
         // Hand the loader a COPY so the cached buffer isn't detached/consumed.
         gsplat.PLYLoader.LoadFromArrayBuffer(buf.slice(0), scene);
 
+        // Orbit the figure's centre at a sensible distance (not the origin) —
+        // otherwise the camera spins beside the off-origin splat. See frameSplat.
+        const { center, radius } = frameSplat(scene, gsplat);
+        const camera = new gsplat.Camera();
+        const controls = new gsplat.OrbitControls(
+          camera, canvas, undefined, undefined, radius, false, center,
+        );
+
         const handleResize = () => {
           const { clientWidth, clientHeight } = canvas;
           renderer.setSize(clientWidth, clientHeight);
@@ -105,6 +150,7 @@ export default function GsplatViewer({ scanId, embedded = false }) {
         cleanupRef.current = () => {
           cancelAnimationFrame(raf);
           ro.disconnect();
+          controls.dispose?.();
           renderer.dispose?.();
         };
       } catch (e) {

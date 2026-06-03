@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import os
 import random
 import struct
 import sys
@@ -305,6 +306,32 @@ def export_ply(path: Path, splats: torch.nn.ParameterDict) -> int:
     sh0 = splats["sh0"].detach().cpu().numpy().astype(np.float32)              # [N,1,3]
     shn = splats["shN"].detach().cpu().numpy().astype(np.float32)             # [N,15,3]
     n = means.shape[0]
+
+    # --- prune floaters before export ----------------------------------------
+    # The masked loss never penalises gaussians in the (masked) background, so a
+    # few drift there and render as floaters/haze "around the camera". Drop the
+    # faint ones (low opacity) and the spatial outliers (far from the figure's
+    # dense cluster), then recentre. Env-tunable; GSPLAT_CROP_MARGIN=0 disables
+    # the spatial crop. Hard safety: never prune to (near-)nothing.
+    min_opacity = float(os.environ.get("GSPLAT_MIN_OPACITY", "0.08"))
+    crop_pctl = float(os.environ.get("GSPLAT_CROP_PCTL", "0.98"))
+    crop_margin = float(os.environ.get("GSPLAT_CROP_MARGIN", "1.5"))
+    keep = (1.0 / (1.0 + np.exp(-opac.reshape(-1)))) >= min_opacity   # sigmoid(logit) ≥ thr
+    if keep.sum() >= 8:
+        center = np.median(means[keep], axis=0)
+        dist = np.linalg.norm(means - center, axis=1)
+        if crop_margin > 0:
+            r = float(np.percentile(dist[keep], crop_pctl * 100.0))
+            keep = keep & (dist <= r * crop_margin)
+    if keep.sum() < 8:
+        keep = np.ones(n, dtype=bool)
+    dropped = int(n - keep.sum())
+    means, scales, quats = means[keep], scales[keep], quats[keep]
+    opac, sh0, shn = opac[keep], sh0[keep], shn[keep]
+    means = means - np.median(means, axis=0).astype(np.float32)  # recentre at origin
+    n = means.shape[0]
+    log(f"export: {n} gaussians (dropped {dropped}: opacity<{min_opacity} or "
+        f"outside {crop_margin}x p{int(crop_pctl * 100)} radius)")
 
     # INRIA stores SH channel-major: f_dc=[r,g,b]; f_rest=[r·15, g·15, b·15].
     f_dc = np.transpose(sh0, (0, 2, 1)).reshape(n, -1)    # [N,3]
