@@ -23,14 +23,16 @@ function cachePly(scanId, buf) {
   }
 }
 
-// Compute where to point the orbit camera. A gsplat `.ply` from COLMAP sits in
-// COLMAP's arbitrary frame — NOT centred on the origin — so the default controls
-// orbit empty space beside the figure ("the camera rotates in place"). We derive
-// a robust centre (per-axis median, so stray floaters don't drag it) and a
-// distance from a percentile radius (ignores the few far-flung floaters), then
-// seed OrbitControls with them.
+// Robustly bound the figure for framing. A gsplat `.ply` from COLMAP sits in
+// COLMAP's arbitrary frame — NOT centred on the origin — so the orbit must point
+// at the figure, not the origin. Build a robust bounding box (clip the 2%/98%
+// tails per axis so a few far floaters don't dictate the framing): its centre is
+// the orbit target, and half its largest side (`rBound`) is the figure's
+// limiting half-extent (e.g. a tall figure's height). The camera DISTANCE is
+// derived from rBound + the camera's FOV at render time (see useEffect), not
+// here — gsplat's focal length is fixed, so the FOV depends on the canvas size.
 function frameSplat(scene, gsplat) {
-  const fallback = { center: new gsplat.Vector3(0, 0, 0), radius: 5 };
+  const fallback = { center: new gsplat.Vector3(0, 0, 0), rBound: 1 };
   const splat = scene.findObjectOfType?.(gsplat.Splat);
   const pos = splat?.data?.positions;
   if (!pos || pos.length < 3) return fallback;
@@ -46,20 +48,13 @@ function frameSplat(scene, gsplat) {
   xs.sort();
   ys.sort();
   zs.sort();
-  const mid = n >> 1;
-  const cx = xs[mid];
-  const cy = ys[mid];
-  const cz = zs[mid];
-  const d = new Float32Array(n);
-  for (let i = 0; i < n; i += 1) {
-    const dx = pos[3 * i] - cx;
-    const dy = pos[3 * i + 1] - cy;
-    const dz = pos[3 * i + 2] - cz;
-    d[i] = Math.sqrt(dx * dx + dy * dy + dz * dz);
-  }
-  d.sort();
-  const r = d[Math.min(n - 1, Math.floor(n * 0.9))] || 1; // 90th-pct radius
-  return { center: new gsplat.Vector3(cx, cy, cz), radius: Math.max(r * 2.3, 0.1) };
+  const lo = Math.floor(n * 0.02);
+  const hi = Math.min(n - 1, Math.floor(n * 0.98));
+  const cx = (xs[lo] + xs[hi]) / 2;
+  const cy = (ys[lo] + ys[hi]) / 2;
+  const cz = (zs[lo] + zs[hi]) / 2;
+  const rBound = Math.max(xs[hi] - xs[lo], ys[hi] - ys[lo], zs[hi] - zs[lo]) / 2 || 1;
+  return { center: new gsplat.Vector3(cx, cy, cz), rBound };
 }
 
 export default function GsplatViewer({ scanId, embedded = false }) {
@@ -123,13 +118,28 @@ export default function GsplatViewer({ scanId, embedded = false }) {
         // Hand the loader a COPY so the cached buffer isn't detached/consumed.
         gsplat.PLYLoader.LoadFromArrayBuffer(buf.slice(0), scene);
 
-        // Orbit the figure's centre at a sensible distance (not the origin) —
-        // otherwise the camera spins beside the off-origin splat. See frameSplat.
-        const { center, radius } = frameSplat(scene, gsplat);
+        // Frame the figure. gsplat's camera has a FIXED focal length (fy≈1132),
+        // so its vertical FOV is 2·atan(h / (2·fy)) — on a small canvas it's very
+        // "telephoto", which is why a naive radius looked extremely zoomed-in.
+        // Derive the orbit distance from the figure's half-extent and that real
+        // FOV: distance = rBound·(2·fy / h)·margin, margin>1 leaving breathing
+        // room (the figure fills ~1/margin of the view height).
+        const { center, rBound } = frameSplat(scene, gsplat);
         const camera = new gsplat.Camera();
+        const fy = camera.data?.fy || 1132;
+        const h = canvas.clientHeight || canvas.clientWidth || 512;
+        const radius = Math.max((rBound * 2 * fy / h) * 1.4, 0.02);
+        // Keep the splat inside the frustum and let the user zoom past gsplat's
+        // fixed caps (near/far 0.1–100, maxZoom 30) whatever the COLMAP scale.
+        if (camera.data) {
+          camera.data.near = Math.max(0.01, radius * 0.002);
+          camera.data.far = Math.max(100, radius * 20);
+        }
         const controls = new gsplat.OrbitControls(
           camera, canvas, undefined, undefined, radius, false, center,
         );
+        controls.maxZoom = Math.max(controls.maxZoom, radius * 4);
+        controls.minZoom = Math.min(controls.minZoom, radius * 0.05);
 
         const handleResize = () => {
           const { clientWidth, clientHeight } = canvas;
