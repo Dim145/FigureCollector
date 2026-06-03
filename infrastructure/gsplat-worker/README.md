@@ -74,7 +74,8 @@ docker compose logs -f gsplat-worker
 2. **Get frames** into a temporary directory:
    - if the scan shipped its **original video** (`{prefix}source.*`), ffmpeg
      samples ~`VIDEO_TARGET_FRAMES` full-resolution frames from it (much better
-     than the client's downscaled WebP set);
+     than the client's downscaled WebP set), decoding on the **GPU (NVDEC)** when
+     `FFMPEG_USE_GPU` with an automatic CPU fallback;
    - otherwise decode the stored WebP frames to PNG.
 3. *(default on)* **Foreground masks** — when `ENABLE_MASKING=true`, `rembg`
    (model **`isnet-general-use`** — ISNet/DIS 2022, crisper than u2net and fits a
@@ -115,7 +116,7 @@ traceback in `error_message`.
 > the same tuned SIFT extraction + `mask_path` + sequential matching (conda-forge
 > here, Homebrew on the Mac) — but trains differently: the Mac uses Brush
 > (wgpu→Metal), while here we train with **CUDA gsplat (MCMC)**, since Brush's
-> Vulkan backend can't initialise the host's 575 driver in-container.
+> Vulkan backend can't initialise the host's NVIDIA driver in-container.
 
 ## Tunables
 
@@ -130,6 +131,7 @@ traceback in `error_message`.
 | `TRAINING_ITERATIONS` | `30000` | gsplat MCMC training iterations (30k standard; 15k faster/softer) |
 | `VIDEO_TARGET_FRAMES` | `150` | frames sampled from a source video (if present) |
 | `VIDEO_MAX_DIM` | `2048` | max-dim cap on extracted frames |
+| `FFMPEG_USE_GPU` | `true` | decode the source video on the GPU (NVDEC) during frame extraction; only the decode is offloaded (PNG encode stays CPU), and it falls back to CPU on any failure. Needs the `video` driver capability |
 | `COLMAP_MAX_FEATURES` | `8192` | SIFT features/image; 8192 ~halves matching + the mapper's bundle adjustment vs 16384 with no quality loss on glossy turntables; bump to 16384 if registration drops |
 | `COLMAP_USE_GPU` | `true` | GPU COLMAP SIFT extraction + matching (CUDA build of 4.0.4). `false` forces CPU (deterministic, slower) — use it if a glossy turntable flaps to a 2-frame stub |
 | `COLMAP_BA_USE_GPU` | `false` | GPU bundle adjustment in the mapper (`--Mapper.ba_use_gpu`). Rarely helps at ~150 frames (only pays off ~1500+ images, often slower); falls back to CPU if Ceres lacks CUDA |
@@ -138,6 +140,63 @@ traceback in `error_message`.
 | `GSPLAT_MIN_OPACITY` | `0.08` | export prune: drop gaussians fainter than this (kills haze). Raise (e.g. 0.15) if floaters remain |
 | `GSPLAT_CROP_MARGIN` | `1.5` | export prune: drop gaussians beyond this × the figure's p98 radius (kills far floaters). Lower (e.g. 1.2) if artifacts remain; raise / set `0` if the figure gets clipped |
 | `ENABLE_MASKING` | `true` | rembg-mask the figure (one pass) → COLMAP `mask_path` (SfM tracks the figure, essential on a turntable) + per-frame loss masks (background contributes zero loss → no haze) |
+| `REMBG_MODEL` | `isnet-general-use` | rembg segmentation model. **Must match the model baked into the image** — the container is read-only, so rembg can't fetch another at runtime; change it together with the Dockerfile bake. See the VRAM table for alternatives |
+| `NVIDIA_DRIVER_CAPABILITIES` | `all` | driver capabilities exposed to the container. `all` covers `compute` (rembg + gsplat), `utility` (nvidia-smi) and `video` (NVDEC frame decode); set it narrower if you disable GPU decode |
+| `RECOVER_ABANDONED` | `true` | at boot, re-queue scans this worker left in `processing` (abandoned on a restart) |
+| `HEARTBEAT_INTERVAL` | `30` | seconds between worker heartbeats; the backend flags the worker offline after 3× this |
+
+## Resources (VRAM)
+
+The GPU stages run **sequentially and free their memory between them** (the rembg
+session is released before COLMAP, and the trainer runs as a subprocess whose VRAM
+is reclaimed on exit), so the worker's **peak** is the *heaviest single stage*, not
+the sum. With the defaults that peak is the gsplat training.
+
+**Default profile** (`isnet-general-use`, `GSPLAT_CAP_MAX=250000`,
+`GSPLAT_MAX_RES=1600`, 30 000 iters): peak ≈ **4–5 GB**, so a **6 GB** card is the
+practical floor (8 GB+ comfortable) — in line with 3DGS practice (~6 GB for
+captures under ~500 photos). Everything below is **approximate**; measure your real
+peak with `nvidia-smi -l 1` during a scan, as it varies with frame count,
+resolution and the figure.
+
+Per stage, at the defaults:
+
+| Stage | Approx. peak VRAM |
+|---|---|
+| ffmpeg NVDEC decode | < 0.5 GB |
+| rembg masking (`isnet-general-use`) | ~1.5–2 GB |
+| COLMAP GPU SIFT (8192 features) | ~0.5–1.5 GB |
+| **gsplat MCMC training** (250k @ 1600 px) | **~3.5–5 GB** ← the peak |
+
+The two training levers — roughly **linear in the Gaussian cap**, **quadratic in
+the resolution** (it's a pixel count):
+
+| `GSPLAT_CAP_MAX` | `GSPLAT_MAX_RES` | Approx. training VRAM |
+|---|---|---|
+| 100 000 | 1280 | ~2–3 GB |
+| **250 000** | **1600** | **~3.5–5 GB** (default) |
+| 400 000 | 2048 | ~6–9 GB |
+
+The masking model (`REMBG_MODEL`) only raises the floor if it's heavier than
+training — `u2net`/`isnet` aren't, **BiRefNet is**:
+
+| `REMBG_MODEL` | Model | Masking VRAM @1024² | Worker floor\* |
+|---|---|---|---|
+| `u2netp` | 43 MB | ~0.5–1 GB | 6 GB |
+| `u2net` | 167 MB | ~1–1.5 GB | 6 GB |
+| `isnet-general-use` (default) | ~168 MB | ~1.5–2 GB | 6 GB |
+| `birefnet-general-lite` | (light BiRefNet) | ~6 GB (OOMs a 6 GB card @1024²) | 8 GB |
+| `birefnet-general` | 213 MB | ~8 GB+ | 10–12 GB |
+
+\* floor = max(training, masking). A *lighter* masking model won't drop below 6 GB —
+training sets that; lower `GSPLAT_MAX_RES`/`GSPLAT_CAP_MAX` to go lower. A *heavier*
+one (BiRefNet) becomes the peak and raises the floor. Switching model needs a
+Dockerfile rebuild (it's baked in), and the worker auto-falls-back to **CPU masking**
+if the GPU model OOMs — so a too-big model degrades rather than fails the job.
+
+**To fit a smaller card**, in order of impact: lower `GSPLAT_MAX_RES` (e.g. 1280),
+lower `GSPLAT_CAP_MAX` (e.g. 150 000), keep a light `REMBG_MODEL`, and/or set
+`COLMAP_USE_GPU=false` (SIFT on CPU).
 
 ## Recovering a stuck scan
 

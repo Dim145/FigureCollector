@@ -5,7 +5,7 @@ Self-contained CUDA Gaussian-splat trainer — gsplat **MCMC** strategy.
 Why this exists: splatfacto's default densification left a soft, hazy halo
 around the figure on a turntable (the static-relative-to-the-rotating-figure
 background accretes drifted Gaussians the masked loss never penalises), and the
-Brush trainer needs Vulkan, which the host's 575 driver won't expose inside the
+Brush trainer needs Vulkan, which the host's NVIDIA driver won't expose inside the
 container. gsplat is the CUDA rasteriser splatfacto builds on, and its **MCMC**
 strategy is the clean fix: it caps the Gaussian count (`--cap-max`) and
 *relocates* low-opacity Gaussians instead of letting them linger, so

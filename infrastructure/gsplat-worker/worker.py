@@ -762,10 +762,9 @@ def _colmap_sfm(images: Path, sparse: Path, mask_dir: Path | None,
     """Full COLMAP **4.0.4** Structure-from-Motion from the conda `sfm` env (a
     CUDA build), keeping the largest sub-model. Same COLMAP version as the macOS
     worker (Homebrew ships 4.0.4) and the same flags — COLMAP 4.0's reworked
-    incremental mapper is what makes turntables reconstruct reliably. The image's
-    bundled COLMAP is only 3.9.1 and conda-forge's `=cpu*` silently resolved to
-    3.11.1, so neither was ever the 4.x mapper we thought we had — hence the
-    explicit 4.0.4 pin (Dockerfile).
+    incremental mapper is what makes turntables reconstruct reliably. Pinned
+    explicitly because conda-forge's `=cpu*` glob silently resolves to 3.11.1,
+    not 4.x (Dockerfile).
 
     Feature extraction + matching run on the GPU when ``use_gpu`` (default), else
     CPU. COLMAP 4.0 renamed the toggles to FeatureExtraction.* / FeatureMatching.*

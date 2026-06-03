@@ -2,11 +2,10 @@
 #
 # Phase 5B — Gaussian Splatting training sidecar (slim CUDA 12 base).
 #
-# Rebased off the ~15 GB Nerfstudio image onto the TINY CUDA 12.9 `-base` image
-# (~140 MB — cudart + env only) — we used only a handful of things from
-# nerfstudio, and its COLMAP 3.9.1 was the wrong version anyway. The trick: the
-# CUDA math libs (cudnn, cublas, cufft, cusparse…) ship ONCE, from torch, instead
-# of also being baked into a heavy `-runtime`/`-cudnn` base (~2 GB saved):
+# Built on the tiny CUDA 12.9 `-base` image (~140 MB — cudart + env only). What
+# keeps it slim: the CUDA math libs (cuDNN, cuBLAS, cuFFT, cuSPARSE…) ship ONCE,
+# from torch, instead of also being baked into a heavy `-runtime`/`-cudnn` base
+# (~2 GB saved):
 #   * torch 2.4.1 + cu124 and gsplat 1.5.3 (prebuilt pt24cu124 wheel — no nvcc, no
 #     runtime JIT → works in the read-only container) → the MCMC trainer. torch
 #     bundles the full CUDA runtime; we register its CUDA lib dirs with ldconfig
@@ -15,8 +14,7 @@
 #     conda env carries its own CUDA 12.9 runtime, self-contained.
 #   * onnxruntime-gpu (CUDA 12) → rembg masking, reusing torch's CUDA libs.
 # Base MUST be ubuntu22.04 → Python 3.10, the ONLY interpreter gsplat ships a
-# wheel for (24.04 = Python 3.12 → no wheel). Targets the RTX 3050/3060 (sm_86);
-# the host's 575 driver covers CUDA 12.x.
+# wheel for (24.04 = Python 3.12 → no wheel). Needs a CUDA 12.x-capable GPU.
 #
 # Override the base for reproducibility with --build-arg CUDA_IMAGE=…
 ARG CUDA_IMAGE=nvidia/cuda:12.9.2-base-ubuntu22.04
@@ -110,7 +108,7 @@ RUN mkdir -p /opt/u2net && \
 # whose reworked incremental mapper is why glossy turntables reconstruct reliably.
 # Pin 4.0.4 explicitly: conda-forge's `=cpu*` glob silently resolved to 3.11.1.
 # CONDA_OVERRIDE_CUDA=12.9 lets the `cuda_129` build's `__cuda >=12.9` constraint
-# pass on a GPU-less build host (the 575 driver provides it at runtime).
+# pass on a GPU-less build host (the host's NVIDIA driver provides it at runtime).
 #
 # faiss: COLMAP 4.0 links libfaiss.so, but the conda-forge recipe forgets to
 # declare it — so we add it (cpu_openblas build: light, no MKL, no extra CUDA libs;
