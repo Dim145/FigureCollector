@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 
 /**
@@ -33,12 +33,22 @@ export default function Foldable({
 }) {
   const t = useT();
   const [open, setOpen] = useState(defaultOpen);
+  // Follow `defaultOpen` until the user manually toggles, so a caller can expand
+  // the section once async data resolves (e.g. a scan/3D view exists) without
+  // overriding a user who has since collapsed it. No-op while it stays constant.
+  const userToggled = useRef(false);
+  useEffect(() => {
+    if (!userToggled.current) setOpen(defaultOpen);
+  }, [defaultOpen]);
   const bodyId = useId();
   return (
     <section className={`foldable foldable--${size} ${open ? "is-open" : ""}`}>
       <button
         type="button"
-        onClick={() => setOpen((x) => !x)}
+        onClick={() => {
+          userToggled.current = true;
+          setOpen((x) => !x);
+        }}
         aria-expanded={open}
         aria-controls={bodyId}
         className="foldable-header"

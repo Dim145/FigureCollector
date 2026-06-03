@@ -219,7 +219,6 @@ export default function TurntableVideo({ onComplete, gsplat = false }) {
           <input
             type="file"
             accept="video/*"
-            capture="environment"
             onChange={onFile}
             className="hidden"
           />

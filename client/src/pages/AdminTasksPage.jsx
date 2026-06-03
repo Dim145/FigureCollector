@@ -177,7 +177,7 @@ function TaskRow({ scan, t }) {
           <div className="display text-[1.25rem] text-[var(--color-ivoire)] leading-tight">
             {t("admin.tasks.scan3d")} ·{" "}
             <Link
-              to={`/figures/${scan.figure_slug}`}
+              to={`/figures/${scan.figure_id}`}
               className="text-[var(--color-or-pale)] underline decoration-[var(--color-or)]/30 hover:decoration-[var(--color-or)] underline-offset-4"
             >
               {scan.figure_name}

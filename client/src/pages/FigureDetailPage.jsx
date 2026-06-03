@@ -7,6 +7,7 @@ import { useWishlistItems, useAddWishlistItem, useRemoveWishlistItem } from "../
 import TrackingChip from "../components/TrackingChip.jsx";
 import { useDeleteFigure } from "../hooks/useAdmin.js";
 import { useStoresForFigure } from "../hooks/useStores.js";
+import { useScans } from "../hooks/useScans.js";
 import { ApiError } from "../lib/api.js";
 import { typeHue, typeKanji } from "../lib/typeHue.js";
 import AppShell from "../components/AppShell.jsx";
@@ -713,6 +714,15 @@ function Row({ label, value, mono = false, href = null, action = null }) {
 // =============================================================================
 
 function OwnerStack({ f, owned, nsfwPref, t }) {
+  // Default-expand the scan section below when a 360°/3D view already exists
+  // (rather than the empty "+ create a scan" state). Shares useScans' query
+  // cache with TurntableSection — no extra request.
+  const scans = useScans(owned.id);
+  const hasScanView = (scans.data ?? []).some(
+    (s) =>
+      s.state === "ready" &&
+      (s.kind === "turntable" || (s.kind === "gsplat" && s.result_key)),
+  );
   return (
     <section className="max-w-7xl mx-auto px-6 mt-16 fig-owner-shell">
       <header className="text-center mb-2">
@@ -789,7 +799,7 @@ function OwnerStack({ f, owned, nsfwPref, t }) {
         size="minor"
         kanji="巡"
         label={t("figure.owner.tab.scan")}
-        defaultOpen={false}
+        defaultOpen={hasScanView}
       >
         <TurntableSection ownedId={owned.id} />
       </Foldable>
