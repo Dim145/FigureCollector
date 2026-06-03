@@ -141,8 +141,6 @@ export default function PreorderHistory({ ownedId }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 function phaseFromStatus(status) {
   if (status === "received") return "received";
   if (status === "cancelled") return "cancelled";

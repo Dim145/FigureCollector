@@ -101,10 +101,6 @@ function accentVars(status, imminent) {
   return { "--accent": accent };
 }
 
-// =============================================================================
-// Top-level page
-// =============================================================================
-
 export default function PreordersPage() {
   const t = useT();
   const me = useMe();
@@ -174,10 +170,6 @@ export default function PreordersPage() {
     </AppShell>
   );
 }
-
-// =============================================================================
-// Hero
-// =============================================================================
 
 function Hero({ t }) {
   return (
@@ -619,7 +611,6 @@ function TimelineEntry({ preorder: p, index = 0, t }) {
         </p>
       ) : null}
 
-      {/* Tracking chip */}
       {p.tracking_url ? (
         <div className="horarium-entry-tracking">
           <TrackingChip url={p.tracking_url} />

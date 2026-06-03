@@ -135,7 +135,6 @@ export default function VitrinesPage() {
     setOrder(canonical.order);
   }, [canonical]);
 
-  // search
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
   const matched = useMemo(
@@ -384,8 +383,6 @@ export default function VitrinesPage() {
     </AppShell>
   );
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 function Cabinet({ id, name, loose, ids, itemMap, locale, onDelete, nsfwBlur, matchedIds, openItem, t }) {
   const { setNodeRef, isOver } = useDroppable({ id });

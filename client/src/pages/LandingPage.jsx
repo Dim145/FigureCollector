@@ -26,7 +26,6 @@ export default function LandingPage() {
 
   return (
     <main className="relative min-h-dvh overflow-hidden">
-      {/* Top-right utility cluster */}
       <div className="absolute top-6 right-6 z-30 flex items-center gap-4">
         <LocaleSwitcher />
         {authed ? (
@@ -41,7 +40,6 @@ export default function LandingPage() {
         ) : null}
       </div>
 
-      {/* ──────────────────────────── HERO ──────────────────────────── */}
       <section className="relative min-h-[100dvh] grid place-items-center px-6 pt-24 pb-32">
         <Halo intensity={0.22} />
         {/* Chromatic hero wash — saturated accent blooms behind the wordmark,
@@ -125,7 +123,6 @@ export default function LandingPage() {
           ) : null}
         </div>
 
-        {/* Scroll cue */}
         {!authed ? (
           <div
             aria-hidden
@@ -206,7 +203,6 @@ export default function LandingPage() {
             </div>
           </section>
 
-          {/* ─────────────── FEATURES ─────────────── */}
           <section className="relative max-w-6xl mx-auto px-6 py-20">
             <div className="ornate-rule mb-14 max-w-md mx-auto">
               <span aria-hidden className="ornate-rule__diamond" />
@@ -236,7 +232,6 @@ export default function LandingPage() {
             </ul>
           </section>
 
-          {/* ─────────────── FINAL CTA ─────────────── */}
           <section className="relative max-w-3xl mx-auto px-6 py-32 text-center">
             <p className="micro">{t("landing.final.label")}</p>
             <h2 className="display text-5xl md:text-6xl mt-3 text-[var(--color-ivoire)] leading-[0.95]">
@@ -260,8 +255,6 @@ export default function LandingPage() {
     </main>
   );
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 function AuthedActions({ t, userName }) {
   return (

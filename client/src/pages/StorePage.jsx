@@ -94,7 +94,6 @@ export default function StorePage() {
           }}
         />
 
-        {/* ── HERO ── */}
         <header className="store-hero relative">
           <Reveal
             as="div"
@@ -185,7 +184,6 @@ export default function StorePage() {
           </Reveal>
         </header>
 
-        {/* ── CATALOGUE ── */}
         <section className="relative">
           <Reveal
             as="div"

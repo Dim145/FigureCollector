@@ -110,7 +110,6 @@ export default function CotePage() {
   return (
     <AppShell>
       <main className="relative max-w-6xl mx-auto px-6 py-16">
-        {/* gold-leaning hero wash */}
         <div
           aria-hidden
           className="pointer-events-none absolute -top-24 left-0 right-0 h-[380px] -z-0"
@@ -124,7 +123,6 @@ export default function CotePage() {
           }}
         />
 
-        {/* ─── Hero ─── */}
         <Reveal as="header" className="relative mb-10">
           <span aria-hidden className="kanji-mark text-[24rem] -top-28 -right-6 hidden md:block">
             価
@@ -253,7 +251,6 @@ export default function CotePage() {
                       key={o.id}
                       className={`grid grid-cols-[48px_1fr_auto] gap-4 items-center px-5 py-3 border-b border-[color-mix(in_oklab,var(--color-or)_8%,transparent)] last:border-0 ${editing ? "bg-[color-mix(in_oklab,var(--color-or)_5%,transparent)]" : ""}`}
                     >
-                      {/* thumb */}
                       <div
                         className="relative w-12 h-[60px] overflow-hidden border"
                         style={{ borderColor: `color-mix(in oklab, ${hue} 30%, transparent)` }}
@@ -272,7 +269,6 @@ export default function CotePage() {
                         </span>
                       </div>
 
-                      {/* meta */}
                       <div className="min-w-0">
                         <Link
                           to={`/figures/${o.figure_id}`}

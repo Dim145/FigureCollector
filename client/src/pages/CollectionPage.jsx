@@ -158,7 +158,6 @@ export default function CollectionPage() {
               "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
           }}
         />
-        {/* ─── Hero ─── */}
         <header className="relative mb-12">
           <span
             aria-hidden
@@ -243,7 +242,6 @@ export default function CollectionPage() {
           <EmptyState t={t} />
         ) : (
           <>
-            {/* Condition kanji-tile rail */}
             <nav
               aria-label="filter by condition"
               className="tile-rail mb-8 reveal"

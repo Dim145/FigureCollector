@@ -469,9 +469,6 @@ export default function FigureForm({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-
 /** Live "about to create a duplicate?" panel (create mode only). Debounces the
  *  name/JAN, queries the catalogue, and surfaces strong (same JAN) and soft
  *  (same name) matches with a link to the existing figure (opened in a new tab

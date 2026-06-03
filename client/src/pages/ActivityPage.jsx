@@ -103,7 +103,6 @@ export default function ActivityPage() {
           録
         </span>
 
-        {/* Header */}
         <header className="relative grid grid-cols-[auto_1fr] gap-6 md:gap-10 items-center mb-10">
           <div className="vertical-tag reveal hidden md:block" style={{ "--i": 0 }}>
             {t("activity.vertical_tag")}

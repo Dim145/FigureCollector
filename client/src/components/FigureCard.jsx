@@ -189,8 +189,8 @@ export default function FigureCard({
           {name}
         </h3>
 
-        {/* Gold separator between title and caption (the divider was restored
-            to plain gold per preference; the type hue lives in the top bar). */}
+        {/* Gold separator between title and caption — the type hue lives in
+            the top accent bar instead. */}
         <div className="gold-rule mt-3 mb-3 w-10 opacity-60" />
 
         <dl className="text-[11px] tracking-wider text-[var(--color-ivoire-soft)] space-y-1 mt-auto">
@@ -214,9 +214,6 @@ export default function FigureCard({
     <div className="group/card h-full">{inner}</div>
   );
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Sub-components
 
 function StatusStamp({ badge }) {
   // `badge` is either a string (legacy) or an object { label, tone }

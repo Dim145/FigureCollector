@@ -313,7 +313,6 @@ function EditRow({ store, t, onClose }) {
         ✎ <span className="font-mono normal-case">/{store.slug}</span>
       </p>
       <div className="grid sm:grid-cols-[100px_1fr] gap-4 items-start">
-        {/* Photo column */}
         <div>
           <span className="ftype-field-label">{t("admin.stores.field.image")}</span>
           <div className="store-admin-thumb">

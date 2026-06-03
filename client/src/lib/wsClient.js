@@ -24,7 +24,6 @@ export function startLiveSync(queryClient) {
 
     socket.addEventListener("open", () => {
       backoff = BACKOFF_INITIAL;
-      // console.debug("[live] connected");
     });
 
     socket.addEventListener("message", (ev) => {

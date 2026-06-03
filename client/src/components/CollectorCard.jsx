@@ -5,7 +5,7 @@ import { fmtMoney } from "../lib/money.js";
 import FollowButton from "./FollowButton.jsx";
 
 /**
- * A public collector presented as an exhibition piece (Lot 4 · Découvrir):
+ * A public collector presented as an exhibition piece:
  * wax-seal monogram, name + handle, pieces / value (opt-in) / followers, a
  * 4-well shelf peek, and the follow action. A "vous suit" plaque appears when
  * they already follow the viewer.

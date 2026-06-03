@@ -24,10 +24,9 @@ export default function CountUp({
   const ref = useRef(null);
   const [shown, setShown] = useState(0);
   // Track the last value we animated TO so subsequent updates can ease
-  // from the current display to the new target. Previously a sticky
-  // `startedRef.current = true` froze the counter on the initial value
-  // even if `value` later changed (live-sync invalidation could bump the
-  // owned-count while the displayed number stayed at the older target).
+  // from the current display to the new target — otherwise the counter
+  // would freeze on its initial value even when `value` later changes
+  // (e.g. live-sync invalidation bumping the owned-count).
   const shownRef = useRef(0);
   const lastAnimatedRef = useRef(null);
 

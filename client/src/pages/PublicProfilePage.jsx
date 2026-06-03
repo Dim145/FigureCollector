@@ -46,7 +46,6 @@ export default function PublicProfilePage() {
             via accent vars. Breathes gently (GPU opacity/scale) unless reduced. */}
         <HeroWash />
 
-        {/* ─── Hero ─── */}
         <header className="relative mb-12 text-center">
           <span
             aria-hidden

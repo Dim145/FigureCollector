@@ -206,7 +206,6 @@ export default function SharedWishlistPage() {
                 }`}
                 style={{ borderColor: "color-mix(in oklab, var(--color-or) 16%, transparent)" }}
               >
-                {/* thumbnail */}
                 <div
                   className="relative shrink-0 w-[64px] h-[80px] grid place-items-center overflow-hidden"
                   style={{ background: "var(--color-noir-deep)", border: `1px solid color-mix(in oklab, ${hue} 22%, transparent)` }}
@@ -225,7 +224,6 @@ export default function SharedWishlistPage() {
                   )}
                 </div>
 
-                {/* body */}
                 <div className="flex-1 min-w-0 flex flex-col">
                   <h3 className="display text-lg text-[var(--color-ivoire)] leading-tight line-clamp-2">{it.figure_name}</h3>
                   <p className="mt-0.5 text-[11px] text-[var(--color-ivoire-soft)] truncate">
@@ -238,7 +236,6 @@ export default function SharedWishlistPage() {
                     ) : null}
                   </p>
 
-                  {/* action zone */}
                   <div className="mt-auto pt-2.5">
                     {it.reserved ? (
                       <div className="flex items-center justify-between gap-2">

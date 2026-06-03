@@ -335,9 +335,6 @@ export function useImageZoom() {
 
   const transformStyle = {
     transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-    // Smooth transition for click-to-zoom; instant during drag/wheel for
-    // direct gesture response. Wheel + drag both update state at native
-    // event rates, so the "instant" path is what feels right.
     // Smooth transition for click-toggle + wheel. Disabled while a drag
     // is active so the panning gesture stays 1:1 with the cursor.
     transition: dragging ? "none" : "transform 280ms cubic-bezier(0.22, 1, 0.36, 1)",

@@ -25,8 +25,6 @@ export default function BarcodeDialog({ code, label, onClose }) {
   const cardRef = useRef(null);
   // Focus enters the dialog on open + Tab cycles between focusable
   // children + Esc closes + focus restores to the trigger on close.
-  // The shared hook replaces the ad-hoc Escape-only listener we used to
-  // wire here.
   useFocusTrap(cardRef, { active: true, onClose });
 
   const ean13 = useMemo(() => encodeEan13(code), [code]);
@@ -82,9 +80,6 @@ export default function BarcodeDialog({ code, label, onClose }) {
     </div>
   );
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SVG rendering
 
 function BarcodeSvg({ digits, bars }) {
   // Render bars + the human-readable digits underneath. 95 modules + 22 px
@@ -155,9 +150,6 @@ function BarcodeSvg({ digits, bars }) {
     </svg>
   );
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// EAN-13 encoding (kept self-contained — no external dep)
 
 /** Returns { digits: number[13], bars: 0|1 [95] } for a valid 12 or 13-digit
  *  numeric string, or null when the input can't be encoded. When given 12

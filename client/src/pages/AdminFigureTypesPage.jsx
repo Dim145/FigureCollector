@@ -39,7 +39,6 @@ export default function AdminFigureTypesPage() {
 
   return (
     <section className="space-y-8">
-      {/* ─── Hero ─── */}
       <header className="relative">
         <span
           aria-hidden
@@ -74,10 +73,8 @@ export default function AdminFigureTypesPage() {
         </div>
       </header>
 
-      {/* ─── Inline create ─── */}
       {adding ? <CreateRow t={t} onClose={() => setAdding(false)} /> : null}
 
-      {/* ─── Ledger ─── */}
       {types.isLoading ? (
         <p className="text-center text-[var(--color-ivoire-soft)] py-12">…</p>
       ) : types.data?.length === 0 ? (
@@ -161,10 +158,6 @@ function Row({ ty, t }) {
     </article>
   );
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Inline create form
-// ─────────────────────────────────────────────────────────────────────────────
 
 function CreateRow({ t, onClose }) {
   const [form, setForm] = useState({

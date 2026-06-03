@@ -322,10 +322,6 @@ function fbSrc(p) {
   return `/api/figure-photos/${p.id}?v=${encodeURIComponent(token)}`;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Pending upload tile
-// ─────────────────────────────────────────────────────────────────────────────
-
 /**
  * Placeholder rendered for each file currently being uploaded — appears
  * immediately when the picker closes, fades out as the upload settles.

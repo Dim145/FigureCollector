@@ -100,9 +100,9 @@ export default function BrowsePage() {
     }));
   }, [figureTypes.data, locale, t]);
 
-  // 250 ms debounce on the catalog query. The previous wiring re-fired
-  // `useFigures()` on every keystroke, producing one network roundtrip
-  // per character + a fresh TanStack Query cache key per call.
+  // 250 ms debounce on the catalog query — without it `useFigures()` fires on
+  // every keystroke, one network roundtrip per character + a fresh TanStack
+  // Query cache key per call.
   const [debouncedQ, setDebouncedQ] = useState("");
   useEffect(() => {
     const id = setTimeout(() => setDebouncedQ(q), 250);
@@ -189,7 +189,6 @@ export default function BrowsePage() {
               "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
           }}
         />
-        {/* ─── Hero ─── */}
         <header className="relative mb-10">
           <span
             aria-hidden
@@ -296,7 +295,6 @@ export default function BrowsePage() {
           </nav>
         </section>
 
-        {/* ─── Grid ─── */}
         {figures.isLoading ? (
           <p role="status" aria-live="polite" className="text-center text-[var(--color-ivoire-soft)] py-12">…</p>
         ) : total === 0 ? (

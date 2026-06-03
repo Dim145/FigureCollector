@@ -289,8 +289,6 @@ export default function FigureHero({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 function Thumb({ slide, active, onClick, separatorBefore }) {
   return (
     <>

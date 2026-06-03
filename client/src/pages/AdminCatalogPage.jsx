@@ -82,9 +82,6 @@ export default function AdminCatalogPage() {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// List
-
 function EntityList({ kind, onPick, onDelete }) {
   const t = useT();
   const [q, setQ] = useState("");
@@ -198,9 +195,6 @@ function Thumb({ row, kind }) {
     </span>
   );
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Edit drawer
 
 function EntityEditDrawer({ kind, entity, onClose }) {
   const t = useT();
@@ -655,8 +649,6 @@ function stripHtml(s) {
     .trim();
   return out || undefined;
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 function serialiseForKind(kind, form) {
   const trim = (s) => (typeof s === "string" ? s.trim() : s);

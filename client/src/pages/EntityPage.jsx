@@ -519,8 +519,6 @@ function ExternalLinks({ entity, kind, t, accent = "var(--color-or)" }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 function kindToApiPath(kind) {
   switch (kind) {
     case "manufacturer":

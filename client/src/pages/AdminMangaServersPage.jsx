@@ -190,7 +190,6 @@ function ServerRow({ server, t }) {
           ) : null}
         </div>
 
-        {/* Actions */}
         <div className="flex gap-2 items-center flex-wrap justify-end shrink-0">
           {mode === null ? (
             <>
@@ -262,7 +261,6 @@ function ServerRow({ server, t }) {
         />
       ) : null}
 
-      {/* Relabel */}
       {mode === "label" ? (
         <LabelForm
           t={t}

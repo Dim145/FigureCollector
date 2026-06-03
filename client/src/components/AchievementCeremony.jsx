@@ -10,11 +10,9 @@ import { useT } from "../i18n/index.jsx";
 export default function AchievementCeremony() {
   const t = useT();
   const [stack, setStack] = useState([]);
-  // Stable, monotonically-increasing key. Previously used
-  // `${code}-${Date.now()}` which collided when two grants for the same
-  // code arrived in the same ms (e.g. burst-grants on first login),
-  // producing duplicate React keys and a "list-children-need-keys"
-  // warning at runtime.
+  // Stable, monotonically-increasing key. A `${code}-${Date.now()}` key
+  // collides when two grants for the same code arrive in the same ms
+  // (e.g. burst-grants on first login), producing duplicate React keys.
   const seqRef = useRef(0);
 
   useEffect(() => {
@@ -35,11 +33,10 @@ export default function AchievementCeremony() {
     return () => window.removeEventListener("fc:achievements-unlocked", onUnlock);
   }, []);
 
-  // Per-entry dismiss timers. The previous wiring used ONE shared 6 s
-  // timer reset on every new push, which meant N rapid unlocks all
-  // disappeared together at the same instant rather than rolling off in
-  // the order they arrived. Now each entry tracks its own timeout via
-  // its id; the effect only schedules ones it hasn't scheduled before.
+  // Per-entry dismiss timers, keyed by id, so N rapid unlocks roll off in
+  // the order they arrived rather than all disappearing together (which a
+  // single shared timer reset on every push would cause). The effect only
+  // schedules timeouts it hasn't scheduled before.
   const timeoutsRef = useRef(new Map());
   useEffect(() => {
     const timeouts = timeoutsRef.current;

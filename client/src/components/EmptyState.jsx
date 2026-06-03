@@ -1,7 +1,7 @@
 import Reveal from "./motion/Reveal.jsx";
 
 /**
- * One reusable empty / zero-data block (Lot 6). A faint kanji watermark, an
+ * One reusable empty / zero-data block. A faint kanji watermark, an
  * eyebrow, a display title, optional body, and a CTA slot — the same anatomy
  * as the hand-rolled empty states it replaces. Pass `compact` for in-table /
  * admin contexts. `hue` tints the wash + glyph (defaults to gold).

@@ -288,10 +288,6 @@ function Hero({ unlocked, total, percent, t }) {
   );
 }
 
-// =============================================================================
-// Recently unlocked strip
-// =============================================================================
-
 function RecentStrip({ recent, t }) {
   return (
     <Reveal as="section" className="ach-recent" y={20}>
@@ -346,10 +342,6 @@ function RecentChip({ unlock, index, t }) {
   );
 }
 
-// =============================================================================
-// Category section
-// =============================================================================
-
 function CategorySection({ category, items, t }) {
   const meta = CATEGORY_META[category] ?? CATEGORY_META.collection;
   const unlockedCount = items.filter((i) => i.unlock).length;
@@ -388,10 +380,6 @@ function CategorySection({ category, items, t }) {
     </section>
   );
 }
-
-// =============================================================================
-// Achievement card
-// =============================================================================
 
 function AchCard({ achievement: a, index, t }) {
   const ref = useRef(null);

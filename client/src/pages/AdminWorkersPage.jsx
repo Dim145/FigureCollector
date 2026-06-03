@@ -133,7 +133,6 @@ function Row({ w, t }) {
           </span>
         </div>
 
-        {/* Hardware specs grid */}
         <dl className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 text-[11px]">
           <Spec label={t("admin.workers.spec.os")} value={w.os} mono />
           <Spec label={t("admin.workers.spec.arch")} value={w.arch} mono />
@@ -231,10 +230,6 @@ function Row({ w, t }) {
     </article>
   );
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Display-name inline edit
-// ─────────────────────────────────────────────────────────────────────────────
 
 function DisplayNameEdit({ w, onClose }) {
   const [value, setValue] = useState(w.display_name ?? "");

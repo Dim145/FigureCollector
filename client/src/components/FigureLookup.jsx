@@ -393,9 +393,6 @@ export default function FigureLookup({ initial = "", onPick }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Result card
-
 function ResultRow({ row, onPick, t }) {
   const isOrzgk = row.source === "orzgk";
 
@@ -450,9 +447,7 @@ function ResultRow({ row, onPick, t }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Detail modal — Versions → Prices → Apply
-
+// Detail modal — Versions → Prices → Apply.
 function OrzgkDetailModal({ url, detail, busy, error, onClose, onApply, t }) {
   const [selectedVersion, setSelectedVersion] = useState(null);
   const [selectedPrice, setSelectedPrice] = useState(null);
@@ -650,9 +645,6 @@ function OrzgkDetailModal({ url, detail, busy, error, onClose, onApply, t }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sub-UI bits
-
 function SpecGrid({ detail, t }) {
   // We prefer description-mined values when both are present: `product_ip`
   // is much cleaner than `from` ("One Punch Man" vs "Anime Figure - One Punch
@@ -796,9 +788,6 @@ function PricePicker({ prices, selected, onSelect, t }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Mapping detail+selection → form payload
-
 const TYPE_MAP = {
   "gk statue": "statue",
   "pvc figure": "scale",
@@ -860,9 +849,7 @@ function legacyPick(row, t) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // MFC import-by-paste — paste the page HTML, parse server-side, prefill.
-
 const MFC_MONTHS = {
   january: 1, february: 2, march: 3, april: 4, may: 5, june: 6,
   july: 7, august: 8, september: 9, october: 10, november: 11, december: 12,

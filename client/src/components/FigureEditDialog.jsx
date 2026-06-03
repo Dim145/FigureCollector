@@ -105,8 +105,6 @@ export default function FigureEditDialog({ figure, onClose, onSaved }) {
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-
 /** Strip fields whose value already matches the existing figure. Treats null /
  *  undefined / "" as equivalent so a "blank string" doesn't get sent when the
  *  original was null. */

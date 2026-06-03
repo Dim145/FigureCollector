@@ -235,9 +235,6 @@ export default function AddToCollectionForm({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-
 /** Pseudo-hook (not memoised — recomputed on every render is fine for two
  *  numeric comparisons). Returns { direction, label } when the user's
  *  override deviates from the catalog MSRP, or null otherwise. */

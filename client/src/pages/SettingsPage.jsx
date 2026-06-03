@@ -138,7 +138,6 @@ export default function SettingsPage() {
         <Nav sections={sections} active={active} onClick={onNavClick} t={t} />
 
         <div className="atelier-content">
-          {/* Public profile */}
           <Drawer
             id="profile"
             kanji="公"
@@ -247,7 +246,6 @@ export default function SettingsPage() {
             ) : null}
           </Drawer>
 
-          {/* Currency */}
           <Drawer
             id="currency"
             kanji="銭"
@@ -284,7 +282,6 @@ export default function SettingsPage() {
             <FxSettings />
           </Drawer>
 
-          {/* MangaCollector link */}
           <Drawer
             id="manga"
             kanji="漫"
@@ -297,7 +294,6 @@ export default function SettingsPage() {
             <MangaSettings />
           </Drawer>
 
-          {/* BG model */}
           <Drawer
             id="bg_model"
             kanji="影"
@@ -339,7 +335,6 @@ export default function SettingsPage() {
             </Drawer>
           ) : null}
 
-          {/* NSFW visibility */}
           <Drawer
             id="nsfw"
             kanji="禁"
@@ -488,10 +483,6 @@ const NSFW_OPTIONS = [
   { key: "blur", kanji: "霞" },
   { key: "show", kanji: "開" },
 ];
-
-// =============================================================================
-// Hero
-// =============================================================================
 
 function Hero({ username, t }) {
   const reduce = useReducedMotion();
@@ -644,10 +635,6 @@ function Drawer({ id, kanji, title, tone, toneSoft, delay = 0, refMap, children 
     </motion.section>
   );
 }
-
-// =============================================================================
-// Toggle
-// =============================================================================
 
 function Toggle({ on, onChange, disabled, labelId }) {
   return (

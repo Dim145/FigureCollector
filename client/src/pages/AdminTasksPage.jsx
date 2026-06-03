@@ -97,7 +97,6 @@ export default function AdminTasksPage() {
         </p>
       </header>
 
-      {/* toolbar */}
       <div className="flex items-center gap-3 flex-wrap">
         <div className="flex gap-1.5">
           {["all", "active", "failed", "ready"].map((f) => (
@@ -219,7 +218,6 @@ function TaskRow({ scan, t }) {
           ) : null}
         </div>
 
-        {/* actions */}
         <div className="flex flex-col gap-1.5 items-stretch shrink-0">
           {scan.state === "failed" ? (
             <ActBtn tone={JADE} busy={busy} onClick={() => retry.mutate(scan.id)} label={`↻ ${t("admin.tasks.action.retry")}`} />

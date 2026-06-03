@@ -104,8 +104,6 @@ export default function AdminUsersPage() {
   );
 }
 
-// -----------------------------------------------------------------------------
-
 function Th({ children, right }) {
   return (
     <th

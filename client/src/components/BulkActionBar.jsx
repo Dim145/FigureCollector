@@ -30,7 +30,7 @@ export function SelectCheckbox({
 }
 
 /**
- * Lot 6 — floating bulk-action toolbar shared by the admin tables.
+ * Floating bulk-action toolbar shared by the admin tables.
  *
  * Appears (sticky, gold-tinted) only when ≥1 row is selected. Shows the
  * selected count and a danger "delete selection" button that routes through
