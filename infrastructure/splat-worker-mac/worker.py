@@ -90,7 +90,11 @@ ENABLE_MASKING = os.environ.get("ENABLE_MASKING", "false").lower() in ("1", "tru
 # so 30s here ≈ 90s of grace before the admin UI marks us hors-ligne.
 HEARTBEAT_INTERVAL = int(os.environ.get("HEARTBEAT_INTERVAL", "30"))
 WORKER_KIND = "metal"
-WORKER_VERSION = "0.1.0"
+WORKER_VERSION = "0.15.3"
+
+# At boot, re-queue scans this worker left in 'processing' when its previous
+# incarnation was restarted mid-job. Disable with RECOVER_ABANDONED=false.
+RECOVER_ABANDONED = os.environ.get("RECOVER_ABANDONED", "true").lower() in ("1", "true", "yes")
 
 MIN_FRAMES = 6
 
@@ -136,6 +140,13 @@ async def main() -> None:
         brush=BRUSH_BIN,
         masking=ENABLE_MASKING,
     )
+    if RECOVER_ABANDONED:
+        try:
+            n = await recover_abandoned(pool, state.id)
+            if n:
+                log.info("recovered abandoned scans → re-queued", count=n, worker_id=str(state.id))
+        except Exception as e:  # noqa: BLE001
+            log.warning("recover_abandoned failed", error=str(e))
     heartbeat_task = asyncio.create_task(_heartbeat_loop(pool, state))
     try:
         while True:
@@ -144,7 +155,7 @@ async def main() -> None:
             if not state.enabled:
                 await asyncio.sleep(POLL_INTERVAL)
                 continue
-            scan = await claim_next_pending(pool)
+            scan = await claim_next_pending(pool, state.id)
             if scan is None:
                 await asyncio.sleep(POLL_INTERVAL)
                 continue
@@ -297,12 +308,13 @@ def _preflight() -> None:
 # -----------------------------------------------------------------------------
 
 
-async def claim_next_pending(pool: asyncpg.Pool) -> asyncpg.Record | None:
+async def claim_next_pending(pool: asyncpg.Pool, worker_id: Any) -> asyncpg.Record | None:
     async with pool.acquire() as conn:
         return await conn.fetchrow(
             """
             UPDATE scans
-               SET state = 'processing', updated_at = now()
+               SET state = 'processing', worker_id = $1, claimed_at = now(),
+                   finished_at = NULL, attempts = attempts + 1, updated_at = now()
              WHERE id = (
                  SELECT id FROM scans
                   WHERE state = 'pending' AND kind = 'gsplat'
@@ -311,14 +323,33 @@ async def claim_next_pending(pool: asyncpg.Pool) -> asyncpg.Record | None:
                   LIMIT 1
              )
          RETURNING id, storage_prefix, frame_count
-            """
+            """,
+            worker_id,
         )
+
+
+async def recover_abandoned(pool: asyncpg.Pool, worker_id: Any) -> int:
+    """Re-queue scans this worker left in 'processing' — i.e. abandoned when its
+    previous incarnation restarted mid-job. Reset to 'pending' so the normal poll
+    re-claims them (which bumps `attempts` again). Returns how many were recovered."""
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            UPDATE scans
+               SET state = 'pending', worker_id = NULL, claimed_at = NULL,
+                   progress = NULL, updated_at = now()
+             WHERE worker_id = $1 AND state = 'processing' AND kind = 'gsplat'
+         RETURNING id
+            """,
+            worker_id,
+        )
+    return len(rows)
 
 
 async def mark_ready(pool: asyncpg.Pool, scan_id: Any, result_key: str) -> None:
     async with pool.acquire() as conn:
         await conn.execute(
-            "UPDATE scans SET state='ready', result_key=$1, progress=100, error_message=NULL, updated_at=now() WHERE id=$2",
+            "UPDATE scans SET state='ready', result_key=$1, progress=100, error_message=NULL, finished_at=now(), updated_at=now() WHERE id=$2",
             result_key,
             scan_id,
         )
@@ -327,7 +358,7 @@ async def mark_ready(pool: asyncpg.Pool, scan_id: Any, result_key: str) -> None:
 async def mark_failed(pool: asyncpg.Pool, scan_id: Any, error: str) -> None:
     async with pool.acquire() as conn:
         await conn.execute(
-            "UPDATE scans SET state='failed', error_message=$1, updated_at=now() WHERE id=$2",
+            "UPDATE scans SET state='failed', error_message=$1, finished_at=now(), updated_at=now() WHERE id=$2",
             error[:8000],
             scan_id,
         )
