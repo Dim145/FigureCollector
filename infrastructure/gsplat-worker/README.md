@@ -139,6 +139,11 @@ traceback in `error_message`.
 | `GSPLAT_MAX_RES` | `1600` | longest image side the trainer renders — the other VRAM lever; raise for sharper results if VRAM allows |
 | `GSPLAT_MIN_OPACITY` | `0.08` | export prune: drop gaussians fainter than this (kills haze). Raise (e.g. 0.15) if floaters remain |
 | `GSPLAT_CROP_MARGIN` | `1.5` | export prune: drop gaussians beyond this × the figure's p98 radius (kills far floaters). Lower (e.g. 1.2) if artifacts remain; raise / set `0` if the figure gets clipped |
+| `GSPLAT_UNDISTORT` | `true` | undistort to a PINHOLE dataset (`colmap image_undistorter`) before training — the trainer ignores OPENCV distortion, so this keeps the projection honest (fewer edge floaters). Falls back to the raw frames on failure |
+| `GSPLAT_ANTIALIAS` | `true` | antialiased (Mip-Splatting) rasterisation — sharper, fewer aliasing speckles |
+| `GSPLAT_POSE_OPT` | `true` | joint camera-pose refinement during training (corrects residual COLMAP pose error → less blur); cheap in VRAM. Set `false` if a scan destabilises |
+| `GSPLAT_ANISO_REG` | `0.01` | penalise needle-like "spike" gaussians (longest axis > 10× the shortest); `0` disables |
+| `GSPLAT_SCALE_REG` / `GSPLAT_OPACITY_REG` | `0.01` | MCMC scale / opacity regularisers — kept compact + relocatable (now env-tunable) |
 | `ENABLE_MASKING` | `true` | rembg-mask the figure (one pass) → COLMAP `mask_path` (SfM tracks the figure, essential on a turntable) + per-frame loss masks (background contributes zero loss → no haze) |
 | `REMBG_MODEL` | `isnet-general-use` | rembg segmentation model. **Must match the model baked into the image** — the container is read-only, so rembg can't fetch another at runtime; change it together with the Dockerfile bake. See the VRAM table for alternatives |
 | `NVIDIA_DRIVER_CAPABILITIES` | `all` | driver capabilities exposed to the container. `all` covers `compute` (rembg + gsplat), `utility` (nvidia-smi) and `video` (NVDEC frame decode); set it narrower if you disable GPU decode |

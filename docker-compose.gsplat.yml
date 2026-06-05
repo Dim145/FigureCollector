@@ -50,6 +50,14 @@ services:
       # or set it to 0 to disable the spatial crop.
       GSPLAT_MIN_OPACITY: ${GSPLAT_MIN_OPACITY:-0.08}
       GSPLAT_CROP_MARGIN: ${GSPLAT_CROP_MARGIN:-1.5}
+      # Quality knobs — all default-on; flip off WITHOUT a rebuild if a scan
+      # destabilises or OOMs. Undistort to pinhole before training; antialiased
+      # rasterisation; joint camera-pose refinement (corrects COLMAP error → less
+      # blur); anti-"spike" gaussian regulariser. See the worker README.
+      GSPLAT_UNDISTORT: ${GSPLAT_UNDISTORT:-true}
+      GSPLAT_ANTIALIAS: ${GSPLAT_ANTIALIAS:-true}
+      GSPLAT_POSE_OPT: ${GSPLAT_POSE_OPT:-true}
+      GSPLAT_ANISO_REG: ${GSPLAT_ANISO_REG:-0.01}
       # SIFT features per image. 8192 ~halves matching + the mapper's bundle
       # adjustment vs 16384, with no quality loss on glossy turntables; bump to
       # 16384 if registration drops on a hard capture.

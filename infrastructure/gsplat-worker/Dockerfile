@@ -117,17 +117,17 @@ RUN mkdir -p /opt/u2net && \
 # Then smoke-test that colmap's shared libs resolve — a missing one fails the BUILD.
 COPY --from=mambaorg/micromamba:latest /bin/micromamba /usr/local/bin/micromamba
 ENV MAMBA_ROOT_PREFIX=/opt/micromamba
-# Cache the downloaded conda packages (~2 GB) on a build cache mount: if this big
-# layer is ever re-run (Docker GC'd it, or the daemon restarted after an OOM), it
-# re-links from the cache in seconds instead of re-downloading. The pkgs cache is
-# a separate mount from the env (/opt/micromamba/envs/sfm), so micromamba COPIES
-# into the env (cross-device — no hardlinks) → the env is self-contained in the
-# image and the pkgs stay OUT of it (so no `micromamba clean` is needed). The
-# `colmap help` smoke test below would catch any incomplete env.
-RUN --mount=type=cache,target=/root/.mamba/pkgs,sharing=locked \
-    CONDA_PKGS_DIRS=/root/.mamba/pkgs CONDA_OVERRIDE_CUDA=12.9 \
-    micromamba create -y -n sfm -c conda-forge \
+# Bake the env into a PLAIN layer — deliberately NOT a `--mount=type=cache`.
+# Docker Desktop's BuildKit GC caps cache-mounts (`exec.cachemount`) at only
+# ~2.8 GiB total, but this conda env's package cache is ~2 GB, so a mount-based
+# step gets pruned on essentially every build and re-runs from scratch. A plain
+# RUN layer instead lives under the generous regular-layer GC budget (~20 GiB
+# reserved) and stays cached across builds. `micromamba clean` drops the package
+# tarballs so the baked layer stays slim; the `colmap help` smoke test catches an
+# incomplete env.
+RUN CONDA_OVERRIDE_CUDA=12.9 micromamba create -y -n sfm -c conda-forge \
       "colmap=4.0.4=cuda_*" "libfaiss=*=cpu_openblas*" && \
+    micromamba clean -a -y && \
     test -x /opt/micromamba/envs/sfm/bin/colmap && \
     micromamba list -n sfm colmap && micromamba list -n sfm libfaiss && \
     ( micromamba run -n sfm colmap help 2>&1 | grep -qi "error while loading" \

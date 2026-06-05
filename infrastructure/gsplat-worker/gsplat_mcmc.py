@@ -61,6 +61,20 @@ def log(msg: str) -> None:
     print(msg, flush=True)
 
 
+def _envflag(name: str, default: bool) -> bool:
+    return os.environ.get(name, "true" if default else "false").lower() in ("1", "true", "yes")
+
+
+def rotation_6d_to_matrix(d6: torch.Tensor) -> torch.Tensor:
+    """6D rotation representation -> 3x3 matrix (Gram-Schmidt; Zhou et al. 2019),
+    matching gsplat's CameraOptModule so the pose deltas compose identically."""
+    a1, a2 = d6[..., :3], d6[..., 3:]
+    b1 = F.normalize(a1, dim=-1)
+    b2 = F.normalize(a2 - (b1 * a2).sum(-1, keepdim=True) * b1, dim=-1)
+    b3 = torch.cross(b1, b2, dim=-1)
+    return torch.stack((b1, b2, b3), dim=-2)
+
+
 # -----------------------------------------------------------------------------
 # COLMAP sparse-model binary readers (no pycolmap — the format is stable).
 # -----------------------------------------------------------------------------
@@ -406,7 +420,30 @@ def train(args) -> None:
     strategy.check_sanity(splats, optimizers)
     strategy_state = strategy.initialize_state()
 
-    opacity_reg, scale_reg, ssim_lambda = 0.01, 0.01, 0.2
+    opacity_reg = float(os.environ.get("GSPLAT_OPACITY_REG", "0.01"))
+    scale_reg = float(os.environ.get("GSPLAT_SCALE_REG", "0.01"))
+    # Penalise needle-like gaussians (longest axis > aniso_max x shortest) — the
+    # radiating "spike" artifacts. GSPLAT_ANISO_REG=0 disables it.
+    aniso_reg = float(os.environ.get("GSPLAT_ANISO_REG", "0.01"))
+    aniso_max = 10.0
+    ssim_lambda = 0.2
+    # Antialiased rasterisation (Mip-Splatting): sharper, fewer aliasing speckles.
+    rasterize_mode = "antialiased" if _envflag("GSPLAT_ANTIALIAS", True) else "classic"
+    # Joint camera-pose refinement — a learnable per-frame pose delta (gsplat's
+    # CameraOptModule scheme) that corrects residual COLMAP pose error → less
+    # blur. Cheap in VRAM. GSPLAT_POSE_OPT=false disables it.
+    pose_opt = _envflag("GSPLAT_POSE_OPT", True)
+    pose_identity = torch.tensor([1.0, 0.0, 0.0, 0.0, 1.0, 0.0], device=device)
+    pose_embeds = None
+    pose_optimizer = None
+    if pose_opt:
+        pose_embeds = torch.nn.Embedding(len(frames), 9).to(device)
+        torch.nn.init.zeros_(pose_embeds.weight)
+        pose_optimizer = torch.optim.Adam(
+            pose_embeds.parameters(), lr=1e-5, weight_decay=1e-6
+        )
+    log(f"opts · antialias={rasterize_mode == 'antialiased'} · pose_opt={pose_opt} · "
+        f"scale_reg={scale_reg} · aniso_reg={aniso_reg}")
     order: list[int] = []
     t0 = time.time()
     log(f"training MCMC · {max_steps} iters · cap_max={args.cap_max} · "
@@ -416,11 +453,20 @@ def train(args) -> None:
         if step % len(frames) == 0:
             order = list(range(len(frames)))
             random.shuffle(order)
-        f = frames[order[step % len(frames)]]
+        idx = order[step % len(frames)]
+        f = frames[idx]
 
         pixels = (f["img"].to(device, non_blocking=True).float() / 255.0).unsqueeze(0)  # [1,H,W,3]
         K = f["K"].to(device).unsqueeze(0)              # [1,3,3]
-        viewmat = f["viewmat"].to(device).unsqueeze(0)  # [1,4,4] world-to-camera
+        viewmat = f["viewmat"].to(device)               # [4,4] world-to-camera
+        if pose_opt:
+            d = pose_embeds(torch.tensor([idx], device=device))[0]  # [9]: 3 trans + 6D rot
+            transform = torch.eye(4, device=device)
+            transform[:3, :3] = rotation_6d_to_matrix(d[3:] + pose_identity)
+            transform[:3, 3] = d[:3]
+            # camtoworld @ delta, then back to world-to-camera (gsplat's scheme).
+            viewmat = torch.linalg.inv(torch.linalg.inv(viewmat) @ transform)
+        viewmat = viewmat.unsqueeze(0)                  # [1,4,4]
         sh_deg_use = min(step // sh_interval, sh_degree)
 
         renders, _alphas, info = rasterization(
@@ -437,7 +483,7 @@ def train(args) -> None:
             packed=False,
             absgrad=False,
             sparse_grad=False,
-            rasterize_mode="classic",
+            rasterize_mode=rasterize_mode,
             near_plane=0.01,
             far_plane=1e10,
             render_mode="RGB",
@@ -457,13 +503,20 @@ def train(args) -> None:
         loss = l1 * (1.0 - ssim_lambda) + (1.0 - ssim_val) * ssim_lambda
         # MCMC regularisers: push opacities/scales down so dead Gaussians get
         # relocated (the haze fix) and scales stay compact.
+        sc = torch.exp(splats["scales"])
         loss = loss + opacity_reg * torch.sigmoid(splats["opacities"]).abs().mean()
-        loss = loss + scale_reg * torch.exp(splats["scales"]).abs().mean()
+        loss = loss + scale_reg * sc.abs().mean()
+        if aniso_reg > 0.0:  # discourage needle-like (spiky) gaussians
+            ratio = sc.amax(dim=-1) / sc.amin(dim=-1).clamp(min=1e-6)
+            loss = loss + aniso_reg * (ratio - aniso_max).clamp(min=0.0).mean()
 
         loss.backward()
         for opt in optimizers.values():
             opt.step()
             opt.zero_grad(set_to_none=True)
+        if pose_optimizer is not None:
+            pose_optimizer.step()
+            pose_optimizer.zero_grad(set_to_none=True)
         means_sched.step()
 
         # MCMC has no step_pre_backward (relocation is opacity-driven, not

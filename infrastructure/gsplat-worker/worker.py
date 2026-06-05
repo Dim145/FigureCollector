@@ -159,6 +159,11 @@ COLMAP_MAX_FEATURES = int(os.environ.get("COLMAP_MAX_FEATURES", "8192"))
 # allows; lower them on out-of-memory. The trainer ships next to this worker.
 GSPLAT_CAP_MAX = int(os.environ.get("GSPLAT_CAP_MAX", "250000"))
 GSPLAT_MAX_RES = int(os.environ.get("GSPLAT_MAX_RES", "1600"))
+# Undistort to a PINHOLE dataset (colmap image_undistorter) before training. The
+# trainer rasterises a pinhole camera and ignores OPENCV distortion, so this
+# keeps the projection honest (fewer edge floaters). false = train on the raw
+# distorted frames.
+GSPLAT_UNDISTORT = os.environ.get("GSPLAT_UNDISTORT", "true").lower() in ("1", "true", "yes")
 GSPLAT_TRAINER = Path(__file__).resolve().parent / "gsplat_mcmc.py"
 
 log = structlog.get_logger()
@@ -551,6 +556,30 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
             scan_id, n_frames, COLMAP_USE_GPU,
         )
 
+        # 3b. Undistort to a PINHOLE dataset. The trainer rasterises a pinhole
+        #     camera and ignores OPENCV distortion, so feeding it the raw
+        #     (distorted) frames mis-projects toward the edges (edge floaters +
+        #     softness). image_undistorter rewrites images + cameras to pinhole so
+        #     the projection matches; falls back to the distorted set on failure.
+        train_images, train_sparse = images, sparse / "0"
+        if GSPLAT_UNDISTORT:
+            undist = tmp / "undistorted"
+            try:
+                _run("micromamba", "run", "-n", "sfm", "colmap", "image_undistorter",
+                     "--image_path", str(images),
+                     "--input_path", str(sparse / "0"),
+                     "--output_path", str(undist),
+                     "--output_type", "COLMAP")
+                if (undist / "sparse" / "cameras.bin").exists():
+                    train_images, train_sparse = undist / "images", undist / "sparse"
+                    log.info("undistorted to pinhole", scan_id=str(scan_id))
+                else:
+                    log.warning("undistort produced no model; using distorted frames",
+                                scan_id=str(scan_id))
+            except Exception as e:  # noqa: BLE001
+                log.warning("image_undistorter failed; using distorted frames",
+                            scan_id=str(scan_id), error=str(e))
+
         progress(46)
         # 4. Train the Gaussian splat with the CUDA gsplat MCMC trainer
         #    (gsplat_mcmc.py — gsplat is the rasteriser splatfacto already builds
@@ -578,8 +607,8 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
 
         train_cmd = [
             "python3", str(GSPLAT_TRAINER),
-            "--images", str(images),
-            "--sparse", str(sparse / "0"),
+            "--images", str(train_images),
+            "--sparse", str(train_sparse),
             "--output", str(ply_path),
             "--iters", str(TRAINING_ITERATIONS),
             "--cap-max", str(GSPLAT_CAP_MAX),
