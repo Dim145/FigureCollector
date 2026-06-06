@@ -456,9 +456,12 @@ pub async fn backfill_manga_mal(
         .await?
     } else {
         sqlx::query_as(
+            // `series` has no `updated_at` column — order by `created_at` so the
+            // most recently added series get their manga id resolved first. The
+            // ordering only prioritises which rows a capped run picks up.
             "SELECT id, anilist_id FROM series
              WHERE anilist_id IS NOT NULL AND manga_mal_id IS NULL
-             ORDER BY updated_at DESC
+             ORDER BY created_at DESC
              LIMIT $1",
         )
         .bind(limit)
