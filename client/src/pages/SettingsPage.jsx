@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { motion, useReducedMotion } from "motion/react";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useChannels } from "../hooks/useNotifications.js";
 import { useUpdateProfile } from "../hooks/useProfile.js";
 import { useMyStats, useInsights } from "../hooks/useStats.js";
+import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
-import Reveal from "../components/motion/Reveal.jsx";
+import Card from "../components/Card.jsx";
+import StatCard from "../components/StatCard.jsx";
 import NotificationSettings from "../components/NotificationSettings.jsx";
 import FxSettings from "../components/FxSettings.jsx";
 import MangaSettings from "../components/MangaSettings.jsx";
@@ -15,38 +16,41 @@ import Select from "../components/Select.jsx";
 import { BG_MODEL_SIZES, getPref, setPref } from "../lib/userPrefs.js";
 
 /**
- * /settings — L'Atelier (the curator's workshop).
+ * /settings — L'Atelier, redrawn to Direction A ("Shōjo-Noir").
  *
- * Two-column layout on desktop: a sticky kanji-stamped nav rail on the left,
- * stacked drawer sections on the right. Each drawer carries a giant kanji
- * watermark in its accent colour (gold / jade / laque) and a calligraphic
- * title. Mobile flips the rail into a horizontal chip strip pinned below
- * the page header.
+ * An editorial settings ledger rather than a generic form list:
+ *   - an editorial header (kicker · 棚 · label → AccentTitle h1 → gold-rule)
+ *     over a faint kanji-mark watermark, with a small figurine-metric strip;
+ *   - a sticky section index on the left (scroll-spy, hanko-red active marker);
+ *   - the settings themselves grouped into clearly-sectioned Card panels, each
+ *     introduced by a kanji + kicker sub-label and a gold-rule divider.
  *
- * Sections, top-to-bottom:
- *   公 — Profil public      (toggle + sharable URL, gold)
- *   銭 — Devise par défaut  (currency select, gold)
- *   影 — Modèle de détourage (BG removal model size, jade)
- *   禁 — Contenu sensible    (NSFW visibility, laque red)
+ * Sections, top-to-bottom (data + behaviour unchanged from the prior layout):
+ *   公 — Profil public      (toggles + sharable URL)
+ *   銭 — Devise par défaut  (currency Select + FX)
+ *   漫 — MangaCollector     (cross-collection link)
+ *   影 — Modèle de détourage (BG removal model size)
+ *   鈴 — Notifications       (channels + routing; only if admin-enabled)
+ *   禁 — Contenu sensible    (NSFW visibility)
+ *   蔵 — Archives            (data export)
  *
- * Scroll-spy: as the user scrolls, the active section in the nav rail
- * lights up. Clicking a nav link smooth-scrolls the target drawer into
- * view with a top offset that clears the AppShell's sticky header.
+ * Direction A keeps gold for value/rules only and hanko-red for the single hot
+ * accent (active nav, the accent headline word). GPU-light throughout: flat
+ * fills + hairlines, the shared `.reveal` stagger, no animated meshes / blur.
  */
 
-// Each section's identity: kanji + the accent colour for highlight + the
-// nav label key. Order here drives the visual order of both the nav and
-// the drawers.
-/// All possible drawers. The Notifications drawer is excluded at render
-/// time when the admin has zero channels enabled — see `sections` below.
+// Section identity: kanji + the nav label key. Order here drives the visual
+// order of both the section index and the panels. (Tone fields from the old
+// per-section colour-wash are dropped — Direction A keeps the chrome quiet and
+// reserves red/gold for accent + value.)
 const ALL_SECTIONS = [
-  { id: "profile",    kanji: "公", tone: "var(--color-or)",       toneSoft: "color-mix(in oklab, var(--color-or) 18%, transparent)" },
-  { id: "currency",   kanji: "銭", tone: "var(--color-or)",       toneSoft: "color-mix(in oklab, var(--color-or) 18%, transparent)" },
-  { id: "manga",      kanji: "漫", tone: "var(--color-indigo)",   toneSoft: "color-mix(in oklab, var(--color-indigo) 18%, transparent)" },
-  { id: "bg_model",   kanji: "影", tone: "var(--atelier-jade)",   toneSoft: "var(--atelier-jade-soft)" },
-  { id: "notif_chan", kanji: "鈴", tone: "var(--color-or)",       toneSoft: "color-mix(in oklab, var(--color-or) 18%, transparent)" },
-  { id: "nsfw",       kanji: "禁", tone: "var(--atelier-laque)",  toneSoft: "var(--atelier-laque-soft)" },
-  { id: "archives",   kanji: "蔵", tone: "var(--color-or)",       toneSoft: "color-mix(in oklab, var(--color-or) 18%, transparent)" },
+  { id: "profile",    kanji: "公" },
+  { id: "currency",   kanji: "銭" },
+  { id: "manga",      kanji: "漫" },
+  { id: "bg_model",   kanji: "影" },
+  { id: "notif_chan", kanji: "鈴" },
+  { id: "nsfw",       kanji: "禁" },
+  { id: "archives",   kanji: "蔵" },
 ];
 
 export default function SettingsPage() {
@@ -54,9 +58,9 @@ export default function SettingsPage() {
   const me = useMe();
   const update = useUpdateProfile();
   const channels = useChannels();
-  // Feed the Archives drawer's per-dataset counts. React-Query-cached, so
-  // the figures shown there are the same ones the rest of the app already
-  // fetched; default to 0 while loading / on error.
+  // Feed the header metric strip + the Archives panel's per-dataset counts.
+  // React-Query-cached, so these are the same figures the rest of the app
+  // already fetched; default to 0 while loading / on error.
   const stats = useMyStats();
   const insights = useInsights();
   const [bgModel, setBgModel] = useState(() => getPref("bgModel"));
@@ -65,10 +69,10 @@ export default function SettingsPage() {
 
   // ALL hooks must run on every render — keep them above any early return
   // so the hook ordering stays stable when auth state changes.
-  const drawerRefs = useRef({});
+  const panelRefs = useRef({});
   // Hide the Notifications section entirely when the admin hasn't enabled
   // any channel. We can't act on what isn't there, so don't even show
-  // the drawer / nav entry.
+  // the panel / index entry.
   const hasAnyChannel = useMemo(
     () => (channels.data?.system ?? []).some((c) => c.enabled),
     [channels.data],
@@ -77,7 +81,7 @@ export default function SettingsPage() {
     () => ALL_SECTIONS.filter((s) => s.id !== "notif_chan" || hasAnyChannel),
     [hasAnyChannel],
   );
-  useScrollSpy(sections, setActive, drawerRefs);
+  useScrollSpy(sections, setActive, panelRefs);
 
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
@@ -97,7 +101,7 @@ export default function SettingsPage() {
     false;
   const publicUrl = `${window.location.origin}/u/${user.username}`;
 
-  // Archives drawer counts.
+  // Header strip + Archives counts.
   const pieces = stats.data?.total_pieces ?? 0;
   const placedPreorders = stats.data?.preorders?.placed ?? 0;
   const wishes = insights.data?.wishlist_count ?? 0;
@@ -122,323 +126,400 @@ export default function SettingsPage() {
   };
   const onNavClick = (id) => (e) => {
     e.preventDefault();
-    const el = drawerRefs.current[id];
+    const el = panelRefs.current[id];
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  // Stable tone lookup by section id — the filtered `sections` array shifts
-  // indices when notif_chan is hidden, so we resolve from ALL_SECTIONS.
-  const toneOf = (id) => ALL_SECTIONS.find((s) => s.id === id) ?? ALL_SECTIONS[0];
-
   return (
     <AppShell>
-      <main className="atelier max-w-6xl mx-auto px-6 pt-4 pb-20">
-        <Hero username={user.username} t={t} />
-
-        <Nav sections={sections} active={active} onClick={onNavClick} t={t} />
-
-        <div className="atelier-content">
-          <Drawer
-            id="profile"
-            kanji="公"
-            title={t("settings.public_profile")}
-            tone={toneOf("profile").tone}
-            toneSoft={toneOf("profile").toneSoft}
-            delay={0}
-            refMap={drawerRefs}
+      <main className="relative max-w-6xl mx-auto px-6 py-16">
+        {/* ─── Editorial header ─── */}
+        <header className="relative mb-12">
+          <span
+            aria-hidden
+            className="kanji-mark text-[24rem] -top-28 -right-8 hidden md:block select-none"
           >
-            <p className="atelier-drawer-desc">
-              {t("settings.public_profile.body", { username: user.username })}
-            </p>
+            棚
+          </span>
 
-            <div className="atelier-toggle-row">
-              <div id="toggle-label-public-profile" className="atelier-toggle-row-text">
-                <span
-                  className={`atelier-toggle-row-state ${flag ? "is-on" : ""}`}
-                >
-                  {flag
-                    ? t("settings.public_profile.on")
-                    : t("settings.public_profile.off")}
-                </span>
-                <span className="atelier-toggle-row-hint">
-                  /u/{user.username}
-                </span>
-              </div>
-              <Toggle on={flag} onChange={toggle} disabled={update.isPending} labelId="toggle-label-public-profile" />
-            </div>
-
-            {flag ? (
-              <>
-                <div className="atelier-url">
-                  <div className="atelier-url-text">
-                    <span className="atelier-url-eyebrow">
-                      {t("settings.public_profile.url")}
-                    </span>
-                    <Link to={`/u/${user.username}`} className="atelier-url-link">
-                      {publicUrl}
-                    </Link>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={copy}
-                    className={`atelier-url-copy ${copied ? "is-done" : ""}`}
-                  >
-                    {copied
-                      ? t("settings.copy_url.done")
-                      : t("settings.copy_url")}
-                  </button>
-                </div>
-
-                {/* Sub-toggle — only relevant once the profile is opened
-                  * to the public. Keeps NSFW pieces out of the public view
-                  * by default (the conservative choice). */}
-                <p className="atelier-drawer-desc" style={{ marginTop: "1.5rem", marginBottom: "0.75rem" }}>
-                  {t("settings.public_profile.show_nsfw.body")}
-                </p>
-                <div className="atelier-toggle-row">
-                  <div id="toggle-label-show-nsfw" className="atelier-toggle-row-text">
-                    <span
-                      className={`atelier-toggle-row-state ${showNsfwPublic ? "is-on" : ""}`}
-                    >
-                      {showNsfwPublic
-                        ? t("settings.public_profile.show_nsfw.on")
-                        : t("settings.public_profile.show_nsfw.off")}
-                    </span>
-                    <span className="atelier-toggle-row-hint">
-                      {t("settings.public_profile.show_nsfw")}
-                    </span>
-                  </div>
-                  <Toggle
-                    on={showNsfwPublic}
-                    onChange={toggleNsfwPublic}
-                    disabled={update.isPending}
-                    labelId="toggle-label-show-nsfw"
-                  />
-                </div>
-
-                {/* Sub-toggle — expose the collection's value (La Cote) on
-                  * the public profile / discovery card. OFF by default so a
-                  * public profile never leaks value unintentionally. */}
-                <p className="atelier-drawer-desc" style={{ marginTop: "1.5rem", marginBottom: "0.75rem" }}>
-                  {t("settings.public_profile.show_value.body")}
-                </p>
-                <div className="atelier-toggle-row">
-                  <div id="toggle-label-show-value" className="atelier-toggle-row-text">
-                    <span
-                      className={`atelier-toggle-row-state ${showValuePublic ? "is-on" : ""}`}
-                    >
-                      {showValuePublic
-                        ? t("settings.public_profile.show_value.on")
-                        : t("settings.public_profile.show_value.off")}
-                    </span>
-                    <span className="atelier-toggle-row-hint">
-                      {t("settings.public_profile.show_value")}
-                    </span>
-                  </div>
-                  <Toggle
-                    on={showValuePublic}
-                    onChange={toggleValuePublic}
-                    disabled={update.isPending}
-                    labelId="toggle-label-show-value"
-                  />
-                </div>
-              </>
-            ) : null}
-          </Drawer>
-
-          <Drawer
-            id="currency"
-            kanji="銭"
-            title={t("settings.currency.title")}
-            tone={toneOf("currency").tone}
-            toneSoft={toneOf("currency").toneSoft}
-            delay={0.06}
-            refMap={drawerRefs}
+          <p className="micro reveal flex items-center gap-2.5" style={{ "--i": 0 }}>
+            <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
+            {t("settings.kicker", { default: "RÉGLAGES" })}
+            <span aria-hidden className="ja not-italic text-[var(--color-or)]">棚</span>
+            {t("settings.kicker_label", { default: "ESPACE PRIVÉ" })}
+          </p>
+          <h1
+            className="display text-6xl md:text-7xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
+            style={{ "--i": 1 }}
           >
-            <p className="atelier-drawer-desc">{t("settings.currency.body")}</p>
-            <div className="atelier-select-wrap">
-              <Select
-                label={t("settings.currency.field")}
-                value={
-                  update.data?.preferred_currency ??
-                  user.preferred_currency ??
-                  ""
-                }
-                onChange={(v) =>
-                  update.mutate({ preferred_currency: v === "" ? "" : v })
-                }
-                options={[
-                  { value: "", label: t("settings.currency.none") },
-                  { value: "JPY", label: "JPY · Yen" },
-                  { value: "EUR", label: "EUR · Euro" },
-                  { value: "USD", label: "USD · US Dollar" },
-                  { value: "GBP", label: "GBP · British Pound" },
-                  { value: "CHF", label: "CHF · Swiss Franc" },
-                  { value: "CAD", label: "CAD · Canadian Dollar" },
-                ]}
-              />
-            </div>
-            <p className="atelier-select-hint">{t("settings.currency.hint")}</p>
-            <FxSettings />
-          </Drawer>
-
-          <Drawer
-            id="manga"
-            kanji="漫"
-            title={t("settings.manga.title")}
-            tone={toneOf("manga").tone}
-            toneSoft={toneOf("manga").toneSoft}
-            delay={0.1}
-            refMap={drawerRefs}
+            <AccentTitle text={t("settings.title")} />
+          </h1>
+          <div className="gold-rule w-32 mt-6 reveal" style={{ "--i": 2 }} />
+          <p
+            className="display-italic text-[var(--color-or)] text-lg mt-5 max-w-xl reveal"
+            style={{ "--i": 3 }}
           >
-            <MangaSettings />
-          </Drawer>
+            {t("settings.subtitle")}
+          </p>
 
-          <Drawer
-            id="bg_model"
-            kanji="影"
-            title={t("settings.bg_model")}
-            tone={toneOf("bg_model").tone}
-            toneSoft={toneOf("bg_model").toneSoft}
-            delay={0.12}
-            refMap={drawerRefs}
+          {/* Figurine-metric strip — glanceable scope of what these settings
+              govern. Counts only, so they stay ivoire/red; gold is reserved
+              for value figures elsewhere. */}
+          <div
+            className="mt-8 grid grid-cols-2 lg:grid-cols-3 gap-3 reveal"
+            style={{ "--i": 3 }}
           >
-            <p className="atelier-drawer-desc">{t("settings.bg_model.body")}</p>
-            <div className="atelier-select-wrap">
-              <Select
-                label={t("settings.bg_model")}
-                value={bgModel}
-                onChange={onBgModel}
-                options={BG_MODEL_SIZES.map((size) => ({
-                  value: size,
-                  label: t(`settings.bg_model.${size}`),
-                }))}
-              />
-            </div>
-            <p className="atelier-select-hint">{t("settings.bg_model.hint")}</p>
-          </Drawer>
+            <StatCard
+              label={t("collection.kpi.pieces")}
+              value={pieces}
+              sub={t("archives.count.pieces")}
+            />
+            <StatCard
+              label={t("collection.kpi.preorders")}
+              value={placedPreorders}
+              sub={t("archives.count.preorders")}
+              tone="red"
+            />
+            <StatCard
+              label={t("wishlist.title")}
+              value={wishes}
+              sub={t("archives.count.wishes")}
+            />
+          </div>
+        </header>
 
-          {/* Notifications — only rendered when the admin has enabled
-            * at least one channel. Otherwise the entire section vanishes
-            * (the nav entry is also filtered out, see `sections`). */}
-          {hasAnyChannel ? (
-            <Drawer
-              id="notif_chan"
-              kanji="鈴"
-              title={t("notif.channels.title")}
-              tone={toneOf("notif_chan").tone}
-              toneSoft={toneOf("notif_chan").toneSoft}
-              delay={0.18}
-              refMap={drawerRefs}
+        {/* ─── Section index (sticky on lg) + panels ─── */}
+        <div className="lg:grid lg:grid-cols-[15rem_1fr] lg:gap-12 lg:items-start">
+          <SectionIndex
+            sections={sections}
+            active={active}
+            onClick={onNavClick}
+            t={t}
+          />
+
+          <div className="min-w-0 space-y-8">
+            <Panel
+              id="profile"
+              kanji="公"
+              eyebrow={t("settings.nav.profile")}
+              title={t("settings.public_profile")}
+              refMap={panelRefs}
             >
-              <NotificationSettings t={t} />
-            </Drawer>
-          ) : null}
-
-          <Drawer
-            id="nsfw"
-            kanji="禁"
-            title={t("settings.nsfw.title")}
-            tone={toneOf("nsfw").tone}
-            toneSoft={toneOf("nsfw").toneSoft}
-            delay={0.18}
-            refMap={drawerRefs}
-          >
-            <p className="atelier-drawer-desc">{t("settings.nsfw.body")}</p>
-            <div className="atelier-nsfw-grid">
-              {NSFW_OPTIONS.map(({ key, kanji }) => {
-                const current =
-                  update.data?.nsfw_visibility ??
-                  user.nsfw_visibility ??
-                  "hide";
-                const isActive = current === key;
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => update.mutate({ nsfw_visibility: key })}
-                    disabled={update.isPending}
-                    aria-pressed={isActive}
-                    className={`atelier-nsfw-btn ${isActive ? "is-active" : ""}`}
-                  >
-                    <span className="atelier-nsfw-btn-kanji" aria-hidden>
-                      {kanji}
-                    </span>
-                    <span className="atelier-nsfw-btn-title">
-                      {t(`settings.nsfw.${key}.title`)}
-                    </span>
-                    <span className="atelier-nsfw-btn-desc">
-                      {t(`settings.nsfw.${key}.body`)}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </Drawer>
-
-          {/* Archives — data export (relocated from the standalone /archives
-            * page). Each dataset downloads as CSV (spreadsheet) or JSON
-            * (faithful backup); the dashed footer bar bundles everything into
-            * one re-importable JSON snapshot. */}
-          <Drawer
-            id="archives"
-            kanji="蔵"
-            title={t("archives.title")}
-            tone={toneOf("archives").tone}
-            toneSoft={toneOf("archives").toneSoft}
-            delay={0.24}
-            refMap={drawerRefs}
-          >
-            <p className="atelier-drawer-desc">{t("archives.subtitle")}</p>
-            <div className="exp-grid">
-              <ExportCard
-                kanji="蒐"
-                title={t("archives.collection")}
-                count={pieces}
-                countLabel={t("archives.count.pieces")}
-                cols={t("archives.cols.collection")}
-                base="collection"
-                t={t}
-              />
-              <ExportCard
-                kanji="望"
-                title={t("archives.wishlist")}
-                count={wishes}
-                countLabel={t("archives.count.wishes")}
-                cols={t("archives.cols.wishlist")}
-                base="wishlist"
-                t={t}
-              />
-              <ExportCard
-                kanji="予"
-                title={t("archives.preorders")}
-                count={placedPreorders}
-                countLabel={t("archives.count.preorders")}
-                cols={t("archives.cols.preorders")}
-                base="preorders"
-                t={t}
-              />
-            </div>
-            <div className="exp-backup">
-              <p>
-                <b>{t("archives.backup.title")}</b> — {t("archives.backup.body")}
+              <p className="atelier-drawer-desc">
+                {t("settings.public_profile.body", { username: user.username })}
               </p>
-              <a
-                href="/api/me/export/backup.json"
-                download
-                className="dl-btn dl-btn--json"
+
+              <div className="atelier-toggle-row">
+                <div id="toggle-label-public-profile" className="atelier-toggle-row-text">
+                  <span
+                    className={`atelier-toggle-row-state ${flag ? "is-on" : ""}`}
+                  >
+                    {flag
+                      ? t("settings.public_profile.on")
+                      : t("settings.public_profile.off")}
+                  </span>
+                  <span className="atelier-toggle-row-hint">
+                    /u/{user.username}
+                  </span>
+                </div>
+                <Toggle on={flag} onChange={toggle} disabled={update.isPending} labelId="toggle-label-public-profile" />
+              </div>
+
+              {flag ? (
+                <>
+                  <div className="atelier-url">
+                    <div className="atelier-url-text">
+                      <span className="atelier-url-eyebrow">
+                        {t("settings.public_profile.url")}
+                      </span>
+                      <Link to={`/u/${user.username}`} className="atelier-url-link">
+                        {publicUrl}
+                      </Link>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={copy}
+                      className="tap-target shrink-0 px-3 text-[10px] uppercase tracking-[0.2em] border transition-colors"
+                      style={{
+                        color: copied ? "var(--color-noir)" : "var(--color-or-pale)",
+                        background: copied
+                          ? "var(--color-or)"
+                          : "transparent",
+                        borderColor: "color-mix(in oklab, var(--color-or) 40%, transparent)",
+                      }}
+                    >
+                      {copied
+                        ? t("settings.copy_url.done")
+                        : t("settings.copy_url")}
+                    </button>
+                  </div>
+
+                  {/* Sub-toggle — only relevant once the profile is opened
+                    * to the public. Keeps NSFW pieces out of the public view
+                    * by default (the conservative choice). */}
+                  <p className="atelier-drawer-desc" style={{ marginTop: "1.5rem", marginBottom: "0.75rem" }}>
+                    {t("settings.public_profile.show_nsfw.body")}
+                  </p>
+                  <div className="atelier-toggle-row">
+                    <div id="toggle-label-show-nsfw" className="atelier-toggle-row-text">
+                      <span
+                        className={`atelier-toggle-row-state ${showNsfwPublic ? "is-on" : ""}`}
+                      >
+                        {showNsfwPublic
+                          ? t("settings.public_profile.show_nsfw.on")
+                          : t("settings.public_profile.show_nsfw.off")}
+                      </span>
+                      <span className="atelier-toggle-row-hint">
+                        {t("settings.public_profile.show_nsfw")}
+                      </span>
+                    </div>
+                    <Toggle
+                      on={showNsfwPublic}
+                      onChange={toggleNsfwPublic}
+                      disabled={update.isPending}
+                      labelId="toggle-label-show-nsfw"
+                    />
+                  </div>
+
+                  {/* Sub-toggle — expose the collection's value (La Cote) on
+                    * the public profile / discovery card. OFF by default so a
+                    * public profile never leaks value unintentionally. */}
+                  <p className="atelier-drawer-desc" style={{ marginTop: "1.5rem", marginBottom: "0.75rem" }}>
+                    {t("settings.public_profile.show_value.body")}
+                  </p>
+                  <div className="atelier-toggle-row">
+                    <div id="toggle-label-show-value" className="atelier-toggle-row-text">
+                      <span
+                        className={`atelier-toggle-row-state ${showValuePublic ? "is-on" : ""}`}
+                      >
+                        {showValuePublic
+                          ? t("settings.public_profile.show_value.on")
+                          : t("settings.public_profile.show_value.off")}
+                      </span>
+                      <span className="atelier-toggle-row-hint">
+                        {t("settings.public_profile.show_value")}
+                      </span>
+                    </div>
+                    <Toggle
+                      on={showValuePublic}
+                      onChange={toggleValuePublic}
+                      disabled={update.isPending}
+                      labelId="toggle-label-show-value"
+                    />
+                  </div>
+                </>
+              ) : null}
+            </Panel>
+
+            <Panel
+              id="currency"
+              kanji="銭"
+              eyebrow={t("settings.nav.currency")}
+              title={t("settings.currency.title")}
+              refMap={panelRefs}
+            >
+              <p className="atelier-drawer-desc">{t("settings.currency.body")}</p>
+              <div className="atelier-select-wrap">
+                <Select
+                  label={t("settings.currency.field")}
+                  value={
+                    update.data?.preferred_currency ??
+                    user.preferred_currency ??
+                    ""
+                  }
+                  onChange={(v) =>
+                    update.mutate({ preferred_currency: v === "" ? "" : v })
+                  }
+                  options={[
+                    { value: "", label: t("settings.currency.none") },
+                    { value: "JPY", label: "JPY · Yen" },
+                    { value: "EUR", label: "EUR · Euro" },
+                    { value: "USD", label: "USD · US Dollar" },
+                    { value: "GBP", label: "GBP · British Pound" },
+                    { value: "CHF", label: "CHF · Swiss Franc" },
+                    { value: "CAD", label: "CAD · Canadian Dollar" },
+                  ]}
+                />
+              </div>
+              <p className="atelier-select-hint">{t("settings.currency.hint")}</p>
+              <FxSettings />
+            </Panel>
+
+            <Panel
+              id="manga"
+              kanji="漫"
+              eyebrow={t("settings.nav.manga")}
+              title={t("settings.manga.title")}
+              refMap={panelRefs}
+            >
+              <MangaSettings />
+            </Panel>
+
+            <Panel
+              id="bg_model"
+              kanji="影"
+              eyebrow={t("settings.nav.bg_model")}
+              title={t("settings.bg_model")}
+              refMap={panelRefs}
+            >
+              <p className="atelier-drawer-desc">{t("settings.bg_model.body")}</p>
+              <div className="atelier-select-wrap">
+                <Select
+                  label={t("settings.bg_model")}
+                  value={bgModel}
+                  onChange={onBgModel}
+                  options={BG_MODEL_SIZES.map((size) => ({
+                    value: size,
+                    label: t(`settings.bg_model.${size}`),
+                  }))}
+                />
+              </div>
+              <p className="atelier-select-hint">{t("settings.bg_model.hint")}</p>
+            </Panel>
+
+            {/* Notifications — only rendered when the admin has enabled
+              * at least one channel. Otherwise the entire section vanishes
+              * (the index entry is also filtered out, see `sections`). */}
+            {hasAnyChannel ? (
+              <Panel
+                id="notif_chan"
+                kanji="鈴"
+                eyebrow={t("settings.nav.notif_chan")}
+                title={t("notif.channels.title")}
+                refMap={panelRefs}
               >
-                ↓ {t("archives.backup.download")}
-              </a>
-            </div>
-          </Drawer>
+                <NotificationSettings t={t} />
+              </Panel>
+            ) : null}
+
+            <Panel
+              id="nsfw"
+              kanji="禁"
+              eyebrow={t("settings.nav.nsfw")}
+              title={t("settings.nsfw.title")}
+              refMap={panelRefs}
+            >
+              <p className="atelier-drawer-desc">{t("settings.nsfw.body")}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {NSFW_OPTIONS.map(({ key, kanji }) => {
+                  const current =
+                    update.data?.nsfw_visibility ??
+                    user.nsfw_visibility ??
+                    "hide";
+                  const isActive = current === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => update.mutate({ nsfw_visibility: key })}
+                      disabled={update.isPending}
+                      aria-pressed={isActive}
+                      className="relative text-left p-4 border transition-colors disabled:opacity-60 disabled:cursor-wait"
+                      style={{
+                        borderColor: isActive
+                          ? "var(--color-laque-bright)"
+                          : "color-mix(in oklab, var(--color-or) 20%, transparent)",
+                        background: isActive
+                          ? "color-mix(in oklab, var(--color-laque) 12%, transparent)"
+                          : "color-mix(in oklab, var(--color-noir-deep) 50%, transparent)",
+                      }}
+                    >
+                      <span
+                        className="ja block text-2xl leading-none mb-2"
+                        aria-hidden
+                        style={{
+                          color: isActive
+                            ? "var(--color-laque-bright)"
+                            : "var(--color-or)",
+                          opacity: isActive ? 1 : 0.7,
+                        }}
+                      >
+                        {kanji}
+                      </span>
+                      <span className="display text-lg text-[var(--color-ivoire)] block leading-tight">
+                        {t(`settings.nsfw.${key}.title`)}
+                      </span>
+                      <span className="block mt-1.5 text-[12px] leading-relaxed text-[var(--color-ivoire-soft)]">
+                        {t(`settings.nsfw.${key}.body`)}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </Panel>
+
+            {/* Archives — data export (relocated from the standalone /archives
+              * page). Each dataset downloads as CSV (spreadsheet) or JSON
+              * (faithful backup); the dashed footer bundles everything into one
+              * re-importable JSON snapshot. */}
+            <Panel
+              id="archives"
+              kanji="蔵"
+              eyebrow={t("settings.nav.archives")}
+              title={t("archives.title")}
+              refMap={panelRefs}
+            >
+              <p className="atelier-drawer-desc">{t("archives.subtitle")}</p>
+              <div className="exp-grid">
+                <ExportCard
+                  kanji="蒐"
+                  title={t("archives.collection")}
+                  count={pieces}
+                  countLabel={t("archives.count.pieces")}
+                  cols={t("archives.cols.collection")}
+                  base="collection"
+                  t={t}
+                />
+                <ExportCard
+                  kanji="望"
+                  title={t("archives.wishlist")}
+                  count={wishes}
+                  countLabel={t("archives.count.wishes")}
+                  cols={t("archives.cols.wishlist")}
+                  base="wishlist"
+                  t={t}
+                />
+                <ExportCard
+                  kanji="予"
+                  title={t("archives.preorders")}
+                  count={placedPreorders}
+                  countLabel={t("archives.count.preorders")}
+                  cols={t("archives.cols.preorders")}
+                  base="preorders"
+                  t={t}
+                />
+              </div>
+              <div className="exp-backup">
+                <p>
+                  <b>{t("archives.backup.title")}</b> — {t("archives.backup.body")}
+                </p>
+                <a
+                  href="/api/me/export/backup.json"
+                  download
+                  className="dl-btn dl-btn--json"
+                >
+                  ↓ {t("archives.backup.download")}
+                </a>
+              </div>
+            </Panel>
+          </div>
         </div>
+
+        {/* Quiet ukiyo-e wave veil closing the page — static gradient, ~0 GPU. */}
+        <div
+          aria-hidden
+          className="seigaiha mt-16 h-16 opacity-50"
+          style={{
+            maskImage: "linear-gradient(#000, transparent)",
+            WebkitMaskImage: "linear-gradient(#000, transparent)",
+          }}
+        />
       </main>
     </AppShell>
   );
 }
 
-// One dataset's export card inside the Archives drawer. Downloads are plain
+// One dataset's export card inside the Archives panel. Downloads are plain
 // authenticated <a> links — the session cookie rides along and the server
 // replies with Content-Disposition: attachment.
 function ExportCard({ kanji, title, count, countLabel, cols, base, t }) {
@@ -484,155 +565,104 @@ const NSFW_OPTIONS = [
   { key: "show", kanji: "開" },
 ];
 
-function Hero({ username, t }) {
-  const reduce = useReducedMotion();
-  return (
-    <header className="atelier-hero">
-      {/* Localized colour-wash — gold + jade + indigo breathing behind the
-        * title. Absolutely positioned, never intercepts pointer events, and
-        * pinned below the z-index:1 hero content. Reads on both themes
-        * because it mixes the theme-aware accent vars into transparent. */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 -top-10 bottom-0"
-        style={{
-          zIndex: 0,
-          backgroundImage: [
-            "radial-gradient(46% 70% at 50% 8%, color-mix(in oklab, var(--color-or) 16%, transparent), transparent 70%)",
-            "radial-gradient(40% 80% at 16% 36%, color-mix(in oklab, var(--atelier-jade) 14%, transparent), transparent 72%)",
-            "radial-gradient(42% 80% at 84% 30%, color-mix(in oklab, var(--color-indigo) 13%, transparent), transparent 72%)",
-          ].join(", "),
-        }}
-      />
-      <motion.p
-        className="atelier-hero-eyebrow"
-        style={{ color: "var(--color-jade)" }}
-        initial={reduce ? false : { opacity: 0, y: 12 }}
-        animate={reduce ? undefined : { opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      >
-        {username}
-      </motion.p>
-      <motion.h1
-        className="atelier-hero-title"
-        initial={reduce ? false : { opacity: 0, y: 18 }}
-        animate={reduce ? undefined : { opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.06, ease: [0.22, 1, 0.36, 1] }}
-      >
-        {t("settings.title")}
-      </motion.h1>
-      <motion.p
-        className="atelier-hero-sub"
-        initial={reduce ? false : { opacity: 0, y: 14 }}
-        animate={reduce ? undefined : { opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
-      >
-        {t("settings.subtitle")}
-      </motion.p>
-    </header>
-  );
-}
-
 // =============================================================================
-// Sticky nav rail (desktop) / chip strip (mobile)
+// Section index — sticky on desktop, horizontal chip strip on mobile
 // =============================================================================
 
-function Nav({ sections, active, onClick, t }) {
+function SectionIndex({ sections, active, onClick, t }) {
   return (
-    <nav className="atelier-nav" aria-label={t("settings.title")}>
-      <p
-        className="atelier-nav-heading"
-        style={{
-          color: "var(--color-jade)",
-          borderBottomColor:
-            "color-mix(in oklab, var(--color-jade) 26%, transparent)",
-        }}
-      >
+    <nav
+      className="lg:sticky lg:top-24 mb-8 lg:mb-0"
+      aria-label={t("settings.nav.heading")}
+    >
+      <p className="micro pb-3 mb-2 border-b border-[var(--color-or)]/20 hidden lg:block">
         {t("settings.nav.heading")}
       </p>
-      <ul className="atelier-nav-list">
-        {sections.map((s, i) => (
-          <Reveal
-            as="li"
-            key={s.id}
-            className="atelier-nav-item"
-            delay={i * 0.05}
-            y={12}
-          >
-            <a
-              href={`#${s.id}`}
-              onClick={onClick(s.id)}
-              className={`atelier-nav-link ${active === s.id ? "is-active" : ""}`}
-              style={
-                active === s.id
-                  ? {
-                      color: s.tone,
-                      borderLeftColor: s.tone,
-                    }
-                  : undefined
-              }
-            >
-              <span
-                className="atelier-nav-link-kanji"
-                aria-hidden
-                style={active === s.id ? { color: s.tone, opacity: 1 } : undefined}
+      <ul className="flex gap-2 overflow-x-auto lg:flex-col lg:gap-0 lg:overflow-visible">
+        {sections.map((s, i) => {
+          const isActive = active === s.id;
+          return (
+            <li key={s.id} className="reveal shrink-0 lg:shrink" style={{ "--i": i }}>
+              <a
+                href={`#${s.id}`}
+                onClick={onClick(s.id)}
+                aria-current={isActive ? "true" : undefined}
+                className="tap-target group flex items-center gap-2.5 whitespace-nowrap px-3 lg:px-0 lg:py-2.5 lg:border-l-2 transition-colors"
+                style={{
+                  borderLeftColor: isActive
+                    ? "var(--color-laque-bright)"
+                    : "transparent",
+                  color: isActive
+                    ? "var(--color-ivoire)"
+                    : "var(--color-ivoire-soft)",
+                }}
               >
-                {s.kanji}
-              </span>
-              <span>{t(`settings.nav.${s.id}`)}</span>
-            </a>
-          </Reveal>
-        ))}
+                <span
+                  className="ja text-base leading-none transition-colors"
+                  aria-hidden
+                  style={{
+                    color: isActive
+                      ? "var(--color-laque-bright)"
+                      : "var(--color-or)",
+                    opacity: isActive ? 1 : 0.55,
+                  }}
+                >
+                  {s.kanji}
+                </span>
+                <span className="text-sm group-hover:text-[var(--color-ivoire)]">
+                  {t(`settings.nav.${s.id}`)}
+                </span>
+              </a>
+            </li>
+          );
+        })}
       </ul>
     </nav>
   );
 }
 
 // =============================================================================
-// Drawer — one setting section
+// Panel — one setting section, as a Direction-A Card with an editorial header
 // =============================================================================
 
-function Drawer({ id, kanji, title, tone, toneSoft, delay = 0, refMap, children }) {
-  const reduce = useReducedMotion();
+function Panel({ id, kanji, eyebrow, title, refMap, children }) {
   return (
-    <motion.section
-      id={id}
-      ref={(el) => {
-        if (el) refMap.current[id] = el;
-      }}
-      className="atelier-drawer group"
-      data-kanji={kanji}
-      style={{ "--atelier-tone": tone, "--atelier-tone-soft": toneSoft }}
-      initial={reduce ? false : { opacity: 0, y: 24 }}
-      whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.18 }}
-      transition={{ duration: 0.55, delay, ease: [0.22, 1, 0.36, 1] }}
+    <Card
+      as="section"
+      className="relative overflow-hidden p-6 md:p-8"
     >
-      {/* Per-section accent colour-wash — bleeds the drawer's tone up from
-        * the corner. Clipped by the drawer's overflow:hidden, sits beneath
-        * the z-index:1 body, and warms on hover (opacity only → GPU-safe). */}
+      {/* Calm kanji watermark — gold, very faint, bleeding off the corner.
+          Static, pointer-inert: GPU-free atmosphere. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-70 transition-opacity duration-500 group-hover:opacity-100"
-        style={{
-          zIndex: 0,
-          backgroundImage:
-            "radial-gradient(70% 60% at 88% -10%, color-mix(in oklab, var(--atelier-tone) 14%, transparent), transparent 62%)",
+        className="kanji-mark text-[11rem] -top-10 -right-4 select-none"
+      >
+        {kanji}
+      </span>
+
+      {/* `id` + scroll-margin live on the header (Card doesn't forward `id`),
+          so `#id` deep-links, the scroll-spy, and scrollIntoView all target
+          the same node. `relative` lifts it above the clipped watermark. */}
+      <header
+        id={id}
+        className="relative mb-6 scroll-mt-24"
+        ref={(el) => {
+          if (el) refMap.current[id] = el;
         }}
-      />
-      <header className="atelier-drawer-header">
-        <span
-          className="atelier-drawer-kanji"
-          aria-hidden
-          style={{ color: tone }}
-        >
-          {kanji}
-        </span>
-        <h2 className="atelier-drawer-title">{title}</h2>
-        <span className="atelier-drawer-rule" aria-hidden />
+      >
+        <p className="micro flex items-center gap-2">
+          <span className="ja not-italic text-base text-[var(--color-or)] leading-none" aria-hidden>
+            {kanji}
+          </span>
+          {eyebrow}
+        </p>
+        <h2 className="display text-2xl md:text-3xl mt-2 text-[var(--color-ivoire)] leading-tight">
+          {title}
+        </h2>
+        <div className="gold-rule w-16 mt-4" />
       </header>
-      <div className="atelier-drawer-body">{children}</div>
-    </motion.section>
+      <div className="relative">{children}</div>
+    </Card>
   );
 }
 
@@ -651,7 +681,7 @@ function Toggle({ on, onChange, disabled, labelId }) {
 }
 
 // =============================================================================
-// Scroll spy — highlights the nav link of the section currently in view
+// Scroll spy — highlights the index link of the section currently in view
 // =============================================================================
 
 function useScrollSpy(sections, setActive, refMap) {
