@@ -273,7 +273,7 @@ export default function AppShell({ children }) {
         </motion.main>
       )}
 
-      <footer className="mt-20 border-t border-[var(--color-or)]/20 py-8">
+      <footer className="seigaiha mt-20 border-t border-[var(--color-or)]/20 py-8">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-[11px] uppercase tracking-[0.28em] text-[var(--color-ivoire-soft)]/80">
           <p className="flex items-center gap-3">
             <span aria-hidden className="ja text-[var(--color-or)]/70 text-base leading-none">
