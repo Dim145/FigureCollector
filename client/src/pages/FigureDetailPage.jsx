@@ -3,6 +3,11 @@ import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useIsAdmin, useMe } from "../hooks/useMe.js";
 import { useFigure, useOwnedItems, usePreorderForOwned } from "../hooks/useCollection.js";
+import { effectiveValue, paidTotal, fmtMoney } from "../lib/money.js";
+import {
+  preorderPhase,
+  preorderPhaseFromFigure,
+} from "../lib/preorderStatus.js";
 import { useWishlistItems, useAddWishlistItem, useRemoveWishlistItem } from "../hooks/useWishlist.js";
 import TrackingChip from "../components/TrackingChip.jsx";
 import { useDeleteFigure } from "../hooks/useAdmin.js";
@@ -10,6 +15,8 @@ import { useStoresForFigure } from "../hooks/useStores.js";
 import { useScans } from "../hooks/useScans.js";
 import { ApiError } from "../lib/api.js";
 import { typeHue, typeKanji } from "../lib/typeHue.js";
+import { buildBuyUrl } from "../lib/storeLink.js";
+import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
 import CoverPicker from "../components/CoverPicker.jsx";
@@ -115,6 +122,19 @@ export default function FigureDetailPage() {
   return (
     <AppShell>
       <main className="relative pb-24">
+        {/* Editorial breadcrumb — a quiet way back to where most arrivals come
+         *  from (the catalogue). Mirrors the mockup's "← Retour" link. */}
+        <div className="max-w-7xl mx-auto px-6 pt-8">
+          <Link
+            to="/browse"
+            className="reveal inline-flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] transition-colors"
+            style={{ "--i": 0 }}
+          >
+            <span aria-hidden>←</span>
+            {t("figure.back", { default: "Catalogue" })}
+          </Link>
+        </div>
+
         <HeroSection
           f={f}
           ownedRecord={ownedRecord}
@@ -238,10 +258,15 @@ function HeroSection({
            *  it for the `1.1fr_1fr` track to resolve correctly. Without it
            *  a long unbreakable token in the title would expand THIS
            *  column's min-content past its share and overflow the page. */}
+          {/* Editorial kicker — SÉRIE · 漢字 · STATUT. The signature
+           *  Direction-A eyebrow over the headline (mockup "Fiche figurine").
+           *  Carries the series + a status word (pré-commande / pièce). */}
+          <HeroKicker f={f} owned={ownedRecord} t={t} />
+
           {/* Lot stamp + action cluster — allow wrap on narrow viewports so
            *  neither overflows when both are present. */}
           <div
-            className="flex flex-wrap items-start justify-between gap-3 reveal"
+            className="mt-4 flex flex-wrap items-start justify-between gap-3 reveal"
             style={{ "--i": 1 }}
           >
             <div className="fig-lot">
@@ -287,17 +312,34 @@ function HeroSection({
           />
 
           {f.description ? (
-            <DescriptionBlock text={f.description} t={t} delay={5} />
+            <>
+              <SectionLabel
+                accent={t("figure.label.notice", { default: "Notice" })}
+                rest={t("figure.label.notice_rest", { default: "DE LA PIÈCE" })}
+                delay={5}
+              />
+              <DescriptionBlock text={f.description} t={t} delay={5} />
+            </>
           ) : null}
 
+          {/* Spec grid — échelle / hauteur / fabricant / série, the
+           *  mockup's `.specgrid`. */}
           <HeadlineSpecs f={f} t={t} delay={6} />
+
+          {/* Owner-only glance blocks — acompte progress (red→gold) + La Cote
+           *  (payé vs valeur + gain), mirroring the mockup's hero. Read-only
+           *  summaries; the editable detail lives in the owner stack below.
+           *  Each renders only when its data is present. */}
+          {ownedRecord ? (
+            <OwnerGlance f={f} owned={ownedRecord} t={t} delay={7} />
+          ) : null}
 
           {/* MangaCollector synergy — renders only when the user has linked
            *  their manga library AND this figure's series is in it. Returns
            *  null otherwise, so no empty box / stray margin appears. */}
           <MangaLinkBadge figureId={f.id} />
 
-          <div className="mt-9 reveal" style={{ "--i": 7 }}>
+          <div className="mt-9 reveal" style={{ "--i": 8 }}>
             {alreadyOwned ? (
               <OwnedConfirmation t={t} />
             ) : (
@@ -351,6 +393,263 @@ function ActionCluster({ canEdit, onEdit, onDelete, onShare, t }) {
         </>
       ) : null}
     </div>
+  );
+}
+
+/** Editorial kicker over the headline — `SÉRIE · 予約 · PRÉ-COMMANDE`, the
+ *  mockup's signature eyebrow. Generic *labels* (not the series value, which
+ *  the spec grid carries) so nothing repeats: the leading label is "Série"
+ *  (linking to the series when a slug exists) or the type; the kanji is 予
+ *  for a (future) pre-order else the type glyph; the trailing word states the
+ *  status (pré-commande / ma pièce / la pièce). */
+function HeroKicker({ f, owned, t }) {
+  const phase = owned ? preorderPhase(owned) : preorderPhaseFromFigure(f);
+  const isPreorder = phase === "preorder" || phase === "imminent";
+  const kanji = isPreorder ? "予" : typeKanji(f.figure_type);
+  const trail = isPreorder
+    ? t("figure.kicker.preorder", { default: "PRÉ-COMMANDE" })
+    : owned
+      ? t("figure.kicker.owned", { default: "MA PIÈCE" })
+      : t("figure.kicker.piece", { default: "LA PIÈCE" });
+  return (
+    <p
+      className="micro reveal flex items-center gap-2.5 flex-wrap"
+      style={{ "--i": 0 }}
+    >
+      <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
+      {f.series_name ? (
+        f.series_slug ? (
+          <Link
+            to={`/series/${f.series_slug}`}
+            className="hover:text-[var(--color-or)] transition-colors"
+          >
+            {t("figure.spec.series")}
+          </Link>
+        ) : (
+          <span>{t("figure.spec.series")}</span>
+        )
+      ) : (
+        <span>{t(`type.${f.figure_type ?? "other"}`)}</span>
+      )}
+      <span aria-hidden className="ja not-italic text-[var(--color-or)] text-sm leading-none">
+        {kanji}
+      </span>
+      <span>{trail}</span>
+    </p>
+  );
+}
+
+/** Quiet red-accent section label — a kicker whose leading word is set in the
+ *  hanko-red display italic (the AccentTitle move, applied to a label). Used to
+ *  give the right column the mockup's sectioned product-page rhythm without
+ *  accenting the figure name itself. */
+function SectionLabel({ accent, rest, delay = 5 }) {
+  return (
+    <div
+      className="reveal flex items-center gap-3 mb-3"
+      style={{ "--i": delay }}
+    >
+      <p className="text-[11px] uppercase tracking-[0.34em] leading-none">
+        <span className="display-italic text-[var(--color-laque-bright)]">
+          {accent}
+        </span>
+        {rest ? (
+          <span className="text-[var(--color-or-pale)]">{" "}{rest}</span>
+        ) : null}
+      </p>
+      <span
+        aria-hidden
+        className="flex-1 h-px"
+        style={{
+          background:
+            "linear-gradient(90deg, color-mix(in oklab, var(--color-or) 45%, transparent), transparent)",
+        }}
+      />
+    </div>
+  );
+}
+
+/** Owner glance — the mockup's two hero blocks: the pré-commande *acompte*
+ *  progress (red→gold) and *La Cote* (payé vs valeur + gain). Read-only
+ *  summaries derived from the owned record + its linked preorder; the editable
+ *  detail lives in the owner stack further down. Renders nothing when neither
+ *  block has data, so released-and-unpriced pieces show no empty box. */
+function OwnerGlance({ f, owned, t, delay = 7 }) {
+  const preorder = usePreorderForOwned(owned.id);
+  const po = preorder.data ?? null;
+
+  // Acompte: deposit paid against the total figurine cost. The total is the
+  // owned price when known, else the catalog MSRP — the same fallback the
+  // editor uses. Only shown when a deposit exists and the order isn't
+  // cancelled/received (those are historical, not "in progress").
+  const deposit = po?.deposit_amount != null ? Number(po.deposit_amount) : null;
+  const totalRaw =
+    owned.price_amount != null
+      ? Number(owned.price_amount)
+      : f.msrp_amount != null
+        ? Number(f.msrp_amount)
+        : null;
+  const depositCurrency =
+    owned.price_currency || po?.price_currency || f.msrp_currency || null;
+  const phase = preorderPhase(owned);
+  const acompteActive =
+    deposit != null &&
+    deposit > 0 &&
+    totalRaw != null &&
+    totalRaw > 0 &&
+    phase !== "cancelled" &&
+    phase !== "received";
+
+  // La Cote: paid total vs effective value (manual value, else MSRP). Mirror
+  // lib/money's effectiveValue/paidTotal so the figures match the Cote page.
+  const value = effectiveValue({
+    value_amount: owned.value_amount,
+    value_currency: owned.value_currency,
+    price_currency: owned.price_currency,
+    msrp_amount: f.msrp_amount,
+    msrp_currency: f.msrp_currency,
+  });
+  const paid = paidTotal(owned);
+  // Only compute a gain when both are in the SAME currency (no FX layer).
+  const sameCurrency =
+    paid && value && (paid.currency || "") === (value.currency || "");
+  const gain =
+    sameCurrency && paid.amount > 0 ? value.amount - paid.amount : null;
+  const gainPct =
+    gain != null && paid.amount > 0
+      ? Math.round((gain / paid.amount) * 100)
+      : null;
+  const coteActive = !!(paid || value);
+
+  if (!acompteActive && !coteActive) return null;
+
+  return (
+    <div className="mt-8 space-y-4 reveal" style={{ "--i": delay }}>
+      {acompteActive ? (
+        <AcompteBar
+          deposit={deposit}
+          total={totalRaw}
+          currency={depositCurrency}
+          t={t}
+        />
+      ) : null}
+      {coteActive ? (
+        <CoteGlance
+          paid={paid}
+          value={value}
+          gain={gain}
+          gainPct={gainPct}
+          t={t}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/** Pré-commande acompte progress — a red→gold bar (paid share of the total),
+ *  with "acompte versé" (gold) and "solde restant" (red) figures beneath.
+ *  Static gradient fill, no animation — GPU-light. */
+function AcompteBar({ deposit, total, currency, t }) {
+  const pct = Math.max(0, Math.min(100, Math.round((deposit / total) * 100)));
+  const balance = Math.max(0, total - deposit);
+  return (
+    <section
+      aria-label={t("figure.glance.acompte", { default: "Pré-commande · acompte" })}
+      className="border border-[var(--color-or)]/20 bg-[var(--color-noir-soft)] p-5"
+    >
+      <header className="flex items-baseline justify-between gap-3">
+        <p className="micro-tight flex items-center gap-2">
+          <span aria-hidden className="ja not-italic text-[var(--color-or)] text-sm leading-none">予</span>
+          {t("figure.glance.acompte", { default: "Pré-commande · acompte" })}
+        </p>
+        <span className="font-mono text-sm text-[var(--color-or)]">{pct} %</span>
+      </header>
+      <div
+        className="mt-3.5 h-2 rounded-full overflow-hidden"
+        role="progressbar"
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        style={{ background: "color-mix(in oklab, var(--color-ivoire) 8%, transparent)" }}
+      >
+        <span
+          className="block h-full rounded-full"
+          style={{
+            width: `${pct}%`,
+            background:
+              "linear-gradient(90deg, var(--color-laque-bright), var(--color-or))",
+          }}
+        />
+      </div>
+      <div className="mt-3.5 flex items-end justify-between gap-4">
+        <div>
+          <p className="micro-tight">{t("figure.glance.deposit_paid", { default: "Acompte versé" })}</p>
+          <p className="figural text-2xl text-[var(--color-or)] leading-none mt-1.5">
+            {fmtMoney(deposit, currency)}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="micro-tight">{t("figure.glance.balance_due", { default: "Solde restant" })}</p>
+          <p className="figural text-2xl text-[var(--color-laque-bright)] leading-none mt-1.5">
+            {fmtMoney(balance, currency)}
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/** La Cote glance — payé vs valeur actuelle, with the latent gain in jade/red.
+ *  Value is gold (money), the loss-or-gain tints with the figure's direction. */
+function CoteGlance({ paid, value, gain, gainPct, t }) {
+  const up = gain != null && gain >= 0;
+  return (
+    <section
+      aria-label={t("cote.title")}
+      className="border border-[var(--color-or)]/20 bg-[var(--color-noir-soft)] p-5"
+    >
+      <header className="flex items-baseline justify-between gap-3">
+        <p className="micro-tight flex items-center gap-2">
+          <span aria-hidden className="ja not-italic text-[var(--color-or)] text-sm leading-none">金</span>
+          {t("cote.title")} · {t("figure.glance.valuation", { default: "valorisation" })}
+        </p>
+        {gainPct != null ? (
+          <span
+            className="font-mono text-sm"
+            style={{ color: up ? "var(--color-jade)" : "var(--color-laque-bright)" }}
+          >
+            {up ? "▲" : "▼"} {gainPct > 0 ? "+" : ""}{gainPct} %
+          </span>
+        ) : null}
+      </header>
+      <div className="mt-3.5 flex items-end justify-between gap-4">
+        <div>
+          <p className="micro-tight">{t("cote.paid_abbr")}</p>
+          <p className="figural text-2xl text-[var(--color-ivoire)] leading-none mt-1.5">
+            {paid ? fmtMoney(paid.amount, paid.currency) : "—"}
+          </p>
+        </div>
+        <div className="text-right">
+          <p className="micro-tight">{t("figure.glance.current_value", { default: "Valeur actuelle" })}</p>
+          <p className="figural text-2xl text-[var(--color-or)] leading-none mt-1.5">
+            {value ? fmtMoney(value.amount, value.currency) : "—"}
+          </p>
+        </div>
+      </div>
+      {gain != null && gain !== 0 ? (
+        <p
+          className="mt-3.5 pt-3 border-t border-[var(--color-or)]/12 text-[10px] uppercase tracking-[0.22em]"
+          style={{ color: up ? "var(--color-jade)" : "var(--color-laque-bright)" }}
+        >
+          {up
+            ? t("figure.glance.gain", { default: "Plus-value latente" })
+            : t("figure.glance.loss", { default: "Moins-value latente" })}{" "}
+          <span className="font-mono normal-case tracking-normal">
+            {gain > 0 ? "+" : ""}{fmtMoney(gain, value.currency)}
+          </span>
+        </p>
+      ) : null}
+    </section>
   );
 }
 
@@ -519,20 +818,26 @@ function HeadlineSpecs({ f, t, delay = 6 }) {
     },
   ].filter((r) => !!r.value);
   if (rows.length === 0) return null;
+  // Bordered 2-col spec grid (the mockup's `.specgrid`): a 1px gold-tinted
+  // gap over a noir backing forms the inner hairlines; each cell is a
+  // mono-caps label over a display-serif value. Same data + links as before.
   return (
     <dl
-      className="grid grid-cols-2 gap-x-6 gap-y-1.5 reveal"
-      style={{ "--i": delay }}
+      className="grid grid-cols-2 gap-px reveal border border-[var(--color-or)]/15"
+      style={{
+        "--i": delay,
+        background: "color-mix(in oklab, var(--color-or) 12%, transparent)",
+      }}
     >
       {rows.map((r) => (
         <div
           key={r.label}
-          className="border-l-2 border-[var(--color-or)]/30 pl-3 py-1"
+          className="bg-[var(--color-noir-soft)] px-4 py-3.5 min-w-0"
         >
-          <dt className="text-[9.5px] uppercase tracking-[0.28em] text-[var(--color-or-pale)]/70">
+          <dt className="label-mono text-[var(--color-ivoire-soft)]/70">
             {r.label}
           </dt>
-          <dd className="display text-base text-[var(--color-ivoire)] mt-0.5 leading-tight truncate">
+          <dd className="display text-base text-[var(--color-ivoire)] mt-1.5 leading-tight truncate">
             {r.href ? (
               <Link
                 to={r.href}
@@ -621,15 +926,25 @@ function Cartouche({ f, t, onScanJan }) {
         ) : null}
 
       {stores.length > 0 ? (
-        <div className="fig-cartouche-stores">
+        <div className="fig-cartouche-block">
+          <header className="fig-cartouche-heading">
+            <span className="fig-cartouche-heading-kanji" aria-hidden>店</span>
+            <span className="fig-cartouche-heading-label">
+              {t("figure.cartouche.stores")}
+            </span>
+            <span className="fig-cartouche-heading-rule" />
+          </header>
+          <StoreBuyList stores={stores} t={t} />
+          {/* Keep the full modal reachable for the storefront-level view
+           *  (slug, image, deep links) — the inline list is the quick buy
+           *  surface, the modal is the complete index. */}
           <button
             type="button"
             onClick={() => setStoresOpen(true)}
-            className="fig-cartouche-stores-btn"
+            className="mt-3 inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.22em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors"
           >
-            <span className="ja text-[var(--color-or)]" aria-hidden>店</span>
-            <span>{t("figure.cartouche.stores")}</span>
-            <span className="fig-cartouche-stores-count">{stores.length}</span>
+            {t("figure.stores.see_all", { default: "Voir toutes les boutiques" })}
+            <span aria-hidden>→</span>
           </button>
         </div>
       ) : null}
@@ -709,6 +1024,86 @@ function Row({ label, value, mono = false, href = null, action = null }) {
   );
 }
 
+/** Inline "Acheter chez" buy-list — the mockup's `.stores`. Each row is a
+ *  store-image/initials chip + name (→ storefront) + a hanko-red "Acheter"
+ *  action when a product buy-link is known. Same data as the LinkedStoresModal
+ *  (kept reachable via "voir tout"); this is the at-a-glance shopping surface. */
+function StoreBuyList({ stores, t }) {
+  return (
+    <ul className="flex flex-col gap-2">
+      {stores.map((s) => {
+        const buyHref = buildBuyUrl(s.url, s.link);
+        return (
+          <li
+            key={s.id}
+            className="flex items-center gap-3 px-3 py-2.5 border border-[var(--color-or)]/15 bg-[var(--color-noir)]/40 hover:border-[var(--color-or)]/40 hover:bg-[var(--color-or)]/5 transition-colors"
+          >
+            <Link
+              to={`/stores/${s.slug}`}
+              className="flex items-center gap-3 min-w-0 flex-1 group"
+            >
+              <span
+                aria-hidden
+                className="shrink-0 w-9 h-9 grid place-items-center overflow-hidden border border-[var(--color-or)]/25 bg-[color-mix(in_oklab,var(--color-or)_10%,transparent)]"
+              >
+                {s.image_storage_key ? (
+                  <img
+                    src={`/api/store-image/${s.id}`}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="ja text-[var(--color-or)] text-sm">店</span>
+                )}
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-[var(--color-ivoire)] group-hover:text-[var(--color-or-pale)] transition-colors">
+                  {s.name}
+                </span>
+                {s.url ? (
+                  <span className="block truncate text-[10px] font-mono tracking-wide text-[var(--color-ivoire-soft)]/55">
+                    ↗ {hostnameOf(s.url)}
+                  </span>
+                ) : null}
+              </span>
+            </Link>
+            {buyHref ? (
+              <a
+                href={buyHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={t("figure.stores.buy_at", { name: s.name })}
+                className="tap-target shrink-0 inline-flex items-center gap-1.5 px-3 text-[10px] uppercase tracking-[0.2em] text-[var(--color-ivoire)] bg-[var(--color-laque)] hover:bg-[var(--color-laque-bright)] transition-colors"
+              >
+                <span aria-hidden className="ja">購</span>
+                {t("figure.stores.buy")}
+                <span aria-hidden>↗</span>
+              </a>
+            ) : (
+              <Link
+                to={`/stores/${s.slug}`}
+                aria-hidden
+                tabIndex={-1}
+                className="shrink-0 text-[var(--color-or-pale)]/60"
+              >
+                →
+              </Link>
+            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function hostnameOf(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return "";
+  }
+}
+
 // =============================================================================
 // OWNER STACK — vertical sequence (no tabs). Heavies go behind teaser cards.
 // =============================================================================
@@ -726,10 +1121,15 @@ function OwnerStack({ f, owned, nsfwPref, t }) {
   return (
     <section className="max-w-7xl mx-auto px-6 mt-16 fig-owner-shell">
       <header className="text-center mb-2">
-        <p className="micro">{t("figure.owner.eyebrow")}</p>
-        <h2 className="display text-3xl md:text-4xl text-[var(--color-ivoire)] mt-1">
-          {t("figure.owner.title")}
+        <p className="micro inline-flex items-center gap-2.5">
+          <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
+          {t("figure.owner.eyebrow")}
+          <span aria-hidden className="ja not-italic text-[var(--color-or)]">私</span>
+        </p>
+        <h2 className="display text-3xl md:text-4xl text-[var(--color-ivoire)] mt-1.5">
+          <AccentTitle text={t("figure.owner.title")} />
         </h2>
+        <div className="gold-rule w-20 mx-auto mt-4" />
       </header>
 
       <Foldable
