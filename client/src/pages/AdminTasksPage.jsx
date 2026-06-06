@@ -7,18 +7,54 @@ import {
   useFailScan,
   useDeleteScan,
 } from "../hooks/useAdmin.js";
+import StatCard from "../components/StatCard.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 
-const OR = "var(--color-or)";
+/**
+ * /admin/tasks — the gsplat compute queue, redrawn to Direction A ("Shōjo-Noir").
+ *
+ * Renders inside AdminLayout's <Outlet/>, under the global "Administration" h1 +
+ * the 務 nav marker, so this view is an editorial *section* of the admin surface
+ * (kicker · 務 · label → AccentTitle-style h2 → gold-rule → italic gloss over a
+ * faint 務 watermark), not a second page header.
+ *
+ * The queue itself is a refined A timeline: jobs thread down a single gold spine,
+ * each stamped with a status chip toned per the playbook — jade for done, gold
+ * for running, laque for failed, ivoire for queued. Ids, workers, timings and
+ * progress read in mono; retry/cancel controls are hanko-red.
+ *
+ * ALL admin logic is unchanged: the polling `useAdminScans` query drives the
+ * rows, the same client-side `counts`/`FILTERS` memo + filter state scope the
+ * list, and retry / force-fail / delete go through the same mutations + confirm
+ * gate. Turntables stay hidden (the backend scopes to kind='gsplat'). GPU-light
+ * throughout — flat fills, hairlines, the shared `.reveal` stagger; no meshes /
+ * blur / continuous animation.
+ */
+
+// Status → accent token (STYLING ONLY). Per the Direction-A playbook the queue
+// chips read: jade = done (ready), gold = running (processing), laque = failed,
+// ivoire = queued (pending). Every value is a theme CSS var so the palette flips
+// with the light/dark theme.
 const JADE = "var(--color-jade)";
+const OR = "var(--color-or)";
 const LAQUE = "var(--color-laque-bright)";
-const INDIGO = "var(--color-indigo-bright)";
+const IVOIRE = "var(--color-ivoire)";
 
 const STATE_TONE = {
-  pending: OR,
-  processing: INDIGO,
+  pending: IVOIRE,
+  processing: OR,
   ready: JADE,
   failed: LAQUE,
+};
+
+// Kanji marker per lifecycle slot — echoes the seal language of the Horarium
+// (PreordersPage) so the admin surface reads in the same hand.
+//   待 wait · 動 move/run · 済 settled/done · 否 deny/fail.
+const STATE_KANJI = {
+  pending: "待",
+  processing: "動",
+  ready: "済",
+  failed: "否",
 };
 
 const FILTERS = {
@@ -26,6 +62,13 @@ const FILTERS = {
   active: (s) => s === "pending" || s === "processing",
   failed: (s) => s === "failed",
   ready: (s) => s === "ready",
+};
+
+const FILTER_TONE = {
+  all: OR,
+  active: OR,
+  failed: LAQUE,
+  ready: JADE,
 };
 
 function clampPct(v) {
@@ -54,12 +97,6 @@ function execTime(claimed, finished) {
   return m > 0 ? `${m} min ${s.toString().padStart(2, "0")} s` : `${s} s`;
 }
 
-/**
- * 列 — admin task queue (/admin/tasks). The gsplat scan jobs surfaced with their
- * worker, timings + result, plus retry / force-fail / delete. Polls (admins
- * don't get the per-user scan WebSocket events). Turntables aren't shown — the
- * backend scopes everything to kind='gsplat'.
- */
 export default function AdminTasksPage() {
   const t = useT();
   const q = useAdminScans();
@@ -78,70 +115,172 @@ export default function AdminTasksPage() {
 
   const shown = rows.filter((r) => FILTERS[filter](r.state));
 
+  // Queue counters → Direction-A StatCard strip. Active leans hanko-red (work in
+  // flight = the time-sensitive figure), failures stay ivoire here but the
+  // filter chip + rows carry the laque alarm; done is the quiet gold tally.
+  const stats = [
+    { key: "all", label: t("admin.tasks.stat.total", { default: "File" }), value: counts.all },
+    { key: "active", label: t("admin.tasks.stat.active", { default: "En cours" }), value: counts.active, tone: "red" },
+    { key: "failed", label: t("admin.tasks.stat.failed", { default: "Échecs" }), value: counts.failed },
+    { key: "ready", label: t("admin.tasks.stat.ready", { default: "Réussies" }), value: counts.ready, tone: "gold" },
+  ];
+
   return (
-    <section className="space-y-7">
-      <header className="relative">
+    <div className="relative">
+      {/* ─── Editorial section header ─── */}
+      <header className="relative mb-9">
         <span
           aria-hidden
-          className="ja absolute -top-6 -right-2 text-[10rem] leading-none text-[var(--color-indigo)]/[0.07] select-none pointer-events-none hidden md:block"
+          className="kanji-mark text-[16rem] -top-20 -right-4 hidden md:block select-none"
         >
-          列
+          務
         </span>
-        <p className="micro">{t("admin.tasks.eyebrow")}</p>
-        <h2 className="display text-3xl md:text-4xl text-[var(--color-ivoire)] mt-2">
-          {t("admin.tasks.title")}
+
+        <p className="micro reveal flex items-center gap-2.5" style={{ "--i": 0 }}>
+          <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
+          {t("admin.subtitle")}
+          <span aria-hidden className="ja not-italic text-[var(--color-or)]">務</span>
+          {t("admin.tasks.kicker_label", { default: "FILE DE CALCUL" })}
+        </p>
+        <h2
+          className="display text-4xl md:text-5xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
+          style={{ "--i": 1 }}
+        >
+          {/* Inline AccentTitle: leading word in hanko-red italic, per the
+              playbook signature. Inlined (not <AccentTitle>) so the live count
+              of in-flight jobs can ride alongside the headline as a mono tag. */}
+          <span className="italic text-[var(--color-laque-bright)]">
+            {t("admin.tasks.title_accent", { default: "File" })}
+          </span>{" "}
+          {t("admin.tasks.title_rest", { default: "de tâches" })}
         </h2>
-        <div className="gold-rule w-16 mt-4" />
-        <p className="mt-5 text-[var(--color-ivoire-soft)] leading-relaxed max-w-2xl">
+        <div className="gold-rule w-24 mt-5 reveal" style={{ "--i": 2 }} />
+        <p
+          className="mt-4 text-[var(--color-ivoire-soft)] leading-relaxed max-w-2xl reveal"
+          style={{ "--i": 3 }}
+        >
           {t("admin.tasks.body")}
         </p>
       </header>
 
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex gap-1.5">
-          {["all", "active", "failed", "ready"].map((f) => (
-            <button
-              key={f}
-              type="button"
-              onClick={() => setFilter(f)}
-              className="text-[10px] uppercase tracking-[0.16em] px-2.5 py-1.5 border transition-colors"
-              style={
-                filter === f
-                  ? { color: OR, borderColor: OR, background: `color-mix(in oklab, ${OR} 10%, transparent)` }
-                  : { color: "var(--color-ivoire-soft)", borderColor: "color-mix(in oklab, var(--color-or) 25%, transparent)" }
-              }
-            >
-              {t(`admin.tasks.filter.${f}`)} {counts[f] > 0 ? `· ${counts[f]}` : ""}
-            </button>
+      {/* ─── Queue counters strip ─── */}
+      <section
+        className="reveal"
+        style={{ "--i": 4 }}
+        aria-label={t("admin.tasks.stat.region", { default: "Compteurs de la file" })}
+      >
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {stats.map((s) => (
+            <StatCard key={s.key} label={s.label} value={s.value} tone={s.tone} />
           ))}
         </div>
+      </section>
+
+      {/* ─── Filter rail + auto-cleanup note ─── */}
+      <div
+        className="mt-8 flex items-center gap-3 flex-wrap reveal"
+        style={{ "--i": 5 }}
+      >
+        <nav
+          className="flex gap-1.5 flex-wrap"
+          aria-label={t("admin.tasks.filter.region", { default: "Filtrer la file" })}
+        >
+          {["all", "active", "failed", "ready"].map((f) => {
+            const on = filter === f;
+            const tone = FILTER_TONE[f];
+            return (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setFilter(f)}
+                aria-pressed={on}
+                className="tap-target inline-flex items-center text-[10px] uppercase tracking-[0.18em] px-3 py-1.5 border transition-colors"
+                style={
+                  on
+                    ? {
+                        color: tone,
+                        borderColor: `color-mix(in oklab, ${tone} 60%, transparent)`,
+                        background: `color-mix(in oklab, ${tone} 10%, transparent)`,
+                      }
+                    : {
+                        color: "var(--color-ivoire-soft)",
+                        borderColor: "color-mix(in oklab, var(--color-or) 22%, transparent)",
+                      }
+                }
+              >
+                {t(`admin.tasks.filter.${f}`)}
+                {counts[f] > 0 ? (
+                  <span
+                    className="ml-2 font-mono text-[9px] tabular-nums"
+                    style={{ color: on ? tone : "var(--color-or-pale)", opacity: on ? 1 : 0.7 }}
+                  >
+                    {counts[f]}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </nav>
         <span className="flex-1" />
-        <span className="text-[11px] text-[var(--color-ivoire-soft)]">
-          🧹 {t("admin.tasks.cleanup")}
-        </span>
+        <p className="micro-tight flex items-center gap-2 text-[var(--color-ivoire-soft)]/70 normal-case tracking-[0.12em]">
+          <span aria-hidden className="ja text-[var(--color-or)]/60 text-sm leading-none">掃</span>
+          {t("admin.tasks.cleanup")}
+        </p>
       </div>
 
+      {/* ─── The queue ─── */}
       {q.isLoading ? (
-        <p className="text-center text-[var(--color-ivoire-soft)] py-12">…</p>
+        <p
+          role="status"
+          aria-live="polite"
+          className="text-center text-[var(--color-ivoire-soft)] py-12"
+        >
+          …
+        </p>
       ) : shown.length === 0 ? (
-        <EmptyState
-          compact
-          kanji="列"
-          title={t("admin.tasks.empty.title")}
-          body={t("admin.tasks.empty.body")}
-        />
+        <div className="mt-8">
+          <EmptyState
+            compact
+            kanji="務"
+            eyebrow={t("admin.tasks.kicker_label", { default: "FILE DE CALCUL" })}
+            title={t("admin.tasks.empty.title")}
+            body={t("admin.tasks.empty.body")}
+          />
+        </div>
       ) : (
-        <ul className="space-y-2.5">
-          {shown.map((s) => (
-            <TaskRow key={s.id} scan={s} t={t} />
+        // The timeline: a single gold spine threads down the left, each job a
+        // node along it. The spine is a static hairline gradient (~0 GPU).
+        <ol
+          className="mt-8 relative pl-7 sm:pl-9"
+          style={{
+            "--spine": "color-mix(in oklab, var(--color-or) 26%, transparent)",
+          }}
+        >
+          <span
+            aria-hidden
+            className="pointer-events-none absolute top-2 bottom-2 left-[7px] sm:left-[9px] w-px"
+            style={{
+              background:
+                "linear-gradient(180deg, transparent, var(--spine) 8%, var(--spine) 92%, transparent)",
+            }}
+          />
+          {shown.map((s, i) => (
+            <TaskRow key={s.id} scan={s} t={t} index={i} />
           ))}
-        </ul>
+        </ol>
       )}
-    </section>
+    </div>
   );
 }
 
-function TaskRow({ scan, t }) {
+// =============================================================================
+// TaskRow — one job node on the timeline. The status chip + a spine node carry
+// the lifecycle accent; the body holds the figure link, mono meta line and the
+// state-specific read-out (progress bar / error well / ready note); the right
+// rail holds the hanko-red retry/cancel controls + the delete confirm gate.
+// =============================================================================
+
+function TaskRow({ scan, t, index = 0 }) {
   const retry = useRetryScan();
   const fail = useFailScan();
   const del = useDeleteScan();
@@ -152,120 +291,212 @@ function TaskRow({ scan, t }) {
   const active = scan.state === "pending" || scan.state === "processing";
   const busy = retry.isPending || fail.isPending || del.isPending;
   const exec = terminal ? execTime(scan.claimed_at, scan.finished_at) : null;
+  // Cap the reveal stagger so a long queue never leaves the tail waiting.
+  const revealDelay = `${Math.min(index * 0.05, 0.3)}s`;
 
   return (
     <li
-      className="p-3.5"
-      style={{
-        border: "1px solid color-mix(in oklab, var(--color-or) 13%, transparent)",
-        borderLeft: `2px solid ${tone}`,
-        background: "color-mix(in oklab, var(--color-noir-soft) 50%, transparent)",
-        opacity: scan.state === "ready" ? 0.97 : 1,
-      }}
+      className="group relative py-4 reveal"
+      style={{ "--delay": revealDelay }}
     >
-      <div className="flex items-start gap-3 flex-wrap">
-        <span
-          className="shrink-0 inline-flex items-center gap-1.5 text-[9px] uppercase tracking-[0.14em] px-[0.6em] py-[0.3em] border mt-0.5"
-          style={{ color: tone, borderColor: `color-mix(in oklab, ${tone} 50%, transparent)` }}
-        >
-          <span className="w-[6px] h-[6px] rounded-full" style={{ background: tone, boxShadow: `0 0 6px ${tone}` }} />
-          {t(`admin.tasks.status.${scan.state}`)}
-        </span>
+      {/* Spine node — a small diamond fused to the gold thread, toned to the
+          job's lifecycle accent. Static (GPU-light); a faint accent ring marks
+          the running job instead of an animation. Decorative + pointer-inert. */}
+      <span
+        aria-hidden
+        className="absolute top-[1.45rem] -left-[1.4rem] sm:-left-[1.65rem] w-[9px] h-[9px] rotate-45"
+        style={{
+          background: tone,
+          boxShadow:
+            scan.state === "processing"
+              ? `0 0 0 3px color-mix(in oklab, ${tone} 22%, transparent), 0 0 8px color-mix(in oklab, ${tone} 70%, transparent)`
+              : `0 0 8px color-mix(in oklab, ${tone} 70%, transparent)`,
+        }}
+      />
 
-        <div className="flex-1 min-w-[14rem]">
-          <div className="display text-[1.25rem] text-[var(--color-ivoire)] leading-tight">
-            {t("admin.tasks.scan3d")} ·{" "}
-            <Link
-              to={`/figures/${scan.figure_id}`}
-              className="text-[var(--color-or-pale)] underline decoration-[var(--color-or)]/30 hover:decoration-[var(--color-or)] underline-offset-4"
-            >
-              {scan.figure_name}
-            </Link>
-          </div>
-          <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-mono tracking-[0.03em] text-[var(--color-ivoire-soft)]">
-            {scan.worker_name ? (
-              <span style={{ color: INDIGO }}>⚙ {scan.worker_name}</span>
-            ) : (
-              <span className="opacity-55">{t("admin.tasks.no_worker")}</span>
-            )}
-            <span>{t("admin.tasks.updated", { rel: rel(scan.updated_at, t) })}</span>
-            {exec ? <span style={{ color: "var(--color-or-pale)" }}>⏱ {t("admin.tasks.exec", { d: exec })}</span> : null}
-            {scan.attempts > 1 ? <span>{t("admin.tasks.attempts", { n: scan.attempts })}</span> : null}
-            <span className="opacity-55">@{scan.owner_username}</span>
-          </div>
+      <div
+        className="relative p-3.5 transition-colors"
+        style={{
+          border: "1px solid color-mix(in oklab, var(--color-or) 12%, transparent)",
+          borderLeft: `2px solid ${tone}`,
+          background: "color-mix(in oklab, var(--color-noir-soft) 50%, transparent)",
+          opacity: scan.state === "ready" ? 0.97 : 1,
+        }}
+      >
+        <div className="flex items-start gap-3 flex-wrap">
+          <StatusChip state={scan.state} tone={tone} t={t} />
 
-          {/* body: progress / error / result */}
-          {scan.state === "processing" ? (
-            <div className="mt-2.5 max-w-[360px]">
-              <div className="relative h-[5px] overflow-hidden" style={{ background: `color-mix(in oklab, var(--color-indigo) 16%, transparent)` }}>
-                <i className="absolute inset-y-0 left-0 not-italic" style={{ width: `${clampPct(scan.progress)}%`, background: INDIGO }} />
+          <div className="flex-1 min-w-[14rem]">
+            <h3 className="display text-[1.25rem] text-[var(--color-ivoire)] leading-tight">
+              {t("admin.tasks.scan3d")} ·{" "}
+              <Link
+                to={`/figures/${scan.figure_id}`}
+                className="text-[var(--color-or-pale)] underline decoration-[var(--color-or)]/30 hover:decoration-[var(--color-or)] underline-offset-4"
+              >
+                {scan.figure_name}
+              </Link>
+            </h3>
+
+            {/* Mono meta line — worker, ids, timings. */}
+            <dl className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-mono tracking-[0.03em] text-[var(--color-ivoire-soft)]">
+              {scan.worker_name ? (
+                <div className="flex items-center gap-1" style={{ color: OR }}>
+                  <dt className="sr-only">{t("admin.tasks.meta.worker", { default: "Worker" })}</dt>
+                  <span aria-hidden className="ja not-italic text-[11px] leading-none">工</span>
+                  <dd>{scan.worker_name}</dd>
+                </div>
+              ) : (
+                <span className="opacity-55">{t("admin.tasks.no_worker")}</span>
+              )}
+              <div>
+                <dt className="sr-only">{t("admin.tasks.meta.updated", { default: "Mis à jour" })}</dt>
+                <dd>{t("admin.tasks.updated", { rel: rel(scan.updated_at, t) })}</dd>
               </div>
-              <span className="font-mono text-[10px] mt-1 block" style={{ color: INDIGO }}>
-                {t("admin.tasks.progress", { pct: clampPct(scan.progress) })}
-              </span>
-            </div>
-          ) : scan.state === "failed" && scan.error_message ? (
-            <p
-              className="mt-2 text-[11px] font-mono max-w-[560px] px-2.5 py-1.5"
-              style={{ color: LAQUE, background: "var(--color-noir-deep)", borderLeft: `2px solid color-mix(in oklab, ${LAQUE} 55%, transparent)` }}
-            >
-              {scan.error_message}
-            </p>
-          ) : scan.state === "ready" ? (
-            <p className="mt-2 text-[11.5px]" style={{ color: JADE }}>
-              {t("admin.tasks.result.ready")}
-            </p>
-          ) : null}
-        </div>
+              {exec ? (
+                <div style={{ color: "var(--color-or-pale)" }}>
+                  <dt className="sr-only">{t("admin.tasks.meta.exec", { default: "Durée" })}</dt>
+                  <dd>{t("admin.tasks.exec", { d: exec })}</dd>
+                </div>
+              ) : null}
+              {scan.attempts > 1 ? (
+                <div>
+                  <dt className="sr-only">{t("admin.tasks.meta.attempts", { default: "Tentatives" })}</dt>
+                  <dd>{t("admin.tasks.attempts", { n: scan.attempts })}</dd>
+                </div>
+              ) : null}
+              <div className="opacity-55">
+                <dt className="sr-only">{t("admin.tasks.meta.owner", { default: "Propriétaire" })}</dt>
+                <dd>@{scan.owner_username}</dd>
+              </div>
+            </dl>
 
-        <div className="flex flex-col gap-1.5 items-stretch shrink-0">
-          {scan.state === "failed" ? (
-            <ActBtn tone={JADE} busy={busy} onClick={() => retry.mutate(scan.id)} label={`↻ ${t("admin.tasks.action.retry")}`} />
-          ) : null}
-          {active ? (
-            <ActBtn tone={LAQUE} busy={busy} onClick={() => fail.mutate(scan.id)} label={t("admin.tasks.action.fail")} />
-          ) : null}
-          {terminal ? (
-            confirmDel ? (
-              <span className="inline-flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => del.mutate(scan.id, { onSuccess: () => setConfirmDel(false) })}
-                  disabled={del.isPending}
-                  className="text-[10px] uppercase tracking-[0.12em] px-2.5 py-1.5 bg-[var(--color-laque)] text-[var(--color-ivoire)] disabled:opacity-60"
+            {/* State-specific read-out: progress / error / result. */}
+            {scan.state === "processing" ? (
+              <div className="mt-2.5 max-w-[360px]">
+                <div
+                  className="relative h-[5px] overflow-hidden"
+                  style={{ background: `color-mix(in oklab, ${OR} 14%, transparent)` }}
                 >
-                  {t("admin.tasks.delete.yes")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmDel(false)}
-                  className="text-[10px] uppercase tracking-[0.12em] px-2.5 py-1.5 border border-[color-mix(in_oklab,var(--color-or)_30%,transparent)] text-[var(--color-ivoire-soft)]"
-                >
-                  {t("admin.tasks.delete.no")}
-                </button>
-              </span>
-            ) : (
-              <ActBtn tone={OR} busy={busy} onClick={() => setConfirmDel(true)} label={t("admin.tasks.action.delete")} ghost />
-            )
-          ) : null}
+                  <i
+                    className="absolute inset-y-0 left-0 not-italic"
+                    style={{ width: `${clampPct(scan.progress)}%`, background: OR }}
+                  />
+                </div>
+                <span className="font-mono text-[10px] mt-1 block" style={{ color: OR }}>
+                  {t("admin.tasks.progress", { pct: clampPct(scan.progress) })}
+                </span>
+              </div>
+            ) : scan.state === "failed" && scan.error_message ? (
+              <p
+                className="mt-2 text-[11px] font-mono max-w-[560px] px-2.5 py-1.5"
+                style={{
+                  color: LAQUE,
+                  background: "var(--color-noir-deep)",
+                  borderLeft: `2px solid color-mix(in oklab, ${LAQUE} 55%, transparent)`,
+                }}
+              >
+                {scan.error_message}
+              </p>
+            ) : scan.state === "ready" ? (
+              <p className="mt-2 text-[11.5px]" style={{ color: JADE }}>
+                {t("admin.tasks.result.ready")}
+              </p>
+            ) : null}
+          </div>
+
+          {/* Right rail — controls. Retry/fail are hanko-toned; delete is a
+              gold ghost gated behind an inline confirm. */}
+          <div className="flex flex-col gap-1.5 items-stretch shrink-0">
+            {scan.state === "failed" ? (
+              <ActBtn
+                tone={JADE}
+                busy={busy}
+                onClick={() => retry.mutate(scan.id)}
+                label={t("admin.tasks.action.retry")}
+                glyph="↻"
+              />
+            ) : null}
+            {active ? (
+              <ActBtn
+                tone={LAQUE}
+                busy={busy}
+                onClick={() => fail.mutate(scan.id)}
+                label={t("admin.tasks.action.fail")}
+              />
+            ) : null}
+            {terminal ? (
+              confirmDel ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => del.mutate(scan.id, { onSuccess: () => setConfirmDel(false) })}
+                    disabled={del.isPending}
+                    className="tap-target text-[10px] uppercase tracking-[0.14em] px-3 py-1.5 bg-[var(--color-laque)] text-[var(--color-ivoire)] disabled:opacity-60"
+                  >
+                    {t("admin.tasks.delete.yes")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDel(false)}
+                    className="tap-target text-[10px] uppercase tracking-[0.14em] px-3 py-1.5 border text-[var(--color-ivoire-soft)]"
+                    style={{ borderColor: "color-mix(in oklab, var(--color-or) 30%, transparent)" }}
+                  >
+                    {t("admin.tasks.delete.no")}
+                  </button>
+                </span>
+              ) : (
+                <ActBtn
+                  tone={OR}
+                  busy={busy}
+                  onClick={() => setConfirmDel(true)}
+                  label={t("admin.tasks.action.delete")}
+                  ghost
+                />
+              )
+            ) : null}
+          </div>
         </div>
       </div>
     </li>
   );
 }
 
-function ActBtn({ tone, label, onClick, busy, ghost }) {
+// Status chip — a stacked seal: a kanji glyph above a mono caps label, ringed in
+// the lifecycle accent. Replaces the old single-line pill so the chip carries
+// the same visual weight as the Horarium seals while staying compact.
+function StatusChip({ state, tone, t }) {
+  return (
+    <span
+      className="shrink-0 inline-flex flex-col items-center gap-0.5 px-2.5 py-1.5 border mt-0.5 text-center"
+      style={{
+        color: tone,
+        borderColor: `color-mix(in oklab, ${tone} 45%, transparent)`,
+        background: `color-mix(in oklab, ${tone} 8%, transparent)`,
+      }}
+    >
+      <span aria-hidden className="ja not-italic text-base leading-none">
+        {STATE_KANJI[state] ?? "務"}
+      </span>
+      <span className="text-[9px] uppercase tracking-[0.14em] leading-none whitespace-nowrap">
+        {t(`admin.tasks.status.${state}`)}
+      </span>
+    </span>
+  );
+}
+
+function ActBtn({ tone, label, onClick, busy, ghost, glyph }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={busy}
-      className="text-[10px] uppercase tracking-[0.14em] px-2.5 py-1.5 border transition-colors disabled:opacity-50 whitespace-nowrap text-center"
+      className="tap-target text-[10px] uppercase tracking-[0.14em] px-3 py-1.5 border transition-colors disabled:opacity-50 whitespace-nowrap text-center"
       style={{
         color: ghost ? "var(--color-or-pale)" : tone,
         borderColor: `color-mix(in oklab, ${tone} ${ghost ? "30" : "55"}%, transparent)`,
       }}
     >
+      {glyph ? <span aria-hidden className="mr-1">{glyph}</span> : null}
       {label}
     </button>
   );

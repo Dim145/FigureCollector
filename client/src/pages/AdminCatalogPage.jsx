@@ -1,23 +1,46 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import AccentTitle from "../components/AccentTitle.jsx";
 import Button from "../components/Button.jsx";
+import Card from "../components/Card.jsx";
+import EmptyState from "../components/EmptyState.jsx";
 import FormField from "../components/FormField.jsx";
+import StatCard from "../components/StatCard.jsx";
 import { useT } from "../i18n/index.jsx";
 import { api } from "../lib/api.js";
 import { useDeleteSeries, useDeleteCharacter } from "../hooks/useAdmin.js";
 
 /**
  * /admin/catalog — editor for the entity tables behind manufacturer / series /
- * character names. Each tab is a searchable list; clicking a row opens an
- * edit drawer with every metadata field (description, image, ids, links) and
- * an optional Garage upload widget for the cover image.
+ * character names. Redrawn to Direction A ("Shōjo-Noir").
  *
- * The PATCH endpoints on the server use COALESCE, so blanking a field means
- * "leave alone" — null instead. To explicitly clear a value we'd need an
- * extra UI affordance; v1 just doesn't expose that.
+ * Renders inside AdminLayout's <Outlet/>, so the global "Administration" h1 +
+ * sub-nav already sit above it — this is therefore an editorial *section* of
+ * the admin surface (kicker · 目 · CATALOGUE → AccentTitle h2 → gold-rule →
+ * italic gloss over a faint kanji-mark), not a second page header. Below it:
+ *   - a Direction-A StatCard strip over the active tab (entities · figures ·
+ *     linked, gold on the headline figure count);
+ *   - kanji-marked segmented tabs (目 manufacturers / series / characters);
+ *   - the entity list as an A-table inside a `Card` (hairline thead, mono ids,
+ *     hover rows, ✎ edit / × laque-destructive), with the shared `EmptyState`.
+ *
+ * Each tab is a searchable list; clicking a row opens an edit drawer with every
+ * metadata field (description, image, ids, links) and an optional Garage upload
+ * widget for the cover image.
+ *
+ * Data + behaviour are unchanged from the prior layout: the same per-tab list
+ * query, PATCH/upload mutations, refetch-from-source flow and delete dialog
+ * drive everything. The PATCH endpoints use COALESCE, so blanking a field
+ * means "leave alone" — null instead. GPU-light throughout: flat fills,
+ * hairlines, no meshes / blur / continuous animation.
+ *
+ * Per-tab kanji marker (the surface accent glyph):
+ *   工 manufacturers (maker) · 番 series (catalogue/number) · 名 characters (name).
  */
 const TABS = ["manufacturers", "series", "characters"];
+
+const TAB_KANJI = { manufacturers: "工", series: "番", characters: "名" };
 
 export default function AdminCatalogPage() {
   const t = useT();
@@ -29,32 +52,87 @@ export default function AdminCatalogPage() {
   const [deleting, setDeleting] = useState(null); // { kind, entity } or null
 
   return (
-    <div>
-      <header className="mb-8">
-        <p className="micro">{t("admin.subtitle")}</p>
-        <h2 className="display text-3xl text-[var(--color-ivoire)] mt-1">
-          {t("admin.catalog.title")}
+    <div className="relative">
+      {/* ─── Editorial section header ─── */}
+      <header className="relative mb-10">
+        <span
+          aria-hidden
+          className="kanji-mark text-[18rem] -top-24 -right-6 hidden md:block select-none"
+        >
+          目
+        </span>
+
+        <p className="micro reveal flex items-center gap-2.5" style={{ "--i": 0 }}>
+          <span
+            aria-hidden
+            className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45"
+          />
+          {t("admin.subtitle")}
+          <span aria-hidden className="ja not-italic text-[var(--color-or)]">
+            目
+          </span>
+          {t("admin.catalog.kicker_label", { default: "CATALOGUE" })}
+        </p>
+        <h2
+          className="display text-4xl md:text-5xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
+          style={{ "--i": 1 }}
+        >
+          <AccentTitle text={t("admin.catalog.title")} />
         </h2>
-        <p className="text-sm text-[var(--color-ivoire-soft)] mt-2 max-w-prose">
+        <div className="gold-rule w-24 mt-5 reveal" style={{ "--i": 2 }} />
+        <p
+          className="display-italic text-[var(--color-or)] text-base md:text-lg mt-4 max-w-xl reveal"
+          style={{ "--i": 3 }}
+        >
           {t("admin.catalog.intro")}
         </p>
       </header>
 
-      <nav className="flex items-center gap-2 mb-6 text-[10px] uppercase tracking-[0.2em]">
-        {TABS.map((k) => (
-          <button
-            key={k}
-            type="button"
-            onClick={() => setTab(k)}
-            className={`px-3 py-1.5 transition-colors border-b ${
-              tab === k
-                ? "text-[var(--color-or)] border-[var(--color-or)]"
-                : "text-[var(--color-ivoire-soft)] border-transparent hover:text-[var(--color-or-pale)]"
-            }`}
-          >
-            {t(`admin.catalog.tab.${k}`)}
-          </button>
-        ))}
+      {/* ─── Kanji-marked segmented tabs ─── */}
+      <nav
+        className="flex flex-wrap items-stretch gap-2 mb-6 reveal"
+        style={{ "--i": 4 }}
+        aria-label={t("admin.catalog.tabs", { default: "Tables du catalogue" })}
+      >
+        {TABS.map((k) => {
+          const isActive = tab === k;
+          return (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setTab(k)}
+              aria-current={isActive ? "true" : undefined}
+              className="tap-target group flex items-center gap-2 px-4 py-2 border transition-colors"
+              style={{
+                borderColor: isActive
+                  ? "var(--color-laque-bright)"
+                  : "color-mix(in oklab, var(--color-or) 20%, transparent)",
+                background: isActive
+                  ? "color-mix(in oklab, var(--color-laque) 12%, transparent)"
+                  : "transparent",
+                color: isActive
+                  ? "var(--color-ivoire)"
+                  : "var(--color-ivoire-soft)",
+              }}
+            >
+              <span
+                aria-hidden
+                className="ja text-base leading-none transition-colors"
+                style={{
+                  color: isActive
+                    ? "var(--color-laque-bright)"
+                    : "var(--color-or)",
+                  opacity: isActive ? 1 : 0.6,
+                }}
+              >
+                {TAB_KANJI[k]}
+              </span>
+              <span className="text-[11px] uppercase tracking-[0.2em] group-hover:text-[var(--color-ivoire)]">
+                {t(`admin.catalog.tab.${k}`)}
+              </span>
+            </button>
+          );
+        })}
       </nav>
 
       <EntityList
@@ -101,8 +179,45 @@ function EntityList({ kind, onPick, onDelete }) {
       ),
   });
 
+  const rows = list.data ?? [];
+
+  // Stat strip — counts only, derived from the already-loaded list (no extra
+  // fetch). Gold marks the headline figure-count tally, per the playbook.
+  const stats = useMemo(() => {
+    const entities = rows.length;
+    const figures = rows.reduce((acc, r) => acc + (r.figure_count ?? 0), 0);
+    const linked = rows.filter((r) => r.anilist_id || r.mal_id).length;
+    return { entities, figures, linked };
+  }, [rows]);
+
+  // Whether the linked-sources column / stat is meaningful for this table.
+  // Manufacturers carry no AniList / MAL id, so we drop it there.
+  const hasSources = kind !== "manufacturers";
+
   return (
     <div>
+      {/* ─── Stat strip over the active tab ─── */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+        <StatCard
+          label={t(`admin.catalog.tab.${kind}`)}
+          value={stats.entities}
+          sub={t("admin.catalog.stat.entities", { default: "Entités" })}
+        />
+        <StatCard
+          label={t("admin.catalog.stat.figures_label", { default: "Figurines liées" })}
+          value={stats.figures}
+          sub={t("admin.catalog.figures")}
+          tone="gold"
+        />
+        {hasSources ? (
+          <StatCard
+            label={t("admin.catalog.stat.linked", { default: "Sources externes" })}
+            value={stats.linked}
+            sub={t("admin.catalog.stat.linked_sub", { default: "AniList / MAL" })}
+          />
+        ) : null}
+      </div>
+
       <div className="mb-4">
         <input
           type="search"
@@ -115,58 +230,128 @@ function EntityList({ kind, onPick, onDelete }) {
       </div>
 
       {list.isLoading ? (
-        <p className="text-sm text-[var(--color-ivoire-soft)] italic">…</p>
-      ) : (list.data ?? []).length === 0 ? (
-        <p className="text-sm text-[var(--color-ivoire-soft)] italic py-8 text-center">
-          {t("admin.catalog.empty")}
+        <p
+          role="status"
+          aria-live="polite"
+          className="text-center text-[var(--color-ivoire-soft)] py-8"
+        >
+          …
         </p>
+      ) : rows.length === 0 ? (
+        <EmptyState
+          compact
+          kanji={TAB_KANJI[kind]}
+          title={t("admin.catalog.empty")}
+          body={t("admin.catalog.empty.body", {
+            default: "Aucune entité ne correspond. Les entités apparaissent dès qu’une figurine les référence ou qu’une source externe est importée.",
+          })}
+        />
       ) : (
-        <ul className="divide-y divide-[var(--color-or)]/15 border border-[var(--color-or)]/15 bg-[var(--color-noir)]/40">
-          {list.data.map((row) => (
-            <li
-              key={row.id}
-              className="flex items-center gap-3 px-3 py-2 hover:bg-[var(--color-or)]/5"
-            >
-              <Thumb row={row} kind={kind} />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-[var(--color-ivoire)] leading-tight truncate">
-                  {row.name}
-                </p>
-                <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)]/70 mt-0.5">
-                  {row.figure_count ?? 0} {t("admin.catalog.figures")} ·
-                  {row.anilist_id ? " AniList" : ""}
-                  {row.mal_id ? " · MAL" : ""}
-                </p>
-              </div>
-              <Link
-                to={`/${kind}/${row.slug}`}
-                className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] px-2"
-              >
-                {t("admin.catalog.view")} ↗
-              </Link>
-              <button
-                type="button"
-                onClick={() => onPick(row)}
-                className="tap-target text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] border border-[var(--color-or)]/30 hover:border-[var(--color-or)] px-3 py-1.5 transition-all"
-              >
-                ✎ {t("admin.catalog.edit")}
-              </button>
-              {deletable ? (
-                <button
-                  type="button"
-                  onClick={() => onDelete(row)}
-                  title={t("admin.catalog.delete")}
-                  className="tap-target text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] hover:text-[var(--color-laque-bright)] border border-[var(--color-or)]/30 hover:border-[var(--color-laque-bright)] px-3 py-1.5 transition-all"
+        <Card className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)] border-b border-[var(--color-or)]/15">
+                <th className="px-4 py-3 font-normal w-[52px]">
+                  <span className="sr-only">{t("admin.catalog.col.image", { default: "Visuel" })}</span>
+                </th>
+                <th className="px-4 py-3 font-normal">
+                  {t("admin.catalog.col.name", { default: "Nom" })}
+                </th>
+                <th className="px-4 py-3 font-normal text-right">
+                  {t("admin.catalog.col.figures", { default: "Figurines" })}
+                </th>
+                {hasSources ? (
+                  <th className="px-4 py-3 font-normal">
+                    {t("admin.catalog.col.sources", { default: "Sources" })}
+                  </th>
+                ) : null}
+                <th className="px-4 py-3 font-normal text-right">
+                  {t("admin.users.col.actions")}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr
+                  key={row.id}
+                  className="border-b border-[var(--color-or)]/10 hover:bg-[var(--color-or)]/5 transition-colors"
                 >
-                  ×
-                  <span className="sr-only">{t("admin.catalog.delete")}</span>
-                </button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
+                  <td className="px-4 py-3 align-middle">
+                    <Thumb row={row} kind={kind} />
+                  </td>
+                  <td className="px-4 py-3 align-middle">
+                    <span className="text-[var(--color-ivoire)] leading-tight">
+                      {row.name}
+                    </span>
+                    {row.slug ? (
+                      <span className="block text-[10px] font-mono tracking-wider text-[var(--color-ivoire-soft)]/60 mt-0.5 truncate">
+                        {row.slug}
+                      </span>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-3 align-middle text-right">
+                    <span className="font-mono text-[var(--color-or-pale)]">
+                      {row.figure_count ?? 0}
+                    </span>
+                  </td>
+                  {hasSources ? (
+                    <td className="px-4 py-3 align-middle">
+                      <div className="flex flex-wrap gap-1.5">
+                        {row.anilist_id ? <SourceTag>AniList</SourceTag> : null}
+                        {row.mal_id ? <SourceTag>MAL</SourceTag> : null}
+                        {!row.anilist_id && !row.mal_id ? (
+                          <span className="text-[var(--color-ivoire-soft)]/50 text-xs">
+                            —
+                          </span>
+                        ) : null}
+                      </div>
+                    </td>
+                  ) : null}
+                  <td className="px-4 py-3 align-middle text-right">
+                    <div className="flex items-center gap-2 justify-end">
+                      <Link
+                        to={`/${kind}/${row.slug}`}
+                        title={t("admin.catalog.view")}
+                        className="tap-target text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] text-xs px-2 py-1 transition-colors"
+                      >
+                        ↗<span className="sr-only">{t("admin.catalog.view")}</span>
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => onPick(row)}
+                        title={t("admin.catalog.edit")}
+                        className="tap-target text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] text-xs px-2 py-1 transition-colors"
+                      >
+                        ✎<span className="sr-only">{t("admin.catalog.edit")}</span>
+                      </button>
+                      {deletable ? (
+                        <button
+                          type="button"
+                          onClick={() => onDelete(row)}
+                          title={t("admin.catalog.delete")}
+                          className="tap-target text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] text-xs px-2 py-1 transition-colors"
+                        >
+                          ×<span className="sr-only">{t("admin.catalog.delete")}</span>
+                        </button>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
       )}
     </div>
+  );
+}
+
+// A small gold-outline pill marking an external metadata source on a row.
+function SourceTag({ children }) {
+  return (
+    <span className="px-1.5 py-0.5 text-[9px] uppercase tracking-[0.18em] border border-[var(--color-or)]/40 text-[var(--color-or-pale)]">
+      {children}
+    </span>
   );
 }
 
@@ -182,7 +367,7 @@ function Thumb({ row, kind }) {
             ? row.cover_url
             : row.portrait_url);
   return (
-    <span className="shrink-0 w-10 h-10 bg-[var(--color-noir-deep)] border border-[var(--color-or)]/15 overflow-hidden">
+    <span className="shrink-0 grid place-items-center w-10 h-10 bg-[var(--color-noir-deep)] border border-[var(--color-or)]/15 overflow-hidden">
       {url ? (
         <img
           src={url}
@@ -191,7 +376,14 @@ function Thumb({ row, kind }) {
           decoding="async"
           className="w-full h-full object-cover"
         />
-      ) : null}
+      ) : (
+        <span
+          aria-hidden
+          className="ja text-base leading-none text-[var(--color-or)]/35 select-none"
+        >
+          {TAB_KANJI[kind]}
+        </span>
+      )}
     </span>
   );
 }
@@ -291,7 +483,15 @@ function EntityEditDrawer({ kind, entity, onClose }) {
       >
         <header className="flex items-start justify-between gap-3 px-6 py-4 border-b border-[var(--color-or)]/20">
           <div className="min-w-0">
-            <p className="micro-tight">{t(`admin.catalog.tab.${kind}`)}</p>
+            <p className="micro-tight flex items-center gap-2">
+              <span
+                aria-hidden
+                className="ja not-italic text-base leading-none text-[var(--color-or)]"
+              >
+                {TAB_KANJI[kind]}
+              </span>
+              {t(`admin.catalog.tab.${kind}`)}
+            </p>
             <h3 id="entity-edit-drawer-title" className="display text-xl text-[var(--color-ivoire)] mt-1 truncate">
               {entity.name}
             </h3>
@@ -737,7 +937,13 @@ function DeleteEntityDialog({ kind, entity, onClose }) {
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md bg-[var(--color-noir-soft)] border border-[var(--color-or)]/40 p-6"
       >
-        <p className="micro">{t("admin.catalog.delete")}</p>
+        <p className="micro flex items-center gap-2">
+          <span
+            aria-hidden
+            className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45"
+          />
+          {t("admin.catalog.delete")}
+        </p>
         <h3 className="display text-xl text-[var(--color-ivoire)] mt-1 truncate">
           {entity.name}
         </h3>
@@ -798,14 +1004,15 @@ function DeleteEntityDialog({ kind, entity, onClose }) {
           >
             {t("editor.cancel")}
           </Button>
-          <button
+          <Button
             type="button"
+            variant="primary"
             onClick={onConfirm}
-            disabled={mut.isPending}
-            className="inline-flex items-center justify-center px-6 py-3 font-medium tracking-wide border border-[var(--color-laque-bright)] text-[var(--color-laque-bright)] hover:bg-[var(--color-laque-bright)] hover:text-[var(--color-noir)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            loading={mut.isPending}
+            className="!bg-[var(--color-laque-bright)] hover:!bg-[var(--color-laque)] !text-[var(--color-ivoire)]"
           >
             {t("admin.catalog.delete_confirm")}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

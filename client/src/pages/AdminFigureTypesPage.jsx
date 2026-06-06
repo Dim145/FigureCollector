@@ -9,24 +9,39 @@ import {
   usePatchFigureType,
 } from "../hooks/useAdmin.js";
 import { useRowSelection } from "../hooks/useRowSelection.js";
+import { typeHue } from "../lib/typeHue.js";
+import AccentTitle from "../components/AccentTitle.jsx";
 import Button from "../components/Button.jsx";
+import Card from "../components/Card.jsx";
+import StatCard from "../components/StatCard.jsx";
 import BulkActionBar, { SelectCheckbox } from "../components/BulkActionBar.jsx";
 import EmptyStateBlock from "../components/EmptyState.jsx";
 
 /**
- * Admin curates the figure-type dropdown.
+ * /admin/figure-types — the catalogue's type taxonomy, redrawn to Direction A
+ * ("Shōjo-Noir"). Renders inside AdminLayout's <Outlet/>, so the global
+ * "Administration" h1 + sub-nav already sit above it; this view is therefore an
+ * editorial *section* of the admin surface (mirrors AdminOverviewPage), not a
+ * second page header.
  *
- * Visual direction: "register of categories" — a vertical ledger of rows,
- * each row a horizontal strip whose far-left column is the kanji at large
- * size, then slug + bilingual labels + position, then inline actions.
+ * This page is naturally on-theme — every type owns a kanji glyph + a signature
+ * hue — so the redesign leans into that identity:
  *
- * The aesthetic mirrors the Horarium (preorders page) — a single gold
- * spine threads down the left, each row stamped with its kanji glyph
- * like a category seal in the margin.
+ *   - an editorial section header (kicker · 類 · label → AccentTitle h2 →
+ *     gold-rule → italic gloss) over a faint kanji-mark 類 watermark;
+ *   - a three-up StatCard strip counting the registry (total · coloured ·
+ *     in-use) — Types is an allowed figurine metric;
+ *   - each type as a refined Card row: a left spine + kanji glyph painted in the
+ *     type's own hue, a hue swatch, the slug + bilingual labels + position, the
+ *     usage read-out, and inline edit/delete controls;
+ *   - the shared bulk-action bar + select checkboxes (laque destructive);
+ *   - an inline create form at the top + inline edit forms per row.
  *
- * The "add" form sits at the top of the list, inline (no separate
- * dialog) because adding a type is the user's reason for being on this
- * page. Existing rows toggle into an inline edit form on the ✎ button.
+ * ALL admin logic is unchanged: the colour picker, kanji edit, position, the
+ * create/patch/delete + bulk-delete mutations and the in-use delete guard are
+ * the same — only the JSX is restyled/restructured. GPU-light: flat fills,
+ * hairlines, the per-type hue mixed into static washes, no meshes / blur /
+ * continuous animation. hanko-red primary CTA, laque destructive.
  */
 export default function AdminFigureTypesPage() {
   const t = useT();
@@ -34,69 +49,148 @@ export default function AdminFigureTypesPage() {
   const [adding, setAdding] = useState(false);
   const bulkDel = useBulkDeleteFigureTypes();
 
-  const ids = useMemo(() => (types.data ?? []).map((ty) => ty.id), [types.data]);
+  const list = types.data ?? [];
+  const ids = useMemo(() => list.map((ty) => ty.id), [list]);
   const sel = useRowSelection(ids);
 
+  // Registry counters → a quiet StatCard strip. Counts only (no money), so the
+  // headline stays gold (catalogue value-of-curation) and the coloured tally
+  // marks the types that carry a custom hue.
+  const total = list.length;
+  const coloured = useMemo(
+    () => list.filter((ty) => (ty.accent_color ?? "").trim().length > 0).length,
+    [list],
+  );
+
   return (
-    <section className="space-y-8">
-      <header className="relative">
+    <div className="relative">
+      {/* ─── Editorial section header ─── */}
+      <header className="relative mb-10">
         <span
           aria-hidden
-          className="ja absolute -top-6 -right-2 text-[10rem] leading-none text-[var(--color-or)]/[0.06] select-none pointer-events-none hidden md:block"
+          className="kanji-mark text-[18rem] -top-24 -right-6 hidden md:block select-none"
         >
           類
         </span>
-        <p className="micro">{t("admin.types.eyebrow")}</p>
-        <h2 className="display text-3xl md:text-4xl text-[var(--color-ivoire)] mt-2">
-          {t("admin.types.title")}
+
+        <p className="micro reveal flex items-center gap-2.5" style={{ "--i": 0 }}>
+          <span
+            aria-hidden
+            className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45"
+          />
+          {t("admin.figtypes.kicker", { default: "RÉGISTRE" })}
+          <span aria-hidden className="ja not-italic text-[var(--color-or)]">
+            類
+          </span>
+          {t("admin.figtypes.kicker_label", { default: "CATÉGORIES" })}
+        </p>
+        <h2
+          className="display text-4xl md:text-5xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
+          style={{ "--i": 1 }}
+        >
+          <AccentTitle text={t("admin.types.title")} />
         </h2>
-        <div className="gold-rule w-16 mt-4" />
-        <p className="mt-5 text-[var(--color-ivoire-soft)] leading-relaxed max-w-2xl">
+        <div className="gold-rule w-24 mt-5 reveal" style={{ "--i": 2 }} />
+        <p
+          className="text-[var(--color-ivoire-soft)] leading-relaxed max-w-2xl mt-4 reveal"
+          style={{ "--i": 3 }}
+        >
           {t("admin.types.body")}
         </p>
 
-        <div className="mt-7 flex items-center gap-3 justify-between">
-          <p className="micro-tight">
-            {types.data
-              ? t("admin.types.count", { n: types.data.length })
-              : "—"}
-          </p>
-          {!adding ? (
-            <button
-              type="button"
-              onClick={() => setAdding(true)}
-              className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-or)] hover:text-[var(--color-or-pale)] transition-colors border border-[var(--color-or)]/40 hover:border-[var(--color-or)] px-3 py-1.5"
-            >
-              + {t("admin.types.add")}
-            </button>
-          ) : null}
+        {/* Registry counters. */}
+        <div
+          className="mt-8 grid grid-cols-2 lg:grid-cols-3 gap-3 reveal"
+          style={{ "--i": 4 }}
+        >
+          <StatCard
+            label={t("admin.tab.figure_types")}
+            value={total}
+            sub={t("admin.figtypes.stat.total_sub", { default: "au registre" })}
+            tone="gold"
+          />
+          <StatCard
+            label={t("admin.figtypes.stat.coloured", { default: "Teintés" })}
+            value={coloured}
+            sub={t("admin.figtypes.stat.coloured_sub", { default: "hue personnalisée" })}
+          />
+          <StatCard
+            label={t("admin.figtypes.stat.default", { default: "Par défaut" })}
+            value={Math.max(0, total - coloured)}
+            sub={t("admin.figtypes.stat.default_sub", { default: "hue du thème" })}
+          />
         </div>
       </header>
 
+      {/* ─── Add control ─── */}
+      {!adding ? (
+        <div className="mb-8 flex items-center justify-between gap-3 reveal" style={{ "--i": 5 }}>
+          <p className="micro-tight text-[var(--color-ivoire-soft)]/70">
+            {types.data ? t("admin.types.count", { n: total }) : "—"}
+          </p>
+          <Button variant="primary" onClick={() => setAdding(true)}>
+            + {t("admin.types.add")}
+          </Button>
+        </div>
+      ) : null}
+
       {adding ? <CreateRow t={t} onClose={() => setAdding(false)} /> : null}
 
+      {/* ─── The registry ─── */}
       {types.isLoading ? (
-        <p className="text-center text-[var(--color-ivoire-soft)] py-12">…</p>
-      ) : types.data?.length === 0 ? (
+        <p
+          role="status"
+          aria-live="polite"
+          className="text-center text-[var(--color-ivoire-soft)] py-12"
+        >
+          …
+        </p>
+      ) : total === 0 ? (
         <EmptyState t={t} onAdd={() => setAdding(true)} />
       ) : (
-        <ol className="relative ml-3 border-l border-[var(--color-or)]/25">
-          {types.data?.map((ty) => (
-            <li key={ty.id} className="relative pl-8 pb-5 last:pb-0">
-              <Row ty={ty} t={t} />
-            </li>
-          ))}
-        </ol>
+        <section aria-label={t("admin.types.eyebrow")}>
+          <BulkActionBar
+            selectedIds={sel.selectedIds}
+            onClear={sel.clear}
+            onDelete={(idList) => bulkDel.mutateAsync(idList)}
+            busy={bulkDel.isPending}
+            confirmBody={t("admin.bulk.confirm.body.types", {
+              n: sel.selectedIds.length,
+            })}
+          />
+
+          {/* Select-all rail — mirrors the other admin tables. */}
+          <div className="flex items-center gap-3 mb-3 px-1">
+            <SelectCheckbox
+              checked={sel.allSelected}
+              indeterminate={sel.someSelected && !sel.allSelected}
+              onChange={sel.toggleAll}
+              label={t("admin.bulk.select_all")}
+            />
+            <span className="label-mono text-[var(--color-ivoire-soft)]/60">
+              {t("admin.bulk.select_all")}
+            </span>
+          </div>
+
+          <ol className="space-y-3">
+            {list.map((ty, i) => (
+              <li key={ty.id} className="reveal" style={{ "--i": Math.min(i, 8) }}>
+                <Row ty={ty} t={t} sel={sel} />
+              </li>
+            ))}
+          </ol>
+        </section>
       )}
-    </section>
+    </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Row — read mode + inline edit toggle
+// Row — read mode + inline edit toggle. A refined Card whose left spine + kanji
+// glyph + swatch are painted in the type's own signature hue.
 // ─────────────────────────────────────────────────────────────────────────────
 
-function Row({ ty, t }) {
+function Row({ ty, t, sel }) {
   const [editing, setEditing] = useState(false);
   const usage = useFigureTypeUsage(ty.id);
   const inUse = (usage.data?.count ?? 0) > 0;
@@ -105,57 +199,113 @@ function Row({ ty, t }) {
     return <EditRow ty={ty} t={t} onClose={() => setEditing(false)} />;
   }
 
+  const hue = typeHue(ty.id);
+  const checked = sel.isSelected(ty.id);
+
   return (
-    <article className="ftype-row">
-      {/* Kanji seal hangs in the gutter — overlaps the gold spine. */}
-      <span aria-hidden className="ftype-row-seal">
-        {ty.kanji}
-      </span>
+    <Card
+      as="article"
+      className={`relative overflow-hidden transition-colors ${
+        checked ? "adm-row-selected" : ""
+      }`}
+    >
+      {/* Hue spine — the type's signature colour threads down the left edge. */}
+      <span
+        aria-hidden
+        className="absolute inset-y-0 left-0 w-1"
+        style={{ background: hue, opacity: 0.85 }}
+      />
 
-      <div className="ftype-row-body">
-        <div className="ftype-row-headline">
-          <span className="ftype-row-slug">{ty.id}</span>
-          <span className="ftype-row-position">№ {ty.position}</span>
-        </div>
+      <div className="flex items-center gap-4 md:gap-5 p-4 md:p-5 pl-5 md:pl-6">
+        <SelectCheckbox
+          checked={checked}
+          onChange={() => sel.toggle(ty.id)}
+          label={t("admin.bulk.select_row")}
+        />
 
-        <div className="ftype-row-labels">
-          <span>
-            <span className="ftype-row-locale">FR</span>
-            <span className="ftype-row-label">{ty.label_fr}</span>
-          </span>
-          <span>
-            <span className="ftype-row-locale">EN</span>
-            <span className="ftype-row-label">{ty.label_en}</span>
-          </span>
-        </div>
-
-        <div className="ftype-row-meta">
-          {usage.isLoading ? (
-            <span className="opacity-60">…</span>
-          ) : inUse ? (
-            <span className="ftype-row-usage">
-              {t("admin.types.usage_used", { n: usage.data.count })}
-            </span>
-          ) : (
-            <span className="ftype-row-usage is-empty">
-              {t("admin.types.usage_empty")}
-            </span>
-          )}
-        </div>
-      </div>
-
-      <div className="ftype-row-actions">
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className="ftype-row-btn"
-          title={t("admin.types.edit")}
+        {/* Kanji glyph tile — painted in the type's own hue over a faint wash. */}
+        <span
+          aria-hidden
+          className="ja shrink-0 grid place-items-center w-14 h-14 md:w-16 md:h-16 text-3xl md:text-4xl leading-none border"
+          style={{
+            color: hue,
+            borderColor: `color-mix(in oklab, ${hue} 35%, transparent)`,
+            background: `color-mix(in oklab, ${hue} 9%, transparent)`,
+          }}
         >
-          ✎ <span className="sr-only">{t("admin.types.edit")}</span>
-        </button>
-        <DeleteButton ty={ty} t={t} inUse={inUse} usageCount={usage.data?.count ?? 0} />
+          {ty.kanji}
+        </span>
+
+        {/* Identity — slug + position, bilingual labels, usage. */}
+        <div className="min-w-0 flex-1 grid gap-2">
+          <div className="flex items-baseline gap-3 flex-wrap">
+            <span className="font-mono text-[0.92rem] tracking-[0.05em] text-[var(--color-or-pale)]">
+              {ty.id}
+            </span>
+            <span className="label-mono text-[var(--color-ivoire-soft)]/50">
+              № {ty.position}
+            </span>
+          </div>
+
+          <div className="flex flex-wrap gap-x-6 gap-y-1">
+            <span className="inline-flex items-baseline gap-2">
+              <span className="font-mono text-[9px] tracking-[0.22em] uppercase text-[color-mix(in_oklab,var(--color-or)_55%,transparent)]">
+                FR
+              </span>
+              <span className="text-[0.95rem] text-[var(--color-ivoire)]">
+                {ty.label_fr}
+              </span>
+            </span>
+            <span className="inline-flex items-baseline gap-2">
+              <span className="font-mono text-[9px] tracking-[0.22em] uppercase text-[color-mix(in_oklab,var(--color-or)_55%,transparent)]">
+                EN
+              </span>
+              <span className="text-[0.95rem] text-[var(--color-ivoire)]">
+                {ty.label_en}
+              </span>
+            </span>
+          </div>
+
+          <div className="font-mono text-[10px] tracking-[0.18em] uppercase">
+            {usage.isLoading ? (
+              <span className="opacity-60">…</span>
+            ) : inUse ? (
+              <span className="text-[var(--color-or-pale)]">
+                {t("admin.types.usage_used", { n: usage.data.count })}
+              </span>
+            ) : (
+              <span className="text-[color-mix(in_oklab,var(--color-ivoire)_40%,transparent)]">
+                {t("admin.types.usage_empty")}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Hue swatch — the signature colour, read-only here. */}
+        <span
+          aria-hidden
+          title={ty.accent_color ?? t("admin.figtypes.swatch.default", { default: "Défaut du thème" })}
+          className="hidden sm:inline-block shrink-0 w-7 h-7 border"
+          style={{
+            background: hue,
+            borderColor: "color-mix(in oklab, var(--color-or) 30%, transparent)",
+          }}
+        />
+
+        {/* Inline actions. */}
+        <div className="flex items-start gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="ftype-row-btn"
+            title={t("admin.types.edit")}
+          >
+            ✎ <span className="sr-only">{t("admin.types.edit")}</span>
+          </button>
+          <DeleteButton ty={ty} t={t} inUse={inUse} usageCount={usage.data?.count ?? 0} />
+        </div>
       </div>
-    </article>
+    </Card>
   );
 }
 
@@ -187,10 +337,15 @@ function CreateRow({ t, onClose }) {
   return (
     <form
       onSubmit={onSubmit}
-      className="ftype-form ftype-form--create"
+      className="ftype-form ftype-form--create mb-8"
       aria-label={t("admin.types.add")}
     >
-      <p className="ftype-form-eyebrow">+ {t("admin.types.add")}</p>
+      <p className="ftype-form-eyebrow flex items-center gap-2">
+        <span aria-hidden className="ja not-italic text-base text-[var(--color-or)] leading-none">
+          類
+        </span>
+        + {t("admin.types.add")}
+      </p>
       <div className="ftype-form-grid">
         <Field
           label={t("admin.types.field.slug")}
@@ -512,19 +667,16 @@ function colorToHex(input) {
 
 function EmptyState({ t, onAdd }) {
   return (
-    <div className="text-center py-16">
-      <p className="ja text-[6rem] text-[var(--color-or)]/30 leading-none">類</p>
-      <p className="mt-3 text-[var(--color-ivoire-soft)] italic">
-        {t("admin.types.empty")}
-      </p>
-      <button
-        type="button"
-        onClick={onAdd}
-        className="mt-5 px-5 py-3 bg-[var(--color-or)] text-[var(--color-noir)] text-[11px] uppercase tracking-[0.2em] hover:bg-[var(--color-or-pale)] transition-colors"
-      >
+    <EmptyStateBlock
+      kanji="類"
+      eyebrow={t("admin.figtypes.kicker_label", { default: "CATÉGORIES" })}
+      title={t("admin.types.empty")}
+      body={t("admin.types.body")}
+    >
+      <Button variant="primary" onClick={onAdd}>
         + {t("admin.types.add")}
-      </button>
-    </div>
+      </Button>
+    </EmptyStateBlock>
   );
 }
 

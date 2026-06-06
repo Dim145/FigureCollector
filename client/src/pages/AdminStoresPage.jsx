@@ -11,20 +11,39 @@ import {
 } from "../hooks/useStores.js";
 import { useBulkDeleteStores } from "../hooks/useAdmin.js";
 import { useRowSelection } from "../hooks/useRowSelection.js";
+import AccentTitle from "../components/AccentTitle.jsx";
 import Button from "../components/Button.jsx";
+import Card from "../components/Card.jsx";
+import StatCard from "../components/StatCard.jsx";
 import BulkActionBar, { SelectCheckbox } from "../components/BulkActionBar.jsx";
 import FormField from "../components/FormField.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import { safeHref } from "../lib/safeUrl.js";
 
 /**
- * Admin curates the stores registry — same registry vibe as the
- * figure-types page, but each row also has a profile image thumbnail
- * and a longer description field.
+ * /admin/stores — the stores registry, redrawn to Direction A ("Shōjo-Noir").
  *
- * Read mode: thumbnail + name + slug + URL host + usage count.
- * Inline edit: name + url + description; admins can also upload the
- *              profile image from there.
+ * Renders inside AdminLayout's <Outlet/>, so the global "Administration" h1 +
+ * sub-nav already sit above. This view is therefore an editorial *section* of
+ * the admin surface, not a second page header:
+ *
+ *   - an editorial section header (kicker · 店 · label → AccentTitle h2 →
+ *     gold-rule → italic gloss) over a faint kanji-mark watermark;
+ *   - a single StatCard for the registry count (gold — the headline figure),
+ *     with the inline "+ add" affordance beside it;
+ *   - the stores themselves as a Direction-A table: a label-mono column head on
+ *     sm+ then one Card per row — logo chip + name/slug + URL-link template +
+ *     usage + inline ✎/× actions. The bulk-select column + toolbar are kept.
+ *
+ * Each store's editable `url` is its storefront / buy-link template (the base
+ * the per-figure buy links hang off; those per-figure links live in the figure
+ * form). Hanko-red drives the primary CTAs; laque-red the destructive ones.
+ *
+ * Data + behaviour are UNCHANGED: the same `useAdminStores` list, per-row
+ * `useStoreUsage`, create/patch/delete/upload mutations, bulk-delete and
+ * row-selection hooks drive everything. GPU-light throughout — flat fills,
+ * hairlines, the shared `.reveal` stagger, no meshes / blur / continuous
+ * animation.
  */
 export default function AdminStoresPage() {
   const t = useT();
@@ -34,55 +53,95 @@ export default function AdminStoresPage() {
   const sel = useRowSelection(ids);
   const bulkDel = useBulkDeleteStores();
 
+  const count = stores.data?.length ?? 0;
+
   return (
-    <section className="space-y-8">
+    <section className="relative space-y-10">
+      {/* ─── Editorial section header ─── */}
       <header className="relative">
         <span
           aria-hidden
-          className="ja absolute -top-6 -right-2 text-[10rem] leading-none text-[var(--color-or)]/[0.06] select-none pointer-events-none hidden md:block"
+          className="kanji-mark text-[16rem] -top-20 -right-4 hidden md:block select-none"
         >
           店
         </span>
-        <p className="micro">{t("admin.stores.eyebrow")}</p>
-        <h2 className="display text-3xl md:text-4xl text-[var(--color-ivoire)] mt-2">
-          {t("admin.stores.title")}
+
+        <p className="micro reveal flex items-center gap-2.5" style={{ "--i": 0 }}>
+          <span
+            aria-hidden
+            className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45"
+          />
+          {t("admin.stores.eyebrow")}
+          <span aria-hidden className="ja not-italic text-[var(--color-or)]">
+            店
+          </span>
+          {t("admin.stores.kicker_label", { default: "BOUTIQUES" })}
+        </p>
+        <h2
+          className="display text-3xl md:text-4xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
+          style={{ "--i": 1 }}
+        >
+          <AccentTitle text={t("admin.stores.title")} />
         </h2>
-        <div className="gold-rule w-16 mt-4" />
-        <p className="mt-5 text-[var(--color-ivoire-soft)] leading-relaxed max-w-2xl">
+        <div className="gold-rule w-16 mt-5 reveal" style={{ "--i": 2 }} />
+        <p
+          className="display-italic text-[var(--color-or)] text-base md:text-lg mt-4 max-w-2xl reveal"
+          style={{ "--i": 3 }}
+        >
           {t("admin.stores.body")}
         </p>
-
-        <div className="mt-7 flex items-center gap-3 justify-between">
-          <p className="micro-tight">
-            {stores.data
-              ? t("admin.stores.count", { n: stores.data.length })
-              : "—"}
-          </p>
-          {!adding ? (
-            <button
-              type="button"
-              onClick={() => setAdding(true)}
-              className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-or)] hover:text-[var(--color-or-pale)] transition-colors border border-[var(--color-or)]/40 hover:border-[var(--color-or)] px-3 py-1.5"
-            >
-              + {t("admin.stores.add")}
-            </button>
-          ) : null}
-        </div>
       </header>
+
+      {/* ─── Registry count + inline add ─── */}
+      <div
+        className="reveal flex flex-wrap items-stretch justify-between gap-4"
+        style={{ "--i": 4 }}
+      >
+        <div className="w-44 max-w-full">
+          <StatCard
+            label={t("admin.stores.stat.label", { default: "Registre" })}
+            value={count}
+            sub={t("admin.stores.stat.sub", { default: "boutiques enregistrées" })}
+            tone="gold"
+          />
+        </div>
+        {!adding ? (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="tap-target self-center text-[10px] uppercase tracking-[0.22em] text-[var(--color-or)] hover:text-[var(--color-or-pale)] transition-colors border border-[var(--color-or)]/40 hover:border-[var(--color-or)] px-4 py-2.5"
+          >
+            + {t("admin.stores.add")}
+          </button>
+        ) : null}
+      </div>
 
       {adding ? <CreateRow t={t} onClose={() => setAdding(false)} /> : null}
 
       {stores.isLoading ? (
-        <p className="text-center text-[var(--color-ivoire-soft)] py-12">…</p>
-      ) : stores.data?.length === 0 ? (
+        <p
+          role="status"
+          aria-live="polite"
+          className="text-center text-[var(--color-ivoire-soft)] py-12"
+        >
+          …
+        </p>
+      ) : count === 0 ? (
         <EmptyState
           compact
           kanji="店"
           title={t("admin.empty.stores.title")}
           body={t("admin.empty.stores.body")}
-        />
+        >
+          <Button variant="primary" onClick={() => setAdding(true)}>
+            + {t("admin.stores.add")}
+          </Button>
+        </EmptyState>
       ) : (
-        <div className="space-y-3">
+        <div className="reveal space-y-3" style={{ "--i": 5 }}>
+          {/* Select-all + column head — the table's masthead. The label-mono
+              column titles only show on sm+ where the row grid lines up under
+              them; on mobile each Card stacks and carries its own context. */}
           <div className="flex items-center gap-3 px-1">
             <SelectCheckbox
               checked={sel.allSelected}
@@ -92,6 +151,29 @@ export default function AdminStoresPage() {
             />
             <span className="micro-tight">{t("admin.bulk.select_all")}</span>
           </div>
+
+          {/* Column head — only on sm+, where the row grid lines up under it.
+              The flex gutter + Card-padding spacer mirror each row's
+              checkbox column + Card padding so the labels sit over their
+              columns. On mobile each Card stacks and carries its own context. */}
+          <div className="hidden sm:flex gap-3" aria-hidden>
+            <span className="shrink-0 w-[18px]" />
+            <div className="flex-1 grid grid-cols-[64px_1.6fr_1.4fr_auto] gap-x-4 items-center px-4 pb-1 border-b border-[var(--color-or)]/15">
+              <span className="label-mono text-[var(--color-ivoire-soft)]/55">
+                店
+              </span>
+              <span className="label-mono text-[var(--color-ivoire-soft)]/55">
+                {t("admin.stores.col.store", { default: "Boutique" })}
+              </span>
+              <span className="label-mono text-[var(--color-ivoire-soft)]/55">
+                {t("admin.stores.col.link", { default: "Lien · usage" })}
+              </span>
+              <span className="label-mono text-[var(--color-ivoire-soft)]/55 text-right">
+                {t("admin.stores.col.actions", { default: "Actions" })}
+              </span>
+            </div>
+          </div>
+
           <BulkActionBar
             selectedIds={sel.selectedIds}
             onClear={sel.clear}
@@ -101,10 +183,11 @@ export default function AdminStoresPage() {
               n: sel.selectedIds.length,
             })}
           />
+
           <ul className="space-y-3">
             {stores.data?.map((s) => (
-              <li key={s.id} className="flex items-start gap-3">
-                <div className="pt-3 shrink-0">
+              <li key={s.id} className="flex items-stretch gap-3">
+                <div className="pt-5 shrink-0">
                   <SelectCheckbox
                     checked={sel.isSelected(s.id)}
                     onChange={() => sel.toggle(s.id)}
@@ -119,12 +202,23 @@ export default function AdminStoresPage() {
           </ul>
         </div>
       )}
+
+      {/* Quiet ukiyo-e wave veil closing the section — static gradient, ~0 GPU. */}
+      <div
+        aria-hidden
+        className="seigaiha mt-14 h-14 opacity-50"
+        style={{
+          maskImage: "linear-gradient(#000, transparent)",
+          WebkitMaskImage: "linear-gradient(#000, transparent)",
+        }}
+      />
     </section>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Row — read mode with thumbnail + inline edit toggle
+// Row — A table row in a Card: logo chip + name/slug + URL-template link + usage
+// + inline ✎/× actions. Toggles into the inline edit form on ✎.
 // ─────────────────────────────────────────────────────────────────────────────
 
 function Row({ store, t }) {
@@ -136,41 +230,45 @@ function Row({ store, t }) {
     return <EditRow store={store} t={t} onClose={() => setEditing(false)} />;
   }
 
-  return (
-    <article className="store-admin-row">
-      <div className="store-admin-thumb">
-        {store.image_storage_key ? (
-          <img
-            src={`/api/store-image/${store.id}`}
-            alt=""
-            aria-hidden
-          />
-        ) : (
-          <div aria-hidden className="store-admin-thumb-placeholder">
-            店
-          </div>
-        )}
-      </div>
+  const href = safeHref(store.url);
 
-      <div>
-        <div className="flex items-baseline gap-3">
+  return (
+    <Card className="p-3.5 sm:p-4">
+      <div className="grid grid-cols-[64px_1fr] sm:grid-cols-[64px_1.6fr_1.4fr_auto] gap-x-4 gap-y-3 items-center">
+        {/* Logo chip — the store's profile image, or a 店 seal placeholder. */}
+        <div className="store-admin-thumb">
+          {store.image_storage_key ? (
+            <img src={`/api/store-image/${store.id}`} alt="" aria-hidden />
+          ) : (
+            <div aria-hidden className="store-admin-thumb-placeholder">
+              店
+            </div>
+          )}
+        </div>
+
+        {/* Name + slug */}
+        <div className="min-w-0">
           <Link
             to={`/stores/${store.slug}`}
             className="display text-lg text-[var(--color-ivoire)] hover:text-[var(--color-or-pale)] transition-colors underline decoration-[var(--color-or)]/30 hover:decoration-[var(--color-or)] underline-offset-4"
           >
             {store.name}
           </Link>
-          <span className="font-mono text-[10px] tracking-[0.22em] uppercase text-[var(--color-or-pale)]/55">
+          <span className="block mt-0.5 font-mono text-[10px] tracking-[0.22em] uppercase text-[var(--color-or-pale)]/55">
             /{store.slug}
           </span>
         </div>
-        <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-mono uppercase tracking-[0.18em]">
-          {safeHref(store.url) ? (
+
+        {/* URL-link template + usage. Spans the full width below name on
+            mobile; its own column on sm+. */}
+        <div className="col-span-2 sm:col-span-1 flex flex-wrap gap-x-4 gap-y-1.5 text-[10px] font-mono uppercase tracking-[0.18em]">
+          {href ? (
             <a
-              href={safeHref(store.url)}
+              href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[var(--color-or-pale)] hover:text-[var(--color-or)]"
+              className="text-[var(--color-or-pale)] hover:text-[var(--color-or)] truncate max-w-full"
+              title={store.url}
             >
               ↗ {prettyHost(store.url)}
             </a>
@@ -180,7 +278,11 @@ function Row({ store, t }) {
             </span>
           )}
           <span
-            className={total > 0 ? "text-[var(--color-or-pale)]" : "text-[var(--color-ivoire-soft)]/35"}
+            className={
+              total > 0
+                ? "text-[var(--color-or-pale)]"
+                : "text-[var(--color-ivoire-soft)]/35"
+            }
           >
             {total > 0
               ? t("admin.stores.usage", {
@@ -190,25 +292,26 @@ function Row({ store, t }) {
               : t("admin.stores.usage_empty")}
           </span>
         </div>
-      </div>
 
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className="ftype-row-btn"
-          title={t("admin.stores.edit")}
-        >
-          ✎ <span className="sr-only">{t("admin.stores.edit")}</span>
-        </button>
-        <DeleteButton store={store} t={t} />
+        {/* Actions — edit (gold) + delete (laque). */}
+        <div className="col-span-2 sm:col-span-1 flex gap-2 sm:justify-end">
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="ftype-row-btn"
+            title={t("admin.stores.edit")}
+          >
+            ✎ <span className="sr-only">{t("admin.stores.edit")}</span>
+          </button>
+          <DeleteButton store={store} t={t} />
+        </div>
       </div>
-    </article>
+    </Card>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Create / Edit forms
+// Create / Edit forms — unchanged logic, Direction-A ftype-form shell.
 // ─────────────────────────────────────────────────────────────────────────────
 
 function CreateRow({ t, onClose }) {
@@ -227,7 +330,11 @@ function CreateRow({ t, onClose }) {
   };
 
   return (
-    <form onSubmit={onSubmit} className="ftype-form ftype-form--create">
+    <form
+      onSubmit={onSubmit}
+      className="ftype-form ftype-form--create reveal"
+      aria-label={t("admin.stores.add")}
+    >
       <p className="ftype-form-eyebrow">+ {t("admin.stores.add")}</p>
       <div className="space-y-4">
         <FormField
@@ -308,7 +415,11 @@ function EditRow({ store, t, onClose }) {
   };
 
   return (
-    <form onSubmit={onSubmit} className="ftype-form ftype-form--edit">
+    <form
+      onSubmit={onSubmit}
+      className="ftype-form ftype-form--edit"
+      aria-label={t("admin.stores.edit")}
+    >
       <p className="ftype-form-eyebrow">
         ✎ <span className="font-mono normal-case">/{store.slug}</span>
       </p>
@@ -317,11 +428,7 @@ function EditRow({ store, t, onClose }) {
           <span className="ftype-field-label">{t("admin.stores.field.image")}</span>
           <div className="store-admin-thumb">
             {store.image_storage_key ? (
-              <img
-                src={`/api/store-image/${store.id}`}
-                alt=""
-                aria-hidden
-              />
+              <img src={`/api/store-image/${store.id}`} alt="" aria-hidden />
             ) : (
               <div aria-hidden className="store-admin-thumb-placeholder">店</div>
             )}
