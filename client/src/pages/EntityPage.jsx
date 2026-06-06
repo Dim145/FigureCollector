@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
+import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
 import FigureCard from "../components/FigureCard.jsx";
+import StatCard from "../components/StatCard.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import { useT } from "../i18n/index.jsx";
 import { api, ApiError } from "../lib/api.js";
@@ -75,7 +77,11 @@ export default function EntityPage({ kind }) {
   if (q.isLoading) {
     return (
       <AppShell>
-        <main className="max-w-6xl mx-auto px-6 py-16 text-center text-[var(--color-ivoire-soft)] italic">
+        <main
+          role="status"
+          aria-live="polite"
+          className="max-w-6xl mx-auto px-6 py-16 text-center text-[var(--color-ivoire-soft)] italic"
+        >
           …
         </main>
       </AppShell>
@@ -83,14 +89,34 @@ export default function EntityPage({ kind }) {
   }
   if (q.isError) {
     const notFound = q.error instanceof ApiError && q.error.status === 404;
+    const glyph = kindGlyph(kind);
     return (
       <AppShell>
-        <main className="max-w-3xl mx-auto px-6 py-16 text-center">
-          <p className="micro">{t(`entity.${kind}.eyebrow`)}</p>
-          <h1 className="display text-3xl mt-2 text-[var(--color-ivoire)]">
-            {notFound ? t("entity.missing.title") : t("entity.error.title")}
+        <main className="relative max-w-3xl mx-auto px-6 py-24">
+          <span
+            aria-hidden
+            className="kanji-mark text-[18rem] -top-16 -right-6 hidden md:block select-none"
+          >
+            {glyph}
+          </span>
+          <p className="micro reveal flex items-center gap-2.5" style={{ "--i": 0 }}>
+            <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
+            {t(`entity.${kind}.eyebrow`)}
+            <span aria-hidden className="ja not-italic text-[var(--color-or)]">{glyph}</span>
+          </p>
+          <h1
+            className="display text-4xl md:text-5xl mt-3 text-[var(--color-ivoire)] leading-tight reveal"
+            style={{ "--i": 1 }}
+          >
+            <AccentTitle
+              text={notFound ? t("entity.missing.title") : t("entity.error.title")}
+            />
           </h1>
-          <p className="text-sm text-[var(--color-ivoire-soft)] mt-4">
+          <div className="gold-rule w-24 mt-6 reveal" style={{ "--i": 2 }} />
+          <p
+            className="text-sm text-[var(--color-ivoire-soft)] mt-6 max-w-prose reveal"
+            style={{ "--i": 3 }}
+          >
             {notFound ? t("entity.missing.body") : q.error?.message}
           </p>
         </main>
@@ -120,20 +146,33 @@ export default function EntityPage({ kind }) {
 
   return (
     <AppShell>
-      <main className="max-w-6xl mx-auto px-6 py-12">
+      <main className="relative max-w-6xl mx-auto px-6 py-12">
         <Header entity={entity} kind={kind} t={t} mangaHref={mangaHref} figures={figures} />
 
-        <section className="mt-10">
+        {figures.length > 0 ? (
+          <StatStrip figures={figures} kind={kind} t={t} />
+        ) : null}
+
+        <section className="mt-12">
           <Reveal
             as="header"
             y={16}
             amount={0.6}
-            className="flex items-baseline justify-between mb-6"
+            className="flex items-end justify-between gap-4 mb-6"
           >
-            <h2 className="display text-2xl text-[var(--color-ivoire)]">
-              {t("entity.figures_section.title")}
-            </h2>
-            <span className="micro-tight">
+            <div>
+              <p className="micro flex items-center gap-2">
+                <span aria-hidden className="ja not-italic text-base text-[var(--color-or)] leading-none">
+                  {kindGlyph(kind)}
+                </span>
+                {t("entity.figures_section.eyebrow", { default: "Au catalogue" })}
+              </p>
+              <h2 className="display text-2xl md:text-3xl mt-2 text-[var(--color-ivoire)] leading-tight">
+                {t("entity.figures_section.title")}
+              </h2>
+              <div className="gold-rule w-16 mt-4" />
+            </div>
+            <span className="micro-tight shrink-0 pb-1">
               {figures.length} {t("entity.figures_section.count")}
             </span>
           </Reveal>
@@ -151,9 +190,17 @@ export default function EntityPage({ kind }) {
           ) : null}
 
           {figures.length === 0 ? (
-            <p className="text-sm text-[var(--color-ivoire-soft)] italic text-center py-12">
-              {t("entity.figures_section.empty")}
-            </p>
+            <div className="relative overflow-hidden border border-[var(--color-or)]/20 bg-[var(--color-noir-soft)]/40 px-6 py-16 text-center">
+              <span
+                aria-hidden
+                className="ja absolute -top-6 -right-4 text-[11rem] leading-none text-[var(--color-or)]/10 select-none"
+              >
+                空
+              </span>
+              <p className="text-sm text-[var(--color-ivoire-soft)] italic relative">
+                {t("entity.figures_section.empty")}
+              </p>
+            </div>
           ) : (
             <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {figures.map((f, i) => {
@@ -223,6 +270,56 @@ export default function EntityPage({ kind }) {
         </section>
       </main>
     </AppShell>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Stat strip — figurine metrics for the entity, derived from the figures the
+// page already loaded (no extra fetch). Figurine vocabulary only (Pièces ·
+// Types · Fabricants/Échelles · Pré-commandes); counts stay ivoire/red — gold
+// is reserved for value figures, of which an entity browse page has none.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function StatStrip({ figures, kind, t }) {
+  const stats = useMemo(() => {
+    const list = figures ?? [];
+    const manufacturers = new Set(
+      list.map((f) => f.manufacturer_name).filter(Boolean),
+    );
+    const types = new Set(list.map((f) => f.figure_type).filter(Boolean));
+    const scales = new Set(list.map((f) => f.scale).filter(Boolean));
+    const preorders = list.filter((f) => {
+      const ph = preorderPhaseFromFigure(f);
+      return ph === "preorder" || ph === "imminent";
+    }).length;
+    return {
+      pieces: list.length,
+      manufacturers: manufacturers.size,
+      types: types.size,
+      scales: scales.size,
+      preorders,
+    };
+  }, [figures]);
+
+  // On a manufacturer page every piece shares the same maker, so "Fabricants"
+  // would be a trivial 1 — swap in distinct scales there instead. Series and
+  // character pages span makers, so the maker count is the interesting figure.
+  const thirdSlot =
+    kind === "manufacturer"
+      ? { label: t("entity.stat.scales", { default: "Échelles" }), value: stats.scales }
+      : { label: t("entity.stat.manufacturers", { default: "Fabricants" }), value: stats.manufacturers };
+
+  return (
+    <Reveal as="div" y={16} delay={0.12} className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <StatCard label={t("entity.stat.pieces", { default: "Pièces" })} value={stats.pieces} />
+      <StatCard label={t("entity.stat.types", { default: "Types" })} value={stats.types} />
+      <StatCard label={thirdSlot.label} value={thirdSlot.value} />
+      <StatCard
+        label={t("entity.stat.preorders", { default: "Pré-commandes" })}
+        value={stats.preorders}
+        tone="red"
+      />
+    </Reveal>
   );
 }
 
@@ -346,19 +443,34 @@ function AdminBulkToolbar({ kind, entity, figures, selected, onSelectAll, onClea
 
 function Header({ entity, kind, t, mangaHref, figures }) {
   const accent = kindAccent(kind);
+  const glyph = kindGlyph(kind);
   return (
     <header className="relative">
-      {/* Localised colour-wash behind the hero — a gold→accent mesh that
-          tones to the entity kind. Absolutely positioned, aria-hidden and
-          pointer-events-none so it's pure decoration; every colour is a
-          theme var() (mixed to transparency) so it flips light/dark. */}
+      {/* Localised colour-wash behind the hero — a static gold→accent gradient
+          that tones to the entity kind. Absolutely positioned, aria-hidden and
+          pointer-events-none so it's pure decoration; every colour is a theme
+          var() (mixed to transparency) so it flips light/dark. Feathered at the
+          edges so it fades rather than hard-cutting (GPU-light: no animation). */}
       <div
         aria-hidden
         className="pointer-events-none absolute -top-16 -left-6 -right-6 h-[360px] -z-0"
         style={{
           background: `radial-gradient(48% 70% at 14% 0%, color-mix(in oklab, var(--color-or) 20%, transparent), transparent 70%), radial-gradient(46% 64% at 82% 8%, color-mix(in oklab, ${accent} 20%, transparent), transparent 72%), radial-gradient(40% 56% at 52% 36%, color-mix(in oklab, ${accent} 11%, transparent), transparent 75%)`,
+          WebkitMaskImage:
+            "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
+          maskImage:
+            "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
         }}
       />
+
+      {/* Calm kanji watermark of the kind glyph — gold, very faint, bleeding off
+          the corner. Static + pointer-inert: GPU-free editorial atmosphere. */}
+      <span
+        aria-hidden
+        className="kanji-mark text-[20rem] -top-24 -right-8 hidden md:block select-none"
+      >
+        {glyph}
+      </span>
 
       <div className="relative grid md:grid-cols-[260px_1fr] gap-8 items-start">
         <Reveal
@@ -389,11 +501,25 @@ function Header({ entity, kind, t, mangaHref, figures }) {
         </Reveal>
 
         <Reveal as="div" delay={0.08} y={20}>
+          {/* Editorial kicker: diamond · kind label · 漢字. The diamond is
+              tinted to the kind accent so the three glyphs read as one mark. */}
           <p
-            className="micro"
+            className="micro flex items-center gap-2.5"
             style={{ color: `color-mix(in oklab, ${accent} 60%, var(--color-or-pale))` }}
           >
+            <span
+              aria-hidden
+              className="w-1 h-1 rotate-45"
+              style={{ background: `color-mix(in oklab, ${accent} 80%, var(--color-laque-bright))` }}
+            />
             {t(`entity.${kind}.eyebrow`)}
+            <span
+              aria-hidden
+              className="ja not-italic leading-none"
+              style={{ color: `color-mix(in oklab, ${accent} 70%, var(--color-or))` }}
+            >
+              {glyph}
+            </span>
           </p>
           <h1
             className="display text-4xl md:text-5xl mt-2 text-[var(--color-ivoire)] leading-tight"
@@ -401,7 +527,7 @@ function Header({ entity, kind, t, mangaHref, figures }) {
               textShadow: `0 0 34px color-mix(in oklab, ${accent} 30%, transparent)`,
             }}
           >
-            {entity.name}
+            <AccentTitle text={entity.name} />
           </h1>
           <div
             className="gold-rule w-24 mt-5 mb-6"
@@ -626,6 +752,20 @@ function kindAccent(kind) {
       return "var(--color-indigo)";
     default:
       return "var(--color-or)";
+  }
+}
+
+/** The kind's signature kanji — the editorial mark used in the kicker and as
+ *  the faint page watermark. 社 (company) for manufacturers, 系 (lineage) for
+ *  series, 者 (person) for characters. */
+function kindGlyph(kind) {
+  switch (kind) {
+    case "series":
+      return "系";
+    case "character":
+      return "者";
+    default:
+      return "社";
   }
 }
 

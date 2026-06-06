@@ -5,13 +5,33 @@ import { useMe } from "../hooks/useMe.js";
 import { usePublicProfile } from "../hooks/useProfile.js";
 import { fmtMoney } from "../lib/money.js";
 import AppShell from "../components/AppShell.jsx";
+import AccentTitle from "../components/AccentTitle.jsx";
 import Card from "../components/Card.jsx";
+import StatCard from "../components/StatCard.jsx";
 import FigureCard from "../components/FigureCard.jsx";
 import Button from "../components/Button.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import FollowButton from "../components/FollowButton.jsx";
 import FollowListModal from "../components/FollowListModal.jsx";
 
+/**
+ * /u/:slug — a collector's public vitrine, redrawn to Direction A ("Shōjo-Noir").
+ *
+ * An editorial profile rather than a stats dashboard:
+ *   - a strong header — avatar (or a 像 monogram), a `.micro` kicker
+ *     (COLLECTIONNEUR · 蒐 · @slug), the display name as an `<AccentTitle>`
+ *     `.display` h1, a gold-rule, then the red `FollowButton` pill + a Compare
+ *     ghost and the clickable follower / following counts;
+ *   - a figurine `StatCard` strip (pieces · series · manufacturers, plus the
+ *     gold Valeur card only when the owner has opted to publish it);
+ *   - their pieces in the refined `FigureCard` grid under a kanji section head.
+ *
+ * Privacy is enforced server-side and mirrored here unchanged: NSFW figures are
+ * already filtered out of `collection`/`stats` by the API, and `value` arrives
+ * empty unless the owner opted in — so the gold value card simply never renders
+ * when there's nothing to show. GPU-light: flat fills, hairlines, one static
+ * wash, the shared `Reveal` enter motion; no animated meshes / blur / glows.
+ */
 export default function PublicProfilePage() {
   const { slug } = useParams();
   const t = useT();
@@ -27,8 +47,12 @@ export default function PublicProfilePage() {
     return (
       <AppShell>
         <main className="max-w-md mx-auto px-6 py-16 text-center">
-          <p className="display text-2xl text-[var(--color-ivoire)]">404</p>
-          <p className="mt-2 text-[var(--color-ivoire-soft)]">{t("profile.private")}</p>
+          <span aria-hidden className="ja block text-6xl text-[var(--color-or)]/30 leading-none">
+            鍵
+          </span>
+          <p className="display text-3xl mt-5 text-[var(--color-ivoire)]">404</p>
+          <div className="gold-rule mx-auto w-16 my-6" />
+          <p className="text-[var(--color-ivoire-soft)]">{t("profile.private")}</p>
         </main>
       </AppShell>
     );
@@ -36,119 +60,186 @@ export default function PublicProfilePage() {
   const { user, stats, collection, social, value } = profile.data;
   const isSelf = social?.is_self ?? me.data?.user?.username === user.username;
   const locale = me.data?.user?.locale;
+  // `value` is opt-in (empty array unless the owner published their cote) and
+  // already DESC by amount → the dominant currency leads, "…" hints at more.
   const dominantValue = value && value.length ? value[0] : null;
 
   return (
     <AppShell>
       <main className="relative max-w-6xl mx-auto px-6 py-12 sm:py-16">
-        {/* Localized hero colour-wash — a welcoming, gallery-like glow over the
-            global aurora. Jade + gold + a magenta accent, low alpha, theme-aware
-            via accent vars. Breathes gently (GPU opacity/scale) unless reduced. */}
-        <HeroWash />
+        {/* Quiet gallery wash — a single static gold/jade radial pinned behind
+            the header (GPU-free) over the global aurora. Feathered edges so it
+            fades into the column instead of hard-cutting. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-20 left-0 right-0 h-[380px] -z-0"
+          style={{
+            background:
+              "radial-gradient(46% 62% at 22% 0%, color-mix(in oklab, var(--color-or) 18%, transparent), transparent 70%), radial-gradient(44% 58% at 84% 6%, color-mix(in oklab, var(--color-jade) 14%, transparent), transparent 72%)",
+            WebkitMaskImage:
+              "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
+            maskImage:
+              "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
+          }}
+        />
 
-        <header className="relative mb-12 text-center">
+        {/* ─── Editorial profile header ─── */}
+        <header className="relative mb-12">
           <span
             aria-hidden
-            className="kanji-mark text-[20rem] sm:text-[26rem] -top-24 sm:-top-32 left-1/2 -translate-x-1/2 select-none"
+            className="kanji-mark text-[20rem] sm:text-[26rem] -top-28 -right-8 hidden md:block select-none"
           >
             蒐
           </span>
 
-          <Reveal as="div" className="relative" y={20}>
-            <p className="micro">
-              {t("profile.member_since", { date: new Date(user.member_since).toLocaleDateString() })}
-            </p>
-            <h1 className="display text-4xl sm:text-5xl md:text-6xl mt-2 text-[var(--color-ivoire)] leading-[0.98]">
-              {t("profile.public_title", { name: user.display_name })}
-            </h1>
-            <p
-              className="ja text-base mt-3 tracking-[0.3em]"
-              style={{
-                color: "var(--color-or-pale)",
-                textShadow:
-                  "0 0 24px color-mix(in oklab, var(--color-or) 45%, transparent)",
-              }}
-            >
-              @{user.username}
-              {social?.follows_viewer ? (
-                <span className="fc-chip fc-chip--jade ml-3 align-middle tracking-[0.12em]">
-                  {t("follow.follows_you")}
-                </span>
-              ) : null}
-            </p>
-            <div className="gold-rule mx-auto w-32 mt-6" />
-          </Reveal>
+          <div className="relative flex flex-col sm:flex-row sm:items-start gap-6 sm:gap-8">
+            <Reveal as="div" y={18} className="shrink-0">
+              <Avatar src={user.avatar_url} name={user.display_name} />
+            </Reveal>
 
-          <Reveal as="div" delay={0.08} y={18} className="relative mt-8 flex justify-center items-center gap-6 sm:gap-10 flex-wrap">
-            <Stat label={t("profile.stat_pieces")} value={stats.pieces} accent="var(--color-or)" />
-            <Stat label={t("profile.stat_series")} value={stats.series_count} accent="var(--color-jade)" />
-            <Stat
+            <div className="min-w-0">
+              <Reveal as="div" y={18}>
+                <p className="micro flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                  <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
+                  {t("profile.kicker", { default: "COLLECTIONNEUR" })}
+                  <span aria-hidden className="ja not-italic text-[var(--color-or)]">蒐</span>
+                  <span className="normal-case tracking-[0.18em] text-[var(--color-or-pale)]">
+                    @{user.username}
+                  </span>
+                  {social?.follows_viewer ? (
+                    <span className="fc-chip fc-chip--jade tracking-[0.12em]">
+                      {t("follow.follows_you")}
+                    </span>
+                  ) : null}
+                </p>
+              </Reveal>
+
+              <Reveal
+                as="h1"
+                delay={0.06}
+                y={18}
+                className="display text-4xl sm:text-5xl md:text-6xl mt-2.5 text-[var(--color-ivoire)] leading-[0.98]"
+              >
+                <AccentTitle text={user.display_name} />
+              </Reveal>
+
+              <Reveal as="div" delay={0.1} className="gold-rule w-24 mt-5" />
+
+              <Reveal
+                as="p"
+                delay={0.12}
+                className="mt-4 text-sm text-[var(--color-ivoire-soft)]"
+              >
+                {t("profile.member_since", {
+                  date: new Date(user.member_since).toLocaleDateString(locale),
+                })}
+              </Reveal>
+
+              {/* Action row — the red follow pill is the hero CTA; counts open
+                  the follow-list modal (behaviour unchanged). Hidden on one's
+                  own profile, where there's nothing to follow. */}
+              <Reveal
+                as="div"
+                delay={0.16}
+                y={16}
+                className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-4"
+              >
+                {!isSelf ? (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <FollowButton username={user.username} isFollowing={social?.is_following} />
+                    <Link to={`/compare/${user.username}`}>
+                      <Button variant="ghost">
+                        {t("compare.title", { name: user.display_name })}
+                      </Button>
+                    </Link>
+                  </div>
+                ) : null}
+
+                <div className="flex items-center gap-5 sm:gap-6">
+                  <CountButton
+                    value={social?.followers ?? 0}
+                    label={t("profile.stat_followers")}
+                    onClick={() => setList({ tab: "followers" })}
+                  />
+                  <span
+                    aria-hidden
+                    className="w-px h-8 bg-[color-mix(in_oklab,var(--color-or)_30%,transparent)]"
+                  />
+                  <CountButton
+                    value={social?.following ?? 0}
+                    label={t("profile.stat_following")}
+                    onClick={() => setList({ tab: "following" })}
+                  />
+                </div>
+              </Reveal>
+            </div>
+          </div>
+
+          {/* Figurine-metric strip — counts stay ivoire; gold is reserved for
+              the Valeur card, shown only when the owner published their cote. */}
+          <Reveal
+            as="div"
+            delay={0.2}
+            className={`relative mt-9 grid grid-cols-2 gap-3 ${
+              dominantValue ? "lg:grid-cols-4" : "lg:grid-cols-3"
+            }`}
+          >
+            <StatCard label={t("profile.stat_pieces")} value={stats.pieces} />
+            <StatCard label={t("profile.stat_series")} value={stats.series_count} />
+            <StatCard
               label={t("profile.stat_manufacturers")}
               value={stats.manufacturers_count}
-              accent="var(--color-neon-magenta)"
             />
-            <span
-              aria-hidden
-              className="hidden sm:block w-px h-10"
-              style={{
-                background:
-                  "linear-gradient(to bottom,transparent,color-mix(in oklab,var(--color-or) 40%,transparent),transparent)",
-              }}
-            />
-            <CountButton
-              value={social?.followers ?? 0}
-              label={t("profile.stat_followers")}
-              onClick={() => setList({ tab: "followers" })}
-            />
-            <CountButton
-              value={social?.following ?? 0}
-              label={t("profile.stat_following")}
-              onClick={() => setList({ tab: "following" })}
-            />
+            {dominantValue ? (
+              <StatCard
+                label={t("profile.value_label")}
+                value={
+                  fmtMoney(
+                    Math.round(Number(dominantValue.amount)),
+                    dominantValue.currency,
+                    locale,
+                  ) + (value.length > 1 ? " …" : "")
+                }
+                tone="gold"
+              />
+            ) : null}
           </Reveal>
-
-          {dominantValue ? (
-            <Reveal as="p" delay={0.1} className="relative mt-5 micro-tight">
-              {t("profile.value_label")} ·{" "}
-              <span className="text-[var(--color-or-pale)]">
-                {fmtMoney(Math.round(Number(dominantValue.amount)), dominantValue.currency, locale)}
-                {value.length > 1 ? " …" : ""}
-              </span>
-            </Reveal>
-          ) : null}
-
-          {!isSelf ? (
-            <Reveal as="div" delay={0.14} y={16} className="relative mt-8 flex justify-center items-center gap-3">
-              <FollowButton username={user.username} isFollowing={social?.is_following} />
-              <Link to={`/compare/${user.username}`}>
-                <Button variant="ghost">{t("compare.title", { name: user.display_name })}</Button>
-              </Link>
-            </Reveal>
-          ) : null}
         </header>
 
-        {collection.length === 0 ? (
-          <p className="relative text-center text-[var(--color-ivoire-soft)] py-12">
-            {t("collection.empty.title")}
-          </p>
-        ) : (
-          <ul className="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {collection.map((entry, i) => (
-              <Reveal as="li" key={entry.owned_id} delay={Math.min(i, 7) * 0.05} y={24}>
-                <FigureCard
-                  figureId={entry.figure_id}
-                  href={`/figures/${entry.figure_id}`}
-                  name={entry.figure_name}
-                  type={entry.figure_type}
-                  manufacturer={entry.manufacturer_name}
-                  imageUrl={entry.figure_image}
-                  scale={entry.scale}
-                  versionName={entry.version_name}
-                />
-              </Reveal>
-            ))}
-          </ul>
-        )}
+        {/* ─── Their vitrine ─── */}
+        <section aria-labelledby="profile-vitrine-head">
+          <Reveal as="div" className="mb-7">
+            <p id="profile-vitrine-head" className="micro flex items-center gap-2">
+              <span aria-hidden className="ja not-italic text-base text-[var(--color-or)] leading-none">
+                棚
+              </span>
+              {t("profile.vitrine_kicker", { default: "LA VITRINE" })}
+            </p>
+            <div className="gold-rule w-16 mt-3" />
+          </Reveal>
+
+          {collection.length === 0 ? (
+            <EmptyVitrine name={user.display_name} t={t} />
+          ) : (
+            <ul className="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {collection.map((entry, i) => (
+                <Reveal as="li" key={entry.owned_id} delay={Math.min(i, 7) * 0.05} y={24}>
+                  <FigureCard
+                    figureId={entry.figure_id}
+                    href={`/figures/${entry.figure_id}`}
+                    name={entry.figure_name}
+                    type={entry.figure_type}
+                    manufacturer={entry.manufacturer_name}
+                    imageUrl={entry.figure_image}
+                    scale={entry.scale}
+                    versionName={entry.version_name}
+                  />
+                </Reveal>
+              ))}
+            </ul>
+          )}
+        </section>
+
         <FollowListModal
           open={!!list}
           slug={user.username}
@@ -161,81 +252,92 @@ export default function PublicProfilePage() {
   );
 }
 
-/** color-mix helper — keep accent translucency in oklab, theme-var safe. */
-function mix(accentVar, pct) {
-  return `color-mix(in oklab, ${accentVar} ${pct}%, transparent)`;
-}
-
 /**
- * Localized hero colour-wash for the public profile — a warm, gallery-like
- * trio of radial gradients pinned behind the header. Self-contained inline
- * styles (no shared CSS). Static under prefers-reduced-motion; otherwise a
- * slow GPU-only opacity/scale breathe.
+ * Profile avatar — the collector's photo in a gold-ringed disc, falling back to
+ * a 像 ("statue/likeness") monogram on a noir well when none is set. Decorative
+ * (the name carries the label), so the image is `alt=""`.
  */
-function HeroWash() {
-  // Static glow — no breathe (ambient motion removed for GPU). Edges feathered
-  // so the gradients fade instead of hard-cutting at the content column.
-  const wrap = {
-    position: "absolute",
-    top: "-3rem",
-    left: "-3rem",
-    right: "-3rem",
-    height: "52vh",
-    pointerEvents: "none",
-    zIndex: 0,
-    WebkitMaskImage:
-      "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
-    maskImage:
-      "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
+function Avatar({ src, name }) {
+  const ring = {
+    boxShadow:
+      "0 0 0 1px color-mix(in oklab, var(--color-or) 55%, transparent), 0 18px 40px -22px rgba(0,0,0,0.85)",
   };
-  const base = { position: "absolute", inset: 0 };
-  const layerA = {
-    background: `radial-gradient(52% 68% at 22% 4%, ${mix("var(--color-jade)", 20)}, transparent 70%)`,
-  };
-  const layerB = {
-    background: `radial-gradient(50% 64% at 84% 0%, ${mix("var(--color-or)", 22)}, transparent 72%)`,
-  };
-  const layerC = {
-    background: `radial-gradient(44% 58% at 56% 34%, ${mix("var(--color-neon-magenta)", 10)}, transparent 75%)`,
-  };
-  return (
-    <div aria-hidden style={wrap}>
-      <span style={{ ...base, ...layerA, opacity: 0.85 }} />
-      <span style={{ ...base, ...layerB, opacity: 0.85 }} />
-      <span style={{ ...base, ...layerC, opacity: 0.85 }} />
-    </div>
-  );
-}
-
-function Stat({ label, value, accent = "var(--color-or)" }) {
-  return (
-    <div className="text-center">
-      <p
-        className="display text-3xl sm:text-4xl"
-        style={{
-          color: accent,
-          textShadow: `0 0 28px ${`color-mix(in oklab, ${accent} 38%, transparent)`}`,
-        }}
+  if (src) {
+    return (
+      <span
+        className="block w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden bg-[var(--color-noir-deep)]"
+        style={ring}
       >
-        {value}
-      </p>
-      <p className="micro mt-1">{label}</p>
-    </div>
+        <img
+          src={src}
+          alt=""
+          aria-hidden
+          loading="lazy"
+          decoding="async"
+          className="w-full h-full object-cover"
+        />
+      </span>
+    );
+  }
+  return (
+    <span
+      aria-hidden
+      title={name}
+      className="grid place-items-center w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-[var(--color-noir-deep)] ja text-4xl sm:text-5xl text-[var(--color-or)]/70 select-none"
+      style={ring}
+    >
+      像
+    </span>
   );
 }
 
 /** Clickable social counter — opens the followers / following list modal. */
 function CountButton({ value, label, onClick }) {
   return (
-    <button type="button" onClick={onClick} className="text-center group">
-      <p className="display text-3xl sm:text-4xl text-[var(--color-or-pale)] transition-colors group-hover:text-[var(--color-ivoire)]">
+    <button
+      type="button"
+      onClick={onClick}
+      className="tap-target group text-left"
+    >
+      <span className="figural text-2xl sm:text-3xl leading-none text-[var(--color-ivoire)] transition-colors group-hover:text-[var(--color-or-pale)]">
         {value}
-      </p>
-      <p className="micro mt-1">{label}</p>
+      </span>
+      <span className="micro-tight block mt-1">{label}</span>
     </button>
   );
 }
 
+/** Empty vitrine — a Card with a faint 空 watermark, an eyebrow, a gold-rule
+ *  and the same "nothing here yet" copy the owner sees on /collection. */
+function EmptyVitrine({ name, t }) {
+  return (
+    <Card className="max-w-xl mx-auto p-12 text-center relative overflow-hidden frame-corners">
+      <span
+        aria-hidden
+        className="ja absolute -top-6 -right-6 text-[14rem] text-[var(--color-or)]/10 leading-none select-none"
+      >
+        空
+      </span>
+      <p className="micro relative">{t("collection.empty.eyebrow")}</p>
+      <h2 className="display text-3xl mt-3 text-[var(--color-ivoire)] relative">
+        {t("profile.empty.title", { name, default: "Vitrine vide" })}
+      </h2>
+      <div className="gold-rule mx-auto w-20 my-8" />
+      <p className="text-[var(--color-ivoire-soft)] leading-relaxed relative">
+        {t("collection.empty.title")}
+      </p>
+    </Card>
+  );
+}
+
 function Loading() {
-  return <div className="max-w-md mx-auto px-6 py-16 text-center text-[var(--color-ivoire-soft)]">…</div>;
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="max-w-md mx-auto px-6 py-16 text-center text-[var(--color-ivoire-soft)]"
+    >
+      …
+    </div>
+  );
 }

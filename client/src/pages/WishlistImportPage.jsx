@@ -11,7 +11,12 @@ import {
   useFigureMatch,
 } from "../hooks/useWishlist.js";
 import { ORZGK_URL_RE, autoPickFromDetail } from "../lib/orzgkMap.js";
+import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
+import Button from "../components/Button.jsx";
+import Card from "../components/Card.jsx";
+import FigureCard from "../components/FigureCard.jsx";
+import Reveal from "../components/motion/Reveal.jsx";
 
 /**
  * « Importer dans mes souhaits » — bulk import from a public orzgk wishlist.
@@ -24,6 +29,11 @@ import AppShell from "../components/AppShell.jsx";
  *   ③ Importer — matched → just wishlisted; new → orzgk detail → catalogue
  *                figure (same buildPick mapping as the add page, version
  *                pre-selected) → wishlisted. Progress + summary.
+ *
+ * Direction A ("Shōjo-Noir"): editorial header (蒐/輸 kicker + AccentTitle +
+ * gold-rule), the staged flow in noir Card panels, the preview as a FigureCard
+ * grid with a per-item include/exclude seal. Gold for value, hanko-red for
+ * actions. GPU-light: flat fills + hairlines + the shared Reveal stagger.
  */
 
 const BATCH_MAX = 10;
@@ -229,18 +239,31 @@ export default function WishlistImportPage() {
 
   return (
     <AppShell>
-      <main className="relative max-w-4xl mx-auto px-6 py-14">
-        <header className="relative mb-8">
-          <span aria-hidden className="kanji-mark text-[18rem] -top-20 right-0 select-none">蒐</span>
-          <p className="micro">{t("import.eyebrow")}</p>
-          <h1 className="display text-4xl md:text-5xl text-[var(--color-ivoire)] mt-2">
-            {t("import.title")}
+      <main className="relative max-w-5xl mx-auto px-6 py-16">
+        {/* Editorial header — kicker · 蒐 · SOUHAITS → AccentTitle h1 → gold-rule,
+            over a faint 蒐 watermark bleeding off the top-right corner. */}
+        <Reveal as="header" className="relative mb-10">
+          <span
+            aria-hidden
+            className="kanji-mark text-[22rem] -top-28 -right-8 hidden md:block select-none"
+          >
+            蒐
+          </span>
+
+          <p className="micro flex items-center gap-2.5" style={{ "--i": 0 }}>
+            <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
+            {t("import.eyebrow")}
+            <span aria-hidden className="ja not-italic text-[var(--color-or)]">輸</span>
+            {t("import.kicker_label", { default: "SOUHAITS" })}
+          </p>
+          <h1 className="display text-5xl md:text-6xl text-[var(--color-ivoire)] mt-3 leading-[0.95]">
+            <AccentTitle text={t("import.title")} />
           </h1>
-          <div className="gold-rule w-16 mt-4" />
-          <p className="mt-4 max-w-2xl leading-relaxed text-[var(--color-ivoire-soft)]">
+          <div className="gold-rule w-24 mt-6" />
+          <p className="mt-5 max-w-2xl leading-relaxed text-[var(--color-ivoire-soft)]">
             {t("import.subtitle")}
           </p>
-        </header>
+        </Reveal>
 
         <Steps phase={phase} t={t} />
 
@@ -282,123 +305,292 @@ export default function WishlistImportPage() {
 // Phases
 // ═══════════════════════════════════════════════════════════════════════════
 
+/** Three-beat editorial stepper: ① Coller → ② Choisir → ③ Importer. The
+ *  active beat carries the hanko-red marker, completed beats a gold ✓. */
 function Steps({ phase, t }) {
   const order = ["input", "review", "done"];
   const cur = phase === "importing" ? 2 : order.indexOf(phase);
   const labels = [t("import.step.paste"), t("import.step.choose"), t("import.step.import")];
   return (
-    <div className="imp-steps">
-      {labels.map((label, i) => (
-        <span key={i} className="contents">
-          <span className={`imp-step ${i === cur ? "is-on" : ""}`}>
-            <span className="imp-step-n">{i < cur ? "✓" : i + 1}</span>
-            {label}
-          </span>
-          {i < labels.length - 1 ? <span className="imp-step-arr">→</span> : null}
-        </span>
-      ))}
-    </div>
+    <ol
+      className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-10"
+      aria-label={t("import.steps_label", { default: "Étapes de l'import" })}
+    >
+      {labels.map((label, i) => {
+        const done = i < cur;
+        const on = i === cur;
+        return (
+          <li key={i} className="flex items-center gap-3">
+            <span
+              aria-current={on ? "step" : undefined}
+              className="inline-flex items-center gap-2.5 text-[11px] uppercase tracking-[0.2em]"
+              style={{
+                color: on
+                  ? "var(--color-ivoire)"
+                  : done
+                    ? "var(--color-or-pale)"
+                    : "color-mix(in oklab, var(--color-ivoire-soft) 70%, transparent)",
+              }}
+            >
+              <span
+                aria-hidden
+                className="figural grid place-items-center w-7 h-7 text-sm leading-none border"
+                style={{
+                  borderColor: on
+                    ? "var(--color-laque-bright)"
+                    : done
+                      ? "color-mix(in oklab, var(--color-or) 55%, transparent)"
+                      : "color-mix(in oklab, var(--color-or) 22%, transparent)",
+                  background: on
+                    ? "color-mix(in oklab, var(--color-laque) 14%, transparent)"
+                    : "transparent",
+                  color: on
+                    ? "var(--color-laque-bright)"
+                    : done
+                      ? "var(--color-or)"
+                      : "var(--color-ivoire-soft)",
+                }}
+              >
+                {done ? "✓" : i + 1}
+              </span>
+              {label}
+            </span>
+            {i < labels.length - 1 ? (
+              <span
+                aria-hidden
+                className="ja text-[var(--color-or)]/40 leading-none"
+              >
+                →
+              </span>
+            ) : null}
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
+/** ① Source — paste the public list URL (or product links / HTML). A refined
+ *  Direction-A textarea well + hint + a red-pill primary CTA. */
 function InputPhase({ raw, setRaw, onAnalyse, busy, error, t }) {
   return (
-    <div className="imp-panel">
-      <p className="imp-phase-tag">{t("import.phase.source")}</p>
-      <textarea
-        className="imp-paste"
-        value={raw}
-        onChange={(e) => setRaw(e.target.value)}
-        placeholder={t("import.paste_ph")}
-        spellCheck={false}
-      />
-      {error ? (
-        <p role="alert" className="imp-error">{error}</p>
-      ) : null}
-      <div className="imp-actions">
-        <p className="imp-hint">{t("import.paste_hint")}</p>
-        <button
-          type="button"
-          className="imp-btn imp-btn--primary"
-          onClick={onAnalyse}
-          disabled={busy || !raw.trim()}
+    <Reveal as="div">
+      <Card className="relative overflow-hidden p-6 md:p-8">
+        <span
+          aria-hidden
+          className="kanji-mark text-[10rem] -top-8 -right-2 select-none"
         >
-          {busy ? t("import.analysing") : `${t("import.analyse")} ↓`}
-        </button>
-      </div>
-    </div>
+          蒐
+        </span>
+
+        <div className="relative">
+          <p className="micro flex items-center gap-2">
+            <span className="ja not-italic text-base text-[var(--color-or)] leading-none" aria-hidden>
+              蒐
+            </span>
+            {t("import.phase.source")}
+          </p>
+          <div className="gold-rule w-16 mt-4 mb-6" />
+
+          <label className="block">
+            <span className="micro block mb-2">
+              {t("import.source_label", { default: "Lien ou HTML" })}
+            </span>
+            <textarea
+              className="w-full min-h-[8.5rem] resize-y bg-[var(--color-noir)] border border-[var(--color-or)]/30 px-4 py-3 text-sm leading-relaxed text-[var(--color-ivoire)] outline-none transition-colors duration-200 focus:border-[var(--color-or)]"
+              style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.01em" }}
+              value={raw}
+              onChange={(e) => setRaw(e.target.value)}
+              placeholder={t("import.paste_ph")}
+              spellCheck={false}
+            />
+          </label>
+
+          {error ? (
+            <p
+              role="alert"
+              className="mt-3 text-sm text-[var(--color-laque-bright)] tracking-wide border-l-2 border-[var(--color-laque-bright)] pl-3 py-1"
+            >
+              {error}
+            </p>
+          ) : null}
+
+          <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <p className="max-w-md text-xs leading-relaxed text-[var(--color-ivoire-soft)]">
+              {t("import.paste_hint")}
+            </p>
+            <Button
+              variant="primary"
+              onClick={onAnalyse}
+              loading={busy}
+              disabled={busy || !raw.trim()}
+              className="shrink-0 self-start sm:self-auto"
+            >
+              {busy ? t("import.analysing") : t("import.analyse")}
+              {!busy ? <span aria-hidden>↓</span> : null}
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </Reveal>
   );
 }
 
+/** ② Choisir — selection bar + the FigureCard preview grid + the confirm CTA. */
 function ReviewPhase({ candidates, selectedCount, onToggle, onSelectAll, onAssoc, onCommit, onBack, t }) {
+  const full = selectedCount >= BATCH_MAX;
   return (
     <div>
-      <div className="imp-bar">
-        <span className={`imp-count ${selectedCount >= BATCH_MAX ? "is-full" : ""}`}>
-          <b>{selectedCount}</b> / {BATCH_MAX} {t("import.selected")}
+      {/* Selection ledger — count (gold, turns red at the cap) + select-all/none. */}
+      <div className="sticky top-2 z-30 mb-6 flex flex-wrap items-center gap-3 p-3 border border-[color-mix(in_oklab,var(--color-or)_28%,transparent)] bg-[color-mix(in_oklab,var(--color-noir-deep)_82%,transparent)] backdrop-blur-md">
+        <span className="display text-xl leading-none">
+          <b
+            className="figural"
+            style={{ color: full ? "var(--color-laque-bright)" : "var(--color-or-pale)" }}
+          >
+            {selectedCount}
+          </b>
+          <span className="text-[var(--color-ivoire-soft)]"> / {BATCH_MAX}</span>{" "}
+          <span className="micro-tight align-middle">{t("import.selected")}</span>
         </span>
-        <span className="imp-bar-spacer" />
-        <button type="button" className="imp-lnk" onClick={() => onSelectAll(true)}>
+        <span className="flex-1" />
+        <button
+          type="button"
+          onClick={() => onSelectAll(true)}
+          className="tap-target px-3 text-[10px] uppercase tracking-[0.2em] text-[var(--color-or-pale)] border border-[color-mix(in_oklab,var(--color-or)_30%,transparent)] hover:border-[var(--color-or)] hover:text-[var(--color-or)] transition-colors"
+        >
           {t("import.select_all")}
         </button>
-        <button type="button" className="imp-lnk" onClick={() => onSelectAll(false)}>
+        <button
+          type="button"
+          onClick={() => onSelectAll(false)}
+          className="tap-target px-3 text-[10px] uppercase tracking-[0.2em] text-[var(--color-ivoire-soft)] border border-[color-mix(in_oklab,var(--color-or)_20%,transparent)] hover:text-[var(--color-laque-bright)] hover:border-[color-mix(in_oklab,var(--color-laque-bright)_45%,transparent)] transition-colors"
+        >
           {t("import.select_none")}
         </button>
       </div>
 
-      <ul className="imp-list">
+      <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {candidates.map((c, i) => (
-          <CandidateRow key={c.detail_url || i} c={c} onToggle={() => onToggle(i)} onAssoc={(v) => onAssoc(i, v)} t={t} />
+          <Reveal as="li" key={c.detail_url || i} delay={Math.min(i, 7) * 0.04} y={20}>
+            <CandidateCard
+              c={c}
+              onToggle={() => onToggle(i)}
+              onAssoc={(v) => onAssoc(i, v)}
+              t={t}
+            />
+          </Reveal>
         ))}
       </ul>
 
-      <div className="imp-footer">
-        <button type="button" className="imp-btn imp-btn--ghost" onClick={onBack}>
-          {t("import.back")}
-        </button>
-        <button
-          type="button"
-          className="imp-btn imp-btn--primary"
+      <div className="gold-rule w-full opacity-50 mt-10 mb-6" />
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <Button variant="ghost" onClick={onBack}>
+          <span aria-hidden>←</span> {t("import.back")}
+        </Button>
+        <Button
+          variant="primary"
           onClick={onCommit}
           disabled={selectedCount === 0}
         >
-          {t("import.commit", { n: selectedCount })} →
-        </button>
+          {t("import.commit", { n: selectedCount })} <span aria-hidden>→</span>
+        </Button>
       </div>
     </div>
   );
 }
 
-function CandidateRow({ c, onToggle, onAssoc, t }) {
+/** One parsed item, mounted as a FigureCard specimen with an include/exclude
+ *  seal in the corner and the catalogue-association controls below. */
+function CandidateCard({ c, onToggle, onAssoc, t }) {
   const skip = c.action === "skip";
   const score = c.best ? pct(c.best.score) : null;
+  // Map the match status onto a FigureCard `badge` (tone drives the sash):
+  //   match → gold "auto" · low → red "check" · new → red "new" ·
+  //   owned/wished → neutral lock-out marker.
+  const badge = {
+    label: t(`import.chip.${c.status}`),
+    tone:
+      c.status === "match"
+        ? "imminent" // gold sash — reserved here for a confident catalogue hit
+        : c.status === "owned" || c.status === "wished"
+          ? "neutral"
+          : "preorder", // hanko-red sash for new / to-verify
+  };
+
+  const sub = [c.studio, c.version, c.price].filter(Boolean).join(" · ");
+
   return (
-    <li className={`imp-item ${c.selected ? "is-sel" : ""} ${skip ? "is-off" : ""}`}>
-      <button
-        type="button"
-        className={`imp-cbx ${c.selected ? "on" : ""} ${skip ? "dis" : ""}`}
-        onClick={onToggle}
-        disabled={skip}
-        aria-pressed={c.selected}
-        aria-label={t("import.toggle")}
+    <div
+      className="relative h-full transition-opacity"
+      style={{ opacity: skip ? 0.55 : 1 }}
+    >
+      {/* Include / exclude seal — gold when in, hollow when out. Locked items
+          (owned/wished) render an inert hanko-red ✕ instead. */}
+      {skip ? (
+        <span
+          aria-hidden
+          className="absolute top-3 left-3 z-[7] tap-target w-9 h-9 grid place-items-center text-sm bg-[color-mix(in_oklab,var(--color-noir-deep)_80%,transparent)] border border-[color-mix(in_oklab,var(--color-laque-bright)_45%,transparent)] text-[var(--color-laque-bright)]"
+        >
+          ✕
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-pressed={c.selected}
+          aria-label={t("import.toggle")}
+          className="absolute top-3 left-3 z-[7] tap-target w-9 h-9 grid place-items-center text-sm transition-colors"
+          style={{
+            background: c.selected
+              ? "var(--color-or)"
+              : "color-mix(in oklab, var(--color-noir-deep) 78%, transparent)",
+            border: `1px solid ${c.selected ? "var(--color-or)" : "color-mix(in oklab, var(--color-or) 45%, transparent)"}`,
+            color: c.selected ? "var(--color-noir)" : "transparent",
+          }}
+        >
+          ✓
+        </button>
+      )}
+
+      <div
+        className={`block h-full ${c.selected && !skip ? "outline outline-2 outline-[var(--color-or)]" : ""}`}
       >
-        {c.selected ? "✓" : ""}
-      </button>
+        <FigureCard
+          name={c.title}
+          manufacturer={c.studio}
+          versionName={c.version}
+          imageUrl={c.image_url}
+          badge={badge}
+        />
+      </div>
 
-      <span className="imp-thumb">
-        {c.image_url ? <img src={c.image_url} alt="" loading="lazy" /> : <span aria-hidden>蒐</span>}
-      </span>
+      {/* Association ledger under the card — score + the catalogue picker or the
+          "will be created" / lock-out note. */}
+      <div className="mt-3 px-1 space-y-2">
+        {score != null && (c.status === "match" || c.status === "low") ? (
+          <div className="flex items-center justify-between gap-3">
+            <span className="micro-tight">{t("import.match_label", { default: "CORRESPONDANCE" })}</span>
+            <span
+              className="figural text-lg leading-none"
+              style={{
+                color: c.status === "match" ? "var(--color-or-pale)" : "var(--color-laque-bright)",
+              }}
+            >
+              {score}%
+            </span>
+          </div>
+        ) : null}
 
-      <div className="imp-meta">
-        <div className="imp-name">{c.title}</div>
-        <div className="imp-sub">
-          {[c.studio, c.version, c.price].filter(Boolean).join(" · ") || "—"}
-        </div>
         {!skip ? (
-          <div className="imp-assoc">
-            {c.matches.length > 0 ? (
+          c.matches.length > 0 ? (
+            <label className="block">
+              <span className="micro-tight block mb-1.5">
+                {t("import.assoc_label", { default: "ASSOCIER À" })}
+              </span>
               <select
-                className="imp-pick"
+                className="w-full bg-[var(--color-noir)] border border-[var(--color-or)]/30 px-3 py-2 text-[13px] text-[var(--color-ivoire)] outline-none focus:border-[var(--color-or)] transition-colors"
+                style={{ fontFamily: "var(--font-sans)" }}
                 value={c.action === "link" ? c.chosenFigureId : "__new__"}
                 onChange={(e) => onAssoc(e.target.value)}
               >
@@ -409,63 +601,126 @@ function CandidateRow({ c, onToggle, onAssoc, t }) {
                   </option>
                 ))}
               </select>
-            ) : (
-              <span className="imp-assoc-new">{t("import.will_create")}</span>
-            )}
-          </div>
+            </label>
+          ) : (
+            <p className="text-[11px] leading-relaxed text-[var(--color-or-pale)] border-l-2 border-[color-mix(in_oklab,var(--color-or)_35%,transparent)] pl-2.5">
+              {t("import.will_create")}
+            </p>
+          )
         ) : (
-          <div className="imp-assoc imp-assoc-skip">
+          <p className="text-[11px] leading-relaxed text-[var(--color-laque-bright)] border-l-2 border-[color-mix(in_oklab,var(--color-laque-bright)_45%,transparent)] pl-2.5">
             {c.status === "owned" ? t("import.status.owned") : t("import.status.wished")}
-          </div>
+          </p>
         )}
-      </div>
 
-      <div className="imp-right">
-        <span className={`imp-chip imp-chip--${c.status}`}>{t(`import.chip.${c.status}`)}</span>
-        {score != null && (c.status === "match" || c.status === "low") ? (
-          <span className={`imp-pct ${c.status === "match" ? "is-hi" : "is-lo"}`}>{score}%</span>
+        {sub ? (
+          <p className="text-[11px] text-[var(--color-ivoire-soft)] font-mono truncate" title={sub}>
+            {sub}
+          </p>
         ) : null}
-      </div>
-    </li>
-  );
-}
-
-function ImportingPhase({ progress, t }) {
-  const frac = progress.total ? progress.done / progress.total : 0;
-  return (
-    <div className="imp-panel">
-      <p className="imp-phase-tag">{t("import.phase.importing")}</p>
-      <div className="imp-prog">
-        <i style={{ width: `${Math.round(frac * 100)}%` }} />
-      </div>
-      <div className="imp-prog-label">
-        <span>{progress.label}</span>
-        <span className="mono">{progress.done} / {progress.total}</span>
       </div>
     </div>
   );
 }
 
+/** ③ Import en cours — a gold progress bar under the kanji-marked Card. */
+function ImportingPhase({ progress, t }) {
+  const frac = progress.total ? progress.done / progress.total : 0;
+  const pctDone = Math.round(frac * 100);
+  return (
+    <Reveal as="div">
+      <Card className="relative overflow-hidden p-6 md:p-8">
+        <span aria-hidden className="kanji-mark text-[10rem] -top-8 -right-2 select-none">輸</span>
+        <div className="relative">
+          <p className="micro flex items-center gap-2">
+            <span className="ja not-italic text-base text-[var(--color-or)] leading-none" aria-hidden>輸</span>
+            {t("import.phase.importing")}
+          </p>
+          <div className="gold-rule w-16 mt-4 mb-6" />
+
+          <div
+            className="h-1.5 w-full bg-[color-mix(in_oklab,var(--color-or)_12%,transparent)] overflow-hidden"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={progress.total || 0}
+            aria-valuenow={progress.done}
+          >
+            <span
+              className="block h-full bg-[var(--color-or)] transition-[width] duration-300"
+              style={{ width: `${pctDone}%` }}
+            />
+          </div>
+          <div className="mt-3 flex items-baseline justify-between gap-3">
+            <span className="text-sm text-[var(--color-ivoire-soft)] truncate" title={progress.label}>
+              {progress.label}
+            </span>
+            <span className="figural text-lg text-[var(--color-or-pale)] shrink-0">
+              {progress.done} / {progress.total}
+            </span>
+          </div>
+        </div>
+      </Card>
+    </Reveal>
+  );
+}
+
+/** Terminé — a summary ledger (gold = created/linked value, red = errors) and
+ *  the red CTA back to the wishlist. */
 function DonePhase({ summary, onReset, t }) {
   const s = summary ?? { created: 0, linked: 0, errors: 0 };
   return (
-    <div className="imp-panel">
-      <p className="imp-phase-tag">{t("import.phase.done")}</p>
-      <div className="imp-summary">
-        <div className="imp-stat cr"><b>{s.created}</b><span>{t("import.sum.created")}</span></div>
-        <div className="imp-stat li"><b>{s.linked}</b><span>{t("import.sum.linked")}</span></div>
-        {s.errors > 0 ? (
-          <div className="imp-stat er"><b>{s.errors}</b><span>{t("import.sum.errors")}</span></div>
-        ) : null}
+    <Reveal as="div">
+      <Card className="relative overflow-hidden p-6 md:p-8 text-center">
+        <span aria-hidden className="kanji-mark text-[12rem] -top-10 -right-4 select-none">蒐</span>
+        <div className="relative">
+          <p className="micro">{t("import.phase.done")}</p>
+          <div className="gold-rule mx-auto w-20 mt-4 mb-8" />
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-xl mx-auto">
+            <SummaryStat value={s.created} label={t("import.sum.created")} tone="gold" />
+            <SummaryStat value={s.linked} label={t("import.sum.linked")} tone="gold" />
+            {s.errors > 0 ? (
+              <SummaryStat value={s.errors} label={t("import.sum.errors")} tone="red" />
+            ) : null}
+          </div>
+
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
+            <Button variant="ghost" onClick={onReset}>
+              {t("import.again")}
+            </Button>
+            <Link to="/souhaits">
+              <Button variant="primary">
+                {t("import.to_wishlist")} <span aria-hidden>→</span>
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </Card>
+    </Reveal>
+  );
+}
+
+/** A single result tally — gold for created/linked value, hanko-red for errors. */
+function SummaryStat({ value, label, tone }) {
+  const accent = tone === "red" ? "var(--color-laque-bright)" : "var(--color-or-pale)";
+  return (
+    <div
+      className="p-4 border"
+      style={{
+        borderColor:
+          tone === "red"
+            ? "color-mix(in oklab, var(--color-laque-bright) 40%, transparent)"
+            : "color-mix(in oklab, var(--color-or) 28%, transparent)",
+        background:
+          tone === "red"
+            ? "color-mix(in oklab, var(--color-laque) 8%, transparent)"
+            : "color-mix(in oklab, var(--color-or) 6%, transparent)",
+      }}
+    >
+      <div className="figural text-4xl leading-none" style={{ color: accent }}>
+        {value}
       </div>
-      <div className="imp-footer">
-        <button type="button" className="imp-btn imp-btn--ghost" onClick={onReset}>
-          {t("import.again")}
-        </button>
-        <Link to="/souhaits" className="imp-btn imp-btn--primary">
-          {t("import.to_wishlist")} →
-        </Link>
-      </div>
+      <div className="micro-tight mt-2">{label}</div>
     </div>
   );
 }
