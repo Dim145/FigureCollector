@@ -5,29 +5,34 @@ import { useMe } from "../hooks/useMe.js";
 import { useActivity } from "../hooks/useActivity.js";
 import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
+import StatCard from "../components/StatCard.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 
 /**
- * Le Journal de bord — the user's chronological activity ledger.
+ * Le Journal de bord — the user's chronological activity ledger, rendered as a
+ * refined editorial **timeline** (Direction A "shōjo-noir").
  *
- * The page reads like flipping through a hand-kept logbook:
- *   - vertical "Journal de bord" tag running down the side
- *   - kanji-tile filter row to mute event types you don't care about
- *   - day-by-day grouping with a ribbon-strap heading per day
- *   - each entry is a manuscript line: brass-plate kanji glyph + typeset
- *     event description + mono relative timestamp in the margin + a
- *     paper-tape annotation for date slips + status arrows for transitions
+ * The page threads every event down a single **gold spine**:
+ *   - an editorial header (kicker · 録 · AccentTitle · gold-rule) with a
+ *     bleeding kanji-mark watermark, then a StatCard strip of activity counts
+ *   - a kanji-tile filter row to mute event types you don't care about
+ *   - the spine itself, with **month markers** (kanji 月-style cartouche) and
+ *     **dated day nodes** sitting *on* the rule
+ *   - each event is a row hung off the spine: a circular kanji node inked in
+ *     the event's own hue + a typeset line + a paper-tape slip annotation +
+ *     status arrows + a mono relative timestamp in the margin
  *
- * No charting library; the only motion is a hover gold-underline grow.
+ * The timeline structure here is built from Tailwind + inline `var(--color-*)`
+ * styles only (no new global CSS) — GPU-light: flat fills, hairlines, static
+ * gradients, opacity/transform hovers, and the shared `Reveal` for enter.
  */
 
 /** Six event kinds with their visual treatment.
- *  kanji   — calligraphic mark for the brass plate
+ *  kanji   — calligraphic mark for the timeline node
  *  tone    — sentiment pip colour (`positive` / `negative` / `neutral`)
  *  accent  — a theme CSS var giving each kind its own colour signature; the
- *            margin spine, glyph ring and hover-wash all tone off this one
- *            value. Every entry is a `var()` so the palette flips light/dark.
- *  i18nKey — formatEntry uses this to look up the line wording */
+ *            node ring, glyph and hover-wash all tone off this one value.
+ *            Every entry is a `var()` so the palette flips light/dark. */
 const EVENT_KINDS = [
   { id: "owned_added",            kanji: "入", tone: "positive", accent: "var(--color-jade)"        },
   { id: "owned_removed",          kanji: "退", tone: "negative", accent: "var(--color-laque-bright)" },
@@ -42,6 +47,17 @@ const KIND_META = Object.fromEntries(EVENT_KINDS.map((k) => [k.id, k]));
 function kindAccent(kind) {
   return KIND_META[kind]?.accent ?? "var(--color-or)";
 }
+
+/** Kinds that read as "acquisitions" (a piece entering the collection) — used
+ *  for the StatCard strip count. */
+const ACQUIRED_KINDS = new Set(["owned_added", "preorder_received"]);
+/** Kinds that touch a preorder's lifecycle — used for the StatCard strip. */
+const PREORDER_KINDS = new Set([
+  "preorder_created",
+  "preorder_slipped",
+  "preorder_status_changed",
+  "preorder_received",
+]);
 
 export default function ActivityPage() {
   const t = useT();
@@ -67,11 +83,16 @@ export default function ActivityPage() {
     return m;
   }, [events]);
 
-  // Filtered + bucketed-by-day list.
-  const days = useMemo(() => groupByDay(events.filter((e) => !muted.has(e.kind))), [
-    events,
-    muted,
-  ]);
+  // Headline stats for the strip (all derived from the loaded window).
+  const stats = useMemo(() => deriveStats(events), [events]);
+
+  // Filtered, then bucketed day-by-day, then those days threaded into months
+  // for the spine's month markers.
+  const days = useMemo(
+    () => groupByDay(events.filter((e) => !muted.has(e.kind))),
+    [events, muted],
+  );
+  const months = useMemo(() => groupByMonth(days), [days]);
 
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
@@ -128,12 +149,42 @@ export default function ActivityPage() {
           </div>
         </header>
 
+        {/* Activity-count strip — figurine-domain metrics drawn from the
+         *  loaded window. Total entries (ivoire), acquisitions 入 (gold =
+         *  pieces gained), preorder movements 予 (red = anticipation), and
+         *  this calendar month's tempo. Collapses 2-up on mobile. */}
+        {events.length > 0 ? (
+          <div
+            className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-10 reveal"
+            style={{ "--i": 4 }}
+          >
+            <StatCard
+              label={t("activity.stat.entries", { default: "Entrées" })}
+              value={stats.total}
+            />
+            <StatCard
+              label={t("activity.stat.acquired", { default: "Acquisitions" })}
+              value={stats.acquired}
+              tone="gold"
+            />
+            <StatCard
+              label={t("activity.stat.preorders", { default: "Pré-commandes" })}
+              value={stats.preorders}
+              tone="red"
+            />
+            <StatCard
+              label={t("activity.stat.this_month", { default: "Ce mois-ci" })}
+              value={stats.thisMonth}
+            />
+          </div>
+        ) : null}
+
         {/* Filter rail — same kanji-tile idiom as /browse + /collection */}
         {events.length > 0 ? (
           <nav
             aria-label="filter by event type"
             className="tile-rail mb-10 reveal"
-            style={{ "--i": 4 }}
+            style={{ "--i": 5 }}
           >
             {EVENT_KINDS.map((k) => {
               const count = countsByKind.get(k.id) ?? 0;
@@ -163,9 +214,15 @@ export default function ActivityPage() {
           </nav>
         ) : null}
 
-        {/* Daybook */}
+        {/* Timeline */}
         {activity.isLoading ? (
-          <p className="text-center text-[var(--color-ivoire-soft)] italic py-16">…</p>
+          <p
+            role="status"
+            aria-live="polite"
+            className="text-center text-[var(--color-ivoire-soft)] italic py-16"
+          >
+            …
+          </p>
         ) : activity.isError ? (
           <p
             role="alert"
@@ -180,11 +237,7 @@ export default function ActivityPage() {
             {t("activity.filtered_empty")}
           </p>
         ) : (
-          <section className="journal" aria-label="journal entries">
-            {days.map((day, i) => (
-              <DaySection key={day.key} day={day} index={i} t={t} />
-            ))}
-          </section>
+          <Timeline months={months} t={t} />
         )}
       </main>
     </AppShell>
@@ -192,33 +245,140 @@ export default function ActivityPage() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Day section — ribbon strap header + entries
+// Timeline — the gold spine, month markers, dated day nodes, event rows
+
+/** The whole ledger threaded down one continuous gold spine. The spine is a
+ *  hairline gradient pinned to a fixed gutter; every month marker, day node
+ *  and event node lands on that same x so the eye reads a single thread. */
+function Timeline({ months, t }) {
+  return (
+    // `--spine-x` is the shared x of the rule, declared on the common
+    // ancestor so BOTH the spine rule and every node/marker resolve the same
+    // value. Tighter gutter on mobile, roomier on md+.
+    <section
+      className="relative md:[--spine-x:1.5rem]"
+      style={{ "--spine-x": "1.25rem" }}
+      aria-label="journal entries"
+    >
+      {/* The spine — a 1px gold gradient rule pinned to the gutter. Static
+       *  (no animation), theme-var driven, decorative. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute top-2 bottom-2 w-px"
+        style={{
+          left: "var(--spine-x)",
+          background:
+            "linear-gradient(to bottom, transparent, color-mix(in oklab, var(--color-or) 38%, transparent) 6%, color-mix(in oklab, var(--color-or) 38%, transparent) 94%, transparent)",
+        }}
+      />
+      <div>
+        {months.map((m, i) => (
+          <MonthBlock key={m.key} month={m} index={i} t={t} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** A calendar month on the spine: a kanji 月 cartouche marker sitting on the
+ *  rule with the month label + year, then that month's day sections. */
+function MonthBlock({ month, index, t }) {
+  const monthDelay = Math.min(index * 0.05, 0.2);
+  return (
+    <Reveal as="section" y={18} amount={0.2} delay={monthDelay} className="relative">
+      <header
+        className="relative flex items-center gap-4 mb-7 mt-12 first:mt-0"
+        style={{ paddingLeft: "calc(var(--spine-x) + 2.75rem)" }}
+      >
+        {/* 月 marker — a gold-ringed disc straddling the spine. The disc sits
+         *  centred on `--spine-x`; the ring + glyph carry gold (value/rule
+         *  hue). Pure decoration apart from its label. */}
+        <span
+          aria-hidden
+          className="absolute top-1/2 grid place-items-center w-9 h-9 rounded-full -translate-y-1/2 ja text-base"
+          style={{
+            left: "calc(var(--spine-x) - 1.125rem)",
+            color: "var(--color-or)",
+            background: "var(--color-noir-deep)",
+            border: "1px solid color-mix(in oklab, var(--color-or) 55%, transparent)",
+            boxShadow:
+              "0 0 18px -6px color-mix(in oklab, var(--color-or) 70%, transparent), inset 0 1px 0 color-mix(in oklab, var(--color-or) 18%, transparent)",
+          }}
+        >
+          月
+        </span>
+        <h2 className="display text-2xl md:text-3xl text-[var(--color-ivoire)] leading-none whitespace-nowrap">
+          {month.label}
+          {month.year ? (
+            <sup className="text-[0.5em] italic text-[var(--color-or-pale)] ml-1.5 tracking-normal align-super">
+              {month.year}
+            </sup>
+          ) : null}
+        </h2>
+        {/* A short gold rule trailing off the month label — adds horizon to
+         *  an otherwise flat divider. Theme-var gradient, hidden on phones. */}
+        <span
+          aria-hidden
+          className="pointer-events-none hidden sm:block h-px flex-1 self-center"
+          style={{
+            background:
+              "linear-gradient(90deg, color-mix(in oklab, var(--color-or) 40%, transparent), transparent)",
+          }}
+        />
+        <span className="label-mono text-[var(--color-or-pale)]/70 whitespace-nowrap">
+          {month.count}&nbsp;{t("activity.day.events")}
+        </span>
+      </header>
+
+      {month.days.map((day, i) => (
+        <DaySection key={day.key} day={day} index={i} t={t} />
+      ))}
+    </Reveal>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Day section — a dated node on the spine + the day's entries
 
 function DaySection({ day, index, t }) {
   // Stagger each day's reveal down the timeline, capped so a long history
   // never leaves the bottom days waiting too long. GPU-only (opacity/transform)
   // via the shared Reveal — reduced-motion renders a plain element.
-  const dayDelay = Math.min(index * 0.05, 0.25);
+  const dayDelay = Math.min(index * 0.04, 0.2);
   return (
-    <Reveal as="div" y={20} amount={0.15} delay={dayDelay}>
-      <header className="day-strap">
-        <div>
-          <span className="day-strap-relative" aria-hidden>
-            {day.relative ? t(day.relative) : ""}
-          </span>
-          <h2 className="day-strap-date">
-            {day.date.day}{" "}
-            <span className="text-[var(--color-or-pale)]">{day.date.month}</span>{" "}
-            <sup>{day.date.year}</sup>
-          </h2>
-        </div>
-        <span className="day-strap-rule" aria-hidden />
-        <span className="day-strap-count">
-          {day.events.length} {t("activity.day.events")}
+    <Reveal as="div" y={16} amount={0.15} delay={dayDelay} className="relative mb-6">
+      {/* Dated node — the day's number set on the spine inside a small gold
+       *  ring, with the relative label ("Aujourd'hui") + full date beside it. */}
+      <header
+        className="relative flex items-baseline gap-3 mb-3"
+        style={{ paddingLeft: "calc(var(--spine-x) + 2.75rem)" }}
+      >
+        <span
+          aria-hidden
+          className="absolute top-0 grid place-items-center w-8 h-8 rounded-full figural text-sm leading-none"
+          style={{
+            left: "calc(var(--spine-x) - 1rem)",
+            color: "var(--color-or-pale)",
+            background: "var(--color-noir)",
+            border:
+              "1px solid color-mix(in oklab, var(--color-or) 32%, transparent)",
+          }}
+        >
+          {day.date.day}
         </span>
+        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+          {day.relative ? (
+            <span className="display italic text-[11px] uppercase tracking-[0.32em] text-[var(--color-or)]">
+              {t(day.relative)}
+            </span>
+          ) : null}
+          <span className="micro-tight text-[var(--color-ivoire-soft)]/70 normal-case tracking-[0.18em]">
+            {day.date.weekday}
+          </span>
+        </div>
       </header>
 
-      <ol>
+      <ol style={{ paddingLeft: "calc(var(--spine-x) + 2.75rem)" }}>
         {day.events.map((ev, i) => (
           <Entry key={ev.id} ev={ev} index={i} t={t} />
         ))}
@@ -228,7 +388,7 @@ function DaySection({ day, index, t }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Entry — one manuscript line
+// Entry — one event hung off the spine with its own kanji node
 
 function Entry({ ev, index = 0, t }) {
   const meta = KIND_META[ev.kind];
@@ -245,25 +405,63 @@ function Entry({ ev, index = 0, t }) {
   return (
     <Reveal
       as="li"
-      y={16}
+      y={14}
       amount={0.4}
       delay={revealDelay}
-      className="entry group"
-      style={{ "--accent": accent }}
+      className="group relative py-3.5 border-b border-dashed last:border-b-0"
+      style={{
+        "--accent": accent,
+        borderColor: "color-mix(in oklab, var(--color-or) 14%, transparent)",
+      }}
     >
-      {/* Margin spine — a thin colour-coded bar fused to the entry's left
-       *  edge in this kind's hue, echoing the journal's gold thread. Widens +
-       *  brightens on hover (transform/opacity only). Decorative,
-       *  pointer-events-none, theme-var driven. */}
+      {/* Kanji node on the spine — a small disc inked in this kind's hue,
+       *  centred on `--spine-x`. Brightens + lifts a touch on hover
+       *  (opacity/transform only). The connector hairline reaches from the
+       *  node to the row. Decorative, theme-var driven. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute top-1 bottom-1 w-[2px] origin-left scale-x-50 opacity-60 transition-[transform,opacity] duration-300 ease-out group-hover:scale-x-100 group-hover:opacity-100 motion-reduce:transition-none"
+        className="pointer-events-none absolute top-3.5 grid place-items-center w-7 h-7 rounded-full ja text-[15px] leading-none transition-transform duration-300 ease-out group-hover:-translate-y-0.5 motion-reduce:transition-none"
         style={{
-          left: "calc(-1 * clamp(0px, 4vw, 2.5rem))",
-          background: `linear-gradient(180deg, transparent, color-mix(in oklab, ${accent} 65%, transparent) 20%, color-mix(in oklab, ${accent} 40%, transparent) 80%, transparent)`,
+          // Pull the node back onto the spine: this <li> is already indented
+          // to (spine-x + 2.75rem), so step left by that whole offset and
+          // re-centre the 1.75rem disc on the rule.
+          left: "calc(-2.75rem - 0.875rem)",
+          color: accent,
+          background: "var(--color-noir)",
+          border: `1px solid color-mix(in oklab, ${accent} 55%, transparent)`,
+          boxShadow: `0 0 14px -5px color-mix(in oklab, ${accent} 75%, transparent)`,
+        }}
+      >
+        {meta?.kanji ?? "・"}
+        {/* Sentiment pip riding the node corner — gold/laque/ivoire dot. */}
+        <span
+          aria-hidden
+          className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full"
+          style={{
+            background:
+              meta?.tone === "positive"
+                ? "var(--color-or)"
+                : meta?.tone === "negative"
+                  ? "var(--color-laque-bright)"
+                  : "var(--color-ivoire)",
+            boxShadow: "0 0 0 1px var(--color-noir)",
+          }}
+        />
+      </span>
+
+      {/* Connector — a short hairline from the spine to the node, in the
+       *  kind's hue, that brightens on hover. Opacity-only transition. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute top-[1.55rem] h-px opacity-60 transition-opacity duration-300 ease-out group-hover:opacity-100 motion-reduce:transition-none"
+        style={{
+          left: "calc(-1.875rem)",
+          width: "1.125rem",
+          background: `linear-gradient(90deg, color-mix(in oklab, ${accent} 55%, transparent), transparent)`,
         }}
       />
-      {/* Hover colour-wash — a faint accent bloom from the glyph corner that
+
+      {/* Hover colour-wash — a faint accent bloom from the node corner that
        *  fades in on hover, giving each row a moment of its own colour without
        *  disturbing the resting layout. Opacity-only transition. */}
       <span
@@ -273,34 +471,18 @@ function Entry({ ev, index = 0, t }) {
           background: `radial-gradient(60% 80% at 0% 50%, color-mix(in oklab, ${accent} 9%, transparent), transparent 62%)`,
         }}
       />
-      <div
-        className={`entry-glyph entry-glyph--${meta?.tone ?? "neutral"} relative`}
-      >
-        {/* Accent ring riding over the brass plate — fuses each glyph to its
-         *  kind's hue and lights up on hover. GPU-cheap (opacity), theme var. */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-70 transition-opacity duration-300 ease-out group-hover:opacity-100 motion-reduce:transition-none"
-          style={{
-            boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${accent} 60%, transparent), 0 0 16px -6px color-mix(in oklab, ${accent} 80%, transparent)`,
-          }}
-        />
-        <span className="entry-glyph-kanji" aria-hidden>
-          {meta?.kanji ?? "・"}
-        </span>
-      </div>
 
-      <div className="entry-body">
-        <p className="entry-line">
+      <div className="relative min-w-0">
+        <p
+          className="text-sm text-[var(--color-ivoire)] leading-relaxed pr-14"
+          style={{ fontFamily: "var(--font-sans)" }}
+        >
           <EntryLine ev={ev} t={t} figureId={figureId} figureName={figureName} />
         </p>
 
         {/* Slipped preorder — pin a paper-tape annotation showing from → to */}
         {ev.kind === "preorder_slipped" ? (
-          <SlipTape
-            from={ev.payload?.from_date}
-            to={ev.payload?.to_date}
-          />
+          <SlipTape from={ev.payload?.from_date} to={ev.payload?.to_date} />
         ) : null}
 
         {/* Status transition — two pills with an arrow between them */}
@@ -312,8 +494,17 @@ function Entry({ ev, index = 0, t }) {
           />
         ) : null}
 
-        <span className="entry-time">
-          <time dateTime={ev.created_at} title={time.toLocaleString(document.documentElement.lang || undefined)}>
+        <span
+          className="block mt-1.5 text-[10px] uppercase tracking-[0.22em]"
+          style={{
+            fontFamily: "var(--font-mono)",
+            color: "color-mix(in oklab, var(--color-ivoire) 45%, transparent)",
+          }}
+        >
+          <time
+            dateTime={ev.created_at}
+            title={time.toLocaleString(document.documentElement.lang || undefined)}
+          >
             {formatTimeOfDay(time)} · {relativeShort(time)}
           </time>
         </span>
@@ -321,10 +512,19 @@ function Entry({ ev, index = 0, t }) {
         {figureImage ? (
           <Link
             to={figureId ? `/figures/${figureId}` : "#"}
-            className="entry-thumb"
+            className="absolute top-0 right-0 block w-12 h-12 overflow-hidden bg-[var(--color-noir-deep)] opacity-0 -translate-x-2 transition-[opacity,transform] duration-300 ease-out group-hover:opacity-100 group-hover:translate-x-0 motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-x-0"
+            style={{
+              border: "1px solid color-mix(in oklab, var(--color-or) 25%, transparent)",
+            }}
             aria-label={figureName}
           >
-            <img src={figureImage} alt={figureName ?? ""} loading="lazy" decoding="async" />
+            <img
+              src={figureImage}
+              alt={figureName ?? ""}
+              loading="lazy"
+              decoding="async"
+              className="w-full h-full object-cover"
+            />
           </Link>
         ) : null}
       </div>
@@ -333,14 +533,28 @@ function Entry({ ev, index = 0, t }) {
 }
 
 /** The typeset event description. The figure name is wrapped in <strong>
- *  (which is restyled to a display serif via .entry-line strong) and linked
- *  to the figure detail page when we know the id. */
+ *  (restyled to a display serif inline) and linked to the figure detail page
+ *  when we know the id. */
 function EntryLine({ ev, t, figureId, figureName }) {
   const wrap = (children) =>
-    figureId ? <Link to={`/figures/${figureId}`}>{children}</Link> : children;
+    figureId ? (
+      <Link
+        to={`/figures/${figureId}`}
+        className="underline decoration-[var(--color-or)]/25 hover:decoration-[var(--color-or)] underline-offset-4 transition-colors"
+      >
+        {children}
+      </Link>
+    ) : (
+      children
+    );
 
   const name = (
-    <strong>{figureName ?? t("activity.unknown_figure")}</strong>
+    <strong
+      className="font-normal text-[17px] tracking-[0.005em] text-[var(--color-or-pale)] group-hover:text-[var(--color-or)] transition-colors"
+      style={{ fontFamily: "var(--font-display)" }}
+    >
+      {figureName ?? t("activity.unknown_figure")}
+    </strong>
   );
 
   switch (ev.kind) {
@@ -431,9 +645,7 @@ function EmptyJournal({ t }) {
         <p className="display italic text-2xl text-[var(--color-or-pale)]">
           {t("activity.empty.title")}
         </p>
-        <p className="micro-tight mt-3 opacity-80">
-          {t("activity.empty.body")}
-        </p>
+        <p className="micro-tight mt-3 opacity-80">{t("activity.empty.body")}</p>
       </div>
     </div>
   );
@@ -441,6 +653,23 @@ function EmptyJournal({ t }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Grouping + formatting
+
+/** Headline counts for the StatCard strip — all figurine-domain metrics drawn
+ *  from the loaded activity window (no manga completion). */
+function deriveStats(events) {
+  let acquired = 0;
+  let preorders = 0;
+  let thisMonth = 0;
+  const now = new Date();
+  const ym = now.getFullYear() * 12 + now.getMonth();
+  for (const e of events) {
+    if (ACQUIRED_KINDS.has(e.kind)) acquired += 1;
+    if (PREORDER_KINDS.has(e.kind)) preorders += 1;
+    const d = new Date(e.created_at);
+    if (d.getFullYear() * 12 + d.getMonth() === ym) thisMonth += 1;
+  }
+  return { total: events.length, acquired, preorders, thisMonth };
+}
 
 /** Bucket the chronological event list by calendar day. Returns an array of
  *  { key, date, events, relative } shaped objects in the same chronological
@@ -483,6 +712,34 @@ function groupByDay(events) {
     else if (diff < 7) day.relative = "activity.relative.this_week";
   }
   return days;
+}
+
+/** Thread the day buckets into calendar months for the spine's month markers.
+ *  Returns [{ key, label, year, count, days: [] }] in the same chronological
+ *  order as the input days (most recent month first). */
+function groupByMonth(days) {
+  const months = [];
+  const idxByKey = new Map();
+  for (const day of days) {
+    const d = day.date.raw;
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    let i = idxByKey.get(key);
+    if (i === undefined) {
+      i = months.length;
+      idxByKey.set(key, i);
+      const label = day.date.month;
+      months.push({
+        key,
+        label: label.charAt(0).toUpperCase() + label.slice(1),
+        year: d.getFullYear(),
+        count: 0,
+        days: [],
+      });
+    }
+    months[i].days.push(day);
+    months[i].count += day.events.length;
+  }
+  return months;
 }
 
 function stripTime(d) {

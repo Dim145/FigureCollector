@@ -16,6 +16,9 @@ import {
 } from "../hooks/useCollection.js";
 import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
+import Button from "../components/Button.jsx";
+import Card from "../components/Card.jsx";
+import StatCard from "../components/StatCard.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import { typeHue, typeKanji } from "../lib/typeHue.js";
@@ -39,14 +42,25 @@ function cabinetValue(items) {
 }
 
 /**
- * « Les Vitrines » — drag-and-drop shelf organiser (@dnd-kit).
+ * « Les Vitrines » — drag-and-drop shelf organiser (@dnd-kit), redrawn to
+ * Direction A ("Shōjo-Noir").
+ *
+ * Each cabinet reads like a lit glass display case: a Card surface with a
+ * brass-plaque header, a kanji marker (棚 registered / 飾 free-text), gold-rule
+ * shelf edges framing the specimens, and a quiet diagonal sheen. A figurine-
+ * metric strip (vitrines · rangées · non rangées · valeur) sits under the
+ * editorial header; the « où est… ? » lookup is a refined Card-bordered
+ * control with a 探 marker.
  *
  * Pieces live in persistent display cabinets (`collection_locations`) plus any
  * free-text location typed before it was registered, plus a dashed "unshelved"
  * group. Cabinets can be created/deleted; pieces are reordered WITHIN a shelf
- * and moved BETWEEN shelves by dragging the ⠿ handle (pointer, touch, keyboard),
+ * and moved BETWEEN shelves by dragging the card (pointer, touch, keyboard),
  * persisted via the `arrange` endpoint. Covers show the figure photo (kanji
  * glyph fallback), NSFW-blurred per the viewer's preference.
+ *
+ * GPU-light: flat fills + static gradients + hairlines, the shared `.reveal`
+ * stagger, the one diagonal glass sheen. No animated meshes / blur / glows.
  */
 export default function VitrinesPage() {
   const t = useT();
@@ -241,6 +255,13 @@ export default function VitrinesPage() {
   const activeItem = activeId ? itemMap.get(activeId) : null;
   const tileShared = { nsfwBlur, matchedIds, openItem, t };
 
+  // Header metric strip (figurine metrics only — counts stay ivoire/red, gold
+  // is reserved for the aggregate value). Derived from the live board so the
+  // figures track drags optimistically.
+  const looseCount = (board[LOOSE] ?? []).length;
+  const shelvedCount = total - looseCount;
+  const totalValue = cabinetValue(owned.data ?? []);
+
   return (
     <AppShell>
       <main className="relative max-w-6xl mx-auto px-6 py-16">
@@ -255,74 +276,131 @@ export default function VitrinesPage() {
           }}
         />
 
-        <Reveal as="header" className="relative mb-8">
+        {/* ─── Editorial header ─── */}
+        <header className="relative mb-12">
           <span aria-hidden className="kanji-mark text-[24rem] -top-28 -right-6 hidden md:block">棚</span>
-          <p className="micro">{t("vitrines.eyebrow")}</p>
-          <h1 className="display text-4xl md:text-5xl text-[var(--color-ivoire)] mt-2"><AccentTitle text={t("vitrines.title")} /></h1>
-          <div className="gold-rule w-16 mt-4" />
-          <p className="mt-5 text-[var(--color-ivoire-soft)] leading-relaxed max-w-2xl">{t("vitrines.body")}</p>
+
+          <p className="micro reveal flex items-center gap-2.5" style={{ "--i": 0 }}>
+            <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
+            {t("vitrines.eyebrow")}
+            <span aria-hidden className="ja not-italic text-[var(--color-or)]">棚</span>
+          </p>
+          <h1
+            className="display text-5xl md:text-6xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
+            style={{ "--i": 1 }}
+          >
+            <AccentTitle text={t("vitrines.title")} />
+          </h1>
+          <div className="gold-rule w-32 mt-6 reveal" style={{ "--i": 2 }} />
+          <p
+            className="mt-5 text-[var(--color-ivoire-soft)] leading-relaxed max-w-2xl reveal"
+            style={{ "--i": 3 }}
+          >
+            {t("vitrines.body")}
+          </p>
+
+          {total > 0 || cabinetKeys.length > 0 ? (
+            <div
+              className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-3 reveal"
+              style={{ "--i": 3 }}
+            >
+              <StatCard
+                label={t("nav.vitrines")}
+                value={cabinetKeys.length}
+                sub={t("vitrines.stat.cabinets_sub", { default: "Meubles" })}
+              />
+              <StatCard
+                label={t("vitrines.stat.shelved", { default: "Pièces rangées" })}
+                value={shelvedCount}
+              />
+              <StatCard
+                label={t("vitrines.stat.loose", { default: "Non rangées" })}
+                value={looseCount}
+                tone={looseCount > 0 ? "red" : undefined}
+              />
+              <StatCard
+                label={t("vitrines.stat.value", { default: "Valeur en vitrine" })}
+                value={totalValue ? `${totalValue.multi ? "≈ " : ""}${fmtMoney(totalValue.amount, totalValue.currency, locale)}` : "—"}
+                tone="gold"
+              />
+            </div>
+          ) : null}
+        </header>
+
+        {/* ─── « Où est… ? » lookup + cabinet creation — a refined A control ─── */}
+        <Reveal as="div" delay={0.05}>
+          <Card className="relative overflow-hidden p-4 md:p-5">
+            <span aria-hidden className="kanji-mark text-[8rem] -top-6 -right-2 select-none">探</span>
+            <div className="relative flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-3 flex-1 min-w-[16rem] border border-[color-mix(in_oklab,var(--color-or)_45%,transparent)] focus-within:border-[var(--color-or)] bg-[var(--color-noir-deep)] px-4 py-2.5 transition-colors">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-4 h-4 text-[var(--color-or)] shrink-0" aria-hidden>
+                  <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+                </svg>
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={t("vitrines.search_ph")}
+                  aria-label={t("vitrines.search_ph")}
+                  className="flex-1 bg-transparent outline-none text-[var(--color-ivoire)] display text-xl placeholder:text-[color-mix(in_oklab,var(--color-ivoire)_45%,transparent)]"
+                />
+                {query ? (
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    aria-label={t("vitrines.search_clear", { default: "Effacer" })}
+                    className="tap-target shrink-0 -mr-2 text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] transition-colors leading-none text-lg"
+                  >
+                    ×
+                  </button>
+                ) : null}
+              </label>
+              {creating ? (
+                <span className="inline-flex items-center border border-[var(--color-or)] bg-[var(--color-noir-deep)]">
+                  <input
+                    autoFocus
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") submitCreate(); if (e.key === "Escape") setCreating(false); }}
+                    placeholder={t("vitrines.new_cabinet_ph")}
+                    aria-label={t("vitrines.new_cabinet_ph")}
+                    className="bg-transparent outline-none text-[var(--color-ivoire)] px-3 py-2.5 w-44"
+                  />
+                  <button type="button" onClick={submitCreate} disabled={createLoc.isPending} className="tap-target px-3 self-stretch bg-[var(--color-or)] text-[var(--color-noir)] text-[11px] uppercase tracking-[0.16em] hover:bg-[var(--color-or-pale)] transition-colors disabled:opacity-60">
+                    {t("vitrines.create")}
+                  </button>
+                </span>
+              ) : (
+                <Button variant="ghost" onClick={() => setCreating(true)} className="!px-5 !py-2.5 text-[11px] uppercase tracking-[0.18em] whitespace-nowrap">
+                  <span aria-hidden className="ja text-[var(--color-or)] text-base leading-none">飾</span>
+                  {t("vitrines.new_cabinet")}
+                </Button>
+              )}
+            </div>
+
+            {matched ? (
+              <p className="relative mt-3 pt-3 border-t border-[color-mix(in_oklab,var(--color-or)_18%,transparent)] text-[13px] text-[var(--color-ivoire-soft)]">
+                {matched.length === 0 ? (
+                  <span className="italic">{t("vitrines.search_none", { q: query.trim() })}</span>
+                ) : (
+                  <>
+                    <span className="micro-tight mr-1.5 text-[var(--color-or-pale)]">{t("vitrines.search_found", { n: matched.length })}</span>
+                    {matched.slice(0, 4).map((o, i) => (
+                      <span key={o.id} className="whitespace-nowrap">
+                        {i > 0 ? <span aria-hidden className="text-[color-mix(in_oklab,var(--color-or)_45%,transparent)]"> · </span> : ""}
+                        <b className="text-[var(--color-jade)] font-medium">{o.figure_name}</b>
+                        <span className="text-[var(--color-or-pale)]"> 「{(o.location || "").trim() || t("vitrines.loose")}」</span>
+                      </span>
+                    ))}
+                    {matched.length > 4 ? <span aria-hidden className="text-[var(--color-ivoire-soft)]"> …</span> : ""}
+                  </>
+                )}
+              </p>
+            ) : null}
+          </Card>
         </Reveal>
 
-        <div className="flex flex-wrap items-center gap-3 mb-2">
-          <div className="flex items-center gap-3 border border-[var(--color-or)] bg-[var(--color-noir)] px-4 py-3 flex-1 min-w-[16rem]">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-4 h-4 text-[var(--color-or)] shrink-0">
-              <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
-            </svg>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t("vitrines.search_ph")}
-              aria-label={t("vitrines.search_ph")}
-              className="flex-1 bg-transparent outline-none text-[var(--color-ivoire)] display text-xl placeholder:text-[color-mix(in_oklab,var(--color-ivoire)_45%,transparent)]"
-            />
-          </div>
-          {creating ? (
-            <span className="inline-flex items-center border border-[var(--color-or)] bg-[var(--color-noir)]">
-              <input
-                autoFocus
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") submitCreate(); if (e.key === "Escape") setCreating(false); }}
-                placeholder={t("vitrines.new_cabinet_ph")}
-                className="bg-transparent outline-none text-[var(--color-ivoire)] px-3 py-3 w-44"
-              />
-              <button type="button" onClick={submitCreate} disabled={createLoc.isPending} className="px-3 py-3 bg-[var(--color-or)] text-[var(--color-noir)] text-[11px] uppercase tracking-[0.16em]">
-                {t("vitrines.create")}
-              </button>
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setCreating(true)}
-              className="px-4 py-3 border border-[color-mix(in_oklab,var(--color-or)_40%,transparent)] text-[var(--color-or)] hover:border-[var(--color-or)] text-[11px] uppercase tracking-[0.18em] transition-colors whitespace-nowrap"
-            >
-              + {t("vitrines.new_cabinet")}
-            </button>
-          )}
-        </div>
-
-        {matched ? (
-          <p className="mt-1 mb-2 text-[13px] text-[var(--color-ivoire-soft)]">
-            {matched.length === 0 ? (
-              t("vitrines.search_none", { q: query.trim() })
-            ) : (
-              <>
-                {t("vitrines.search_found", { n: matched.length })}{" "}
-                {matched.slice(0, 3).map((o, i) => (
-                  <span key={o.id}>
-                    {i > 0 ? " · " : ""}
-                    <b className="text-[var(--color-jade)]">{o.figure_name}</b>
-                    <span className="text-[var(--color-or-pale)]"> 「{(o.location || "").trim() || t("vitrines.loose")}」</span>
-                  </span>
-                ))}
-                {matched.length > 3 ? " …" : ""}
-              </>
-            )}
-          </p>
-        ) : null}
-
         {owned.isLoading ? (
-          <p className="text-center text-[var(--color-ivoire-soft)] py-16">…</p>
+          <p role="status" aria-live="polite" className="text-center text-[var(--color-ivoire-soft)] py-16">…</p>
         ) : total === 0 && cabinetKeys.length === 0 ? (
           <EmptyState t={t} />
         ) : (
@@ -334,7 +412,7 @@ export default function VitrinesPage() {
             onDragEnd={onDragEnd}
             onDragCancel={onDragCancel}
           >
-            <div className="mt-6 grid gap-7 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
+            <div className="mt-8 grid gap-7 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
               {cabinetKeys.map((key) => (
                 <Cabinet
                   key={key}
@@ -343,6 +421,7 @@ export default function VitrinesPage() {
                   ids={board[key] ?? []}
                   itemMap={itemMap}
                   locale={locale}
+                  registered={canonical.registeredIds.has(key)}
                   onDelete={
                     canonical.registeredIds.has(key)
                       ? () => setConfirmDel({ id: canonical.registeredIds.get(key), name: key })
@@ -385,48 +464,117 @@ export default function VitrinesPage() {
   );
 }
 
-function Cabinet({ id, name, loose, ids, itemMap, locale, onDelete, nsfwBlur, matchedIds, openItem, t }) {
+/**
+ * One display case. Registered + free-text cabinets read as a lit glass
+ * vitrine (Card surface, brass-plaque header, kanji marker, gold-rule shelf
+ * edges, glass sheen); the "unshelved" group is a dashed reserve crate.
+ *
+ * The droppable + SortableContext wiring is unchanged — only the chrome around
+ * the specimen grid was restyled.
+ */
+function Cabinet({ id, name, loose, ids, itemMap, locale, registered, onDelete, nsfwBlur, matchedIds, openItem, t }) {
   const { setNodeRef, isOver } = useDroppable({ id });
   const items = ids.map((i) => itemMap.get(i)).filter(Boolean);
-  const ring = isOver ? "border-[var(--color-or)] ring-1 ring-[var(--color-or)]" : "";
-  const base = loose
-    ? `border-dashed ${isOver ? "" : "border-[color-mix(in_oklab,var(--color-or)_28%,transparent)]"}`
-    : `[background:linear-gradient(180deg,var(--color-noir-soft),var(--color-noir-deep))] shadow-[0_24px_46px_-24px_rgba(0,0,0,0.7)] ${isOver ? "" : "border-[color-mix(in_oklab,var(--color-or)_24%,transparent)]"}`;
-  return (
-    <article className={`relative overflow-hidden border transition-colors ${base} ${ring}`}>
-      {!loose ? <GlassSheen /> : null}
-      <header className={`relative z-[2] flex items-start justify-between gap-3 px-4 pt-4 pb-3 border-b ${loose ? "border-dashed border-[color-mix(in_oklab,var(--color-or)_28%,transparent)]" : "border-[color-mix(in_oklab,var(--color-or)_30%,transparent)]"}`}>
-        <div className="min-w-0">
-          <h2 className={`display text-xl leading-tight truncate ${loose ? "italic text-[var(--color-ivoire-soft)]" : "text-[var(--color-ivoire)]"}`}>
-            {loose ? t("vitrines.loose") : name}
-          </h2>
-          <p className="micro-tight mt-1">
-            {loose ? t("vitrines.loose_count", { n: items.length }) : t("vitrines.piece_count", { n: items.length })}
-          </p>
-        </div>
-        {!loose ? (
-          <div className="flex items-start gap-2 shrink-0">
-            <CabinetValue items={items} locale={locale} t={t} />
-            {onDelete ? (
-              <button type="button" onClick={onDelete} title={t("vitrines.delete_cabinet")} className="text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] transition-colors leading-none text-lg">
-                ×<span className="sr-only">{t("vitrines.delete_cabinet")}</span>
-              </button>
-            ) : null}
+  // 棚 (shelf) for a registered cabinet, 飾 (display) for a free-text one.
+  const marker = loose ? "" : registered ? "棚" : "飾";
+
+  if (loose) {
+    return (
+      <article
+        className={`relative overflow-hidden border border-dashed transition-colors ${
+          isOver
+            ? "border-[var(--color-or)] ring-1 ring-[var(--color-or)]"
+            : "border-[color-mix(in_oklab,var(--color-or)_28%,transparent)]"
+        }`}
+        style={{ background: "color-mix(in oklab, var(--color-noir-deep) 55%, transparent)" }}
+      >
+        <header className="flex items-start justify-between gap-3 px-4 pt-4 pb-3 border-b border-dashed border-[color-mix(in_oklab,var(--color-or)_28%,transparent)]">
+          <div className="min-w-0">
+            <h2 className="display text-xl leading-tight truncate italic text-[var(--color-ivoire-soft)]">
+              {t("vitrines.loose")}
+            </h2>
+            <p className="micro-tight mt-1">{t("vitrines.loose_count", { n: items.length })}</p>
           </div>
-        ) : null}
+        </header>
+        <SortableContext items={ids} strategy={rectSortingStrategy}>
+          <div ref={setNodeRef} className="relative grid grid-cols-3 gap-2.5 p-4 min-h-[96px]">
+            {items.length === 0 ? (
+              <DropHint t={t} />
+            ) : (
+              items.map((o) => <SortableTile key={o.id} o={o} nsfwBlur={nsfwBlur} matchedIds={matchedIds} openItem={openItem} />)
+            )}
+          </div>
+        </SortableContext>
+      </article>
+    );
+  }
+
+  return (
+    <Card
+      as="article"
+      className={`overflow-hidden transition-colors ${
+        isOver ? "!border-[var(--color-or)] ring-1 ring-[var(--color-or)]" : ""
+      }`}
+    >
+      {/* Lit-glass atmosphere: a faint kanji marker behind the shelf + the
+          shared diagonal sheen catching the room's single light. Both static
+          and pointer-inert — GPU-free. */}
+      <span aria-hidden className="kanji-mark text-[7rem] -top-5 -right-1 select-none">{marker}</span>
+      <GlassSheen />
+
+      {/* Brass plaque — the cabinet's name + a kanji tag, over the front
+          gold-rule shelf edge. */}
+      <header className="relative z-[2] flex items-start justify-between gap-3 px-4 pt-4 pb-3">
+        <div className="min-w-0">
+          <p className="micro-tight flex items-center gap-1.5">
+            <span aria-hidden className="ja not-italic text-sm leading-none text-[var(--color-or)]">{marker}</span>
+            {registered ? t("vitrines.cabinet_kicker", { default: "Meuble" }) : t("vitrines.cabinet_kicker_freetext", { default: "Emplacement" })}
+          </p>
+          <h2 className="display text-xl leading-tight truncate text-[var(--color-ivoire)] mt-1">
+            {name}
+          </h2>
+          <p className="micro-tight mt-1 text-[var(--color-ivoire-soft)]/70">{t("vitrines.piece_count", { n: items.length })}</p>
+        </div>
+        <div className="flex items-start gap-2 shrink-0">
+          <CabinetValue items={items} locale={locale} t={t} />
+          {onDelete ? (
+            <button
+              type="button"
+              onClick={onDelete}
+              title={t("vitrines.delete_cabinet")}
+              className="tap-target -mr-1.5 -mt-1 grid place-items-center text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] transition-colors leading-none text-lg"
+            >
+              ×<span className="sr-only">{t("vitrines.delete_cabinet")}</span>
+            </button>
+          ) : null}
+        </div>
       </header>
+      {/* Front shelf edge — a gold hairline under the plaque. */}
+      <div aria-hidden className="relative z-[2] gold-rule mx-4" />
+
       <SortableContext items={ids} strategy={rectSortingStrategy}>
-        <div ref={setNodeRef} className="relative z-[1] grid grid-cols-3 gap-2.5 p-4 min-h-[88px]">
+        <div ref={setNodeRef} className="relative z-[1] grid grid-cols-3 gap-2.5 px-4 pt-4 pb-3 min-h-[96px]">
           {items.length === 0 ? (
-            <p className="col-span-3 grid place-items-center text-center text-[12px] text-[var(--color-ivoire-soft)] italic py-6">
-              {t("vitrines.drop_hint")}
-            </p>
+            <DropHint t={t} />
           ) : (
             items.map((o) => <SortableTile key={o.id} o={o} nsfwBlur={nsfwBlur} matchedIds={matchedIds} openItem={openItem} />)
           )}
         </div>
       </SortableContext>
-    </article>
+      {/* Base shelf edge — a fainter gold rule grounding the case. */}
+      <div aria-hidden className="relative z-[2] mx-4 mb-3 h-px" style={{ background: "linear-gradient(to right, transparent, color-mix(in oklab, var(--color-or) 45%, transparent) 30%, color-mix(in oklab, var(--color-or) 45%, transparent) 70%, transparent)" }} />
+    </Card>
+  );
+}
+
+// Empty-shelf affordance — a centred, dashed-feeling cue inviting a drop. The
+// kanji whispers "place" (置). Spans the 3-column specimen grid.
+function DropHint({ t }) {
+  return (
+    <div className="col-span-3 grid place-items-center text-center py-7 gap-1.5">
+      <span aria-hidden className="ja text-2xl leading-none text-[color-mix(in_oklab,var(--color-or)_35%,transparent)]">置</span>
+      <p className="text-[12px] text-[var(--color-ivoire-soft)] italic">{t("vitrines.drop_hint")}</p>
+    </div>
   );
 }
 
@@ -461,6 +609,15 @@ function SortableTile({ o, nsfwBlur, matchedIds, openItem }) {
       className={`group/spec relative aspect-[3/4] overflow-hidden border cursor-grab active:cursor-grabbing select-none ${isMatch ? "ring-2 ring-[var(--color-jade)] ring-offset-1 ring-offset-[var(--color-noir-deep)]" : ""}`}
     >
       <TileVisual o={o} nsfwBlur={nsfwBlur} />
+      {/* Grab affordance — a faint ⠿ handle cue that surfaces on hover/focus.
+          Purely decorative; the whole tile is draggable. */}
+      <span
+        aria-hidden
+        className="absolute top-1 right-1 z-[3] leading-none text-[10px] text-[var(--color-ivoire)] opacity-0 group-hover/spec:opacity-70 group-focus/spec:opacity-70 transition-opacity"
+        style={{ textShadow: "0 1px 2px rgba(0,0,0,0.8)" }}
+      >
+        ⠿
+      </span>
     </div>
   );
 }
@@ -505,12 +662,24 @@ function GlassSheen() {
 
 function EmptyState({ t }) {
   return (
-    <div className="text-center py-20">
-      <p className="ja text-[6rem] text-[var(--color-or)]/30 leading-none">棚</p>
-      <p className="mt-3 text-[var(--color-ivoire-soft)] italic">{t("vitrines.empty")}</p>
-      <Link to="/collection" className="inline-block mt-5 px-5 py-3 bg-[var(--color-or)] text-[var(--color-noir)] text-[11px] uppercase tracking-[0.2em] hover:bg-[var(--color-or-pale)] transition-colors">
-        {t("vitrines.empty_cta")}
+    <Card className="max-w-xl mx-auto mt-8 p-12 text-center relative overflow-hidden frame-corners">
+      <span
+        aria-hidden
+        className="ja absolute -top-6 -right-6 text-[14rem] text-[var(--color-or)]/10 leading-none select-none"
+      >
+        棚
+      </span>
+      <p className="micro relative">{t("vitrines.empty_eyebrow", { default: "Aucune vitrine" })}</p>
+      <h2 className="display text-3xl mt-3 text-[var(--color-ivoire)] relative">
+        {t("vitrines.empty")}
+      </h2>
+      <p className="mt-4 text-[var(--color-ivoire-soft)] leading-relaxed relative">
+        {t("vitrines.empty_body", { default: "Ajoute des pièces à ta collection, puis range-les dans des vitrines en les glissant à leur place." })}
+      </p>
+      <div className="gold-rule mx-auto w-20 my-8" />
+      <Link to="/collection" className="relative inline-block">
+        <Button variant="primary">{t("vitrines.empty_cta")}</Button>
       </Link>
-    </div>
+    </Card>
   );
 }
