@@ -1,0 +1,775 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FigureCollector — Direction D · Encre & Métal</title>
+<meta name="description" content="Redesign FigureCollector — Direction D « 墨 & 鉄 · Encre & Métal · sobre premium » : outil logiciel premium pour collectionneur. Dark chaud, hairlines, vermillon 朱, monospace. 4 écrans." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..800;1,400..600&family=JetBrains+Mono:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================================
+   DIRECTION D — « 墨 & 鉄 · ENCRE & MÉTAL · sobre premium »
+   Un outil logiciel précis, rapide, premium pour le collectionneur sérieux
+   (l'esthétique Linear / Vercel) mais chaleureux-japonais, pas froid.
+   Dark légèrement chaud · hairlines partout (zéro ombre) · vermillon 朱 unique
+   · acier neutre · monospace comme signature (encre + métal usiné).
+   GPU-LÉGER PAR CONSTRUCTION : fills plats, dégradés statiques, bords 1px,
+   aucune animation continue, aucun backdrop-filter (sauf 1 barre sticky),
+   aucun filter:glow.
+============================================================================ */
+:root{
+  --ink:#0c0b0a;             /* page — encre chaude */
+  --ink-2:#0d0d10;           /* page alt (légèrement froid) */
+  --panel:#141414;           /* panneaux */
+  --panel-2:#16140f;         /* panneaux chauds (puits) */
+  --panel-3:#101010;         /* panneaux enfoncés */
+  --shu:#e5413a;             /* 朱 vermillon — accent vif unique */
+  --shu-2:#f0584f;           /* hover */
+  --shu-dim:rgba(229,65,58,.14);
+  --shu-line:rgba(229,65,58,.40);
+  --steel:#9aa3ad;           /* acier — labels mono, le « métal » */
+  --steel-2:#6b7280;         /* acier sourd */
+  --jade:#6fae8f;            /* jade discret — « cote en hausse » seulement */
+  --txt:#ededec;             /* texte primaire */
+  --txt-soft:rgba(237,237,236,.66);
+  --txt-faint:rgba(237,237,236,.40);
+  --txt-ghost:rgba(237,237,236,.26);
+  /* hairlines — la grammaire de la direction, jamais d'ombres */
+  --line:rgba(255,255,255,.07);
+  --line-2:rgba(255,255,255,.10);
+  --line-3:rgba(255,255,255,.14);
+  --ease:cubic-bezier(.22,1,.36,1);
+  --r:8px;                   /* petit rayon, net */
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;background:var(--ink);color:var(--txt);
+  font-family:"Hanken Grotesk",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+  line-height:1.5;font-weight:400;
+  /* dégradé STATIQUE très sobre : une lueur chaude haut-gauche, froide bas-droite. Aucun filter. */
+  background-image:
+    radial-gradient(80% 60% at 0% 0%, rgba(229,65,58,.05), transparent 60%),
+    radial-gradient(70% 70% at 100% 100%, rgba(154,163,173,.035), transparent 60%);
+  background-attachment:fixed;
+}
+.wrap{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 28px;}
+
+/* ---- typographie ---- */
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-feature-settings:"tnum" 1;}
+.ja{font-family:"Noto Sans JP",sans-serif;font-weight:500;}
+h1,h2,h3{font-family:"Hanken Grotesk",sans-serif;letter-spacing:-.022em;font-weight:600;}
+.kicker{font:500 11px/1 "JetBrains Mono",monospace;text-transform:uppercase;letter-spacing:.2em;
+  color:var(--steel);display:inline-flex;align-items:center;gap:.85em;}
+.kicker .dot{width:5px;height:5px;border-radius:50%;background:var(--shu);}
+.kicker .ja{color:var(--txt-faint);letter-spacing:.05em;font-size:12.5px;}
+.kicker .sep{color:var(--txt-ghost);}
+
+/* ---- maquette switcher (chrome — la seule backdrop-blur autorisée) ---- */
+.switcher{position:sticky;top:0;z-index:50;
+  background:rgba(12,11,10,.72);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);}
+.switcher .row{display:flex;align-items:center;gap:18px;height:54px;}
+.brandmark{display:flex;align-items:center;gap:10px;}
+.brandmark .mc{width:24px;height:24px;border-radius:6px;background:var(--shu);color:#fff;
+  display:grid;place-items:center;font:700 12px/1 "JetBrains Mono";}
+.brandmark .wm{font-family:"Hanken Grotesk";font-weight:600;font-size:15px;letter-spacing:-.02em;}
+.brandmark .wm .dim{color:var(--txt-faint);font-weight:500;}
+.brandmark .ver{font:500 10px/1 "JetBrains Mono";color:var(--txt-ghost);border:1px solid var(--line);
+  border-radius:5px;padding:4px 6px;letter-spacing:.04em;}
+.tabs{margin-left:auto;display:flex;gap:2px;background:rgba(255,255,255,.025);padding:3px;
+  border-radius:var(--r);border:1px solid var(--line);}
+.tab{appearance:none;border:0;background:transparent;color:var(--txt-faint);cursor:pointer;
+  font:500 11px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.1em;
+  padding:8px 13px;border-radius:6px;transition:color .18s var(--ease),background .18s var(--ease);white-space:nowrap;}
+.tab:hover{color:var(--txt);}
+.tab.on{background:var(--shu);color:#fff;}
+
+/* ---- command-palette hint ---- */
+.cmdk{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,.02);
+  border:1px solid var(--line);border-radius:var(--r);padding:8px 11px;color:var(--txt-faint);
+  font:500 11px/1 "JetBrains Mono";cursor:pointer;transition:border-color .18s var(--ease),color .18s var(--ease);}
+.cmdk:hover{border-color:var(--line-3);color:var(--txt-soft);}
+.cmdk kbd{font-family:"JetBrains Mono";font-size:10px;color:var(--txt-soft);background:rgba(255,255,255,.05);
+  border:1px solid var(--line-2);border-radius:4px;padding:2px 5px;}
+
+/* ---- nav appli ---- */
+.appbar{display:flex;align-items:center;gap:24px;padding:26px 0 14px;}
+.appnav{display:flex;gap:1px;margin-left:8px;}
+.appnav a{color:var(--txt-faint);text-decoration:none;font:500 12px/1 "Hanken Grotesk";letter-spacing:-.01em;
+  padding:8px 12px;border-radius:6px;transition:color .18s var(--ease),background .18s var(--ease);position:relative;}
+.appnav a:hover{color:var(--txt);background:rgba(255,255,255,.03);}
+.appnav a.active{color:var(--txt);}
+.appnav a.active::after{content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:1.5px;background:var(--shu);}
+.appbar .right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+
+/* ---- boutons : vermillon plein + ghost hairline ---- */
+.btn{display:inline-flex;align-items:center;gap:7px;border-radius:7px;cursor:pointer;text-decoration:none;
+  font:500 12px/1 "Hanken Grotesk";letter-spacing:-.01em;padding:9px 14px;transition:.18s var(--ease);border:1px solid transparent;}
+.btn-primary{background:var(--shu);color:#fff;}
+.btn-primary:hover{background:var(--shu-2);}
+.btn-ghost{background:transparent;color:var(--txt);border-color:var(--line-2);}
+.btn-ghost:hover{border-color:var(--line-3);background:rgba(255,255,255,.03);}
+.btn .mono{font-size:13px;}
+.avatar{width:30px;height:30px;border-radius:7px;background:var(--panel);border:1px solid var(--line-2);
+  color:var(--txt-soft);display:grid;place-items:center;font:600 12px/1 "JetBrains Mono";}
+
+/* ---- screens (transition unique de page, pas continue) ---- */
+.screen{display:none;}
+.screen.on{display:block;animation:fade .34s var(--ease);}
+@keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+
+/* ============ STATUS DOTS ============ */
+.dot-s{display:inline-block;width:6px;height:6px;border-radius:50%;flex:0 0 auto;}
+.dot-s.owned{background:var(--steel);}
+.dot-s.wished{background:var(--shu);}
+.dot-s.preco{background:var(--jade);}
+
+/* ============ PHOTO WELL (réutilisé partout) ============ */
+/* surface plate sombre + ligne d'accent fine en haut + lueur d'angle STATIQUE (dégradé, pas filter)
+   + cadre hairline 1px + silhouette acier/charbon teintée très légèrement de la hue. */
+.well{position:relative;overflow:hidden;
+  background:
+    radial-gradient(120% 80% at 88% 100%, color-mix(in oklab,var(--hue) 12%, transparent), transparent 55%),
+    linear-gradient(180deg,#15140f 0%, #100f0d 60%, #0c0b0a 100%);
+  display:grid;place-items:center;}
+.well::before{content:"";position:absolute;top:0;left:0;right:0;height:1px;z-index:5;
+  background:linear-gradient(90deg,transparent, color-mix(in oklab,var(--hue) 65%, transparent), transparent);}
+.well .floor{position:absolute;left:14%;right:14%;bottom:9%;height:1px;
+  background:linear-gradient(90deg,transparent,var(--line-2),transparent);}
+.well .well-id{position:absolute;right:8px;bottom:6px;z-index:5;
+  font:500 9px/1 "JetBrains Mono";letter-spacing:.06em;color:var(--txt-ghost);}
+.well .well-k{position:absolute;left:9px;top:8px;z-index:5;
+  font-family:"Noto Sans JP";font-weight:500;font-size:11px;color:color-mix(in oklab,var(--hue) 30%, var(--txt-ghost));}
+.well svg.fig{position:relative;z-index:2;height:76%;}
+/* silhouette charbon/acier, teinte type discrète — propre, jamais lumineuse */
+.well svg.fig .body{fill:color-mix(in oklab,var(--hue) 22%, #3a3a3c);}
+.well svg.fig .hi{fill:color-mix(in oklab,var(--hue) 30%, #54555a);}
+.well svg.fig .sh{fill:color-mix(in oklab,var(--hue) 14%, #1c1c1e);}
+
+/* ============================================================================
+   LANDING — hero éditorial-tech, calme premium-software
+============================================================================ */
+.lp-top{display:flex;align-items:center;gap:20px;padding:26px 0 0;}
+.lp-top .right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.hero{padding:78px 0 44px;max-width:780px;}
+.hero h1{font-size:clamp(40px,6.4vw,76px);line-height:1.0;margin:22px 0 0;font-weight:600;letter-spacing:-.035em;}
+.hero h1 .shu{color:var(--shu);}
+.hero h1 .ja{font-family:"Noto Sans JP";font-weight:400;color:var(--txt-faint);font-size:.5em;letter-spacing:0;vertical-align:.1em;}
+.hero p{max-width:520px;margin:24px 0 0;color:var(--txt-soft);font-size:16px;line-height:1.62;}
+.hero .cta-row{display:flex;gap:12px;margin-top:32px;align-items:center;}
+.hero .cta-row .btn{padding:11px 18px;font-size:13px;}
+/* tidy metric row */
+.metricrow{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);
+  border-radius:12px;overflow:hidden;margin-top:54px;background:rgba(255,255,255,.01);}
+.metricrow .m{padding:20px 22px;border-right:1px solid var(--line);}
+.metricrow .m:last-child{border-right:0;}
+.metricrow .m .l{font:500 10px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.16em;color:var(--steel-2);}
+.metricrow .m .v{font-family:"JetBrains Mono";font-weight:500;font-size:30px;letter-spacing:-.02em;margin-top:12px;color:var(--txt);}
+.metricrow .m .v.shu{color:var(--shu);}
+.metricrow .m .v .u{font-size:15px;color:var(--txt-faint);}
+.metricrow .m .s{font:400 11px/1.3 "Hanken Grotesk";color:var(--txt-faint);margin-top:8px;}
+
+/* clean figure row */
+.shelf-head{display:flex;align-items:baseline;gap:14px;margin:64px 0 18px;}
+.shelf-head .t{font:500 11px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.16em;color:var(--steel);}
+.shelf-head .ln{flex:1;height:1px;background:var(--line);}
+.shelf-head .c{font:500 11px/1 "JetBrains Mono";color:var(--txt-ghost);letter-spacing:.06em;}
+.shelf-row{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;}
+.shelf-fig{transition:border-color .2s var(--ease),transform .2s var(--ease);
+  border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel-3);}
+.shelf-fig:hover{transform:translateY(-3px);border-color:var(--line-3);}
+.shelf-fig .well{aspect-ratio:3/4;border-radius:0;}
+.shelf-fig .cap{padding:11px 12px;border-top:1px solid var(--line);}
+.shelf-fig .cap b{display:block;font:600 13px/1.1 "Hanken Grotesk";letter-spacing:-.01em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.shelf-fig .cap span{font:500 9.5px/1 "JetBrains Mono";color:var(--txt-faint);text-transform:uppercase;letter-spacing:.1em;display:block;margin-top:6px;}
+
+/* ============================================================================
+   COLLECTION
+============================================================================ */
+.page-head{padding:30px 0 22px;display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap;}
+.page-head h2{font-size:clamp(30px,4.4vw,46px);margin:12px 0 0;font-weight:600;letter-spacing:-.03em;}
+.page-head .sub{color:var(--txt-faint);font-size:13px;margin-top:8px;font-family:"JetBrains Mono";letter-spacing:.02em;}
+
+.statstrip{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid var(--line);
+  border-radius:12px;overflow:hidden;margin:8px 0 26px;background:rgba(255,255,255,.01);}
+.stat{padding:20px 22px;border-right:1px solid var(--line);position:relative;}
+.stat:last-child{border-right:0;}
+.stat .lab{font:500 10px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.16em;color:var(--steel-2);
+  display:flex;align-items:center;gap:7px;}
+.stat .lab .ja{font-size:11px;color:var(--txt-ghost);letter-spacing:0;}
+.stat .val{font-family:"JetBrains Mono";font-weight:500;font-size:30px;letter-spacing:-.02em;margin-top:14px;color:var(--txt);}
+.stat .val.shu{color:var(--shu);}
+.stat .val .u{font-size:15px;color:var(--txt-faint);}
+.stat .sub{font:400 11px/1.3 "Hanken Grotesk";color:var(--txt-faint);margin-top:8px;}
+.stat .sub .up{color:var(--jade);font-family:"JetBrains Mono";font-size:10px;}
+/* mini barre plate vitrines */
+.stat .occ{margin-top:11px;height:3px;border-radius:2px;background:rgba(255,255,255,.06);overflow:hidden;}
+.stat .occ i{display:block;height:100%;background:var(--shu);}
+
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:22px;}
+.chips{display:flex;gap:6px;}
+.chip{border:1px solid var(--line);background:transparent;color:var(--txt-faint);border-radius:7px;
+  padding:8px 13px;font:500 12px/1 "Hanken Grotesk";letter-spacing:-.01em;cursor:pointer;transition:.18s var(--ease);
+  display:inline-flex;align-items:center;gap:8px;}
+.chip:hover{color:var(--txt);border-color:var(--line-2);}
+.chip.on{background:var(--shu-dim);border-color:var(--shu-line);color:var(--txt);}
+.chip .n{font-family:"JetBrains Mono";font-size:10.5px;color:var(--txt-ghost);}
+.chip.on .n{color:var(--shu);}
+.search{margin-left:auto;display:flex;align-items:center;gap:9px;background:rgba(255,255,255,.02);
+  border:1px solid var(--line);border-radius:7px;padding:9px 14px;min-width:240px;color:var(--txt-faint);
+  font:500 12px/1 "Hanken Grotesk";transition:border-color .18s var(--ease);}
+.search:hover{border-color:var(--line-2);}
+.search svg{color:var(--txt-ghost);}
+.search .k{margin-left:auto;font:500 10px/1 "JetBrains Mono";color:var(--txt-ghost);border:1px solid var(--line);border-radius:4px;padding:3px 5px;}
+.viewtog{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden;}
+.viewtog button{appearance:none;border:0;background:transparent;color:var(--txt-ghost);padding:9px 11px;cursor:pointer;display:grid;place-items:center;transition:.18s var(--ease);}
+.viewtog button:hover{color:var(--txt-soft);}
+.viewtog button.on{background:rgba(255,255,255,.05);color:var(--txt);}
+
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+.fcard{background:var(--panel-3);border:1px solid var(--line);border-radius:11px;overflow:hidden;
+  cursor:pointer;transition:border-color .2s var(--ease),transform .2s var(--ease);
+  display:flex;flex-direction:column;text-decoration:none;color:inherit;}
+.fcard:hover{transform:translateY(-3px);border-color:var(--line-3);}
+.fcard .well{aspect-ratio:4/5;border-radius:0;}
+/* plaque type discrète (hairline, pas de stamp lourd) */
+.plaque{position:absolute;top:10px;left:10px;z-index:6;display:inline-flex;align-items:center;gap:6px;
+  background:rgba(12,11,10,.72);border:1px solid var(--line-2);border-radius:6px;padding:5px 8px;
+  font:500 9.5px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.1em;color:var(--txt-soft);}
+.plaque .k{font-family:"Noto Sans JP";font-weight:500;color:var(--steel);font-size:11px;}
+/* statut = petit dot + label, jamais un tampon */
+.fstatus{position:absolute;top:10px;right:10px;z-index:6;display:inline-flex;align-items:center;gap:6px;
+  background:rgba(12,11,10,.72);border:1px solid var(--line-2);border-radius:6px;padding:5px 8px;
+  font:500 9px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.08em;color:var(--txt-soft);}
+.fstatus.preco{border-color:var(--shu-line);color:var(--shu);}
+.fcard .body{padding:14px 15px 15px;display:flex;flex-direction:column;flex:1;}
+.fcard .body h3{font-weight:600;font-size:15px;margin:0;line-height:1.2;letter-spacing:-.015em;
+  display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;}
+.fcard .body .ser{font:500 11px/1.2 "Hanken Grotesk";color:var(--txt-faint);margin-top:5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fcard .rule{height:1px;background:var(--line);margin:13px 0 11px;}
+.fcard .meta{margin-top:auto;display:flex;align-items:flex-end;justify-content:space-between;}
+.fcard .meta .mk{font:500 9px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.14em;color:var(--steel-2);}
+.fcard .meta .scale{font:500 11px/1 "JetBrains Mono";color:var(--txt-faint);margin-top:6px;}
+.fcard .price{font-family:"JetBrains Mono";font-weight:500;font-size:16px;color:var(--txt);letter-spacing:-.01em;text-align:right;}
+.fcard .price.shu{color:var(--shu);}
+.fcard .price .pk{display:block;font-size:9px;letter-spacing:.14em;color:var(--steel-2);text-transform:uppercase;margin-bottom:5px;text-align:right;}
+
+/* ============================================================================
+   DÉTAIL
+============================================================================ */
+.back{display:inline-flex;align-items:center;gap:8px;color:var(--txt-faint);text-decoration:none;
+  font:500 12px/1 "JetBrains Mono";letter-spacing:.04em;margin:18px 0 24px;transition:color .18s var(--ease);}
+.back:hover{color:var(--txt);}
+.detail{display:grid;grid-template-columns:84px 1.04fr .96fr;gap:24px;align-items:start;}
+.thumbs{display:flex;flex-direction:column;gap:10px;}
+.thumb{aspect-ratio:4/5;border-radius:9px;border:1px solid var(--line);overflow:hidden;cursor:pointer;transition:border-color .18s var(--ease);}
+.thumb.on{border-color:var(--shu-line);}
+.thumb:hover{border-color:var(--line-3);}
+.thumb .well{border-radius:0;}
+.thumb .t360{display:grid;place-items:center;height:100%;font:500 11px/1.2 "JetBrains Mono";color:var(--txt-faint);text-align:center;
+  background:linear-gradient(180deg,#15140f,#0c0b0a);border-top:1px solid var(--shu-line);}
+.hero-well{aspect-ratio:4/5;border-radius:14px;border:1px solid var(--line-2);overflow:hidden;}
+.hero-well .turn{position:absolute;left:12px;bottom:12px;z-index:6;display:inline-flex;align-items:center;gap:8px;
+  background:rgba(12,11,10,.72);border:1px solid var(--line-2);border-radius:7px;
+  padding:8px 12px;font:500 11px/1 "JetBrains Mono";letter-spacing:.04em;color:var(--txt-soft);cursor:pointer;transition:border-color .18s var(--ease);}
+.hero-well .turn:hover{border-color:var(--line-3);color:var(--txt);}
+
+.dpanel h1{font-size:clamp(30px,4.2vw,46px);margin:10px 0 4px;font-weight:600;letter-spacing:-.03em;}
+.dpanel .subt{color:var(--txt-soft);font-size:14px;}
+.dpanel .tags{display:flex;flex-wrap:wrap;gap:6px;margin:18px 0 22px;}
+.dtag{font:500 11px/1 "JetBrains Mono";letter-spacing:.02em;color:var(--txt-soft);
+  border:1px solid var(--line);border-radius:6px;padding:7px 10px;transition:border-color .18s var(--ease),color .18s var(--ease);cursor:pointer;}
+.dtag:hover{border-color:var(--line-3);color:var(--txt);}
+.dtag .k{font-family:"Noto Sans JP";color:var(--steel);font-size:11px;}
+
+.specgrid{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:11px;overflow:hidden;margin:6px 0 20px;}
+.specgrid .cell{padding:14px 16px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);}
+.specgrid .cell:nth-child(2n){border-right:0;}
+.specgrid .cell:nth-last-child(-n+2){border-bottom:0;}
+.specgrid .cell .l{font:500 9px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.16em;color:var(--steel-2);}
+.specgrid .cell .v{margin-top:9px;font-size:14px;color:var(--txt);font-weight:500;letter-spacing:-.01em;}
+.specgrid .cell .v .mono{font-weight:500;}
+.specgrid .cell .v .ja{color:var(--steel);font-size:12px;font-weight:500;}
+
+.block{border:1px solid var(--line);border-radius:11px;padding:18px;margin-bottom:14px;background:rgba(255,255,255,.01);}
+.block .bh{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.block .bh .t{font:500 10px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.16em;color:var(--steel);
+  display:inline-flex;align-items:center;gap:7px;}
+.block .bh .t .ja{color:var(--txt-ghost);letter-spacing:0;}
+.block .bh .pct{font:500 12px/1 "JetBrains Mono";color:var(--shu);}
+.block .bh .pct.jade{color:var(--jade);}
+/* progress = ligne plate fine vermillon */
+.progress{height:3px;border-radius:2px;background:rgba(255,255,255,.06);overflow:hidden;margin:4px 0 14px;}
+.progress i{display:block;height:100%;background:var(--shu);}
+.prow{display:flex;justify-content:space-between;gap:16px;}
+.prow .c .l{font:500 9px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.14em;color:var(--steel-2);}
+.prow .c .big{font-family:"JetBrains Mono";font-weight:500;font-size:21px;margin-top:8px;letter-spacing:-.02em;color:var(--txt);}
+.prow .c .big.shu{color:var(--shu);}
+.prow .c.right{text-align:right;}
+/* cote */
+.cote{display:grid;grid-template-columns:1fr 1fr auto;gap:16px;align-items:center;}
+.cote .c .l{font:500 9px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.14em;color:var(--steel-2);}
+.cote .c .v{font-family:"JetBrains Mono";font-weight:500;font-size:21px;margin-top:8px;letter-spacing:-.02em;}
+.cote .c .v.jade{color:var(--jade);}
+.cote .spark{align-self:center;}
+/* stores */
+.stores{display:flex;flex-direction:column;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:9px;overflow:hidden;}
+.store{display:flex;align-items:center;gap:12px;padding:12px 13px;background:var(--panel-3);transition:background .18s var(--ease);cursor:pointer;text-decoration:none;color:inherit;}
+.store:hover{background:rgba(255,255,255,.025);}
+.store .logo{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;font:600 9px/1 "JetBrains Mono";color:#fff;flex:0 0 auto;}
+.store .nm{font:500 13px/1 "Hanken Grotesk";letter-spacing:-.01em;}
+.store .badge-best{font:500 8.5px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.08em;color:var(--jade);
+  border:1px solid color-mix(in oklab,var(--jade) 45%, transparent);border-radius:5px;padding:4px 6px;}
+.store .px{margin-left:auto;font-family:"JetBrains Mono";font-weight:500;font-size:14px;color:var(--txt);}
+.dactions{display:flex;gap:10px;margin-top:18px;}
+
+/* ============================================================================
+   PRÉ-COMMANDES
+============================================================================ */
+.po-summary{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);
+  border-radius:12px;overflow:hidden;margin:8px 0 30px;background:rgba(255,255,255,.01);}
+.po-sum{padding:22px 24px;border-right:1px solid var(--line);}
+.po-sum:last-child{border-right:0;}
+.po-sum .l{font:500 10px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.16em;color:var(--steel-2);
+  display:inline-flex;align-items:center;gap:7px;}
+.po-sum .l .ja{color:var(--txt-ghost);letter-spacing:0;font-size:11px;}
+.po-sum .v{font-family:"JetBrains Mono";font-weight:500;font-size:32px;margin-top:14px;letter-spacing:-.02em;}
+.po-sum.due .v{color:var(--shu);}
+.po-sum .v .u{font-size:16px;color:var(--txt-faint);}
+.po-sum .s{font:400 11px/1 "Hanken Grotesk";color:var(--txt-faint);margin-top:8px;}
+
+.po-month{margin:34px 0 12px;display:flex;align-items:center;gap:14px;}
+.po-month .m{font:600 14px/1 "Hanken Grotesk";letter-spacing:-.01em;}
+.po-month .ln{flex:1;height:1px;background:var(--line);}
+.po-month .c{font:500 10px/1 "JetBrains Mono";color:var(--txt-ghost);letter-spacing:.06em;}
+
+/* table-like density list */
+.po-item{display:grid;grid-template-columns:52px 1.5fr 1fr 1fr auto;gap:18px;align-items:center;
+  border:1px solid var(--line);border-radius:10px;padding:13px 16px;margin-bottom:8px;
+  background:var(--panel-3);transition:border-color .18s var(--ease);}
+.po-item:hover{border-color:var(--line-3);}
+.po-item .thmb{width:52px;height:64px;border-radius:7px;overflow:hidden;border:1px solid var(--line);}
+.po-item .thmb .well{border-radius:0;}
+.po-item .nm b{font:600 14px/1.1 "Hanken Grotesk";letter-spacing:-.015em;display:flex;align-items:center;gap:8px;}
+.po-item .nm span{font:500 10.5px/1 "JetBrains Mono";color:var(--txt-faint);display:block;margin-top:7px;letter-spacing:.02em;}
+.po-item .fin .l{font:500 8.5px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.14em;color:var(--steel-2);}
+.po-item .fin .v{font-family:"JetBrains Mono";font-weight:500;font-size:15px;margin-top:7px;letter-spacing:-.01em;}
+.po-item .fin .v.shu{color:var(--shu);}
+.po-item .fin small{display:block;color:var(--txt-ghost);font:400 9.5px/1 "Hanken Grotesk";margin-top:5px;}
+/* countdown = bloc mono net, dot de statut */
+.countdown{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
+  border-radius:8px;padding:10px 14px;min-width:74px;border:1px solid var(--line);background:rgba(255,255,255,.01);}
+.countdown.soon{border-color:var(--shu-line);background:var(--shu-dim);}
+.countdown.slip{border-color:var(--line-3);}
+.countdown .d{font-family:"JetBrains Mono";font-weight:500;font-size:20px;line-height:1;letter-spacing:-.02em;color:var(--txt);}
+.countdown.soon .d{color:var(--shu);}
+.countdown .u{font:500 8px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.14em;color:var(--steel-2);margin-top:7px;}
+.slip-tag{display:inline-flex;align-items:center;font:500 8.5px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.06em;
+  color:var(--steel);border:1px solid var(--line-3);border-radius:5px;padding:4px 6px;}
+
+footer{margin-top:64px;border-top:1px solid var(--line);padding:24px 0;display:flex;justify-content:space-between;
+  align-items:center;color:var(--txt-ghost);font:500 11px/1 "JetBrains Mono";letter-spacing:.08em;flex-wrap:wrap;gap:12px;}
+footer .ja{color:var(--steel-2);}
+
+@media(max-width:980px){
+  .detail{grid-template-columns:1fr;}
+  .thumbs{flex-direction:row;order:2;}
+  .grid,.shelf-row{grid-template-columns:repeat(2,1fr);}
+  .statstrip,.metricrow{grid-template-columns:1fr 1fr;}
+  .statstrip .stat:nth-child(-n+2),.metricrow .m:nth-child(-n+2){border-bottom:1px solid var(--line);}
+  .statstrip .stat:nth-child(2n),.metricrow .m:nth-child(2n){border-right:0;}
+  .po-summary{grid-template-columns:1fr;}
+  .po-sum{border-right:0;border-bottom:1px solid var(--line);}
+  .po-sum:last-child{border-bottom:0;}
+  .po-item{grid-template-columns:44px 1fr auto;gap:12px;}
+  .po-item .fin{display:none;}
+  .appnav,.cmdk{display:none;}
+}
+@media(max-width:560px){
+  .grid,.shelf-row{grid-template-columns:1fr;}
+  .hero{padding-top:54px;}
+}
+
+/* GPU-léger : respecte la réduction de mouvement — coupe la transition de page */
+@media(prefers-reduced-motion:reduce){
+  *{animation:none !important;}
+  html{scroll-behavior:auto;}
+  .screen.on{animation:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- ====== SVG FIGURE LIBRARY (silhouettes réutilisables — copiée à l'identique) ====== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- Scale figure : femme gracieuse, robe, cheveux flottants, base ronde -->
+    <symbol id="fig-scale" viewBox="0 0 100 150">
+      <ellipse class="sh" cx="50" cy="143" rx="27" ry="5"/>
+      <path class="body" d="M50 58 C36 58 27 100 32 134 L68 134 C73 100 64 58 50 58 Z"/>
+      <path class="hi" d="M50 58 C44 58 40 78 41 110 L50 110 Z"/>
+      <path class="body" d="M50 46 C45 46 43 54 45 62 L55 62 C57 54 55 46 50 46 Z"/>
+      <circle class="hi" cx="50" cy="36" r="11"/>
+      <path class="body" d="M38 33 C28 37 24 70 33 100 C35 80 39 62 45 56 C40 46 41 35 38 33 Z"/>
+      <path class="body" d="M62 33 C72 37 78 74 67 104 C65 82 61 62 55 56 C60 46 59 35 62 33 Z"/>
+      <path class="sh" d="M40 50 C34 60 33 84 36 96 C37 78 41 62 45 56 Z"/>
+    </symbol>
+    <!-- Nendoroid : grosse tête, petit corps -->
+    <symbol id="fig-nendo" viewBox="0 0 100 150">
+      <ellipse class="sh" cx="50" cy="143" rx="22" ry="5"/>
+      <path class="body" d="M50 96 C39 96 35 122 40 136 L60 136 C65 122 61 96 50 96 Z"/>
+      <circle class="body" cx="50" cy="60" r="35"/>
+      <path class="hi" d="M50 25 C33 25 20 40 18 58 C30 50 40 47 50 47 Z"/>
+      <circle class="sh" cx="38" cy="64" r="4" opacity=".5"/>
+      <circle class="sh" cx="62" cy="64" r="4" opacity=".5"/>
+    </symbol>
+    <!-- Action / figma : pose dynamique -->
+    <symbol id="fig-action" viewBox="0 0 100 150">
+      <ellipse class="sh" cx="46" cy="143" rx="24" ry="5"/>
+      <path class="body" d="M44 56 C36 56 33 82 38 100 L40 134 L52 134 L52 104 L60 120 L70 112 L54 86 C56 70 54 56 44 56 Z"/>
+      <path class="body" d="M46 58 L74 40 L78 48 L52 70 Z"/>
+      <circle class="hi" cx="45" cy="44" r="10"/>
+      <path class="body" d="M36 40 C30 44 30 58 36 64 C36 54 40 48 45 45 Z"/>
+      <path class="hi" d="M44 58 C40 70 40 86 42 100 L48 100 C47 84 48 70 50 60 Z"/>
+    </symbol>
+    <!-- Mecha / plamo : robot anguleux -->
+    <symbol id="fig-mecha" viewBox="0 0 100 150">
+      <ellipse class="sh" cx="50" cy="143" rx="26" ry="5"/>
+      <path class="body" d="M38 60 L62 60 L66 96 L58 132 L42 132 L34 96 Z"/>
+      <path class="hi" d="M38 60 L50 60 L50 132 L42 132 L34 96 Z"/>
+      <rect class="body" x="44" y="40" width="12" height="16" rx="2"/>
+      <path class="hi" d="M48 38 L52 38 L54 44 L46 44 Z"/>
+      <path class="body" d="M30 62 L38 64 L40 92 L30 90 Z"/>
+      <path class="body" d="M70 62 L62 64 L60 92 L70 90 Z"/>
+      <rect class="sh" x="46" y="70" width="8" height="22" rx="2"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- ====== MAQUETTE SWITCHER ====== -->
+<div class="switcher">
+  <div class="wrap row">
+    <div class="brandmark">
+      <span class="mc">F</span>
+      <span class="wm">Figure<span class="dim">Collector</span></span>
+      <span class="ver">D · 墨鉄</span>
+    </div>
+    <div class="tabs">
+      <button class="tab on" data-s="landing">Accueil</button>
+      <button class="tab" data-s="collection">Collection</button>
+      <button class="tab" data-s="detail">Fiche</button>
+      <button class="tab" data-s="preorders">Pré-commandes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================== LANDING ============================== -->
+<section class="screen on" id="landing">
+  <div class="wrap">
+    <div class="lp-top">
+      <span class="kicker"><span class="dot"></span>蒐集<span class="sep">/</span>OUTIL DE COLLECTION</span>
+      <div class="right">
+        <span class="cmdk">Rechercher <kbd>⌘</kbd><kbd>K</kbd></span>
+        <a class="btn btn-ghost" href="#">Se connecter</a>
+      </div>
+    </div>
+
+    <div class="hero">
+      <span class="kicker"><span class="dot"></span>SELF-HOSTED<span class="sep">·</span>v0.15<span class="sep">·</span>PWA</span>
+      <h1>Cataloguez chaque <span class="shu">pièce</span>.<br>Suivez chaque <span class="shu">acompte</span>. <span class="ja">棚</span></h1>
+      <p>Un outil précis pour le collectionneur de figurines. Inventaire, pré-commandes &amp; acomptes, valorisation de la cote, photos et turntable 360° — sobre, rapide, sans superflu.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#" onclick="go('collection');return false">Ouvrir ma collection →</a>
+        <a class="btn btn-ghost" href="#">Documentation</a>
+      </div>
+    </div>
+
+    <!-- tidy metric row -->
+    <div class="metricrow">
+      <div class="m"><div class="l">Pièces</div><div class="v">128</div><div class="s">dans la vitrine</div></div>
+      <div class="m"><div class="l">Cote</div><div class="v">14 280<span class="u"> €</span></div><div class="s">payé · 11 940 €</div></div>
+      <div class="m"><div class="l">Pré-commandes</div><div class="v shu">7</div><div class="s">2 340 € engagés</div></div>
+      <div class="m"><div class="l">Vitrines</div><div class="v">86<span class="u">%</span></div><div class="s">espace occupé · 4 meubles</div></div>
+    </div>
+
+    <!-- clean figure row -->
+    <div class="shelf-head"><span class="t">Vitrine — sélection</span><span class="ln"></span><span class="c">6 / 128</span></div>
+    <div class="shelf-row">
+      <a class="shelf-fig" href="#" onclick="go('detail');return false"><div class="well" style="--hue:#c08a8a"><span class="well-k">桜</span><svg class="fig"><use href="#fig-scale"/></svg><div class="floor"></div><span class="well-id">#03F</span></div><div class="cap"><b>Megumin</b><span>1/7 · KADOKAWA</span></div></a>
+      <a class="shelf-fig" href="#" onclick="go('detail');return false"><div class="well" style="--hue:#7fae9a"><span class="well-k">緑</span><svg class="fig"><use href="#fig-action"/></svg><div class="floor"></div><span class="well-id">#041</span></div><div class="cap"><b>Gojo Satoru</b><span>1/8 · GSC</span></div></a>
+      <a class="shelf-fig" href="#" onclick="go('detail');return false"><div class="well" style="--hue:var(--shu)"><span class="well-k">朱</span><svg class="fig"><use href="#fig-scale"/></svg><div class="floor"></div><span class="well-id">#042</span></div><div class="cap"><b>Rem</b><span>1/7 · GSC</span></div></a>
+      <a class="shelf-fig" href="#" onclick="go('detail');return false"><div class="well" style="--hue:#b8b2a0"><span class="well-k">鉄</span><svg class="fig"><use href="#fig-nendo"/></svg><div class="floor"></div><span class="well-id">#043</span></div><div class="cap"><b>Hatsune Miku</b><span>Nendoroid</span></div></a>
+      <a class="shelf-fig" href="#" onclick="go('detail');return false"><div class="well" style="--hue:#8aa0c0"><span class="well-k">藍</span><svg class="fig"><use href="#fig-mecha"/></svg><div class="floor"></div><span class="well-id">#044</span></div><div class="cap"><b>RX-78-2</b><span>Plamo · MG</span></div></a>
+      <a class="shelf-fig" href="#" onclick="go('detail');return false"><div class="well" style="--hue:#a890c0"><span class="well-k">紫</span><svg class="fig"><use href="#fig-scale"/></svg><div class="floor"></div><span class="well-id">#045</span></div><div class="cap"><b>Frieren</b><span>1/7 · F:NEX</span></div></a>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== COLLECTION ============================== -->
+<section class="screen" id="collection">
+  <div class="wrap">
+    <div class="appbar">
+      <div class="brandmark"><span class="mc">F</span><span class="wm">Figure<span class="dim">Collector</span></span></div>
+      <nav class="appnav">
+        <a class="active">Collection</a><a>Vitrines</a><a>Catalogue</a><a onclick="go('preorders');return false">Pré-commandes</a><a>Stats</a>
+      </nav>
+      <div class="right">
+        <span class="cmdk">⌘K</span>
+        <a class="btn btn-primary" href="#"><span class="mono">＋</span> Ajouter</a>
+        <div class="avatar">D</div>
+      </div>
+    </div>
+
+    <div class="page-head">
+      <div>
+        <span class="kicker"><span class="dot"></span>蒐集<span class="sep">/</span>INVENTAIRE</span>
+        <h2>Votre collection</h2>
+      </div>
+      <div class="sub">128 pièces · dern. ajout 04.06.2026</div>
+    </div>
+
+    <div class="statstrip">
+      <div class="stat"><div class="lab">Pièces<span class="ja">棚</span></div><div class="val">128</div><div class="sub">dans la vitrine</div></div>
+      <div class="stat"><div class="lab">Valeur · cote</div><div class="val">14 280<span class="u"> €</span></div><div class="sub">payé · 11 940 € <span class="up">▲ 2 340</span></div></div>
+      <div class="stat"><div class="lab">Pré-commandes<span class="ja">予約</span></div><div class="val shu">7</div><div class="sub">2 340 € d'acomptes engagés</div></div>
+      <div class="stat"><div class="lab">Vitrines</div><div class="val">86<span class="u">%</span></div><div class="sub">espace occupé · 4 meubles</div><div class="occ"><i style="width:86%"></i></div></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="chips">
+        <button class="chip on">Tout <span class="n">128</span></button>
+        <button class="chip">Possédées <span class="n">109</span></button>
+        <button class="chip">Souhaits <span class="n">12</span></button>
+        <button class="chip">Pré-co <span class="n">7</span></button>
+      </div>
+      <div class="search">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="6" cy="6" r="4.5"/><path d="M10 10l3 3"/></svg>
+        Rechercher une pièce, une série…
+        <span class="k">⌘K</span>
+      </div>
+      <div class="viewtog">
+        <button class="on" title="Grille"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="0" width="6" height="6" rx="1"/><rect x="8" y="0" width="6" height="6" rx="1"/><rect x="0" y="8" width="6" height="6" rx="1"/><rect x="8" y="8" width="6" height="6" rx="1"/></svg></button>
+        <button title="Liste"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><rect x="0" y="1" width="14" height="2" rx="1"/><rect x="0" y="6" width="14" height="2" rx="1"/><rect x="0" y="11" width="14" height="2" rx="1"/></svg></button>
+      </div>
+    </div>
+
+    <div class="grid" id="colgrid"><!-- injecté en JS --></div>
+  </div>
+</section>
+
+<!-- ============================== DÉTAIL ============================== -->
+<section class="screen" id="detail">
+  <div class="wrap">
+    <div class="appbar">
+      <div class="brandmark"><span class="mc">F</span><span class="wm">Figure<span class="dim">Collector</span></span></div>
+      <nav class="appnav"><a>Collection</a><a>Vitrines</a><a>Catalogue</a><a onclick="go('preorders');return false">Pré-commandes</a><a>Stats</a></nav>
+      <div class="right"><span class="cmdk">⌘K</span><a class="btn btn-primary" href="#"><span class="mono">＋</span> Ajouter</a><div class="avatar">D</div></div>
+    </div>
+    <a class="back" href="#" onclick="go('collection');return false">← Collection / Rem</a>
+
+    <div class="detail" style="--hue:var(--shu)">
+      <div class="thumbs">
+        <div class="thumb on"><div class="well" style="height:100%"><svg class="fig"><use href="#fig-scale"/></svg></div></div>
+        <div class="thumb"><div class="well" style="height:100%;--hue:#8a5a4a"><svg class="fig"><use href="#fig-scale"/></svg></div></div>
+        <div class="thumb"><div class="well" style="height:100%;--hue:#5a6a8a"><svg class="fig"><use href="#fig-scale"/></svg></div></div>
+        <div class="thumb"><div class="t360">360°<br>TURNTABLE</div></div>
+      </div>
+
+      <div class="hero-well well">
+        <span class="well-k">朱</span>
+        <svg class="fig" style="height:80%"><use href="#fig-scale"/></svg>
+        <div class="floor"></div>
+        <span class="turn">◍ Turntable 360°</span>
+        <span class="well-id">JAN 4580416 · #042</span>
+      </div>
+
+      <div class="dpanel">
+        <span class="kicker"><span class="dot"></span>予約<span class="sep">/</span>PRÉ-COMMANDE ACTIVE</span>
+        <h1>Rem</h1>
+        <div class="subt">Re:Zero − Starting Life in Another World</div>
+        <div class="tags">
+          <span class="dtag">Re:Zero</span><span class="dtag">Good Smile Company</span>
+          <span class="dtag">Échelle 1/7</span><span class="dtag"><span class="k">彫</span> 安藤賢司</span>
+        </div>
+
+        <div class="specgrid">
+          <div class="cell"><div class="l">Échelle / Matière</div><div class="v"><span class="mono">1/7</span> · PVC / ABS</div></div>
+          <div class="cell"><div class="l">Hauteur</div><div class="v"><span class="mono">235 mm</span></div></div>
+          <div class="cell"><div class="l">Fabricant</div><div class="v">Good Smile Co.</div></div>
+          <div class="cell"><div class="l">Sortie</div><div class="v"><span class="mono">09.2026</span></div></div>
+          <div class="cell"><div class="l">JAN / EAN</div><div class="v"><span class="mono">4580416 94521</span></div></div>
+          <div class="cell"><div class="l">Lot interne</div><div class="v"><span class="mono">#042 · 棚 B-3</span></div></div>
+        </div>
+
+        <div class="block">
+          <div class="bh"><span class="t">Pré-commande · acompte <span class="ja">予約</span></span><span class="pct">42 %</span></div>
+          <div class="progress"><i style="width:42%"></i></div>
+          <div class="prow">
+            <div class="c"><div class="l">Acompte versé</div><div class="big">82,00 €</div></div>
+            <div class="c right"><div class="l">Solde restant</div><div class="big shu">113,00 €</div></div>
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="bh"><span class="t">La cote · valorisation</span><span class="pct jade">▲ +28 %</span></div>
+          <div class="cote">
+            <div class="c"><div class="l">Payé</div><div class="v">195,00 €</div></div>
+            <div class="c"><div class="l">Valeur actuelle</div><div class="v jade">249,00 €</div></div>
+            <svg class="spark" width="92" height="34"><polyline points="0,30 18,26 34,28 50,17 66,13 92,4" fill="none" stroke="var(--jade)" stroke-width="1.5"/></svg>
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="bh"><span class="t">Acheter chez</span><span class="pct" style="color:var(--steel-2)">3 boutiques</span></div>
+          <div class="stores">
+            <a class="store"><span class="logo" style="background:#e5413a">AA</span><span class="nm">AmiAmi</span><span class="badge-best">Meilleur prix</span><span class="px">189,00 €</span></a>
+            <a class="store"><span class="logo" style="background:#2b6fd6">HLJ</span><span class="nm">HobbyLink Japan</span><span class="px">198,00 €</span></a>
+            <a class="store"><span class="logo" style="background:#9aa3ad;color:#0c0b0a">GSC</span><span class="nm">Good Smile Shop</span><span class="px">205,00 €</span></a>
+          </div>
+        </div>
+
+        <div class="dactions">
+          <a class="btn btn-primary" href="#">Éditer la pièce</a>
+          <a class="btn btn-ghost" href="#">Archiver</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PRÉ-COMMANDES ============================== -->
+<section class="screen" id="preorders">
+  <div class="wrap">
+    <div class="appbar">
+      <div class="brandmark"><span class="mc">F</span><span class="wm">Figure<span class="dim">Collector</span></span></div>
+      <nav class="appnav"><a onclick="go('collection');return false">Collection</a><a>Vitrines</a><a>Catalogue</a><a class="active">Pré-commandes</a><a>Stats</a></nav>
+      <div class="right"><span class="cmdk">⌘K</span><a class="btn btn-primary" href="#"><span class="mono">＋</span> Ajouter</a><div class="avatar">D</div></div>
+    </div>
+
+    <div class="page-head">
+      <div>
+        <span class="kicker"><span class="dot"></span>予約<span class="sep">/</span>ACOMPTES & LIVRAISONS</span>
+        <h2>Vos pré-commandes</h2>
+      </div>
+      <div class="sub">7 actives · 5 boutiques</div>
+    </div>
+
+    <div class="po-summary">
+      <div class="po-sum"><div class="l">Acomptes versés</div><div class="v">748<span class="u"> €</span></div><div class="s">sur 7 pré-commandes</div></div>
+      <div class="po-sum due"><div class="l">Solde à régler</div><div class="v">1 592<span class="u"> €</span></div><div class="s">à la livraison</div></div>
+      <div class="po-sum"><div class="l">Prochaine livraison</div><div class="v">J−12</div><div class="s">Marin Kitagawa · juillet</div></div>
+    </div>
+
+    <div class="po-month"><span class="m">Juillet 2026</span><span class="ln"></span><span class="c">2 PIÈCES</span></div>
+
+    <div class="po-item" style="--hue:#c08a8a">
+      <div class="thmb well"><svg class="fig"><use href="#fig-scale"/></svg></div>
+      <div class="nm"><b><span class="dot-s preco"></span>Marin Kitagawa</b><span>My Dress-Up Darling · 1/7 · Aniplex</span></div>
+      <div class="fin"><div class="l">Acompte</div><div class="v">59 €</div><small>versé le 12.01</small></div>
+      <div class="fin"><div class="l">Solde</div><div class="v shu">138 €</div><small>à la livraison</small></div>
+      <div class="countdown soon"><div class="d">12</div><div class="u">Jours</div></div>
+    </div>
+
+    <div class="po-item" style="--hue:#7fae9a">
+      <div class="thmb well"><svg class="fig"><use href="#fig-action"/></svg></div>
+      <div class="nm"><b><span class="dot-s preco"></span>Power</b><span>Chainsaw Man · 1/7 · Good Smile</span></div>
+      <div class="fin"><div class="l">Acompte</div><div class="v">64 €</div><small>versé le 03.02</small></div>
+      <div class="fin"><div class="l">Solde</div><div class="v shu">152 €</div><small>à la livraison</small></div>
+      <div class="countdown"><div class="d">26</div><div class="u">Jours</div></div>
+    </div>
+
+    <div class="po-month"><span class="m">Septembre 2026</span><span class="ln"></span><span class="c">3 PIÈCES</span></div>
+
+    <div class="po-item" style="--hue:var(--shu)">
+      <div class="thmb well"><svg class="fig"><use href="#fig-scale"/></svg></div>
+      <div class="nm"><b><span class="dot-s preco"></span>Rem <span class="slip-tag">Glissée +1 mois</span></b><span>Re:Zero · 1/7 · Good Smile</span></div>
+      <div class="fin"><div class="l">Acompte</div><div class="v">82 €</div><small>versé le 20.12</small></div>
+      <div class="fin"><div class="l">Solde</div><div class="v shu">113 €</div><small>à la livraison</small></div>
+      <div class="countdown slip"><div class="d">J−98</div><div class="u">Sept.</div></div>
+    </div>
+
+    <div class="po-item" style="--hue:#a890c0">
+      <div class="thmb well"><svg class="fig"><use href="#fig-scale"/></svg></div>
+      <div class="nm"><b><span class="dot-s preco"></span>Frieren</b><span>Sousou no Frieren · 1/7 · F:NEX</span></div>
+      <div class="fin"><div class="l">Acompte</div><div class="v">88 €</div><small>versé le 15.02</small></div>
+      <div class="fin"><div class="l">Solde</div><div class="v shu">204 €</div><small>à la livraison</small></div>
+      <div class="countdown"><div class="d">J−98</div><div class="u">Sept.</div></div>
+    </div>
+
+    <div class="po-item" style="--hue:#8aa0c0">
+      <div class="thmb well"><svg class="fig"><use href="#fig-mecha"/></svg></div>
+      <div class="nm"><b><span class="dot-s preco"></span>2B</b><span>NieR:Automata · 1/4 · Flare</span></div>
+      <div class="fin"><div class="l">Acompte</div><div class="v">120 €</div><small>versé le 28.02</small></div>
+      <div class="fin"><div class="l">Solde</div><div class="v shu">280 €</div><small>à la livraison</small></div>
+      <div class="countdown"><div class="d">J−98</div><div class="u">Sept.</div></div>
+    </div>
+
+    <footer>
+      <span>FigureCollector · Direction D <span class="ja">墨 &amp; 鉄</span> Encre &amp; Métal</span>
+      <span class="ja">予約 · 棚 · vitrine privée</span>
+    </footer>
+  </div>
+</section>
+
+<script>
+// ---- tab switcher (identique à A) ----
+function go(s){
+  document.querySelectorAll('.screen').forEach(x=>x.classList.toggle('on',x.id===s));
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.s===s));
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>go(t.dataset.s)));
+
+// ---- collection grid data (mêmes pièces que A, hues recolorées en silhouettes acier) ----
+const figs=[
+  {n:"Rem",s:"Re:Zero",m:"Good Smile Co.",sc:"1/7",p:"195 €",hue:"var(--shu)",k:"朱",pose:"fig-scale",type:"Scale",tk:"像",owned:true},
+  {n:"Megumin",s:"KonoSuba",m:"KADOKAWA",sc:"1/7",p:"172 €",hue:"#c08a8a",k:"桜",pose:"fig-scale",type:"Scale",tk:"像",owned:true},
+  {n:"Hatsune Miku",s:"Vocaloid",m:"Good Smile Co.",sc:"—",p:"54 €",hue:"#7fae9a",k:"緑",pose:"fig-nendo",type:"Nendoroid",tk:"童",owned:true},
+  {n:"Gojo Satoru",s:"Jujutsu Kaisen",m:"GSC",sc:"1/8",p:"148 €",hue:"#8aa0c0",k:"藍",pose:"fig-action",type:"Figma",tk:"動",owned:true},
+  {n:"Frieren",s:"Sousou no Frieren",m:"F:NEX",sc:"1/7",p:"292 €",hue:"#a890c0",k:"紫",pose:"fig-scale",type:"Scale",tk:"像",badge:{l:"Pré-co",preco:true}},
+  {n:"RX-78-2 Gundam",s:"Mobile Suit Gundam",m:"BANDAI",sc:"MG 1/100",p:"68 €",hue:"#b8b2a0",k:"鉄",pose:"fig-mecha",type:"Plamo",tk:"組",owned:true},
+  {n:"Asuka Langley",s:"Evangelion",m:"Kotobukiya",sc:"1/7",p:"168 €",hue:"#c08a8a",k:"朱",pose:"fig-scale",type:"Scale",tk:"像",owned:true},
+  {n:"Marin Kitagawa",s:"My Dress-Up Darling",m:"Aniplex",sc:"1/7",p:"197 €",hue:"#c08a8a",k:"桜",pose:"fig-scale",type:"Scale",tk:"像",badge:{l:"J−12",preco:true}},
+  {n:"Nezuko Kamado",s:"Demon Slayer",m:"Aniplex",sc:"1/8",p:"159 €",hue:"#c89a9a",k:"桜",pose:"fig-scale",type:"Scale",tk:"像",owned:true},
+  {n:"Power",s:"Chainsaw Man",m:"Good Smile Co.",sc:"1/7",p:"216 €",hue:"var(--shu)",k:"朱",pose:"fig-action",type:"Figma",tk:"動",badge:{l:"Pré-co",preco:true}},
+  {n:"2B",s:"NieR:Automata",m:"Flare",sc:"1/4",p:"400 €",hue:"#8aa0c0",k:"藍",pose:"fig-scale",type:"Scale",tk:"像",badge:{l:"Pré-co",preco:true}},
+  {n:"Artoria Pendragon",s:"Fate/stay night",m:"Aniplex",sc:"1/7",p:"285 €",hue:"#b8b2a0",k:"金",pose:"fig-scale",type:"Scale",tk:"像",wished:true},
+];
+document.getElementById('colgrid').innerHTML=figs.map((f,i)=>`
+  <a class="fcard" style="--hue:${f.hue}" href="#" onclick="go('detail');return false">
+    <div class="well">
+      <span class="well-k">${f.k}</span>
+      <svg class="fig"><use href="#${f.pose}"/></svg>
+      <div class="floor"></div>
+      <span class="plaque"><span class="k">${f.tk}</span>${f.type}</span>
+      ${f.badge?`<span class="fstatus preco"><span class="dot-s preco"></span>${f.badge.l}</span>`
+        :f.wished?`<span class="fstatus"><span class="dot-s wished"></span>Souhait</span>`
+        :`<span class="fstatus"><span class="dot-s owned"></span>Possédée</span>`}
+      <span class="well-id">#${(i+1043).toString(16).toUpperCase()}</span>
+    </div>
+    <div class="body">
+      <h3>${f.n}</h3>
+      <div class="ser">${f.s} · ${f.m}</div>
+      <div class="rule"></div>
+      <div class="meta">
+        <div>
+          <div class="mk">Échelle</div>
+          <div class="scale">${f.sc}</div>
+        </div>
+        <div class="price ${f.badge&&f.badge.preco?'shu':''}">
+          <span class="pk">${f.owned?'Payé':f.wished?'Cible':'Acompte'}</span>${f.p}
+        </div>
+      </div>
+    </div>
+  </a>`).join('');
+</script>
+</body>
+</html>

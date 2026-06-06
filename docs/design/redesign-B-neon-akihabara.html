@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FigureCollector — Direction B · 電飾 Néon Akihabara</title>
+<meta name="description" content="Redesign FigureCollector — Direction B « 電飾 Néon Akihabara » : arcade, néon électrique, verre dépoli, mesh holographique. Cyan, magenta, ambre. 4 écrans." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+<link href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,300..800;1,400..600&family=JetBrains+Mono:wght@300;400;500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================================
+   DIRECTION B — « 電飾 · NÉON AKIHABARA »
+   Akihabara la nuit. Bornes d'arcade, néon électrique, verre dépoli,
+   mesh holographique, grille synthwave. Maximaliste, mais maîtrisé.
+   Base bleu-violet quasi-noire · cyan #3df0ff · magenta #ff4fd0 · ambre #ffc83d.
+   Chaque TYPE de figurine luit de sa propre couleur néon.
+   Clash Display (display) · Hanken Grotesk (UI) · Zen Kaku (カタカナ) · JetBrains Mono.
+============================================================================ */
+:root{
+  --void:#070812;            /* page — bleu-violet quasi noir */
+  --ink:#0a0a16;             /* base alt */
+  --glass:rgba(20,22,46,.46);     /* panneaux verre */
+  --glass-2:rgba(28,30,58,.62);   /* panneaux verre élevés */
+  --glass-line:rgba(140,160,255,.16);
+  --glass-line-2:rgba(160,180,255,.30);
+
+  --cyan:#3df0ff;            /* néon électrique — accent froid */
+  --cyan-glow:rgba(61,240,255,.55);
+  --magenta:#ff4fd0;         /* hot magenta — action primaire */
+  --magenta-glow:rgba(255,79,208,.55);
+  --amber:#ffc83d;           /* ambre néon — valeur, or */
+  --amber-glow:rgba(255,200,61,.5);
+  --violet:#9d6bff;          /* violet arcade */
+  --violet-glow:rgba(157,107,255,.5);
+  --lime:#5dffa3;            /* vert hausse */
+  --lime-glow:rgba(93,255,163,.5);
+
+  --txt:#eef1ff;             /* texte primaire — blanc bleuté */
+  --txt-soft:rgba(224,230,255,.66);
+  --txt-faint:rgba(214,222,255,.36);
+  --ease:cubic-bezier(.22,1,.36,1);
+  --ease-back:cubic-bezier(.34,1.56,.64,1);
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;overflow-x:hidden;}
+body{
+  margin:0;background:var(--void);color:var(--txt);
+  font-family:"Hanken Grotesk",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;line-height:1.5;overflow-x:hidden;
+}
+
+/* ---- ATMOSPHÈRE : mesh holographique STATIQUE + grille perspective + scanlines ---- */
+/* mesh rasterisé fixe — couleurs légèrement remontées pour compenser la saturate() supprimée */
+body::before{
+  content:"";position:fixed;inset:-20% -10% -10% -10%;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(42% 38% at 14% 12%, rgba(61,240,255,.26), transparent 62%),
+    radial-gradient(46% 44% at 86% 8%, rgba(255,79,208,.24), transparent 64%),
+    radial-gradient(50% 50% at 70% 86%, rgba(157,107,255,.24), transparent 66%),
+    radial-gradient(40% 40% at 22% 92%, rgba(255,200,61,.12), transparent 60%);
+}
+body::after{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;
+  background:
+    /* scanlines */
+    repeating-linear-gradient(0deg, rgba(255,255,255,.022) 0 1px, transparent 1px 3px),
+    /* grille perspective bas */
+    linear-gradient(180deg, transparent 58%, rgba(7,8,18,.0) 58%),
+    linear-gradient(transparent 0, transparent 0);
+}
+/* grille synthwave en profondeur (calque dédié) — statique, isolé du compositing */
+.gridfloor{position:fixed;left:-25%;right:-25%;bottom:-6%;height:46vh;z-index:0;pointer-events:none;
+  contain:strict;
+  background-image:
+    linear-gradient(rgba(61,240,255,.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,79,208,.12) 1px, transparent 1px);
+  background-size:64px 64px;
+  transform:perspective(420px) rotateX(70deg);
+  transform-origin:bottom center;
+  mask-image:linear-gradient(180deg, transparent, #000 70%);
+  -webkit-mask-image:linear-gradient(180deg, transparent, #000 70%);
+  opacity:.5;
+}
+.wrap{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:0 28px;}
+
+/* ---- TYPOGRAPHIE ---- */
+.display{font-family:"Clash Display","Hanken Grotesk",sans-serif;font-weight:600;letter-spacing:-.02em;line-height:.98;}
+.display .em{
+  background:linear-gradient(120deg,var(--magenta),var(--cyan) 70%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.display .gold{color:var(--amber);text-shadow:0 0 26px var(--amber-glow);}
+.ja{font-family:"Zen Kaku Gothic New",sans-serif;font-weight:700;}
+.mono{font-family:"JetBrains Mono",monospace;}
+.kicker{font-size:10.5px;text-transform:uppercase;letter-spacing:.32em;color:var(--txt-soft);
+        font-family:"JetBrains Mono",monospace;display:inline-flex;align-items:center;gap:.7em;}
+.kicker .dot{width:7px;height:7px;border-radius:50%;background:var(--cyan);box-shadow:0 0 10px var(--cyan),0 0 18px var(--cyan-glow);}
+.kicker .ja{color:var(--magenta);letter-spacing:.14em;font-size:13px;text-shadow:0 0 12px var(--magenta-glow);}
+
+/* ---- MAQUETTE SWITCHER (chrome néon) ---- */
+.switcher{position:sticky;top:0;z-index:50;backdrop-filter:blur(18px) saturate(1.3);-webkit-backdrop-filter:blur(18px) saturate(1.3);
+  background:linear-gradient(180deg,rgba(7,8,18,.86),rgba(7,8,18,.6));
+  border-bottom:1px solid var(--glass-line);box-shadow:0 1px 0 rgba(61,240,255,.12),0 14px 40px -28px rgba(0,0,0,.9);}
+.switcher .row{display:flex;align-items:center;gap:18px;height:60px;}
+.brandmark{display:flex;align-items:center;gap:11px;font-weight:700;}
+.brandmark .mc{width:30px;height:30px;border-radius:9px;
+  background:linear-gradient(140deg,var(--magenta),var(--violet));color:#fff;
+  display:grid;place-items:center;font-family:"Clash Display",sans-serif;font-weight:700;font-size:16px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.18),0 6px 22px var(--magenta-glow),inset 0 1px 1px rgba(255,255,255,.35);}
+.brandmark .wm{font-family:"Clash Display",sans-serif;font-weight:600;font-size:19px;letter-spacing:-.01em;}
+.brandmark .wm .it{
+  background:linear-gradient(90deg,var(--cyan),var(--magenta));
+  -webkit-background-clip:text;background-clip:text;color:transparent;}
+.brandmark .kana{font-family:"Zen Kaku Gothic New",sans-serif;font-weight:700;font-size:11px;color:var(--cyan);
+  letter-spacing:.12em;opacity:.8;align-self:center;text-shadow:0 0 10px var(--cyan-glow);}
+.tabs{margin-left:auto;display:flex;gap:4px;background:rgba(10,12,26,.6);padding:4px;border-radius:999px;border:1px solid var(--glass-line);}
+.tab{appearance:none;border:0;background:transparent;color:var(--txt-soft);cursor:pointer;
+  font:700 11px/1 "Hanken Grotesk";text-transform:uppercase;letter-spacing:.13em;
+  padding:9px 16px;border-radius:999px;transition:.24s var(--ease);white-space:nowrap;}
+.tab:hover{color:var(--txt);}
+.tab.on{background:linear-gradient(120deg,var(--magenta),var(--violet));color:#fff;
+  box-shadow:0 4px 18px var(--magenta-glow),inset 0 1px 1px rgba(255,255,255,.3);}
+
+/* ---- NAV APPLI ---- */
+.appbar{display:flex;align-items:center;gap:26px;padding:24px 0 10px;}
+.appnav{display:flex;gap:2px;margin-left:22px;}
+.appnav a{color:var(--txt-soft);text-decoration:none;font-size:11px;text-transform:uppercase;
+  letter-spacing:.16em;padding:8px 13px;border-radius:9px;transition:.2s;position:relative;cursor:pointer;}
+.appnav a:hover{color:var(--txt);}
+.appnav a.active{color:var(--cyan);text-shadow:0 0 12px var(--cyan-glow);}
+.appnav a.active::after{content:"";position:absolute;left:13px;right:13px;bottom:2px;height:2px;border-radius:2px;
+  background:var(--cyan);box-shadow:0 0 10px var(--cyan),0 0 18px var(--cyan-glow);}
+.appbar .right{margin-left:auto;display:flex;align-items:center;gap:12px;}
+.pill-cta{display:inline-flex;align-items:center;gap:8px;
+  background:linear-gradient(120deg,var(--magenta),var(--violet));color:#fff;
+  border:0;border-radius:999px;padding:11px 20px;font:700 11px/1 "Hanken Grotesk";cursor:pointer;
+  text-transform:uppercase;letter-spacing:.13em;text-decoration:none;
+  box-shadow:0 6px 24px var(--magenta-glow),inset 0 1px 1px rgba(255,255,255,.3);transition:.22s var(--ease);}
+.pill-cta:hover{transform:translateY(-2px);box-shadow:0 10px 32px var(--magenta-glow),inset 0 1px 1px rgba(255,255,255,.4);}
+.pill-ghost{display:inline-flex;align-items:center;gap:8px;background:rgba(61,240,255,.05);color:var(--cyan);
+  border:1px solid rgba(61,240,255,.4);border-radius:999px;padding:11px 20px;font:700 11px/1 "Hanken Grotesk";
+  cursor:pointer;text-transform:uppercase;letter-spacing:.13em;text-decoration:none;transition:.22s var(--ease);
+  box-shadow:inset 0 0 16px rgba(61,240,255,.08);}
+.pill-ghost:hover{border-color:var(--cyan);color:#fff;box-shadow:0 0 22px var(--cyan-glow),inset 0 0 20px rgba(61,240,255,.16);}
+.avatar{width:36px;height:36px;border-radius:50%;
+  background:linear-gradient(140deg,var(--cyan),var(--violet));
+  color:#06121a;display:grid;place-items:center;font-family:"Clash Display",sans-serif;font-weight:700;font-size:15px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.2),0 4px 16px var(--cyan-glow);}
+
+/* ---- SCREENS ---- */
+.screen{display:none;animation:fade .5s var(--ease);}
+.screen.on{display:block;}
+@keyframes fade{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+
+/* ============ LANDING ============ */
+.hero{padding:70px 0 26px;text-align:center;position:relative;}
+.hero .kanasign{position:absolute;top:54px;left:50%;transform:translateX(-50%);
+  font-family:"Zen Kaku Gothic New",sans-serif;font-weight:900;font-size:clamp(60px,16vw,180px);
+  color:transparent;-webkit-text-stroke:1px rgba(157,107,255,.16);text-stroke:1px rgba(157,107,255,.16);
+  letter-spacing:.04em;white-space:nowrap;pointer-events:none;user-select:none;z-index:-1;line-height:1;opacity:.7;}
+.hero h1{font-size:clamp(46px,8.4vw,112px);margin:18px 0 0;position:relative;}
+.hero p{max-width:560px;margin:24px auto 0;color:var(--txt-soft);font-size:16px;line-height:1.62;}
+.hero .cta-row{display:flex;gap:14px;justify-content:center;margin-top:36px;flex-wrap:wrap;}
+
+.shelf{margin-top:18px;position:relative;height:340px;}
+.shelf .plank{position:absolute;left:0;right:0;bottom:54px;height:3px;
+  background:linear-gradient(90deg,transparent,var(--cyan) 14%,var(--magenta) 86%,transparent);
+  box-shadow:0 0 14px var(--cyan-glow),0 0 26px var(--magenta-glow);border-radius:3px;}
+.shelf .plank::after{content:"";position:absolute;left:0;right:0;top:3px;height:64px;
+  background:linear-gradient(180deg,rgba(61,240,255,.10),transparent);}
+.shelf-row{position:absolute;left:0;right:0;bottom:60px;display:flex;justify-content:center;
+  align-items:flex-end;gap:18px;padding:0 20px;}
+.shelf-fig{width:130px;flex:0 0 auto;transition:.42s var(--ease-back);}
+.shelf-fig:hover{transform:translateY(-12px);}
+.shelf-fig .well{height:208px;border-radius:14px;}
+.shelf-fig .cap{text-align:center;margin-top:12px;}
+.shelf-fig .cap b{display:block;font-family:"Clash Display",sans-serif;font-weight:600;font-size:13.5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.shelf-fig .cap span{font-size:9.5px;color:var(--txt-faint);text-transform:uppercase;letter-spacing:.16em;font-family:"JetBrains Mono";}
+
+/* ============ STUDIO PHOTO WELL — VERRE DÉPOLI NÉON (réutilisé partout) ============ */
+/* verre dépoli simulé par un fond opaque dégradé (plus de backdrop-blur) + contain pour isoler le paint */
+.well{position:relative;overflow:hidden;display:grid;place-items:center;isolation:isolate;
+  contain:layout paint style;
+  background:
+    radial-gradient(120% 92% at 30% 0%, color-mix(in oklab,var(--hue) 30%, transparent) 0%, transparent 56%),
+    linear-gradient(160deg, rgba(34,38,72,.92), rgba(10,12,26,.96));
+  border:1px solid color-mix(in oklab,var(--hue) 40%, var(--glass-line));
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.08),inset 0 0 40px -10px color-mix(in oklab,var(--hue) 50%,transparent);
+}
+/* sheen holographique en diagonale */
+.well::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;mix-blend-mode:screen;opacity:.5;
+  background:linear-gradient(115deg, transparent 30%, color-mix(in oklab,var(--hue) 40%,transparent) 46%, rgba(255,255,255,.18) 50%, transparent 60%);}
+.well .floor{position:absolute;left:14%;right:14%;bottom:6%;height:7%;border-radius:50%;z-index:0;
+  background:radial-gradient(ellipse 100% 100% at 50% 50%,color-mix(in oklab,var(--hue) 55%,transparent),transparent 70%);opacity:.9;}
+.well .spot{position:absolute;inset:0;z-index:0;background:radial-gradient(58% 50% at 32% 12%,
+    color-mix(in oklab,var(--hue) 44%, transparent),transparent 70%);mix-blend-mode:screen;opacity:.9;}
+.well .kanji-wm{position:absolute;right:6px;bottom:0;z-index:1;font-family:"Zen Kaku Gothic New",sans-serif;font-weight:900;
+  font-size:5rem;line-height:.78;color:transparent;-webkit-text-stroke:1.2px color-mix(in oklab,var(--hue) 50%,transparent);
+  text-stroke:1.2px color-mix(in oklab,var(--hue) 50%,transparent);user-select:none;opacity:.6;}
+/* glow néon de la silhouette : un seul drop-shadow (suit l'alpha) — box-shadow impossible ici (forme non rectangulaire). Statique + contain:paint sur .well => peint une fois, mis en cache. */
+.well svg.fig{position:relative;z-index:2;height:78%;
+  filter:drop-shadow(0 0 14px color-mix(in oklab,var(--hue) 70%,transparent));}
+/* figurine néon : corps saturé, rim-light vif, ombre froide */
+.well svg.fig .body{fill:color-mix(in oklab,var(--hue) 78%, #20243f);}
+.well svg.fig .hi{fill:color-mix(in oklab,var(--hue) 70%, #fff 55%);}
+.well svg.fig .sh{fill:color-mix(in oklab,var(--hue) 40%, #0a0c1a);}
+
+/* ============ COLLECTION ============ */
+.page-head{padding:32px 0 20px;}
+.page-head h2{font-size:clamp(36px,5.2vw,60px);margin:8px 0 0;}
+
+/* BENTO dashboard — tuiles de tailles variées, lueurs */
+.bento{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:96px;gap:14px;margin:26px 0 22px;}
+.tile{position:relative;overflow:hidden;border-radius:18px;padding:18px 20px;
+  background:linear-gradient(160deg,rgba(28,30,58,.82),rgba(14,16,34,.92));
+  border:1px solid var(--glass-line);box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+  contain:layout paint style;
+  display:flex;flex-direction:column;justify-content:center;transition:.3s var(--ease);}
+.tile:hover{transform:translateY(-3px);border-color:var(--glass-line-2);}
+.tile::after{content:"";position:absolute;inset:0;border-radius:18px;pointer-events:none;
+  background:radial-gradient(120% 90% at 100% 0%, color-mix(in oklab,var(--c) 22%,transparent), transparent 60%);}
+.tile .lab{font:500 10px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.2em;color:var(--txt-faint);position:relative;z-index:1;}
+.tile .val{font-family:"Clash Display",sans-serif;font-weight:600;font-size:34px;margin-top:8px;position:relative;z-index:1;letter-spacing:-.02em;}
+.tile .val.cy{color:var(--cyan);text-shadow:0 0 22px var(--cyan-glow);}
+.tile .val.mg{color:var(--magenta);text-shadow:0 0 22px var(--magenta-glow);}
+.tile .val.am{color:var(--amber);text-shadow:0 0 22px var(--amber-glow);}
+.tile .sub{font-size:11px;color:var(--txt-soft);margin-top:5px;position:relative;z-index:1;}
+.tile .spark{position:absolute;right:16px;bottom:14px;z-index:1;}
+.tile .kana{position:absolute;right:14px;top:12px;z-index:0;font-family:"Zen Kaku Gothic New";font-weight:900;font-size:13px;
+  color:color-mix(in oklab,var(--c) 70%,transparent);opacity:.5;letter-spacing:.1em;}
+.tile.big{grid-column:span 2;grid-row:span 2;justify-content:flex-end;}
+.tile.big .val{font-size:clamp(40px,5vw,58px);}
+.tile.big .ring{position:absolute;top:18px;right:18px;width:84px;height:84px;z-index:1;}
+.tile.tall{grid-row:span 2;justify-content:flex-end;}
+.tile.wide{grid-column:span 2;}
+.tile .barwrap{position:relative;z-index:1;height:7px;border-radius:999px;background:rgba(255,255,255,.07);margin-top:12px;overflow:hidden;}
+.tile .barwrap i{display:block;height:100%;border-radius:999px;
+  background:linear-gradient(90deg,var(--cyan),var(--magenta));box-shadow:0 0 12px var(--magenta-glow);}
+
+.toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:24px;}
+.chips{display:flex;gap:8px;flex-wrap:wrap;}
+.chip{border:1px solid var(--glass-line);background:rgba(255,255,255,.02);color:var(--txt-soft);border-radius:999px;
+  padding:9px 16px;font:700 11px/1 "Hanken Grotesk";cursor:pointer;text-transform:uppercase;letter-spacing:.1em;transition:.22s var(--ease);
+  display:inline-flex;align-items:center;gap:7px;}
+.chip:hover{color:var(--txt);border-color:var(--glass-line-2);}
+.chip.on{background:rgba(61,240,255,.1);border-color:var(--cyan);color:#fff;box-shadow:0 0 18px -2px var(--cyan-glow),inset 0 0 14px rgba(61,240,255,.1);}
+.chip .n{font-family:"JetBrains Mono";font-size:10px;color:var(--txt-faint);}
+.chip.on .n{color:var(--cyan);}
+.search{margin-left:auto;display:flex;align-items:center;gap:10px;
+  background:linear-gradient(160deg,rgba(28,30,58,.82),rgba(14,16,34,.9));
+  border:1px solid var(--glass-line);border-radius:999px;padding:10px 18px;min-width:240px;color:var(--txt-faint);font-size:13px;transition:.2s;}
+.search:hover{border-color:var(--glass-line-2);}
+.viewtog{display:flex;border:1px solid var(--glass-line);border-radius:11px;overflow:hidden;background:rgba(255,255,255,.02);}
+.viewtog button{appearance:none;border:0;background:transparent;color:var(--txt-faint);padding:10px 12px;cursor:pointer;display:grid;place-items:center;transition:.2s;}
+.viewtog button.on{background:rgba(157,107,255,.16);color:var(--violet);box-shadow:inset 0 0 14px rgba(157,107,255,.18);}
+
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;}
+.fcard{position:relative;background:linear-gradient(160deg,rgba(24,26,52,.82),rgba(12,14,30,.92));
+  border:1px solid var(--glass-line);border-radius:18px;overflow:hidden;
+  contain:layout paint style;
+  cursor:pointer;transition:.42s var(--ease-back);display:flex;flex-direction:column;text-decoration:none;color:inherit;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06);}
+.fcard:hover{transform:translateY(-8px);border-color:color-mix(in oklab,var(--hue) 70%, transparent);
+  box-shadow:0 30px 60px -28px rgba(0,0,0,.85),
+             0 0 0 1px color-mix(in oklab,var(--hue) 50%,transparent),
+             0 0 50px -8px color-mix(in oklab,var(--hue) 60%,transparent),
+             inset 0 1px 1px rgba(255,255,255,.1);}
+.fcard .well{aspect-ratio:4/5;border-radius:0;border:0;}
+.fcard .topbar{position:absolute;top:0;left:0;right:0;height:2px;z-index:4;
+  background:linear-gradient(90deg,transparent,color-mix(in oklab,var(--hue) 90%,transparent) 30%,color-mix(in oklab,var(--hue) 90%,transparent) 70%,transparent);
+  box-shadow:0 0 12px color-mix(in oklab,var(--hue) 70%,transparent);}
+.plaque{position:absolute;top:12px;left:12px;z-index:5;display:inline-flex;align-items:center;gap:6px;
+  background:rgba(10,12,26,.82);
+  border:1px solid color-mix(in oklab,var(--hue) 50%,var(--glass-line));
+  border-radius:9px;padding:6px 10px;font:700 9.5px/1 "Hanken Grotesk";text-transform:uppercase;letter-spacing:.13em;
+  color:color-mix(in oklab,var(--hue) 65%,#fff);box-shadow:0 0 16px -4px color-mix(in oklab,var(--hue) 70%,transparent);}
+.plaque .k{font-family:"Zen Kaku Gothic New";font-weight:900;color:color-mix(in oklab,var(--hue) 80%,#fff);font-size:12px;}
+.mark{position:absolute;top:12px;right:12px;z-index:5;width:28px;height:28px;border-radius:50%;
+  display:grid;place-items:center;font-size:13px;}
+.mark.owned{background:rgba(15,40,52,.85);border:1px solid var(--cyan);color:var(--cyan);box-shadow:0 0 14px -2px var(--cyan-glow);}
+.mark.wished{background:rgba(48,14,40,.85);border:1px solid var(--magenta);color:var(--magenta);box-shadow:0 0 14px -2px var(--magenta-glow);}
+.stamp{position:absolute;top:11px;right:11px;z-index:5;font:700 9px/1 "JetBrains Mono";text-transform:uppercase;
+  letter-spacing:.12em;padding:7px 10px;border-radius:8px;color:#fff;
+  background:linear-gradient(120deg,var(--magenta),var(--violet));
+  box-shadow:0 0 18px -2px var(--magenta-glow);border:1px solid rgba(255,255,255,.22);}
+.stamp.gold{background:linear-gradient(120deg,var(--amber),#ff9d3d);color:#1a1206;box-shadow:0 0 18px -2px var(--amber-glow);}
+.inscr{position:absolute;left:0;right:0;bottom:0;z-index:4;padding:24px 13px 10px;display:flex;justify-content:space-between;
+  font:500 9.5px/1 "JetBrains Mono";letter-spacing:.08em;color:var(--txt-soft);
+  background:linear-gradient(0deg,rgba(7,8,18,.94),transparent);}
+.fcard .body{padding:16px 17px 18px;display:flex;flex-direction:column;flex:1;}
+.fcard .body h3{font-family:"Clash Display",sans-serif;font-weight:600;font-size:18px;margin:0;line-height:1.14;letter-spacing:-.01em;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.fcard:hover .body h3{color:color-mix(in oklab,var(--hue) 70%,#fff);}
+.fcard .rule{height:2px;width:34px;border-radius:2px;background:linear-gradient(90deg,color-mix(in oklab,var(--hue) 90%,transparent),transparent);
+  box-shadow:0 0 10px color-mix(in oklab,var(--hue) 60%,transparent);margin:11px 0;}
+.fcard .meta{margin-top:auto;display:flex;flex-direction:column;gap:5px;}
+.fcard .meta .r{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;}
+.fcard .meta .r dt{color:var(--txt-faint);text-transform:uppercase;font-size:9px;letter-spacing:.16em;}
+.fcard .meta .r dd{margin:0;color:var(--txt-soft);}
+.fcard .price{font-family:"Clash Display",sans-serif;font-weight:600;color:var(--amber);font-size:16px;text-shadow:0 0 16px var(--amber-glow);}
+
+/* ============ DÉTAIL ============ */
+.back{display:inline-flex;align-items:center;gap:8px;color:var(--txt-soft);text-decoration:none;font-size:11px;
+  text-transform:uppercase;letter-spacing:.18em;margin:18px 0 22px;transition:.2s;}
+.back:hover{color:var(--cyan);}
+.detail{display:grid;grid-template-columns:96px 1.05fr 1fr;gap:26px;align-items:start;}
+.thumbs{display:flex;flex-direction:column;gap:12px;}
+.thumb{aspect-ratio:4/5;border-radius:12px;overflow:hidden;cursor:pointer;transition:.24s var(--ease);}
+.thumb .well{height:100%;border-radius:0;border:0;}
+.thumb.on{box-shadow:0 0 0 1px var(--magenta),0 0 22px -2px var(--magenta-glow);}
+.thumb:hover{transform:translateY(-2px);}
+.hero-well{aspect-ratio:4/5;border-radius:22px;
+  border:1px solid color-mix(in oklab,var(--hue) 50%,transparent);
+  box-shadow:0 40px 90px -40px #000, 0 0 70px -14px color-mix(in oklab,var(--hue) 60%,transparent),inset 0 1px 1px rgba(255,255,255,.1);overflow:hidden;}
+.hero-well .turn{position:absolute;left:16px;bottom:16px;z-index:6;display:inline-flex;align-items:center;gap:7px;
+  background:rgba(7,8,18,.82);
+  border:1px solid color-mix(in oklab,var(--hue) 40%,var(--glass-line));border-radius:999px;
+  padding:8px 14px;font:700 10px/1 "Hanken Grotesk";text-transform:uppercase;letter-spacing:.12em;color:var(--txt);}
+.dpanel .tags{display:flex;flex-wrap:wrap;gap:7px;margin:16px 0 22px;}
+.dtag{font:700 9.5px/1 "Hanken Grotesk";text-transform:uppercase;letter-spacing:.13em;color:var(--txt-soft);
+  background:rgba(255,255,255,.02);border:1px solid var(--glass-line);border-radius:999px;padding:8px 13px;transition:.2s;cursor:pointer;}
+.dtag:hover{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 16px -4px var(--cyan-glow);}
+.dpanel h1{font-size:clamp(34px,4.6vw,52px);margin:6px 0 4px;}
+.dpanel .sub{color:var(--txt-soft);font-style:italic;font-size:17px;}
+.specgrid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--glass-line);border:1px solid var(--glass-line);
+  border-radius:14px;overflow:hidden;margin:8px 0 22px;}
+.specgrid .cell{background:linear-gradient(160deg,rgba(24,26,52,.92),rgba(13,15,32,.96));padding:15px 17px;}
+.specgrid .cell .l{font:500 9px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.18em;color:var(--txt-faint);}
+.specgrid .cell .v{margin-top:8px;font-size:15px;color:var(--txt);}
+.specgrid .cell .v .ja{color:var(--cyan);font-size:13px;}
+.block{background:linear-gradient(160deg,rgba(24,26,52,.82),rgba(12,14,30,.92));
+  border:1px solid var(--glass-line);border-radius:18px;padding:20px;margin-bottom:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.06);}
+.block .bh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;}
+.block .bh .t{font:700 10px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.2em;color:var(--txt-faint);}
+.progress{height:9px;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden;margin:14px 0 6px;}
+.progress i{display:block;height:100%;border-radius:999px;
+  background:linear-gradient(90deg,var(--magenta),var(--amber));box-shadow:0 0 14px var(--magenta-glow);}
+.prow{display:flex;justify-content:space-between;font-size:13px;}
+.prow .l{font:500 9px/1 'JetBrains Mono';letter-spacing:.16em;color:var(--txt-faint);text-transform:uppercase;}
+.prow .big{font-family:"Clash Display",sans-serif;font-weight:600;font-size:26px;margin-top:6px;}
+.prow .big.mg{color:var(--magenta);text-shadow:0 0 18px var(--magenta-glow);}
+.prow .big.am{color:var(--amber);text-shadow:0 0 18px var(--amber-glow);}
+.cote{display:grid;grid-template-columns:1fr 1fr auto;gap:14px;align-items:center;}
+.cote .c .l{font:500 9px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.16em;color:var(--txt-faint);}
+.cote .c .v{font-family:"Clash Display",sans-serif;font-weight:600;font-size:24px;margin-top:6px;}
+.cote .up{color:var(--lime);font-size:12px;font-family:"JetBrains Mono";}
+.stores{display:flex;flex-direction:column;gap:8px;}
+.store{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--glass-line);border-radius:12px;transition:.2s;cursor:pointer;text-decoration:none;color:inherit;background:rgba(255,255,255,.015);}
+.store:hover{border-color:var(--glass-line-2);background:rgba(255,255,255,.04);transform:translateX(3px);}
+.store .logo{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font:700 11px/1 "JetBrains Mono";color:#fff;box-shadow:inset 0 1px 1px rgba(255,255,255,.25);}
+.store .nm{font-weight:700;font-size:13px;}
+.store .px{margin-left:auto;font-family:"Clash Display",sans-serif;font-weight:600;color:var(--amber);font-size:16px;text-shadow:0 0 14px var(--amber-glow);}
+.store .badge-best{font:700 8px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.1em;color:var(--lime);border:1px solid var(--lime);border-radius:6px;padding:5px 7px;box-shadow:0 0 12px -3px var(--lime-glow);}
+.dactions{display:flex;gap:12px;margin:20px 0;flex-wrap:wrap;}
+
+/* ============ PRÉ-COMMANDES ============ */
+.po-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:24px 0 30px;}
+.po-sum{position:relative;overflow:hidden;background:linear-gradient(160deg,rgba(28,30,58,.82),rgba(14,16,34,.92));
+  border:1px solid var(--glass-line);border-radius:20px;padding:24px 26px;box-shadow:inset 0 1px 0 rgba(255,255,255,.06);}
+.po-sum::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(110% 90% at 100% 0%, color-mix(in oklab,var(--c) 20%,transparent), transparent 58%);}
+.po-sum .l{font:500 10px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.18em;color:var(--txt-faint);position:relative;z-index:1;}
+.po-sum .v{font-family:"Clash Display",sans-serif;font-weight:600;font-size:40px;margin-top:12px;position:relative;z-index:1;letter-spacing:-.02em;}
+.po-sum.due .v{color:var(--magenta);text-shadow:0 0 24px var(--magenta-glow);}
+.po-sum.next .v{color:var(--amber);text-shadow:0 0 24px var(--amber-glow);}
+.po-sum .v .ja{font-size:18px;color:var(--cyan);}
+.po-month{margin:30px 0 14px;display:flex;align-items:center;gap:16px;}
+.po-month .m{font-family:"Clash Display",sans-serif;font-weight:600;font-size:22px;font-style:italic;}
+.po-month .ln{flex:1;height:1px;background:linear-gradient(90deg,var(--glass-line-2),transparent);}
+.po-month .c{font:500 10px/1 "JetBrains Mono";color:var(--txt-faint);letter-spacing:.1em;}
+.po-item{position:relative;display:grid;grid-template-columns:64px 1.4fr 1fr 1fr auto;gap:18px;align-items:center;
+  background:linear-gradient(160deg,rgba(24,26,52,.82),rgba(12,14,30,.92));
+  border:1px solid var(--glass-line);border-radius:18px;padding:14px 18px;margin-bottom:12px;transition:.28s var(--ease);
+  contain:layout paint style;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05);}
+.po-item::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:3px;
+  background:color-mix(in oklab,var(--hue) 90%,transparent);box-shadow:0 0 12px color-mix(in oklab,var(--hue) 70%,transparent);}
+.po-item:hover{border-color:color-mix(in oklab,var(--hue) 50%,var(--glass-line));transform:translateX(4px);
+  box-shadow:0 18px 40px -28px rgba(0,0,0,.8),0 0 30px -12px color-mix(in oklab,var(--hue) 50%,transparent);}
+.po-item .thmb{width:64px;height:80px;border-radius:11px;overflow:hidden;}
+.po-item .thmb.well{border-radius:11px;}
+.po-item .nm b{font-family:"Clash Display",sans-serif;font-weight:600;font-size:17px;display:block;letter-spacing:-.01em;}
+.po-item .nm span{font-size:11px;color:var(--txt-soft);}
+.po-item .fin .l{font:500 8.5px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.16em;color:var(--txt-faint);}
+.po-item .fin .v{font-family:"Clash Display",sans-serif;font-weight:600;font-size:18px;margin-top:5px;}
+.po-item .fin .v.mg{color:var(--magenta);text-shadow:0 0 14px var(--magenta-glow);}
+.po-item .fin small{color:var(--txt-soft);font-family:"Hanken Grotesk";font-size:10px;}
+.countdown{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
+  border-radius:14px;padding:11px 17px;min-width:80px;border:1px solid;}
+.countdown.soon{border-color:var(--magenta);background:rgba(255,79,208,.1);box-shadow:0 0 20px -4px var(--magenta-glow),inset 0 0 16px rgba(255,79,208,.08);}
+.countdown.ok{border-color:var(--glass-line-2);background:rgba(255,255,255,.02);}
+.countdown.slip{border-color:var(--amber);background:rgba(255,200,61,.08);box-shadow:0 0 16px -6px var(--amber-glow);}
+.countdown .d{font-family:"Clash Display",sans-serif;font-weight:700;font-size:24px;line-height:1;}
+.countdown.soon .d{color:var(--magenta);text-shadow:0 0 16px var(--magenta-glow);}
+.countdown.slip .d{color:var(--amber);}
+.countdown .u{font:500 8px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.16em;color:var(--txt-faint);margin-top:5px;}
+.slip-tag{display:inline-block;font:700 8px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.1em;
+  color:var(--amber);border:1px solid var(--amber);border-radius:6px;padding:4px 7px;margin-left:8px;box-shadow:0 0 12px -4px var(--amber-glow);}
+
+footer{margin-top:60px;border-top:1px solid var(--glass-line);padding:26px 0;display:flex;justify-content:space-between;
+  align-items:center;color:var(--txt-faint);font-size:11px;text-transform:uppercase;letter-spacing:.2em;font-family:"JetBrains Mono";}
+footer .ja{color:var(--cyan);text-shadow:0 0 12px var(--cyan-glow);}
+
+@media(max-width:980px){
+  .detail{grid-template-columns:1fr;}
+  .thumbs{flex-direction:row;order:2;}
+  .grid{grid-template-columns:repeat(2,1fr);}
+  .bento{grid-template-columns:repeat(2,1fr);}
+  .tile.big{grid-column:span 2;grid-row:span 2;}
+  .tile.wide{grid-column:span 2;}
+  .po-summary{grid-template-columns:1fr;}
+  .po-item{grid-template-columns:54px 1fr;gap:12px;}
+  .po-item .fin,.po-item .countdown{display:none;}
+  .appnav{display:none;}
+}
+@media(max-width:560px){
+  .grid{grid-template-columns:1fr;}
+  .tabs{display:none;}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .screen{animation:none;}
+  *{scroll-behavior:auto;}
+}
+</style>
+</head>
+<body>
+
+<!-- grille synthwave en profondeur -->
+<div class="gridfloor" aria-hidden="true"></div>
+
+<!-- ====== SVG FIGURE LIBRARY (silhouettes réutilisables — identiques à la Direction A) ====== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- Scale figure : femme gracieuse, robe, cheveux flottants, base ronde -->
+    <symbol id="fig-scale" viewBox="0 0 100 150">
+      <ellipse class="sh" cx="50" cy="143" rx="27" ry="5"/>
+      <path class="body" d="M50 58 C36 58 27 100 32 134 L68 134 C73 100 64 58 50 58 Z"/>
+      <path class="hi" d="M50 58 C44 58 40 78 41 110 L50 110 Z"/>
+      <path class="body" d="M50 46 C45 46 43 54 45 62 L55 62 C57 54 55 46 50 46 Z"/>
+      <circle class="hi" cx="50" cy="36" r="11"/>
+      <path class="body" d="M38 33 C28 37 24 70 33 100 C35 80 39 62 45 56 C40 46 41 35 38 33 Z"/>
+      <path class="body" d="M62 33 C72 37 78 74 67 104 C65 82 61 62 55 56 C60 46 59 35 62 33 Z"/>
+      <path class="sh" d="M40 50 C34 60 33 84 36 96 C37 78 41 62 45 56 Z"/>
+    </symbol>
+    <!-- Nendoroid : grosse tête, petit corps -->
+    <symbol id="fig-nendo" viewBox="0 0 100 150">
+      <ellipse class="sh" cx="50" cy="143" rx="22" ry="5"/>
+      <path class="body" d="M50 96 C39 96 35 122 40 136 L60 136 C65 122 61 96 50 96 Z"/>
+      <circle class="body" cx="50" cy="60" r="35"/>
+      <path class="hi" d="M50 25 C33 25 20 40 18 58 C30 50 40 47 50 47 Z"/>
+      <circle class="sh" cx="38" cy="64" r="4" opacity=".5"/>
+      <circle class="sh" cx="62" cy="64" r="4" opacity=".5"/>
+    </symbol>
+    <!-- Action / figma : pose dynamique -->
+    <symbol id="fig-action" viewBox="0 0 100 150">
+      <ellipse class="sh" cx="46" cy="143" rx="24" ry="5"/>
+      <path class="body" d="M44 56 C36 56 33 82 38 100 L40 134 L52 134 L52 104 L60 120 L70 112 L54 86 C56 70 54 56 44 56 Z"/>
+      <path class="body" d="M46 58 L74 40 L78 48 L52 70 Z"/>
+      <circle class="hi" cx="45" cy="44" r="10"/>
+      <path class="body" d="M36 40 C30 44 30 58 36 64 C36 54 40 48 45 45 Z"/>
+      <path class="hi" d="M44 58 C40 70 40 86 42 100 L48 100 C47 84 48 70 50 60 Z"/>
+    </symbol>
+    <!-- Mecha / plamo : robot anguleux -->
+    <symbol id="fig-mecha" viewBox="0 0 100 150">
+      <ellipse class="sh" cx="50" cy="143" rx="26" ry="5"/>
+      <path class="body" d="M38 60 L62 60 L66 96 L58 132 L42 132 L34 96 Z"/>
+      <path class="hi" d="M38 60 L50 60 L50 132 L42 132 L34 96 Z"/>
+      <rect class="body" x="44" y="40" width="12" height="16" rx="2"/>
+      <path class="hi" d="M48 38 L52 38 L54 44 L46 44 Z"/>
+      <path class="body" d="M30 62 L38 64 L40 92 L30 90 Z"/>
+      <path class="body" d="M70 62 L62 64 L60 92 L70 90 Z"/>
+      <rect class="sh" x="46" y="70" width="8" height="22" rx="2"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- ====== MAQUETTE SWITCHER ====== -->
+<div class="switcher">
+  <div class="wrap row">
+    <div class="brandmark"><span class="mc">F</span><span class="wm">Figure<span class="it">Collector</span></span><span class="kana">フィギュア</span></div>
+    <div class="tabs">
+      <button class="tab on" data-s="landing">Accueil</button>
+      <button class="tab" data-s="collection">Collection</button>
+      <button class="tab" data-s="detail">Fiche figurine</button>
+      <button class="tab" data-s="preorders">Pré-commandes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================== LANDING ============================== -->
+<section class="screen on" id="landing">
+  <div class="wrap">
+    <div class="hero">
+      <span class="kanasign ja" aria-hidden="true">アキバ</span>
+      <span class="kicker"><span class="dot"></span>ARCADE<span class="ja">電飾</span>VOTRE VITRINE NÉON</span>
+      <h1 class="display">Chaque <span class="em">pièce</span>,<br>sous les néons.</h1>
+      <p>FigureCollector illumine votre collection comme une vitrine d'Akihabara — cataloguez, suivez vos pré-commandes et faites briller chaque figurine de sa propre lumière néon.</p>
+      <div class="cta-row">
+        <a class="pill-cta" href="#">Brancher le néon →</a>
+        <a class="pill-ghost" href="#">Ouvrir ma collection</a>
+      </div>
+    </div>
+    <div class="shelf">
+      <div class="shelf-row">
+        <div class="shelf-fig"><div class="well" style="--hue:var(--magenta)"><div class="spot"></div><span class="kanji-wm">桜</span><svg class="fig"><use href="#fig-scale"/></svg><div class="floor"></div></div><div class="cap"><b>Megumin</b><span>1/7 · KADOKAWA</span></div></div>
+        <div class="shelf-fig"><div class="well" style="--hue:var(--lime)"><div class="spot"></div><span class="kanji-wm">緑</span><svg class="fig"><use href="#fig-action"/></svg><div class="floor"></div></div><div class="cap"><b>Gojo Satoru</b><span>1/8 · GSC</span></div></div>
+        <div class="shelf-fig"><div class="well" style="--hue:var(--cyan)"><div class="spot"></div><span class="kanji-wm">藍</span><svg class="fig"><use href="#fig-scale"/></svg><div class="floor"></div></div><div class="cap"><b>Rem</b><span>1/7 · GSC</span></div></div>
+        <div class="shelf-fig"><div class="well" style="--hue:var(--amber)"><div class="spot"></div><span class="kanji-wm">金</span><svg class="fig"><use href="#fig-nendo"/></svg><div class="floor"></div></div><div class="cap"><b>Hatsune Miku</b><span>NENDOROID</span></div></div>
+        <div class="shelf-fig"><div class="well" style="--hue:#4f9dff"><div class="spot"></div><span class="kanji-wm">組</span><svg class="fig"><use href="#fig-mecha"/></svg><div class="floor"></div></div><div class="cap"><b>RX-78-2</b><span>PLAMO · MG</span></div></div>
+        <div class="shelf-fig"><div class="well" style="--hue:var(--violet)"><div class="spot"></div><span class="kanji-wm">紫</span><svg class="fig"><use href="#fig-scale"/></svg><div class="floor"></div></div><div class="cap"><b>Frieren</b><span>1/7 · F:NEX</span></div></div>
+      </div>
+      <div class="plank"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== COLLECTION ============================== -->
+<section class="screen" id="collection">
+  <div class="wrap">
+    <div class="appbar">
+      <span class="kicker"><span class="dot"></span><span class="ja">棚</span></span>
+      <nav class="appnav">
+        <a class="active">Collection</a><a>Vitrines</a><a>Catalogue</a><a onclick="go('preorders');return false">Pré-commandes</a><a>Stats</a>
+      </nav>
+      <div class="right">
+        <a class="pill-cta" href="#">＋ Ajouter</a>
+        <div class="avatar">D</div>
+      </div>
+    </div>
+    <div class="page-head">
+      <span class="kicker">ARCHIVE<span class="ja">コレクション</span></span>
+      <h2 class="display"><span class="em">Votre</span> Collection</h2>
+    </div>
+
+    <!-- BENTO dashboard -->
+    <div class="bento">
+      <div class="tile big" style="--c:var(--cyan)">
+        <span class="kana ja">コレクション</span>
+        <svg class="ring" viewBox="0 0 84 84" fill="none" aria-label="Vitrines · espace occupé 86 %">
+          <circle cx="42" cy="42" r="36" stroke="rgba(255,255,255,.08)" stroke-width="7"/>
+          <circle cx="42" cy="42" r="36" stroke="var(--cyan)" stroke-width="7" stroke-linecap="round"
+            stroke-dasharray="226" stroke-dashoffset="32" transform="rotate(-90 42 42)"/>
+        </svg>
+        <div class="lab">Pièces en vitrine</div>
+        <div class="val cy">128</div>
+        <div class="sub">Vitrines · espace occupé 86 %</div>
+      </div>
+      <div class="tile wide" style="--c:var(--amber)">
+        <span class="kana ja">価値</span>
+        <div class="lab">Valeur estimée</div>
+        <div class="val am">14 280 €</div>
+        <div class="sub">payé · 11 940 € — cote ▲ +19,6 %</div>
+        <svg class="spark" width="64" height="24"><polyline points="0,20 13,16 26,17 39,9 52,7 64,2" fill="none" stroke="var(--lime)" stroke-width="1.6"/></svg>
+      </div>
+      <div class="tile" style="--c:var(--magenta)">
+        <span class="kana ja">予約</span>
+        <div class="lab">Pré-commandes</div>
+        <div class="val mg">7</div>
+        <div class="sub">2 340 € engagés</div>
+      </div>
+      <div class="tile" style="--c:var(--violet)">
+        <span class="kana ja">願</span>
+        <div class="lab">Souhaits</div>
+        <div class="val" style="color:var(--violet);text-shadow:0 0 22px var(--violet-glow)">12</div>
+        <div class="sub">3 alertes prix</div>
+      </div>
+      <div class="tile wide" style="--c:var(--cyan)">
+        <div class="lab">Espace vitrine · 4 meubles</div>
+        <div class="val cy">86<span style="font-size:20px">%</span></div>
+        <div class="barwrap"><i style="width:86%"></i></div>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="chips">
+        <button class="chip on">Tout <span class="n">128</span></button>
+        <button class="chip">Possédées <span class="n">109</span></button>
+        <button class="chip">Souhaits <span class="n">12</span></button>
+        <button class="chip">Pré-co <span class="n">7</span></button>
+      </div>
+      <div class="search">🔍 Rechercher une pièce, une série…</div>
+      <div class="viewtog">
+        <button class="on" title="Grille"><svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="0" y="0" width="6" height="6"/><rect x="9" y="0" width="6" height="6"/><rect x="0" y="9" width="6" height="6"/><rect x="9" y="9" width="6" height="6"/></svg></button>
+        <button title="Liste"><svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="0" y="1" width="15" height="2.5"/><rect x="0" y="6" width="15" height="2.5"/><rect x="0" y="11" width="15" height="2.5"/></svg></button>
+      </div>
+    </div>
+
+    <div class="grid" id="colgrid"><!-- injecté en JS --></div>
+  </div>
+</section>
+
+<!-- ============================== DÉTAIL ============================== -->
+<section class="screen" id="detail">
+  <div class="wrap">
+    <div class="appbar">
+      <span class="kicker"><span class="dot"></span><span class="ja">棚</span></span>
+      <nav class="appnav"><a onclick="go('collection');return false">Collection</a><a>Vitrines</a><a>Catalogue</a><a onclick="go('preorders');return false">Pré-commandes</a><a>Stats</a></nav>
+      <div class="right"><a class="pill-cta" href="#">＋ Ajouter</a><div class="avatar">D</div></div>
+    </div>
+    <a class="back" href="#" onclick="go('collection');return false">← Retour à la collection</a>
+
+    <div class="detail" style="--hue:var(--cyan)">
+      <div class="thumbs">
+        <div class="thumb on"><div class="well" style="--hue:var(--cyan)"><div class="spot"></div><svg class="fig"><use href="#fig-scale"/></svg></div></div>
+        <div class="thumb"><div class="well" style="--hue:var(--violet)"><svg class="fig"><use href="#fig-scale"/></svg></div></div>
+        <div class="thumb"><div class="well" style="--hue:var(--magenta)"><svg class="fig"><use href="#fig-scale"/></svg></div></div>
+        <div class="thumb"><div class="well" style="--hue:var(--amber)"><span class="kanji-wm" style="font-size:2rem">360</span></div></div>
+      </div>
+
+      <div class="hero-well well" style="--hue:var(--cyan)">
+        <div class="spot"></div><span class="kanji-wm">藍</span>
+        <svg class="fig" style="height:82%"><use href="#fig-scale"/></svg>
+        <div class="floor"></div>
+        <span class="turn">◍ Turntable 360°</span>
+      </div>
+
+      <div class="dpanel">
+        <span class="kicker">SÉRIE<span class="ja">予約</span>PRÉ-COMMANDE</span>
+        <h1 class="display">Rem</h1>
+        <div class="sub">Re:Zero − Starting Life in Another World</div>
+        <div class="tags">
+          <span class="dtag">Re:Zero</span><span class="dtag">Good Smile Company</span>
+          <span class="dtag">Échelle 1/7</span><span class="dtag">Sculpteur · 安藤賢司</span>
+        </div>
+
+        <div class="specgrid">
+          <div class="cell"><div class="l">Échelle</div><div class="v">1/7 <span class="ja">·</span> PVC/ABS</div></div>
+          <div class="cell"><div class="l">Hauteur</div><div class="v">235 mm</div></div>
+          <div class="cell"><div class="l">Fabricant</div><div class="v">Good Smile Co.</div></div>
+          <div class="cell"><div class="l">Sortie</div><div class="v">Sept. 2026</div></div>
+        </div>
+
+        <div class="block">
+          <div class="bh"><span class="t">Pré-commande · acompte</span><span class="mono" style="color:var(--amber);text-shadow:0 0 12px var(--amber-glow)">42 %</span></div>
+          <div class="progress"><i style="width:42%"></i></div>
+          <div class="prow" style="margin-top:14px">
+            <div><div class="l">Acompte versé</div><div class="big am">82,00 €</div></div>
+            <div style="text-align:right"><div class="l">Solde restant</div><div class="big mg">113,00 €</div></div>
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="bh"><span class="t">La Cote · valorisation</span><span class="mono" style="color:var(--lime);text-shadow:0 0 12px var(--lime-glow)">▲ +28 %</span></div>
+          <div class="cote">
+            <div class="c"><div class="l">Payé</div><div class="v">195,00 €</div></div>
+            <div class="c"><div class="l">Valeur actuelle</div><div class="v" style="color:var(--amber);text-shadow:0 0 16px var(--amber-glow)">249,00 €</div></div>
+            <svg width="90" height="40"><polyline points="0,34 18,30 34,32 50,20 66,16 90,6" fill="none" stroke="var(--lime)" stroke-width="2"/></svg>
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="bh"><span class="t">Acheter chez</span></div>
+          <div class="stores">
+            <a class="store"><span class="logo" style="background:linear-gradient(140deg,#ff4fd0,#b22b8a)">AA</span><span class="nm">AmiAmi</span><span class="badge-best">Meilleur prix</span><span class="px">189,00 €</span></a>
+            <a class="store"><span class="logo" style="background:linear-gradient(140deg,#3df0ff,#1f6feb)">HLJ</span><span class="nm">HobbyLink Japan</span><span class="px">198,00 €</span></a>
+            <a class="store"><span class="logo" style="background:linear-gradient(140deg,#ffc83d,#ff9d3d);color:#1a1206">GSC</span><span class="nm">Good Smile Shop</span><span class="px">205,00 €</span></a>
+          </div>
+        </div>
+
+        <div class="dactions">
+          <a class="pill-cta" href="#">✎ Éditer la pièce</a>
+          <a class="pill-ghost" href="#">Archiver</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PRÉ-COMMANDES ============================== -->
+<section class="screen" id="preorders">
+  <div class="wrap">
+    <div class="appbar">
+      <span class="kicker"><span class="dot"></span><span class="ja">棚</span></span>
+      <nav class="appnav"><a onclick="go('collection');return false">Collection</a><a>Vitrines</a><a>Catalogue</a><a class="active">Pré-commandes</a><a>Stats</a></nav>
+      <div class="right"><a class="pill-cta" href="#">＋ Ajouter</a><div class="avatar">D</div></div>
+    </div>
+    <div class="page-head">
+      <span class="kicker">SUIVI<span class="ja">予約</span>ACOMPTES & LIVRAISONS</span>
+      <h2 class="display"><span class="em">Vos</span> Pré-commandes</h2>
+    </div>
+
+    <div class="po-summary">
+      <div class="po-sum" style="--c:var(--cyan)"><div class="l">Acomptes versés</div><div class="v">748 <span class="ja">€</span></div></div>
+      <div class="po-sum due" style="--c:var(--magenta)"><div class="l">Solde à régler</div><div class="v">1 592 <span class="ja">€</span></div></div>
+      <div class="po-sum next" style="--c:var(--amber)"><div class="l">Prochaine livraison</div><div class="v">J−12</div></div>
+    </div>
+
+    <div class="po-month"><span class="m">Juillet 2026</span><span class="ln"></span><span class="c">2 PIÈCES</span></div>
+
+    <div class="po-item" style="--hue:var(--magenta)">
+      <div class="thmb well"><div class="spot"></div><svg class="fig"><use href="#fig-scale"/></svg></div>
+      <div class="nm"><b>Marin Kitagawa</b><span>My Dress-Up Darling · 1/7 · Aniplex</span></div>
+      <div class="fin"><div class="l">Acompte</div><div class="v">59 €</div><small>versé le 12/01</small></div>
+      <div class="fin"><div class="l">Solde</div><div class="v mg">138 €</div><small>à la livraison</small></div>
+      <div class="countdown soon"><div class="d">12</div><div class="u">Jours</div></div>
+    </div>
+
+    <div class="po-item" style="--hue:var(--lime)">
+      <div class="thmb well"><div class="spot"></div><svg class="fig"><use href="#fig-action"/></svg></div>
+      <div class="nm"><b>Power</b><span>Chainsaw Man · 1/7 · Good Smile</span></div>
+      <div class="fin"><div class="l">Acompte</div><div class="v">64 €</div><small>versé le 03/02</small></div>
+      <div class="fin"><div class="l">Solde</div><div class="v mg">152 €</div><small>à la livraison</small></div>
+      <div class="countdown ok"><div class="d">26</div><div class="u">Jours</div></div>
+    </div>
+
+    <div class="po-month"><span class="m">Septembre 2026</span><span class="ln"></span><span class="c">3 PIÈCES</span></div>
+
+    <div class="po-item" style="--hue:var(--cyan)">
+      <div class="thmb well"><div class="spot"></div><svg class="fig"><use href="#fig-scale"/></svg></div>
+      <div class="nm"><b>Rem <span class="slip-tag">Glissée +1 mois</span></b><span>Re:Zero · 1/7 · Good Smile</span></div>
+      <div class="fin"><div class="l">Acompte</div><div class="v">82 €</div><small>versé le 20/12</small></div>
+      <div class="fin"><div class="l">Solde</div><div class="v mg">113 €</div><small>à la livraison</small></div>
+      <div class="countdown slip"><div class="d">J−98</div><div class="u">Sept.</div></div>
+    </div>
+
+    <div class="po-item" style="--hue:var(--violet)">
+      <div class="thmb well"><div class="spot"></div><svg class="fig"><use href="#fig-scale"/></svg></div>
+      <div class="nm"><b>Frieren</b><span>Sousou no Frieren · 1/7 · F:NEX</span></div>
+      <div class="fin"><div class="l">Acompte</div><div class="v">88 €</div><small>versé le 15/02</small></div>
+      <div class="fin"><div class="l">Solde</div><div class="v mg">204 €</div><small>à la livraison</small></div>
+      <div class="countdown ok"><div class="d">J−98</div><div class="u">Sept.</div></div>
+    </div>
+
+    <div class="po-item" style="--hue:#4f9dff">
+      <div class="thmb well"><div class="spot"></div><svg class="fig"><use href="#fig-mecha"/></svg></div>
+      <div class="nm"><b>2B</b><span>NieR:Automata · 1/4 · Flare</span></div>
+      <div class="fin"><div class="l">Acompte</div><div class="v">120 €</div><small>versé le 28/02</small></div>
+      <div class="fin"><div class="l">Solde</div><div class="v mg">280 €</div><small>à la livraison</small></div>
+      <div class="countdown ok"><div class="d">J−98</div><div class="u">Sept.</div></div>
+    </div>
+
+    <footer class="wrap" style="padding-left:0;padding-right:0">
+      <span>FigureCollector · Direction B <span class="ja">電飾</span> Néon Akihabara</span>
+      <span><span class="ja">像</span> · Vitrine privée</span>
+    </footer>
+  </div>
+</section>
+
+<script>
+// ---- tab switcher ----
+function go(s){
+  document.querySelectorAll('.screen').forEach(x=>x.classList.toggle('on',x.id===s));
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.s===s));
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>go(t.dataset.s)));
+
+// ---- collection grid data (mêmes figurines que la Direction A, teintes néon) ----
+const figs=[
+  {n:"Rem",s:"Re:Zero",m:"Good Smile Co.",sc:"1/7",p:"195 €",hue:"var(--cyan)",k:"藍",pose:"fig-scale",type:"Scale",tk:"像",owned:true},
+  {n:"Megumin",s:"KonoSuba",m:"KADOKAWA",sc:"1/7",p:"172 €",hue:"var(--magenta)",k:"桜",pose:"fig-scale",type:"Scale",tk:"像",owned:true},
+  {n:"Hatsune Miku",s:"Vocaloid",m:"Good Smile Co.",sc:"—",p:"54 €",hue:"var(--lime)",k:"緑",pose:"fig-nendo",type:"Nendoroid",tk:"童",owned:true},
+  {n:"Gojo Satoru",s:"Jujutsu Kaisen",m:"GSC",sc:"1/8",p:"148 €",hue:"#4f9dff",k:"藍",pose:"fig-action",type:"Figma",tk:"動",owned:true},
+  {n:"Frieren",s:"Sousou no Frieren",m:"F:NEX",sc:"1/7",p:"292 €",hue:"var(--violet)",k:"紫",pose:"fig-scale",type:"Scale",tk:"像",badge:{l:"Pré-co",gold:false}},
+  {n:"RX-78-2 Gundam",s:"Mobile Suit Gundam",m:"BANDAI",sc:"MG 1/100",p:"68 €",hue:"#4f9dff",k:"組",pose:"fig-mecha",type:"Plamo",tk:"組",owned:true},
+  {n:"Asuka Langley",s:"Evangelion",m:"Kotobukiya",sc:"1/7",p:"168 €",hue:"var(--magenta)",k:"朱",pose:"fig-scale",type:"Scale",tk:"像",owned:true},
+  {n:"Marin Kitagawa",s:"My Dress-Up Darling",m:"Aniplex",sc:"1/7",p:"197 €",hue:"var(--magenta)",k:"桜",pose:"fig-scale",type:"Scale",tk:"像",badge:{l:"J−12",gold:true}},
+  {n:"Nezuko Kamado",s:"Demon Slayer",m:"Aniplex",sc:"1/8",p:"159 €",hue:"#ff79b8",k:"桜",pose:"fig-scale",type:"Scale",tk:"像",owned:true},
+  {n:"Power",s:"Chainsaw Man",m:"Good Smile Co.",sc:"1/7",p:"216 €",hue:"var(--lime)",k:"緑",pose:"fig-action",type:"Figma",tk:"動",badge:{l:"Pré-co",gold:false}},
+  {n:"2B",s:"NieR:Automata",m:"Flare",sc:"1/4",p:"400 €",hue:"var(--cyan)",k:"藍",pose:"fig-scale",type:"Scale",tk:"像",badge:{l:"Pré-co",gold:false}},
+  {n:"Artoria Pendragon",s:"Fate/stay night",m:"Aniplex",sc:"1/7",p:"285 €",hue:"var(--amber)",k:"金",pose:"fig-scale",type:"Scale",tk:"像",wished:true},
+];
+document.getElementById('colgrid').innerHTML=figs.map((f,i)=>`
+  <a class="fcard" style="--hue:${f.hue}" onclick="go('detail');return false">
+    <div class="well">
+      <span class="topbar"></span>
+      <div class="spot"></div><span class="kanji-wm">${f.k}</span>
+      <svg class="fig"><use href="#${f.pose}"/></svg>
+      <div class="floor"></div>
+      <span class="plaque"><span class="k">${f.tk}</span>${f.type}</span>
+      ${f.badge?`<span class="stamp ${f.badge.gold?'gold':''}">${f.badge.l}</span>`
+        :f.owned?`<span class="mark owned">✓</span>`
+        :f.wished?`<span class="mark wished">♥</span>`:''}
+      <div class="inscr"><span>n° ${(i+1043).toString(16).toUpperCase()}</span><span>${f.sc}</span></div>
+    </div>
+    <div class="body">
+      <h3>${f.n}</h3>
+      <div class="rule"></div>
+      <div class="meta">
+        <div class="r"><dt>Série</dt><dd>${f.s}</dd></div>
+        <div class="r"><dt>Fabricant</dt><dd>${f.m}</dd></div>
+        <div class="r" style="margin-top:6px;align-items:center"><dt>${f.owned?'Payé':f.wished?'Cible':'Acompte'}</dt><dd class="price">${f.p}</dd></div>
+      </div>
+    </div>
+  </a>`).join('');
+</script>
+</body>
+</html>

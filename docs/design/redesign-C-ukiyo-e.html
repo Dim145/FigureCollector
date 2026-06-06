@@ -1,0 +1,751 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FigureCollector — Direction C · Ukiyo-e</title>
+<meta name="description" content="Redesign FigureCollector — Direction C « 浮世絵 · Ukiyo-e · Estampe moderne » : estampe sur bois, encres plates et vibrantes, sceaux hanko, motifs seigaiha/asanoha. GPU-léger. 4 écrans." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Reggae+One&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================================
+   DIRECTION C — « 浮世絵 · UKIYO-E · ESTAMPE MODERNE »
+   Une estampe sur bois (mokuhanga) modernisée. Encres PLATES et MATES,
+   couleurs vibrantes, planes, imprimées — jamais lumineuses.
+   Sumi/indigo near-black · 朱 vermillon · 藍 indigo · 山吹 ocre · 青磁 céladon
+   · 胡粉 crème os. Sceaux hanko ronds. Motifs seigaiha / asanoha en tuiles CSS.
+   Bricolage Grotesque (display FR) · Reggae One (kanji affiche) ·
+   Zen Kaku Gothic New (UI) · JetBrains Mono (chiffres/IDs).
+   GPU-LÉGER : aplats plats, dégradés statiques, bordures keyline, tuiles CSS.
+   AUCUNE animation continue. AUCUN backdrop-blur (sauf la barre sticky).
+============================================================================ */
+:root{
+  --sumi:#13141d;            /* page — sumi/indigo near-black chaud-froid */
+  --sumi-2:#191b26;          /* panneaux */
+  --sumi-3:#20222f;          /* panneaux élevés / cellules */
+  --sumi-deep:#0d0e16;       /* puits / héro */
+  --shu:#e0452f;             /* 朱 vermillon — encre vive, sceau, primaire */
+  --shu-deep:#b6361f;
+  --shu-ink:#f25b44;         /* survol vermillon */
+  --ai:#33529e;              /* 藍 indigo */
+  --ai-soft:#5a78c4;
+  --yamabuki:#e6a534;        /* 山吹 ocre/or — valeur */
+  --yamabuki-soft:#f0c06a;
+  --seiji:#6fae8f;           /* 青磁 céladon-jade */
+  --seiji-soft:#93c9ad;
+  --gofun:#f0e6cd;           /* 胡粉 crème os — texte/étiquettes papier */
+  --gofun-soft:rgba(240,230,205,.66);
+  --gofun-faint:rgba(240,230,205,.40);
+  --gofun-ghost:rgba(240,230,205,.18);
+  --line:rgba(240,230,205,.16);
+  --line-2:rgba(240,230,205,.30);
+  --keyline:#2c2e3d;         /* bordure keyline épaisse opaque */
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;background:var(--sumi);color:var(--gofun);
+  font-family:"Zen Kaku Gothic New",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;line-height:1.5;
+}
+/* atmosphère IMPRIMÉE : aplat sumi + bande indigo statique en haut + asanoha
+   très discret. Tout STATIQUE, zéro animation, zéro filter. */
+body::before{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    linear-gradient(180deg, rgba(51,82,158,.16) 0%, transparent 30%),
+    linear-gradient(0deg, rgba(176,54,31,.10) 0%, transparent 26%);
+}
+/* asanoha (chanvre) ultra-discret en tuile — motif statique pas cher */
+body::after{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.045;
+  background-image:
+    repeating-linear-gradient(60deg,  var(--gofun) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(-60deg, var(--gofun) 0 1px, transparent 1px 28px),
+    repeating-linear-gradient(0deg,   var(--gofun) 0 1px, transparent 1px 48px);
+}
+.wrap{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:0 28px;}
+
+/* ---- typographie d'estampe ---- */
+.display{font-family:"Bricolage Grotesque",system-ui,sans-serif;font-weight:800;
+  letter-spacing:-.02em;line-height:.96;}
+.display .em{color:var(--shu);}
+.display .gold{color:var(--yamabuki);}
+.display .out{ -webkit-text-stroke:2px var(--gofun);color:transparent;}
+.ja{font-family:"Reggae One",system-ui,sans-serif;font-weight:400;}
+.mono{font-family:"JetBrains Mono",monospace;}
+.kicker{font-size:10.5px;text-transform:uppercase;letter-spacing:.32em;color:var(--gofun-soft);
+        font-family:"JetBrains Mono",monospace;display:inline-flex;align-items:center;gap:.7em;font-weight:500;}
+.kicker .sq{width:7px;height:7px;background:var(--shu);}
+.kicker .ja{color:var(--yamabuki);letter-spacing:.06em;font-size:14px;}
+
+/* ---- SCEAU HANKO (marque récurrente) — cercle rouge, kanji crème ---- */
+.hanko{display:inline-grid;place-items:center;border-radius:50%;background:var(--shu);
+  color:var(--gofun);font-family:"Reggae One",sans-serif;line-height:1;
+  border:2px solid var(--shu-deep);user-select:none;}
+.hanko.sq{border-radius:5px;}
+.hanko.ghost{background:transparent;color:var(--shu);border:2px solid var(--shu);}
+
+/* ---- repère d'enregistrement mokuhanga (registration mark) ---- */
+.regmark{position:relative;width:16px;height:16px;flex:0 0 auto;}
+.regmark::before,.regmark::after{content:"";position:absolute;background:var(--gofun-faint);}
+.regmark::before{left:50%;top:0;bottom:0;width:1.5px;transform:translateX(-50%);}
+.regmark::after{top:50%;left:0;right:0;height:1.5px;transform:translateY(-50%);}
+
+/* ---- maquette switcher (la SEULE barre avec un léger flou autorisé) ---- */
+.switcher{position:sticky;top:0;z-index:50;backdrop-filter:blur(10px);
+  background:rgba(19,20,29,.86);border-bottom:2px solid var(--shu);}
+.switcher .row{display:flex;align-items:center;gap:18px;height:58px;}
+.brandmark{display:flex;align-items:center;gap:11px;font-weight:700;}
+.brandmark .seal{width:30px;height:30px;font-size:15px;}
+.brandmark .wm{font-family:"Bricolage Grotesque",sans-serif;font-size:19px;font-weight:800;letter-spacing:-.02em;}
+.brandmark .wm .it{color:var(--shu);}
+.tabs{margin-left:auto;display:flex;gap:0;background:var(--sumi-2);padding:4px;border:2px solid var(--keyline);}
+.tab{appearance:none;border:0;background:transparent;color:var(--gofun-soft);cursor:pointer;
+  font:700 11px/1 "Zen Kaku Gothic New";text-transform:uppercase;letter-spacing:.12em;
+  padding:9px 16px;transition:.2s var(--ease);white-space:nowrap;}
+.tab:hover{color:var(--gofun);}
+.tab.on{background:var(--shu);color:var(--gofun);}
+
+/* ---- nav appli ---- */
+.appbar{display:flex;align-items:center;gap:24px;padding:24px 0 12px;}
+.appnav{display:flex;gap:2px;margin-left:18px;}
+.appnav a{color:var(--gofun-soft);text-decoration:none;font-size:11px;text-transform:uppercase;
+  letter-spacing:.16em;padding:8px 13px;transition:.2s;position:relative;font-weight:700;}
+.appnav a:hover{color:var(--gofun);}
+.appnav a.active{color:var(--shu);}
+.appnav a.active::after{content:"";position:absolute;left:13px;right:13px;bottom:2px;height:2px;background:var(--shu);}
+.appbar .right{margin-left:auto;display:flex;align-items:center;gap:12px;}
+.btn{display:inline-flex;align-items:center;gap:8px;border-radius:4px;
+  padding:11px 18px;font:700 11px/1 "Zen Kaku Gothic New";cursor:pointer;
+  text-transform:uppercase;letter-spacing:.13em;transition:.2s var(--ease);text-decoration:none;border:2px solid transparent;}
+.btn-pri{background:var(--shu);color:var(--gofun);border-color:var(--shu-deep);}
+.btn-pri:hover{background:var(--shu-ink);transform:translateY(-1px);}
+.btn-ghost{background:transparent;color:var(--gofun);border-color:var(--line-2);}
+.btn-ghost:hover{border-color:var(--gofun);}
+.btn-gold{background:var(--yamabuki);color:var(--sumi);border-color:#c2882a;}
+.btn-gold:hover{background:var(--yamabuki-soft);transform:translateY(-1px);}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--ai);color:var(--gofun);
+  display:grid;place-items:center;font-family:"Reggae One",sans-serif;font-size:15px;border:2px solid var(--ai-soft);}
+
+/* ---- screens (transition d'entrée unique, pas de boucle) ---- */
+.screen{display:none;animation:fade .4s var(--ease);}
+.screen.on{display:block;}
+@keyframes fade{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+
+/* ============ MOTIFS PARTAGÉS (tuiles CSS pas chères, statiques) ============ */
+/* seigaiha (vagues) — radial-gradients répétés */
+.seigaiha{
+  background-color:var(--bg, var(--sumi-deep));
+  background-image:
+    radial-gradient(circle at 50% 100%, transparent 9px, var(--wave,rgba(240,230,205,.10)) 9px 10.5px, transparent 11px),
+    radial-gradient(circle at 0% 100%,   transparent 9px, var(--wave,rgba(240,230,205,.10)) 9px 10.5px, transparent 11px),
+    radial-gradient(circle at 100% 100%, transparent 9px, var(--wave,rgba(240,230,205,.10)) 9px 10.5px, transparent 11px);
+  background-size:24px 12px;
+  background-position:0 0, 0 0, 0 0;
+}
+
+/* ============ PUITS PHOTO — PLAQUE D'ESTAMPE (réutilisé partout) ============ */
+/* aplat de couleur (la teinte du type), seigaiha discret, silhouette 2 tons,
+   sceau hanko en coin, cadre keyline épais. AUCUN glow, AUCUN filter. */
+.well{position:relative;overflow:hidden;display:grid;place-items:center;
+  background-color:color-mix(in oklab, var(--hue) 30%, var(--sumi-deep));
+  background-image:
+    radial-gradient(circle at 50% 100%, transparent 9px, color-mix(in oklab,var(--hue) 38%, transparent) 9px 10.5px, transparent 11px),
+    radial-gradient(circle at 0% 100%,   transparent 9px, color-mix(in oklab,var(--hue) 38%, transparent) 9px 10.5px, transparent 11px),
+    radial-gradient(circle at 100% 100%, transparent 9px, color-mix(in oklab,var(--hue) 38%, transparent) 9px 10.5px, transparent 11px);
+  background-size:26px 13px;
+}
+/* disque "lune/soleil" plat derrière la figure — aplat franc, pas de halo */
+.well .disc{position:absolute;top:12%;left:50%;transform:translateX(-50%);
+  width:62%;aspect-ratio:1;border-radius:50%;
+  background:color-mix(in oklab, var(--hue) 42%, var(--sumi-deep));}
+.well .floor{position:absolute;left:6%;right:6%;bottom:6%;height:2px;
+  background:color-mix(in oklab,var(--hue) 55%, transparent);}
+.well .kanji-wm{position:absolute;right:-4px;bottom:-14px;font-family:"Reggae One",sans-serif;
+  font-size:5rem;line-height:.8;color:color-mix(in oklab,var(--hue) 22%, transparent);user-select:none;z-index:1;}
+/* silhouette 2 tons : encre sumi + une couleur d'impression, fort contraste */
+.well svg.fig{position:relative;z-index:2;height:78%;}
+.well svg.fig .body{fill:color-mix(in oklab, var(--hue) 78%, #0d0e16 22%);}
+.well svg.fig .hi{fill:var(--gofun);}
+.well svg.fig .sh{fill:#0d0e16;}
+/* sceau hanko dans le puits */
+.well .well-seal{position:absolute;bottom:9px;right:9px;z-index:5;width:30px;height:30px;font-size:13px;}
+
+/* ============ LANDING ============ */
+.hero{padding:60px 0 16px;}
+.hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:34px;align-items:center;}
+.hero h1{font-size:clamp(46px,7.4vw,96px);margin:16px 0 0;}
+.hero p{max-width:480px;margin:24px 0 0;color:var(--gofun-soft);font-size:16px;line-height:1.62;}
+.hero .cta-row{display:flex;gap:12px;margin-top:30px;flex-wrap:wrap;}
+/* grande plaque d'estampe à droite — un soleil vermillon, une figure héro */
+.hero-plate{position:relative;aspect-ratio:4/5;border:3px solid var(--keyline);overflow:hidden;
+  background-color:var(--sumi-deep);
+  background-image:
+    radial-gradient(circle at 50% 100%, transparent 11px, rgba(51,82,158,.22) 11px 13px, transparent 14px),
+    radial-gradient(circle at 0% 100%,   transparent 11px, rgba(51,82,158,.22) 11px 13px, transparent 14px),
+    radial-gradient(circle at 100% 100%, transparent 11px, rgba(51,82,158,.22) 11px 13px, transparent 14px);
+  background-size:32px 16px;display:grid;place-items:center;}
+.hero-plate .sun{position:absolute;top:9%;left:50%;transform:translateX(-50%);width:54%;aspect-ratio:1;
+  border-radius:50%;background:var(--shu);border:3px solid var(--shu-deep);}
+.hero-plate svg.fig{position:relative;z-index:2;height:74%;}
+.hero-plate svg.fig .body{fill:#0d0e16;}
+.hero-plate svg.fig .hi{fill:var(--gofun);}
+.hero-plate svg.fig .sh{fill:var(--ai);}
+.hero-plate .floor{position:absolute;left:8%;right:8%;bottom:8%;height:3px;background:var(--shu-deep);}
+.hero-plate .bigseal{position:absolute;left:14px;bottom:14px;z-index:5;width:52px;height:52px;font-size:22px;}
+.hero-plate .vrt{position:absolute;right:14px;top:14px;z-index:5;writing-mode:vertical-rl;
+  font-family:"Reggae One",sans-serif;font-size:20px;color:var(--gofun);letter-spacing:.1em;}
+/* bandeau "plaques" sous le héro = étagère graphique */
+.section-rule{display:flex;align-items:center;gap:16px;margin:46px 0 22px;}
+.section-rule .ja{font-family:"Reggae One",sans-serif;font-size:24px;color:var(--shu);}
+.section-rule .lbl{font:700 12px/1 "Zen Kaku Gothic New";text-transform:uppercase;letter-spacing:.2em;color:var(--gofun);}
+.section-rule .ln{flex:1;height:2px;background:var(--keyline);}
+.section-rule .n{font:500 11px/1 "JetBrains Mono";color:var(--gofun-faint);letter-spacing:.1em;}
+.plate-row{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;}
+.plate{position:relative;transition:.3s var(--ease);}
+.plate:hover{transform:translateY(-6px);}
+.plate .well{aspect-ratio:3/4;border:2px solid var(--keyline);}
+.plate .cap{margin-top:9px;display:flex;align-items:center;gap:7px;}
+.plate .cap .seal{width:18px;height:18px;font-size:9px;flex:0 0 auto;}
+.plate .cap b{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:12px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.plate .cap span{font:500 8.5px/1 "JetBrains Mono";color:var(--gofun-faint);text-transform:uppercase;letter-spacing:.12em;display:block;margin-top:3px;}
+
+/* ============ COLLECTION ============ */
+.page-head{padding:26px 0 18px;}
+.page-head h2{font-size:clamp(36px,5.2vw,60px);margin:8px 0 0;}
+.statstrip{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:24px 0 20px;}
+.stat{background:var(--sumi-2);border:2px solid var(--keyline);padding:18px 20px;position:relative;overflow:hidden;}
+.stat::before{content:"";position:absolute;top:0;left:0;width:100%;height:5px;background:var(--accent,var(--shu));}
+.stat .lab{font:600 10px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.18em;color:var(--gofun-faint);margin-top:6px;}
+.stat .val{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:34px;margin-top:10px;letter-spacing:-.02em;}
+.stat .val.r{color:var(--shu);}.stat .val.g{color:var(--yamabuki);}.stat .val.j{color:var(--seiji);}
+.stat .sub{font-size:11px;color:var(--gofun-soft);margin-top:5px;}
+.stat .spark{position:absolute;right:14px;bottom:12px;}
+.toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:22px;}
+.chips{display:flex;gap:8px;}
+.chip{border:2px solid var(--keyline);background:transparent;color:var(--gofun-soft);
+  padding:8px 14px;font:700 11px/1 "Zen Kaku Gothic New";cursor:pointer;text-transform:uppercase;letter-spacing:.1em;transition:.2s;
+  display:inline-flex;align-items:center;gap:7px;border-radius:4px;}
+.chip:hover{color:var(--gofun);border-color:var(--line-2);}
+.chip.on{background:var(--shu);border-color:var(--shu-deep);color:var(--gofun);}
+.chip .n{font-family:"JetBrains Mono";font-size:10px;color:var(--gofun-faint);}
+.chip.on .n{color:var(--gofun);}
+.search{margin-left:auto;display:flex;align-items:center;gap:10px;background:var(--sumi-2);
+  border:2px solid var(--keyline);padding:9px 16px;min-width:230px;color:var(--gofun-faint);font-size:13px;border-radius:4px;}
+.viewtog{display:flex;border:2px solid var(--keyline);overflow:hidden;border-radius:4px;}
+.viewtog button{appearance:none;border:0;background:transparent;color:var(--gofun-faint);padding:9px 11px;cursor:pointer;display:grid;place-items:center;}
+.viewtog button.on{background:var(--shu);color:var(--gofun);}
+
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;}
+.fcard{background:var(--sumi-2);border:2px solid var(--keyline);overflow:hidden;
+  cursor:pointer;transition:.28s var(--ease);display:flex;flex-direction:column;text-decoration:none;color:inherit;}
+.fcard:hover{transform:translateY(-5px);border-color:color-mix(in oklab,var(--hue) 60%, var(--keyline));}
+.fcard .well{aspect-ratio:4/5;}
+/* plaque de type (étiquette papier crème, coin haut-gauche) */
+.plaque{position:absolute;top:0;left:0;z-index:5;display:inline-flex;align-items:center;gap:6px;
+  background:var(--gofun);color:var(--sumi);
+  padding:6px 10px 6px 8px;font:700 9.5px/1 "Zen Kaku Gothic New";text-transform:uppercase;letter-spacing:.1em;
+  border-bottom-right-radius:6px;}
+.plaque .k{font-family:"Reggae One",sans-serif;color:var(--shu);font-size:13px;}
+/* sceau de statut (hanko) coin haut-droit */
+.mark{position:absolute;top:9px;right:9px;z-index:5;width:30px;height:30px;font-size:13px;}
+.mark.owned{background:var(--seiji);border-color:#4f8e70;color:var(--sumi);}
+.mark.wished{background:transparent;border:2px solid var(--shu);color:var(--shu);}
+.stamp{position:absolute;top:9px;right:9px;z-index:5;font:700 9px/1 "JetBrains Mono";text-transform:uppercase;
+  letter-spacing:.1em;padding:7px 9px;color:var(--gofun);background:var(--shu);border:2px solid var(--shu-deep);border-radius:4px;}
+.stamp.gold{background:var(--yamabuki);color:var(--sumi);border-color:#c2882a;}
+.inscr{position:absolute;left:0;right:0;bottom:0;z-index:4;padding:18px 11px 9px;display:flex;justify-content:space-between;
+  font:500 9.5px/1 "JetBrains Mono";letter-spacing:.06em;color:var(--gofun-soft);
+  background:linear-gradient(0deg,rgba(13,14,22,.92),transparent);}
+.fcard .body{padding:15px 16px 17px;display:flex;flex-direction:column;flex:1;}
+.fcard .body h3{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:18px;margin:0;line-height:1.14;letter-spacing:-.01em;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.fcard:hover .body h3{color:var(--shu);}
+.fcard .rule{height:2px;width:30px;background:var(--accent,var(--shu));margin:11px 0;}
+.fcard .meta{margin-top:auto;display:flex;flex-direction:column;gap:5px;}
+.fcard .meta .r{display:flex;justify-content:space-between;align-items:baseline;font-size:11px;}
+.fcard .meta .r dt{color:var(--gofun-faint);text-transform:uppercase;font-size:9px;letter-spacing:.14em;font-family:"JetBrains Mono";}
+.fcard .meta .r dd{margin:0;color:var(--gofun-soft);}
+.fcard .price{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;color:var(--yamabuki);font-size:17px;}
+
+/* ============ DÉTAIL ============ */
+.back{display:inline-flex;align-items:center;gap:8px;color:var(--gofun-soft);text-decoration:none;font-size:11px;
+  text-transform:uppercase;letter-spacing:.16em;margin:18px 0 22px;transition:.2s;font-weight:700;}
+.back:hover{color:var(--shu);}
+.detail{display:grid;grid-template-columns:92px 1.05fr 1fr;gap:26px;align-items:start;}
+.thumbs{display:flex;flex-direction:column;gap:12px;}
+.thumb{aspect-ratio:4/5;border:2px solid var(--keyline);overflow:hidden;cursor:pointer;transition:.2s;}
+.thumb.on{border-color:var(--shu);}
+.thumb:hover{border-color:var(--line-2);}
+.hero-well{aspect-ratio:4/5;border:3px solid var(--keyline);overflow:hidden;}
+.hero-well .turn{position:absolute;left:14px;bottom:14px;z-index:6;display:inline-flex;align-items:center;gap:7px;
+  background:var(--sumi);border:2px solid var(--line-2);
+  padding:8px 13px;font:700 10px/1 "Zen Kaku Gothic New";text-transform:uppercase;letter-spacing:.1em;color:var(--gofun);border-radius:4px;}
+.hero-well .vrt{position:absolute;right:16px;top:16px;z-index:5;writing-mode:vertical-rl;
+  font-family:"Reggae One",sans-serif;font-size:22px;color:var(--gofun);letter-spacing:.08em;}
+.dpanel .tags{display:flex;flex-wrap:wrap;gap:7px;margin:14px 0 22px;}
+.dtag{font:700 9.5px/1 "Zen Kaku Gothic New";text-transform:uppercase;letter-spacing:.12em;color:var(--gofun-soft);
+  border:2px solid var(--keyline);padding:7px 12px;transition:.2s;cursor:pointer;border-radius:4px;}
+.dtag:hover{border-color:var(--shu);color:var(--shu);}
+.dpanel h1{font-size:clamp(36px,4.6vw,54px);margin:6px 0 4px;}
+.dpanel .subt{color:var(--gofun-soft);font-family:"Zen Kaku Gothic New";font-weight:500;font-size:15px;}
+.specgrid{display:grid;grid-template-columns:1fr 1fr;gap:2px;background:var(--keyline);border:2px solid var(--keyline);
+  overflow:hidden;margin:8px 0 22px;}
+.specgrid .cell{background:var(--sumi-2);padding:14px 16px;}
+.specgrid .cell .l{font:500 9px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.16em;color:var(--gofun-faint);}
+.specgrid .cell .v{margin-top:8px;font-size:15px;color:var(--gofun);font-weight:500;}
+.specgrid .cell .v .ja{color:var(--yamabuki);font-size:14px;}
+.block{background:var(--sumi-2);border:2px solid var(--keyline);padding:20px;margin-bottom:16px;}
+.block .bh{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+.block .bh .t{display:inline-flex;align-items:center;gap:9px;font:700 10px/1 "Zen Kaku Gothic New";text-transform:uppercase;letter-spacing:.18em;color:var(--gofun);}
+.block .bh .t .ja{font-family:"Reggae One",sans-serif;color:var(--shu);font-size:15px;letter-spacing:0;}
+/* progress = aplat franc, pas de dégradé animé */
+.progress{height:10px;background:var(--sumi-deep);border:1px solid var(--keyline);overflow:hidden;margin:14px 0 6px;}
+.progress i{display:block;height:100%;background:var(--shu);}
+.prow{display:flex;justify-content:space-between;}
+.prow .l{font:500 9px/1 "JetBrains Mono";letter-spacing:.14em;color:var(--gofun-faint);text-transform:uppercase;}
+.prow .big{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:26px;margin-top:7px;letter-spacing:-.02em;}
+.prow .big.r{color:var(--shu);}.prow .big.g{color:var(--yamabuki);}
+.cote{display:grid;grid-template-columns:1fr 1fr auto;gap:14px;align-items:center;}
+.cote .c .l{font:500 9px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.14em;color:var(--gofun-faint);}
+.cote .c .v{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:24px;margin-top:6px;letter-spacing:-.02em;}
+.cote .up{color:var(--seiji);font-size:12px;font-family:"JetBrains Mono";font-weight:500;}
+.stores{display:flex;flex-direction:column;gap:8px;}
+.store{display:flex;align-items:center;gap:12px;padding:11px 13px;border:2px solid var(--keyline);transition:.2s;cursor:pointer;text-decoration:none;color:inherit;}
+.store:hover{border-color:var(--line-2);}
+.store .logo{width:32px;height:32px;border-radius:4px;display:grid;place-items:center;font:700 11px/1 "JetBrains Mono";color:var(--gofun);}
+.store .nm{font-weight:700;font-size:13px;}
+.store .px{margin-left:auto;font-family:"Bricolage Grotesque",sans-serif;font-weight:800;color:var(--yamabuki);font-size:17px;}
+.store .badge-best{font:700 8px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.08em;color:var(--seiji);border:2px solid var(--seiji);border-radius:4px;padding:4px 6px;}
+.dactions{display:flex;gap:12px;margin:20px 0;}
+
+/* ============ PRÉ-COMMANDES ============ */
+.po-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:24px 0 30px;}
+.po-sum{background:var(--sumi-2);border:2px solid var(--keyline);padding:22px 24px;position:relative;overflow:hidden;}
+.po-sum::before{content:"";position:absolute;top:0;left:0;width:5px;height:100%;background:var(--accent,var(--yamabuki));}
+.po-sum .l{font:600 10px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.16em;color:var(--gofun-faint);}
+.po-sum .v{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:40px;margin-top:12px;letter-spacing:-.03em;}
+.po-sum.due .v{color:var(--shu);}
+.po-sum .v .ja{font-family:"Reggae One",sans-serif;font-size:20px;color:var(--yamabuki);}
+.po-month{margin:30px 0 14px;display:flex;align-items:center;gap:14px;}
+.po-month .ja{font-family:"Reggae One",sans-serif;font-size:20px;color:var(--shu);}
+.po-month .m{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:22px;letter-spacing:-.02em;}
+.po-month .ln{flex:1;height:2px;background:var(--keyline);}
+.po-month .c{font:600 10px/1 "JetBrains Mono";color:var(--gofun-faint);letter-spacing:.1em;}
+.po-item{display:grid;grid-template-columns:64px 1.4fr 1fr 1fr auto;gap:18px;align-items:center;
+  background:var(--sumi-2);border:2px solid var(--keyline);padding:14px 18px;margin-bottom:12px;transition:.22s var(--ease);}
+.po-item:hover{border-color:var(--line-2);transform:translateX(3px);}
+.po-item .thmb{width:64px;height:80px;overflow:hidden;border:2px solid var(--keyline);}
+.po-item .nm b{font-family:"Bricolage Grotesque",sans-serif;font-weight:700;font-size:17px;display:block;letter-spacing:-.01em;}
+.po-item .nm span{font-size:11px;color:var(--gofun-soft);}
+.po-item .fin .l{font:500 8.5px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.14em;color:var(--gofun-faint);}
+.po-item .fin .v{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:18px;margin-top:5px;letter-spacing:-.02em;}
+.po-item .fin .v.r{color:var(--shu);}
+.po-item .fin small{color:var(--gofun-soft);font-family:"Zen Kaku Gothic New";font-size:10px;}
+.countdown{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:10px 16px;min-width:80px;border:2px solid;border-radius:4px;}
+.countdown.soon{border-color:var(--shu-deep);background:var(--shu);}
+.countdown.ok{border-color:var(--keyline);background:var(--sumi-deep);}
+.countdown.slip{border-color:#c2882a;background:rgba(230,165,52,.12);}
+.countdown .d{font-family:"Bricolage Grotesque",sans-serif;font-weight:800;font-size:24px;line-height:1;letter-spacing:-.02em;}
+.countdown.soon .d{color:var(--gofun);}
+.countdown.slip .d{color:var(--yamabuki);}
+.countdown .u{font:600 8px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.14em;margin-top:5px;}
+.countdown.soon .u{color:var(--gofun-soft);}
+.countdown.ok .u,.countdown.slip .u{color:var(--gofun-faint);}
+.slip-tag{display:inline-block;font:700 8px/1 "JetBrains Mono";text-transform:uppercase;letter-spacing:.08em;
+  color:var(--sumi);background:var(--yamabuki);border-radius:4px;padding:4px 6px;margin-left:8px;vertical-align:middle;}
+
+footer{margin-top:60px;border-top:2px solid var(--keyline);padding:26px 0;display:flex;justify-content:space-between;
+  align-items:center;color:var(--gofun-faint);font-size:11px;text-transform:uppercase;letter-spacing:.18em;font-family:"JetBrains Mono";}
+footer .ja{font-family:"Reggae One",sans-serif;color:var(--shu);letter-spacing:0;}
+
+@media(max-width:980px){
+  .hero-grid{grid-template-columns:1fr;}
+  .hero-plate{max-width:380px;}
+  .plate-row{grid-template-columns:repeat(3,1fr);}
+  .detail{grid-template-columns:1fr;}
+  .thumbs{flex-direction:row;order:2;}
+  .grid{grid-template-columns:repeat(2,1fr);}
+  .statstrip,.po-summary{grid-template-columns:1fr 1fr;}
+  .po-item{grid-template-columns:54px 1fr;gap:12px;}
+  .po-item .fin,.po-item .countdown{display:none;}
+  .appnav{display:none;}
+}
+@media(max-width:560px){
+  .plate-row{grid-template-columns:repeat(2,1fr);}
+}
+
+/* respecte la préférence d'animation réduite */
+@media(prefers-reduced-motion:reduce){
+  *{animation:none !important;transition:none !important;scroll-behavior:auto !important;}
+}
+</style>
+</head>
+<body>
+
+<!-- ====== SVG FIGURE LIBRARY (silhouettes réutilisables — copié de Direction A) ====== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- Scale figure : femme gracieuse, robe, cheveux flottants, base ronde -->
+    <symbol id="fig-scale" viewBox="0 0 100 150">
+      <ellipse class="sh" cx="50" cy="143" rx="27" ry="5"/>
+      <path class="body" d="M50 58 C36 58 27 100 32 134 L68 134 C73 100 64 58 50 58 Z"/>
+      <path class="hi" d="M50 58 C44 58 40 78 41 110 L50 110 Z"/>
+      <path class="body" d="M50 46 C45 46 43 54 45 62 L55 62 C57 54 55 46 50 46 Z"/>
+      <circle class="hi" cx="50" cy="36" r="11"/>
+      <path class="body" d="M38 33 C28 37 24 70 33 100 C35 80 39 62 45 56 C40 46 41 35 38 33 Z"/>
+      <path class="body" d="M62 33 C72 37 78 74 67 104 C65 82 61 62 55 56 C60 46 59 35 62 33 Z"/>
+      <path class="sh" d="M40 50 C34 60 33 84 36 96 C37 78 41 62 45 56 Z"/>
+    </symbol>
+    <!-- Nendoroid : grosse tête, petit corps -->
+    <symbol id="fig-nendo" viewBox="0 0 100 150">
+      <ellipse class="sh" cx="50" cy="143" rx="22" ry="5"/>
+      <path class="body" d="M50 96 C39 96 35 122 40 136 L60 136 C65 122 61 96 50 96 Z"/>
+      <circle class="body" cx="50" cy="60" r="35"/>
+      <path class="hi" d="M50 25 C33 25 20 40 18 58 C30 50 40 47 50 47 Z"/>
+      <circle class="sh" cx="38" cy="64" r="4" opacity=".5"/>
+      <circle class="sh" cx="62" cy="64" r="4" opacity=".5"/>
+    </symbol>
+    <!-- Action / figma : pose dynamique -->
+    <symbol id="fig-action" viewBox="0 0 100 150">
+      <ellipse class="sh" cx="46" cy="143" rx="24" ry="5"/>
+      <path class="body" d="M44 56 C36 56 33 82 38 100 L40 134 L52 134 L52 104 L60 120 L70 112 L54 86 C56 70 54 56 44 56 Z"/>
+      <path class="body" d="M46 58 L74 40 L78 48 L52 70 Z"/>
+      <circle class="hi" cx="45" cy="44" r="10"/>
+      <path class="body" d="M36 40 C30 44 30 58 36 64 C36 54 40 48 45 45 Z"/>
+      <path class="hi" d="M44 58 C40 70 40 86 42 100 L48 100 C47 84 48 70 50 60 Z"/>
+    </symbol>
+    <!-- Mecha / plamo : robot anguleux -->
+    <symbol id="fig-mecha" viewBox="0 0 100 150">
+      <ellipse class="sh" cx="50" cy="143" rx="26" ry="5"/>
+      <path class="body" d="M38 60 L62 60 L66 96 L58 132 L42 132 L34 96 Z"/>
+      <path class="hi" d="M38 60 L50 60 L50 132 L42 132 L34 96 Z"/>
+      <rect class="body" x="44" y="40" width="12" height="16" rx="2"/>
+      <path class="hi" d="M48 38 L52 38 L54 44 L46 44 Z"/>
+      <path class="body" d="M30 62 L38 64 L40 92 L30 90 Z"/>
+      <path class="body" d="M70 62 L62 64 L60 92 L70 90 Z"/>
+      <rect class="sh" x="46" y="70" width="8" height="22" rx="2"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- ====== MAQUETTE SWITCHER ====== -->
+<div class="switcher">
+  <div class="wrap row">
+    <div class="brandmark"><span class="hanko seal sq">蒐</span><span class="wm">Figure<span class="it">Collector</span></span></div>
+    <div class="tabs">
+      <button class="tab on" data-s="landing">Accueil</button>
+      <button class="tab" data-s="collection">Collection</button>
+      <button class="tab" data-s="detail">Fiche figurine</button>
+      <button class="tab" data-s="preorders">Pré-commandes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================== LANDING ============================== -->
+<section class="screen on" id="landing">
+  <div class="wrap">
+    <div class="hero">
+      <div class="hero-grid">
+        <div>
+          <span class="kicker"><span class="sq"></span>ESTAMPE<span class="ja">棚</span>VOTRE VITRINE</span>
+          <h1 class="display">Chaque <span class="em">pièce</span>,<br>une <span class="gold">estampe</span>.</h1>
+          <p>FigureCollector est un atelier dévoué pour cataloguer, suivre et chérir les figurines de vos étagères — chaque pièce tirée comme une planche gravée, encrée à plat, scellée d'un hanko.</p>
+          <div class="cta-row">
+            <a class="btn btn-pri" href="#" onclick="go('collection');return false">Commencer →</a>
+            <a class="btn btn-ghost" href="#" onclick="go('collection');return false">Ouvrir ma collection</a>
+          </div>
+        </div>
+        <div class="hero-plate">
+          <span class="vrt">蒐集の棚</span>
+          <div class="sun"></div>
+          <svg class="fig"><use href="#fig-scale"/></svg>
+          <div class="floor"></div>
+          <span class="hanko bigseal">蒐</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-rule">
+      <span class="ja">棚</span>
+      <span class="lbl">La vitrine</span>
+      <span class="ln"></span>
+      <span class="n">128 PIÈCES · 6 EN VEDETTE</span>
+    </div>
+
+    <div class="plate-row" id="plateRow"><!-- injecté en JS --></div>
+  </div>
+</section>
+
+<!-- ============================== COLLECTION ============================== -->
+<section class="screen" id="collection">
+  <div class="wrap">
+    <div class="appbar">
+      <span class="hanko ghost" style="width:30px;height:30px;font-size:14px">棚</span>
+      <nav class="appnav">
+        <a class="active">Collection</a><a>Vitrines</a><a>Catalogue</a><a>Pré-commandes</a><a>Stats</a>
+      </nav>
+      <div class="right">
+        <a class="btn btn-pri" href="#">＋ Ajouter</a>
+        <div class="avatar">蒐</div>
+      </div>
+    </div>
+    <div class="page-head">
+      <span class="kicker">ARCHIVE<span class="ja">蒐集</span>COLLECTING</span>
+      <h2 class="display"><span class="em">Votre</span> Collection</h2>
+    </div>
+
+    <div class="statstrip">
+      <div class="stat" style="--accent:var(--shu)"><div class="lab">Pièces</div><div class="val">128</div><div class="sub">dans la vitrine</div></div>
+      <div class="stat" style="--accent:var(--yamabuki)"><div class="lab">Valeur · cote</div><div class="val g">14 280 €</div><div class="sub">payé · 11 940 €</div>
+        <svg class="spark" width="56" height="22"><polyline points="0,18 12,15 24,16 36,9 48,7 56,3" fill="none" stroke="#6fae8f" stroke-width="2"/></svg></div>
+      <div class="stat" style="--accent:var(--ai)"><div class="lab">Pré-commandes</div><div class="val r">7</div><div class="sub">2 340 € d'acomptes</div></div>
+      <div class="stat" style="--accent:var(--seiji)"><div class="lab">Vitrines</div><div class="val j">86<span style="font-size:20px">%</span></div><div class="sub">espace occupé · 4 meubles</div></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="chips">
+        <button class="chip on">Tout <span class="n">128</span></button>
+        <button class="chip">Possédées <span class="n">109</span></button>
+        <button class="chip">Souhaits <span class="n">12</span></button>
+        <button class="chip">Pré-co <span class="n">7</span></button>
+      </div>
+      <div class="search">🔍 Rechercher une pièce, une série…</div>
+      <div class="viewtog">
+        <button class="on" title="Grille"><svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="0" y="0" width="6" height="6"/><rect x="9" y="0" width="6" height="6"/><rect x="0" y="9" width="6" height="6"/><rect x="9" y="9" width="6" height="6"/></svg></button>
+        <button title="Liste"><svg width="15" height="15" viewBox="0 0 15 15" fill="currentColor"><rect x="0" y="1" width="15" height="2.5"/><rect x="0" y="6" width="15" height="2.5"/><rect x="0" y="11" width="15" height="2.5"/></svg></button>
+      </div>
+    </div>
+
+    <div class="grid" id="colgrid"><!-- injecté en JS --></div>
+  </div>
+</section>
+
+<!-- ============================== DÉTAIL ============================== -->
+<section class="screen" id="detail">
+  <div class="wrap">
+    <div class="appbar">
+      <span class="hanko ghost" style="width:30px;height:30px;font-size:14px">棚</span>
+      <nav class="appnav"><a>Collection</a><a>Vitrines</a><a>Catalogue</a><a>Pré-commandes</a><a>Stats</a></nav>
+      <div class="right"><a class="btn btn-pri" href="#">＋ Ajouter</a><div class="avatar">蒐</div></div>
+    </div>
+    <a class="back" href="#" onclick="go('collection');return false">← Retour à la collection</a>
+
+    <div class="detail" style="--hue:var(--shu)">
+      <div class="thumbs">
+        <div class="thumb on"><div class="well" style="height:100%"><div class="disc"></div><svg class="fig"><use href="#fig-scale"/></svg><div class="floor"></div></div></div>
+        <div class="thumb"><div class="well" style="height:100%;--hue:var(--ai)"><div class="disc"></div><svg class="fig"><use href="#fig-scale"/></svg></div></div>
+        <div class="thumb"><div class="well" style="height:100%;--hue:var(--seiji)"><div class="disc"></div><svg class="fig"><use href="#fig-scale"/></svg></div></div>
+        <div class="thumb"><div class="well" style="height:100%;--hue:var(--yamabuki)"><span class="kanji-wm" style="font-size:2rem;right:auto;bottom:auto;color:var(--sumi)">360</span></div></div>
+      </div>
+
+      <div class="hero-well well">
+        <span class="vrt">朱の像</span>
+        <div class="disc"></div>
+        <svg class="fig" style="height:82%"><use href="#fig-scale"/></svg>
+        <div class="floor"></div>
+        <span class="turn">◍ Turntable 360°</span>
+        <span class="hanko well-seal" style="width:38px;height:38px;font-size:16px">像</span>
+      </div>
+
+      <div class="dpanel">
+        <span class="kicker">SÉRIE<span class="ja">予約</span>PRÉ-COMMANDE</span>
+        <h1 class="display">Rem</h1>
+        <div class="subt">Re:Zero − Starting Life in Another World</div>
+        <div class="tags">
+          <span class="dtag">Re:Zero</span><span class="dtag">Good Smile Company</span>
+          <span class="dtag">Échelle 1/7</span><span class="dtag">Sculpteur · 安藤賢司</span>
+        </div>
+
+        <div class="specgrid">
+          <div class="cell"><div class="l">Échelle</div><div class="v">1/7 <span class="ja">·</span> PVC/ABS</div></div>
+          <div class="cell"><div class="l">Hauteur</div><div class="v">235 mm</div></div>
+          <div class="cell"><div class="l">Fabricant</div><div class="v">Good Smile Co.</div></div>
+          <div class="cell"><div class="l">Sortie</div><div class="v">Sept. 2026</div></div>
+        </div>
+
+        <div class="block">
+          <div class="bh"><span class="t"><span class="ja">予約</span>Pré-commande · acompte</span><span class="mono" style="color:var(--yamabuki);font-weight:700">42 %</span></div>
+          <div class="progress"><i style="width:42%"></i></div>
+          <div class="prow" style="margin-top:14px">
+            <div><div class="l">Acompte versé</div><div class="big g">82,00 €</div></div>
+            <div style="text-align:right"><div class="l">Solde restant</div><div class="big r">113,00 €</div></div>
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="bh"><span class="t"><span class="ja">価</span>La Cote · valorisation</span><span class="mono" style="color:var(--seiji);font-weight:700">▲ +28 %</span></div>
+          <div class="cote">
+            <div class="c"><div class="l">Payé</div><div class="v">195,00 €</div></div>
+            <div class="c"><div class="l">Valeur actuelle</div><div class="v" style="color:var(--yamabuki)">249,00 €</div></div>
+            <svg width="90" height="40"><polyline points="0,34 18,30 34,32 50,20 66,16 90,6" fill="none" stroke="var(--seiji)" stroke-width="2.5"/></svg>
+          </div>
+        </div>
+
+        <div class="block">
+          <div class="bh"><span class="t"><span class="ja">店</span>Acheter chez</span></div>
+          <div class="stores">
+            <a class="store"><span class="logo" style="background:var(--shu)">AA</span><span class="nm">AmiAmi</span><span class="badge-best">Meilleur prix</span><span class="px">189,00 €</span></a>
+            <a class="store"><span class="logo" style="background:var(--ai)">HLJ</span><span class="nm">HobbyLink Japan</span><span class="px">198,00 €</span></a>
+            <a class="store"><span class="logo" style="background:var(--yamabuki);color:var(--sumi)">GSC</span><span class="nm">Good Smile Shop</span><span class="px">205,00 €</span></a>
+          </div>
+        </div>
+
+        <div class="dactions">
+          <a class="btn btn-pri" href="#">✎ Éditer la pièce</a>
+          <a class="btn btn-ghost" href="#">Archiver</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== PRÉ-COMMANDES ============================== -->
+<section class="screen" id="preorders">
+  <div class="wrap">
+    <div class="appbar">
+      <span class="hanko ghost" style="width:30px;height:30px;font-size:14px">棚</span>
+      <nav class="appnav"><a>Collection</a><a>Vitrines</a><a>Catalogue</a><a class="active">Pré-commandes</a><a>Stats</a></nav>
+      <div class="right"><a class="btn btn-pri" href="#">＋ Ajouter</a><div class="avatar">蒐</div></div>
+    </div>
+    <div class="page-head">
+      <span class="kicker">SUIVI<span class="ja">予約</span>ACOMPTES & LIVRAISONS</span>
+      <h2 class="display"><span class="em">Vos</span> Pré-commandes</h2>
+    </div>
+
+    <div class="po-summary">
+      <div class="po-sum" style="--accent:var(--seiji)"><div class="l">Acomptes versés</div><div class="v">748 <span class="ja">€</span></div></div>
+      <div class="po-sum due" style="--accent:var(--shu)"><div class="l">Solde à régler</div><div class="v">1 592 <span class="ja">€</span></div></div>
+      <div class="po-sum" style="--accent:var(--yamabuki)"><div class="l">Prochaine livraison</div><div class="v" style="color:var(--yamabuki)">J−12</div></div>
+    </div>
+
+    <div class="po-month"><span class="ja">予約</span><span class="m">Juillet 2026</span><span class="ln"></span><span class="c">2 PIÈCES</span></div>
+
+    <div class="po-item" style="--hue:var(--seiji)">
+      <div class="thmb well"><div class="disc"></div><svg class="fig"><use href="#fig-scale"/></svg></div>
+      <div class="nm"><b>Marin Kitagawa</b><span>My Dress-Up Darling · 1/7 · Aniplex</span></div>
+      <div class="fin"><div class="l">Acompte</div><div class="v">59 €</div><small>versé le 12/01</small></div>
+      <div class="fin"><div class="l">Solde</div><div class="v r">138 €</div><small>à la livraison</small></div>
+      <div class="countdown soon"><div class="d">12</div><div class="u">Jours</div></div>
+    </div>
+
+    <div class="po-item" style="--hue:var(--ai)">
+      <div class="thmb well"><div class="disc"></div><svg class="fig"><use href="#fig-action"/></svg></div>
+      <div class="nm"><b>Power</b><span>Chainsaw Man · 1/7 · Good Smile</span></div>
+      <div class="fin"><div class="l">Acompte</div><div class="v">64 €</div><small>versé le 03/02</small></div>
+      <div class="fin"><div class="l">Solde</div><div class="v r">152 €</div><small>à la livraison</small></div>
+      <div class="countdown ok"><div class="d">26</div><div class="u">Jours</div></div>
+    </div>
+
+    <div class="po-month"><span class="ja">予約</span><span class="m">Septembre 2026</span><span class="ln"></span><span class="c">3 PIÈCES</span></div>
+
+    <div class="po-item" style="--hue:var(--shu)">
+      <div class="thmb well"><div class="disc"></div><svg class="fig"><use href="#fig-scale"/></svg></div>
+      <div class="nm"><b>Rem <span class="slip-tag">Glissée +1 mois</span></b><span>Re:Zero · 1/7 · Good Smile</span></div>
+      <div class="fin"><div class="l">Acompte</div><div class="v">82 €</div><small>versé le 20/12</small></div>
+      <div class="fin"><div class="l">Solde</div><div class="v r">113 €</div><small>à la livraison</small></div>
+      <div class="countdown slip"><div class="d">J−98</div><div class="u">Sept.</div></div>
+    </div>
+
+    <div class="po-item" style="--hue:#8a6fb0">
+      <div class="thmb well"><div class="disc"></div><svg class="fig"><use href="#fig-scale"/></svg></div>
+      <div class="nm"><b>Frieren</b><span>Sousou no Frieren · 1/7 · F:NEX</span></div>
+      <div class="fin"><div class="l">Acompte</div><div class="v">88 €</div><small>versé le 15/02</small></div>
+      <div class="fin"><div class="l">Solde</div><div class="v r">204 €</div><small>à la livraison</small></div>
+      <div class="countdown ok"><div class="d">J−98</div><div class="u">Sept.</div></div>
+    </div>
+
+    <div class="po-item" style="--hue:var(--ai)">
+      <div class="thmb well"><div class="disc"></div><svg class="fig"><use href="#fig-mecha"/></svg></div>
+      <div class="nm"><b>2B</b><span>NieR:Automata · 1/4 · Flare</span></div>
+      <div class="fin"><div class="l">Acompte</div><div class="v">120 €</div><small>versé le 28/02</small></div>
+      <div class="fin"><div class="l">Solde</div><div class="v r">280 €</div><small>à la livraison</small></div>
+      <div class="countdown ok"><div class="d">J−98</div><div class="u">Sept.</div></div>
+    </div>
+
+    <footer>
+      <span>FigureCollector · Direction C <span class="ja">浮世絵</span> Ukiyo-e</span>
+      <span>像 · Vitrine privée</span>
+    </footer>
+  </div>
+</section>
+
+<script>
+// ---- tab switcher (identique à Direction A) ----
+function go(s){
+  document.querySelectorAll('.screen').forEach(x=>x.classList.toggle('on',x.id===s));
+  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x.dataset.s===s));
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>go(t.dataset.s)));
+
+// ---- collection grid data (jeu de Direction A, teintes remappées sur la palette woodblock) ----
+const figs=[
+  {n:"Rem",s:"Re:Zero",m:"Good Smile Co.",sc:"1/7",p:"195 €",hue:"var(--shu)",k:"朱",pose:"fig-scale",type:"Scale",tk:"像",owned:true},
+  {n:"Megumin",s:"KonoSuba",m:"KADOKAWA",sc:"1/7",p:"172 €",hue:"#c2506e",k:"紅",pose:"fig-scale",type:"Scale",tk:"像",owned:true},
+  {n:"Hatsune Miku",s:"Vocaloid",m:"Good Smile Co.",sc:"—",p:"54 €",hue:"var(--seiji)",k:"翠",pose:"fig-nendo",type:"Nendoroid",tk:"童",owned:true},
+  {n:"Gojo Satoru",s:"Jujutsu Kaisen",m:"GSC",sc:"1/8",p:"148 €",hue:"var(--ai)",k:"藍",pose:"fig-action",type:"Figma",tk:"動",owned:true},
+  {n:"Frieren",s:"Sousou no Frieren",m:"F:NEX",sc:"1/7",p:"292 €",hue:"#8a6fb0",k:"紫",pose:"fig-scale",type:"Scale",tk:"像",badge:{l:"Pré-co",gold:false}},
+  {n:"RX-78-2 Gundam",s:"Mobile Suit Gundam",m:"BANDAI",sc:"MG 1/100",p:"68 €",hue:"var(--ai)",k:"組",pose:"fig-mecha",type:"Plamo",tk:"組",owned:true},
+  {n:"Asuka Langley",s:"Evangelion",m:"Kotobukiya",sc:"1/7",p:"168 €",hue:"var(--shu)",k:"朱",pose:"fig-scale",type:"Scale",tk:"像",owned:true},
+  {n:"Marin Kitagawa",s:"My Dress-Up Darling",m:"Aniplex",sc:"1/7",p:"197 €",hue:"#c2506e",k:"桜",pose:"fig-scale",type:"Scale",tk:"像",badge:{l:"J−12",gold:true}},
+  {n:"Nezuko Kamado",s:"Demon Slayer",m:"Aniplex",sc:"1/8",p:"159 €",hue:"#c2506e",k:"紅",pose:"fig-scale",type:"Scale",tk:"像",owned:true},
+  {n:"Power",s:"Chainsaw Man",m:"Good Smile Co.",sc:"1/7",p:"216 €",hue:"var(--shu)",k:"朱",pose:"fig-action",type:"Figma",tk:"動",badge:{l:"Pré-co",gold:false}},
+  {n:"2B",s:"NieR:Automata",m:"Flare",sc:"1/4",p:"400 €",hue:"var(--ai)",k:"藍",pose:"fig-scale",type:"Scale",tk:"像",badge:{l:"Pré-co",gold:false}},
+  {n:"Artoria Pendragon",s:"Fate/stay night",m:"Aniplex",sc:"1/7",p:"285 €",hue:"var(--yamabuki)",k:"金",pose:"fig-scale",type:"Scale",tk:"像",wished:true},
+];
+
+// puits réutilisable (plaque d'estampe)
+function wellHTML(f,extra=''){return `
+  <div class="well" style="--hue:${f.hue}">
+    <div class="disc"></div>
+    <span class="kanji-wm">${f.k}</span>
+    <svg class="fig"><use href="#${f.pose}"/></svg>
+    <div class="floor"></div>
+    ${extra}
+  </div>`;}
+
+// landing — bandeau de 6 plaques (les "en vedette")
+document.getElementById('plateRow').innerHTML=figs.slice(0,6).map(f=>`
+  <a class="plate" onclick="go('detail');return false" style="cursor:pointer">
+    ${wellHTML(f,`<span class="hanko well-seal">${f.tk}</span>`)}
+    <div class="cap">
+      <span class="hanko seal">${f.tk}</span>
+      <span><b>${f.n}</b><span>${f.sc==='—'?f.type:f.sc} · ${f.m}</span></span>
+    </div>
+  </a>`).join('');
+
+// collection — grille de fiches
+document.getElementById('colgrid').innerHTML=figs.map((f,i)=>`
+  <a class="fcard" style="--hue:${f.hue};--accent:${f.hue}" onclick="go('detail');return false">
+    <div class="well">
+      <div class="disc"></div>
+      <span class="kanji-wm">${f.k}</span>
+      <svg class="fig"><use href="#${f.pose}"/></svg>
+      <div class="floor"></div>
+      <span class="plaque"><span class="k">${f.tk}</span>${f.type}</span>
+      ${f.badge?`<span class="stamp ${f.badge.gold?'gold':''}">${f.badge.l}</span>`
+        :f.owned?`<span class="hanko mark owned">✓</span>`
+        :f.wished?`<span class="hanko mark wished">♥</span>`:''}
+      <div class="inscr"><span>n° ${(i+1043).toString(16).toUpperCase()}</span><span>${f.sc}</span></div>
+    </div>
+    <div class="body">
+      <h3>${f.n}</h3>
+      <div class="rule"></div>
+      <div class="meta">
+        <div class="r"><dt>Série</dt><dd>${f.s}</dd></div>
+        <div class="r"><dt>Fabricant</dt><dd>${f.m}</dd></div>
+        <div class="r" style="margin-top:6px;align-items:center"><dt>${f.owned?'Payé':f.wished?'Cible':'Acompte'}</dt><dd class="price">${f.p}</dd></div>
+      </div>
+    </div>
+  </a>`).join('');
+</script>
+</body>
+</html>
