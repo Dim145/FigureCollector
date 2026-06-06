@@ -232,6 +232,10 @@ async fn get_crossings(
 #[derive(Serialize)]
 struct FigureLinkResult {
     in_library: bool,
+    /// The matched manga's MAL id — lets the badge deep-link to the manga page
+    /// (`{base}/mangapage?mal_id=`) instead of the bare public profile.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    mal_id: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -255,6 +259,7 @@ async fn get_figure_link(
     Ok(Json(match link {
         Some(e) => FigureLinkResult {
             in_library: true,
+            mal_id: e.mal_id,
             name: Some(e.name),
             read_percent: e.read_percent,
             volumes_owned: e.volumes_owned,
@@ -263,12 +268,40 @@ async fn get_figure_link(
         },
         None => FigureLinkResult {
             in_library: false,
+            mal_id: None,
             name: None,
             read_percent: None,
             volumes_owned: None,
             volumes: None,
             fully_read: None,
         },
+    }))
+}
+
+#[derive(Serialize)]
+struct SeriesLinkResult {
+    in_library: bool,
+    /// The matched manga's MAL id, when the series is in the user's library —
+    /// the series page deep-links to `{base}/mangapage?mal_id=` with it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    mal_id: Option<i32>,
+}
+
+/// `GET /api/me/manga-link/series/{series_id}` — does the signed-in user read
+/// this series on the manga side? Returns the matched MAL id so the series page
+/// can offer an "open in MangaCollector" button. Owner-only; resolves to
+/// `in_library: false` for an unlinked / pending / revoked link or no match.
+async fn get_series_link(
+    State(state): State<AppState>,
+    session: Session,
+    Path(series_id): Path<Uuid>,
+) -> AppResult<Json<SeriesLinkResult>> {
+    let user_id = auth::require_user(&session).await?;
+    let mal_id =
+        manga::series_manga_link(&state.pool, &state.http_no_redirect, user_id, series_id).await?;
+    Ok(Json(SeriesLinkResult {
+        in_library: mal_id.is_some(),
+        mal_id,
     }))
 }
 
@@ -346,5 +379,6 @@ pub fn router() -> Router<AppState> {
         .route("/me/manga-link/crossings", get(get_crossings))
         .route("/me/manga-link/sync", post(sync_link))
         .route("/me/manga-link/figure/{figure_id}", get(get_figure_link))
+        .route("/me/manga-link/series/{series_id}", get(get_series_link))
         .route("/public/figures/by-mal/{mal_id}", get(figures_by_mal))
 }

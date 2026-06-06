@@ -16,6 +16,7 @@ import {
   useMoveCharacterFigures,
 } from "../hooks/useAdmin.js";
 import { useSeriesLookup, useCharactersLookup } from "../hooks/useEntities.js";
+import { useMangaLink, useSeriesManga, mangaPageHref } from "../hooks/useMangaLink.js";
 import { preorderPhaseFromFigure, preorderBadgeLabel } from "../lib/preorderStatus.js";
 
 /**
@@ -56,6 +57,20 @@ export default function EntityPage({ kind }) {
       return count < 2;
     },
   });
+
+  // ── MangaCollector synergy (series pages only) ────────────────────────────
+  // Offer an "open in MangaCollector" pill when the signed-in user reads this
+  // series on the manga side. The hooks run unconditionally (rules of hooks);
+  // the `enabled`/null args keep them inert on non-series pages, for anonymous
+  // viewers, and until the entity (hence its id) has resolved.
+  const authed = !!me.data?.authenticated;
+  const mangaLink = useMangaLink({ enabled: authed && kind === "series" });
+  const mangaActive = kind === "series" && mangaLink.data?.status === "approved";
+  const seriesId = kind === "series" ? q.data?.entity?.id : null;
+  const seriesManga = useSeriesManga(seriesId, mangaActive);
+  const mangaHref = seriesManga.data?.in_library
+    ? mangaPageHref(mangaLink.data?.server?.base_url, seriesManga.data.mal_id)
+    : null;
 
   if (q.isLoading) {
     return (
@@ -106,7 +121,7 @@ export default function EntityPage({ kind }) {
   return (
     <AppShell>
       <main className="max-w-6xl mx-auto px-6 py-12">
-        <Header entity={entity} kind={kind} t={t} />
+        <Header entity={entity} kind={kind} t={t} mangaHref={mangaHref} figures={figures} />
 
         <section className="mt-10">
           <Reveal
@@ -329,7 +344,7 @@ function AdminBulkToolbar({ kind, entity, figures, selected, onSelectAll, onClea
 // ─────────────────────────────────────────────────────────────────────────────
 // Header — hero with image, name, optional metadata rows
 
-function Header({ entity, kind, t }) {
+function Header({ entity, kind, t, mangaHref, figures }) {
   const accent = kindAccent(kind);
   return (
     <header className="relative">
@@ -364,22 +379,13 @@ function Header({ entity, kind, t }) {
               background: `linear-gradient(150deg, transparent 45%, color-mix(in oklab, ${accent} 22%, transparent))`,
             }}
           />
-          {entity.image_url ? (
-            <img
-              src={entity.image_url}
-              alt={entity.name}
-              className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
-              loading="eager"
-              decoding="async"
-            />
-          ) : (
-            <div
-              className="w-full h-full grid place-items-center text-xs uppercase tracking-[0.2em]"
-              style={{ color: `color-mix(in oklab, ${accent} 45%, transparent)` }}
-            >
-              {t(`entity.${kind}.no_image`)}
-            </div>
-          )}
+          <EntityHeroImage
+            entity={entity}
+            figures={figures}
+            kind={kind}
+            t={t}
+            accent={accent}
+          />
         </Reveal>
 
         <Reveal as="div" delay={0.08} y={20}>
@@ -435,7 +441,7 @@ function Header({ entity, kind, t }) {
 
           <MetaRows entity={entity} kind={kind} t={t} accent={accent} />
 
-          <ExternalLinks entity={entity} kind={kind} t={t} accent={accent} />
+          <ExternalLinks entity={entity} kind={kind} t={t} accent={accent} mangaHref={mangaHref} />
         </Reveal>
       </div>
     </header>
@@ -468,7 +474,7 @@ function MetaRows({ entity, kind, t, accent = "var(--color-or)" }) {
   );
 }
 
-function ExternalLinks({ entity, kind, t, accent = "var(--color-or)" }) {
+function ExternalLinks({ entity, kind, t, accent = "var(--color-or)", mangaHref }) {
   const links = [];
   if (entity.external_url) {
     links.push({ href: entity.external_url, label: t("entity.link.website") });
@@ -490,12 +496,25 @@ function ExternalLinks({ entity, kind, t, accent = "var(--color-or)" }) {
       label: "MyAnimeList",
     });
   }
+  // The user's OWN linked manga collection — only when the series actually
+  // matches their library (resolved server-side). Tinted with the
+  // MangaCollector indigo + its 連 "link" glyph so it reads as "open in your
+  // collection", distinct from the generic external-catalogue pills.
+  if (mangaHref) {
+    links.push({
+      href: mangaHref,
+      label: "MangaCollector",
+      accent: "var(--color-indigo)",
+      glyph: "連",
+    });
+  }
   if (links.length === 0) return null;
   return (
     <ul className="mt-6 flex flex-wrap gap-2">
       {links.map((l) => {
         const href = safeHref(l.href);
         if (!href) return null;
+        const linkAccent = l.accent ?? accent;
         return (
         <li key={l.href}>
           <a
@@ -504,18 +523,82 @@ function ExternalLinks({ entity, kind, t, accent = "var(--color-or)" }) {
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] px-3 py-1.5 border transition-colors duration-300 ease-out hover:-translate-y-0.5 hover:text-[var(--color-ivoire)] hover:[border-color:var(--_link-border-hover)] hover:[background:var(--_link-bg-hover)] motion-reduce:hover:translate-y-0 motion-reduce:transition-none"
             style={{
-              borderColor: `color-mix(in oklab, ${accent} 42%, transparent)`,
-              background: `color-mix(in oklab, ${accent} 6%, transparent)`,
-              "--_link-border-hover": `color-mix(in oklab, ${accent} 80%, transparent)`,
-              "--_link-bg-hover": `color-mix(in oklab, ${accent} 14%, transparent)`,
+              borderColor: `color-mix(in oklab, ${linkAccent} 42%, transparent)`,
+              background: `color-mix(in oklab, ${linkAccent} 6%, transparent)`,
+              "--_link-border-hover": `color-mix(in oklab, ${linkAccent} 80%, transparent)`,
+              "--_link-bg-hover": `color-mix(in oklab, ${linkAccent} 14%, transparent)`,
             }}
           >
+            {l.glyph ? (
+              <span
+                aria-hidden
+                className="ja -ml-0.5 text-[12px] leading-none"
+                style={{ color: "var(--color-indigo-bright)" }}
+              >
+                {l.glyph}
+              </span>
+            ) : null}
             {l.label} ↗
           </a>
         </li>
         );
       })}
     </ul>
+  );
+}
+
+/** Hero image for an entity, resolved like the catalogue/collection covers:
+ *  the user-uploaded image wins; otherwise — for subjects that figures depict
+ *  (series / characters) — a figurine's cover, preferring a locally-stored
+ *  photo so we never default to a (possibly dead) external link when a real
+ *  image exists. The entity's own external URL is only a last resort. */
+function resolveEntityHero(entity, figures, figureFallback) {
+  // 1. User-defined image → server proxy (image_key is what drives image_url).
+  if (entity.image_key) return entity.image_url ?? null;
+  if (figureFallback) {
+    const list = figures ?? [];
+    // 2a. A figurine with a locally-stored primary photo (never a dead link).
+    const local = list.find((f) => f.primary_photo_id);
+    if (local) return resolveFigureCover(local);
+    // 2b. Otherwise any figurine that resolves to some cover.
+    const any = list.find((f) => resolveFigureCover(f));
+    if (any) return resolveFigureCover(any);
+  }
+  // 3. The entity's own external link as a last resort (else → placeholder).
+  return entity.image_url ?? null;
+}
+
+/** The hero image well's contents: the resolved cover, degrading to the kind's
+ *  placeholder when there's nothing to show OR the chosen URL fails to load
+ *  (a dead external cover). `broken` resets whenever the resolved src changes
+ *  so navigating between entities re-tries cleanly. */
+function EntityHeroImage({ entity, figures, kind, t, accent }) {
+  const figureFallback = kind === "series" || kind === "character";
+  const src = resolveEntityHero(entity, figures, figureFallback);
+  const [broken, setBroken] = useState(false);
+  useEffect(() => {
+    setBroken(false);
+  }, [src]);
+
+  if (!src || broken) {
+    return (
+      <div
+        className="w-full h-full grid place-items-center text-xs uppercase tracking-[0.2em]"
+        style={{ color: `color-mix(in oklab, ${accent} 45%, transparent)` }}
+      >
+        {t(`entity.${kind}.no_image`)}
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={entity.name}
+      className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+      loading="eager"
+      decoding="async"
+      onError={() => setBroken(true)}
+    />
   );
 }
 

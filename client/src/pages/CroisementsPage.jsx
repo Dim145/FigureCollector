@@ -150,7 +150,7 @@ function ReadingRow({ r, t }) {
       <Thumb manga kanji="漫" />
       <div className="flex-1 min-w-0">
         <Link
-          to={`/figures/${r.slug}`}
+          to={`/figures/${r.id}`}
           className="display text-[1.15rem] text-[var(--color-ivoire)] block leading-[1.15] truncate hover:text-[var(--color-or-pale)] transition-colors"
         >
           {r.name}

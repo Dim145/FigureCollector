@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
+import { safeHref } from "../lib/safeUrl.js";
 
 // ── MangaCollector synergy (Lot 8 + 8b) ──────────────────────────────────────
 //
@@ -16,10 +17,14 @@ const KEY = ["manga-link"];
  *     server: { id, base_url, label } | null, slug,
  *     profile: { display_name, series_count, volumes_owned } | null,
  *     revoked_reason? }`. */
-export function useMangaLink() {
+export function useMangaLink({ enabled = true } = {}) {
   return useQuery({
     queryKey: KEY,
     queryFn: () => api.get("/me/manga-link"),
+    // `/me/manga-link` is owner-only — on public pages (e.g. an anonymously
+    // viewed series page) callers pass `enabled: authenticated` so we don't
+    // fire a guaranteed-401 request.
+    enabled,
   });
 }
 
@@ -98,4 +103,27 @@ export function useFigureManga(figureId, active) {
     enabled: !!figureId && !!active,
     staleTime: 5 * 60_000,
   });
+}
+
+/** Per-series manga match for the series-page "open in MangaCollector" button.
+ *  Gated on `active` (the linked server is approved) so a pending/revoked/absent
+ *  link makes no request. Returns `{ in_library, mal_id? }`. */
+export function useSeriesManga(seriesId, active) {
+  return useQuery({
+    queryKey: ["manga-series", seriesId],
+    queryFn: () => api.get(`/me/manga-link/series/${seriesId}`),
+    enabled: !!seriesId && !!active,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Deep-link to a manga's page on the linked MangaCollector instance.
+ *  MangaCollector resolves a manga by its MyAnimeList id at `/mangapage?mal_id=`,
+ *  matched against the signed-in user's own library. Returns `null` when the
+ *  base or id is missing, or when `safeHref` rejects a poisoned `base_url`
+ *  (non-http(s) scheme). */
+export function mangaPageHref(base, malId) {
+  if (!base || malId == null) return null;
+  const root = String(base).replace(/\/+$/, "");
+  return safeHref(`${root}/mangapage?mal_id=${encodeURIComponent(malId)}`);
 }

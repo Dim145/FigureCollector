@@ -244,8 +244,9 @@ pub struct DualItem {
 #[derive(Debug, Clone, Serialize)]
 pub struct ReadingItem {
     pub mal_id: i32,
+    /// FC catalogue figure id (UUID) — the `/figures/:id` link target.
+    pub id: Uuid,
     pub name: String,
-    pub slug: String,
     pub figure_type: String,
     pub image: Option<String>,
     /// FC series name.
@@ -280,8 +281,8 @@ struct DualRow {
 struct ReadingRow {
     mal_id: Option<i32>,
     manga_mal_id: Option<i32>,
+    id: Uuid,
     name: String,
-    slug: String,
     figure_type: String,
     image: Option<String>,
     series_name: String,
@@ -377,7 +378,7 @@ pub async fn crossings(
     // ── reading: catalogue figures for a read series the user does NOT own —
     // purchase suggestions. NOT EXISTS scopes "doesn't own" to active items.
     let reading_sql = format!(
-        "SELECT s.mal_id AS mal_id, s.manga_mal_id AS manga_mal_id, f.name AS name, f.slug AS slug, f.figure_type AS figure_type,
+        "SELECT s.mal_id AS mal_id, s.manga_mal_id AS manga_mal_id, f.id AS id, f.name AS name, f.figure_type AS figure_type,
                 f.official_image_url AS image, s.name AS series_name
          FROM figures f
          JOIN figure_series fs ON fs.figure_id = f.id
@@ -407,8 +408,8 @@ pub async fn crossings(
             let entry = by_mal.get(&key);
             Some(ReadingItem {
                 mal_id: key,
+                id: r.id,
                 name: r.name,
-                slug: r.slug,
                 figure_type: r.figure_type,
                 image: r.image,
                 series_name: r.series_name,
@@ -504,6 +505,10 @@ pub async fn backfill_manga_mal(
 /// page surfaces.
 #[derive(Debug, Clone, Serialize)]
 pub struct FigureMangaLink {
+    /// The matched manga's MyAnimeList id — the key MangaCollector deep-links on
+    /// (`{base}/mangapage?mal_id=`). Set whenever this struct is `Some` (the
+    /// match is found *by* this id), so the figure badge can open the manga page.
+    pub mal_id: Option<i32>,
     pub name: String,
     pub read_percent: Option<f64>,
     pub volumes_owned: Option<i32>,
@@ -556,10 +561,54 @@ pub async fn figure_manga_link(
         .iter()
         .find(|e| e.mal_id.is_some_and(|m| candidates.contains(&m)));
     Ok(entry.map(|e| FigureMangaLink {
+        mal_id: e.mal_id,
         name: e.name.clone(),
         read_percent: e.read_percent,
         volumes_owned: e.volumes_owned,
         volumes: e.volumes,
         fully_read: e.fully_read,
     }))
+}
+
+/// Resolve a *series* → its MAL id(s) → the user's manga-library entry, returning
+/// the matched library `mal_id` (the key MangaCollector deep-links on) when the
+/// user reads that series, else `None`. Mirrors [`figure_manga_link`] but
+/// series-scoped — it powers the series page's "open in MangaCollector" button,
+/// which only shows for an approved link with an actual match.
+pub async fn series_manga_link(
+    pool: &PgPool,
+    http: &reqwest::Client,
+    user_id: Uuid,
+    series_id: Uuid,
+) -> AppResult<Option<i32>> {
+    // The series' own mal_id and its cross-media manga_mal_id (the library is
+    // keyed on the manga side, so the latter wins when present).
+    let ids: Option<(Option<i32>, Option<i32>)> = sqlx::query_as(
+        "SELECT s.mal_id, s.manga_mal_id FROM series s
+         WHERE s.id = $1
+           AND (s.mal_id IS NOT NULL OR (s.manga_mal_id IS NOT NULL AND s.manga_mal_id <> 0))",
+    )
+    .bind(series_id)
+    .fetch_optional(pool)
+    .await?;
+    let Some((mal_id, manga_mal_id)) = ids else {
+        return Ok(None);
+    };
+    let candidates: Vec<i32> = [manga_mal_id.filter(|v| *v != 0), mal_id]
+        .into_iter()
+        .flatten()
+        .collect();
+
+    let Some(link) = crate::domain::manga_servers::get_link(pool, user_id).await? else {
+        return Ok(None);
+    };
+    if !link.is_approved() {
+        return Ok(None);
+    }
+
+    let profile = fetch_profile(pool, http, &link.base_url, &link.slug).await?;
+    Ok(profile
+        .library
+        .iter()
+        .find_map(|e| e.mal_id.filter(|m| candidates.contains(m))))
 }

@@ -1,5 +1,5 @@
 import { useT } from "../i18n/index.jsx";
-import { useMangaLink, useFigureManga } from "../hooks/useMangaLink.js";
+import { useMangaLink, useFigureManga, mangaPageHref } from "../hooks/useMangaLink.js";
 import { safeHref } from "../lib/safeUrl.js";
 
 const INDIGO = "var(--color-indigo)";
@@ -26,10 +26,14 @@ export default function MangaLinkBadge({ figureId }) {
 
   const { name, read_percent, volumes_owned, volumes } = manga.data;
   const pct = clampPct(read_percent);
-  // Open the public profile on the linked instance. safeHref blocks any
-  // non-http(s) scheme that a poisoned base_url could carry.
+  // Deep-link straight to the manga's own page on the linked instance
+  // (`/mangapage?mal_id=`), resolved against the user's library. Fall back to
+  // the public profile only if the match somehow lacks a MAL id. safeHref (used
+  // by both paths) blocks any non-http(s) scheme a poisoned base_url could carry.
   const base = link.data.server?.base_url;
-  const href = base ? safeHref(`${base}/u/${link.data.slug}`) : null;
+  const href =
+    mangaPageHref(base, manga.data.mal_id) ??
+    (base ? safeHref(`${base}/u/${link.data.slug}`) : null);
 
   return (
     <div
