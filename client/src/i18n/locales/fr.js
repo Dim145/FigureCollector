@@ -48,6 +48,7 @@ export default {
   // Login
   "login.title": "Connexion",
   "login.subtitle": "Accède à ta vitrine.",
+  "login.hero": "Bon retour.",
   "login.field.username": "Nom d'utilisateur",
   "login.field.password": "Mot de passe",
   "login.submit": "Entrer",
@@ -59,6 +60,7 @@ export default {
   // Register
   "register.title": "Créer un compte",
   "register.subtitle": "Inscris-toi pour cataloguer ta collection.",
+  "register.hero": "Votre vitrine vous attend.",
   "register.field.username": "Nom d'utilisateur",
   "register.field.username_hint": "3 à 32 caractères, lettres / chiffres / _ - .",
   "register.field.password": "Mot de passe",

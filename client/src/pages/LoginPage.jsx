@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useAuthProviders, useLogin, useMe } from "../hooks/useMe.js";
+import AccentTitle from "../components/AccentTitle.jsx";
 import Button from "../components/Button.jsx";
 import Card from "../components/Card.jsx";
 import FormField from "../components/FormField.jsx";
@@ -9,6 +10,14 @@ import Halo from "../components/Halo.jsx";
 import LocaleSwitcher from "../components/LocaleSwitcher.jsx";
 import { mapApiError } from "../lib/errorMap.js";
 
+/**
+ * Direction A — "Vitrine privée" sign-in.
+ *
+ * An editorial split: a brand panel (oversized 像 watermark, kicker, red-accent
+ * headline, gloss + JP tagline, seigaiha foot) carries the mood on lg+; the
+ * form sits in a noir Card on the right. On mobile the brand collapses into a
+ * compact header inside the card so the form stays the focus.
+ */
 export default function LoginPage() {
   const t = useT();
   const navigate = useNavigate();
@@ -32,91 +41,144 @@ export default function LoginPage() {
   const oidcProviders = providers.data?.oidc ?? [];
 
   return (
-    <main className="min-h-dvh grid place-items-center px-6 py-16 relative overflow-hidden">
+    <main className="min-h-dvh relative overflow-hidden">
       <Halo />
-      <div className="absolute top-6 right-6 z-10">
+      <div className="absolute top-5 right-5 z-20">
         <LocaleSwitcher />
       </div>
 
-      <Card className="relative w-full max-w-md p-8 md:p-10">
-        <header className="text-center mb-8">
-          <p className="micro">{t("app.name")}</p>
-          <h1 className="display text-4xl md:text-5xl mt-2 text-[var(--color-ivoire)]">
-            {t("login.title")}
-          </h1>
-          <p className="display-italic mt-1 text-[var(--color-or)] text-lg">
-            {t("login.subtitle")}
-          </p>
-          <div className="gold-rule mx-auto w-32 mt-6" />
-        </header>
-
-        {oidcProviders.length > 0 ? (
-          <>
-            <div className="space-y-3 mb-6">
-              {oidcProviders.map((p) => (
-                <OidcButton key={p.id} provider={p} t={t} />
-              ))}
-            </div>
-            <div className="flex items-center gap-3 my-6">
-              <span className="flex-1 h-px bg-[var(--color-or)]/20" />
-              <span className="micro text-[var(--color-ivoire-soft)]">
-                {t("login.or_local")}
-              </span>
-              <span className="flex-1 h-px bg-[var(--color-or)]/20" />
-            </div>
-          </>
-        ) : null}
-
-        <form onSubmit={onSubmit} className="space-y-5">
-          <FormField
-            label={t("login.field.username")}
-            value={username}
-            onChange={setUsername}
-            autoComplete="username"
-            required
-            disabled={login.isPending}
-          />
-          <FormField
-            label={t("login.field.password")}
-            type="password"
-            value={password}
-            onChange={setPassword}
-            autoComplete="current-password"
-            required
-            disabled={login.isPending}
-          />
-
-          {errorMessage ? (
-            <p
-              role="alert"
-              className="text-sm text-[var(--color-laque-bright)] tracking-wide border-l-2 border-[var(--color-laque-bright)] pl-3 py-1"
+      <div className="relative z-10 min-h-dvh grid lg:grid-cols-2 max-w-6xl mx-auto">
+        {/* ─── Brand panel (lg+) ─── */}
+        <aside className="relative hidden lg:flex flex-col justify-center px-14 xl:px-20 overflow-hidden">
+          <span
+            aria-hidden
+            className="kanji-mark text-[36rem] -left-16 top-1/2 -translate-y-1/2 select-none"
+          >
+            像
+          </span>
+          <div className="relative">
+            <Link
+              to="/"
+              className="group inline-flex items-baseline gap-2.5 mb-12"
+              aria-label="FigureCollector — accueil"
             >
-              {errorMessage}
+              <span className="ja text-2xl text-[var(--color-or)] leading-none transition-transform duration-500 group-hover:rotate-[6deg]">
+                像
+              </span>
+              <span className="display text-xl text-[var(--color-ivoire)] group-hover:text-[var(--color-or-pale)] transition-colors">
+                FigureCollector
+              </span>
+            </Link>
+            <p className="micro flex items-center gap-2.5">
+              <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
+              ARCHIVE · 蒐集 · ESPACE PRIVÉ
             </p>
-          ) : null}
+            <h1 className="display text-6xl xl:text-7xl mt-5 leading-[0.95] text-[var(--color-ivoire)]">
+              <AccentTitle text={t("login.hero")} />
+            </h1>
+            <div className="gold-rule w-24 my-8" />
+            <p className="text-[var(--color-ivoire-soft)] text-lg leading-relaxed max-w-sm">
+              {t("login.subtitle")}
+            </p>
+            <p className="ja mt-7 text-[var(--color-or-pale)]/80 tracking-[0.4em] text-sm">
+              {t("app.tagline_jp")}
+            </p>
+          </div>
+          <div
+            aria-hidden
+            className="seigaiha absolute inset-x-0 bottom-0 h-28 opacity-60"
+            style={{ maskImage: "linear-gradient(transparent, #000)", WebkitMaskImage: "linear-gradient(transparent, #000)" }}
+          />
+        </aside>
 
-          <Button
-            type="submit"
-            variant="primary"
-            loading={login.isPending}
-            className="w-full"
-          >
-            {t("login.submit")}
-          </Button>
-        </form>
+        {/* ─── Form ─── */}
+        <div className="flex items-center justify-center px-6 py-14">
+          <Card className="relative w-full max-w-md p-8 md:p-10">
+            <header className="mb-8">
+              {/* Compact brand + headline on mobile (brand panel is hidden) */}
+              <Link to="/" className="lg:hidden inline-flex items-baseline gap-2 mb-5">
+                <span className="ja text-xl text-[var(--color-or)]">像</span>
+                <span className="display text-lg text-[var(--color-ivoire)]">FigureCollector</span>
+              </Link>
+              <p className="micro">{t("login.title")}</p>
+              <h2 className="display text-3xl md:text-4xl mt-1.5 text-[var(--color-ivoire)] lg:hidden">
+                <AccentTitle text={t("login.hero")} />
+              </h2>
+              <p className="display-italic text-[var(--color-or)] text-lg mt-1 lg:mt-2">
+                {t("login.subtitle")}
+              </p>
+              <div className="gold-rule w-20 mt-5" />
+            </header>
 
-        <div className="gold-rule mx-auto w-32 my-8" />
+            {oidcProviders.length > 0 ? (
+              <>
+                <div className="space-y-3 mb-6">
+                  {oidcProviders.map((p) => (
+                    <OidcButton key={p.id} provider={p} t={t} />
+                  ))}
+                </div>
+                <div className="flex items-center gap-3 my-6">
+                  <span className="flex-1 h-px bg-[var(--color-or)]/20" />
+                  <span className="micro text-[var(--color-ivoire-soft)]">
+                    {t("login.or_local")}
+                  </span>
+                  <span className="flex-1 h-px bg-[var(--color-or)]/20" />
+                </div>
+              </>
+            ) : null}
 
-        <p className="text-center text-sm text-[var(--color-ivoire-soft)]">
-          {t("login.no_account")}{" "}
-          <Link
-            to="/register"
-            className="text-[var(--color-or)] hover:text-[var(--color-or-pale)] underline-offset-4 hover:underline"
-          >
-            {t("login.register_link")}
-          </Link>
-        </p>
-      </Card>
+            <form onSubmit={onSubmit} className="space-y-5">
+              <FormField
+                label={t("login.field.username")}
+                value={username}
+                onChange={setUsername}
+                autoComplete="username"
+                required
+                disabled={login.isPending}
+              />
+              <FormField
+                label={t("login.field.password")}
+                type="password"
+                value={password}
+                onChange={setPassword}
+                autoComplete="current-password"
+                required
+                disabled={login.isPending}
+              />
+
+              {errorMessage ? (
+                <p
+                  role="alert"
+                  className="text-sm text-[var(--color-laque-bright)] tracking-wide border-l-2 border-[var(--color-laque-bright)] pl-3 py-1"
+                >
+                  {errorMessage}
+                </p>
+              ) : null}
+
+              <Button
+                type="submit"
+                variant="primary"
+                loading={login.isPending}
+                className="w-full"
+              >
+                {t("login.submit")}
+              </Button>
+            </form>
+
+            <div className="gold-rule mx-auto w-32 my-8" />
+
+            <p className="text-center text-sm text-[var(--color-ivoire-soft)]">
+              {t("login.no_account")}{" "}
+              <Link
+                to="/register"
+                className="text-[var(--color-or)] hover:text-[var(--color-or-pale)] underline-offset-4 hover:underline"
+              >
+                {t("login.register_link")}
+              </Link>
+            </p>
+          </Card>
+        </div>
+      </div>
     </main>
   );
 }

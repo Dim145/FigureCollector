@@ -44,6 +44,7 @@ export default {
 
   "login.title": "Sign in",
   "login.subtitle": "Step into your private gallery.",
+  "login.hero": "Welcome back.",
   "login.field.username": "Username",
   "login.field.password": "Password",
   "login.submit": "Sign in",
@@ -54,6 +55,7 @@ export default {
 
   "register.title": "Create an account",
   "register.subtitle": "Sign up to catalogue your collection.",
+  "register.hero": "Your showcase awaits.",
   "register.field.username": "Username",
   "register.field.username_hint": "3–32 characters, letters / digits / _ - .",
   "register.field.password": "Password",
