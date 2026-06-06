@@ -8,6 +8,7 @@ import {
   useMyAchievements,
   useNextMilestones,
 } from "../hooks/useAchievements.js";
+import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import EmptyState from "../components/EmptyState.jsx";
@@ -277,7 +278,7 @@ function Hero({ unlocked, total, percent, t }) {
 
       <div className="ach-hero-text">
         <p className="ach-hero-eyebrow">{t("achievements.subtitle")}</p>
-        <h1 className="ach-hero-title">{t("achievements.title")}</h1>
+        <h1 className="ach-hero-title"><AccentTitle text={t("achievements.page_title")} /></h1>
         <p className="ach-hero-percent">
           {percent === 100
             ? t("achievements.progress.complete")

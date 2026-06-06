@@ -140,6 +140,7 @@ export default {
   // Souhaits (wishlist) — Lot 2
   "wishlist.eyebrow": "Désirs · à acquérir",
   "wishlist.title": "Souhaits",
+  "wishlist.page_title": "Mes souhaits",
   "wishlist.body": "Les pièces que tu convoites, avec un prix-cible. Quand tu craques, « Acquérir » la fait passer dans ta collection (une précommande est créée automatiquement si elle n'est pas encore sortie).",
   "wishlist.count_label": "pièces convoitées",
   "wishlist.budget_label": "budget des cibles",
@@ -930,6 +931,7 @@ export default {
 
   // Activity feed
   "activity.title": "Journal",
+  "activity.page_title": "Mon journal",
   "activity.subtitle": "Chronique de la vitrine",
   "activity.kicker": "Chaque entrée, datée et signée.",
   "activity.vertical_tag": "Journal de bord · 録",
@@ -1176,6 +1178,7 @@ export default {
 
   // Phase 4B — Achievements (sceaux)
   "achievements.title": "Sceaux",
+  "achievements.page_title": "Mes sceaux",
   "achievements.subtitle": "Étape par étape, pièce par pièce.",
   "achievements.empty": "Aucun sceau dans le catalogue.",
   "achievements.progress": "{unlocked} / {total} sceaux obtenus",

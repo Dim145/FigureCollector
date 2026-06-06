@@ -4,6 +4,7 @@ import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useWishlistItems, usePatchWishlistItem, useRemoveWishlistItem } from "../hooks/useWishlist.js";
 import { useAddOwnedItem } from "../hooks/useCollection.js";
+import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
 import GiftSharePanel from "../components/GiftSharePanel.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
@@ -90,7 +91,7 @@ export default function WishlistPage() {
         <Reveal as="header" className="relative mb-8">
           <span aria-hidden className="kanji-mark text-[24rem] -top-28 -right-6 hidden md:block">望</span>
           <p className="micro">{t("wishlist.eyebrow")}</p>
-          <h1 className="display text-4xl md:text-5xl text-[var(--color-ivoire)] mt-2">{t("wishlist.title")}</h1>
+          <h1 className="display text-4xl md:text-5xl text-[var(--color-ivoire)] mt-2"><AccentTitle text={t("wishlist.page_title")} /></h1>
           <div className="gold-rule w-16 mt-4" />
           <p className="mt-5 text-[var(--color-ivoire-soft)] leading-relaxed max-w-2xl">{t("wishlist.body")}</p>
           <Link

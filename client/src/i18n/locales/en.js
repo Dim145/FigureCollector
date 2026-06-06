@@ -132,6 +132,7 @@ export default {
   // Wishlist ("Souhaits") — Lot 2
   "wishlist.eyebrow": "Desires · to acquire",
   "wishlist.title": "Wishlist",
+  "wishlist.page_title": "My wishlist",
   "wishlist.body": "The pieces you covet, with a target price. When you cave, \"Acquire\" moves a piece into your collection (a pre-order is created automatically when it isn't out yet).",
   "wishlist.count_label": "coveted pieces",
   "wishlist.budget_label": "targets budget",
@@ -906,6 +907,7 @@ export default {
   "pwa.offline": "Offline — already-visited pages remain available.",
 
   "activity.title": "The Journal",
+  "activity.page_title": "My journal",
   "activity.subtitle": "Chronicle of the vitrine",
   "activity.kicker": "Every entry, dated and signed.",
   "activity.vertical_tag": "Daybook · 録",
@@ -1146,6 +1148,7 @@ export default {
   "gsplat.retry": "Start another scan",
 
   "achievements.title": "Seals",
+  "achievements.page_title": "My seals",
   "achievements.subtitle": "Step by step, piece by piece.",
   "achievements.empty": "No seals in the catalog.",
   "achievements.progress": "{unlocked} / {total} seals earned",

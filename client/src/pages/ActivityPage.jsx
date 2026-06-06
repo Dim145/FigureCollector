@@ -3,6 +3,7 @@ import { Link, Navigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useActivity } from "../hooks/useActivity.js";
+import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 
@@ -115,7 +116,7 @@ export default function ActivityPage() {
               className="display text-5xl md:text-6xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
               style={{ "--i": 1 }}
             >
-              {t("activity.title")}
+              <AccentTitle text={t("activity.page_title")} />
             </h1>
             <p
               className="display italic text-[var(--color-or-pale)]/80 text-lg md:text-xl mt-3 reveal"
