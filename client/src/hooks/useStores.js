@@ -134,13 +134,15 @@ export function useSetStoreFigures() {
   });
 }
 
-/** Admin: add a single figure to a store. Used from the FigureForm admin
- *  section "Boutiques liées". */
+/** Admin: link a figure to a store and/or set its buy link. Used from the
+ *  FigureForm "Boutiques liées" section. `link` may be a full product URL or a
+ *  bare `/path?query`; the server keeps only the path+query (null/empty
+ *  clears it). Re-calling for an already-linked store edits its link. */
 export function useAddFigureToStore() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ storeId, figureId }) =>
-      api.post(`/admin/stores/${storeId}/figures/${figureId}`),
+    mutationFn: ({ storeId, figureId, link = null }) =>
+      api.post(`/admin/stores/${storeId}/figures/${figureId}`, { link }),
     onSuccess: (_d, { figureId }) => {
       qc.invalidateQueries({ queryKey: ["figure", figureId, "stores"] });
       qc.invalidateQueries({ queryKey: ["store"] });

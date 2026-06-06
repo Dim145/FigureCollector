@@ -10,6 +10,7 @@ import {
 } from "../hooks/useStores.js";
 import { ApiError } from "../lib/api.js";
 import { safeHref } from "../lib/safeUrl.js";
+import { buildBuyUrl } from "../lib/storeLink.js";
 import AppShell from "../components/AppShell.jsx";
 import FigureCard from "../components/FigureCard.jsx";
 import Lightbox from "../components/Lightbox.jsx";
@@ -176,9 +177,13 @@ export default function StorePage() {
                 href={safeHref(s.url)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="store-hero-url"
+                className="store-visit-btn"
               >
-                ↗ {prettyHost(s.url)}
+                <span aria-hidden className="store-visit-btn-kanji ja">購</span>
+                <span className="store-visit-btn-text">
+                  <span className="store-visit-btn-label">{t("store.visit")}</span>
+                  <span className="store-visit-btn-host">↗ {prettyHost(s.url)}</span>
+                </span>
               </a>
             ) : null}
           </Reveal>
@@ -225,29 +230,49 @@ export default function StorePage() {
             </p>
           ) : (
             <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {figures.map((f, i) => (
-                <Reveal
-                  as="li"
-                  key={f.id}
-                  y={24}
-                  amount={0.15}
-                  delay={Math.min(i, 7) * 0.05}
-                >
-                  <FigureCard
-                    figureId={f.id}
-                    href={`/figures/${f.id}`}
-                    name={f.name}
-                    type={f.figure_type}
-                    manufacturer={f.manufacturer_name}
-                    imageUrl={
-                      f.primary_photo_id
-                        ? `/api/figure-photos/${f.primary_photo_id}`
-                        : null
-                    }
-                    blurImage={f.is_nsfw && blurNsfw}
-                  />
-                </Reveal>
-              ))}
+              {figures.map((f, i) => {
+                // Per-figure buy shortcut: this figure's product page at THIS
+                // store. Rendered as a sibling of the card's Link (never nested)
+                // so the card still opens the figure detail page on click.
+                const buyHref = buildBuyUrl(s.url, f.link);
+                return (
+                  <Reveal
+                    as="li"
+                    key={f.id}
+                    y={24}
+                    amount={0.15}
+                    delay={Math.min(i, 7) * 0.05}
+                    className="relative group/scard"
+                  >
+                    <FigureCard
+                      figureId={f.id}
+                      href={`/figures/${f.id}`}
+                      name={f.name}
+                      type={f.figure_type}
+                      manufacturer={f.manufacturer_name}
+                      imageUrl={
+                        f.primary_photo_id
+                          ? `/api/figure-photos/${f.primary_photo_id}`
+                          : null
+                      }
+                      blurImage={f.is_nsfw && blurNsfw}
+                    />
+                    {buyHref ? (
+                      <a
+                        href={buyHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="fc-buy"
+                        aria-label={t("store.catalog.buy_aria", { name: f.name })}
+                      >
+                        <span aria-hidden className="ja">購</span>
+                        <span>{t("figure.stores.buy")}</span>
+                        <span aria-hidden className="fc-buy-arrow">↗</span>
+                      </a>
+                    ) : null}
+                  </Reveal>
+                );
+              })}
             </ul>
           )}
         </section>

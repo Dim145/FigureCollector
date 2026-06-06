@@ -491,6 +491,15 @@ struct BulkFiguresInput {
     figure_ids: Vec<Uuid>,
 }
 
+/// Body for linking one figure to a store. `link` is the product page — a full
+/// URL or a bare `/path?query`; the server keeps only the path+query (the host
+/// lives on `stores.url`). Absent / null / empty clears any existing link.
+#[derive(serde::Deserialize, Default)]
+struct LinkFigureInput {
+    #[serde(default)]
+    link: Option<String>,
+}
+
 /// PUT — bulk replace the full list of figures linked to a store. Used by
 /// the StorePage admin checkbox grid. Sent as one transactional diff so
 /// partial saves never leave the catalog in a torn state.
@@ -505,15 +514,17 @@ async fn set_store_figures(
     Ok(StatusCode::NO_CONTENT)
 }
 
-/// POST — add one figure to a store (idempotent via ON CONFLICT). Used
-/// from the FigureForm admin section.
+/// POST — add one figure to a store, or set/clear its buy link (idempotent
+/// upsert). Used from the FigureForm admin section. The optional `link` in the
+/// body is normalised to a path+query before storage.
 async fn add_figure_to_store(
     State(state): State<AppState>,
     session: Session,
     Path((store_id, figure_id)): Path<(Uuid, Uuid)>,
+    Json(input): Json<LinkFigureInput>,
 ) -> AppResult<StatusCode> {
     auth::require_admin(&session, &state.pool).await?;
-    store::link_figure(&state.pool, store_id, figure_id).await?;
+    store::link_figure(&state.pool, store_id, figure_id, input.link.as_deref()).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

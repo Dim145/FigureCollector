@@ -1,0 +1,23 @@
+-- =============================================================================
+-- figure_stores.link — the per-(figure, store) "buy" link.
+--
+-- We store ONLY the path + query of the product page; the scheme + host
+-- already live on `stores.url`. The full buy URL is reconstructed wherever
+-- it's rendered as `origin(stores.url) + link` (see the SPA's
+-- LinkedStoresModal / StorePage). Keeping just the relative part means a
+-- store moving domains is a one-row edit on `stores.url`, not a rewrite of
+-- every linked figure.
+--
+-- How it gets populated:
+--   1. Provider import: figure::create() extracts the path+query from the
+--      submitted `source_url` and writes it here (auto-creating the store
+--      from the URL host when none matches).
+--   2. Admin curation: the FigureForm "linked stores" section lets an admin
+--      set / edit / clear the link for any linked store.
+--
+-- NULL is normal and means "linked, but no product link known" — e.g. links
+-- created implicitly by the owned_items / preorders sync triggers, which
+-- carry no URL.
+-- =============================================================================
+
+ALTER TABLE figure_stores ADD COLUMN IF NOT EXISTS link TEXT;

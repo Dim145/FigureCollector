@@ -1420,6 +1420,8 @@ export default {
   "store.catalog.title": "Catalogue",
   "store.catalog.count": "{n} figurine·s",
   "store.catalog.empty": "Aucune figurine référencée pour cette boutique.",
+  "store.visit": "Visiter la boutique",
+  "store.catalog.buy_aria": "Acheter {name}",
 
   // Admin · stores registry (/admin/stores)
   "admin.stores.eyebrow": "Registre",
@@ -1585,6 +1587,8 @@ export default {
   // Figure detail · linked-stores modal
   "figure.stores.modal.title": "Boutiques liées",
   "figure.stores.modal.count": "{n} boutique·s",
+  "figure.stores.buy": "Acheter",
+  "figure.stores.buy_at": "Acheter sur {name}",
 
   // FigureForm · admin "Boutiques liées" section
   "figure.form.stores.title": "Boutiques liées",
@@ -1598,6 +1602,13 @@ export default {
     "Aucune boutique ne porte ce nom. Crée-la d'abord depuis /admin/stores.",
   "figure.form.stores.already": "Cette boutique est déjà liée.",
   "figure.form.stores.remove": "Retirer {name}",
+  "figure.form.stores.link_label": "Lien produit (optionnel)",
+  "figure.form.stores.link_ph": "/item/123… ou une URL produit complète",
+  "figure.form.stores.link_edit": "Modifier le lien d'achat",
+  "figure.form.stores.link_editing": "Lien d'achat · {name}",
+  "figure.form.stores.link_save": "Enregistrer le lien",
+  "figure.form.stores.link_clear": "Effacer",
+  "figure.form.stores.link_has": "Lien d'achat renseigné",
 
   // StorePage · bulk edit catalog (admin)
   "store.catalog.bulk_edit": "Éditer le catalogue",

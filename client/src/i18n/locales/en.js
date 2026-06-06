@@ -1390,6 +1390,8 @@ export default {
   "store.catalog.title": "Catalogue",
   "store.catalog.count": "{n} figure(s)",
   "store.catalog.empty": "No figures linked to this store yet.",
+  "store.visit": "Visit shop",
+  "store.catalog.buy_aria": "Buy {name}",
 
   // Admin · stores registry (/admin/stores)
   "admin.stores.eyebrow": "Registry",
@@ -1555,6 +1557,8 @@ export default {
   // Figure detail · linked-stores modal
   "figure.stores.modal.title": "Linked stores",
   "figure.stores.modal.count": "{n} store(s)",
+  "figure.stores.buy": "Buy",
+  "figure.stores.buy_at": "Buy at {name}",
 
   // FigureForm · admin "Linked stores" section
   "figure.form.stores.title": "Linked stores",
@@ -1568,6 +1572,13 @@ export default {
     "No store under that name. Create it first from /admin/stores.",
   "figure.form.stores.already": "That store is already linked.",
   "figure.form.stores.remove": "Remove {name}",
+  "figure.form.stores.link_label": "Product link (optional)",
+  "figure.form.stores.link_ph": "/item/123… or a full product URL",
+  "figure.form.stores.link_edit": "Edit buy link",
+  "figure.form.stores.link_editing": "Buy link · {name}",
+  "figure.form.stores.link_save": "Save link",
+  "figure.form.stores.link_clear": "Clear",
+  "figure.form.stores.link_has": "Has a buy link",
 
   // StorePage · bulk edit catalog (admin)
   "store.catalog.bulk_edit": "Edit catalog",

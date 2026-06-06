@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { useFocusTrap } from "../hooks/useFocusTrap.js";
 import { useT } from "../i18n/index.jsx";
+import { buildBuyUrl } from "../lib/storeLink.js";
 
 /**
  * Read-only popup listing the stores currently linked to a figure (the
@@ -56,35 +57,57 @@ export default function LinkedStoresModal({ open, stores, onClose }) {
         </header>
 
         <ul className="linked-stores-modal-list">
-          {stores.map((s) => (
-            <li key={s.id}>
-              <Link
-                to={`/stores/${s.slug}`}
-                onClick={onClose}
-                className="linked-stores-row"
-              >
-                <span className="linked-stores-thumb" aria-hidden>
-                  {s.image_storage_key ? (
-                    <img src={`/api/store-image/${s.id}`} alt="" />
-                  ) : (
-                    <span className="linked-stores-thumb-fallback">店</span>
-                  )}
-                </span>
-                <span className="linked-stores-text">
-                  <span className="linked-stores-name">{s.name}</span>
-                  <span className="linked-stores-slug">/{s.slug}</span>
-                  {s.url ? (
-                    <span className="linked-stores-url">
-                      ↗ {hostnameOf(s.url)}
+          {stores.map((s) => {
+            // The buy link is reassembled from the store's base url + the
+            // figure's path/query. When present, a dedicated "Acheter" action
+            // sits beside the row; the row itself still navigates to the
+            // storefront so both intents stay reachable.
+            const buyHref = buildBuyUrl(s.url, s.link);
+            return (
+              <li key={s.id} className="linked-stores-item">
+                <Link
+                  to={`/stores/${s.slug}`}
+                  onClick={onClose}
+                  className="linked-stores-row"
+                >
+                  <span className="linked-stores-thumb" aria-hidden>
+                    {s.image_storage_key ? (
+                      <img src={`/api/store-image/${s.id}`} alt="" />
+                    ) : (
+                      <span className="linked-stores-thumb-fallback">店</span>
+                    )}
+                  </span>
+                  <span className="linked-stores-text">
+                    <span className="linked-stores-name">{s.name}</span>
+                    <span className="linked-stores-slug">/{s.slug}</span>
+                    {s.url ? (
+                      <span className="linked-stores-url">
+                        ↗ {hostnameOf(s.url)}
+                      </span>
+                    ) : null}
+                  </span>
+                  {buyHref ? null : (
+                    <span aria-hidden className="linked-stores-arrow">
+                      →
                     </span>
-                  ) : null}
-                </span>
-                <span aria-hidden className="linked-stores-arrow">
-                  →
-                </span>
-              </Link>
-            </li>
-          ))}
+                  )}
+                </Link>
+                {buyHref ? (
+                  <a
+                    href={buyHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="linked-stores-buy"
+                    aria-label={t("figure.stores.buy_at", { name: s.name })}
+                  >
+                    <span aria-hidden className="ja">購</span>
+                    <span>{t("figure.stores.buy")}</span>
+                    <span aria-hidden className="linked-stores-buy-arrow">↗</span>
+                  </a>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
 
         <button

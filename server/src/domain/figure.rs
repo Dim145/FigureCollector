@@ -1,5 +1,6 @@
 //! Figure catalog repository.
 
+use crate::domain::store;
 use crate::error::{AppError, AppResult};
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
@@ -403,22 +404,62 @@ pub async fn create(pool: &PgPool, created_by: Uuid, input: NewFigure) -> AppRes
             .await?;
     }
 
-    // Auto-link to any store whose `url` matches the source URL's hostname.
-    // Hostname comparison (case-insensitive, sans leading `www.`) is more
-    // forgiving than literal prefix matching — http vs https, trailing
-    // slashes, and product subpaths all still match the right store.
-    if let Some(host) = input.source_url.as_deref().and_then(extract_host) {
-        sqlx::query(
-            "INSERT INTO figure_stores (figure_id, store_id)
-             SELECT $1, s.id FROM stores s
-             WHERE s.url IS NOT NULL
-               AND regexp_replace(lower(split_part(split_part(s.url, '://', 2), '/', 1)), '^www\\.', '') = $2
-             ON CONFLICT DO NOTHING",
-        )
-        .bind(figure.id)
-        .bind(&host)
-        .execute(&mut *tx)
-        .await?;
+    // Auto-link to the store this figure was imported from, and remember the
+    // exact product link.
+    //
+    //   1. Match the source URL's host (case-insensitive, sans `www.`) against
+    //      existing `stores.url` — forgiving of http/https, trailing slashes
+    //      and product subpaths.
+    //   2. If no store matches, mint a minimal one from the host (name + base
+    //      `url` derived from the URL's origin) so a provider import always
+    //      lands in a boutique. ON CONFLICT (slug) backfills the `url` onto a
+    //      same-named store an admin created earlier without one.
+    //   3. Persist the path+query on each figure_stores row as the buy link;
+    //      the host already lives on `stores.url`.
+    if let Some(raw) = input.source_url.as_deref() {
+        if let Some(host) = store::host_of(raw) {
+            let link = store::path_and_query(raw);
+            let matches: Vec<Uuid> = sqlx::query_scalar(
+                "SELECT id FROM stores
+                 WHERE url IS NOT NULL
+                   AND regexp_replace(lower(split_part(split_part(url, '://', 2), '/', 1)), '^www\\.', '') = $1",
+            )
+            .bind(&host)
+            .fetch_all(&mut *tx)
+            .await?;
+
+            let store_ids: Vec<Uuid> = if matches.is_empty() {
+                let origin = store::origin_of(raw).unwrap_or_else(|| format!("https://{host}"));
+                let new_id = Uuid::now_v7();
+                let id: Uuid = sqlx::query_scalar(
+                    "INSERT INTO stores (id, name, slug, url) VALUES ($1, $2, $3, $4)
+                     ON CONFLICT (slug) DO UPDATE SET url = COALESCE(stores.url, EXCLUDED.url)
+                     RETURNING id",
+                )
+                .bind(new_id)
+                .bind(&host)
+                .bind(store::slugify(&host))
+                .bind(&origin)
+                .fetch_one(&mut *tx)
+                .await?;
+                vec![id]
+            } else {
+                matches
+            };
+
+            for sid in store_ids {
+                sqlx::query(
+                    "INSERT INTO figure_stores (figure_id, store_id, link) VALUES ($1, $2, $3)
+                     ON CONFLICT (figure_id, store_id) DO UPDATE
+                       SET link = COALESCE(figure_stores.link, EXCLUDED.link)",
+                )
+                .bind(figure.id)
+                .bind(sid)
+                .bind(&link)
+                .execute(&mut *tx)
+                .await?;
+            }
+        }
     }
 
     tx.commit().await?;
@@ -1024,21 +1065,3 @@ fn safe_http_url(s: &Option<String>) -> Option<String> {
     }
 }
 
-/// Extract the lowercase hostname (sans leading `www.`) from a URL string.
-/// Returns None for malformed input — quietly skipping the auto-link path
-/// is the right behaviour: a bad source URL simply means no store gets
-/// linked, never a server-side failure on figure creation.
-fn extract_host(raw: &str) -> Option<String> {
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-    // Tolerate the user pasting a URL without a scheme (orzgk.com/...).
-    let url = if trimmed.contains("://") {
-        url::Url::parse(trimmed).ok()?
-    } else {
-        url::Url::parse(&format!("https://{}", trimmed)).ok()?
-    };
-    let host = url.host_str()?.to_lowercase();
-    Some(host.trim_start_matches("www.").to_string())
-}
