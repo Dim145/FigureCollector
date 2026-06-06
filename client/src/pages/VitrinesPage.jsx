@@ -14,6 +14,7 @@ import { useMe } from "../hooks/useMe.js";
 import {
   useOwnedItems, useLocations, useCreateLocation, useDeleteLocation, useArrangeOwned,
 } from "../hooks/useCollection.js";
+import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
@@ -257,7 +258,7 @@ export default function VitrinesPage() {
         <Reveal as="header" className="relative mb-8">
           <span aria-hidden className="kanji-mark text-[24rem] -top-28 -right-6 hidden md:block">棚</span>
           <p className="micro">{t("vitrines.eyebrow")}</p>
-          <h1 className="display text-4xl md:text-5xl text-[var(--color-ivoire)] mt-2">{t("vitrines.title")}</h1>
+          <h1 className="display text-4xl md:text-5xl text-[var(--color-ivoire)] mt-2"><AccentTitle text={t("vitrines.title")} /></h1>
           <div className="gold-rule w-16 mt-4" />
           <p className="mt-5 text-[var(--color-ivoire-soft)] leading-relaxed max-w-2xl">{t("vitrines.body")}</p>
         </Reveal>

@@ -5,6 +5,7 @@ export default {
   "app.tagline_jp": "雪 の 蒐 集 者",
   "app.tagline_en": "Catalogue your shelf, figure by figure.",
   "app.tagline": "Cataloguez votre vitrine, pièce par pièce.",
+  "landing.hero": "Chaque pièce, magnifiée.",
   "app.phase": "v0.15.3",
 
   // Navigation
@@ -347,6 +348,10 @@ export default {
   "collection.kpi.pieces": "Pièces",
   "collection.kpi.manufacturers": "Fabricants",
   "collection.kpi.types": "Types",
+  "collection.kpi.value": "Valeur",
+  "collection.kpi.paid": "payé",
+  "collection.kpi.preorders": "Pré-commandes",
+  "browse.kpi.owned": "Possédées",
   "collection.cover.eyebrow": "Vignette de collection",
   "collection.cover.title": "Choisir la vignette",
   "collection.cover.empty": "Ajoutez d'abord une photo ou un scan pour pouvoir choisir une vignette personnalisée.",
@@ -529,7 +534,7 @@ export default {
   "figure.missing.cta_retry": "Réessayer",
 
   // Preorders
-  "preorders.title": "Pré-commandes",
+  "preorders.title": "Mes pré-commandes",
   "preorders.subtitle": "Le carnet des acquisitions à venir.",
   "preorders.empty": "Aucune pré-commande pour l'instant.",
   "preorders.empty.hint": "Les figurines en pré-commande apparaitront ici dès qu'elles seront ajoutées à ta collection avec une date de sortie future.",

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useLogout, useMe } from "../hooks/useMe.js";
+import AccentTitle from "../components/AccentTitle.jsx";
 import ActivityStrip from "../components/ActivityStrip.jsx";
 import Button from "../components/Button.jsx";
 import Halo from "../components/Halo.jsx";
@@ -68,10 +69,10 @@ export default function LandingPage() {
           </p>
 
           <h1
-            className="display text-[18vw] sm:text-8xl md:text-9xl leading-[0.85] mt-6 text-[var(--color-ivoire)] reveal"
+            className="display text-5xl sm:text-6xl md:text-7xl leading-[1.04] mt-6 text-[var(--color-ivoire)] reveal"
             style={{ "--i": 2 }}
           >
-            FigureCollector
+            <AccentTitle text={t("landing.hero")} />
           </h1>
 
           <p

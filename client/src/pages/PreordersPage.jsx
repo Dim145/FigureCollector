@@ -8,6 +8,7 @@ import {
   useUpdatePreorder,
   useUpdatePreorderHistory,
 } from "../hooks/useCollection.js";
+import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
 import CancellationDialog from "../components/CancellationDialog.jsx";
@@ -189,7 +190,7 @@ function Hero({ t }) {
         }}
       />
       <p className="horarium-hero-eyebrow">{t("preorders.subtitle")}</p>
-      <h1 className="horarium-hero-title">{t("preorders.title")}</h1>
+      <h1 className="horarium-hero-title"><AccentTitle text={t("preorders.title")} /></h1>
       <span className="horarium-hero-rule" aria-hidden />
     </header>
   );

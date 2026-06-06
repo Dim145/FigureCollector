@@ -10,15 +10,17 @@ import {
   useLocations,
 } from "../hooks/useCollection.js";
 import { useRowSelection } from "../hooks/useRowSelection.js";
+import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
 import Card from "../components/Card.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
-import CountUp from "../components/CountUp.jsx";
+import StatCard from "../components/StatCard.jsx";
 import FigureCard from "../components/FigureCard.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import { resolveOwnedCover } from "../lib/coverUrl.js";
 import { preorderBadgeLabel, preorderPhase } from "../lib/preorderStatus.js";
+import { effectiveValue, paidTotal, fmtMoney } from "../lib/money.js";
 
 const CONDITION_FILTERS = [
   "all", "mib_sealed", "opened_box", "displayed", "loose", "damaged",
@@ -77,10 +79,36 @@ export default function CollectionPage() {
       data.map((o) => o.manufacturer_name).filter(Boolean),
     );
     const types = new Set(data.map((o) => o.figure_type));
+    const vitrines = new Set(data.map((o) => o.location).filter(Boolean));
+    const preorders = data.filter((o) => {
+      const ph = preorderPhase(o);
+      return ph === "preorder" || ph === "imminent";
+    }).length;
+    // No FX layer: aggregate per currency, then surface the dominant-currency
+    // total — the same convention as La Cote (glanceable; the Cote page has the
+    // full per-currency breakdown).
+    const dominant = (pick) => {
+      const byCur = new Map();
+      for (const it of data) {
+        const v = pick(it);
+        if (!v || v.amount == null) continue;
+        const cur = (v.currency || "EUR").toUpperCase();
+        byCur.set(cur, (byCur.get(cur) || 0) + Number(v.amount));
+      }
+      let best = null;
+      for (const [cur, sum] of byCur) {
+        if (!best || sum > best.sum) best = { cur, sum };
+      }
+      return best;
+    };
     return {
       pieces: data.length,
       manufacturers: manufacturers.size,
       types: types.size,
+      vitrines: vitrines.size,
+      preorders,
+      value: dominant(effectiveValue),
+      paid: dominant(paidTotal),
     };
   }, [owned.data]);
 
@@ -173,7 +201,7 @@ export default function CollectionPage() {
             className="display text-6xl md:text-7xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
             style={{ "--i": 1 }}
           >
-            {t("collection.title")}
+            <AccentTitle text={t("collection.title")} />
           </h1>
           <div className="gold-rule w-32 mt-6 reveal" style={{ "--i": 2 }} />
 
@@ -221,17 +249,32 @@ export default function CollectionPage() {
           </nav>
 
           {owned.data?.length ? (
-            <dl
-              className="mt-8 flex flex-wrap items-baseline gap-x-10 gap-y-3 reveal"
+            <div
+              className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-3 reveal"
               style={{ "--i": 3 }}
             >
-              <Counter label={t("collection.kpi.pieces")} value={stats.pieces} />
-              <Counter
-                label={t("collection.kpi.manufacturers")}
-                value={stats.manufacturers}
+              <StatCard label={t("collection.kpi.pieces")} value={stats.pieces} />
+              <StatCard
+                label={t("collection.kpi.value")}
+                value={
+                  stats.value
+                    ? fmtMoney(stats.value.sum, stats.value.cur)
+                    : "—"
+                }
+                sub={
+                  stats.paid
+                    ? `${t("collection.kpi.paid")} · ${fmtMoney(stats.paid.sum, stats.paid.cur)}`
+                    : null
+                }
+                tone="gold"
               />
-              <Counter label={t("collection.kpi.types")} value={stats.types} />
-            </dl>
+              <StatCard
+                label={t("collection.kpi.preorders")}
+                value={stats.preorders}
+                tone="red"
+              />
+              <StatCard label={t("nav.vitrines")} value={stats.vitrines} />
+            </div>
           ) : null}
         </header>
 
@@ -512,16 +555,7 @@ function ownedBadge(item, t) {
   return null;
 }
 
-function Counter({ label, value }) {
-  return (
-    <div>
-      <dt className="label-mono">{label}</dt>
-      <dd className="figural-xl text-6xl text-[var(--color-or)] mt-1">
-        <CountUp value={value} />
-      </dd>
-    </div>
-  );
-}
+// StatCard lives in components/StatCard.jsx (shared with the Catalogue strip).
 
 function EmptyState({ t }) {
   return (

@@ -7,6 +7,7 @@ import { useFigureTypes } from "../hooks/useAdmin.js";
 import { useFigures, useOwnedItems } from "../hooks/useCollection.js";
 import { useWishlistItems } from "../hooks/useWishlist.js";
 import AppShell from "../components/AppShell.jsx";
+import StatCard from "../components/StatCard.jsx";
 import BarcodeScanner from "../components/BarcodeScanner.jsx";
 import FigureCard from "../components/FigureCard.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
@@ -209,16 +210,26 @@ export default function BrowsePage() {
               </h1>
               <div className="gold-rule w-32 mt-6 reveal" style={{ "--i": 2 }} />
               {!figures.isLoading ? (
-                <p
-                  className="micro-tight mt-5 reveal flex items-center gap-3"
+                <div
+                  className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3 reveal"
                   style={{ "--i": 3 }}
                 >
-                  <span>{t("browse.total", { n: total })}</span>
-                  <span
-                    aria-hidden
-                    className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--color-or)] motion-safe:animate-pulse"
+                  <StatCard label={t("browse.title")} value={total} />
+                  <StatCard
+                    label={t("browse.kpi.owned")}
+                    value={ownedIds.size}
+                    tone="gold"
                   />
-                </p>
+                  <StatCard
+                    label={t("wishlist.title")}
+                    value={wishedIds.size}
+                    tone="red"
+                  />
+                  <StatCard
+                    label={t("collection.kpi.types")}
+                    value={countsByType.size}
+                  />
+                </div>
               ) : null}
             </div>
 

@@ -5,6 +5,7 @@ import { useMe } from "../hooks/useMe.js";
 import { useOwnedItems, useSetOwnedValue } from "../hooks/useCollection.js";
 import { useMyStats } from "../hooks/useStats.js";
 import { useFx } from "../hooks/useFx.js";
+import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import { typeHue, typeKanji } from "../lib/typeHue.js";
@@ -129,7 +130,7 @@ export default function CotePage() {
           </span>
           <p className="micro">{t("cote.eyebrow")}</p>
           <h1 className="display text-4xl md:text-5xl text-[var(--color-ivoire)] mt-2">
-            {t("cote.title")}
+            <AccentTitle text={t("cote.title")} />
           </h1>
           <div className="gold-rule w-16 mt-4" />
           <p className="mt-5 text-[var(--color-ivoire-soft)] leading-relaxed max-w-2xl">

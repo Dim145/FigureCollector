@@ -4,6 +4,7 @@ export default {
   "app.tagline_jp": "雪 の 蒐 集 者",
   "app.tagline_en": "Catalogue your shelf, figure by figure.",
   "app.tagline": "Catalogue your shelf, figure by figure.",
+  "landing.hero": "Every piece, magnified.",
   "app.phase": "v0.15.3",
 
   "nav.signin": "Sign in",
@@ -338,6 +339,10 @@ export default {
   "collection.kpi.pieces": "Pieces",
   "collection.kpi.manufacturers": "Manufacturers",
   "collection.kpi.types": "Types",
+  "collection.kpi.value": "Value",
+  "collection.kpi.paid": "paid",
+  "collection.kpi.preorders": "Pre-orders",
+  "browse.kpi.owned": "Owned",
   "collection.cover.eyebrow": "Collection thumbnail",
   "collection.cover.title": "Pick the cover",
   "collection.cover.empty": "Upload a photo or capture a scan to choose a custom cover.",
@@ -515,7 +520,7 @@ export default {
   "figure.missing.cta_collection": "See my collection",
   "figure.missing.cta_retry": "Retry",
 
-  "preorders.title": "Pre-orders",
+  "preorders.title": "My pre-orders",
   "preorders.subtitle": "The ledger of acquisitions to come.",
   "preorders.empty": "No pre-orders yet.",
   "preorders.empty.hint": "Figurines on pre-order will appear here as soon as you add them to your collection with a future release date.",

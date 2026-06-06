@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 /* ============================================================================
- * FigureCollector — Direction B "Vitrine privée · Exposition"
+ * FigureCollector — Direction A "Shōjo-Noir" (aligned with MangaCollector)
  *
- *   Noir profond + laque rouge japonaise + or antique + ivoire
- *   Cormorant Garamond (display) · Inter (body) · Noto Serif JP (kanji accents)
+ *   Noir chaud encre + rouge hanko (accent vif unique) + or antique (valeur) + ivoire
+ *   Fraunces (display) · Instrument Sans (body) · Noto Serif JP (kanji accents)
  *
  * The vocabulary is gallery-exhibition, not pure auction-catalogue.
  *  - Dramatic ambient lighting (radial halos, light leaks on hover).
@@ -18,13 +18,13 @@
  * ============================================================================ */
 
 @theme {
-  /* Type families
-   * Display stays the Cormorant serif (the soul); UI body swaps Inter for
-   * Hanken Grotesk — a modern humanist grotesque with real character at
-   * small sizes and a full 100–900 weight range (keeps the refined thin
-   * weights). Inter remains in the fallback stack. */
-  --font-display: "Cormorant Garamond", "Times New Roman", Georgia, serif;
-  --font-sans: "Hanken Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Type families — Direction A "Shōjo-Noir" (aligned with MangaCollector).
+   * Display is Fraunces: a high-contrast variable serif with optical sizing
+   * (opsz) — confident at hero sizes, gorgeous in italic (the red-accent word).
+   * Body is Instrument Sans, a clean humanist grotesque; Hanken Grotesk stays
+   * in the fallback stack. */
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-sans: "Instrument Sans", "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-ja: "Noto Serif JP", "Yu Mincho", "MS PMincho", serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
 
@@ -316,6 +316,12 @@ html,
 body,
 #root {
   height: 100%;
+}
+
+/* Clip the fixed aurora/halo bleed (inset: -12%) so it never spills a stray
+   horizontal scrollbar. `clip` (not `hidden`) preserves sticky headers. */
+html {
+  overflow-x: clip;
 }
 
 body {

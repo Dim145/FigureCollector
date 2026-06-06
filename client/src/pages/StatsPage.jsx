@@ -8,6 +8,7 @@ import {
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useMyStats, useInsights } from "../hooks/useStats.js";
+import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
 import Card from "../components/Card.jsx";
 import CountUp from "../components/CountUp.jsx";
@@ -456,7 +457,7 @@ function TitlePage({ data, t, year }) {
           className="display text-5xl md:text-7xl mt-4 text-[var(--color-ivoire)] leading-[0.9] reveal"
           style={{ "--i": 1 }}
         >
-          {t("stats.title")}
+          <AccentTitle text={t("stats.title")} />
         </h1>
         <p
           className="display italic text-xl md:text-2xl text-[var(--color-or-pale)]/80 mt-3 reveal"

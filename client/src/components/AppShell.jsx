@@ -155,7 +155,7 @@ export default function AppShell({ children }) {
             {authed ? (
               <Link
                 to="/figures/new"
-                className="group flex items-center gap-1.5 px-3 py-1.5 bg-[var(--color-or)] text-[var(--color-noir)] text-[10.5px] uppercase tracking-[0.2em] hover:bg-[var(--color-or-pale)] transition-colors leading-none whitespace-nowrap"
+                className="group flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[var(--color-laque)] text-[var(--color-ivoire)] text-[10.5px] uppercase tracking-[0.2em] hover:bg-[var(--color-laque-bright)] transition-colors leading-none whitespace-nowrap"
               >
                 <span aria-hidden className="text-base leading-none -mt-0.5">＋</span>
                 <span className="hidden md:inline">{t("nav.add_figure.short")}</span>
@@ -346,7 +346,7 @@ function NavItem({ to, children }) {
       className={({ isActive }) =>
         `relative px-3 py-1.5 whitespace-nowrap transition-colors ${
           isActive
-            ? "text-[var(--color-or)]"
+            ? "text-[var(--color-laque-bright)]"
             : "text-[var(--color-ivoire-soft)] hover:text-[var(--color-or-pale)]"
         }`
       }
@@ -357,8 +357,8 @@ function NavItem({ to, children }) {
           {isActive ? (
             <span
               aria-hidden
-              className="absolute left-1/2 -translate-x-1/2 -bottom-0.5 w-1 h-1 bg-[var(--color-or)] rotate-45"
-              style={{ boxShadow: "0 0 10px var(--color-or)" }}
+              className="absolute left-1/2 -translate-x-1/2 -bottom-0.5 w-1 h-1 bg-[var(--color-laque-bright)] rotate-45"
+              style={{ boxShadow: "0 0 10px var(--color-laque-bright)" }}
             />
           ) : null}
         </>
