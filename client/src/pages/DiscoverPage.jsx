@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useDiscover } from "../hooks/useFollow.js";
+import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
 import CollectorCard from "../components/CollectorCard.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
@@ -46,7 +47,7 @@ export default function DiscoverPage() {
         <Reveal as="header" className="relative mb-8" y={20}>
           <p className="micro">{t("discover.eyebrow")}</p>
           <h1 className="display text-4xl sm:text-5xl md:text-6xl mt-2 text-[var(--color-ivoire)] leading-[0.98]">
-            {t("discover.title")}
+            <AccentTitle text={t("discover.page_title")} />
           </h1>
           <div className="gold-rule w-16 mt-4" />
           <p className="mt-4 max-w-2xl leading-relaxed text-[var(--color-ivoire-soft)]">

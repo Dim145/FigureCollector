@@ -11,6 +11,7 @@ import {
   useNotificationRealtime,
   useNotifications,
 } from "../hooks/useNotifications.js";
+import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import { formatNotification } from "../lib/notificationMessages.js";
@@ -148,7 +149,7 @@ function Hero({ t }) {
         animate={reduce ? undefined : { opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.06, ease: [0.22, 1, 0.36, 1] }}
       >
-        {t("notifications.title")}
+        <AccentTitle text={t("notifications.page_title")} />
       </motion.h1>
       <motion.p
         className="notif-page-sub"

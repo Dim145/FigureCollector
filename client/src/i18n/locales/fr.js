@@ -702,6 +702,7 @@ export default {
   "nav.croisements": "Croisements",
   "discover.eyebrow": "Communauté · collectionneurs publics",
   "discover.title": "Découvrir",
+  "discover.page_title": "Les collectionneurs",
   "discover.subtitle": "Les autres collectionneurs de cette instance qui ont ouvert leur vitrine — chacun présenté comme une pièce d'exposition. Suis ceux dont la collection t'inspire.",
   "discover.search": "Chercher un collectionneur…",
   "discover.count": "collectionneurs publics",
@@ -825,6 +826,7 @@ export default {
   "settings.copy_url.done": "Copié !",
   // Notifications
   "notifications.title": "Notifications",
+  "notifications.page_title": "Mes notifications",
   "notifications.subtitle": "Toutes les nouvelles à ton sujet.",
   "notifications.popover.eyebrow": "BOÎTE DE RÉCEPTION",
   "notifications.bell.aria": "{n} notification(s) non lue(s)",
