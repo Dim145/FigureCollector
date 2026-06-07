@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import {
@@ -452,7 +453,7 @@ function CreateUserDialog({ onClose, t }) {
     if (!create.isError) onClose();
   };
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal
@@ -515,6 +516,7 @@ function CreateUserDialog({ onClose, t }) {
           </Button>
         </div>
       </form>
-    </div>
+    </div>,
+    document.body,
   );
 }

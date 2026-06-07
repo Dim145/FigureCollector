@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useIsAdmin, useMe } from "../hooks/useMe.js";
@@ -1212,7 +1213,7 @@ function OwnerStack({ f, owned, nsfwPref, t }) {
 // =============================================================================
 
 function DeleteConfirm({ name, t, busy, onCancel, onConfirm }) {
-  return (
+  return createPortal(
     <div role="dialog" aria-modal aria-labelledby="delete-confirm-title" aria-describedby="delete-confirm-body" onClick={onCancel} className="fig-pop">
       <div onClick={(e) => e.stopPropagation()} className="fig-pop-card">
         <h2 id="delete-confirm-title" className="display text-xl text-[var(--color-ivoire)]">
@@ -1235,7 +1236,8 @@ function DeleteConfirm({ name, t, busy, onCancel, onConfirm }) {
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

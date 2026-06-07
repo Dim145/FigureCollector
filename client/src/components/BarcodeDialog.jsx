@@ -1,4 +1,5 @@
 import { useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useT } from "../i18n/index.jsx";
 import { useFocusTrap } from "../hooks/useFocusTrap.js";
 import Button from "./Button.jsx";
@@ -29,7 +30,7 @@ export default function BarcodeDialog({ code, label, onClose }) {
 
   const ean13 = useMemo(() => encodeEan13(code), [code]);
 
-  return (
+  return createPortal(
     <div
       className="fig-pop"
       role="dialog"
@@ -77,7 +78,8 @@ export default function BarcodeDialog({ code, label, onClose }) {
           </Button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

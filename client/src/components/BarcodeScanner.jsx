@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useT } from "../i18n/index.jsx";
 
 /**
@@ -106,7 +107,7 @@ export default function BarcodeScanner({ onDetect, onClose }) {
 
   const showManual = status !== "scanning" && status !== "init";
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal
@@ -199,6 +200,7 @@ export default function BarcodeScanner({ onDetect, onClose }) {
           ) : null}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

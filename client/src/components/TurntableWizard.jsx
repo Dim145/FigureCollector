@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useT } from "../i18n/index.jsx";
 import { useScanCapabilities } from "../hooks/useScans.js";
 import TurntableCapture from "./TurntableCapture.jsx";
@@ -41,7 +42,7 @@ export default function TurntableWizard({ onUpload, onCancel, busy }) {
     await onUpload(list, kind, kind === "gsplat" ? video : null);
   };
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal
@@ -154,6 +155,7 @@ export default function TurntableWizard({ onUpload, onCancel, busy }) {
           </div>
         </div>
       ) : null}
-    </div>
+    </div>,
+    document.body,
   );
 }

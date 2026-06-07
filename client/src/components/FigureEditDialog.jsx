@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useT } from "../i18n/index.jsx";
 import { useFocusTrap } from "../hooks/useFocusTrap.js";
 import { usePatchFigure } from "../hooks/useAdmin.js";
@@ -44,7 +45,7 @@ export default function FigureEditDialog({ figure, onClose, onSaved }) {
 
   const errorMessage = patch.error ? mapApiError(patch.error, t) : null;
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -101,7 +102,8 @@ export default function FigureEditDialog({ figure, onClose, onSaved }) {
           />
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

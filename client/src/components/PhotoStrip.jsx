@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useT } from "../i18n/index.jsx";
 import {
   useDeletePhoto,
@@ -214,7 +215,7 @@ function PhotoLightbox({ photos, index, onChange, onClose }) {
 
   if (!photo) return null;
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal
@@ -272,7 +273,8 @@ function PhotoLightbox({ photos, index, onChange, onClose }) {
           {index + 1} / {photos.length}
         </p>
       ) : null}
-    </div>
+    </div>,
+    document.body,
   );
 }
 

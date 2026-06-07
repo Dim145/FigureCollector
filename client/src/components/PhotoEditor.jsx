@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useT } from "../i18n/index.jsx";
 import { removeBackground } from "../lib/bgRemoval.js";
 
@@ -102,7 +103,7 @@ export default function PhotoEditor({ file, onUpload, onCancel }) {
     }
   };
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal
@@ -199,7 +200,8 @@ export default function PhotoEditor({ file, onUpload, onCancel }) {
           )}
         </Suspense>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 
 /**
@@ -111,7 +112,7 @@ function PendingPill() {
 }
 
 function HelpOverlay({ onClose }) {
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal
@@ -152,6 +153,7 @@ function HelpOverlay({ onClose }) {
           Échap pour fermer
         </p>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

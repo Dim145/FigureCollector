@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useT } from "../i18n/index.jsx";
 import { useFocusTrap } from "../hooks/useFocusTrap.js";
 import Button from "./Button.jsx";
@@ -47,7 +48,7 @@ export default function ShareDialog({ url, title, onClose }) {
   const supportsNativeShare =
     typeof navigator !== "undefined" && typeof navigator.share === "function";
 
-  return (
+  return createPortal(
     <div
       className="fig-pop"
       role="dialog"
@@ -117,6 +118,7 @@ export default function ShareDialog({ url, title, onClose }) {
           ) : null}
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

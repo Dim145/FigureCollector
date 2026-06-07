@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useFigures, useOwnedItems } from "../hooks/useCollection.js";
@@ -147,7 +148,7 @@ export default function CommandPalette() {
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
@@ -227,7 +228,8 @@ export default function CommandPalette() {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

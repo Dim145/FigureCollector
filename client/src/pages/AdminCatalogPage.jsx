@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import AccentTitle from "../components/AccentTitle.jsx";
 import Button from "../components/Button.jsx";
@@ -464,7 +465,7 @@ function EntityEditDrawer({ kind, entity, onClose }) {
     }
   };
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal
@@ -684,7 +685,8 @@ function EntityEditDrawer({ kind, entity, onClose }) {
           </Button>
         </footer>
       </form>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -926,7 +928,7 @@ function DeleteEntityDialog({ kind, entity, onClose }) {
   const figureCount = entity.figure_count ?? 0;
   const candidates = (targets.data ?? []).filter((row) => row.id !== entity.id);
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal
@@ -1015,7 +1017,8 @@ function DeleteEntityDialog({ kind, entity, onClose }) {
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

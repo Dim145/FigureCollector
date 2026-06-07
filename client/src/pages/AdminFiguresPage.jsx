@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import {
@@ -224,13 +225,14 @@ export default function AdminFiguresPage() {
       ) : null}
 
       {deleting ? (
-        <div
-          role="dialog"
-          aria-modal
-          aria-labelledby="figures-delete-dialog-title"
-          onClick={() => setDeleting(null)}
-          className="fixed inset-0 z-50 grid place-items-center bg-[var(--color-noir)]/85 backdrop-blur-sm p-4"
-        >
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal
+            aria-labelledby="figures-delete-dialog-title"
+            onClick={() => setDeleting(null)}
+            className="fixed inset-0 z-50 grid place-items-center bg-[var(--color-noir)]/85 backdrop-blur-sm p-4"
+          >
           {/* `Card` doesn't forward arbitrary DOM props, so the
               stop-propagation that keeps an inside click from closing the
               dialog lives on this wrapper (load-bearing — preserves the prior
@@ -277,7 +279,9 @@ export default function AdminFiguresPage() {
               </div>
             </Card>
           </div>
-        </div>
+          </div>,
+          document.body,
+        )
       ) : null}
     </div>
   );
