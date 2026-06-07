@@ -136,7 +136,7 @@ RECOVER_ABANDONED = os.environ.get("RECOVER_ABANDONED", "true").lower() in ("1",
 # so 30s here ≈ 90s of grace before the admin UI marks us hors-ligne.
 HEARTBEAT_INTERVAL = int(os.environ.get("HEARTBEAT_INTERVAL", "30"))
 WORKER_KIND = "cuda"
-WORKER_VERSION = "0.15.3"
+WORKER_VERSION = "0.16.0"
 
 MIN_FRAMES = 6
 # COLMAP must register at least this many frames for a non-degenerate sparse

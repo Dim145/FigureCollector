@@ -90,7 +90,7 @@ ENABLE_MASKING = os.environ.get("ENABLE_MASKING", "false").lower() in ("1", "tru
 # so 30s here ≈ 90s of grace before the admin UI marks us hors-ligne.
 HEARTBEAT_INTERVAL = int(os.environ.get("HEARTBEAT_INTERVAL", "30"))
 WORKER_KIND = "metal"
-WORKER_VERSION = "0.15.3"
+WORKER_VERSION = "0.16.0"
 
 # At boot, re-queue scans this worker left in 'processing' when its previous
 # incarnation was restarted mid-job. Disable with RECOVER_ABANDONED=false.
