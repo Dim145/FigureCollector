@@ -237,6 +237,11 @@ function HeroSection({
         style={{
           background:
             "radial-gradient(46% 70% at 22% 0%, color-mix(in oklab, var(--hue) 24%, transparent), transparent 68%), radial-gradient(40% 60% at 84% 12%, color-mix(in oklab, var(--color-or) 18%, transparent), transparent 72%)",
+          // Fade the wash IN below the sticky header — the radials peak at the
+          // box's top edge, which sits inside the header band, so without this
+          // mask their hard top edge drew a line straight across the navbar.
+          maskImage: "linear-gradient(to bottom, transparent, #000 140px)",
+          WebkitMaskImage: "linear-gradient(to bottom, transparent, #000 140px)",
         }}
       />
       <span
