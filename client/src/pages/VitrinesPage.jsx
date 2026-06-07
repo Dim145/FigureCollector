@@ -151,6 +151,7 @@ export default function VitrinesPage() {
   }, [canonical]);
 
   const [query, setQuery] = useState("");
+  const [view, setView] = useState("grid"); // "grid" (drag-arrange) | "diorama" (display)
   const q = query.trim().toLowerCase();
   const matched = useMemo(
     () => (q ? (owned.data ?? []).filter((o) => o.figure_name.toLowerCase().includes(q)) : null),
@@ -399,10 +400,46 @@ export default function VitrinesPage() {
           </Card>
         </Reveal>
 
+        {cabinetKeys.length > 0 || total > 0 ? (
+          <div className="mt-7 flex items-center justify-end gap-2.5 reveal">
+            <span className="micro-tight text-[var(--color-ivoire-soft)]/70">
+              {t("vitrines.view", { default: "Vue" })}
+            </span>
+            <div className="view-toggle" role="group" aria-label={t("vitrines.view", { default: "Vue" })}>
+              <button type="button" className={view === "grid" ? "is-on" : ""} aria-pressed={view === "grid"} onClick={() => setView("grid")}>
+                {t("vitrines.view.grid", { default: "Grille" })}
+              </button>
+              <button type="button" className={view === "diorama" ? "is-on" : ""} aria-pressed={view === "diorama"} onClick={() => setView("diorama")}>
+                {t("vitrines.view.diorama", { default: "Diorama" })}
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         {owned.isLoading ? (
           <p role="status" aria-live="polite" className="text-center text-[var(--color-ivoire-soft)] py-16">…</p>
         ) : total === 0 && cabinetKeys.length === 0 ? (
           <EmptyState t={t} />
+        ) : view === "diorama" ? (
+          <div className="mt-8 space-y-12">
+            {cabinetKeys.map((key) => (
+              <DioramaShelf
+                key={key}
+                name={key}
+                marker={canonical.registeredIds.has(key) ? "棚" : "飾"}
+                items={(board[key] ?? []).map((i) => itemMap.get(i)).filter(Boolean)}
+                {...tileShared}
+              />
+            ))}
+            {(board[LOOSE] ?? []).length ? (
+              <DioramaShelf
+                name={t("vitrines.loose")}
+                marker="箱"
+                items={(board[LOOSE] ?? []).map((i) => itemMap.get(i)).filter(Boolean)}
+                {...tileShared}
+              />
+            ) : null}
+          </div>
         ) : (
           <DndContext
             sensors={sensors}
@@ -692,5 +729,81 @@ function EmptyState({ t }) {
         <Button variant="primary">{t("vitrines.empty_cta")}</Button>
       </Link>
     </Card>
+  );
+}
+
+/**
+ * Diorama view — read-only display mode. Each vitrine becomes a lit perspective
+ * shelf: its specimens stand as framed standees on a warm-spotlit stage, each
+ * casting a faint reflection on the polished floor (see `.diorama-*` in
+ * index.css). Arranging stays in the grid view; this is the "show it off" mode.
+ */
+function DioramaShelf({ name, marker, items, nsfwBlur, openItem, t }) {
+  return (
+    <section className="reveal" aria-label={name}>
+      <header className="flex items-baseline justify-between gap-3 px-1 mb-2">
+        <h2 className="display text-2xl leading-tight text-[var(--color-ivoire)] truncate">
+          {marker ? (
+            <span aria-hidden className="ja text-base text-[var(--color-or)] mr-2 align-middle">
+              {marker}
+            </span>
+          ) : null}
+          {name}
+        </h2>
+        <span className="label-mono shrink-0 text-[var(--color-ivoire-soft)]/60">
+          {items.length}
+          <span aria-hidden className="ja ml-0.5 text-[var(--color-or)]/70">点</span>
+        </span>
+      </header>
+      <div className="diorama-shelf">
+        <span aria-hidden className="diorama-spot" />
+        {items.length === 0 ? (
+          <p className="diorama-empty">
+            <span aria-hidden className="ja block text-2xl mb-1 text-[color-mix(in_oklab,var(--color-or)_40%,transparent)]">
+              空
+            </span>
+            {t("vitrines.diorama_empty", { default: "Étagère vide — range des pièces ici depuis la vue Grille." })}
+          </p>
+        ) : (
+          <ul className="diorama-row">
+            {items.map((o) => (
+              <DioramaStandee
+                key={o.id}
+                o={o}
+                blur={Boolean(o.is_nsfw && nsfwBlur)}
+                onOpen={() => openItem(o)}
+              />
+            ))}
+          </ul>
+        )}
+        <span aria-hidden className="diorama-floor" />
+      </div>
+    </section>
+  );
+}
+
+function DioramaStandee({ o, blur, onOpen }) {
+  const cover = resolveOwnedCover(o);
+  return (
+    <li className="diorama-standee" style={{ "--hue": typeHue(o.figure_type) }}>
+      <button type="button" className="diorama-standee-btn" onClick={onOpen} title={o.figure_name}>
+        <span className="diorama-standee-card">
+          {cover ? (
+            <img src={cover} alt="" loading="lazy" draggable={false} className={blur ? "nsfw-blur" : ""} />
+          ) : (
+            <span className="diorama-standee-ph ja" aria-hidden>
+              {typeKanji(o.figure_type)}
+            </span>
+          )}
+        </span>
+        <span aria-hidden className="diorama-standee-contact" />
+        {cover ? (
+          <span aria-hidden className="diorama-standee-reflect">
+            <img src={cover} alt="" loading="lazy" draggable={false} className={blur ? "nsfw-blur" : ""} />
+          </span>
+        ) : null}
+        <span className="diorama-standee-name">{o.figure_name}</span>
+      </button>
+    </li>
   );
 }
