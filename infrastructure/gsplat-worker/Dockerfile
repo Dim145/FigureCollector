@@ -89,8 +89,9 @@ RUN dirs="$(find / -type d -path '*/dist-packages/nvidia/*/lib' 2>/dev/null | so
 
 # Pre-bake the rembg model (read-only container, uid 65532 can't fetch at runtime).
 # isnet-general-use: ISNet/DIS (2022) — crisper than the old u2net, and its CNN
-# architecture FITS a 6 GB card (~1-2 GB at 1024²). BiRefNet is higher quality but
-# OOMs 6 GB at its 1024² input (needs ~8 GB+), so we don't bake it here. ~170 MB.
+# architecture FITS a 6 GB card (~1-2 GB at 1024²). We ALSO bake birefnet-general
+# (~928 MB; ~3.5-4.8 GB at 1024², fits 6 GB since masking runs BEFORE training) —
+# cleaner edges on hair/fine detail. Pick either via REMBG_MODEL. (isnet ~170 MB.)
 # Download it directly (rembg's own URL + MD5) instead of via `new_session`: that
 # would spin up an onnxruntime InferenceSession at build, which on a GPU-less host
 # logs an alarming "GPU device discovery failed /sys/class/drm" warning and can
@@ -101,7 +102,24 @@ RUN mkdir -p /opt/u2net && \
     curl -fSL -o /opt/u2net/isnet-general-use.onnx \
       https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx && \
     echo "fc16ebd8b0c10d971d3513d564d01e29  /opt/u2net/isnet-general-use.onnx" | md5sum -c - && \
+    curl -fSL -o /opt/u2net/birefnet-general.onnx \
+      https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx && \
+    echo "7a35a0141cbbc80de11d9c9a28f52697  /opt/u2net/birefnet-general.onnx" | md5sum -c - && \
     chmod -R a+rX /opt/u2net
+
+# COLMAP 4.0.x learned-feature ONNX for the opt-in SFM_FEATURES=aliked path: the
+# ALIKED extractor (aliked-n16rot) + the ALIKED-LightGlue matcher. Baked because
+# the read-only container can't fetch them at runtime (COLMAP would otherwise pull
+# them from GitHub on first use). SHA256s are COLMAP's own published release values
+# (its --*_model_path defaults). Left unused unless SFM_FEATURES=aliked.
+RUN mkdir -p /opt/colmap-models && \
+    curl -fSL -o /opt/colmap-models/aliked-n16rot.onnx \
+      https://github.com/colmap/colmap/releases/download/3.13.0/aliked-n16rot.onnx && \
+    echo "39c423d0a6f03d39ec89d3d1d61853765c2fb6a8b8381376c703e5758778a547  /opt/colmap-models/aliked-n16rot.onnx" | sha256sum -c - && \
+    curl -fSL -o /opt/colmap-models/aliked-lightglue.onnx \
+      https://github.com/colmap/colmap/releases/download/3.13.0/aliked-lightglue.onnx && \
+    echo "b9a5de7204648b18a8cf5dcac819f9d30de1a5961ef03756803c8b86c2dceb8d  /opt/colmap-models/aliked-lightglue.onnx" | sha256sum -c - && \
+    chmod -R a+rX /opt/colmap-models
 
 # COLMAP 4.0.4 (CUDA build) — the WHOLE Structure-from-Motion, into an isolated
 # micromamba env. It's the exact COLMAP the macOS worker runs (Homebrew 4.0.4),

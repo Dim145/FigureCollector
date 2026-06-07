@@ -179,6 +179,13 @@ def load_dataset(images_dir: Path, sparse_dir: Path, masks_dir: Path | None,
     images = read_images_bin(sparse_dir / "images.bin")
     pts_xyz, pts_rgb = read_points3d_bin(sparse_dir / "points3D.bin")
 
+    # Crop-to-figure: crop each frame to its mask bounding box (+ pad) so the
+    # max_res budget AND the gaussian cap go to the figure, not the backdrop —
+    # more effective resolution at the same VRAM. Needs masks. Opt-in.
+    crop_to_figure = _envflag("GSPLAT_CROP_TO_FIGURE", False)
+    crop_pad = float(os.environ.get("GSPLAT_CROP_PAD", "0.15"))
+    n_cropped = 0
+
     frames = []
     for _id, qvec, tvec, cam_id, name in images:
         img_path = images_dir / name
@@ -188,19 +195,47 @@ def load_dataset(images_dir: Path, sparse_dir: Path, masks_dir: Path | None,
         model_id, w, h, params = cams[cam_id]
         fx, fy, cx, cy = camera_fxfycxcy(model_id, params)
 
-        with Image.open(img_path) as im:
-            im = im.convert("RGB")
+        # Load the image + the FULL-res mask (mask first so crop-to-figure can use
+        # its bbox before downscaling).
+        im = Image.open(img_path).convert("RGB")
+        W0, H0 = im.size
+        mask_arr = None  # [H0,W0] bool at the (possibly cropped) full res
+        if masks_dir is not None:
+            mp = masks_dir / (Path(name).stem + ".png")
+            if mp.exists():
+                with Image.open(mp) as mim:
+                    mim = mim.convert("L")
+                    if mim.size != (W0, H0):
+                        mim = mim.resize((W0, H0), Image.NEAREST)
+                    mask_arr = np.asarray(mim, dtype=np.uint8) > 127
+
+        # Crop to the figure's mask bbox (+ pad) and shift the principal point into
+        # the crop; fx/fy are unchanged by a crop. Then the max_res downscale below
+        # fills the budget with the figure.
+        pcx, pcy = cx, cy
+        if crop_to_figure and mask_arr is not None and mask_arr.any():
+            ys, xs = np.where(mask_arr)
+            x0, y0, x1, y1 = int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1
+            px, py = int((x1 - x0) * crop_pad), int((y1 - y0) * crop_pad)
+            x0, y0 = max(0, x0 - px), max(0, y0 - py)
+            x1, y1 = min(W0, x1 + px), min(H0, y1 + py)
+            im = im.crop((x0, y0, x1, y1))
+            mask_arr = mask_arr[y0:y1, x0:x1]
+            pcx, pcy = cx - x0, cy - y0
             W0, H0 = im.size
-            scale = min(1.0, float(max_res) / max(W0, H0)) if max_res > 0 else 1.0
-            if scale < 1.0:
-                W, H = max(1, round(W0 * scale)), max(1, round(H0 * scale))
-                im = im.resize((W, H), Image.LANCZOS)
-            else:
-                W, H = W0, H0
-            img_u8 = torch.from_numpy(np.asarray(im, dtype=np.uint8)).contiguous()  # [H,W,3]
+            n_cropped += 1
+
+        scale = min(1.0, float(max_res) / max(W0, H0)) if max_res > 0 else 1.0
+        if scale < 1.0:
+            W, H = max(1, round(W0 * scale)), max(1, round(H0 * scale))
+            im = im.resize((W, H), Image.LANCZOS)
+        else:
+            W, H = W0, H0
+        img_u8 = torch.from_numpy(np.asarray(im, dtype=np.uint8)).contiguous()  # [H,W,3]
+        im.close()
         sx, sy = W / W0, H / H0
-        K = torch.tensor([[fx * sx, 0.0, cx * sx],
-                          [0.0, fy * sy, cy * sy],
+        K = torch.tensor([[fx * sx, 0.0, pcx * sx],
+                          [0.0, fy * sy, pcy * sy],
                           [0.0, 0.0, 1.0]], dtype=torch.float32)
 
         R = qvec2rotmat(qvec)
@@ -210,14 +245,11 @@ def load_dataset(images_dir: Path, sparse_dir: Path, masks_dir: Path | None,
         viewmat = torch.tensor(w2c, dtype=torch.float32)  # world-to-camera (OpenCV/COLMAP)
 
         mask_u8 = None
-        if masks_dir is not None:
-            mp = masks_dir / (Path(name).stem + ".png")
-            if mp.exists():
-                with Image.open(mp) as mim:
-                    mim = mim.convert("L")
-                    if mim.size != (W, H):
-                        mim = mim.resize((W, H), Image.NEAREST)
-                    mask_u8 = torch.from_numpy(np.asarray(mim, dtype=np.uint8) > 127).contiguous()  # [H,W] bool
+        if mask_arr is not None:
+            m = Image.fromarray(mask_arr.astype(np.uint8) * 255)
+            if m.size != (W, H):
+                m = m.resize((W, H), Image.NEAREST)
+            mask_u8 = torch.from_numpy(np.asarray(m, dtype=np.uint8) > 127).contiguous()  # [H,W] bool
 
         frames.append({"name": name, "img": img_u8, "mask": mask_u8,
                        "K": K, "viewmat": viewmat, "W": W, "H": H,
@@ -228,6 +260,8 @@ def load_dataset(images_dir: Path, sparse_dir: Path, masks_dir: Path | None,
     if pts_xyz.shape[0] < 8:
         raise RuntimeError(f"COLMAP point cloud too small ({pts_xyz.shape[0]} points)")
 
+    if crop_to_figure:
+        log(f"crop-to-figure: {n_cropped}/{len(frames)} frames cropped to the mask bbox")
     points = torch.from_numpy(pts_xyz).float().to(device)
     rgbs = torch.from_numpy(pts_rgb / 255.0).float().to(device)
     return frames, points, rgbs
@@ -249,6 +283,29 @@ def knn_dist2_avg(x: torch.Tensor, k: int = 4, chunk: int = 4096) -> torch.Tenso
         vals, _ = torch.topk(d2, kk, dim=1, largest=False)  # nearest incl. self (0)
         out[i:i + chunk] = vals[:, 1:].mean(dim=1) if kk > 1 else vals[:, 0]
     return out
+
+
+def _sor_keep(xyz: np.ndarray, k: int = 20, std_ratio: float = 2.0) -> np.ndarray:
+    """Statistical Outlier Removal (Open3D-equivalent): keep points whose mean
+    distance to their k nearest neighbours is within mean + std_ratio·std of the
+    global mean. Torch + chunked (GPU if available) so no scipy dependency. Used
+    at export to drop isolated floater stragglers a global radius crop keeps."""
+    n = xyz.shape[0]
+    if n <= k + 1:
+        return np.ones(n, dtype=bool)
+    t = torch.from_numpy(xyz).float()
+    if torch.cuda.is_available():
+        t = t.cuda()
+    mean_d = torch.empty(n, device=t.device)
+    chunk = 2048
+    kk = min(k + 1, n)
+    for i in range(0, n, chunk):
+        d = torch.cdist(t[i:i + chunk], t)               # [b, n]
+        vals, _ = torch.topk(d, kk, dim=1, largest=False)
+        mean_d[i:i + chunk] = vals[:, 1:].mean(dim=1)     # exclude self (dist 0)
+    md = mean_d.cpu().numpy()
+    thr = float(md.mean() + std_ratio * md.std())
+    return md <= thr
 
 
 def _gaussian_window(size: int, sigma: float, device) -> torch.Tensor:
@@ -273,6 +330,97 @@ def ssim(img1: torch.Tensor, img2: torch.Tensor, window_size: int = 11, sigma: f
     ssim_map = ((2 * mu1_mu2 + c1) * (2 * sigma12 + c2)) / \
                ((mu1_sq + mu2_sq + c1) * (sigma1_sq + sigma2_sq + c2))
     return ssim_map.mean()
+
+
+# -----------------------------------------------------------------------------
+# Bilateral grid (per-image colour/exposure correction) — gsplat's lib_bilagrid,
+# DENSE variant only (pure torch, no tensorly). A learned per-frame 3D affine
+# colour transform that absorbs the shifting glossy sheen of a fixed-light
+# turntable, so the SH/geometry sharpen instead of averaging it into blur. Used
+# only in training; dropped at export (the .ply keeps the corrected SH), so the
+# viewer contract is unchanged. Opt-in via GSPLAT_BILGRID.
+# Source: nerfstudio-project/gsplat examples/lib_bilagrid.py (v1.5.3).
+# -----------------------------------------------------------------------------
+
+
+def _num_tensor_elems(t: torch.Tensor) -> float:
+    return max(torch.prod(torch.tensor(t.size()[1:]).float()).item(), 1.0)
+
+
+def total_variation_loss(x: torch.Tensor) -> torch.Tensor:
+    """Smoothness prior over the bilateral grids (keeps the colour field gentle)."""
+    batch_size = x.shape[0]
+    tv = 0.0
+    for i in range(2, len(x.shape)):
+        n_res = x.shape[i]
+        idx1 = torch.arange(1, n_res, device=x.device)
+        idx2 = torch.arange(0, n_res - 1, device=x.device)
+        x1 = x.index_select(i, idx1)
+        x2 = x.index_select(i, idx2)
+        tv += torch.pow((x1 - x2), 2).sum() / _num_tensor_elems(x1)
+    return tv / batch_size
+
+
+def _color_affine_transform(affine_mats: torch.Tensor, rgb: torch.Tensor) -> torch.Tensor:
+    return torch.matmul(affine_mats[..., :3], rgb.unsqueeze(-1)).squeeze(-1) + affine_mats[..., 3]
+
+
+def bilgrid_slice(bil_grids, xy, rgb, grid_idx):
+    """Slice one image's bilateral grid at pixel xy + rgb-guidance → corrected rgb.
+    Assumes a single grid index per call (one frame), as the trainer uses it."""
+    sh_ = rgb.shape
+    grid_idx_unique = torch.unique(grid_idx)
+    if len(grid_idx_unique) != 1:
+        raise ValueError("bilgrid_slice expects a single grid index per call")
+    grid_idx = grid_idx_unique
+    xy = xy.unsqueeze(0)
+    rgb = rgb.unsqueeze(0)
+    affine_mats = bil_grids(xy, rgb, grid_idx)
+    rgb = _color_affine_transform(affine_mats, rgb)
+    return {"rgb": rgb.reshape(*sh_)}
+
+
+class BilateralGrid(torch.nn.Module):
+    """N per-image 3D bilateral grids (identity-initialised affine colour maps)."""
+
+    def __init__(self, num: int, grid_X: int = 16, grid_Y: int = 16, grid_W: int = 8):
+        super().__init__()
+        self.grid_width, self.grid_height, self.grid_guidance = grid_X, grid_Y, grid_W
+        grid = self._init_identity_grid()
+        self.grids = torch.nn.Parameter(grid.tile(num, 1, 1, 1, 1))
+        self.register_buffer("rgb2gray_weight", torch.Tensor([[0.299, 0.587, 0.114]]))
+        self.rgb2gray = lambda rgb: (rgb @ self.rgb2gray_weight.T) * 2.0 - 1.0
+
+    def _init_identity_grid(self) -> torch.Tensor:
+        grid = torch.tensor([1.0, 0, 0, 0, 0, 1.0, 0, 0, 0, 0, 1.0, 0]).float()
+        grid = grid.repeat([self.grid_guidance * self.grid_height * self.grid_width, 1])
+        grid = grid.reshape(1, self.grid_guidance, self.grid_height, self.grid_width, -1)
+        return grid.permute(0, 4, 1, 2, 3)
+
+    def tv_loss(self) -> torch.Tensor:
+        return total_variation_loss(self.grids)
+
+    def forward(self, grid_xy, rgb, idx=None):
+        input_ndims = len(grid_xy.shape)
+        assert len(rgb.shape) == input_ndims
+        if 1 < input_ndims < 5:
+            for _ in range(5 - input_ndims):
+                grid_xy = grid_xy.unsqueeze(1)
+                rgb = rgb.unsqueeze(1)
+            assert idx is not None
+        elif input_ndims != 5:
+            raise ValueError("bilateral grid slicing takes 2D–5D inputs")
+        grids = self.grids[idx] if idx is not None else self.grids
+        assert grids.shape[0] == grid_xy.shape[0]
+        grid_xy = (grid_xy - 0.5) * 2
+        grid_xyz = torch.cat([grid_xy, self.rgb2gray(rgb)], dim=-1)
+        affine_mats = F.grid_sample(grids, grid_xyz, mode="bilinear",
+                                    align_corners=True, padding_mode="border")
+        affine_mats = affine_mats.permute(0, 2, 3, 4, 1)
+        affine_mats = affine_mats.reshape(*affine_mats.shape[:-1], 3, 4)
+        for _ in range(5 - input_ndims):
+            affine_mats = affine_mats.squeeze(1)
+        return affine_mats
 
 
 def build_splats(points: torch.Tensor, rgbs: torch.Tensor, sh_degree: int,
@@ -322,21 +470,64 @@ def export_ply(path: Path, splats: torch.nn.ParameterDict) -> int:
     n = means.shape[0]
 
     # --- prune floaters before export ----------------------------------------
-    # The masked loss never penalises gaussians in the (masked) background, so a
-    # few drift there and render as floaters/haze "around the camera". Drop the
-    # faint ones (low opacity) and the spatial outliers (far from the figure's
-    # dense cluster), then recentre. Env-tunable; GSPLAT_CROP_MARGIN=0 disables
-    # the spatial crop. Hard safety: never prune to (near-)nothing.
+    # MCMC prunes by opacity but NEVER by scale, so big thin "sheet" gaussians
+    # survive as the haze canopy/ground; the masked loss also lets faint background
+    # gaussians linger. Layer cheap, env-tunable filters on the final cloud, then
+    # recentre. Hard safety: never prune to (near-)nothing. Set any threshold to 0
+    # to disable that filter.
     min_opacity = float(os.environ.get("GSPLAT_MIN_OPACITY", "0.08"))
     crop_pctl = float(os.environ.get("GSPLAT_CROP_PCTL", "0.98"))
     crop_margin = float(os.environ.get("GSPLAT_CROP_MARGIN", "1.5"))
-    keep = (1.0 / (1.0 + np.exp(-opac.reshape(-1)))) >= min_opacity   # sigmoid(logit) ≥ thr
+    scale_cap_frac = float(os.environ.get("GSPLAT_SCALE_CAP_FRAC", "0"))    # OFF by default; drop axis > frac × figure radius
+    scale_pctl = float(os.environ.get("GSPLAT_SCALE_PCTL", "99.5"))         # drop the size tail
+    aniso_cap = float(os.environ.get("GSPLAT_ANISO_CAP", "12.0"))           # drop needles
+    contrib_pctl = float(os.environ.get("GSPLAT_CONTRIB_PCTL", "1.0"))      # drop low opacity·area
+    sor_k = int(os.environ.get("GSPLAT_SOR_K", "20"))
+    sor_std = float(os.environ.get("GSPLAT_SOR_STD", "2.0"))
+    # Per-filter drop logging (off by default) — to see which filter is too aggressive
+    # instead of guessing. GSPLAT_PRUNE_DEBUG=true logs each filter's incremental drop.
+    prune_debug = _envflag("GSPLAT_PRUNE_DEBUG", False)
+
+    op = 1.0 / (1.0 + np.exp(-opac.reshape(-1)))           # sigmoid(logit) → [N]
+    ws = np.exp(scales)                                    # log → world-space [N,3]
+    max_axis = ws.max(axis=1)
+    ratio = max_axis / np.clip(ws.min(axis=1), 1e-8, None)
+    keep = op >= min_opacity
+    if prune_debug:
+        log(f"prune-debug: {n} start · opacity<{min_opacity}: -{n - int(keep.sum())} → {int(keep.sum())} kept")
     if keep.sum() >= 8:
-        center = np.median(means[keep], axis=0)
+        base = keep.copy()                                 # opacity-kept set → thresholds
+        center = np.median(means[base], axis=0)
         dist = np.linalg.norm(means - center, axis=1)
-        if crop_margin > 0:
-            r = float(np.percentile(dist[keep], crop_pctl * 100.0))
-            keep = keep & (dist <= r * crop_margin)
+        r = float(np.percentile(dist[base], crop_pctl * 100.0))
+        _prev = [int(keep.sum())]
+
+        def _dbg(label: str) -> None:                      # log a filter's incremental drop
+            if prune_debug:
+                now = int(keep.sum())
+                log(f"prune-debug: {label}: -{_prev[0] - now} → {now} kept")
+                _prev[0] = now
+
+        if scale_cap_frac > 0:                             # drop "sheets" bigger than the figure (× p98 radius)
+            keep &= max_axis <= scale_cap_frac * r
+        _dbg(f"scale_cap {scale_cap_frac}×r (r={r:.3f})")
+        if 0 < scale_pctl < 100:
+            keep &= max_axis <= np.percentile(max_axis[base], scale_pctl)
+        _dbg(f"scale_pctl {scale_pctl}")
+        if aniso_cap > 0:                                  # spiky needles
+            keep &= ratio <= aniso_cap
+        _dbg(f"aniso>{aniso_cap}")
+        if contrib_pctl > 0:                               # faint + large = low contribution
+            contrib = op * (max_axis ** 2)
+            keep &= contrib >= np.percentile(contrib[base], contrib_pctl)
+        _dbg(f"contrib<{contrib_pctl}%")
+        if crop_margin > 0:                                # far spatial outliers
+            keep &= dist <= r * crop_margin
+        _dbg(f"crop {crop_margin}×r")
+        if sor_k > 0 and int(keep.sum()) > sor_k + 1:      # isolated stragglers
+            sub = np.where(keep)[0]
+            keep[sub[~_sor_keep(means[sub], sor_k, sor_std)]] = False
+        _dbg(f"SOR k{sor_k}/std{sor_std}")
     if keep.sum() < 8:
         keep = np.ones(n, dtype=bool)
     dropped = int(n - keep.sum())
@@ -344,8 +535,8 @@ def export_ply(path: Path, splats: torch.nn.ParameterDict) -> int:
     opac, sh0, shn = opac[keep], sh0[keep], shn[keep]
     means = means - np.median(means, axis=0).astype(np.float32)  # recentre at origin
     n = means.shape[0]
-    log(f"export: {n} gaussians (dropped {dropped}: opacity<{min_opacity} or "
-        f"outside {crop_margin}x p{int(crop_pctl * 100)} radius)")
+    log(f"export: {n} gaussians (dropped {dropped} via opacity/scale/aniso/"
+        f"contribution/crop/SOR)")
 
     # INRIA stores SH channel-major: f_dc=[r,g,b]; f_rest=[r·15, g·15, b·15].
     f_dc = np.transpose(sh0, (0, 2, 1)).reshape(n, -1)    # [N,3]
@@ -400,7 +591,10 @@ def train(args) -> None:
     scene_scale = float(np.linalg.norm(centers - centers.mean(0), axis=1).max()) * 1.1
     scene_scale = max(scene_scale, 1e-3)
 
-    sh_degree = 3
+    # SH degree 3 (default) chases view-dependent colour; on a glossy fixed-light
+    # turntable that smears specular into blur. GSPLAT_SH_DEGREE=2 trims that (and
+    # shrinks shN → frees VRAM). Clamp 0..3.
+    sh_degree = max(0, min(3, int(os.environ.get("GSPLAT_SH_DEGREE", "3"))))
     splats, optimizers = build_splats(points, rgbs, sh_degree, scene_scale, device)
     del points, rgbs
 
@@ -411,6 +605,10 @@ def train(args) -> None:
 
     strategy = MCMCStrategy(
         cap_max=args.cap_max,
+        # Langevin relocation noise. gsplat's default 5e5 was tuned for room-scale
+        # scenes; on a single small object it over-agitates fine detail → blur.
+        # Lower (1e5–2e5) lets the figure "set" sharper. GSPLAT_NOISE_LR overrides.
+        noise_lr=float(os.environ.get("GSPLAT_NOISE_LR", "2e5")),
         refine_start_iter=500,
         refine_stop_iter=int(max_steps * 0.8),
         refine_every=100,
@@ -425,8 +623,21 @@ def train(args) -> None:
     # Penalise needle-like gaussians (longest axis > aniso_max x shortest) — the
     # radiating "spike" artifacts. GSPLAT_ANISO_REG=0 disables it.
     aniso_reg = float(os.environ.get("GSPLAT_ANISO_REG", "0.01"))
-    aniso_max = 10.0
+    aniso_max = float(os.environ.get("GSPLAT_ANISO_MAX", "10.0"))
     ssim_lambda = 0.2
+    # Alpha/mask loss: drive the rendered alpha to the foreground mask so the
+    # masked-out background can't accrete floaters for free. OFF by default — it
+    # only helps with CLEAN masks; with imperfect rembg masks (complex poses) it
+    # warps the silhouette. Re-enable at 0.1–0.3 once masks are good (e.g. BiRefNet).
+    mask_lambda = float(os.environ.get("GSPLAT_MASK_LAMBDA", "0"))
+    # Random-background compositing — discourages SEMI-TRANSPARENT floaters (they
+    # visibly corrupt a randomised bg each step, so MCMC drives their opacity to 0).
+    # Pairs with the mask loss; opt-in (changes the loss target).
+    random_bkgd = _envflag("GSPLAT_RANDOM_BKGD", False)
+    # Depth planes: a bounded far-plane (from the scene scale) sharpens depth
+    # precision on the figure vs the default 1e10. Env-overridable.
+    near_plane = float(os.environ.get("GSPLAT_NEAR", "0.01"))
+    far_plane = float(os.environ.get("GSPLAT_FAR", str(max(scene_scale * 10.0, 100.0))))
     # Antialiased rasterisation (Mip-Splatting): sharper, fewer aliasing speckles.
     rasterize_mode = "antialiased" if _envflag("GSPLAT_ANTIALIAS", True) else "classic"
     # Joint camera-pose refinement — a learnable per-frame pose delta (gsplat's
@@ -442,8 +653,21 @@ def train(args) -> None:
         pose_optimizer = torch.optim.Adam(
             pose_embeds.parameters(), lr=1e-5, weight_decay=1e-6
         )
+    # Bilateral grid (opt-in) — per-frame colour correction for glossy sheen.
+    use_bilgrid = _envflag("GSPLAT_BILGRID", False)
+    bil_grids = bil_grid_opt = bil_sched = None
+    if use_bilgrid:
+        bil_grids = BilateralGrid(len(frames)).to(device)
+        bil_grid_opt = torch.optim.Adam(bil_grids.parameters(), lr=2e-3, eps=1e-15)
+        bil_sched = torch.optim.lr_scheduler.ChainedScheduler([
+            torch.optim.lr_scheduler.LinearLR(
+                bil_grid_opt, start_factor=0.01, total_iters=min(1000, max_steps)),
+            torch.optim.lr_scheduler.ExponentialLR(
+                bil_grid_opt, gamma=0.01 ** (1.0 / max_steps)),
+        ])
     log(f"opts · antialias={rasterize_mode == 'antialiased'} · pose_opt={pose_opt} · "
-        f"scale_reg={scale_reg} · aniso_reg={aniso_reg}")
+        f"scale_reg={scale_reg} · aniso_reg={aniso_reg}/{aniso_max} · sh={sh_degree} · "
+        f"mask_lambda={mask_lambda} · random_bkgd={random_bkgd} · far={far_plane:.1f}")
     order: list[int] = []
     t0 = time.time()
     log(f"training MCMC · {max_steps} iters · cap_max={args.cap_max} · "
@@ -469,7 +693,7 @@ def train(args) -> None:
         viewmat = viewmat.unsqueeze(0)                  # [1,4,4]
         sh_deg_use = min(step // sh_interval, sh_degree)
 
-        renders, _alphas, info = rasterization(
+        renders, alphas, info = rasterization(
             means=splats["means"],
             quats=splats["quats"],
             scales=torch.exp(splats["scales"]),
@@ -484,23 +708,47 @@ def train(args) -> None:
             absgrad=False,
             sparse_grad=False,
             rasterize_mode=rasterize_mode,
-            near_plane=0.01,
-            far_plane=1e10,
+            near_plane=near_plane,
+            far_plane=far_plane,
             render_mode="RGB",
             camera_model="pinhole",
         )
         colors = renders[..., :3]  # [1,H,W,3]
+        if use_bilgrid:  # per-frame colour correction before the loss
+            gy, gx = torch.meshgrid(
+                (torch.arange(f["H"], device=device) + 0.5) / f["H"],
+                (torch.arange(f["W"], device=device) + 0.5) / f["W"],
+                indexing="ij",
+            )
+            grid_xy = torch.stack([gx, gy], dim=-1).unsqueeze(0)   # [1,H,W,2]
+            colors = bilgrid_slice(bil_grids, grid_xy, colors,
+                                   torch.tensor([idx], device=device))["rgb"]
 
-        # Foreground loss mask: zero both render and target in the background so
-        # only the figure drives the loss (the turntable backdrop is masked out).
+        # Foreground handling. No mask → train on the full frame. With a mask:
+        #  * random_bkgd: composite render + target over the SAME random colour, so
+        #    a translucent background gaussian visibly corrupts the image and gets
+        #    its opacity driven down (kills semi-transparent floaters).
+        #  * else (default): zero render+target in the background (figure-only loss).
+        # Either way an alpha→mask L1 (mask_lambda) penalises opacity OUTSIDE the
+        # figure — the background floaters the masked RGB loss never sees.
+        mask_loss = None
         if f["mask"] is not None:
             m = f["mask"].to(device).view(1, f["H"], f["W"], 1).float()
-            colors = colors * m
-            pixels = pixels * m
+            if random_bkgd:
+                bg = torch.rand(1, 1, 1, 3, device=device)
+                colors = colors + (1.0 - alphas) * bg   # render is over black → premultiplied
+                pixels = pixels * m + bg * (1.0 - m)     # figure on the same random bg
+            else:
+                colors = colors * m
+                pixels = pixels * m
+            if mask_lambda > 0.0:
+                mask_loss = F.l1_loss(alphas, m)
 
         l1 = F.l1_loss(colors, pixels)
         ssim_val = ssim(colors.permute(0, 3, 1, 2), pixels.permute(0, 3, 1, 2))
         loss = l1 * (1.0 - ssim_lambda) + (1.0 - ssim_val) * ssim_lambda
+        if mask_loss is not None:
+            loss = loss + mask_lambda * mask_loss
         # MCMC regularisers: push opacities/scales down so dead Gaussians get
         # relocated (the haze fix) and scales stay compact.
         sc = torch.exp(splats["scales"])
@@ -509,6 +757,8 @@ def train(args) -> None:
         if aniso_reg > 0.0:  # discourage needle-like (spiky) gaussians
             ratio = sc.amax(dim=-1) / sc.amin(dim=-1).clamp(min=1e-6)
             loss = loss + aniso_reg * (ratio - aniso_max).clamp(min=0.0).mean()
+        if use_bilgrid:
+            loss = loss + 10.0 * bil_grids.tv_loss()
 
         loss.backward()
         for opt in optimizers.values():
@@ -517,6 +767,10 @@ def train(args) -> None:
         if pose_optimizer is not None:
             pose_optimizer.step()
             pose_optimizer.zero_grad(set_to_none=True)
+        if bil_grid_opt is not None:
+            bil_grid_opt.step()
+            bil_grid_opt.zero_grad(set_to_none=True)
+            bil_sched.step()
         means_sched.step()
 
         # MCMC has no step_pre_backward (relocation is opacity-driven, not

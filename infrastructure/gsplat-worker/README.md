@@ -137,6 +137,8 @@ traceback in `error_message`.
 | `COLMAP_BA_USE_GPU` | `false` | GPU bundle adjustment in the mapper (`--Mapper.ba_use_gpu`). Rarely helps at ~150 frames (only pays off ~1500+ images, often slower); falls back to CPU if Ceres lacks CUDA |
 | `GSPLAT_CAP_MAX` | `250000` | MCMC Gaussian cap — the dominant VRAM lever (MCMC grows to the cap, then holds it); lower on OOM, raise for more detail |
 | `GSPLAT_MAX_RES` | `1600` | longest image side the trainer renders — the other VRAM lever; raise for sharper results if VRAM allows |
+| `GSPLAT_CROP_TO_FIGURE` | `false` | crop each frame to the figure's mask bbox before training, so `MAX_RES` + the gaussian cap go to the FIGURE not the backdrop (2-3× effective detail at the SAME VRAM — the 6 GB detail lever). Needs masks |
+| `GSPLAT_CROP_PAD` | `0.15` | padding fraction around the figure bbox when `GSPLAT_CROP_TO_FIGURE` is on |
 | `GSPLAT_MIN_OPACITY` | `0.08` | export prune: drop gaussians fainter than this (kills haze). Raise (e.g. 0.15) if floaters remain |
 | `GSPLAT_CROP_MARGIN` | `1.5` | export prune: drop gaussians beyond this × the figure's p98 radius (kills far floaters). Lower (e.g. 1.2) if artifacts remain; raise / set `0` if the figure gets clipped |
 | `GSPLAT_UNDISTORT` | `true` | undistort to a PINHOLE dataset (`colmap image_undistorter`) before training — the trainer ignores OPENCV distortion, so this keeps the projection honest (fewer edge floaters). Falls back to the raw frames on failure |
@@ -144,8 +146,24 @@ traceback in `error_message`.
 | `GSPLAT_POSE_OPT` | `true` | joint camera-pose refinement during training (corrects residual COLMAP pose error → less blur); cheap in VRAM. Set `false` if a scan destabilises |
 | `GSPLAT_ANISO_REG` | `0.01` | penalise needle-like "spike" gaussians (longest axis > 10× the shortest); `0` disables |
 | `GSPLAT_SCALE_REG` / `GSPLAT_OPACITY_REG` | `0.01` | MCMC scale / opacity regularisers — kept compact + relocatable (now env-tunable) |
+| `GSPLAT_NOISE_LR` | `2e5` | MCMC relocation noise. gsplat's default `5e5` over-agitates a single small object → blur; `1e5`–`2e5` lets the figure set sharper. Raise toward `5e5` if detail drops out |
+| `GSPLAT_SH_DEGREE` | `3` | spherical-harmonics degree. `2` chases moving glossy highlights less (less smear) + frees VRAM — worth A/B-ing on a glossy figure |
+| `GSPLAT_FAR` / `GSPLAT_NEAR` | auto / `0.01` | depth planes; far defaults to `10×` the scene scale (vs ∞) for tighter depth precision on the figure |
+| `GSPLAT_MASK_LAMBDA` | `0` | alpha→mask loss — penalises rendered opacity OUTSIDE the figure mask (background-floater fix). **Off by default**: it warps the silhouette with imperfect rembg masks. Re-enable at `0.1`–`0.3` only with clean masks (BiRefNet) |
+| `GSPLAT_RANDOM_BKGD` | `false` | composite over a random background each step to drive down SEMI-transparent floaters. Opt-in (changes the loss target); pairs with the mask loss |
+| `GSPLAT_BILGRID` | `false` | per-image bilateral grid (colour/exposure correction) — absorbs the shifting glossy sheen of a fixed-light turntable so geometry sharpens. Opt-in; dropped at export so the `.ply` is unchanged |
+| `GSPLAT_SCALE_CAP_FRAC` | `0` | export prune: drop gaussians whose longest axis > this × the **figure radius** (p98) — the haze "sheets". **Off by default** (at `0.1×scene_scale` it ate ~60 % of a single object). Opt in around `1.5`–`2.0` (× figure radius = only sheets bigger than the figure); watch the worker's `export: … dropped M` line, aim for <15 % |
+| `GSPLAT_SCALE_PCTL` / `GSPLAT_ANISO_CAP` / `GSPLAT_CONTRIB_PCTL` | `99.5` / `12` / `1.0` | export prunes: drop the size tail (top %), needles (axis ratio >), and the lowest-contribution % (opacity×area). `0` disables each |
+| `GSPLAT_SOR_K` / `GSPLAT_SOR_STD` | `20` / `2.0` | export Statistical Outlier Removal — drop isolated stragglers (mean k-NN distance > mean+std·σ). Lower std (toward `1.5`) = more aggressive; `K=0` disables. NB it also eats thin sparse structures (hair/tentacles) |
+| `GSPLAT_PRUNE_DEBUG` | `false` | log each export filter's incremental drop count (`prune-debug: scale_cap …: -N → M kept`) so you can see which filter over-prunes instead of guessing |
+| `SFM_FEATURES` | `sift` | COLMAP feature backend. `aliked` = learned ALIKED (`ALIKED_N16ROT`) + LightGlue (baked) — far better poses on glossy/low-texture → sharper (biggest sharpness lever). Auto-falls back to SIFT if ALIKED errors |
+| `ALIKED_MAX_FEATURES` | `4096` | ALIKED keypoints/image when `SFM_FEATURES=aliked` |
+| `SFM_MAPPER` | `incremental` | `global` = COLMAP 4.0's built-in GLOMAP. **Makes `SFM_FEATURES=aliked` usable**: ALIKED+LightGlue's dense matches make the incremental mapper take *hours*; GLOMAP solves all poses at once (minutes). Auto-runs `view_graph_calibrator` first (best-effort) |
+| `GLOMAP_MIN_VIEWS_PER_TRACK` | `0` | `SFM_MAPPER=global` only: raise (try `4`–`5`) to keep only well-supported tracks **if** global positioning collapses to a degenerate "cube" — COLMAP's `global_mapper` has no max-tracks cap. `0` = COLMAP default |
+| `FRAME_SHARP_SELECT` | `true` | oversample then keep the sharpest frame per bucket (variance-of-Laplacian) — drops motion-blurred frames. Falls back to uniform sampling without cv2 |
+| `VIDEO_OVERSAMPLE` | `3` | oversample factor for sharp-frame selection (extract 3× `VIDEO_TARGET_FRAMES`, keep the sharpest) |
 | `ENABLE_MASKING` | `true` | rembg-mask the figure (one pass) → COLMAP `mask_path` (SfM tracks the figure, essential on a turntable) + per-frame loss masks (background contributes zero loss → no haze) |
-| `REMBG_MODEL` | `isnet-general-use` | rembg segmentation model. **Must match the model baked into the image** — the container is read-only, so rembg can't fetch another at runtime; change it together with the Dockerfile bake. See the VRAM table for alternatives |
+| `REMBG_MODEL` | `isnet-general-use` | rembg model. **Only the models baked into the image work** (read-only container can't fetch): `isnet-general-use` (default, light) and `birefnet-general` (cleaner edges on hair/fine detail; ~3.5-4.8 GB, fits 6 GB as masking runs before training). Setting an un-baked model → masking silently fails → unmasked scan |
 | `NVIDIA_DRIVER_CAPABILITIES` | `all` | driver capabilities exposed to the container. `all` covers `compute` (rembg + gsplat), `utility` (nvidia-smi) and `video` (NVDEC frame decode); set it narrower if you disable GPU decode |
 | `RECOVER_ABANDONED` | `true` | at boot, re-queue scans this worker left in `processing` (abandoned on a restart) |
 | `HEARTBEAT_INTERVAL` | `30` | seconds between worker heartbeats; the backend flags the worker offline after 3× this |

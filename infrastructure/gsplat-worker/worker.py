@@ -99,13 +99,13 @@ FFMPEG_USE_GPU = os.environ.get("FFMPEG_USE_GPU", "true").lower() in ("1", "true
 # per-frame loss masks so the gsplat trainer ignores the background (no haze).
 # Best-effort: if rembg is missing or errors, COLMAP and training run unmasked.
 ENABLE_MASKING = os.environ.get("ENABLE_MASKING", "true").lower() in ("1", "true", "yes")
-# rembg segmentation model. isnet-general-use (ISNet/DIS, 2022) — newer + crisper
-# than u2net, and its CNN architecture FITS 6 GB (~1-2 GB at 1024²). BiRefNet,
-# though higher quality, OOMs a 6 GB card at its 1024² input (needs ~8 GB+), so we
-# don't default to it. ~170 MB. MUST match the model baked into the image (the
-# container is read-only — rembg can't fetch a different one at runtime); rebuild
-# with a new Dockerfile bake to change it (and on a bigger GPU you could pick
-# birefnet-general-lite / -general here).
+# rembg segmentation model. Default isnet-general-use (ISNet/DIS, 2022 — crisp,
+# light: ~1-2 GB at 1024²). For cleaner edges on hair/fine detail, birefnet-general
+# is higher quality and DOES fit 6 GB (~3.5-4.8 GB at 1024², and masking runs
+# BEFORE training so it never competes with the trainer's VRAM). Whichever model
+# is set here MUST be baked into the image (read-only container can't fetch one at
+# runtime) — to A/B BiRefNet, bake birefnet-general.onnx into the Dockerfile first.
+# Only isnet-general-use is baked by default.
 REMBG_MODEL = os.environ.get("REMBG_MODEL", "isnet-general-use")
 # COLMAP SIFT feature extraction + matching on the GPU (the conda env ships the
 # CUDA build of COLMAP 4.0.4). Default on. Set COLMAP_USE_GPU=false to force CPU
@@ -164,6 +164,30 @@ GSPLAT_MAX_RES = int(os.environ.get("GSPLAT_MAX_RES", "1600"))
 # keeps the projection honest (fewer edge floaters). false = train on the raw
 # distorted frames.
 GSPLAT_UNDISTORT = os.environ.get("GSPLAT_UNDISTORT", "true").lower() in ("1", "true", "yes")
+
+# COLMAP feature backend. "sift" (default, proven) or "aliked" — learned ALIKED
+# features + LightGlue matching (built into COLMAP 4.0.4), far more repeatable on
+# glossy/low-texture surfaces where SIFT latches onto moving speculars → better
+# poses → sharper splats. ALIKED needs its ONNX models, BAKED into the image (the
+# read-only container can't fetch them at runtime). Opt-in: A/B it against SIFT.
+SFM_FEATURES = os.environ.get("SFM_FEATURES", "sift").lower()
+ALIKED_MAX_FEATURES = int(os.environ.get("ALIKED_MAX_FEATURES", "4096"))
+COLMAP_MODELS_DIR = os.environ.get("COLMAP_MODELS_DIR", "/opt/colmap-models")
+# SfM mapper. "incremental" (default) or "global" — COLMAP 4.0's built-in GLOMAP
+# (global SfM solves the whole turntable at once, no incremental drift). A/B it.
+SFM_MAPPER = os.environ.get("SFM_MAPPER", "incremental").lower()
+# GLOMAP cube-collapse mitigation (SFM_MAPPER=global). Global SfM on a DENSE
+# single-object match graph (ALIKED+LightGlue) can collapse to a degenerate "cube".
+# COLMAP's global_mapper has NO max-tracks cap (the standalone GLOMAP option is
+# rejected); the exposed lever is the MINIMUM VIEWS PER TRACK — raising it keeps only
+# well-supported tracks → fewer tracks. 0 = COLMAP default; try 4-5 only if it collapses.
+GLOMAP_MIN_VIEWS_PER_TRACK = int(os.environ.get("GLOMAP_MIN_VIEWS_PER_TRACK", "0"))
+# Sharpest-frame selection: oversample the video, then keep the sharpest frame per
+# evenly-spaced time bucket (variance-of-Laplacian), dropping motion-blurred frames
+# that soften the splat. Falls back to plain uniform sampling if cv2 is missing.
+FRAME_SHARP_SELECT = os.environ.get("FRAME_SHARP_SELECT", "true").lower() in ("1", "true", "yes")
+VIDEO_OVERSAMPLE = max(1, int(os.environ.get("VIDEO_OVERSAMPLE", "3")))
+
 GSPLAT_TRAINER = Path(__file__).resolve().parent / "gsplat_mcmc.py"
 
 log = structlog.get_logger()
@@ -596,6 +620,9 @@ def process_scan(scan: asyncpg.Record, report=None) -> str:
         train_pct = [46]
 
         def on_train_line(line: str) -> None:
+            line = line.rstrip()
+            if line:                                    # forward the trainer's stdout to our log so
+                log.info(line, scan_id=str(scan_id))    # prune-debug / per-step loss / export show up
             m = step_re.search(line)
             if not m:
                 return
@@ -674,10 +701,40 @@ def _find_source_video(prefix: str) -> str | None:
     return None
 
 
+def _select_sharpest(raw: Path, images: Path, target: int, scan_id: Any) -> int:
+    """Keep the sharpest frame (variance-of-Laplacian) per evenly-spaced bucket so
+    motion-blurred frames don't soften the splat, while 360° coverage is preserved.
+    Falls back to each bucket's middle frame if cv2 is unavailable."""
+    frames = sorted(raw.glob("frame_*.png"))
+    if not frames:
+        return 0
+    images.mkdir(parents=True, exist_ok=True)
+    sharp = None
+    try:
+        import cv2  # type: ignore
+
+        def sharp(p: Path) -> float:  # noqa: F811
+            g = cv2.imread(str(p), cv2.IMREAD_GRAYSCALE)
+            return float(cv2.Laplacian(g, cv2.CV_64F).var()) if g is not None else -1.0
+    except Exception:  # noqa: BLE001
+        log.warning("cv2 unavailable; bucket-midpoint sampling (no sharpness)",
+                    scan_id=str(scan_id))
+    total, n = len(frames), 0
+    for i in range(target):
+        bucket = frames[(i * total) // target:((i + 1) * total) // target]
+        if not bucket:
+            continue
+        best = max(bucket, key=sharp) if sharp is not None else bucket[len(bucket) // 2]
+        shutil.copy(str(best), str(images / f"frame_{n:04d}.png"))
+        n += 1
+    return n
+
+
 def _extract_video_frames(video: Path, images: Path, scan_id: Any) -> int:
-    """Sample ~VIDEO_TARGET_FRAMES evenly-spaced PNG frames from the video with
-    ffmpeg, downscaled to VIDEO_MAX_DIM on the longest side (never upscaled).
-    Decodes on the GPU (NVDEC) when FFMPEG_USE_GPU, falling back to CPU."""
+    """Sample PNG frames from the video with ffmpeg, downscaled to VIDEO_MAX_DIM on
+    the longest side (never upscaled). Decodes on the GPU (NVDEC) when
+    FFMPEG_USE_GPU, falling back to CPU. With FRAME_SHARP_SELECT, oversamples
+    (×VIDEO_OVERSAMPLE) then keeps the sharpest frame per bucket (drops motion blur)."""
     probe = subprocess.run(
         ["ffprobe", "-v", "error", "-show_entries", "format=duration",
          "-of", "default=nokey=1:noprint_wrappers=1", str(video)],
@@ -687,36 +744,44 @@ def _extract_video_frames(video: Path, images: Path, scan_id: Any) -> int:
         duration = float(probe.stdout.strip())
     except ValueError:
         duration = 0.0
-    fps = (
-        f"fps={max(0.1, VIDEO_TARGET_FRAMES / duration):.5f}"
-        if duration > 0
-        else "fps=8"
-    )
+    select = FRAME_SHARP_SELECT
+    target = VIDEO_TARGET_FRAMES * VIDEO_OVERSAMPLE if select else VIDEO_TARGET_FRAMES
+    fps = (f"fps={max(0.1, target / duration):.5f}" if duration > 0 else "fps=8")
     # Downscale-only to VIDEO_MAX_DIM on the longest side (never upscale).
     scale = (
         f"scale='min({VIDEO_MAX_DIM},iw)':'min({VIDEO_MAX_DIM},ih)'"
         ":force_original_aspect_ratio=decrease"
     )
-    tail = ["-i", str(video), "-vf", f"{fps},{scale}", str(images / "frame_%04d.png")]
-    # Try GPU decode (NVDEC) first — offloads only the decode (PNG encode stays
-    # CPU), and falls back to CPU on any failure: a codec/profile NVDEC can't
-    # handle, or no GPU. `-hwaccel cuda` auto-selects the cuvid decoder and
-    # downloads frames to host memory for the CPU fps/scale + PNG steps.
+    out_dir = (images.parent / "_raw_frames") if select else images
+    out_dir.mkdir(parents=True, exist_ok=True)
+    tail = ["-i", str(video), "-vf", f"{fps},{scale}", str(out_dir / "frame_%04d.png")]
+    # GPU decode (NVDEC) first — offloads only the decode (PNG encode stays CPU);
+    # falls back to CPU on any failure (a codec/profile NVDEC can't handle, no GPU).
+    ran = False
     if FFMPEG_USE_GPU:
         try:
             _run("ffmpeg", "-loglevel", "error", "-hwaccel", "cuda", *tail)
-            n = len(list(images.glob("frame_*.png")))
-            if n > 0:
-                log.info("frames via NVDEC (GPU decode)", scan_id=str(scan_id), frames=n)
-                return n
-            log.warning("NVDEC produced no frames; retrying on CPU", scan_id=str(scan_id))
+            got = len(list(out_dir.glob("frame_*.png")))
+            if got > 0:
+                log.info("frames via NVDEC (GPU decode)", scan_id=str(scan_id), frames=got)
+                ran = True
+            else:
+                log.warning("NVDEC produced no frames; retrying on CPU", scan_id=str(scan_id))
         except Exception as e:  # noqa: BLE001
             log.warning("NVDEC decode failed; falling back to CPU",
                         scan_id=str(scan_id), error=str(e))
-        for f in images.glob("frame_*.png"):  # clear partial output before retry
-            f.unlink(missing_ok=True)
-    _run("ffmpeg", "-loglevel", "error", *tail)
-    return len(list(images.glob("frame_*.png")))
+        if not ran:
+            for f in out_dir.glob("frame_*.png"):  # clear partial output before retry
+                f.unlink(missing_ok=True)
+    if not ran:
+        _run("ffmpeg", "-loglevel", "error", *tail)
+    if not select:
+        return len(list(out_dir.glob("frame_*.png")))
+    raw_n = len(list(out_dir.glob("frame_*.png")))
+    n = _select_sharpest(out_dir, images, VIDEO_TARGET_FRAMES, scan_id)
+    shutil.rmtree(out_dir, ignore_errors=True)
+    log.info("sharpest-frame selection", scan_id=str(scan_id), oversampled=raw_n, kept=n)
+    return n
 
 
 def _make_masks(images: Path, colmap_masks_dir: Path, loss_masks_dir: Path,
@@ -810,49 +875,102 @@ def _colmap_sfm(images: Path, sparse: Path, mask_dir: Path | None,
     colmap = ["micromamba", "run", "-n", "sfm", "colmap"]
     gpu = "1" if use_gpu else "0"
 
-    extract = [
-        *colmap, "feature_extractor",
-        "--database_path", str(db),
-        "--image_path", str(images),
-        "--ImageReader.single_camera", "1",
-        "--ImageReader.camera_model", "OPENCV",
-        "--FeatureExtraction.use_gpu", gpu,
-        "--SiftExtraction.max_num_features", str(COLMAP_MAX_FEATURES),
-        "--SiftExtraction.peak_threshold", "0.004",
-        "--SiftExtraction.edge_threshold", "16",
-    ]
-    if mask_dir is not None:
-        extract += ["--ImageReader.mask_path", str(mask_dir)]
-    _run(*extract)
+    # Feature extraction + matching, factored so an ALIKED failure FALLS BACK to
+    # SIFT instead of wasting the whole scan. ALIKED (learned) features + LightGlue
+    # give better poses on glossy/low-texture surfaces; their ONNX models are baked
+    # into the image (the read-only container can't fetch them at runtime). The
+    # COLMAP enum is `ALIKED_N16ROT` (rotation-invariant — good for a turntable).
+    def _extract_match(use_aliked: bool) -> None:
+        extract = [
+            *colmap, "feature_extractor",
+            "--database_path", str(db),
+            "--image_path", str(images),
+            "--ImageReader.single_camera", "1",
+            "--ImageReader.camera_model", "OPENCV",
+            "--FeatureExtraction.use_gpu", gpu,
+        ]
+        if use_aliked:
+            extract += [
+                "--FeatureExtraction.type", "ALIKED_N16ROT",
+                "--AlikedExtraction.max_num_features", str(ALIKED_MAX_FEATURES),
+                "--AlikedExtraction.n16rot_model_path",
+                str(Path(COLMAP_MODELS_DIR) / "aliked-n16rot.onnx"),
+            ]
+        else:
+            extract += [
+                "--SiftExtraction.max_num_features", str(COLMAP_MAX_FEATURES),
+                "--SiftExtraction.peak_threshold", "0.004",
+                "--SiftExtraction.edge_threshold", "16",
+            ]
+        if mask_dir is not None:
+            extract += ["--ImageReader.mask_path", str(mask_dir)]
+        _run(*extract)
 
-    # Sequential matching (ordered video frames + a window) — the macOS recipe.
-    # On a turntable, EXHAUSTIVE matching tempts SfM with FALSE matches between
-    # look-alike opposite-angle frames — that's what folded the GLOMAP run into a
-    # confetti ball. Sequential keeps matches local and clean. (Exhaustive only
-    # for tiny, unordered sets.)
-    if frame_count >= 60:
-        matcher = [*colmap, "sequential_matcher", "--database_path", str(db),
-                   "--FeatureMatching.use_gpu", gpu,
-                   "--SequentialMatching.overlap", "20"]
+        # Sequential matching (ordered frames + a window): on a turntable, EXHAUSTIVE
+        # tempts SfM with false matches between look-alike opposite angles (the
+        # confetti ball). ALIKED features pair with the ALIKED+LightGlue matcher.
+        mtype = (["--FeatureMatching.type", "ALIKED_LIGHTGLUE",
+                  "--AlikedMatching.lightglue_model_path",
+                  str(Path(COLMAP_MODELS_DIR) / "aliked-lightglue.onnx")] if use_aliked else [])
+        if frame_count >= 60:
+            matcher = [*colmap, "sequential_matcher", "--database_path", str(db),
+                       "--FeatureMatching.use_gpu", gpu, *mtype,
+                       "--SequentialMatching.overlap", "20"]
+        else:
+            matcher = [*colmap, "exhaustive_matcher", "--database_path", str(db),
+                       "--FeatureMatching.use_gpu", gpu, *mtype]
+        _run(*matcher)
+
+    if SFM_FEATURES == "aliked":
+        try:
+            _extract_match(True)
+        except RuntimeError as e:
+            log.warning("ALIKED SfM failed; falling back to SIFT",
+                        scan_id=str(scan_id), error=str(e))
+            db.unlink(missing_ok=True)   # clear partial ALIKED db before the SIFT retry
+            _extract_match(False)
     else:
-        matcher = [*colmap, "exhaustive_matcher", "--database_path", str(db),
-                   "--FeatureMatching.use_gpu", gpu]
-    _run(*matcher)
+        _extract_match(False)
 
     # Incremental mapping — same COLMAP 4.0.4. Lenient registration thresholds
     # admit more of the marginal turntable views. Bundle adjustment is CPU/Ceres
     # unless COLMAP_BA_USE_GPU (rarely worth it at ~150 frames — see the constant).
-    mapper = [
-        *colmap, "mapper",
-        "--database_path", str(db),
-        "--image_path", str(images),
-        "--output_path", str(sparse),
-        "--Mapper.init_min_num_inliers", "50",
-        "--Mapper.abs_pose_min_num_inliers", "20",
-    ]
-    if COLMAP_BA_USE_GPU:
-        mapper += ["--Mapper.ba_use_gpu", "1"]
-    _run(*mapper)
+    if SFM_MAPPER == "global":
+        # GLOMAP global SfM (COLMAP 4.0 built-in) — estimates ALL poses at once
+        # (rotation averaging + global positioning + one final BA) instead of the
+        # incremental per-image loop, so the dense ALIKED+LightGlue matches that
+        # choke the incremental mapper for HOURS finish in minutes. Drop-in: writes a
+        # standard model to sparse/0. Two robustness steps for a dense single-object
+        # graph: refine the shared intrinsics from the view graph first (best-effort),
+        # and — only if global positioning collapses to a degenerate "cube" — thin the
+        # track set. NB COLMAP's global_mapper has NO max-tracks cap (the standalone
+        # GLOMAP `TrackEstablishment.max_num_tracks` is rejected); the exposed lever is
+        # the MINIMUM VIEWS PER TRACK (keep only well-supported tracks → fewer tracks).
+        try:
+            _run(*colmap, "view_graph_calibrator", "--database_path", str(db))
+        except RuntimeError as e:  # best-effort — global_mapper self-calibrates otherwise
+            log.warning("view_graph_calibrator failed; continuing",
+                        scan_id=str(scan_id), error=str(e))
+        mapper = [*colmap, "global_mapper",
+                  "--database_path", str(db),
+                  "--image_path", str(images),
+                  "--output_path", str(sparse)]
+        if GLOMAP_MIN_VIEWS_PER_TRACK > 0:   # fewer, better-supported tracks → avoids the "cube"
+            mapper += ["--GlobalMapper.track_min_num_views_per_track",
+                       str(GLOMAP_MIN_VIEWS_PER_TRACK)]
+        _run(*mapper)
+    else:
+        mapper = [
+            *colmap, "mapper",
+            "--database_path", str(db),
+            "--image_path", str(images),
+            "--output_path", str(sparse),
+            "--Mapper.init_min_num_inliers", "50",
+            "--Mapper.abs_pose_min_num_inliers", "20",
+        ]
+        if COLMAP_BA_USE_GPU:
+            mapper += ["--Mapper.ba_use_gpu", "1"]
+        _run(*mapper)
 
     # COLMAP can split a hard scene into several sub-models (sparse/0, sparse/1,
     # …); keep the one with the most registered images, collapsed to sparse/0
