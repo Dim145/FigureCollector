@@ -229,15 +229,6 @@ export default function AddFigurePage() {
         </Card>
         </div>
 
-        {/* Quiet ukiyo-e wave veil closing the page — static gradient, ~0 GPU. */}
-        <div
-          aria-hidden
-          className="seigaiha mt-16 h-16 opacity-50"
-          style={{
-            maskImage: "linear-gradient(#000, transparent)",
-            WebkitMaskImage: "linear-gradient(#000, transparent)",
-          }}
-        />
       </main>
       <ConfirmDialog
         open={!!pendingNsfwPayload}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useT } from "../i18n/index.jsx";
 import { api, ApiError } from "../lib/api.js";
 import {
@@ -504,7 +505,7 @@ function OrzgkDetailModal({ url, detail, busy, error, onClose, onApply, t }) {
     onApply(buildPick(detail, selectedVersion, selectedPrice));
   };
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal
@@ -641,7 +642,8 @@ function OrzgkDetailModal({ url, detail, busy, error, onClose, onApply, t }) {
           </Button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -944,7 +946,7 @@ function MfcPasteModal({ open, onClose, onApply, t }) {
       ].filter(([, v]) => !!v)
     : [];
 
-  return (
+  return createPortal(
     <div
       role="dialog"
       aria-modal
@@ -953,7 +955,7 @@ function MfcPasteModal({ open, onClose, onApply, t }) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-[var(--color-noir-soft)] border border-[var(--color-or)]/40 w-[95vw] max-w-lg flex flex-col frame-corners"
+        className="bg-[var(--color-noir-soft)] border border-[var(--color-or)]/40 w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col frame-corners"
         style={{ boxShadow: "0 60px 120px -50px rgba(0,0,0,0.85)" }}
       >
         <header className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--color-or)]/20">
@@ -980,7 +982,7 @@ function MfcPasteModal({ open, onClose, onApply, t }) {
                 value={html}
                 onChange={(e) => setHtml(e.target.value)}
                 placeholder={t("mfc.textarea_ph")}
-                className="w-full h-40 resize-none bg-[var(--color-noir-deep)] border border-[var(--color-or)]/22 text-[var(--color-ivoire-soft)] font-mono text-[11px] p-2.5 outline-none focus:border-[var(--color-or)]"
+                className="w-full h-72 resize-y bg-[var(--color-noir-deep)] border border-[var(--color-or)]/22 text-[var(--color-ivoire-soft)] font-mono text-[11px] p-2.5 outline-none focus:border-[var(--color-or)]"
               />
               {error ? (
                 <p role="alert" className="mt-2 text-xs text-[var(--color-laque-bright)]">
@@ -1023,7 +1025,8 @@ function MfcPasteModal({ open, onClose, onApply, t }) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

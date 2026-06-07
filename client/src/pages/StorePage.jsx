@@ -387,16 +387,6 @@ export default function StorePage() {
           )}
         </section>
 
-        {/* Quiet ukiyo-e wave veil closing the boutique — static gradient,
-            mask-faded, ~0 GPU. Mirrors the Direction A page foot (SettingsPage). */}
-        <div
-          aria-hidden
-          className="seigaiha mt-16 h-16 opacity-50"
-          style={{
-            maskImage: "linear-gradient(#000, transparent)",
-            WebkitMaskImage: "linear-gradient(#000, transparent)",
-          }}
-        />
       </main>
 
       {imageUrl ? (

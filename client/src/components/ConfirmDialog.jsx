@@ -1,4 +1,5 @@
 import { useId, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useFocusTrap } from "../hooks/useFocusTrap.js";
 import { useT } from "../i18n/index.jsx";
 import Button from "./Button.jsx";
@@ -44,7 +45,7 @@ export default function ConfirmDialog({
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div role="dialog" aria-modal="true" onClick={onCancel} className="fig-pop">
       <div
         ref={ref}
@@ -81,6 +82,7 @@ export default function ConfirmDialog({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -203,15 +203,6 @@ export default function AdminStoresPage() {
         </div>
       )}
 
-      {/* Quiet ukiyo-e wave veil closing the section — static gradient, ~0 GPU. */}
-      <div
-        aria-hidden
-        className="seigaiha mt-14 h-14 opacity-50"
-        style={{
-          maskImage: "linear-gradient(#000, transparent)",
-          WebkitMaskImage: "linear-gradient(#000, transparent)",
-        }}
-      />
     </section>
   );
 }

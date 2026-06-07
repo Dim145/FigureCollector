@@ -521,15 +521,6 @@ function Shell({ t, children }) {
         {children}
       </main>
 
-      {/* Seigaiha wave veil at the foot — quiet, mask-faded (GPU-light). */}
-      <div
-        aria-hidden
-        className="seigaiha pointer-events-none absolute inset-x-0 bottom-0 h-28 opacity-50"
-        style={{
-          maskImage: "linear-gradient(transparent, #000)",
-          WebkitMaskImage: "linear-gradient(transparent, #000)",
-        }}
-      />
     </div>
   );
 }
