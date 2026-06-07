@@ -148,7 +148,7 @@ export default function TurntableCapture({ onComplete }) {
             type="button"
             onClick={finish}
             disabled={frames.length < 6}
-            className="px-5 py-3 bg-[var(--color-or)] text-[var(--color-noir)] text-[11px] uppercase tracking-[0.18em] disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-5 py-3 bg-[var(--color-laque)] text-[var(--color-ivoire)] text-[11px] uppercase tracking-[0.18em] disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {t("turntable.save")}
           </button>

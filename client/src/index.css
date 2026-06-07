@@ -224,7 +224,7 @@
   contain: strict;
 }
 [data-theme="light"] .aurora-bg {
-  --aurora-opacity: 0.36;
+  --aurora-opacity: 0.22;
 }
 /* STATIC colour mesh — intentionally NOT animated, NOT blurred, NOT blended.
  * The previous aurora drifted four blurred, screen-blended layers every frame,

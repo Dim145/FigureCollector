@@ -270,7 +270,7 @@ export default function TurntableVideo({ onComplete, gsplat = false }) {
                 type="button"
                 onClick={sendVideoOnly}
                 disabled={busy}
-                className="px-5 py-3 bg-[var(--color-or)] text-[var(--color-noir)] text-[11px] uppercase tracking-[0.18em] disabled:opacity-40"
+                className="px-5 py-3 bg-[var(--color-laque)] text-[var(--color-ivoire)] text-[11px] uppercase tracking-[0.18em] disabled:opacity-40"
               >
                 {t("turntable.video.send")}
               </button>
@@ -303,7 +303,7 @@ export default function TurntableVideo({ onComplete, gsplat = false }) {
                   type="button"
                   disabled={frames.length < 6}
                   onClick={() => onComplete(frames, file)}
-                  className="px-5 py-3 bg-[var(--color-or)] text-[var(--color-noir)] text-[11px] uppercase tracking-[0.18em] disabled:opacity-40"
+                  className="px-5 py-3 bg-[var(--color-laque)] text-[var(--color-ivoire)] text-[11px] uppercase tracking-[0.18em] disabled:opacity-40"
                 >
                   {/* For 3D, make it explicit the video ships with the frames. */}
                   {gsplat ? t("turntable.video.save_with_video") : t("turntable.save")}

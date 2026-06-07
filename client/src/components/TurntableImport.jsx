@@ -109,7 +109,7 @@ export default function TurntableImport({ onComplete }) {
               type="button"
               disabled={frames.length < 6}
               onClick={() => onComplete(frames)}
-              className="px-5 py-3 bg-[var(--color-or)] text-[var(--color-noir)] text-[11px] uppercase tracking-[0.18em] disabled:opacity-40"
+              className="px-5 py-3 bg-[var(--color-laque)] text-[var(--color-ivoire)] text-[11px] uppercase tracking-[0.18em] disabled:opacity-40"
             >
               {t("turntable.save")}
             </button>

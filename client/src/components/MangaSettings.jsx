@@ -430,7 +430,7 @@ function PickerForm({ t, currentSlug, canCancel, onDone }) {
             value={newUrl}
             onChange={(e) => setNewUrl(e.target.value)}
             placeholder={t("settings.manga.field.url_ph")}
-            className="mt-1.5 w-full bg-[var(--color-noir)] border border-[color-mix(in_oklab,var(--color-or)_25%,transparent)] px-3 py-2 text-[12px] font-mono text-[var(--color-ivoire)] outline-none focus:border-[var(--color-indigo)]"
+            className="mt-1.5 w-full bg-[var(--color-noir)] border border-[color-mix(in_oklab,var(--color-or)_25%,transparent)] px-3 py-2 text-[12px] font-mono text-[var(--color-ivoire)] outline-none focus:border-[var(--color-or)]"
           />
         </label>
       ) : null}
@@ -443,7 +443,7 @@ function PickerForm({ t, currentSlug, canCancel, onDone }) {
           value={slug}
           onChange={(e) => setSlug(e.target.value)}
           placeholder={t("settings.manga.field.slug_ph")}
-          className="mt-1.5 w-full max-w-xs bg-[var(--color-noir)] border border-[color-mix(in_oklab,var(--color-or)_25%,transparent)] px-3 py-2 text-[12px] font-mono text-[var(--color-ivoire)] outline-none focus:border-[var(--color-indigo)]"
+          className="mt-1.5 w-full max-w-xs bg-[var(--color-noir)] border border-[color-mix(in_oklab,var(--color-or)_25%,transparent)] px-3 py-2 text-[12px] font-mono text-[var(--color-ivoire)] outline-none focus:border-[var(--color-or)]"
         />
       </label>
 
