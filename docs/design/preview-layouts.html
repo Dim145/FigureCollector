@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FigureCollector — P4 : moments de layout signature (previews)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..600&family=Instrument+Sans:wght@400..600&family=JetBrains+Mono:wght@300..500&family=Noto+Serif+JP:wght@300..500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --noir: oklch(0.14 0.005 50);
+    --noir-soft: oklch(0.19 0.008 50);
+    --noir-deep: oklch(0.10 0.004 50);
+    --laque: oklch(0.42 0.16 25);
+    --laque-bright: oklch(0.62 0.19 25);
+    --or: oklch(0.78 0.10 80);
+    --or-pale: oklch(0.88 0.06 80);
+    --or-deep: oklch(0.60 0.10 80);
+    --ember: oklch(0.66 0.14 52);
+    --ivoire: oklch(0.92 0.03 75);
+    --ivoire-soft: oklch(0.92 0.03 75 / 0.8);
+    --display: "Fraunces", Georgia, serif;
+    --sans: "Instrument Sans", system-ui, sans-serif;
+    --mono: "JetBrains Mono", monospace;
+    --ja: "Noto Serif JP", serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--noir);
+    color: var(--ivoire);
+    font-family: var(--sans);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  /* warm aurora (post-P1) */
+  body::before {
+    content: ""; position: fixed; inset: -12%; z-index: 0; pointer-events: none; opacity: 0.5;
+    background:
+      radial-gradient(38vmax 38vmax at 8% -8%, var(--or), transparent 70%),
+      radial-gradient(34vmax 34vmax at 92% 2%, var(--ember), transparent 72%),
+      radial-gradient(36vmax 36vmax at 14% 108%, var(--laque), transparent 72%),
+      radial-gradient(28vmax 28vmax at 96% 100%, var(--or-deep), transparent 68%);
+  }
+  .wrap { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 0 28px; }
+
+  /* ── doc header ── */
+  .doc-head { padding: 64px 0 28px; }
+  .kicker { font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--or-pale); display: flex; align-items: center; gap: 10px; }
+  .diamond { width: 5px; height: 5px; background: var(--laque-bright); transform: rotate(45deg); display: inline-block; }
+  .doc-title { font-family: var(--display); font-weight: 300; font-size: clamp(2.4rem, 5vw, 3.4rem); line-height: 1; margin: 14px 0 10px; letter-spacing: -0.02em; }
+  .doc-title em { font-style: italic; color: var(--laque-bright); }
+  .doc-sub { font-family: var(--display); font-style: italic; color: var(--or); font-size: 1.05rem; max-width: 40rem; }
+  .gold-rule { height: 1px; background: linear-gradient(90deg, var(--or), transparent); width: 8rem; margin: 18px 0; }
+
+  /* ── concept frame ── */
+  .concept { margin: 0 0 84px; }
+  .concept-tag { display: inline-flex; align-items: baseline; gap: 12px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ivoire); margin-bottom: 6px; }
+  .concept-tag b { font-family: var(--display); font-style: italic; font-weight: 400; font-size: 1.5rem; letter-spacing: 0; text-transform: none; color: var(--ivoire); }
+  .concept-num { color: var(--laque-bright); font-family: var(--display); font-size: 1.5rem; font-style: italic; }
+  .concept-note { color: var(--ivoire-soft); font-size: 13px; max-width: 52rem; margin: 0 0 22px; }
+  .stage {
+    position: relative; border: 1px solid color-mix(in oklab, var(--or) 18%, transparent);
+    background: linear-gradient(180deg, color-mix(in oklab, var(--noir-soft) 92%, transparent), var(--noir-deep));
+    padding: 0; overflow: hidden;
+  }
+  .micro { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--or-pale); }
+  .micro-dim { color: color-mix(in oklab, var(--ivoire) 60%, transparent); }
+
+  /* photo-well placeholder (a lit specimen) */
+  .well { position: relative; overflow: hidden; background: var(--noir-deep); }
+  .well::before { /* stage light in the type hue */
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(60% 55% at 30% 22%, color-mix(in oklab, var(--hue, var(--or)) 22%, transparent), transparent 70%);
+  }
+  .well::after { /* foot vignette */
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(180deg, transparent 55%, color-mix(in oklab, var(--noir-deep) 85%, transparent));
+  }
+  .well .ja-mark { position: absolute; right: -0.1em; bottom: -0.18em; font-family: var(--ja); font-size: 13rem; line-height: 1; color: color-mix(in oklab, var(--hue, var(--or)) 12%, transparent); }
+  .well svg { position: relative; z-index: 1; }
+  .plaque { position: absolute; top: 14px; left: 14px; z-index: 2; display: inline-flex; align-items: center; gap: 7px;
+    background: linear-gradient(180deg, var(--or-pale), var(--or-deep)); color: var(--noir); padding: 4px 9px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; box-shadow: 0 2px 8px -3px rgba(0,0,0,.6); }
+  .plaque .ja { font-family: var(--ja); font-size: 13px; }
+  .inscription { position: absolute; left: 14px; bottom: 12px; z-index: 2; font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; color: var(--ivoire-soft); display: flex; gap: 12px; }
+  .pill { display: inline-flex; align-items: center; gap: 8px; background: var(--laque); color: var(--ivoire); border-radius: 999px; padding: 9px 22px; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; border: 0; }
+  .pill.ghost { background: transparent; color: var(--ivoire); border: 1px solid color-mix(in oklab, var(--or) 40%, transparent); }
+
+  /* ── Concept 1 — À la une ── */
+  .laune { display: grid; grid-template-columns: 1.15fr 1fr; gap: 0; min-height: 460px; }
+  .laune .well { --hue: var(--laque-bright); }
+  .laune .cap { padding: 40px 38px; display: flex; flex-direction: column; justify-content: center; position: relative; }
+  .laune .cap-kanji { position: absolute; top: 18px; right: 26px; font-family: var(--ja); font-size: 4rem; color: color-mix(in oklab, var(--or) 16%, transparent); }
+  .feat-name { font-family: var(--display); font-weight: 300; font-size: clamp(2rem, 3vw, 2.9rem); line-height: 1.02; letter-spacing: -0.02em; margin: 10px 0 4px; }
+  .feat-name em { font-style: italic; color: var(--laque-bright); }
+  .feat-maker { font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--or-pale); }
+  .feat-quote { font-family: var(--display); font-style: italic; font-size: 1.15rem; color: var(--ivoire-soft); margin: 22px 0; border-left: 2px solid color-mix(in oklab, var(--or) 35%, transparent); padding-left: 16px; }
+  .feat-specs { display: flex; gap: 26px; font-family: var(--mono); font-size: 11px; color: var(--ivoire-soft); margin-bottom: 26px; }
+  .feat-specs b { display: block; color: var(--ivoire); font-size: 14px; font-family: var(--display); }
+  .feat-cta { display: flex; gap: 12px; }
+  /* the under-grid strip */
+  .undergrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: color-mix(in oklab, var(--or) 14%, transparent); border-top: 1px solid color-mix(in oklab, var(--or) 14%, transparent); }
+  .mini { background: var(--noir-soft); aspect-ratio: 3/4; position: relative; }
+  .mini .well { position: absolute; inset: 0; }
+
+  /* ── Concept 2 — spread éditorial ── */
+  .spread { display: grid; grid-template-columns: 1.3fr 1fr; min-height: 540px; }
+  .spread .well { --hue: oklch(0.72 0.13 175); } /* scale = jade type-hue (per-type kept) */
+  .spread .feature { padding: 46px 40px 40px; position: relative; display: flex; flex-direction: column; }
+  .spread .eyebrow { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--or-pale); }
+  .spread h2 { font-family: var(--display); font-weight: 300; font-size: clamp(2.4rem, 3.6vw, 3.6rem); line-height: 0.98; letter-spacing: -0.025em; margin: 12px 0 0; }
+  .spread h2 em { font-style: italic; color: var(--laque-bright); }
+  .spread .lede { font-family: var(--display); font-style: italic; font-size: 1.45rem; line-height: 1.4; color: var(--ivoire-soft); margin: 28px 0; }
+  .spread .lede::first-letter { font-size: 2.4em; float: left; line-height: 0.8; padding: 4px 10px 0 0; color: var(--or); }
+  .spread .specrail { margin-top: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 0; border-top: 1px solid color-mix(in oklab, var(--or) 18%, transparent); }
+  .spread .specrail div { padding: 12px 0; border-bottom: 1px solid color-mix(in oklab, var(--or) 10%, transparent); }
+  .spread .specrail dt { font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--or-pale); }
+  .spread .specrail dd { font-family: var(--display); font-size: 1.05rem; margin-top: 3px; }
+  .spread .lotstamp { position: absolute; top: 40px; right: 40px; border: 1px solid color-mix(in oklab,var(--or) 30%, transparent); padding: 6px 10px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; color: var(--or-pale); text-align: center; }
+
+  /* ── Concept 3 — diorama (shelf) ── */
+  .diorama { padding: 0; }
+  .diorama .top { padding: 26px 34px 0; display: flex; align-items: flex-end; justify-content: space-between; }
+  .diorama h3 { font-family: var(--display); font-weight: 300; font-size: 2.2rem; }
+  .diorama h3 em { font-style: italic; color: var(--laque-bright); }
+  .nameplate { background: linear-gradient(180deg, var(--or-pale), var(--or-deep)); color: var(--noir); padding: 5px 12px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; }
+  .shelf { position: relative; margin: 30px 34px 40px; height: 320px; }
+  .shelf .plane { position: absolute; left: 0; right: 0; bottom: 0; height: 64px;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--or) 14%, transparent), color-mix(in oklab, var(--noir-deep) 90%, transparent));
+    border-top: 2px solid color-mix(in oklab, var(--or) 45%, transparent);
+    transform: perspective(700px) rotateX(46deg); transform-origin: bottom; box-shadow: 0 -30px 60px -30px color-mix(in oklab, var(--or) 30%, transparent); }
+  .shelf .topglow { position: absolute; left: 10%; right: 10%; top: -10px; height: 60px; background: radial-gradient(60% 100% at 50% 0, color-mix(in oklab, var(--or-pale) 40%, transparent), transparent 75%); filter: blur(6px); }
+  .shelf .specimen { position: absolute; bottom: 40px; }
+  .shelf .specimen svg { filter: drop-shadow(0 18px 12px rgba(0,0,0,.6)); }
+  .shelf .s1 { left: 6%; }
+  .shelf .s2 { left: 30%; bottom: 44px; }
+  .shelf .s3 { left: 55%; }
+  .shelf .s4 { left: 80%; bottom: 42px; }
+  .shelf .shadow { position: absolute; bottom: 38px; width: 70px; height: 10px; background: radial-gradient(ellipse, rgba(0,0,0,.55), transparent 70%); }
+
+  .legend { font-family: var(--mono); font-size: 11px; color: var(--ivoire-soft); padding: 14px 0 70px; border-top: 1px solid color-mix(in oklab,var(--or) 12%, transparent); margin-top: 30px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="doc-head">
+      <p class="kicker"><span class="diamond"></span> FIGURECOLLECTOR · PROPOSITION P4 <span class="ja" style="font-family:var(--ja);color:var(--or)">案</span> APERÇUS</p>
+      <h1 class="doc-title"><em>Moments</em> de layout signature</h1>
+      <div class="gold-rule"></div>
+      <p class="doc-sub">Trois façons de casser l'uniformité du template (header → strip → grille) par des temps forts éditoriaux — sans toucher à l'identité A. Maquettes statiques, à valider avant implémentation.</p>
+    </header>
+
+    <!-- CONCEPT 1 -->
+    <section class="concept">
+      <p class="concept-tag"><span class="concept-num">I.</span> <b>« À la une »</b> — pièce mise en avant en tête de Collection</p>
+      <p class="concept-note">La grille s'ouvre sur UNE pièce (dernière acquisition, ou épinglée) en grand, en composition asymétrique : grande photo éclairée + cartouche éditorial (nom, fabricant, note, specs, date). La grille normale reprend juste en dessous. Le regard a enfin un point focal avant la mosaïque.</p>
+      <div class="stage">
+        <div class="laune">
+          <div class="well">
+            <span class="ja-mark">像</span>
+            <div style="display:grid;place-items:center;height:100%;padding:30px">
+              <svg viewBox="0 0 120 170" width="190" height="270" fill="none" stroke="color-mix(in oklab, var(--ivoire) 55%, transparent)" stroke-width="1.1"><ellipse cx="60" cy="160" rx="40" ry="5" fill="color-mix(in oklab,var(--or) 25%,transparent)" stroke="none"/><circle cx="60" cy="44" r="22"/><path d="M30 120 Q60 100 90 120 L98 152 Q60 162 22 152 Z"/><path d="M34 58 Q34 16 60 12 Q86 16 86 58 Q72 38 60 40 Q48 38 34 58 Z" fill="color-mix(in oklab,var(--laque-bright) 25%,transparent)" stroke="none"/><path d="M30 122 l-12 26 M90 122 l12 26"/></svg>
+            </div>
+            <span class="plaque"><span class="ja">像</span> SCALE</span>
+            <span class="inscription"><span>n° 019E5B93</span><span>1/6</span></span>
+          </div>
+          <div class="cap">
+            <span class="cap-kanji" style="font-family:var(--ja)">新</span>
+            <p class="feat-maker">◆ Dernière acquisition · le 04 juin</p>
+            <h2 class="feat-name"><em>Frieren</em> — Beyond Journey's End</h2>
+            <p class="feat-maker" style="margin-top:6px">Neta Studio · Statue 1/6</p>
+            <p class="feat-quote">« Le clou de la vitrine ce mois-ci — la pièce qui a fait craquer la cible. »</p>
+            <div class="feat-specs">
+              <span>Payé<b>112 €</b></span>
+              <span>Échelle<b>1/6</b></span>
+              <span>État<b>MIB</b></span>
+            </div>
+            <div class="feat-cta"><button class="pill">Voir la fiche</button><button class="pill ghost">Épingler</button></div>
+          </div>
+        </div>
+        <div class="undergrid">
+          <div class="mini"><div class="well" style="--hue:oklch(0.74 0.16 350)"><span class="plaque" style="font-size:8px;padding:2px 6px"><span class="ja">童</span></span></div></div>
+          <div class="mini"><div class="well" style="--hue:oklch(0.68 0.13 50)"><span class="plaque" style="font-size:8px;padding:2px 6px"><span class="ja">彫</span></span></div></div>
+          <div class="mini"><div class="well" style="--hue:oklch(0.72 0.18 45)"><span class="plaque" style="font-size:8px;padding:2px 6px"><span class="ja">組</span></span></div></div>
+          <div class="mini"><div class="well" style="--hue:oklch(0.72 0.13 175)"><span class="plaque" style="font-size:8px;padding:2px 6px"><span class="ja">像</span></span></div></div>
+        </div>
+      </div>
+      <p class="legend">→ Touche : CollectionPage (+ Vitrine/Profil). Réutilise FigureCard pour la grille ; le bloc « à la une » est un nouveau composant. Risque faible.</p>
+    </section>
+
+    <!-- CONCEPT 2 -->
+    <section class="concept">
+      <p class="concept-tag"><span class="concept-num">II.</span> <b>« Spread éditorial »</b> — fiche figurine façon double-page magazine</p>
+      <p class="concept-note">La fiche actuelle (photo + données côte à côte) devient une vraie page-feature : photo pleine hauteur éclairée de la teinte du type, titre géant qui chevauche, description en lettrine + capitale, specs réduites à un fin rail à filets. Plus « article » que « fiche technique ».</p>
+      <div class="stage">
+        <div class="spread">
+          <div class="well">
+            <span class="ja-mark">像</span>
+            <div style="display:grid;place-items:center;height:100%;padding:40px">
+              <svg viewBox="0 0 120 175" width="220" height="320" fill="none" stroke="color-mix(in oklab, var(--ivoire) 55%, transparent)" stroke-width="1"><ellipse cx="60" cy="164" rx="42" ry="5" fill="color-mix(in oklab,var(--or) 22%,transparent)" stroke="none"/><circle cx="60" cy="42" r="22"/><path d="M28 122 Q60 100 92 122 L100 156 Q60 166 20 156 Z"/><path d="M32 56 Q32 14 60 10 Q88 14 88 56 Q74 36 60 38 Q46 36 32 56 Z" fill="color-mix(in oklab,oklch(0.72 0.13 175) 28%,transparent)" stroke="none"/></svg>
+            </div>
+            <span class="plaque"><span class="ja">像</span> SCALE</span>
+          </div>
+          <div class="feature">
+            <span class="lotstamp">LOT<br>019E5B93</span>
+            <p class="eyebrow">◆ La pièce 像 · neta studio</p>
+            <h2><em>Frieren</em><br>& Mimic</h2>
+            <p class="lede">Une mise en scène figée du moment où l'aventure bascule — sculptée au 1/6, capturée sous un éclairage de vitrine.</p>
+            <dl class="specrail">
+              <div><dt>Fabricant</dt><dd>Neta Studio</dd></div>
+              <div><dt>Échelle</dt><dd>1/6</dd></div>
+              <div><dt>Matériau</dt><dd>PVC · ABS</dd></div>
+              <div><dt>Sortie</dt><dd>2025</dd></div>
+            </dl>
+            <div class="feat-cta" style="margin-top:24px"><button class="pill">Ajouter à ma collection</button></div>
+          </div>
+        </div>
+      </div>
+      <p class="legend">→ Touche : FigureDetailPage / FigureHero. Garde la galerie + le formulaire d'ajout ; ré-orchestre le haut de page. Risque moyen (page la plus dense).</p>
+    </section>
+
+    <!-- CONCEPT 3 -->
+    <section class="concept">
+      <p class="concept-tag"><span class="concept-num">III.</span> <b>« Le diorama »</b> — vitrine présentée comme une étagère éclairée</p>
+      <p class="concept-note">Une vitrine (meuble) rendue comme une vraie étagère en perspective : tablette en bois/laque, figurines posées dessus avec ombres + lumière du haut, plaque en laiton. Un moment tactile de « cabinet » au lieu d'une grille plate — pour la page Vitrines.</p>
+      <div class="stage diorama">
+        <div class="top">
+          <h3><em>Detolf</em> · Salon</h3>
+          <span class="nameplate">棚 · 4 pièces rangées</span>
+        </div>
+        <div class="shelf">
+          <div class="topglow"></div>
+          <div class="shadow s1" style="left:6%"></div><div class="shadow s2" style="left:30%"></div><div class="shadow s3" style="left:55%"></div><div class="shadow s4" style="left:80%"></div>
+          <div class="specimen s1"><svg viewBox="0 0 80 130" width="90" height="146" fill="none" stroke="color-mix(in oklab,var(--ivoire) 50%,transparent)" stroke-width="1"><circle cx="40" cy="34" r="15"/><path d="M18 92 Q40 78 62 92 L68 116 Q40 124 12 116 Z" fill="color-mix(in oklab,oklch(0.74 0.16 350) 22%,transparent)" stroke="none"/><path d="M18 92 Q40 78 62 92 L68 116 Q40 124 12 116 Z"/></svg></div>
+          <div class="specimen s2"><svg viewBox="0 0 80 150" width="86" height="160" fill="none" stroke="color-mix(in oklab,var(--ivoire) 50%,transparent)" stroke-width="1"><circle cx="40" cy="30" r="14"/><path d="M20 108 Q40 92 60 108 L66 134 Q40 142 14 134 Z" fill="color-mix(in oklab,oklch(0.72 0.13 175) 22%,transparent)" stroke="none"/><path d="M20 108 Q40 92 60 108 L66 134 Q40 142 14 134 Z"/></svg></div>
+          <div class="specimen s3"><svg viewBox="0 0 80 140" width="92" height="150" fill="none" stroke="color-mix(in oklab,var(--ivoire) 50%,transparent)" stroke-width="1"><circle cx="40" cy="32" r="16"/><path d="M16 98 Q40 82 64 98 L70 126 Q40 134 10 126 Z" fill="color-mix(in oklab,var(--laque-bright) 22%,transparent)" stroke="none"/><path d="M16 98 Q40 82 64 98 L70 126 Q40 134 10 126 Z"/></svg></div>
+          <div class="specimen s4"><svg viewBox="0 0 80 124" width="84" height="138" fill="none" stroke="color-mix(in oklab,var(--ivoire) 50%,transparent)" stroke-width="1"><circle cx="40" cy="30" r="13"/><path d="M20 88 Q40 74 60 88 L66 112 Q40 120 14 112 Z" fill="color-mix(in oklab,oklch(0.72 0.18 45) 22%,transparent)" stroke="none"/><path d="M20 88 Q40 74 60 88 L66 112 Q40 120 14 112 Z"/></svg></div>
+          <div class="plane"></div>
+        </div>
+      </div>
+      <p class="legend">→ Touche : VitrinesPage (vue « étagère » en option, à côté de la grille). Le plus expressif / le plus risqué (perspective + placement). Risque plus élevé.</p>
+    </section>
+
+    <p class="legend" style="border:0">Maquettes statiques — aucune n'est encore en prod. Dis-moi laquelle(s) implémenter (I / II / III), ou ce qu'il faut ajuster.</p>
+  </div>
+</body>
+</html>
