@@ -1300,12 +1300,12 @@ kbd {
 
 @keyframes reveal {
   from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0);    }
+  to   { opacity: 1; transform: none;             }
 }
 
 @keyframes reveal-slow {
   from { opacity: 0; transform: translateY(28px); }
-  to   { opacity: 1; transform: translateY(0);    }
+  to   { opacity: 1; transform: none;             }
 }
 
 @keyframes drift {
@@ -1380,14 +1380,14 @@ kbd {
    cascade. Falls back gracefully if the wrapper doesn't set --i. */
 .reveal {
   opacity: 0;
-  animation: reveal 700ms var(--ease-curtain) forwards;
-  animation-delay: calc((var(--i, 0) * 70ms) + var(--delay, 60ms));
+  animation: reveal 520ms var(--ease-curtain) forwards;
+  animation-delay: calc((var(--i, 0) * 45ms) + var(--delay, 40ms));
 }
 
 .reveal-slow {
   opacity: 0;
-  animation: reveal-slow 1000ms var(--ease-curtain) forwards;
-  animation-delay: calc((var(--i, 0) * 90ms) + var(--delay, 80ms));
+  animation: reveal-slow 720ms var(--ease-curtain) forwards;
+  animation-delay: calc((var(--i, 0) * 55ms) + var(--delay, 55ms));
 }
 
 .drift {
@@ -3733,17 +3733,17 @@ html {
 /* ─── Hero — page title + subtitle + kanji watermark behind ─── */
 .horarium-hero {
   position: relative;
-  text-align: center;
-  padding: 3.5rem 1.5rem 2.5rem;
+  text-align: left;
+  padding: 1rem 0 2rem;
   margin-bottom: 2rem;
 }
 .horarium-hero::before {
   /* faint kanji watermark — 予 (yo, beforehand / pre-) — behind the title */
   content: "予";
   position: absolute;
-  top: -2rem;
-  left: 50%;
-  transform: translateX(-50%);
+  top: -3rem;
+  right: -1rem;
+  transform: none;
   font-family: var(--font-ja);
   font-size: clamp(14rem, 22vw, 22rem);
   line-height: 1;
@@ -3765,9 +3765,9 @@ html {
 .horarium-hero-title {
   position: relative;
   font-family: var(--font-display);
-  font-style: italic;
+  font-style: normal;
   font-weight: 300;
-  font-size: clamp(2.8rem, 6.5vw, 4.5rem);
+  font-size: clamp(2.6rem, 5.5vw, 3.75rem);
   letter-spacing: -0.02em;
   line-height: 0.95;
   color: var(--color-ivoire);
@@ -3775,7 +3775,7 @@ html {
 }
 .horarium-hero-rule {
   display: block;
-  margin: 1.6rem auto 0;
+  margin: 1.4rem 0 0;
   width: 6rem;
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--color-or), transparent);

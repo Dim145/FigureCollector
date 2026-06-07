@@ -109,7 +109,7 @@ export default function WishlistPage() {
 
   return (
     <AppShell>
-      <main className="relative max-w-6xl mx-auto px-6 py-16">
+      <main className="relative max-w-6xl mx-auto px-6 pt-8 pb-16">
         {/* Hero colour-wash — hanko-red leaning (desire) into gold (value),
             theme-aware via the accent vars, mask-faded at the column edges. */}
         <div
@@ -124,7 +124,7 @@ export default function WishlistPage() {
         />
 
         {/* ─── Editorial header ─── */}
-        <header className="relative mb-12">
+        <header className="relative mb-8">
           <span aria-hidden className="kanji-mark text-[24rem] -top-28 -right-6 hidden md:block select-none">
             望
           </span>
