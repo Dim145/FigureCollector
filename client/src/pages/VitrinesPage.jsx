@@ -521,6 +521,14 @@ function Cabinet({ id, name, loose, ids, itemMap, locale, registered, onDelete, 
           and pointer-inert — GPU-free. */}
       <span aria-hidden className="kanji-mark text-[7rem] -top-5 -right-1 select-none">{marker}</span>
       <GlassSheen />
+      {/* Display-case spotlight — a single warm lamp washing the shelf from
+          above, so the specimens read as lit on a stage (diorama feel). Static,
+          pointer-inert → GPU-free. */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -top-1 left-1/2 -translate-x-1/2 w-[78%] h-44 z-[1]"
+        style={{ background: "radial-gradient(58% 100% at 50% 0, color-mix(in oklab, var(--color-or) 15%, transparent), transparent 72%)" }}
+      />
 
       {/* Brass plaque — the cabinet's name + a kanji tag, over the front
           gold-rule shelf edge. */}
@@ -605,6 +613,9 @@ function SortableTile({ o, nsfwBlur, matchedIds, openItem }) {
         opacity: isDragging ? 0.35 : 1,
         borderColor: `color-mix(in oklab, ${hue} 26%, transparent)`,
         background: "radial-gradient(circle at 30% 18%, var(--color-noir-soft) 0%, var(--color-noir-deep) 60%)",
+        // Casts a soft shadow at its foot — the specimen "rests" on the glass
+        // shelf rather than floating in the grid.
+        boxShadow: "0 7px 11px -8px color-mix(in oklab, var(--color-noir-deep) 95%, transparent), inset 0 1px 0 color-mix(in oklab, var(--color-ivoire) 5%, transparent)",
       }}
       className={`group/spec relative aspect-[3/4] overflow-hidden border cursor-grab active:cursor-grabbing select-none ${isMatch ? "ring-2 ring-[var(--color-jade)] ring-offset-1 ring-offset-[var(--color-noir-deep)]" : ""}`}
     >
