@@ -308,7 +308,7 @@ export default function CotePage() {
                               type="button"
                               onClick={() => saveEdit(o)}
                               disabled={setValue.isPending}
-                              className="text-[10px] uppercase tracking-[0.12em] px-2.5 py-1 bg-[var(--color-or)] text-[var(--color-noir)]"
+                              className="text-[10px] uppercase tracking-[0.12em] px-2.5 py-1 bg-[var(--color-laque)] text-[var(--color-ivoire)] hover:bg-[var(--color-laque-bright)] transition-colors"
                             >
                               {t("editor.save")}
                             </button>
@@ -400,7 +400,7 @@ function EmptyState({ t }) {
       <p className="mt-3 text-[var(--color-ivoire-soft)] italic">{t("cote.empty")}</p>
       <Link
         to="/browse"
-        className="inline-block mt-5 px-5 py-3 bg-[var(--color-or)] text-[var(--color-noir)] text-[11px] uppercase tracking-[0.2em] hover:bg-[var(--color-or-pale)] transition-colors"
+        className="inline-block mt-5 px-5 py-3 bg-[var(--color-laque)] text-[var(--color-ivoire)] text-[11px] uppercase tracking-[0.2em] hover:bg-[var(--color-laque-bright)] transition-colors"
       >
         {t("cote.empty_cta")}
       </Link>

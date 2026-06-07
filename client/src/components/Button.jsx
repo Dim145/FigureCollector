@@ -5,6 +5,7 @@
  */
 export default function Button({
   variant = "primary",
+  size = "md",
   type = "button",
   disabled = false,
   loading = false,
@@ -13,7 +14,15 @@ export default function Button({
   ...props
 }) {
   const base =
-    "relative overflow-hidden inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full font-medium tracking-wide magnetic shimmer disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none";
+    "relative overflow-hidden inline-flex items-center justify-center gap-2 rounded-full font-medium tracking-wide magnetic shimmer disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none";
+
+  // `sm` is the compact form for inline editors / per-card action rows; `md`
+  // is the default page-level CTA. Per-call `className` still wins (it's last),
+  // so existing `!px-…` overrides keep working.
+  const sizes = {
+    md: "px-6 py-3",
+    sm: "px-4 py-2 text-[11px] tracking-[0.16em]",
+  };
 
   const variants = {
     primary:
@@ -26,7 +35,7 @@ export default function Button({
     <button
       type={type}
       disabled={disabled || loading}
-      className={`${base} ${variants[variant]} ${className}`}
+      className={`${base} ${sizes[size] ?? sizes.md} ${variants[variant]} ${className}`}
       {...props}
     >
       {loading ? <Spinner /> : null}

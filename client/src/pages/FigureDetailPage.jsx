@@ -1269,7 +1269,7 @@ function MissingState({ t, figureId }) {
       <div className="flex flex-col items-stretch gap-3">
         <Link
           to="/browse"
-          className="px-5 py-3 bg-[var(--color-or)] text-[var(--color-noir)] text-[11px] uppercase tracking-[0.2em] hover:bg-[var(--color-or-pale)] transition-colors"
+          className="px-5 py-3 bg-[var(--color-laque)] text-[var(--color-ivoire)] text-[11px] uppercase tracking-[0.2em] hover:bg-[var(--color-laque-bright)] transition-colors"
         >
           {t("figure.missing.cta_browse")}
         </Link>
@@ -1336,7 +1336,7 @@ function NsfwInterstitial({ t, figureId, onAcknowledge }) {
         <button
           type="button"
           onClick={onAcknowledge}
-          className="px-5 py-3 bg-[var(--color-or)] text-[var(--color-noir)] text-[11px] uppercase tracking-[0.2em] hover:bg-[var(--color-or-pale)] transition-colors"
+          className="px-5 py-3 bg-[var(--color-laque)] text-[var(--color-ivoire)] text-[11px] uppercase tracking-[0.2em] hover:bg-[var(--color-laque-bright)] transition-colors"
         >
           {t("nsfw.gate.cta_show")}
         </button>

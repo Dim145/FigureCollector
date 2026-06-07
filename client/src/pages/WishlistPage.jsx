@@ -329,22 +329,24 @@ function WishItem({
             style={{ border: "1px solid color-mix(in oklab, var(--color-or) 22%, transparent)" }}
           />
           <div className="flex gap-1.5">
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="sm"
               onClick={onSave}
               disabled={saving}
-              className="tap-target text-[10px] uppercase tracking-[0.14em] px-3 py-2 bg-[var(--color-or)] text-[var(--color-noir)] disabled:opacity-50"
+              loading={saving}
+              className="flex-1 uppercase"
             >
               {t("editor.save")}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onCancelEdit}
-              className="tap-target text-[10px] uppercase tracking-[0.14em] px-3 py-2 border text-[var(--color-ivoire-soft)] hover:text-[var(--color-ivoire)] transition-colors"
-              style={{ borderColor: "color-mix(in oklab, var(--color-or) 30%, transparent)" }}
+              className="uppercase"
             >
               {t("editor.cancel")}
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
@@ -404,10 +406,11 @@ function WishItem({
           <div className="mt-3 px-1 flex items-center gap-2">
             <Button
               variant="primary"
+              size="sm"
               onClick={onAcquire}
               disabled={acquiring}
               loading={acquiring}
-              className="flex-1 !px-4 !py-2 text-[11px] uppercase tracking-[0.16em]"
+              className="flex-1 uppercase"
             >
               {t("wishlist.acquire")}
             </Button>

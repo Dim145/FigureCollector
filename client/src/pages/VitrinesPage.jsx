@@ -365,7 +365,7 @@ export default function VitrinesPage() {
                     aria-label={t("vitrines.new_cabinet_ph")}
                     className="bg-transparent outline-none text-[var(--color-ivoire)] px-3 py-2.5 w-44"
                   />
-                  <button type="button" onClick={submitCreate} disabled={createLoc.isPending} className="tap-target px-3 self-stretch bg-[var(--color-or)] text-[var(--color-noir)] text-[11px] uppercase tracking-[0.16em] hover:bg-[var(--color-or-pale)] transition-colors disabled:opacity-60">
+                  <button type="button" onClick={submitCreate} disabled={createLoc.isPending} className="tap-target px-3 self-stretch bg-[var(--color-laque)] text-[var(--color-ivoire)] text-[11px] uppercase tracking-[0.16em] hover:bg-[var(--color-laque-bright)] transition-colors disabled:opacity-60">
                     {t("vitrines.create")}
                   </button>
                 </span>

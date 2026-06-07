@@ -79,7 +79,7 @@ export default function UpdateToast() {
           <button
             type="button"
             onClick={() => updateServiceWorker(true)}
-            className="bg-[var(--color-or)] text-[var(--color-noir)] px-4 py-2 text-[11px] uppercase tracking-[0.18em] hover:bg-[var(--color-or-pale)] transition-colors"
+            className="bg-[var(--color-laque)] text-[var(--color-ivoire)] px-4 py-2 text-[11px] uppercase tracking-[0.18em] hover:bg-[var(--color-laque-bright)] transition-colors"
           >
             {t("pwa.update.reload")}
           </button>
