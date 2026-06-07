@@ -251,7 +251,7 @@ function HeroSection({
         {typeKanji(f.figure_type)}
       </span>
 
-      <div className="relative max-w-7xl mx-auto px-6 pt-12 md:pt-16 grid lg:grid-cols-[1.1fr_1fr] gap-10 lg:gap-14 items-start">
+      <div className="relative max-w-7xl mx-auto px-6 pt-12 md:pt-16 grid lg:grid-cols-[1.2fr_1fr] gap-10 lg:gap-14 items-start">
         <FigureHero
           figure={f}
           ownedItemId={ownedRecord?.id ?? null}
@@ -301,7 +301,7 @@ function HeroSection({
             }`}
             style={{ "--i": 3 }}
           >
-            {f.name}
+            <AccentTitle text={f.name} />
             {f.version_name ? (
               <span className="fig-title-version">{f.version_name}</span>
             ) : null}
@@ -726,25 +726,63 @@ function parseDescription(text) {
   return { prose: prose.join("\n"), specs };
 }
 
+/** Decide how the description reads as a magazine feature. Scraped dumps are
+ *  noisy (source URLs, "Label: value" fragments), so a drop-cap lede is only
+ *  promoted when the opening line is genuinely prose; otherwise everything
+ *  renders as plain body. Source/URL lines are dropped either way. */
+function isLedeWorthy(line) {
+  if (!/^\p{L}/u.test(line)) return false;        // opens on a letter
+  if (line.split(/\s+/).length < 6) return false; // a sentence, not a label
+  if (/^.{0,24}[:：]/.test(line)) return false;    // "Source:" / "Label: value"
+  return true;
+}
+function splitDescription(prose) {
+  const lines = prose
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .filter((l) => {
+      if (/^(source|url|lien|link|via|réf|ref)\s*[:：]/i.test(l)) return false;
+      const urlLen = (l.match(/https?:\/\/\S+/g) || []).join("").length;
+      return urlLen <= l.length * 0.4;
+    });
+  if (lines.length === 0) return { lede: "", body: "" };
+  const first = lines[0];
+  if (!isLedeWorthy(first)) return { lede: "", body: lines.join("\n") };
+  if (lines.length > 1) return { lede: first, body: lines.slice(1).join("\n") };
+  if (first.length <= 240) return { lede: first, body: "" };
+  const cut = first.slice(0, 240);
+  const stop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? "));
+  const at = stop > 120 ? stop + 1 : 240;
+  return { lede: first.slice(0, at).trim(), body: first.slice(at).trim() };
+}
+
 function DescriptionBlock({ text, t, delay = 5 }) {
   const [expanded, setExpanded] = useState(false);
   const { prose, specs } = useMemo(() => parseDescription(text), [text]);
+  const { lede, body } = useMemo(() => splitDescription(prose), [prose]);
+  // A lede only exists when the opening line is prose-worthy → always drop-cap.
+  const dropCap = !!lede;
 
-  const isLong = prose.length > 240;
-  const display = !isLong || expanded ? prose : prose.slice(0, 220).trimEnd() + "…";
+  const isLong = body.length > 240;
+  const display = !isLong || expanded ? body : body.slice(0, 220).trimEnd() + "…";
 
   return (
     <div className="reveal mb-7" style={{ "--i": delay }}>
-      {/* `break-words` + `overflow-wrap: anywhere` keep imported
-       *  descriptions sane when they contain bare URLs or other unbreakable
-       *  tokens — those would otherwise extend the column's min-content past
-       *  its grid track's share. */}
-      {prose ? (
+      {/* Editorial lede — the magazine intro: italic display + gold drop-cap.
+       *  `break-words` + `overflow-wrap: anywhere` keep imported descriptions
+       *  with bare URLs from overflowing the grid track. */}
+      {lede ? (
+        <p className={`fig-lede break-words [overflow-wrap:anywhere] ${dropCap ? "fig-lede--cap" : ""}`}>
+          {lede}
+        </p>
+      ) : null}
+      {body ? (
         <p className="text-[var(--color-ivoire-soft)] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
           {display}
         </p>
       ) : null}
-      {prose && isLong ? (
+      {body && isLong ? (
         <button
           type="button"
           onClick={() => setExpanded((x) => !x)}
@@ -824,26 +862,15 @@ function HeadlineSpecs({ f, t, delay = 6 }) {
     },
   ].filter((r) => !!r.value);
   if (rows.length === 0) return null;
-  // Bordered 2-col spec grid (the mockup's `.specgrid`): a 1px gold-tinted
-  // gap over a noir backing forms the inner hairlines; each cell is a
-  // mono-caps label over a display-serif value. Same data + links as before.
+  // Thin filets rail (Concept II "Spread éditorial"): a top hairline + a bottom
+  // hairline per row, a mono-caps label over a display-serif value — an
+  // editorial spec list rather than a boxed grid. Same data + links as before.
   return (
-    <dl
-      className="grid grid-cols-2 gap-px reveal border border-[var(--color-or)]/15"
-      style={{
-        "--i": delay,
-        background: "color-mix(in oklab, var(--color-or) 12%, transparent)",
-      }}
-    >
+    <dl className="fig-specrail reveal" style={{ "--i": delay }}>
       {rows.map((r) => (
-        <div
-          key={r.label}
-          className="bg-[var(--color-noir-soft)] px-4 py-3.5 min-w-0"
-        >
-          <dt className="label-mono text-[var(--color-ivoire-soft)]/70">
-            {r.label}
-          </dt>
-          <dd className="display text-base text-[var(--color-ivoire)] mt-1.5 leading-tight truncate">
+        <div key={r.label}>
+          <dt>{r.label}</dt>
+          <dd>
             {r.href ? (
               <Link
                 to={r.href}

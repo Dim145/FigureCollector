@@ -3209,6 +3209,57 @@ html {
   line-height: 1.15;
 }
 
+/* ─── Concept II "Spread éditorial" — the figure hero reads as a magazine
+ *     feature: a drop-cap italic lede opens the notice, and the headline specs
+ *     collapse to a thin filets rail. Pure typography over the existing hero —
+ *     no new chrome, GPU-light. */
+.fig-lede {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: clamp(1.18rem, 1.9vw, 1.5rem);
+  line-height: 1.45;
+  color: var(--color-ivoire-soft);
+  margin: 0 0 1.1rem;
+  text-wrap: pretty;
+}
+.fig-lede--cap::first-letter {
+  font-style: normal;
+  font-size: 3.1em;
+  float: left;
+  line-height: 0.72;
+  padding: 0.08em 0.16em 0 0;
+  color: var(--color-or);
+}
+.fig-specrail {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 1.75rem;
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 22%, transparent);
+}
+.fig-specrail > div {
+  min-width: 0;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 12%, transparent);
+}
+.fig-specrail dt {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+}
+.fig-specrail dd {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  line-height: 1.2;
+  color: var(--color-ivoire);
+  margin-top: 0.2rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* ─── Action cluster — share, edit, delete, "..." menu in the hero corner.
  *     Small icon buttons in a horizontal row with a thin gold frame. */
 .fig-actions {
