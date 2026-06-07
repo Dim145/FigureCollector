@@ -177,7 +177,7 @@ export default function CollectionPage() {
           className="pointer-events-none absolute -top-24 left-0 right-0 h-[420px] -z-0"
           style={{
             background:
-              "radial-gradient(48% 65% at 16% 0%, color-mix(in oklab, var(--color-jade) 18%, transparent), transparent 70%), radial-gradient(46% 60% at 88% 8%, color-mix(in oklab, var(--color-or) 20%, transparent), transparent 72%), radial-gradient(40% 55% at 60% 30%, color-mix(in oklab, var(--color-neon-magenta) 9%, transparent), transparent 75%)",
+              "radial-gradient(48% 65% at 16% 0%, color-mix(in oklab, var(--color-ember) 18%, transparent), transparent 70%), radial-gradient(46% 60% at 88% 8%, color-mix(in oklab, var(--color-or) 20%, transparent), transparent 72%), radial-gradient(40% 55% at 60% 30%, color-mix(in oklab, var(--color-laque) 9%, transparent), transparent 75%)",
             // Feather the edges so the gradient fades instead of hard-cutting
             // at the content column (the vertical seam).
             WebkitMaskImage:

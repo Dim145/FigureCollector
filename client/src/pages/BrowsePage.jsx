@@ -181,7 +181,7 @@ export default function BrowsePage() {
           className="pointer-events-none absolute -top-24 left-0 right-0 h-[420px] -z-0"
           style={{
             background:
-              "radial-gradient(50% 70% at 12% 0%, color-mix(in oklab, var(--color-or) 22%, transparent), transparent 70%), radial-gradient(45% 60% at 85% 10%, color-mix(in oklab, var(--color-jade) 16%, transparent), transparent 72%), radial-gradient(40% 55% at 55% 30%, color-mix(in oklab, var(--color-indigo) 12%, transparent), transparent 75%)",
+              "radial-gradient(50% 70% at 12% 0%, color-mix(in oklab, var(--color-or) 22%, transparent), transparent 70%), radial-gradient(45% 60% at 85% 10%, color-mix(in oklab, var(--color-ember) 16%, transparent), transparent 72%), radial-gradient(40% 55% at 55% 30%, color-mix(in oklab, var(--color-laque) 12%, transparent), transparent 75%)",
             // Feather the edges so the gradient fades instead of hard-cutting
             // at the content column (the vertical seam).
             WebkitMaskImage:

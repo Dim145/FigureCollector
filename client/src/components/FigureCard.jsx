@@ -127,7 +127,7 @@ export default function FigureCard({
             alt={name}
             loading="lazy"
             decoding="async"
-            className={`absolute inset-0 w-full h-full object-contain p-6 transition-transform duration-700 ease-[var(--ease-curtain)] group-hover/card:scale-[1.04] z-[2] ${blurImage ? "nsfw-blur" : ""}`}
+            className={`absolute inset-0 w-full h-full object-contain p-3 transition-transform duration-700 ease-[var(--ease-curtain)] group-hover/card:scale-[1.04] z-[2] ${blurImage ? "nsfw-blur" : ""}`}
           />
         ) : (
           <FigurePlaceholder />

@@ -39,6 +39,7 @@
   --color-or: oklch(0.78 0.10 80);               /* gold lines */
   --color-or-pale: oklch(0.88 0.06 80);          /* gold text */
   --color-or-deep: oklch(0.60 0.10 80);          /* gold shadow */
+  --color-ember: oklch(0.66 0.14 52);            /* warm amber — aurora + washes */
   --color-ivoire: oklch(0.92 0.03 75);           /* primary text */
   --color-ivoire-soft: oklch(0.92 0.03 75 / 0.8); /* secondary text */
 
@@ -112,6 +113,7 @@
   --color-or: oklch(0.58 0.12 72);
   --color-or-pale: oklch(0.50 0.12 70);
   --color-or-deep: oklch(0.42 0.10 68);
+  --color-ember: oklch(0.58 0.13 50);
 
   /* Lacquer reads a touch deeper on light. */
   --color-laque: oklch(0.50 0.19 25);
@@ -246,12 +248,12 @@
 .aurora-blob.b2 {
   top: -8%;
   right: -16%;
-  background: radial-gradient(circle at 50% 50%, var(--color-jade), transparent 72%);
+  background: radial-gradient(circle at 50% 50%, var(--color-ember), transparent 72%);
 }
 .aurora-blob.b3 {
   bottom: -22%;
   left: 10%;
-  background: radial-gradient(circle at 50% 50%, var(--color-indigo), transparent 72%);
+  background: radial-gradient(circle at 50% 50%, var(--color-laque), transparent 72%);
 }
 .aurora-blob.b4 {
   bottom: -10%;
@@ -259,7 +261,7 @@
   width: 46vmax;
   height: 46vmax;
   opacity: 0.7;
-  background: radial-gradient(circle at 50% 50%, var(--color-neon-magenta), transparent 68%);
+  background: radial-gradient(circle at 50% 50%, var(--color-or-deep), transparent 68%);
 }
 @media (max-width: 768px) {
   .aurora-bg {
@@ -442,16 +444,16 @@ body::before {
 
 .micro {
   font-family: var(--font-sans);
-  font-size: 10.5px;
-  letter-spacing: 0.3em;
+  font-size: 11px;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--color-or-pale);
 }
 
 .micro-tight {
   font-family: var(--font-sans);
-  font-size: 9.5px;
-  letter-spacing: 0.22em;
+  font-size: 10px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--color-or-pale);
 }
@@ -1523,8 +1525,8 @@ textarea.vitrine-textarea:focus {
    eyebrow row of hero sections. */
 .label-mono {
   font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.22em;
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--color-or-pale);
 }
