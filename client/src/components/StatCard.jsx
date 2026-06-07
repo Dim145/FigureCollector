@@ -27,7 +27,7 @@ export default function StatCard({ label, value, sub, tone }) {
         {numeric ? <CountUp value={value} /> : value}
       </p>
       {sub ? (
-        <p className="text-[10px] tracking-wide text-[var(--color-ivoire-soft)]/55 mt-1.5">
+        <p className="text-[10px] tracking-wide text-[var(--color-ivoire-soft)]/70 mt-1.5">
           {sub}
         </p>
       ) : null}

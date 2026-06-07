@@ -173,7 +173,7 @@ export default function BrowsePage() {
 
   return (
     <AppShell>
-      <main className="relative max-w-7xl mx-auto px-6 py-16">
+      <main className="relative max-w-7xl mx-auto px-6 pt-8 pb-16">
         {/* Atmospheric colour wash behind the hero — gold→jade→indigo mesh,
             theme-aware via the accent vars. Pure decoration, GPU-cheap. */}
         <div
@@ -190,7 +190,7 @@ export default function BrowsePage() {
               "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
           }}
         />
-        <header className="relative mb-10">
+        <header className="relative mb-7">
           <span
             aria-hidden
             className="kanji-mark text-[26rem] -top-32 -right-10 hidden md:block"
@@ -203,7 +203,7 @@ export default function BrowsePage() {
                 {t("browse.subtitle")}
               </p>
               <h1
-                className="display text-6xl md:text-7xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
+                className="display text-5xl md:text-6xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
                 style={{ "--i": 1 }}
               >
                 {t("browse.title")}

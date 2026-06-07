@@ -169,7 +169,7 @@ export default function CollectionPage() {
 
   return (
     <AppShell>
-      <main className="relative max-w-7xl mx-auto px-6 py-16">
+      <main className="relative max-w-7xl mx-auto px-6 pt-8 pb-16">
         {/* Hero colour-wash — jade-leaning (the "gathered" gallery) over the
             global aurora. Theme-aware via the accent vars. */}
         <div
@@ -186,7 +186,7 @@ export default function CollectionPage() {
               "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
           }}
         />
-        <header className="relative mb-12">
+        <header className="relative mb-8">
           <span
             aria-hidden
             className="kanji-mark text-[26rem] -top-32 -right-10 hidden md:block"
@@ -198,7 +198,7 @@ export default function CollectionPage() {
             {t("collection.subtitle")}
           </p>
           <h1
-            className="display text-6xl md:text-7xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
+            className="display text-5xl md:text-6xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
             style={{ "--i": 1 }}
           >
             <AccentTitle text={t("collection.title")} />
@@ -250,7 +250,7 @@ export default function CollectionPage() {
 
           {owned.data?.length ? (
             <div
-              className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-3 reveal"
+              className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-3 reveal"
               style={{ "--i": 3 }}
             >
               <StatCard label={t("collection.kpi.pieces")} value={stats.pieces} />
@@ -339,7 +339,7 @@ export default function CollectionPage() {
               </p>
             ) : !showArchived ? (
               <p
-                className="mb-4 text-[10px] uppercase tracking-[0.22em] text-[var(--color-ivoire-soft)]/60"
+                className="mb-4 text-[10px] uppercase tracking-[0.22em] text-[var(--color-ivoire-soft)]/80"
               >
                 <button
                   type="button"

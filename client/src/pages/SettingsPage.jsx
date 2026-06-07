@@ -8,7 +8,6 @@ import { useMyStats, useInsights } from "../hooks/useStats.js";
 import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
 import Card from "../components/Card.jsx";
-import StatCard from "../components/StatCard.jsx";
 import NotificationSettings from "../components/NotificationSettings.jsx";
 import FxSettings from "../components/FxSettings.jsx";
 import MangaSettings from "../components/MangaSettings.jsx";
@@ -161,31 +160,6 @@ export default function SettingsPage() {
           >
             {t("settings.subtitle")}
           </p>
-
-          {/* Figurine-metric strip — glanceable scope of what these settings
-              govern. Counts only, so they stay ivoire/red; gold is reserved
-              for value figures elsewhere. */}
-          <div
-            className="mt-8 grid grid-cols-2 lg:grid-cols-3 gap-3 reveal"
-            style={{ "--i": 3 }}
-          >
-            <StatCard
-              label={t("collection.kpi.pieces")}
-              value={pieces}
-              sub={t("archives.count.pieces")}
-            />
-            <StatCard
-              label={t("collection.kpi.preorders")}
-              value={placedPreorders}
-              sub={t("archives.count.preorders")}
-              tone="red"
-            />
-            <StatCard
-              label={t("wishlist.title")}
-              value={wishes}
-              sub={t("archives.count.wishes")}
-            />
-          </div>
         </header>
 
         {/* ─── Section index (sticky on lg) + panels ─── */}
