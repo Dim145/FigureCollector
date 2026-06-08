@@ -180,6 +180,52 @@ SPA only fills the form for fields that are actually present.
 | `is_nsfw` | bool | Defaults to `false`. Set true for adult-rated listings; the SPA propagates this into the figure's NSFW flag. |
 | `primary_image_url` | string\|null | Hero image. Stored as `official_image_url` on the figure. |
 | `description` | string\|null | Plain text, no HTML. |
+| `versions` | array | Optional. Purchasable versions (e.g. Regular / EX). Empty/omitted for single-version products. See below. |
+
+### Versions
+
+Some products ship in several versions (a "Regular" and an "EX", say) at
+different prices. A proxy can expose them via `versions`; when the array has
+more than one entry the SPA opens a **version picker** (the same UI as the
+orzgk variation modal) instead of importing a default. The flat `price` above
+should stay the default version's price for clients that ignore `versions`.
+
+```json
+{
+  "...": "...other ProxyProduct fields...",
+  "price": { "amount": 255.00, "currency": "USD" },
+  "versions": [
+    {
+      "key": "regular",
+      "label": "Regular",
+      "image_url": "https://cdn.example.com/regular.jpg",
+      "prices": [
+        { "label": "deposit", "amount": 75.00, "currency": "USD", "display": "$75.00" },
+        { "label": "full",    "amount": 255.00, "currency": "USD", "display": "$255.00" }
+      ]
+    },
+    {
+      "key": "ex",
+      "label": "EX",
+      "prices": [
+        { "label": "deposit", "amount": 155.00, "currency": "USD", "display": "$155.00" },
+        { "label": "full",    "amount": 435.00, "currency": "USD", "display": "$435.00" }
+      ]
+    }
+  ]
+}
+```
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `key` | string | yes | Stable slug, unique within the product (the picker's key). |
+| `label` | string | yes | Display name (`"Regular"`, `"EX"`). |
+| `image_url` | string | no | Version-specific image; falls back to `primary_image_url`. |
+| `prices` | array | yes | One or more tariffs. Order them deposit-first. |
+
+Each `prices[]` entry is `{label, amount, currency?, display}` — `label` is
+free-form (`"deposit"`, `"full"`, …), `display` is the pre-rendered string the
+picker shows.
 
 ## Error handling
 
