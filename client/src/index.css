@@ -367,7 +367,10 @@
   position: relative; display: block;
   width: clamp(106px, 12vw, 150px); aspect-ratio: 3 / 4; overflow: hidden;
   border: 1px solid color-mix(in oklab, var(--hue, var(--color-or)) 42%, transparent);
-  background: var(--color-noir-deep);
+  /* No fill — a transparent (cutout) webp then shows the lit shelf behind it
+     instead of a black box. Opaque photos still cover the card edge-to-edge,
+     so they're unaffected. */
+  background: transparent;
   box-shadow:
     0 30px 30px -16px rgba(0, 0, 0, 0.82),
     0 0 34px -4px color-mix(in oklab, var(--hue, var(--color-or)) 42%, transparent),
