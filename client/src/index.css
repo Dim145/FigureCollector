@@ -9484,3 +9484,149 @@ a.notif-page-row-title:hover {
 
 /* tail marker — append-only
  * keep this block last to anchor tail-append patches */
+
+/* ============================================================================
+ * PHOTO EDITOR (Filerobot) — Direction A skin
+ * Third-party editor (react-filerobot-image-editor). Colours come from its
+ * `theme` prop mapped to our var() tokens (so it follows the app's dark/light
+ * theme); these `.FIE_*` overrides add the Direction-A polish — Instrument Sans
+ * UI, JetBrains Mono numerals, gold hairlines, squared editorial corners, and a
+ * hanko-red Save pill — so the editor reads as part of the app, not a widget.
+ * `!important` is needed to beat the editor's styled-components + inline theme.
+ * ========================================================================== */
+.FIE_root {
+  font-family: var(--font-sans) !important;
+  background: var(--color-noir) !important;
+  color: var(--color-ivoire) !important;
+}
+/* Squared, editorial — drop the stock rounded corners */
+.FIE_root button,
+.FIE_root input,
+.FIE_root [class*="SfxButton"],
+.FIE_root [class*="SfxInput"],
+.FIE_root [class*="SfxSelect"],
+.FIE_root [class*="MenuItem"],
+.FIE_save-modal,
+.FIE_save-modal button,
+.FIE_save-modal input,
+.FIE_save-modal [class*="SfxButton"] {
+  border-radius: 2px !important;
+}
+
+/* ─ Topbar ─ noir band + gold hairline */
+.FIE_topbar {
+  background: var(--color-noir-soft) !important;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent) !important;
+}
+.FIE_topbar-zoom-label { font-family: var(--font-mono) !important; color: var(--color-ivoire-soft) !important; }
+
+/* ─ Save button ─ hanko-red laque pill (mirrors our Button primary).
+ *   Real class is FIE_topbar-save-button; the .FIE_root + `button` tag bump
+ *   specificity above the generic squared-corner rule so the pill radius wins. */
+.FIE_root button.FIE_topbar-save-button {
+  background: var(--color-laque) !important;
+  color: var(--color-ivoire) !important;
+  border: 0 !important;
+  border-radius: 9999px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 0.5rem 1.5rem !important;
+  transition: background-color 0.2s ease;
+}
+.FIE_root button.FIE_topbar-save-button:hover { background: var(--color-laque-bright) !important; }
+
+/* ─ Left tabs ─ active = gold with a laque indicator */
+.FIE_tabs { border-right: 1px solid color-mix(in oklab, var(--color-or) 14%, transparent) !important; }
+.FIE_tab { color: var(--color-ivoire-soft) !important; border-radius: 0 !important; }
+.FIE_tab-label {
+  font-family: var(--font-sans) !important;
+  letter-spacing: 0.05em; text-transform: uppercase; font-size: 10px !important;
+}
+.FIE_tab[aria-selected="true"],
+.FIE_tab.FIE_tab-active,
+.FIE_tab[class*="active"] {
+  color: var(--color-or) !important;
+  background: color-mix(in oklab, var(--color-or) 9%, transparent) !important;
+  box-shadow: inset 2px 0 0 0 var(--color-laque-bright) !important;
+}
+
+/* ─ Tools bar + tool buttons ─ */
+.FIE_tools-bar-wrapper, .FIE_tools-bar { background: var(--color-noir) !important; }
+.FIE_tools-bar [class*="active"],
+.FIE_tools-bar [aria-pressed="true"],
+.FIE_tools-bar [aria-selected="true"] { color: var(--color-or) !important; }
+
+/* Word labels ("Brightness", crop ratios…) stay Instrument Sans — inherited
+ * from .FIE_root; mono on words reads wrong. Numeric chrome (zoom %) is mono
+ * via the topbar rule above. */
+
+/* ─ Sliders ─ rail faint, filled Track gold, thumb gold (SfxSlider-*) */
+.FIE_root .SfxSlider-rail {
+  background: color-mix(in oklab, var(--color-ivoire) 16%, transparent) !important;
+}
+.FIE_root .SfxSlider-Track,
+.FIE_root [class*="SfxSlider-Track"] { background: var(--color-or) !important; }
+.FIE_root .SfxSlider-thumb,
+.FIE_root [class*="SfxSlider-thumb"] {
+  background: var(--color-or) !important; border-color: var(--color-or-pale) !important;
+}
+
+/* ─ Inputs (save filename, resize w/h) ─ the SfxInput WRAPPER is the dark well
+ *   with the gold hairline; the inner field is forced transparent because its
+ *   styled-component ships a white default bg that broke the dark theme. High
+ *   specificity (.SfxInput-root descendant) to beat that styled rule. */
+.FIE_root .SfxInput-root,
+.FIE_save-modal .SfxInput-root {
+  background: var(--color-noir-deep) !important;
+  border: 1px solid color-mix(in oklab, var(--color-or) 22%, transparent) !important;
+  border-radius: 2px !important;
+  overflow: hidden;
+}
+.FIE_root .SfxInput-root:focus-within,
+.FIE_save-modal .SfxInput-root:focus-within { border-color: var(--color-or) !important; }
+.FIE_root .SfxInput-root .SfxInput-Base,
+.FIE_save-modal .SfxInput-root .SfxInput-Base,
+.FIE_root .SfxInput-root input,
+.FIE_save-modal .SfxInput-root input {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  color: var(--color-ivoire) !important;
+  font-family: var(--font-mono) !important;
+}
+/* number stepper + "px" suffix — transparent, gold-tinted */
+.FIE_root .SfxInput-Icon, .FIE_save-modal .SfxInput-Icon {
+  background: transparent !important; color: var(--color-or-pale) !important;
+}
+
+/* ─ Save modal ─ noir panel + gold hairline; its confirm = laque pill too */
+.FIE_save-modal {
+  background: var(--color-noir-soft) !important;
+  border: 1px solid color-mix(in oklab, var(--color-or) 22%, transparent) !important;
+  color: var(--color-ivoire) !important;
+}
+/* action row (SfxModalActions-root): Cancel = gold-outline pill (first child),
+ * Save = laque pill (last child) — mirrors our Button ghost/primary + the
+ * topbar Save, so both "Save" controls read the same. */
+.FIE_save-modal .SfxModalActions-root button:last-child {
+  background: var(--color-laque) !important;
+  color: var(--color-ivoire) !important;
+  border: 0 !important; border-radius: 9999px !important;
+  text-transform: uppercase; letter-spacing: 0.14em; font-weight: 600;
+}
+.FIE_save-modal .SfxModalActions-root button:last-child:hover { background: var(--color-laque-bright) !important; }
+.FIE_save-modal .SfxModalActions-root button:first-child {
+  border: 1px solid color-mix(in oklab, var(--color-or) 45%, transparent) !important;
+  color: var(--color-or-pale) !important;
+  border-radius: 9999px !important;
+  text-transform: uppercase; letter-spacing: 0.14em;
+}
+
+/* ─ Filter / crop presets ─ gold ring on the active item */
+.FIE_filters-item[class*="active"],
+.FIE_filters-item[aria-selected="true"],
+.FIE_carousel-item[class*="active"] {
+  outline: 1px solid var(--color-or) !important; outline-offset: -1px;
+}

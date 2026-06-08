@@ -138,21 +138,57 @@ export default function PhotoEditor({ file, onUpload, onCancel }) {
             source={currentUrl}
             onSave={onSave}
             onClose={onCancel}
+            // Direction A skin. The palette is mapped to our theme tokens via
+            // var() so the editor follows the app's dark/light theme; the
+            // `.FIE_*` CSS overrides in index.css do the finer polish (fonts,
+            // squared corners, gold hairlines, the hanko-red Save pill).
             theme={{
               palette: {
                 "bg-primary": "var(--color-noir)",
+                "bg-primary-active": "var(--color-noir-soft)",
                 "bg-secondary": "var(--color-noir-soft)",
+                "bg-hover": "var(--color-noir-soft)",
+                "bg-active": "var(--color-noir-soft)",
+                "bg-stateless": "var(--color-noir)",
+                "accent-primary": "var(--color-or)",
+                "accent-primary-active": "var(--color-or-pale)",
+                "accent-primary-hover": "var(--color-or-pale)",
+                "accent-stateless": "var(--color-or)",
                 accent: "var(--color-or)",
                 "text-primary": "var(--color-ivoire)",
+                "txt-primary": "var(--color-ivoire)",
                 "text-secondary": "var(--color-ivoire-soft)",
+                "txt-secondary": "var(--color-ivoire-soft)",
+                "text-primary-invert": "var(--color-noir)",
                 "text-active": "var(--color-or)",
+                "icons-primary": "var(--color-ivoire-soft)",
+                "icon-primary": "var(--color-ivoire-soft)",
+                "icons-secondary": "var(--color-or)",
+                "icons-primary-hover": "var(--color-or)",
+                "borders-primary": "color-mix(in oklab, var(--color-or) 22%, transparent)",
+                "borders-secondary": "color-mix(in oklab, var(--color-or) 14%, transparent)",
+                "border-primary-stateless": "color-mix(in oklab, var(--color-or) 22%, transparent)",
+                "borders-strong": "color-mix(in oklab, var(--color-or) 34%, transparent)",
+                "link-primary": "var(--color-or-pale)",
+                "link-primary-active": "var(--color-or)",
+                "active-secondary": "var(--color-or)",
+                "light-shadow": "rgba(0, 0, 0, 0.5)",
+                error: "var(--color-laque-bright)",
                 warning: "var(--color-laque-bright)",
+                success: "var(--color-jade)",
               },
               typography: {
-                fontFamily: "Inter, system-ui, sans-serif",
+                fontFamily: "var(--font-sans)",
               },
             }}
-            tabsIds={["Adjust", "Finetune", "Filters", "Annotate", "Watermark", "Resize"]}
+            // "Filters" is intentionally omitted: in filerobot v4.9.1 the
+            // Filters tab leaves the MAIN preview blank (the image vanishes —
+            // only the filter thumbnails render). Confirmed a pre-existing
+            // upstream bug (it reproduces with our theme removed), and artistic
+            // Instagram-style filters aren't useful for figure photos anyway —
+            // Finetune covers brightness/contrast/saturation/etc. Re-add
+            // "Filters" if upstream fixes it (e.g. on the v5 line).
+            tabsIds={["Adjust", "Finetune", "Annotate", "Watermark", "Resize"]}
             defaultTabId="Adjust"
             defaultToolId="Crop"
             // Output dimensions follow the edit, never a forced size:
