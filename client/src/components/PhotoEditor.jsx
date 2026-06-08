@@ -22,12 +22,6 @@ export default function PhotoEditor({ file, onUpload, onCancel }) {
   const t = useT();
   const [currentBlob, setCurrentBlob] = useState(file);
   const [currentUrl, setCurrentUrl] = useState(() => URL.createObjectURL(file));
-  // Natural size of whatever is currently in the editor, tagged with the url it
-  // was measured from (so a slow async probe never seeds the wrong size after a
-  // bg-removal swap). It seeds filerobot's Resize tab with the real dimensions,
-  // which makes the resize default to a no-op — so saving no longer forces a
-  // downscale, and the inputs read the current image, not a fixed 1080.
-  const [loaded, setLoaded] = useState(null);
   const [bgState, setBgState] = useState({ running: false, progress: 0, error: null });
   const [uploading, setUploading] = useState(false);
 
@@ -35,21 +29,6 @@ export default function PhotoEditor({ file, onUpload, onCancel }) {
   useEffect(() => {
     return () => {
       if (currentUrl) URL.revokeObjectURL(currentUrl);
-    };
-  }, [currentUrl]);
-
-  // Measure the source's natural dimensions for the Resize default.
-  useEffect(() => {
-    let cancelled = false;
-    const probe = new Image();
-    probe.onload = () => {
-      if (!cancelled) {
-        setLoaded({ url: currentUrl, width: probe.naturalWidth, height: probe.naturalHeight });
-      }
-    };
-    probe.src = currentUrl;
-    return () => {
-      cancelled = true;
     };
   }, [currentUrl]);
 
@@ -154,50 +133,51 @@ export default function PhotoEditor({ file, onUpload, onCancel }) {
             </div>
           }
         >
-          {loaded?.url === currentUrl ? (
-            <FilerobotImageEditor
-              key={currentUrl}
-              source={currentUrl}
-              // Seed the Resize tab with the image's real dimensions: it then
-              // defaults to a no-op (resize is optional, not a forced downscale)
-              // and the inputs show the current image's size, not a fixed 1080.
-              loadableDesignState={{
-                resize: { width: loaded.width, height: loaded.height },
-              }}
-              onSave={onSave}
-              onClose={onCancel}
-              theme={{
-                palette: {
-                  "bg-primary": "var(--color-noir)",
-                  "bg-secondary": "var(--color-noir-soft)",
-                  accent: "var(--color-or)",
-                  "text-primary": "var(--color-ivoire)",
-                  "text-secondary": "var(--color-ivoire-soft)",
-                  "text-active": "var(--color-or)",
-                  warning: "var(--color-laque-bright)",
-                },
-                typography: {
-                  fontFamily: "Inter, system-ui, sans-serif",
-                },
-              }}
-              tabsIds={["Adjust", "Finetune", "Filters", "Annotate", "Watermark", "Resize"]}
-              defaultTabId="Adjust"
-              defaultToolId="Crop"
-              // Leave savingPixelRatio at filerobot's default (4, "up to the
-              // original resolution"); the old override of 1 downscaled every
-              // save to the on-screen canvas size (~the forced 1080).
-              previewPixelRatio={window.devicePixelRatio ?? 1}
-              // Disable filerobot's online translation fetch — it phones home
-              // to i18n-fastly.ultrafast.io which our CSP (rightly) blocks and
-              // we ship our own translations anyway.
-              useBackendTranslations={false}
-              disableSaveIfNoChanges={false}
-            />
-          ) : (
-            <div className="grid place-items-center h-full text-[var(--color-ivoire-soft)] text-sm">
-              {t("editor.loading_editor")}
-            </div>
-          )}
+          <FilerobotImageEditor
+            key={currentUrl}
+            source={currentUrl}
+            onSave={onSave}
+            onClose={onCancel}
+            theme={{
+              palette: {
+                "bg-primary": "var(--color-noir)",
+                "bg-secondary": "var(--color-noir-soft)",
+                accent: "var(--color-or)",
+                "text-primary": "var(--color-ivoire)",
+                "text-secondary": "var(--color-ivoire-soft)",
+                "text-active": "var(--color-or)",
+                warning: "var(--color-laque-bright)",
+              },
+              typography: {
+                fontFamily: "Inter, system-ui, sans-serif",
+              },
+            }}
+            tabsIds={["Adjust", "Finetune", "Filters", "Annotate", "Watermark", "Resize"]}
+            defaultTabId="Adjust"
+            defaultToolId="Crop"
+            // Output dimensions follow the edit, never a forced size:
+            //   · no crop / no resize → full original resolution (savingPixelRatio
+            //     stays at filerobot's default 4 = "up to the original resolution";
+            //     the old savingPixelRatio:1 override was what downscaled saves to
+            //     the ~1080 on-screen canvas, NOT the absence of a resize seed)
+            //   · crop  → the cropped region's own dimensions
+            //   · resize → whatever the user types in the Resize tab
+            // We deliberately DON'T seed loadableDesignState.resize: a seeded
+            // width+height is replayed as a *forced* final resize on every save,
+            // so after a crop the cropped box got stretched back to the original
+            // aspect ratio — the deformation bug.
+            previewPixelRatio={window.devicePixelRatio ?? 1}
+            // Save as WebP by default: it preserves the alpha channel of a
+            // background-removed cutout (the source's JPG/etc. default would
+            // flatten the transparency onto black) and compresses photos well.
+            // The save dialog still lets the user pick another format.
+            defaultSavedImageType="webp"
+            // Disable filerobot's online translation fetch — it phones home to
+            // i18n-fastly.ultrafast.io which our CSP (rightly) blocks, and we ship
+            // our own translations anyway.
+            useBackendTranslations={false}
+            disableSaveIfNoChanges={false}
+          />
         </Suspense>
       </div>
     </div>,
