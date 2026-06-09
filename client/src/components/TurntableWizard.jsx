@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useT } from "../i18n/index.jsx";
 import { useScanCapabilities } from "../hooks/useScans.js";
+import { useIsAdmin } from "../hooks/useMe.js";
 import TurntableCapture from "./TurntableCapture.jsx";
 import TurntableImport from "./TurntableImport.jsx";
 import TurntableVideo from "./TurntableVideo.jsx";
@@ -22,14 +23,20 @@ export default function TurntableWizard({ onUpload, onCancel, busy }) {
   const [tab, setTab] = useState("camera");
   const [generate3d, setGenerate3d] = useState(false);
   const caps = useScanCapabilities();
+  const isAdmin = useIsAdmin();
   const gsplatAvailable = caps.data?.gsplat_available ?? false;
+  // Admin-set policy: when "admins only", non-admins can't create gsplat
+  // scans, so the 3D checkbox is hidden for them (the backend enforces the
+  // same rule on the upload route — defense in depth).
+  const gsplatAdminOnly = caps.data?.gsplat_admin_only ?? false;
+  const canCreate3d = gsplatAvailable && (!gsplatAdminOnly || isAdmin);
 
-  // If the last worker drops while the wizard is open, untick — otherwise
-  // the user could trigger a 503 on submit despite the checkbox not even
-  // being visible anymore.
+  // If the last worker drops (or the policy tightens) while the wizard is
+  // open, untick — otherwise the user could trigger a 503/403 on submit
+  // despite the checkbox not even being visible anymore.
   useEffect(() => {
-    if (!gsplatAvailable && generate3d) setGenerate3d(false);
-  }, [gsplatAvailable, generate3d]);
+    if (!canCreate3d && generate3d) setGenerate3d(false);
+  }, [canCreate3d, generate3d]);
 
   // `video` is the original file (video tab only); we forward it for gsplat
   // so the worker can extract full-res frames rather than the downscaled set.
@@ -74,7 +81,7 @@ export default function TurntableWizard({ onUpload, onCancel, busy }) {
         </nav>
 
         <div className="flex items-center gap-4">
-          {gsplatAvailable ? (
+          {canCreate3d ? (
             <label className="hidden md:flex items-center gap-2 text-[10px] uppercase tracking-[0.18em] cursor-pointer select-none">
               <input
                 type="checkbox"

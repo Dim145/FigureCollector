@@ -28,7 +28,7 @@ import AccentTitle from "../components/AccentTitle.jsx";
 // Order here is the order the rail renders. `end` mirrors the old SubLink
 // behaviour (only the index route matches exactly). Kanji chosen per surface:
 //   概 overview · 衆 users · 像 figures · 目 entities · 類 types · 店 stores ·
-//   漫 manga servers · 鈴 notifications · 工 workers · 務 tasks.
+//   漫 manga servers · 鈴 notifications · 工 workers · 務 tasks · 設 settings.
 const NAV = [
   { to: "/admin",                kanji: "概", key: "admin.tab.overview",       end: true },
   { to: "/admin/users",          kanji: "衆", key: "admin.tab.users" },
@@ -40,6 +40,7 @@ const NAV = [
   { to: "/admin/notifications",  kanji: "鈴", key: "admin.tab.notifications" },
   { to: "/admin/workers",        kanji: "工", key: "admin.tab.workers" },
   { to: "/admin/tasks",          kanji: "務", key: "admin.tab.tasks" },
+  { to: "/admin/settings",       kanji: "設", key: "admin.tab.settings" },
 ];
 
 export default function AdminLayout() {

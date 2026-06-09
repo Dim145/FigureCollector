@@ -9,6 +9,7 @@ use crate::domain::figure_type::{self, FigureTypePatch, NewFigureType};
 use crate::domain::manga_servers::{self, MangaServer, MangaServerAdmin};
 use crate::domain::notification;
 use crate::domain::scan::{self, AdminScan};
+use crate::domain::settings;
 use crate::domain::store::{self, NewStore, StorePatch, StoreUsage};
 use crate::domain::worker::{self, WorkerPatch, WorkerView};
 use crate::error::{AppError, AppResult};
@@ -871,8 +872,35 @@ async fn delete_scan_admin(
     Ok(StatusCode::NO_CONTENT)
 }
 
+// ---------- /admin/settings --------------------------------------------------
+
+async fn get_settings(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<settings::Settings>> {
+    auth::require_admin(&session, &state.pool).await?;
+    Ok(Json(settings::all(&state.pool).await?))
+}
+
+async fn patch_settings(
+    State(state): State<AppState>,
+    session: Session,
+    Json(input): Json<settings::SettingsPatch>,
+) -> AppResult<Json<settings::Settings>> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    if let Some(policy) = input.gsplat_creation_policy.as_deref() {
+        if !settings::is_valid_gsplat_policy(policy) {
+            return Err(AppError::BadRequest("invalid gsplat_creation_policy"));
+        }
+        settings::set_gsplat_creation_policy(&state.pool, policy).await?;
+        tracing::info!(by_admin = %actor.id, policy, "admin updated gsplat creation policy");
+    }
+    Ok(Json(settings::all(&state.pool).await?))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
+        .route("/admin/settings", get(get_settings).patch(patch_settings))
         .route("/admin/overview", get(overview))
         .route("/admin/users", get(list_users).post(create_user))
         .route(

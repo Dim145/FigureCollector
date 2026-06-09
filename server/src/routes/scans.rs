@@ -17,6 +17,7 @@
 use crate::auth;
 use crate::domain::achievement;
 use crate::domain::scan::{self, ALLOWED_KINDS};
+use crate::domain::settings;
 use crate::domain::worker;
 use crate::error::{AppError, AppResult};
 use crate::events::Event;
@@ -138,6 +139,14 @@ async fn create_scan(
     // the usual >= 6 frames (e.g. a turntable scan, or the 360° viewer).
     if frames.len() < MIN_FRAMES && video.is_none() {
         return Err(AppError::BadRequest("at least 6 frames required"));
+    }
+
+    // Permission: 3D training is GPU-heavy, so an admin may restrict gsplat
+    // creation to admins only (the app_settings policy). Defence-in-depth — the
+    // SPA also hides the "Modèle 3D" checkbox from non-admins via
+    // /scans/capabilities; this 403s a direct API caller.
+    if kind == "gsplat" && settings::gsplat_admins_only(&state.pool).await? {
+        auth::require_admin(&session, &state.pool).await?;
     }
 
     // Gsplat scans need a live worker that's enabled, otherwise the row
@@ -417,6 +426,10 @@ struct ScanCapabilities {
     /// window. The SPA uses this to hide the "Modèle 3D" checkbox; the
     /// scan-creation route enforces the same invariant as a 503.
     gsplat_available: bool,
+    /// True when only admins may create gsplat scans (app_settings policy). The
+    /// SPA hides the 3D checkbox from non-admins when set; the scan-creation
+    /// route enforces it as a 403.
+    gsplat_admin_only: bool,
 }
 
 async fn capabilities(
@@ -426,6 +439,7 @@ async fn capabilities(
     auth::require_user(&session).await?;
     Ok(Json(ScanCapabilities {
         gsplat_available: worker::any_live(&state.pool).await?,
+        gsplat_admin_only: settings::gsplat_admins_only(&state.pool).await?,
     }))
 }
 

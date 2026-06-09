@@ -11,6 +11,31 @@ export function useAdminOverview() {
   });
 }
 
+// -------------------- settings (platform-wide policies) --------------------
+
+/** Platform settings (currently the gsplat creation policy). Admin-only. */
+export function useAdminSettings() {
+  return useQuery({
+    queryKey: ["admin", "settings"],
+    queryFn: () => api.get("/admin/settings"),
+    staleTime: 30_000,
+  });
+}
+
+/** Patch one or more settings. Invalidates the admin settings cache AND the
+ *  public scan-capabilities probe, since the gsplat creation policy feeds the
+ *  "Modèle 3D" checkbox visibility for every user. */
+export function useUpdateAdminSettings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (patch) => api.patch("/admin/settings", patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "settings"] });
+      qc.invalidateQueries({ queryKey: ["scans", "capabilities"] });
+    },
+  });
+}
+
 // -------------------- users --------------------
 
 export function useAdminUsers() {
