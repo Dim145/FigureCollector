@@ -79,6 +79,11 @@ pub struct OwnedItemWithFigure {
     /// manual `value_amount`. Lets the SPA render the cote without a 2nd query.
     pub msrp_amount: Option<Decimal>,
     pub msrp_currency: Option<String>,
+    /// Auto-fetched provider/market price (populated by the price cron) + its
+    /// currency. Sits between the manual `value_amount` and the MSRP in the
+    /// cote fallback chain — lets the SPA render the auto cote without a 2nd query.
+    pub provider_price_amount: Option<Decimal>,
+    pub provider_price_currency: Option<String>,
 
     /// Per-user cover preference. Either `cover_photo_id` (a `photos` row),
     /// `cover_scan_id` (a `scans` row), or both null — in the latter case
@@ -370,6 +375,8 @@ pub async fn list_for_user(
             m.name AS manufacturer_name,
             f.scale, f.height_mm, f.version_name,
             f.msrp_amount, f.msrp_currency,
+            pp.amount   AS provider_price_amount,
+            pp.currency AS provider_price_currency,
             o.cover_photo_id, o.cover_scan_id,
             (
                 SELECT fp.id FROM figure_photos fp
@@ -383,6 +390,7 @@ pub async fn list_for_user(
             f.is_nsfw
          FROM owned_items o
          JOIN figures f          ON f.id = o.figure_id
+         LEFT JOIN figure_provider_prices pp ON pp.figure_id = o.figure_id
          LEFT JOIN manufacturers m ON m.id = f.manufacturer_id
          LEFT JOIN stores st       ON st.id = o.store_id
          LEFT JOIN preorders p   ON p.owned_item_id = o.id

@@ -68,6 +68,7 @@ export default function CotePage() {
   const dispCur = showFx ? fx.display : primary?.currency;
 
   const valuedCount = valueBuckets.reduce((a, b) => a + b.pieces_valued, 0);
+  const autoCount = valueBuckets.reduce((a, b) => a + (b.pieces_auto ?? 0), 0);
   const msrpCount = valueBuckets.reduce((a, b) => a + b.pieces_msrp, 0);
   const totalCount = owned.data?.length ?? stats.data?.total_pieces ?? 0;
 
@@ -220,9 +221,11 @@ export default function CotePage() {
                 <Kpi label={t("cote.pieces_valued")}>
                   <span className="figural text-3xl">{valuedCount}</span>
                   <span className="text-[var(--color-ivoire-soft)] text-base"> / {totalCount}</span>
-                  {msrpCount > 0 ? (
+                  {autoCount > 0 || msrpCount > 0 ? (
                     <span className="block mt-2 text-[11px] text-[var(--color-ivoire-soft)]">
-                      {t("cote.msrp_count", { n: msrpCount })}
+                      {autoCount > 0 ? t("cote.auto_count", { n: autoCount }) : null}
+                      {autoCount > 0 && msrpCount > 0 ? " · " : null}
+                      {msrpCount > 0 ? t("cote.msrp_count", { n: msrpCount }) : null}
                     </span>
                   ) : null}
                 </Kpi>
@@ -353,7 +356,11 @@ export default function CotePage() {
                             ) : null}
                             <span className="block text-sm text-[var(--color-ivoire)] group-hover/val:text-[var(--color-or-pale)] transition-colors">
                               {fmtMoney(ev.amount, ev.currency, locale)}
-                              {!ev.isManual ? (
+                              {ev.source === "auto" ? (
+                                <span className="ml-1.5 text-[9px] uppercase tracking-[0.14em] text-[var(--color-jade)] align-middle">
+                                  {t("cote.market_badge")}
+                                </span>
+                              ) : ev.source === "msrp" ? (
                                 <span className="ml-1.5 text-[9px] uppercase tracking-[0.14em] text-[var(--color-or-pale)] align-middle">
                                   MSRP
                                 </span>

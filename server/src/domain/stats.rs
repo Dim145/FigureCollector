@@ -85,12 +85,14 @@ pub struct SpendBucket {
 #[derive(Debug, Clone, Serialize)]
 pub struct ValueBucket {
     pub currency: String,
-    /// Sum of the effective value: the manual `value_amount` when set, else
-    /// the figure's catalog MSRP.
+    /// Sum of the effective value: the manual `value_amount` when set, else the
+    /// auto-fetched provider price, else the figure's catalog MSRP.
     pub estimated_total: Decimal,
     /// Pieces with a manually-entered value.
     pub pieces_valued: i64,
-    /// Pieces valued via the MSRP fallback (no manual value yet).
+    /// Pieces valued via the auto-fetched provider price (no manual value yet).
+    pub pieces_auto: i64,
+    /// Pieces valued via the MSRP fallback (no manual value, no provider price).
     pub pieces_msrp: i64,
     /// Total pieces contributing to this currency bucket.
     pub pieces_total: i64,
@@ -229,25 +231,33 @@ pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<Collect
 
     // ----- Estimated value by currency --------------------------------------
     // Effective value = the manual `value_amount` when present, else the
-    // figure's catalog MSRP. The bucket currency follows whichever amount won,
-    // so a JPY MSRP fallback isn't mislabelled with the user's price currency.
-    // Pairs with `spend_by_currency` for the latent plus-value delta.
-    let value_rows_fut = sqlx::query_as::<_, (String, Decimal, i64, i64, i64)>(
+    // auto-fetched provider price (price cron), else the figure's catalog MSRP.
+    // The bucket currency follows whichever amount won, so a JPY MSRP fallback
+    // isn't mislabelled with the user's price currency. `pieces_auto` counts
+    // pieces resolved via the provider price. Pairs with `spend_by_currency`
+    // for the latent plus-value delta.
+    let value_rows_fut = sqlx::query_as::<_, (String, Decimal, i64, i64, i64, i64)>(
         "WITH valued AS (
-             SELECT CASE WHEN o.value_amount IS NOT NULL
-                         THEN COALESCE(o.value_currency, o.price_currency, f.msrp_currency)
-                         ELSE f.msrp_currency END                  AS currency,
-                    COALESCE(o.value_amount, f.msrp_amount)         AS amount,
-                    (o.value_amount IS NOT NULL)                    AS is_manual
+             SELECT CASE
+                        WHEN o.value_amount IS NOT NULL
+                            THEN COALESCE(o.value_currency, o.price_currency, f.msrp_currency)
+                        WHEN pp.amount IS NOT NULL
+                            THEN COALESCE(pp.currency, f.msrp_currency)
+                        ELSE f.msrp_currency END                       AS currency,
+                    COALESCE(o.value_amount, pp.amount, f.msrp_amount)  AS amount,
+                    (o.value_amount IS NOT NULL)                        AS is_manual,
+                    (o.value_amount IS NULL AND pp.amount IS NOT NULL)  AS is_auto
              FROM owned_items o
              JOIN figures f ON f.id = o.figure_id
+             LEFT JOIN figure_provider_prices pp ON pp.figure_id = o.figure_id
              WHERE o.user_id = $1
          )
          SELECT currency,
-                COALESCE(SUM(amount), 0)::numeric             AS estimated_total,
-                COUNT(*) FILTER (WHERE is_manual)::bigint     AS pieces_valued,
-                COUNT(*) FILTER (WHERE NOT is_manual)::bigint AS pieces_msrp,
-                COUNT(*)::bigint                              AS pieces_total
+                COALESCE(SUM(amount), 0)::numeric                              AS estimated_total,
+                COUNT(*) FILTER (WHERE is_manual)::bigint                      AS pieces_valued,
+                COUNT(*) FILTER (WHERE is_auto)::bigint                        AS pieces_auto,
+                COUNT(*) FILTER (WHERE NOT is_manual AND NOT is_auto)::bigint  AS pieces_msrp,
+                COUNT(*)::bigint                                               AS pieces_total
          FROM valued
          WHERE amount IS NOT NULL AND currency IS NOT NULL
          GROUP BY currency
@@ -455,12 +465,15 @@ pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<Collect
     let value_by_currency = value_rows
         .into_iter()
         .map(
-            |(currency, estimated_total, pieces_valued, pieces_msrp, pieces_total)| ValueBucket {
-                currency,
-                estimated_total,
-                pieces_valued,
-                pieces_msrp,
-                pieces_total,
+            |(currency, estimated_total, pieces_valued, pieces_auto, pieces_msrp, pieces_total)| {
+                ValueBucket {
+                    currency,
+                    estimated_total,
+                    pieces_valued,
+                    pieces_auto,
+                    pieces_msrp,
+                    pieces_total,
+                }
             },
         )
         .collect();

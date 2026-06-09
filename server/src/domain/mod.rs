@@ -7,6 +7,7 @@ pub mod entity;
 pub mod export;
 pub mod figure;
 pub mod figure_photo;
+pub mod figure_price;
 pub mod figure_type;
 pub mod follow;
 pub mod gift;

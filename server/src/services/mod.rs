@@ -7,6 +7,7 @@
 
 pub mod manga_sync;
 pub mod notify;
+pub mod price_cron;
 pub mod release_cron;
 pub mod scan_cleanup;
 pub mod scan_listener;

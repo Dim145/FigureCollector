@@ -13,7 +13,7 @@ import Card from "../components/Card.jsx";
  * surface (kicker · 設 · label → AccentTitle h2 → gold-rule → italic gloss
  * over a faint kanji-mark), mirroring AdminNotificationsPage.
  *
- * First (only) setting: the gsplat creation policy — who may launch a 3D
+ * First setting: the gsplat creation policy — who may launch a 3D
  * model. Training is GPU-heavy, so an admin can reserve it to admins only;
  * when they do, the "Modèle 3D" checkbox is hidden for everyone else (and the
  * backend enforces it on the upload route — defense in depth). The control is
@@ -24,11 +24,13 @@ export default function AdminSettingsPage() {
   const t = useT();
   const settings = useAdminSettings();
   const update = useUpdateAdminSettings();
+  const updateCron = useUpdateAdminSettings();
 
-  // The server value is the source of truth; `draft` holds the admin's pending
-  // pick (null = nothing unsaved). Deriving `policy` during render sidesteps a
-  // sync effect and re-syncs for free once a save refetches the query.
+  // The server value is the source of truth; the drafts hold each section's
+  // pending edit (null = nothing unsaved). Deriving the live values during
+  // render sidesteps a sync effect and re-syncs for free once a save refetches.
   const [draft, setDraft] = useState(null);
+  const [cronDraft, setCronDraft] = useState(null);
 
   if (settings.isLoading) {
     return (
@@ -46,6 +48,10 @@ export default function AdminSettingsPage() {
   const saved = settings.data.gsplat_creation_policy;
   const policy = draft ?? saved;
   const dirty = draft !== null && draft !== saved;
+
+  const savedCron = settings.data.price_cron ?? "";
+  const cron = cronDraft ?? savedCron;
+  const cronDirty = cronDraft !== null && cronDraft.trim() !== savedCron.trim();
 
   return (
     <div className="relative">
@@ -148,6 +154,100 @@ export default function AdminSettingsPage() {
               }
               disabled={!dirty || update.isPending}
               loading={update.isPending}
+            >
+              {t("admin.settings.save")}
+            </Button>
+          </div>
+        </Card>
+      </div>
+
+      {/* ─── Cote auto-pricing cron ─── */}
+      <div className="reveal mt-8" style={{ "--i": 5 }}>
+        <Card className="p-6 md:p-8">
+          <p className="micro flex items-center gap-2.5">
+            <span
+              aria-hidden
+              className="ja not-italic text-[var(--color-or)] text-base leading-none"
+            >
+              価
+            </span>
+            {t("admin.settings.cote.kicker")}
+          </p>
+          <h3 className="display text-2xl md:text-3xl mt-2 text-[var(--color-ivoire)]">
+            {t("admin.settings.cote.title")}
+          </h3>
+          <div className="gold-rule w-12 mt-4 mb-4" />
+          <p className="text-sm text-[var(--color-ivoire-soft)] leading-relaxed max-w-2xl">
+            {t("admin.settings.cote.desc")}
+          </p>
+
+          <label className="block mt-6 max-w-md">
+            <span className="micro block mb-2">
+              {t("admin.settings.cote.schedule_label")}
+            </span>
+            <input
+              type="text"
+              value={cron}
+              onChange={(e) => setCronDraft(e.target.value)}
+              placeholder="0 3 * * *"
+              spellCheck={false}
+              autoComplete="off"
+              aria-label={t("admin.settings.cote.schedule_label")}
+              className="w-full bg-[var(--color-noir)] border border-[var(--color-or)]/30 px-4 py-3 text-[var(--color-ivoire)] outline-none transition-colors focus:border-[var(--color-or)]"
+              style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}
+            />
+            <span className="mt-2 block text-xs text-[var(--color-ivoire-soft)] leading-relaxed">
+              {t("admin.settings.cote.schedule_hint")}
+            </span>
+          </label>
+
+          {/* Live enabled/disabled state derived from the (possibly unsaved) value. */}
+          <p
+            className="mt-3 text-[11px] uppercase tracking-[0.18em]"
+            style={{
+              color: cron.trim()
+                ? "var(--color-or)"
+                : "var(--color-ivoire-soft)",
+            }}
+          >
+            <span
+              aria-hidden
+              className="inline-block w-1.5 h-1.5 rotate-45 mr-2 align-middle"
+              style={{
+                background: cron.trim()
+                  ? "var(--color-or)"
+                  : "color-mix(in oklab, var(--color-ivoire-soft) 55%, transparent)",
+              }}
+            />
+            {cron.trim()
+              ? t("admin.settings.cote.enabled")
+              : t("admin.settings.cote.disabled")}
+          </p>
+
+          <div className="mt-6 flex items-center justify-end gap-4">
+            {updateCron.isError ? (
+              <p role="alert" className="text-xs text-[var(--color-laque-bright)]">
+                {t("admin.settings.cote.invalid")}
+              </p>
+            ) : updateCron.isSuccess && !cronDirty ? (
+              <p
+                role="status"
+                aria-live="polite"
+                className="text-xs tracking-wide text-[var(--color-or)]"
+              >
+                {t("admin.settings.saved")}
+              </p>
+            ) : null}
+            <Button
+              variant="primary"
+              onClick={() =>
+                updateCron.mutate(
+                  { price_cron: cron.trim() },
+                  { onSuccess: () => setCronDraft(null) },
+                )
+              }
+              disabled={!cronDirty || updateCron.isPending}
+              loading={updateCron.isPending}
             >
               {t("admin.settings.save")}
             </Button>

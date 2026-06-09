@@ -20,13 +20,15 @@ export function fmtMoney(amount, currency, locale) {
       maximumFractionDigits: Number.isInteger(n) ? 0 : 2,
     });
   } catch {
-    return `${n.toLocaleString(locale || undefined)} ${cur}`;
+    return `${n.toLocaleString(locale || undefined)} ${cur}`;
   }
 }
 
-/** Effective current value of an owned item: the manual `value_amount` when
- *  set, otherwise the figure's catalog MSRP. Returns
- *  `{ amount, currency, isManual }` or `null` when neither is known. */
+/** Effective current value of an owned item, by priority: the manual
+ *  `value_amount`, else the auto-fetched provider/market price (the price
+ *  cron), else the figure's catalog MSRP. Returns
+ *  `{ amount, currency, isManual, source }` (source: "manual" | "auto" |
+ *  "msrp") or `null` when none is known. */
 export function effectiveValue(item) {
   if (item?.value_amount != null) {
     const amount = Number(item.value_amount);
@@ -35,7 +37,21 @@ export function effectiveValue(item) {
       amount,
       currency: item.value_currency || item.price_currency || null,
       isManual: true,
+      source: "manual",
     };
+  }
+  // Auto-fetched provider/market price — sits between the manual value and the
+  // MSRP fallback (an empty/absent value means the cron hasn't priced it).
+  if (item?.provider_price_amount != null) {
+    const amount = Number(item.provider_price_amount);
+    if (Number.isFinite(amount)) {
+      return {
+        amount,
+        currency: item.provider_price_currency || item.msrp_currency || null,
+        isManual: false,
+        source: "auto",
+      };
+    }
   }
   if (item?.msrp_amount != null) {
     const amount = Number(item.msrp_amount);
@@ -44,6 +60,7 @@ export function effectiveValue(item) {
       amount,
       currency: item.msrp_currency || null,
       isManual: false,
+      source: "msrp",
     };
   }
   return null;

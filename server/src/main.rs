@@ -143,6 +143,9 @@ async fn main() -> anyhow::Result<()> {
     services::scan_cleanup::spawn(state.clone());
     // Daily backfill of series.manga_mal_id (the MangaCollector crossings key).
     services::manga_sync::spawn(state.clone());
+    // Admin-scheduled price refresh: scrapes store buy-links to feed the cote
+    // market value. Idle until an admin sets the `cote.price_cron` schedule.
+    services::price_cron::spawn(state.clone());
 
     let app = routes::build_router(state).layer(session_layer);
 

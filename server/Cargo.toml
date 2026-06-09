@@ -1,6 +1,6 @@
 [package]
 name = "figurecollector-server"
-version = "0.17.0"
+version = "0.18.0"
 edition = "2024"
 rust-version = "1.95"
 license = "MIT"
@@ -42,6 +42,10 @@ time = { version = "0.3", features = ["serde"] }
 rust_decimal = { version = "1", features = ["serde-with-str"] }
 bytes = "1"
 futures = "0.3"
+# Cron-expression parser for the admin-scheduled price-refresh job
+# (services::price_cron). Pure Rust, chrono-native — no OpenSSL. An empty
+# schedule disables the feature.
+croner = "3"
 
 # --- Database (sqlx with rustls / aws-lc-rs — NO OpenSSL) ---
 sqlx = { version = "0.8", default-features = false, features = [

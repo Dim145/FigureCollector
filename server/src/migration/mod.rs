@@ -55,6 +55,7 @@ mod m20260602_000001_scan_queue;
 mod m20260603_000001_series_manga_mal_id;
 mod m20260606_000001_figure_store_link;
 mod m20260607_000001_app_settings;
+mod m20260607_000002_figure_provider_prices;
 
 pub struct Migrator;
 
@@ -105,6 +106,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260603_000001_series_manga_mal_id::Migration),
             Box::new(m20260606_000001_figure_store_link::Migration),
             Box::new(m20260607_000001_app_settings::Migration),
+            Box::new(m20260607_000002_figure_provider_prices::Migration),
         ]
     }
 }

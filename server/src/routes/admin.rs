@@ -895,6 +895,14 @@ async fn patch_settings(
         settings::set_gsplat_creation_policy(&state.pool, policy).await?;
         tracing::info!(by_admin = %actor.id, policy, "admin updated gsplat creation policy");
     }
+    if let Some(schedule) = input.price_cron.as_deref() {
+        let schedule = schedule.trim();
+        if !settings::is_valid_price_cron(schedule) {
+            return Err(AppError::BadRequest("invalid price_cron schedule"));
+        }
+        settings::set_price_cron_schedule(&state.pool, schedule).await?;
+        tracing::info!(by_admin = %actor.id, schedule, "admin updated price-cron schedule");
+    }
     Ok(Json(settings::all(&state.pool).await?))
 }
 

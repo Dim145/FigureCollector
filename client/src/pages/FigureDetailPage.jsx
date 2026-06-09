@@ -512,6 +512,8 @@ function OwnerGlance({ f, owned, t, delay = 7 }) {
     value_amount: owned.value_amount,
     value_currency: owned.value_currency,
     price_currency: owned.price_currency,
+    provider_price_amount: owned.provider_price_amount,
+    provider_price_currency: owned.provider_price_currency,
     msrp_amount: f.msrp_amount,
     msrp_currency: f.msrp_currency,
   });
