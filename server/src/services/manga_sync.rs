@@ -10,6 +10,7 @@
 //! side" so the same rows aren't reprocessed forever. Users who don't want to
 //! wait can hit the manual sync button (per-user, scoped to their own series).
 
+use crate::services::job_runner;
 use crate::state::AppState;
 use std::time::Duration;
 
@@ -23,21 +24,31 @@ pub fn spawn(state: AppState) {
     tokio::spawn(async move {
         tokio::time::sleep(Duration::from_secs(90)).await;
         loop {
-            match crate::domain::manga::backfill_manga_mal(
-                &state.pool,
-                &state.http,
-                BACKFILL_LIMIT_PER_RUN,
-                None,
+            // Recorded in server_job_runs (admin Tasks page).
+            job_runner::run_recorded(
+                &state,
+                job_runner::JOB_MANGA_SYNC,
+                job_runner::TRIGGER_SCHEDULE,
             )
-            .await
-            {
-                Ok(n) if n > 0 => {
-                    tracing::info!(filled = n, "manga-sync: backfilled series manga_mal_id")
-                }
-                Ok(_) => {}
-                Err(e) => tracing::warn!(error = ?e, "manga-sync tick failed"),
-            }
+            .await;
             tokio::time::sleep(Duration::from_secs(24 * 60 * 60)).await;
         }
     });
+}
+
+/// One backfill pass. Returns the fill count recorded into
+/// `server_job_runs.result`. Public so the job runner / admin relaunch route
+/// can trigger it.
+pub async fn run_once(state: &AppState) -> crate::error::AppResult<serde_json::Value> {
+    let filled = crate::domain::manga::backfill_manga_mal(
+        &state.pool,
+        &state.http,
+        BACKFILL_LIMIT_PER_RUN,
+        None,
+    )
+    .await?;
+    if filled > 0 {
+        tracing::info!(filled, "manga-sync: backfilled series manga_mal_id");
+    }
+    Ok(serde_json::json!({ "filled": filled }))
 }

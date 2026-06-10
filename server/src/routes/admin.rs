@@ -9,6 +9,7 @@ use crate::domain::figure_type::{self, FigureTypePatch, NewFigureType};
 use crate::domain::manga_servers::{self, MangaServer, MangaServerAdmin};
 use crate::domain::notification;
 use crate::domain::scan::{self, AdminScan};
+use crate::domain::server_job;
 use crate::domain::settings;
 use crate::domain::store::{self, NewStore, StorePatch, StoreUsage};
 use crate::domain::worker::{self, WorkerPatch, WorkerView};
@@ -872,6 +873,46 @@ async fn delete_scan_admin(
     Ok(StatusCode::NO_CONTENT)
 }
 
+// ---------- /admin/jobs — server background-job history ----------------------
+//
+// Runs of the server's own crons (release cron, scan cleanup, manga sync,
+// price cron), recorded by services::job_runner. The SPA lists them on the
+// Tasks page next to the worker scan queue, with "Serveur" as the executor.
+
+async fn list_jobs_admin(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<Vec<server_job::ServerJobRun>>> {
+    auth::require_admin(&session, &state.pool).await?;
+    Ok(Json(server_job::list(&state.pool, 200).await?))
+}
+
+/// Relaunch a failed run's job: books a fresh `manual` run and executes it in
+/// the background. The failed row stays in the history (a run is an execution
+/// record, not a unit of work to mutate).
+async fn retry_job(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<server_job::ServerJobRun>> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    let run = server_job::get(&state.pool, id)
+        .await?
+        .ok_or(AppError::NotFound)?;
+    if run.state != "failed" {
+        return Err(AppError::BadRequest("only failed runs can be relaunched"));
+    }
+    let Some(new_id) = crate::services::job_runner::spawn_manual(&state, &run.job_name).await?
+    else {
+        return Err(AppError::Conflict("job already running"));
+    };
+    tracing::info!(job = %run.job_name, run = %new_id, by_admin = %actor.id, "admin relaunched server job");
+    let new_run = server_job::get(&state.pool, new_id)
+        .await?
+        .ok_or(AppError::NotFound)?;
+    Ok(Json(new_run))
+}
+
 // ---------- /admin/settings --------------------------------------------------
 
 async fn get_settings(
@@ -987,6 +1028,8 @@ pub fn router() -> Router<AppState> {
         .route("/admin/scans/{id}", axum::routing::delete(delete_scan_admin))
         .route("/admin/scans/{id}/retry", post(retry_scan))
         .route("/admin/scans/{id}/fail", post(fail_scan))
+        .route("/admin/jobs", get(list_jobs_admin))
+        .route("/admin/jobs/{id}/retry", post(retry_job))
 }
 
 /// Photo upload routes for catalog entities. Split out so `routes::mod` can

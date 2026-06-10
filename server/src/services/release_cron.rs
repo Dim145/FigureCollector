@@ -8,7 +8,7 @@
 //! don't double-fire if the worker restarts during the day.
 
 use crate::domain::notification;
-use crate::services::notify;
+use crate::services::{job_runner, notify};
 use crate::state::AppState;
 use chrono::NaiveDate;
 use serde_json::json;
@@ -33,17 +33,21 @@ pub fn spawn(state: AppState) {
         // else settles before we start sending things.
         tokio::time::sleep(Duration::from_secs(60)).await;
         loop {
-            if let Err(e) = run_once(&state).await {
-                tracing::warn!(error = ?e, "release-cron tick failed");
-            }
+            // Recorded in server_job_runs (admin Tasks page).
+            job_runner::run_recorded(
+                &state,
+                job_runner::JOB_RELEASE_CRON,
+                job_runner::TRIGGER_SCHEDULE,
+            )
+            .await;
             tokio::time::sleep(Duration::from_secs(24 * 60 * 60)).await;
         }
     });
 }
 
-/// One pass of the scheduler. Public so tests / admin tooling can invoke it
-/// manually.
-pub async fn run_once(state: &AppState) -> anyhow::Result<()> {
+/// One pass of the scheduler. Returns the notification counts recorded into
+/// `server_job_runs.result`. Public so the job runner / tests can invoke it.
+pub async fn run_once(state: &AppState) -> crate::error::AppResult<serde_json::Value> {
     let today = chrono::Utc::now().date_naive();
     let yesterday = today - chrono::Duration::days(1);
     let in_seven_days = today + chrono::Duration::days(7);
@@ -55,11 +59,17 @@ pub async fn run_once(state: &AppState) -> anyhow::Result<()> {
     let delivery_today = fetch_delivery_due(&state.pool, today).await?;
     let delivery_overdue = fetch_delivery_due(&state.pool, yesterday).await?;
 
+    let counts = (
+        today_due.len(),
+        j7_due.len(),
+        delivery_today.len(),
+        delivery_overdue.len(),
+    );
     tracing::info!(
-        today_count = today_due.len(),
-        j7_count = j7_due.len(),
-        delivery_today_count = delivery_today.len(),
-        delivery_overdue_count = delivery_overdue.len(),
+        today_count = counts.0,
+        j7_count = counts.1,
+        delivery_today_count = counts.2,
+        delivery_overdue_count = counts.3,
         "release-cron tick"
     );
 
@@ -129,7 +139,12 @@ pub async fn run_once(state: &AppState) -> anyhow::Result<()> {
         )
         .await;
     }
-    Ok(())
+    Ok(json!({
+        "release_today": counts.0,
+        "release_j7": counts.1,
+        "delivery_today": counts.2,
+        "delivery_overdue": counts.3,
+    }))
 }
 
 async fn fetch_due(pool: &sqlx::PgPool, date: NaiveDate) -> anyhow::Result<Vec<DueRow>> {

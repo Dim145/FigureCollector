@@ -133,6 +133,14 @@ async fn main() -> anyhow::Result<()> {
         events,
     };
 
+    // Job runs left 'processing' by a previous process died with it — close
+    // them so the admin Tasks page never shows ghost in-flight server jobs.
+    match domain::server_job::mark_interrupted(&state.pool).await {
+        Ok(n) if n > 0 => tracing::info!(count = n, "closed interrupted server job runs"),
+        Ok(_) => {}
+        Err(e) => tracing::warn!(error = ?e, "could not close interrupted server job runs"),
+    }
+
     // Daily release-date scheduler — fires J-day + J-7 notifications on
     // preorders that hit their release date.
     services::release_cron::spawn(state.clone());

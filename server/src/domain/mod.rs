@@ -20,6 +20,7 @@ pub mod owned_document;
 pub mod photo;
 pub mod preorder;
 pub mod scan;
+pub mod server_job;
 pub mod settings;
 pub mod stats;
 pub mod store;

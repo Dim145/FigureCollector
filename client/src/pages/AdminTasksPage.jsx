@@ -6,12 +6,21 @@ import {
   useRetryScan,
   useFailScan,
   useDeleteScan,
+  useAdminJobs,
+  useRetryJob,
 } from "../hooks/useAdmin.js";
 import StatCard from "../components/StatCard.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 
 /**
- * /admin/tasks — the gsplat compute queue, redrawn to Direction A ("Shōjo-Noir").
+ * /admin/tasks — every background task of the server, redrawn to Direction A
+ * ("Shōjo-Noir"). Two sources merge into ONE chronological timeline:
+ *
+ *   - the gsplat compute queue (scans claimed by external workers), and
+ *   - the server's own background jobs (release cron, scan cleanup, manga
+ *     sync, price cron) recorded in `server_job_runs` — these show "Serveur"
+ *     (司) where the worker name would be, plus their trigger (planifié /
+ *     manuel), their result summary, and a retry control on failures.
  *
  * Renders inside AdminLayout's <Outlet/>, under the global "Administration" h1 +
  * the 務 nav marker, so this view is an editorial *section* of the admin surface
@@ -21,14 +30,10 @@ import EmptyState from "../components/EmptyState.jsx";
  * The queue itself is a refined A timeline: jobs thread down a single gold spine,
  * each stamped with a status chip toned per the playbook — jade for done, gold
  * for running, laque for failed, ivoire for queued. Ids, workers, timings and
- * progress read in mono; retry/cancel controls are hanko-red.
- *
- * ALL admin logic is unchanged: the polling `useAdminScans` query drives the
- * rows, the same client-side `counts`/`FILTERS` memo + filter state scope the
- * list, and retry / force-fail / delete go through the same mutations + confirm
- * gate. Turntables stay hidden (the backend scopes to kind='gsplat'). GPU-light
- * throughout — flat fills, hairlines, the shared `.reveal` stagger; no meshes /
- * blur / continuous animation.
+ * progress read in mono; retry/cancel controls are hanko-red. Job runs reuse the
+ * exact same row anatomy (spine node, chip, mono meta, error well) so an admin
+ * can't tell which rows came first. GPU-light throughout — flat fills,
+ * hairlines, the shared `.reveal` stagger; no meshes / blur / animation.
  */
 
 // Status → accent token (STYLING ONLY). Per the Direction-A playbook the queue
@@ -100,8 +105,31 @@ function execTime(claimed, finished) {
 export default function AdminTasksPage() {
   const t = useT();
   const q = useAdminScans();
+  const jobsQ = useAdminJobs();
   const [filter, setFilter] = useState("all");
-  const rows = q.data ?? [];
+
+  // Merge worker scans + server job runs into one chronological timeline.
+  // Both share the state vocabulary, so counts/filters apply uniformly; the
+  // sort key is each row's latest activity (scan update vs job finish/start).
+  const rows = useMemo(() => {
+    const scans = (q.data ?? []).map((s) => ({
+      kind: "scan",
+      key: `scan-${s.id}`,
+      state: s.state,
+      at: s.updated_at,
+      scan: s,
+    }));
+    const jobs = (jobsQ.data ?? []).map((j) => ({
+      kind: "job",
+      key: `job-${j.id}`,
+      state: j.state,
+      at: j.finished_at ?? j.started_at,
+      job: j,
+    }));
+    return [...scans, ...jobs].sort(
+      (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime(),
+    );
+  }, [q.data, jobsQ.data]);
 
   const counts = useMemo(() => {
     const c = { all: rows.length, active: 0, failed: 0, ready: 0 };
@@ -229,7 +257,7 @@ export default function AdminTasksPage() {
       </div>
 
       {/* ─── The queue ─── */}
-      {q.isLoading ? (
+      {q.isLoading || jobsQ.isLoading ? (
         <p
           role="status"
           aria-live="polite"
@@ -264,9 +292,13 @@ export default function AdminTasksPage() {
                 "linear-gradient(180deg, transparent, var(--spine) 8%, var(--spine) 92%, transparent)",
             }}
           />
-          {shown.map((s, i) => (
-            <TaskRow key={s.id} scan={s} t={t} index={i} />
-          ))}
+          {shown.map((r, i) =>
+            r.kind === "scan" ? (
+              <TaskRow key={r.key} scan={r.scan} t={t} index={i} />
+            ) : (
+              <JobRow key={r.key} job={r.job} t={t} index={i} />
+            ),
+          )}
         </ol>
       )}
     </div>
@@ -455,6 +487,148 @@ function TaskRow({ scan, t, index = 0 }) {
               )
             ) : null}
           </div>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+// =============================================================================
+// JobRow — one server-job run on the same timeline. Identical row anatomy to
+// TaskRow (spine node, status chip, mono meta, error well, hanko controls);
+// the executor slot reads "Serveur" (司) instead of a worker name, a trigger
+// tag says whether the schedule or an admin fired it, and a jade result line
+// renders the run's JSON summary. Failed runs get the same retry control.
+// =============================================================================
+
+// server_job_runs.result keys with a localized "{n} …" label. Anything not
+// listed renders as a raw `key: value` so new job summaries stay visible
+// without a frontend release. `keep` is config (not an outcome) — skipped.
+const RESULT_LABELLED = new Set([
+  "processed",
+  "updated",
+  "filled",
+  "purged",
+  "release_today",
+  "release_j7",
+  "delivery_today",
+  "delivery_overdue",
+]);
+const RESULT_SKIP = new Set(["keep"]);
+
+/** "127 figurines traitées · 42 prix mis à jour" from a result JSON. Zero
+ *  counts are dropped; an all-zero run reads "aucune action nécessaire". */
+function formatJobResult(result, t) {
+  if (!result || typeof result !== "object") return t("admin.tasks.result.nothing");
+  const parts = [];
+  for (const [k, v] of Object.entries(result)) {
+    if (RESULT_SKIP.has(k)) continue;
+    const n = Number(v);
+    if (!Number.isFinite(n) || n === 0) continue;
+    parts.push(
+      RESULT_LABELLED.has(k) ? t(`admin.tasks.result.k.${k}`, { n }) : `${k}: ${n}`,
+    );
+  }
+  return parts.length ? parts.join(" · ") : t("admin.tasks.result.nothing");
+}
+
+function JobRow({ job, t, index = 0 }) {
+  const retry = useRetryJob();
+
+  const tone = STATE_TONE[job.state] ?? OR;
+  const exec = execTime(job.started_at, job.finished_at);
+  const revealDelay = `${Math.min(index * 0.05, 0.3)}s`;
+
+  return (
+    <li className="group relative py-4 reveal" style={{ "--delay": revealDelay }}>
+      {/* Spine node — same diamond as the scan rows, toned to the run state. */}
+      <span
+        aria-hidden
+        className="absolute top-[1.45rem] -left-[1.4rem] sm:-left-[1.65rem] w-[9px] h-[9px] rotate-45"
+        style={{
+          background: tone,
+          boxShadow:
+            job.state === "processing"
+              ? `0 0 0 3px color-mix(in oklab, ${tone} 22%, transparent), 0 0 8px color-mix(in oklab, ${tone} 70%, transparent)`
+              : `0 0 8px color-mix(in oklab, ${tone} 70%, transparent)`,
+        }}
+      />
+
+      <div
+        className="relative p-3.5 transition-colors"
+        style={{
+          border: "1px solid color-mix(in oklab, var(--color-or) 12%, transparent)",
+          borderLeft: `2px solid ${tone}`,
+          background: "color-mix(in oklab, var(--color-noir-soft) 50%, transparent)",
+          opacity: job.state === "ready" ? 0.97 : 1,
+        }}
+      >
+        <div className="flex items-start gap-3 flex-wrap">
+          <StatusChip state={job.state} tone={tone} t={t} />
+
+          <div className="flex-1 min-w-[14rem]">
+            <h3 className="display text-[1.25rem] text-[var(--color-ivoire)] leading-tight">
+              {t(`admin.tasks.job.${job.job_name}`, { default: job.job_name })}
+            </h3>
+
+            {/* Mono meta line — executor (the server), trigger, timings. */}
+            <dl className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[10px] font-mono tracking-[0.03em] text-[var(--color-ivoire-soft)]">
+              <div className="flex items-center gap-1" style={{ color: OR }}>
+                <dt className="sr-only">{t("admin.tasks.meta.worker", { default: "Worker" })}</dt>
+                <span aria-hidden className="ja not-italic text-[11px] leading-none">司</span>
+                <dd>{t("admin.tasks.server")}</dd>
+              </div>
+              <div>
+                <dt className="sr-only">{t("admin.tasks.meta.trigger", { default: "Déclencheur" })}</dt>
+                <dd>{t(`admin.tasks.trigger.${job.triggered_by}`, { default: job.triggered_by })}</dd>
+              </div>
+              <div>
+                <dt className="sr-only">{t("admin.tasks.meta.updated", { default: "Mis à jour" })}</dt>
+                <dd>{t("admin.tasks.started", { rel: rel(job.started_at, t) })}</dd>
+              </div>
+              {exec ? (
+                <div style={{ color: "var(--color-or-pale)" }}>
+                  <dt className="sr-only">{t("admin.tasks.meta.exec", { default: "Durée" })}</dt>
+                  <dd>{t("admin.tasks.exec", { d: exec })}</dd>
+                </div>
+              ) : null}
+            </dl>
+
+            {/* State-specific read-out: running note / error / result. */}
+            {job.state === "processing" ? (
+              <p className="mt-2 text-[11px] font-mono" style={{ color: OR }}>
+                {t("admin.tasks.job_running")}
+              </p>
+            ) : job.state === "failed" && job.error_message ? (
+              <p
+                className="mt-2 text-[11px] font-mono max-w-[560px] px-2.5 py-1.5"
+                style={{
+                  color: LAQUE,
+                  background: "var(--color-noir-deep)",
+                  borderLeft: `2px solid color-mix(in oklab, ${LAQUE} 55%, transparent)`,
+                }}
+              >
+                {job.error_message}
+              </p>
+            ) : job.state === "ready" ? (
+              <p className="mt-2 text-[11.5px]" style={{ color: JADE }}>
+                ✓ {formatJobResult(job.result, t)}
+              </p>
+            ) : null}
+          </div>
+
+          {/* Right rail — relaunch a failed run (books a fresh manual run). */}
+          {job.state === "failed" ? (
+            <div className="flex flex-col gap-1.5 items-stretch shrink-0">
+              <ActBtn
+                tone={JADE}
+                busy={retry.isPending}
+                onClick={() => retry.mutate(job.id)}
+                label={t("admin.tasks.action.retry")}
+                glyph="↻"
+              />
+            </div>
+          ) : null}
         </div>
       </div>
     </li>

@@ -5,6 +5,7 @@
 //! and the Garage blobs. Failures, in-flight jobs, and turntables are never
 //! touched, so a figurine never loses its only 3D model — only stale re-scans.
 
+use crate::services::job_runner;
 use crate::state::AppState;
 use std::time::Duration;
 
@@ -29,16 +30,21 @@ pub fn spawn(state: AppState) {
         // Settle after boot (migrations, listeners) before the first sweep.
         tokio::time::sleep(Duration::from_secs(120)).await;
         loop {
-            if let Err(e) = run_once(&state).await {
-                tracing::warn!(error = ?e, "scan-cleanup tick failed");
-            }
+            // Recorded in server_job_runs (admin Tasks page).
+            job_runner::run_recorded(
+                &state,
+                job_runner::JOB_SCAN_CLEANUP,
+                job_runner::TRIGGER_SCHEDULE,
+            )
+            .await;
             tokio::time::sleep(Duration::from_secs(INTERVAL_SECS)).await;
         }
     });
 }
 
-/// One sweep. Public so an admin tool / test could trigger it.
-pub async fn run_once(state: &AppState) -> crate::error::AppResult<()> {
+/// One sweep. Returns the purge summary recorded into `server_job_runs.result`.
+/// Public so the job runner / admin relaunch route can trigger it.
+pub async fn run_once(state: &AppState) -> crate::error::AppResult<serde_json::Value> {
     let keep = keep_count();
     let purged = crate::domain::scan::cleanup_completed(&state.pool, keep).await?;
     if !purged.is_empty() {
@@ -51,7 +57,7 @@ pub async fn run_once(state: &AppState) -> crate::error::AppResult<()> {
             purge_scan_blobs(state, prefix, result_key.as_deref()).await;
         }
     }
-    Ok(())
+    Ok(serde_json::json!({ "purged": purged.len(), "keep": keep }))
 }
 
 /// Best-effort delete of a scan's Garage blobs: every frame, the result `.ply`,

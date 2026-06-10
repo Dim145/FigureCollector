@@ -275,6 +275,28 @@ export function useDeleteScan() {
   });
 }
 
+/** Server background-job runs (the in-process crons: release, cleanup, manga
+ *  sync, price refresh) — merged into the Tasks page next to the worker scan
+ *  queue. Same polling cadence as the scans so both halves stay in step. */
+export function useAdminJobs() {
+  return useQuery({
+    queryKey: ["admin", "jobs"],
+    queryFn: () => api.get("/admin/jobs"),
+    staleTime: 3_000,
+    refetchInterval: 6_000,
+  });
+}
+
+/** Relaunch a failed server-job run — books a fresh `manual` run of the same
+ *  job; the failed row stays in the history. */
+export function useRetryJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => api.post(`/admin/jobs/${id}/retry`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "jobs"] }),
+  });
+}
+
 // =============================================================================
 // Entity bulk ops — unlink/move figures, delete with optional merge target.
 //

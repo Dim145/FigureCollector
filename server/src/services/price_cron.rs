@@ -26,6 +26,7 @@ use crate::domain::{figure_price, settings};
 use crate::error::AppResult;
 use crate::external::orzgk;
 use crate::external::proxy::ProxyClient;
+use crate::services::job_runner;
 use crate::state::AppState;
 use chrono::Utc;
 use croner::Cron;
@@ -91,20 +92,25 @@ pub fn spawn(state: AppState) {
                 tokio::time::sleep(Duration::from_secs(MAX_SLEEP_SECS)).await;
                 continue;
             }
-            // Wait until (just past) the scheduled mark, then sweep.
+            // Wait until (just past) the scheduled mark, then sweep. The run
+            // is recorded in server_job_runs (admin Tasks page).
             tokio::time::sleep(Duration::from_secs(until + 1)).await;
-            if let Err(e) = run_once(&state).await {
-                tracing::warn!(error = ?e, "price-cron: sweep failed");
-            }
+            job_runner::run_recorded(
+                &state,
+                job_runner::JOB_PRICE_CRON,
+                job_runner::TRIGGER_SCHEDULE,
+            )
+            .await;
             // Step past this minute so we don't immediately re-fire the same hit.
             tokio::time::sleep(Duration::from_secs(RECHECK_SECS)).await;
         }
     });
 }
 
-/// One sweep over all store-linked figures. Public so an admin tool / test can
-/// trigger it directly.
-pub async fn run_once(state: &AppState) -> AppResult<()> {
+/// One sweep over all store-linked figures. Returns the run summary recorded
+/// into `server_job_runs.result`. Public so the job runner (and the admin
+/// relaunch route through it) can trigger it directly.
+pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
     // Figures with at least one real store buy-link. The full buy URL is
     // origin(`stores.url`) + `figure_stores.link` (path+query); one row per
     // (figure, store-link).
@@ -213,7 +219,7 @@ pub async fn run_once(state: &AppState) -> AppResult<()> {
     }
 
     tracing::info!(processed, updated, "price-cron: provider prices refreshed");
-    Ok(())
+    Ok(serde_json::json!({ "processed": processed, "updated": updated }))
 }
 
 /// One scraped price line. `version_label` is the provider's version name (orzgk
