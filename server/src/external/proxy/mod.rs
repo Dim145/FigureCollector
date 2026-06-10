@@ -13,11 +13,14 @@
 //!   - `FIGURE_PROXY_API_KEY` — optional bearer token sent on every call.
 //!
 //! Full response contract lives in `docs/content/features/url-import.md`
-//! — the proxy must implement three endpoints:
+//! — the proxy must implement three endpoints (plus an optional fourth):
 //!
 //!   - `GET <base>/stores`               → list supported boutiques
 //!   - `GET <base>/search?q=…&store=…`   → search (store filter optional)
 //!   - `GET <base>/product?url=…`        → fetch one product detail
+//!   - `GET <base>/wishlist?url=…`       → scrape a public wishlist page
+//!     (optional — proxies that don't implement it just 404/501 and the
+//!     SPA tells the user the list isn't supported by their proxy)
 //!
 //! Why a proxy at all: scraping is brittle and site-specific. Pushing it
 //! out lets the user pick their own scraper (or use ours), bring keys
@@ -106,9 +109,48 @@ pub struct ProxyPrice {
     pub currency: Option<String>,
 }
 
+/// One row of a scraped public wishlist (`/wishlist`). Deliberately the same
+/// shape class as `OrzgkWishItem` so the bulk wishlist importer feeds both
+/// sources through one pipeline: a display title to match against the
+/// catalogue, an optional version/price for the review card, and the product
+/// URL the commit step resolves via `/product`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyWishItem {
+    pub title: String,
+    /// Canonical product URL — `/product` must accept it back.
+    pub url: String,
+    #[serde(default)]
+    pub manufacturer: Option<String>,
+    #[serde(default)]
+    pub version: Option<String>,
+    #[serde(default)]
+    pub price: Option<ProxyPrice>,
+    #[serde(default)]
+    pub image_url: Option<String>,
+    #[serde(default)]
+    pub store_id: Option<String>,
+}
+
 // =============================================================================
 // Client
 // =============================================================================
+
+/// Reject anything that isn't a well-formed http(s) URL with a host, so a
+/// user-supplied link can't coerce us into handing the proxy a `file://`,
+/// schemeless, or host-less target. Shared by `product` and `wishlist`.
+fn validate_user_url(url: &str) -> AppResult<()> {
+    let parsed =
+        url::Url::parse(url).map_err(|_| AppError::BadRequest("url is not a valid URL"))?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Err(AppError::BadRequest(
+            "url must use the http or https scheme",
+        ));
+    }
+    if parsed.host_str().is_none_or(str::is_empty) {
+        return Err(AppError::BadRequest("url has no host"));
+    }
+    Ok(())
+}
 
 /// Stateless façade. Cheap to construct on every call — we just hand it
 /// the shared reqwest client (already TLS-tuned + UA-set).
@@ -151,18 +193,16 @@ impl<'a> ProxyClient<'a> {
         // anything that isn't a well-formed http(s) URL with a host so we
         // can't be coerced into handing the proxy a `file://`, schemeless, or
         // host-less target.
-        let parsed = url::Url::parse(url)
-            .map_err(|_| AppError::BadRequest("product url is not a valid URL"))?;
-        if !matches!(parsed.scheme(), "http" | "https") {
-            return Err(AppError::BadRequest(
-                "product url must use the http or https scheme",
-            ));
-        }
-        if parsed.host_str().is_none_or(str::is_empty) {
-            return Err(AppError::BadRequest("product url has no host"));
-        }
-
+        validate_user_url(url)?;
         self.get_json::<ProxyProduct>("/product", &[("url", url)])
+            .await
+    }
+
+    /// Scrape a public wishlist page (optional contract endpoint). Same
+    /// user-supplied-URL hardening as [`Self::product`].
+    pub async fn wishlist(&self, url: &str) -> AppResult<Vec<ProxyWishItem>> {
+        validate_user_url(url)?;
+        self.get_json::<Vec<ProxyWishItem>>("/wishlist", &[("url", url)])
             .await
     }
 

@@ -30,7 +30,9 @@ function mapType(kind) {
 
 const SUPPORTED_CURRENCIES = ["EUR", "USD", "GBP", "JPY", "CHF", "CAD"];
 
-function mapCurrency(c) {
+/** Normalise a scraped currency to a supported ISO code (else undefined).
+ *  Exported for the proxy mapping (lib/proxyMap.js). */
+export function mapCurrency(c) {
   if (!c) return undefined;
   const upper = c.toUpperCase();
   return SUPPORTED_CURRENCIES.includes(upper) ? upper : undefined;
@@ -45,8 +47,10 @@ function mapCurrency(c) {
  *
  * Tries each candidate string in order and returns the first match — call
  * with the most precise source first (`est_completion`, then `est_released_time`).
+ * Exported for the proxy mapping (lib/proxyMap.js) — proxies emit the same
+ * free-form dates ("2026-Q3", "2026/10").
  */
-function parseReleaseDate(...candidates) {
+export function parseReleaseDate(...candidates) {
   for (const raw of candidates) {
     if (!raw) continue;
     const s = String(raw).trim();
@@ -77,8 +81,9 @@ export function pickImage(detail, version) {
 }
 
 /** orzgk gives materials as one free string ("Imported PU, high-grade resin");
- *  `NewFigure.materials` is a string array. Split on the usual separators. */
-function splitMaterials(raw) {
+ *  `NewFigure.materials` is a string array. Split on the usual separators.
+ *  Exported for the proxy mapping (lib/proxyMap.js). */
+export function splitMaterials(raw) {
   if (!raw || typeof raw !== "string") return undefined;
   const parts = raw.split(/[,/·;]/).map((s) => s.trim()).filter(Boolean);
   return parts.length ? parts : undefined;

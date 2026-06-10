@@ -27,27 +27,40 @@ On the [catalogue](catalogue.md) cards this shows as a **single** corner marker,
 in priority order: **pre-order badge › owned seal (✓) › wished heart (♥)** — a
 card never stacks two.
 
-## Bulk import from orzgk
+## Bulk import
 
-The **Importer** button opens `/souhaits/import`, which bulk-adds figures from a
-**public orzgk wishlist**:
+The **Importer** button opens `/souhaits/import`, which bulk-adds figures from
+three kinds of sources:
 
-1. **Coller** — paste your list's public share link (on orzgk: *Share → Public →
-   copy the link*, e.g. `…/wishlist-2/view/<token>/`). The server fetches it,
-   following pagination. You can also paste product links (one per line); the
-   page HTML of a private list is accepted as a fallback.
-2. **Choisir** — each parsed item is matched against the catalogue by name +
-   manufacturer (trigram similarity). A **≥ 90 %** match auto-links to the
-   existing figure; below that you pick the match or "create new". Figures you
-   already own or already wish are locked out. Select up to **10 per batch**.
-3. **Importer** — matched figures are simply added to your wishlist (no metadata
-   touched); new ones are created in the catalogue from the orzgk product page —
-   the same mapping as the [add-figure import](url-import.md), with your chosen
-   version pre-selected — and then wished.
+- a **public orzgk wishlist** (native scraper),
+- a **public wishlist on any boutique your [proxy](url-import.md) handles** —
+  the SPA routes the pasted URL by host against the proxy's `/stores` list and
+  fetches it through the proxy's optional `/wishlist` endpoint,
+- an **MFC CSV export** — on MyFigureCollection: *Manager → CSV Export* (also
+  available on lists, so your *Wished* tab too). The file is parsed locally —
+  no connection to MFC, no Cloudflare — and rows carrying a barcode are
+  matched **by JAN first** (exact), which beats any title similarity.
 
-!!! note "Why a batch of 10"
-    Creating a not-yet-catalogued figure costs one orzgk product fetch each, so a
-    single import run is capped at 10 items. Re-run it for the rest — already-
+1. **Coller** — paste the list's public share link (orzgk: *Share → Public →
+   copy the link*; or any proxy-handled boutique). You can also paste product
+   links (one per line) or the page HTML of a private orzgk list — or drop the
+   MFC CSV file in the well below the textarea. A "detected source" chip row
+   shows which path the dispatcher picked.
+2. **Choisir** — each parsed item is matched against the catalogue (exact JAN
+   when available, else name + manufacturer trigram similarity). A **≥ 90 %**
+   match auto-links to the existing figure; below that you pick the match or
+   "create new". Figures you already own or already wish are locked out.
+   Select up to **25 per batch**.
+3. **Importer** — matched figures are simply added to your wishlist (no
+   metadata touched); new ones are created per source: orzgk and proxy items
+   from their product page (the same mapping as the
+   [add-figure import](url-import.md), version pre-selected), MFC rows as a
+   minimal figure (name + JAN, the MFC link kept in the description — enrich
+   later) — and then wished.
+
+!!! note "Why a batch of 25"
+    Creating a not-yet-catalogued figure costs one product fetch each, so a
+    single import run is capped at 25 items. Re-run it for the rest — already-
     imported pieces show as *déjà souhaitée* and are skipped.
 
 ## Shared gift lists

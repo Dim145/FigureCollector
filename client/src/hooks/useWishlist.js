@@ -36,17 +36,20 @@ export function useRemoveWishlistItem() {
   });
 }
 
-// ----- Bulk import (from an orzgk public wishlist) ---------------------------
+// ----- Bulk import (orzgk wishlist / proxy-handled boutiques) ----------------
 
-/** Resolve an import source into orzgk wishlist items. Pass `{ url }` for a
- *  public share link (server fetch, paginated) or `{ html }` for the
- *  paste-the-page fallback (private lists). Read-only — no cache to touch. */
+/** Resolve an import source into wish items. Pass `{ url }` for a public
+ *  orzgk share link (server fetch, paginated), `{ url, via: "proxy" }` for a
+ *  list on a boutique the operator proxy handles, or `{ html }` for the
+ *  paste-the-page fallback (private orzgk lists). Read-only. */
 export function useResolveImport() {
   return useMutation({
-    mutationFn: ({ url, html }) =>
+    mutationFn: ({ url, html, via }) =>
       html != null
         ? api.post("/external/orzgk/wishlist/parse", { html })
-        : api.get(`/external/orzgk/wishlist?url=${encodeURIComponent(url)}`),
+        : via === "proxy"
+          ? api.get(`/external/proxy/wishlist?url=${encodeURIComponent(url)}`)
+          : api.get(`/external/orzgk/wishlist?url=${encodeURIComponent(url)}`),
   });
 }
 

@@ -11,6 +11,14 @@ import {
   useFigureMatch,
 } from "../hooks/useWishlist.js";
 import { ORZGK_URL_RE, autoPickFromDetail } from "../lib/orzgkMap.js";
+import {
+  hostnameOf,
+  proxyProductToNewFigure,
+  proxyStoreFor,
+  proxyWishToItem,
+} from "../lib/proxyMap.js";
+import { parseMfcCsv } from "../lib/mfcCsv.js";
+import { useProxyEnabled, fetchProxyProduct } from "../hooks/useProxy.js";
 import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
@@ -19,16 +27,21 @@ import FigureCard from "../components/FigureCard.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 
 /**
- * « Importer dans mes souhaits » — bulk import from a public orzgk wishlist.
+ * « Importer dans mes souhaits » — bulk import, multi-source.
  *
- *   ① Coller   — paste the list's public share URL (server fetches + paginates)
- *                or product links; HTML paste is the private-list fallback.
- *   ② Choisir  — each parsed item is matched against the catalogue (trigram %);
- *                ≥90% auto-links, owned/already-wished are locked out, the rest
- *                default to "create new". Bulk-select up to 10.
- *   ③ Importer — matched → just wishlisted; new → orzgk detail → catalogue
- *                figure (same buildPick mapping as the add page, version
- *                pre-selected) → wishlisted. Progress + summary.
+ *   ① Coller   — paste a public orzgk wishlist URL (server fetches +
+ *                paginates), a list URL from any boutique the operator proxy
+ *                declares via `/stores`.hosts, orzgk product links, or raw
+ *                HTML (private-orzgk fallback). OR drop an MFC CSV export
+ *                (Manager → CSV Export) — parsed locally, matched by JAN
+ *                first, no Cloudflare involved.
+ *   ② Choisir  — each parsed item is matched against the catalogue (JAN exact
+ *                when available, else trigram %); ≥90% auto-links,
+ *                owned/already-wished are locked out, the rest default to
+ *                "create new". Bulk-select up to 25.
+ *   ③ Importer — matched → just wishlisted; new → created per source (orzgk
+ *                detail / proxy product / minimal MFC figure with name+JAN)
+ *                → wishlisted. Progress + summary.
  *
  * Direction A ("Shōjo-Noir"): editorial header (蒐/輸 kicker + AccentTitle +
  * gold-rule), the staged flow in noir Card panels, the preview as a FigureCard
@@ -36,9 +49,35 @@ import Reveal from "../components/motion/Reveal.jsx";
  * actions. GPU-light: flat fills + hairlines + the shared Reveal stagger.
  */
 
-const BATCH_MAX = 10;
+const BATCH_MAX = 25;
 const AUTO_THRESHOLD = 0.9; // ≥ → auto-associate
 const SUGGEST_THRESHOLD = 0.5; // ≥ → "à vérifier" (offer the match), else "new"
+/** Max queries per POST /figures/match call (the backend caps at 60). */
+const MATCH_CHUNK = 60;
+
+// Kanji seals for the detected-source chips (像 orzgk · 代 proxy · 紙 HTML).
+const SOURCE_KANJI = { orzgk: "像", proxy: "代", html: "紙" };
+
+/** Which import path the dispatcher would take for the pasted text. */
+function detectSource(raw, stores) {
+  const text = (raw ?? "").trim();
+  if (!text) return null;
+  if (looksLikeHtml(text)) return { kind: "html" };
+  const tokens = text.split(/\s+/).filter(Boolean);
+  if (
+    tokens.some(
+      (u) => /orzgk\.com\/.*(wishlist|wlfmc)/i.test(u) || ORZGK_URL_RE.test(u),
+    )
+  ) {
+    return { kind: "orzgk" };
+  }
+  for (const u of tokens) {
+    if (!/^https?:\/\//i.test(u)) continue;
+    const store = proxyStoreFor(stores, hostnameOf(u));
+    if (store) return { kind: "proxy", url: u, storeName: store.name };
+  }
+  return { kind: "unknown" };
+}
 
 export default function WishlistImportPage() {
   const t = useT();
@@ -49,6 +88,7 @@ export default function WishlistImportPage() {
   const match = useFigureMatch();
   const createFigure = useCreateFigure();
   const addWish = useAddWishlistItem();
+  const proxy = useProxyEnabled();
 
   const [raw, setRaw] = useState("");
   const [phase, setPhase] = useState("input"); // input | review | importing | done
@@ -68,6 +108,7 @@ export default function WishlistImportPage() {
 
   const selectedCount = candidates.filter((c) => c.selected).length;
   const busy = resolve.isPending || match.isPending;
+  const detected = useMemo(() => detectSource(raw, proxy.stores), [raw, proxy.stores]);
   // Don't categorise until the owned + wishlist sets are loaded, otherwise an
   // owned figure can be mis-tagged as a fresh "match" and hit the 409 gate.
   const ready = !owned.isLoading && !wishlist.isLoading;
@@ -84,12 +125,23 @@ export default function WishlistImportPage() {
     let items = [];
     try {
       if (looksLikeHtml(text)) {
-        items = await resolve.mutateAsync({ html: text });
+        items = (await resolve.mutateAsync({ html: text })).map((it) => ({
+          ...it,
+          source: "orzgk",
+        }));
       } else {
         const tokens = text.split(/\s+/).filter(Boolean);
         const wishUrl = tokens.find((u) => /orzgk\.com\/.*(wishlist|wlfmc)/i.test(u));
         if (wishUrl) {
-          items = await resolve.mutateAsync({ url: wishUrl });
+          items = (await resolve.mutateAsync({ url: wishUrl })).map((it) => ({
+            ...it,
+            source: "orzgk",
+          }));
+        } else if (detected?.kind === "proxy") {
+          // A list URL on a boutique the operator proxy handles — forwarded
+          // through the proxy's optional /wishlist contract endpoint.
+          const rows = await resolve.mutateAsync({ url: detected.url, via: "proxy" });
+          items = rows.map(proxyWishToItem);
         } else {
           const productUrls = tokens.filter((u) => ORZGK_URL_RE.test(u));
           if (productUrls.length === 0) {
@@ -103,6 +155,7 @@ export default function WishlistImportPage() {
             price: null,
             image_url: null,
             detail_url: u.split(/[?#]/)[0],
+            source: "orzgk",
           }));
         }
       }
@@ -110,7 +163,30 @@ export default function WishlistImportPage() {
       setError(e?.message ?? t("import.err.fetch"));
       return;
     }
+    await runPipeline(items);
+  };
 
+  // MFC CSV export (Manager → CSV Export) — parsed locally, then fed through
+  // the exact same match/categorise pipeline as the URL sources.
+  const onCsvFile = async (file) => {
+    setError(null);
+    if (!file) return;
+    let items = [];
+    try {
+      items = parseMfcCsv(await file.text());
+    } catch {
+      setError(t("import.err.csv_empty"));
+      return;
+    }
+    if (items.length === 0) {
+      setError(t("import.err.csv_empty"));
+      return;
+    }
+    await runPipeline(items);
+  };
+
+  // Shared tail of step ①: dedupe → match (JAN first, chunked) → categorise.
+  const runPipeline = async (items) => {
     // Dedupe by canonical product URL.
     const seen = new Set();
     items = items.filter(
@@ -121,12 +197,19 @@ export default function WishlistImportPage() {
       return;
     }
 
-    // Match each title against the catalogue.
+    // Match against the catalogue — exact JAN hits (MFC) come back at 100%,
+    // then trigram title similarity. Chunked to the backend's 60-query cap.
     let lists = [];
     try {
-      lists = await match.mutateAsync(
-        items.map((it) => ({ name: it.title, manufacturer: it.studio ?? undefined })),
-      );
+      const queries = items.map((it) => ({
+        name: it.title,
+        manufacturer: it.studio ?? undefined,
+        jan: it.jan ?? undefined,
+      }));
+      for (let i = 0; i < queries.length; i += MATCH_CHUNK) {
+        const part = await match.mutateAsync(queries.slice(i, i + MATCH_CHUNK));
+        lists.push(...part);
+      }
     } catch {
       lists = items.map(() => []);
     }
@@ -211,6 +294,26 @@ export default function WishlistImportPage() {
         if (c.action === "link" && c.chosenFigureId) {
           await addWish.mutateAsync({ figure_id: c.chosenFigureId });
           linked++;
+        } else if (c.source === "proxy") {
+          // Proxy boutique: resolve the product through the proxy contract,
+          // map it with the shared proxy→NewFigure mapping.
+          const product = await fetchProxyProduct(c.detail_url);
+          const fig = await createFigure.mutateAsync(proxyProductToNewFigure(product));
+          await addWish.mutateAsync({ figure_id: fig.id });
+          created++;
+        } else if (c.source === "mfc") {
+          // MFC rows: a minimal figure (name + JAN, MFC link kept in the
+          // description) — MFC is Cloudflare-walled server-side, so there's
+          // no metadata to enrich with at create time.
+          const fig = await createFigure.mutateAsync({
+            name: c.title,
+            jan: c.jan || undefined,
+            description: c.detail_url.startsWith("http")
+              ? `Source: ${c.detail_url}`
+              : undefined,
+          });
+          await addWish.mutateAsync({ figure_id: fig.id });
+          created++;
         } else {
           const detail = await api.get(
             `/external/orzgk/detail?url=${encodeURIComponent(c.detail_url)}`,
@@ -272,6 +375,9 @@ export default function WishlistImportPage() {
             raw={raw}
             setRaw={setRaw}
             onAnalyse={analyse}
+            onCsvFile={onCsvFile}
+            detected={detected}
+            proxy={proxy}
             busy={busy || !ready}
             error={error}
             t={t}
@@ -370,9 +476,16 @@ function Steps({ phase, t }) {
   );
 }
 
-/** ① Source — paste the public list URL (or product links / HTML). A refined
- *  Direction-A textarea well + hint + a red-pill primary CTA. */
-function InputPhase({ raw, setRaw, onAnalyse, busy, error, t }) {
+/** ① Source — paste a list URL (orzgk or a proxy-handled boutique), product
+ *  links, or raw HTML; or drop an MFC CSV export. A refined Direction-A
+ *  textarea well + live source-detection chips + the CSV well + the CTA. */
+function InputPhase({ raw, setRaw, onAnalyse, onCsvFile, detected, proxy, busy, error, t }) {
+  // First few proxy-handled hostnames, as a quiet "what can I paste?" hint.
+  const proxyHosts = (proxy?.stores ?? [])
+    .flatMap((s) => s.hosts ?? [])
+    .map((h) => (h ?? "").replace(/^www\./, ""))
+    .filter(Boolean);
+  const hostsHint = [...new Set(proxyHosts)].slice(0, 5).join(" · ");
   return (
     <Reveal as="div">
       <Card className="relative overflow-hidden p-6 md:p-8">
@@ -406,6 +519,45 @@ function InputPhase({ raw, setRaw, onAnalyse, busy, error, t }) {
             />
           </label>
 
+          {/* Live source-detection chips — which path the dispatcher will take. */}
+          {raw.trim() ? (
+            <div className="mt-3 flex items-center gap-2 flex-wrap">
+              <span className="micro-tight text-[var(--color-ivoire-soft)]">
+                {t("import.detected")}
+              </span>
+              {["orzgk", "proxy", "html"].map((k) => {
+                const on = detected?.kind === k;
+                if (k === "proxy" && !proxy?.enabled) return null;
+                return (
+                  <span
+                    key={k}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 border text-[9px] uppercase tracking-[0.18em] transition-colors"
+                    style={
+                      on
+                        ? {
+                            color: "var(--color-or)",
+                            borderColor: "color-mix(in oklab, var(--color-or) 60%, transparent)",
+                            background: "color-mix(in oklab, var(--color-or) 10%, transparent)",
+                          }
+                        : {
+                            color: "var(--color-ivoire-soft)",
+                            borderColor: "color-mix(in oklab, var(--color-or) 22%, transparent)",
+                            opacity: 0.55,
+                          }
+                    }
+                  >
+                    <span aria-hidden className="ja not-italic text-[12px] leading-none">
+                      {SOURCE_KANJI[k]}
+                    </span>
+                    {k === "proxy" && on && detected?.storeName
+                      ? t("import.source.proxy", { store: detected.storeName })
+                      : t(`import.source.${k}`)}
+                  </span>
+                );
+              })}
+            </div>
+          ) : null}
+
           {error ? (
             <p
               role="alert"
@@ -416,9 +568,16 @@ function InputPhase({ raw, setRaw, onAnalyse, busy, error, t }) {
           ) : null}
 
           <div className="mt-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            <p className="max-w-md text-xs leading-relaxed text-[var(--color-ivoire-soft)]">
-              {t("import.paste_hint")}
-            </p>
+            <div className="max-w-md">
+              <p className="text-xs leading-relaxed text-[var(--color-ivoire-soft)]">
+                {t("import.paste_hint")}
+              </p>
+              {proxy?.enabled && hostsHint ? (
+                <p className="mt-1.5 font-mono text-[9.5px] text-[var(--color-ivoire-soft)]/70">
+                  {t("import.proxy_hosts", { hosts: hostsHint })}
+                </p>
+              ) : null}
+            </div>
             <Button
               variant="primary"
               onClick={onAnalyse}
@@ -429,6 +588,53 @@ function InputPhase({ raw, setRaw, onAnalyse, busy, error, t }) {
               {busy ? t("import.analysing") : t("import.analyse")}
               {!busy ? <span aria-hidden>↓</span> : null}
             </Button>
+          </div>
+
+          {/* ── ou ── */}
+          <div className="my-6 flex items-center gap-3" aria-hidden>
+            <span className="flex-1 h-px bg-[color-mix(in_oklab,var(--color-or)_18%,transparent)]" />
+            <span className="micro-tight text-[var(--color-ivoire-soft)]">{t("import.or")}</span>
+            <span className="flex-1 h-px bg-[color-mix(in_oklab,var(--color-or)_18%,transparent)]" />
+          </div>
+
+          {/* MFC CSV well — local parse, JAN-first matching, zero scraping. */}
+          <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              onCsvFile(e.dataTransfer?.files?.[0]);
+            }}
+            className="flex items-center gap-5 p-5 border border-dashed"
+            style={{ borderColor: "color-mix(in oklab, var(--color-or) 45%, transparent)" }}
+          >
+            <span
+              aria-hidden
+              className="ja not-italic text-3xl leading-none shrink-0"
+              style={{ color: "color-mix(in oklab, var(--color-or) 60%, transparent)" }}
+            >
+              蒐
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="micro-tight text-[var(--color-ivoire)]">{t("import.csv.title")}</p>
+              <p className="mt-1.5 text-xs leading-relaxed text-[var(--color-ivoire-soft)]">
+                {t("import.csv.hint")}
+              </p>
+            </div>
+            <label className="shrink-0 tap-target cursor-pointer inline-flex items-center px-4 py-2 rounded-full border text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors"
+              style={{ borderColor: "color-mix(in oklab, var(--color-or) 40%, transparent)" }}
+            >
+              {t("import.csv.browse")}
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                className="sr-only"
+                disabled={busy}
+                onChange={(e) => {
+                  onCsvFile(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
+              />
+            </label>
           </div>
         </div>
       </Card>

@@ -7,6 +7,7 @@ import {
   useProxyEnabled,
 } from "../hooks/useProxy.js";
 import { ORZGK_URL_RE, buildPick, pickImage } from "../lib/orzgkMap.js";
+import { hostnameOf, proxyHandles, proxyProductToPick } from "../lib/proxyMap.js";
 import Button from "./Button.jsx";
 
 /**
@@ -236,28 +237,10 @@ export default function FigureLookup({ initial = "", onPick }) {
     fetchProxyProduct(url)
       .then((p) => {
         if (detailReqRef.current !== myReq) return;
-        // Map ProxyProduct → pick payload. `source_url` is preserved
-        // so the backend can auto-link the new figure to the matching
-        // store via hostname.
-        applyPick({
-          name: p.title,
-          manufacturer_name: p.manufacturer ?? undefined,
-          series_name: p.series ?? undefined,
-          character_name: p.character ?? undefined,
-          scale: p.scale ?? undefined,
-          height_mm: p.height_mm != null ? String(p.height_mm) : undefined,
-          materials: p.materials ?? undefined,
-          official_image_url: p.primary_image_url ?? undefined,
-          msrp_amount:
-            p.price?.amount != null
-              ? String(p.price.amount.toFixed(2))
-              : undefined,
-          msrp_currency: p.price?.currency ?? undefined,
-          release_date: p.release_date ?? undefined,
-          description: p.description ?? undefined,
-          is_nsfw: p.is_nsfw || undefined,
-          source_url: p.url,
-        });
+        // Map ProxyProduct → pick payload (shared with the bulk wishlist
+        // importer — lib/proxyMap.js). `source_url` is preserved so the
+        // backend can auto-link the new figure to the store via hostname.
+        applyPick(proxyProductToPick(p));
       })
       .catch((e) => {
         if (detailReqRef.current !== myReq) return;
@@ -1030,26 +1013,5 @@ function MfcPasteModal({ open, onClose, onApply, t }) {
   );
 }
 
-/** Extract a lowercase hostname (without the `www.` prefix) from a
- *  user-pasted URL string. Returns null when the string isn't a
- *  parseable URL — callers fall back to the search effect in that case. */
-function hostnameOf(raw) {
-  try {
-    const host = new URL(raw).hostname.toLowerCase();
-    return host.replace(/^www\./, "");
-  } catch {
-    return null;
-  }
-}
-
-/** Test whether any of the proxy's `/stores` entries claims this host.
- *  Each `ProxyStore.hosts` is an array of bare hostnames the proxy can
- *  scrape; matching is case-insensitive and ignores leading `www.`. */
-function proxyHandles(stores, host) {
-  const needle = host.replace(/^www\./, "").toLowerCase();
-  return stores.some((s) =>
-    (s.hosts ?? []).some(
-      (h) => (h ?? "").replace(/^www\./, "").toLowerCase() === needle,
-    ),
-  );
-}
+// hostnameOf / proxyHandles moved to lib/proxyMap.js — shared with the bulk
+// wishlist importer so both flows route pasted URLs identically.

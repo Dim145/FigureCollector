@@ -289,6 +289,30 @@ async fn proxy_product(
     Ok(Json(client.product(url).await?))
 }
 
+/// Scrape a public wishlist page through the operator proxy (optional 4th
+/// contract endpoint). Proxies that don't implement it answer 404/501, which
+/// the error mapping surfaces as "store/list not supported".
+async fn proxy_wishlist(
+    State(state): State<AppState>,
+    session: Session,
+    Query(q): Query<UrlQuery>,
+) -> AppResult<Json<Vec<proxy::ProxyWishItem>>> {
+    auth::require_user(&session).await?;
+    let client = proxy_client(&state);
+    if !client.is_configured() {
+        return Err(AppError::FeatureDisabled(
+            "figure scraping proxy is not configured",
+        ));
+    }
+    let url = q
+        .url
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .ok_or(AppError::BadRequest("missing url parameter"))?;
+    Ok(Json(client.wishlist(url).await?))
+}
+
 /// Fetch + cache a single orzgk product page. Used by the lookup modal once
 /// the user has either picked a result card or pasted a `/product/<slug>/`
 /// URL directly. The handler rejects URLs that aren't on `www.orzgk.com` so
@@ -409,6 +433,7 @@ pub fn router() -> Router<AppState> {
         .route("/external/proxy/stores", get(proxy_stores))
         .route("/external/proxy/search", get(proxy_search))
         .route("/external/proxy/product", get(proxy_product))
+        .route("/external/proxy/wishlist", get(proxy_wishlist))
         .route("/external/mal/anime/search", get(mal_anime_search))
         .route("/external/mal/anime/{id}", get(mal_anime_get))
         .route("/external/mal/character/search", get(mal_character_search))

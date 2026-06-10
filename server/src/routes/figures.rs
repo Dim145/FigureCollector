@@ -72,6 +72,10 @@ struct MatchQueryItem {
     name: String,
     #[serde(default)]
     manufacturer: Option<String>,
+    /// Optional JAN/EAN barcode — when present an exact catalogue hit is
+    /// prepended with score 1.0 (MFC CSV rows carry barcodes; orzgk doesn't).
+    #[serde(default)]
+    jan: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -98,7 +102,26 @@ async fn match_figures(
     }
     let mut out = Vec::with_capacity(body.queries.len());
     for q in &body.queries {
-        out.push(figure::match_one(&state.pool, &q.name, q.manufacturer.as_deref(), exclude).await?);
+        let mut list =
+            figure::match_one(&state.pool, &q.name, q.manufacturer.as_deref(), exclude).await?;
+        // JAN is uniquely indexed — an exact barcode hit beats any trigram
+        // score, so prepend it at 1.0 (deduped against the fuzzy results).
+        if let Some(jan) = q.jan.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            if let Some(f) = figure::find_by_jan(&state.pool, jan, exclude).await? {
+                list.retain(|m| m.figure_id != f.id);
+                list.insert(
+                    0,
+                    figure::FigureMatch {
+                        figure_id: f.id,
+                        name: f.name,
+                        manufacturer_name: f.manufacturer_name,
+                        score: 1.0,
+                    },
+                );
+                list.truncate(3);
+            }
+        }
+        out.push(list);
     }
     Ok(Json(out))
 }

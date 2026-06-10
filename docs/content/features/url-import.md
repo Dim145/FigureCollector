@@ -9,7 +9,8 @@ talks to two surfaces:
   before importing).
 - **Any other store** goes through an **optional external proxy** —
   you wire up the proxy URL via env vars, FigureCollector forwards
-  three requests to it, the proxy does whatever it takes to scrape the
+  its requests to it (three required endpoints plus an optional fourth
+  for wishlists), the proxy does whatever it takes to scrape the
   upstream site and returns the normalised payloads documented below.
 
 When no proxy is configured, the SPA hides the proxy-specific search
@@ -17,9 +18,10 @@ column and the "paste a URL from store X" hint shrinks back to just
 orzgk. Nothing is broken — orzgk keeps working on its own.
 
 !!! tip "Bulk wishlist import"
-    The same orzgk scraper powers
-    [bulk wishlist import](wishlist.md#bulk-import-from-orzgk): paste a public
-    orzgk wishlist link and add many figures to your wishlist at once.
+    The same scrapers power [bulk wishlist import](wishlist.md#bulk-import):
+    paste a public orzgk wishlist link — or a list from a proxy-handled
+    boutique, or an MFC CSV export — and add many figures to your wishlist
+    at once.
 
 ## Why an external proxy
 
@@ -38,7 +40,7 @@ A proxy lets you delegate that work — to:
 - a commercial scraping API (Scrapfly, Bright Data, ZenRows, …) you
   pay to handle the Cloudflare-class shops.
 
-FigureCollector doesn't care which — as long as the three endpoints
+FigureCollector doesn't care which — as long as the endpoints
 respect the contract below.
 
 ## Configuring the proxy
@@ -62,9 +64,9 @@ services:
 
 ## Proxy contract
 
-Three HTTP `GET` endpoints. JSON in / JSON out. The proxy is free to
-expose additional routes — FigureCollector only ever talks to these
-three.
+Three required HTTP `GET` endpoints plus an **optional** fourth
+(`/wishlist`). JSON in / JSON out. The proxy is free to expose
+additional routes — FigureCollector only ever talks to these.
 
 ### `GET <base>/stores`
 
@@ -181,6 +183,45 @@ SPA only fills the form for fields that are actually present.
 | `primary_image_url` | string\|null | Hero image. Stored as `official_image_url` on the figure. |
 | `description` | string\|null | Plain text, no HTML. |
 
+### `GET <base>/wishlist?url=<full>` (optional)
+
+Scrape a **public wishlist page** on one of the proxy's boutiques and
+return its rows. Powers the
+[bulk wishlist import](wishlist.md#bulk-import): the SPA routes any
+pasted list URL whose host appears in `/stores`.`hosts` here.
+
+This endpoint is **optional** — a proxy that doesn't implement it
+should answer `404` or `501`, which FigureCollector surfaces as "this
+proxy doesn't support that list". Nothing else breaks.
+
+**Response 200**:
+
+```json
+[
+  {
+    "title": "Some Figure 1/7 scale",
+    "url": "https://www.mozfigure.com/products/some-figure",
+    "manufacturer": "Acme Studio",
+    "version": "Standard Version",
+    "price": { "amount": 199.50, "currency": "USD" },
+    "image_url": "https://cdn.mozfigure.com/i/abc.jpg",
+    "store_id": "mozfigure"
+  }
+]
+```
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `title` | string | yes | Display title — matched against the catalogue (trigram). |
+| `url` | string | yes | Canonical product URL. The import's commit step resolves it back through `/product`, so it must round-trip. |
+| `manufacturer` | string | no | Studio / brand — improves matching when present. |
+| `version` | string | no | The wished variant — pre-selected at figure creation. |
+| `price` | object | no | `{amount, currency}` — shown on the review card. |
+| `image_url` | string | no | Thumbnail for the review card. |
+| `store_id` | string | no | One of the `/stores` ids. |
+
+Empty array (`[]`) is valid when the list has no items.
+
 ## Error handling
 
 The proxy signals failure via HTTP status. FigureCollector translates
@@ -203,7 +244,7 @@ Optional. When `FIGURE_PROXY_API_KEY` is set, FigureCollector sends:
 Authorization: Bearer <key>
 ```
 
-on every call (`/stores`, `/search`, `/product`). When unset, no
+on every call (`/stores`, `/search`, `/product`, `/wishlist`). When unset, no
 `Authorization` header is sent — appropriate for a proxy reachable
 only on a trusted network (same Docker compose stack, VPN, etc.).
 
