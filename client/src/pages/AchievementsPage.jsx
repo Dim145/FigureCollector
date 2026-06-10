@@ -2,6 +2,7 @@ import { useMemo, useRef } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { motion, useReducedMotion } from "motion/react";
 import { useT } from "../i18n/index.jsx";
+import { appLocale } from "../lib/locale.js";
 import { useMe } from "../hooks/useMe.js";
 import {
   useAchievementsCatalog,
@@ -336,7 +337,7 @@ function RecentChip({ unlock, index, t }) {
           {t(`achievements.label.${unlock.code}`, { default: unlock.code })}
         </span>
         <span className="ach-recent-chip-date">
-          {new Date(unlock.unlocked_at).toLocaleDateString()}
+          {new Date(unlock.unlocked_at).toLocaleDateString(appLocale())}
         </span>
       </span>
     </Link>
@@ -446,7 +447,7 @@ function AchCard({ achievement: a, index, t }) {
           <>
             <span className="ach-card-meta">
               {t("achievements.unlocked_on", {
-                date: new Date(u.unlocked_at).toLocaleDateString(),
+                date: new Date(u.unlocked_at).toLocaleDateString(appLocale()),
               })}
             </span>
             {u.trigger_figure_name ? (

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
+import { appLocale } from "../lib/locale.js";
 import { useMe } from "../hooks/useMe.js";
 import {
   usePreorderHistory,
@@ -572,7 +573,7 @@ function TimelineEntry({ preorder: p, index = 0, t }) {
                 {t("preorders.field.deposit")}
               </span>
               <span className="horarium-entry-meta-value is-mono">
-                {Number(p.deposit_amount).toLocaleString(undefined, {
+                {Number(p.deposit_amount).toLocaleString(appLocale(), {
                   minimumFractionDigits: 0,
                   maximumFractionDigits: 2,
                 })}{" "}
@@ -1089,7 +1090,7 @@ function groupByMonth(entries, t) {
     // Localised month name (default to FR via toLocaleDateString — the app
     // is FR-first but this also works for EN since the user's locale
     // applies).
-    const label = d.toLocaleDateString(undefined, { month: "long" });
+    const label = d.toLocaleDateString(appLocale(), { month: "long" });
     return {
       key,
       label: label.charAt(0).toUpperCase() + label.slice(1),

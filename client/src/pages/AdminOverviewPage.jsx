@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
+import { appLocale } from "../lib/locale.js";
 import { useAdminOverview } from "../hooks/useAdmin.js";
 import AccentTitle from "../components/AccentTitle.jsx";
 import Button from "../components/Button.jsx";
@@ -207,7 +208,7 @@ export default function AdminOverviewPage() {
                           : "var(--color-ivoire)",
                   }}
                 >
-                  {Number(h.value).toLocaleString()}
+                  {Number(h.value).toLocaleString(appLocale())}
                 </dd>
               </div>
             ))}

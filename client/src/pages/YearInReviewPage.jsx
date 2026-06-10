@@ -1,5 +1,6 @@
 import { Link, Navigate, useParams } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
+import { appLocale } from "../lib/locale.js";
 import { useMe } from "../hooks/useMe.js";
 import { useYearInReview } from "../hooks/useActivity.js";
 import { fmtMoney } from "../lib/money.js";
@@ -614,7 +615,7 @@ function Bookends({ first, last, t }) {
               {b.name}
             </p>
             <time className="micro-tight mt-4 block normal-case tracking-[0.18em] text-[var(--color-ivoire-soft)]/60">
-              {new Date(b.at).toLocaleDateString()}
+              {new Date(b.at).toLocaleDateString(appLocale())}
             </time>
           </Card>
         ))}
@@ -783,7 +784,7 @@ function YearNavigation({ year, t }) {
 
 /** Locale-aware number, no trailing zeros unless significant. */
 function fmtNumber(n, maxFrac = 2) {
-  return Number(n).toLocaleString(undefined, {
+  return Number(n).toLocaleString(appLocale(), {
     minimumFractionDigits: 0,
     maximumFractionDigits: maxFrac,
   });

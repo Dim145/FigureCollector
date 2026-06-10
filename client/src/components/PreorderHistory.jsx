@@ -1,4 +1,5 @@
 import { useT } from "../i18n/index.jsx";
+import { appLocale } from "../lib/locale.js";
 import {
   usePreorderForOwned,
   usePreorderHistory,
@@ -81,7 +82,7 @@ export default function PreorderHistory({ ownedId }) {
           <span className="text-[var(--color-ivoire-soft)]">
             {t("preorder.history.deposit")}{" "}
             <span className="font-mono text-[var(--color-or-pale)]">
-              {Number(po.deposit_amount).toLocaleString(undefined, {
+              {Number(po.deposit_amount).toLocaleString(appLocale(), {
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 2,
               })}{" "}
@@ -128,7 +129,7 @@ export default function PreorderHistory({ ownedId }) {
                   </span>
                 </p>
                 <p className="micro-tight opacity-70 mt-0.5">
-                  {new Date(h.noted_at).toLocaleDateString()}
+                  {new Date(h.noted_at).toLocaleDateString(appLocale())}
                   {h.source ? <> · {h.source}</> : null}
                   {h.note ? <> · {h.note}</> : null}
                 </p>
@@ -167,7 +168,7 @@ function fmtDate(d) {
   if (!d) return "—";
   const parsed = new Date(d);
   if (Number.isNaN(parsed.getTime())) return d;
-  return parsed.toLocaleDateString(undefined, {
+  return parsed.toLocaleDateString(appLocale(), {
     year: "numeric",
     month: "long",
     day: "numeric",

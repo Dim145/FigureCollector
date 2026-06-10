@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useT } from "../i18n/index.jsx";
+import { appLocale } from "../lib/locale.js";
 import { useAddOwnedItem } from "../hooks/useCollection.js";
 import { useDefaultCurrency } from "../hooks/useMe.js";
 import Button from "./Button.jsx";
@@ -254,7 +255,7 @@ function useMemo_delta(paidRaw, msrpRaw) {
 function fmtMoney(raw) {
   const n = Number(raw);
   if (!Number.isFinite(n)) return "—";
-  return n.toLocaleString(undefined, {
+  return n.toLocaleString(appLocale(), {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });

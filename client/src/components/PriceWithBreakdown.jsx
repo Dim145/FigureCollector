@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useT } from "../i18n/index.jsx";
+import { appLocale } from "../lib/locale.js";
 
 /**
  * Renders a total price with a tooltip-style popover detailing the
@@ -327,9 +328,7 @@ function fmtMoney(n) {
   if (n == null || !Number.isFinite(n)) return "—";
   // Follow the app's chosen language (i18n sets <html lang>), not the browser
   // locale, so an EN-browser / FR-app user sees FR grouping (1 234,5), not US.
-  const locale =
-    (typeof document !== "undefined" && document.documentElement.lang) || undefined;
-  return n.toLocaleString(locale, {
+  return n.toLocaleString(appLocale(), {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });

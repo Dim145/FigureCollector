@@ -1,3 +1,5 @@
+import { appLocale } from "./locale.js";
+
 /**
  * Helpers for the "delivery ETA countdown" shown on shipped preorders.
  *
@@ -78,7 +80,7 @@ export function deliveryDateLabel(po) {
   if (Number.isNaN(shipped.getTime())) return null;
   const target = new Date(shipped);
   target.setUTCDate(target.getUTCDate() + Number(po.estimated_delivery_days));
-  return target.toLocaleDateString(undefined, {
+  return target.toLocaleDateString(appLocale(), {
     year: "numeric",
     month: "long",
     day: "numeric",

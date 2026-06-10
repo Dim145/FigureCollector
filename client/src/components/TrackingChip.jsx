@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { parseTrackingUrl } from "../lib/carrierTracking.js";
 import { safeHref } from "../lib/safeUrl.js";
+import { appLocale } from "../lib/locale.js";
 import { useT } from "../i18n/index.jsx";
 import { api, ApiError } from "../lib/api.js";
 
@@ -218,7 +219,7 @@ function formatRelative(date) {
   if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m`;
   if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h`;
   if (diffSec < 86400 * 30) return `${Math.floor(diffSec / 86400)}d`;
-  return date.toLocaleDateString();
+  return date.toLocaleDateString(appLocale());
 }
 
 /** Minimal SVG glyph per carrier. Not pixel-perfect logos (those are

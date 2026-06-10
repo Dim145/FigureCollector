@@ -24,7 +24,12 @@ export default function TurntableImport({ onComplete }) {
   // the effect) and revoked nothing. The setter still revokes the OLD list on
   // re-import.
   const previewsRef = useRef(previews);
-  previewsRef.current = previews;
+  // Keep the ref current in an effect (writing it during render trips
+  // react-hooks/refs). The empty-deps cleanup below then revokes the latest
+  // committed list at unmount.
+  useEffect(() => {
+    previewsRef.current = previews;
+  }, [previews]);
   useEffect(() => () => previewsRef.current.forEach((u) => URL.revokeObjectURL(u)), []);
 
   const onChange = async (e) => {

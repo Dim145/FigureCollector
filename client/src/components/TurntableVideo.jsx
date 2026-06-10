@@ -33,7 +33,12 @@ export default function TurntableVideo({ onComplete, gsplat = false }) {
   // `previews` directly captured the initial `[]` (empty deps never re-run the
   // effect) and revoked nothing.
   const previewsRef = useRef(previews);
-  previewsRef.current = previews;
+  // Keep the ref current in an effect (writing it during render trips
+  // react-hooks/refs). The empty-deps cleanup below then revokes the latest
+  // committed list at unmount.
+  useEffect(() => {
+    previewsRef.current = previews;
+  }, [previews]);
   useEffect(() => () => previewsRef.current.forEach((u) => URL.revokeObjectURL(u)), []);
   const [frames, setFrames] = useState([]);
   const [target, setTarget] = useState(24);
