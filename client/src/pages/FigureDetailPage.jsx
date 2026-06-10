@@ -14,6 +14,7 @@ import TrackingChip from "../components/TrackingChip.jsx";
 import { useDeleteFigure } from "../hooks/useAdmin.js";
 import { useStoresForFigure } from "../hooks/useStores.js";
 import { useScans } from "../hooks/useScans.js";
+import { useFigurePriceHistory } from "../hooks/useStats.js";
 import { ApiError } from "../lib/api.js";
 import { typeHue, typeKanji } from "../lib/typeHue.js";
 import { buildBuyUrl } from "../lib/storeLink.js";
@@ -31,6 +32,7 @@ import Foldable from "../components/Foldable.jsx";
 import LinkedStoresModal from "../components/LinkedStoresModal.jsx";
 import OwnedItemEditor from "../components/OwnedItemEditor.jsx";
 import PhotoStrip from "../components/PhotoStrip.jsx";
+import PriceHistoryDialog, { StepSparkline, toSeries } from "../components/PriceHistory.jsx";
 import DocumentsSection from "../components/DocumentsSection.jsx";
 import PreorderHistory from "../components/PreorderHistory.jsx";
 import ShareDialog from "../components/ShareDialog.jsx";
@@ -547,6 +549,8 @@ function OwnerGlance({ f, owned, t, delay = 7 }) {
           value={value}
           gain={gain}
           gainPct={gainPct}
+          figureId={f.id}
+          figureName={f.name}
           t={t}
         />
       ) : null}
@@ -609,8 +613,14 @@ function AcompteBar({ deposit, total, currency, t }) {
 
 /** La Cote glance — payé vs valeur actuelle, with the latent gain in jade/red.
  *  Value is gold (money), the loss-or-gain tints with the figure's direction. */
-function CoteGlance({ paid, value, gain, gainPct, t }) {
+function CoteGlance({ paid, value, gain, gainPct, figureId, figureName, t }) {
   const up = gain != null && gain >= 0;
+  const locale = document.documentElement.lang || undefined;
+  // Market-price history → the discreet sparkline + the évolution dialog.
+  // Hidden entirely below 2 points (nothing worth charting yet).
+  const hist = useFigurePriceHistory(figureId);
+  const series = useMemo(() => toSeries(hist.data), [hist.data]);
+  const [histOpen, setHistOpen] = useState(false);
   return (
     <section
       aria-label={t("cote.title")}
@@ -642,6 +652,19 @@ function CoteGlance({ paid, value, gain, gainPct, t }) {
           <p className="figural text-2xl text-[var(--color-or)] leading-none mt-1.5">
             {value ? fmtMoney(value.amount, value.currency) : "—"}
           </p>
+          {series.length >= 2 ? (
+            <div className="mt-2.5 flex flex-col items-end gap-1">
+              <StepSparkline points={series} width={124} height={26} />
+              <button
+                type="button"
+                onClick={() => setHistOpen(true)}
+                className="micro inline-flex items-center gap-1.5 text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors"
+              >
+                <span aria-hidden className="ja not-italic text-[var(--color-or)]">推</span>
+                {t("cote.history.evolution")} →
+              </button>
+            </div>
+          ) : null}
         </div>
       </div>
       {gain != null && gain !== 0 ? (
@@ -657,6 +680,15 @@ function CoteGlance({ paid, value, gain, gainPct, t }) {
           </span>
         </p>
       ) : null}
+      <PriceHistoryDialog
+        open={histOpen}
+        onClose={() => setHistOpen(false)}
+        figureId={figureId}
+        figureName={figureName}
+        points={series}
+        currency={value?.currency}
+        locale={locale}
+      />
     </section>
   );
 }

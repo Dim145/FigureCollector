@@ -1,15 +1,32 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useOwnedItems, useSetOwnedValue } from "../hooks/useCollection.js";
-import { useMyStats } from "../hooks/useStats.js";
+import { useMyPriceHistory, useMyStats } from "../hooks/useStats.js";
 import { useFx } from "../hooks/useFx.js";
 import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
+import {
+  PriceLedger,
+  StepChart,
+  StepSparkline,
+  seriesDelta,
+  toSeries,
+} from "../components/PriceHistory.jsx";
 import { typeHue, typeKanji } from "../lib/typeHue.js";
 import { fmtMoney, effectiveValue, paidTotal, convertAmount } from "../lib/money.js";
+
+// Range chips for the evolution chart (days of look-back; "all" = full history).
+const RANGES = ["3m", "6m", "1y", "all"];
+const RANGE_DAYS = { "3m": 91, "6m": 183, "1y": 365 };
+
+/** `/cote#figure-<uuid>` (the figure-page dialog's deep link) → figure id. */
+function hashFigureId() {
+  const m = window.location.hash.match(/^#figure-([0-9a-f-]{36})$/i);
+  return m ? m[1] : null;
+}
 
 /**
  * « La Cote » — collection-value dashboard.
@@ -83,6 +100,89 @@ export default function CotePage() {
 
   const [editId, setEditId] = useState(null);
   const [draft, setDraft] = useState("");
+
+  // ----- Market-price history (the price cron's relevés) --------------------
+  const history = useMyPriceHistory();
+  const [range, setRange] = useState("all");
+  // Expanded registre, keyed by FIGURE id — seeded from the deep-link hash so
+  // arriving from the figure-page dialog lands with the row already open.
+  const [openHist, setOpenHist] = useState(() => hashFigureId());
+
+  // figure_id → sorted chart points; feeds sparklines, registres and the curve.
+  const historyByFigure = useMemo(() => {
+    const byFig = new Map();
+    for (const row of history.data ?? []) {
+      const arr = byFig.get(row.figure_id);
+      if (arr) arr.push(row);
+      else byFig.set(row.figure_id, [row]);
+    }
+    const out = new Map();
+    for (const [fid, rows] of byFig) out.set(fid, toSeries(rows));
+    return out;
+  }, [history.data]);
+
+  // Collection evolution — "what the hero figure would have read at date T",
+  // reconstructed per the cote chain (manual > auto > MSRP): manual values and
+  // MSRP aren't historized so they contribute constants; provider prices
+  // contribute their step series (MSRP fallback before a piece's 1st relevé).
+  // Dominant currency only, mirroring the hero.
+  const evo = useMemo(() => {
+    const cur = primary?.currency;
+    const items = owned.data ?? [];
+    if (!cur || !items.length || historyByFigure.size === 0) return null;
+    const eq = (c) => (c || "").toUpperCase() === cur.toUpperCase();
+    let constant = 0;
+    const stepped = [];
+    for (const o of items) {
+      if (o.value_amount != null) {
+        if (eq(o.value_currency || o.price_currency)) constant += Number(o.value_amount) || 0;
+        continue;
+      }
+      const series = (historyByFigure.get(o.figure_id) ?? []).filter((p) => eq(p.currency));
+      const msrp =
+        o.msrp_amount != null && eq(o.msrp_currency) ? Number(o.msrp_amount) : null;
+      if (series.length) stepped.push({ series, msrp });
+      else if (msrp != null) constant += msrp;
+    }
+    if (!stepped.length) return null;
+    // Ranges are anchored on the LAST relevé (no clock during render): the
+    // chart's right edge is the latest observation, which the step visually
+    // extends as "holds today".
+    let endT = 0;
+    for (const s of stepped) for (const p of s.series) if (p.t > endT) endT = p.t;
+    if (!endT) return null;
+    const cutoff = range === "all" ? 0 : endT - RANGE_DAYS[range] * 86_400_000;
+    const changeTs = new Set();
+    for (const s of stepped) for (const p of s.series) if (p.t >= cutoff) changeTs.add(p.t);
+    const sorted = [...changeTs].sort((a, b) => a - b);
+    if (!sorted.length) return null;
+    const start = cutoff > 0 ? cutoff : sorted[0];
+    const ts = [...new Set([start, ...sorted.filter((x) => x > start)])].sort((a, b) => a - b);
+    if (ts.length < 2) return null;
+    const valAt = (T) => {
+      let total = constant;
+      for (const s of stepped) {
+        let v = null;
+        for (const p of s.series) {
+          if (p.t <= T) v = p.v;
+          else break;
+        }
+        if (v == null) v = s.msrp;
+        if (v != null) total += v;
+      }
+      return total;
+    };
+    return ts.map((T) => ({ t: T, v: valAt(T), currency: cur }));
+  }, [owned.data, historyByFigure, primary?.currency, range]);
+  const evoDelta = seriesDelta(evo);
+
+  // Deep link from the figure-page dialog: once the rows exist in the DOM,
+  // bring the (already-expanded) hash-targeted row into view.
+  useEffect(() => {
+    const fid = hashFigureId();
+    if (!fid || !owned.data?.length) return;
+    document.getElementById(`figure-${fid}`)?.scrollIntoView({ block: "center" });
+  }, [owned.data]);
 
   const startEdit = (o) => {
     setEditId(o.id);
@@ -232,6 +332,82 @@ export default function CotePage() {
               </div>
             </Reveal>
 
+            {/* ─── Market evolution (price-cron relevés) ─── */}
+            {evo ? (
+              <Reveal as="section" delay={0.08} className="mb-12" aria-label={t("cote.evo.title")}>
+                <header className="mb-4">
+                  <p className="micro flex items-center gap-2.5">
+                    <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
+                    {t("cote.evo.kicker")}
+                    <span aria-hidden className="ja not-italic text-[var(--color-or)]">推</span>
+                    {t("cote.evo.kicker_label")}
+                  </p>
+                  <h2 className="display text-2xl md:text-3xl text-[var(--color-ivoire)] mt-2">
+                    <AccentTitle text={t("cote.evo.title")} />
+                  </h2>
+                  <div className="gold-rule w-16 mt-3" />
+                </header>
+
+                <div className="flex items-center gap-1.5 flex-wrap mb-3">
+                  {RANGES.map((r) => {
+                    const on = range === r;
+                    return (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setRange(r)}
+                        aria-pressed={on}
+                        className="tap-target text-[10px] uppercase tracking-[0.18em] px-3 py-1.5 border transition-colors"
+                        style={
+                          on
+                            ? {
+                                color: "var(--color-or)",
+                                borderColor: "color-mix(in oklab, var(--color-or) 60%, transparent)",
+                                background: "color-mix(in oklab, var(--color-or) 10%, transparent)",
+                              }
+                            : {
+                                color: "var(--color-ivoire-soft)",
+                                borderColor: "color-mix(in oklab, var(--color-or) 22%, transparent)",
+                              }
+                        }
+                      >
+                        {t(`cote.evo.range.${r}`)}
+                      </button>
+                    );
+                  })}
+                  <span className="flex-1" />
+                  {evoDelta ? (
+                    <span className="font-mono text-sm text-[var(--color-ivoire)]">
+                      {fmtMoney(evo[evo.length - 1].v, primary.currency, locale)}{" "}
+                      <span
+                        className="text-[12px]"
+                        style={{
+                          color:
+                            evoDelta.abs >= 0 ? "var(--color-jade)" : "var(--color-laque-bright)",
+                        }}
+                      >
+                        {evoDelta.abs >= 0 ? "▲ +" : "▼ −"}
+                        {fmtMoney(Math.abs(evoDelta.abs), primary.currency, locale)} ·{" "}
+                        {evoDelta.abs >= 0 ? "+" : "−"}
+                        {Math.abs(evoDelta.pct).toFixed(1)} %
+                      </span>
+                    </span>
+                  ) : null}
+                </div>
+
+                <StepChart
+                  points={evo}
+                  currency={primary.currency}
+                  locale={locale}
+                  height={210}
+                  t={t}
+                />
+                <p className="mt-2 font-mono text-[9.5px] text-[var(--color-ivoire-soft)]/70">
+                  {t("cote.evo.legend", { cur: primary.currency })}
+                </p>
+              </Reveal>
+            ) : null}
+
             {/* ─── Ranked pieces (inline-editable) ─── */}
             <Reveal as="section" delay={0.1} className="bg-[color-mix(in_oklab,var(--color-noir-soft)_80%,transparent)] border border-[color-mix(in_oklab,var(--color-or)_16%,transparent)]">
               <div className="px-5 py-4 border-b border-[color-mix(in_oklab,var(--color-or)_14%,transparent)]">
@@ -250,11 +426,16 @@ export default function CotePage() {
                   const delta =
                     ev && paid && ev.currency === paid.currency ? ev.amount - paid.amount : null;
                   const editing = editId === o.id;
+                  const series = historyByFigure.get(o.figure_id) ?? [];
+                  const sdelta = seriesDelta(series);
+                  const expanded = openHist === o.figure_id && series.length >= 2;
                   return (
                     <li
                       key={o.id}
-                      className={`grid grid-cols-[48px_1fr_auto] gap-4 items-center px-5 py-3 border-b border-[color-mix(in_oklab,var(--color-or)_8%,transparent)] last:border-0 ${editing ? "bg-[color-mix(in_oklab,var(--color-or)_5%,transparent)]" : ""}`}
+                      id={`figure-${o.figure_id}`}
+                      className={`border-b border-[color-mix(in_oklab,var(--color-or)_8%,transparent)] last:border-0 ${editing ? "bg-[color-mix(in_oklab,var(--color-or)_5%,transparent)]" : ""}`}
                     >
+                    <div className="grid grid-cols-[48px_1fr_auto] md:grid-cols-[48px_1fr_auto_auto] gap-4 items-center px-5 py-3">
                       <div
                         className="relative w-12 h-[60px] overflow-hidden border"
                         style={{ borderColor: `color-mix(in oklab, ${hue} 30%, transparent)` }}
@@ -285,6 +466,35 @@ export default function CotePage() {
                           {o.manufacturer_name ? <span className="font-mono truncate">{o.manufacturer_name}</span> : null}
                         </div>
                       </div>
+
+                      {/* market trend — the sparkline toggles the registre */}
+                      {series.length >= 2 ? (
+                        <button
+                          type="button"
+                          onClick={() => setOpenHist(expanded ? null : o.figure_id)}
+                          aria-expanded={expanded}
+                          title={t("cote.history.evolution")}
+                          className="hidden md:flex flex-col items-end gap-0.5"
+                        >
+                          <StepSparkline points={series} />
+                          {sdelta ? (
+                            <span
+                              className="font-mono text-[9.5px]"
+                              style={{
+                                color:
+                                  sdelta.abs >= 0
+                                    ? "var(--color-jade)"
+                                    : "var(--color-laque-bright)",
+                              }}
+                            >
+                              {sdelta.abs >= 0 ? "▲ +" : "▼ −"}
+                              {Math.abs(sdelta.pct).toFixed(1)} %
+                            </span>
+                          ) : null}
+                        </button>
+                      ) : (
+                        <span aria-hidden className="hidden md:block w-[96px]" />
+                      )}
 
                       {/* money / editor */}
                       {editing ? (
@@ -375,6 +585,40 @@ export default function CotePage() {
                           </span>
                         </button>
                       )}
+                    </div>
+                      {/* expanded registre — per-figure step chart + relevés */}
+                      {expanded ? (
+                        <div className="px-5 pb-4 md:pl-[84px]">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="micro-tight text-[var(--color-or-pale)]">
+                              {t("cote.history.registre")}
+                            </span>
+                            <span
+                              aria-hidden
+                              className="flex-1 h-px"
+                              style={{
+                                background:
+                                  "color-mix(in oklab, var(--color-or) 20%, transparent)",
+                              }}
+                            />
+                          </div>
+                          <StepChart
+                            points={series}
+                            currency={ev?.currency}
+                            locale={locale}
+                            height={140}
+                            t={t}
+                          />
+                          <div className="mt-2 max-h-40 overflow-y-auto">
+                            <PriceLedger
+                              points={series}
+                              currency={ev?.currency}
+                              locale={locale}
+                              t={t}
+                            />
+                          </div>
+                        </div>
+                      ) : null}
                     </li>
                   );
                 })}

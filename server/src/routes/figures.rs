@@ -2,6 +2,7 @@
 
 use crate::auth;
 use crate::domain::figure::{self, FigurePatch, NewFigure};
+use crate::domain::figure_price;
 use crate::domain::figure_type;
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
@@ -201,6 +202,20 @@ async fn list_figure_types(
     Ok(Json(figure_type::list(&state.pool).await?))
 }
 
+/// Market-price history for one figure, oldest first — feeds the sparkline +
+/// "évolution" dialog on the figure page. Open to any signed-in user (the
+/// catalog price history isn't per-user data).
+async fn price_history(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+) -> AppResult<Json<Vec<figure_price::PricePoint>>> {
+    auth::require_user(&session).await?;
+    Ok(Json(
+        figure_price::history_for_figure(&state.pool, id).await?,
+    ))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/figures", get(list).post(create))
@@ -213,5 +228,6 @@ pub fn router() -> Router<AppState> {
                 .patch(patch_one)
                 .delete(delete_one),
         )
+        .route("/figures/{id}/price-history", get(price_history))
         .route("/figure-types", get(list_figure_types))
 }

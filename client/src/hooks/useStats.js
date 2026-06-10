@@ -24,3 +24,28 @@ export function useInsights() {
     staleTime: 60_000,
   });
 }
+
+/**
+ * Market-price history for every figure the user owns (oldest first, tagged by
+ * figure). One round-trip feeding the Cote page graphs — per-row sparklines,
+ * expanded registres, and the reconstructed collection curve. The data only
+ * moves when the price cron runs, so a long stale is safe.
+ */
+export function useMyPriceHistory() {
+  return useQuery({
+    queryKey: ["price-history", "me"],
+    queryFn: () => api.get("/me/price-history"),
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** Market-price history for one figure (oldest first) — the figure page's
+ *  cote sparkline + évolution dialog. */
+export function useFigurePriceHistory(figureId, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: ["price-history", figureId],
+    queryFn: () => api.get(`/figures/${figureId}/price-history`),
+    enabled: enabled && !!figureId,
+    staleTime: 5 * 60_000,
+  });
+}

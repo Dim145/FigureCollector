@@ -4,6 +4,7 @@
 //! payload is small (a handful of arrays, max 10 entries each).
 
 use crate::auth;
+use crate::domain::figure_price;
 use crate::domain::stats::{self, CollectionStats, Insights};
 use crate::error::AppResult;
 use crate::state::AppState;
@@ -29,8 +30,22 @@ async fn my_insights(
     Ok(Json(stats::insights(&state.pool, user_id).await?))
 }
 
+/// Market-price history across every figure the user owns, oldest first and
+/// tagged by figure. One round-trip for the Cote page: per-row sparklines,
+/// expanded registres, and the reconstructed collection evolution curve.
+async fn my_price_history(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<Vec<figure_price::OwnedPricePoint>>> {
+    let user_id = auth::require_user(&session).await?;
+    Ok(Json(
+        figure_price::history_for_user_owned(&state.pool, user_id).await?,
+    ))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/me/stats", get(my_stats))
         .route("/me/insights", get(my_insights))
+        .route("/me/price-history", get(my_price_history))
 }
