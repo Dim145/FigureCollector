@@ -63,7 +63,7 @@ export default function AdminWorkersPage() {
   const t = useT();
   const workers = useAdminWorkers();
 
-  const list = workers.data ?? [];
+  const list = useMemo(() => workers.data ?? [], [workers.data]);
   // Fleet roll-up for the StatCard strip — derived from the same list, no
   // extra fetch. Counts only, so tones stay quiet (online → gold "value",
   // offline → hanko-red "loss"), per the playbook.

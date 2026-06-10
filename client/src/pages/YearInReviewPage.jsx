@@ -390,7 +390,7 @@ function FavouritesChapter({ data, t }) {
   ];
   return (
     <Reveal as="div" y={24} className="mt-8 grid md:grid-cols-2 gap-4">
-      {items.map((it, idx) => (
+      {items.map((it) => (
         <Card key={it.kanji} className="relative p-7 overflow-hidden">
           <span
             aria-hidden

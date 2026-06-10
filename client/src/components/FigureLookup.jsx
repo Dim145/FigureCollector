@@ -176,7 +176,7 @@ export default function FigureLookup({ initial = "", onPick }) {
     return () => {
       cancelled = true;
     };
-  }, [open, debouncedQuery]);
+  }, [open, debouncedQuery, proxy.enabled]);
 
   const onOpen = () => {
     setOpen(true);
@@ -394,7 +394,7 @@ export default function FigureLookup({ initial = "", onPick }) {
   );
 }
 
-function ResultRow({ row, onPick, t }) {
+function ResultRow({ row, onPick }) {
   const isOrzgk = row.source === "orzgk";
 
   return (

@@ -49,7 +49,7 @@ export default function WishlistPage() {
   const nsfwBlur = (me.data?.user?.nsfw_visibility ?? "hide") === "blur";
   const prefCurrency = me.data?.user?.preferred_currency || "EUR";
 
-  const items = wishlist.data ?? [];
+  const items = useMemo(() => wishlist.data ?? [], [wishlist.data]);
 
   // Budget = sum of target prices, dominant currency.
   const budget = useMemo(() => {

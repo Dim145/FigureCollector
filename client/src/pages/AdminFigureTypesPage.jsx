@@ -49,7 +49,7 @@ export default function AdminFigureTypesPage() {
   const [adding, setAdding] = useState(false);
   const bulkDel = useBulkDeleteFigureTypes();
 
-  const list = types.data ?? [];
+  const list = useMemo(() => types.data ?? [], [types.data]);
   const ids = useMemo(() => list.map((ty) => ty.id), [list]);
   const sel = useRowSelection(ids);
 

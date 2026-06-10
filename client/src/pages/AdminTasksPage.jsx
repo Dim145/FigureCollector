@@ -101,7 +101,7 @@ export default function AdminTasksPage() {
   const t = useT();
   const q = useAdminScans();
   const [filter, setFilter] = useState("all");
-  const rows = q.data ?? [];
+  const rows = useMemo(() => q.data ?? [], [q.data]);
 
   const counts = useMemo(() => {
     const c = { all: rows.length, active: 0, failed: 0, ready: 0 };

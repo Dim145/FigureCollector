@@ -56,7 +56,7 @@ export default function AdminFiguresPage() {
   const del = useDeleteFigure();
   const bulkDel = useBulkDeleteFigures();
 
-  const rows = figures.data ?? [];
+  const rows = useMemo(() => figures.data ?? [], [figures.data]);
   const ids = useMemo(() => rows.map((f) => f.id), [rows]);
   const sel = useRowSelection(ids);
 

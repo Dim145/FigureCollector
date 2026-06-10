@@ -63,8 +63,6 @@ const STATUS_KANJI = {
   cancelled: "止",     // halt
 };
 
-const IMMINENT_DAYS = 14;
-
 /**
  * Lifecycle → accent colour (STYLING ONLY). Every value is a theme CSS var,
  * so the whole palette flips with the light/dark theme. Early states glow
@@ -111,7 +109,7 @@ export default function PreordersPage() {
 
   // ALL hooks must run on every render — keep them above any early return
   // so the hook ordering stays stable when auth state changes.
-  const all = preorders.data ?? [];
+  const all = useMemo(() => preorders.data ?? [], [preorders.data]);
   const sorted = useMemo(
     () =>
       [...all].sort((a, b) => {

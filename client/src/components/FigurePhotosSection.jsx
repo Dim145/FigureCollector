@@ -112,7 +112,7 @@ export default function FigurePhotosSection({ figureId, figureName, canEdit, upl
     setEditTarget(null);
   };
 
-  const list = photos.data ?? [];
+  const list = useMemo(() => photos.data ?? [], [photos.data]);
   // Pre-compute the shape the shared Lightbox expects: a flat
   // `{ src, alt }` list, indexed the same way as `list`.
   const lightboxSlides = useMemo(

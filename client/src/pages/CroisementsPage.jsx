@@ -44,8 +44,8 @@ export default function CroisementsPage() {
   const active = status === "approved";
   const crossings = useCrossings(active);
 
-  const reading = crossings.data?.reading ?? [];
-  const dual = crossings.data?.dual ?? [];
+  const reading = useMemo(() => crossings.data?.reading ?? [], [crossings.data]);
+  const dual = useMemo(() => crossings.data?.dual ?? [], [crossings.data]);
 
   // Figurine-metric strip — derived from the two crossing lists + the linked
   // library profile. Counts only (relations, pieces, series, volumes), so they

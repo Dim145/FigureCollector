@@ -51,7 +51,6 @@ export default function TurntableSection({ ownedId }) {
       await create.mutateAsync({ frames, kind, video });
       setWizardOpen(false);
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.warn("[scan] upload failed", e);
     }
   };
@@ -180,10 +179,11 @@ export default function TurntableSection({ ownedId }) {
   );
 }
 
-/** Segmented control: 回 Vue 360° | 像 Modèle 3D. Equal-width, ≥40px tall so
- *  the pills are comfortable touch targets on mobile. */
-function ViewToggle({ view, setView, t }) {
-  const Pill = ({ id, kanji, label }) => (
+/** One segment of {@link ViewToggle}. Hoisted to module scope so its component
+ *  type is stable across renders (react-hooks/static-components — defining it
+ *  inside ViewToggle remounted both buttons on every parent render). */
+function ViewTogglePill({ id, kanji, label, view, setView }) {
+  return (
     <button
       type="button"
       onClick={() => setView(id)}
@@ -200,10 +200,15 @@ function ViewToggle({ view, setView, t }) {
       {label}
     </button>
   );
+}
+
+/** Segmented control: 回 Vue 360° | 像 Modèle 3D. Equal-width, ≥40px tall so
+ *  the pills are comfortable touch targets on mobile. */
+function ViewToggle({ view, setView, t }) {
   return (
     <div className="flex border border-[var(--color-or)]/30 mb-2.5">
-      <Pill id="360" kanji="回" label={t("scan.view.360")} />
-      <Pill id="3d" kanji="像" label={t("scan.view.3d")} />
+      <ViewTogglePill id="360" kanji="回" label={t("scan.view.360")} view={view} setView={setView} />
+      <ViewTogglePill id="3d" kanji="像" label={t("scan.view.3d")} view={view} setView={setView} />
     </div>
   );
 }

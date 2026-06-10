@@ -38,7 +38,7 @@ export default function DiscoverPage() {
 
   const discover = useDiscover(debounced);
 
-  const collectors = discover.data ?? [];
+  const collectors = useMemo(() => discover.data ?? [], [discover.data]);
   // Community metrics straight from the loaded roster — no extra query. These
   // mirror the *currently shown* collectors (so they track the search), and
   // stay figurine/community-flavoured: people, their cumulative pieces, and how

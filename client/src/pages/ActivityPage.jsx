@@ -74,7 +74,7 @@ export default function ActivityPage() {
     });
   };
 
-  const events = activity.data ?? [];
+  const events = useMemo(() => activity.data ?? [], [activity.data]);
 
   // Per-kind counts for the filter rail superscripts.
   const countsByKind = useMemo(() => {
