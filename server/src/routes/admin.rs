@@ -399,7 +399,8 @@ async fn process_and_store(
 ) -> AppResult<String> {
     let mut bytes: Option<Vec<u8>> = None;
     while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::BadRequest(Box::leak(format!("multipart error: {e}").into_boxed_str()))
+        tracing::warn!(error = %e, "multipart framing error");
+        AppError::BadRequest("malformed multipart request")
     })? {
         if field.name() == Some("file") {
             let data = field

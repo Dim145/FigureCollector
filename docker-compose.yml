@@ -21,7 +21,10 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "8432:5432"
+      # Loopback-only: the dev DB carries a weak, committed password, so it must
+      # not be reachable from the LAN (coffee-shop / office Wi-Fi). Use
+      # 127.0.0.1:8432 from the host; containers reach it via the compose network.
+      - "127.0.0.1:8432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U figurecollector"]
       interval: 10s
@@ -41,8 +44,14 @@ services:
       - garage_meta:/var/lib/garage/meta
       - garage_data:/var/lib/garage/data
     ports:
-      - "3900:3900"   # admin API (for `garage` CLI)
-      - "3902:3902"   # S3 API
+      # Loopback-only. The admin API is guarded by a committed dev token
+      # (infrastructure/garage/garage.toml) and the S3 API by deterministic dev
+      # keys, so neither must be exposed to the LAN — anyone reaching the admin
+      # port with that token could mint a key and read/overwrite every photo.
+      # Use 127.0.0.1 from the host; the server + gsplat worker reach Garage
+      # over the compose network regardless.
+      - "127.0.0.1:3900:3900"   # admin API (for `garage` CLI)
+      - "127.0.0.1:3902:3902"   # S3 API
     environment:
       # Generate with: openssl rand -hex 32
       # Dev-only default; override in your shell or .env for staging.

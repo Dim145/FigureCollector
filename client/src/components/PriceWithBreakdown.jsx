@@ -325,7 +325,11 @@ function toNum(v) {
 
 function fmtMoney(n) {
   if (n == null || !Number.isFinite(n)) return "—";
-  return n.toLocaleString(undefined, {
+  // Follow the app's chosen language (i18n sets <html lang>), not the browser
+  // locale, so an EN-browser / FR-app user sees FR grouping (1 234,5), not US.
+  const locale =
+    (typeof document !== "undefined" && document.documentElement.lang) || undefined;
+  return n.toLocaleString(locale, {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });

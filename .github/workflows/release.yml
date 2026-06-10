@@ -110,7 +110,7 @@ jobs:
           labels: |
             org.opencontainers.image.title=FigureCollector ${{ matrix.image }}
             org.opencontainers.image.description=${{ matrix.image == 'server' && 'Hardened Rust/Axum API (FROM scratch)' || (matrix.image == 'client' && 'Distroless nginx serving the FigureCollector PWA' || 'Distroless nginx serving the FigureCollector MkDocs Material documentation site') }}
-            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.licenses=AGPL-3.0-or-later
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
 
       - name: Build & push ${{ matrix.image }}

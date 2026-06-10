@@ -66,7 +66,10 @@ export default function CoverPicker({ owned }) {
                 }
               >
                 <img
-                  src={`/api/photos/${p.id}`}
+                  // `?v=storage_key` busts the CacheFirst service-worker cache
+                  // when the photo is edited in place (same id, new bytes) —
+                  // same content-addressing the PhotoStrip uses.
+                  src={`/api/photos/${p.id}?v=${encodeURIComponent(p.storage_key)}`}
                   alt=""
                   loading="lazy"
                   className="w-full h-full object-cover"

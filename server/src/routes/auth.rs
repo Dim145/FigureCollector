@@ -230,9 +230,18 @@ async fn oidc_callback(
         "user signed in (OIDC)"
     );
 
-    // Send the browser back to the SPA home.
-    let return_to = if pending.return_to.starts_with('/') {
-        pending.return_to.clone()
+    // Send the browser back to the SPA home. Only same-site absolute PATHS are
+    // allowed: `starts_with('/')` alone is not enough — `//evil.com` and
+    // `/\evil.com` also start with '/' yet browsers resolve them to an external
+    // origin (protocol-relative redirect). Reject those forms so this stays a
+    // safe internal redirect even if a future caller starts sourcing
+    // `return_to` from request input.
+    let rt = pending.return_to.as_str();
+    let is_safe_path = rt.starts_with('/')
+        && !rt.starts_with("//")
+        && !rt.starts_with("/\\");
+    let return_to = if is_safe_path {
+        rt.to_string()
     } else {
         "/".to_string()
     };

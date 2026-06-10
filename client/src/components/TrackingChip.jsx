@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { parseTrackingUrl } from "../lib/carrierTracking.js";
+import { safeHref } from "../lib/safeUrl.js";
 import { useT } from "../i18n/index.jsx";
 import { api, ApiError } from "../lib/api.js";
 
@@ -61,7 +62,7 @@ export default function TrackingChip({ url, size = "full" }) {
   if (size === "compact") {
     return (
       <a
-        href={parsed.canonicalUrl}
+        href={safeHref(parsed.canonicalUrl)}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors border border-[var(--color-or)]/30 hover:border-[var(--color-or)] px-2.5 py-1"

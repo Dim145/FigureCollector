@@ -61,7 +61,8 @@ async fn upload_photo(
     // We expect exactly one `file` field; ignore the rest.
     let mut bytes: Option<Vec<u8>> = None;
     while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::BadRequest(Box::leak(format!("multipart error: {e}").into_boxed_str()))
+        tracing::warn!(error = %e, "multipart framing error");
+        AppError::BadRequest("malformed multipart request")
     })? {
         if field.name() == Some("file") {
             let data = field
@@ -178,7 +179,8 @@ async fn replace_photo(
 
     let mut bytes: Option<Vec<u8>> = None;
     while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::BadRequest(Box::leak(format!("multipart error: {e}").into_boxed_str()))
+        tracing::warn!(error = %e, "multipart framing error");
+        AppError::BadRequest("malformed multipart request")
     })? {
         if field.name() == Some("file") {
             let data = field
@@ -292,6 +294,13 @@ async fn fetch_photo(
     headers.insert(
         header::ETAG,
         HeaderValue::from_str(&etag).unwrap_or_else(|_| HeaderValue::from_static("\"\"")),
+    );
+    // Bytes are always re-encoded WebP, but send nosniff anyway for parity with
+    // the document proxy so a browser can never sniff the response into
+    // something executable if the re-encode invariant ever changes.
+    headers.insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
     );
 
     Ok((headers, Body::from(bytes)).into_response())

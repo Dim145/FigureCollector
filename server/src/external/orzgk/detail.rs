@@ -256,9 +256,16 @@ fn parse_description_specs(desc: &str) -> BTreeMap<String, String> {
 /// The `H` (height) component is the only one we surface — height_mm is what
 /// the figure form stores.
 fn extract_height_mm(size: &str) -> Option<i32> {
-    // We look for `(H)<num> cm` (case-insensitive, optional space).
-    let lower = size.to_lowercase();
-    let h_marker = lower.find("(h)")?;
+    // We look for `(H)<num> cm` (case-insensitive, optional space). Scan the
+    // ORIGINAL bytes for "(h)"/"(H)" — `"(h)"` is pure ASCII so the match
+    // index and `+3` are guaranteed char boundaries. (The previous code took a
+    // byte offset from a `to_lowercase()` copy, whose byte length can differ
+    // from `size` for non-ASCII input — e.g. 'İ' — and then sliced `size` with
+    // it, panicking on a char boundary and killing the price-cron task.)
+    let h_marker = size
+        .as_bytes()
+        .windows(3)
+        .position(|w| w.eq_ignore_ascii_case(b"(h)"))?;
     let rest = &size[h_marker + 3..]; // skip "(H)"
     // Read the leading number (digits + optional decimal point).
     let mut chars = rest.chars().peekable();
@@ -666,22 +673,38 @@ fn parse_price_text(text: &str) -> (f64, Option<String>) {
             .unwrap_or_default(),
     );
 
-    // Normalise: keep digits + the *last* decimal separator (treat as decimal).
     let digits: String = text
         .chars()
         .filter(|c| c.is_ascii_digit() || *c == '.' || *c == ',')
         .collect();
-    let normalized = if digits.matches('.').count() == 1 && digits.matches(',').count() == 0 {
-        digits
-    } else if digits.matches(',').count() == 1 && digits.matches('.').count() == 0 {
-        digits.replace(',', ".")
-    } else {
-        // Thousands separators present — strip everything but the last separator.
-        let cleaned: String = digits.chars().filter(|c| c.is_ascii_digit()).collect();
-        cleaned
-    };
-    let amount = normalized.parse::<f64>().unwrap_or(0.0);
+    let amount = normalize_decimal(&digits).parse::<f64>().unwrap_or(0.0);
     (amount, currency)
+}
+
+/// Turn a scraped digit-group string into an `f64`-parseable decimal, handling
+/// both US (`1,299.99`) and European (`1.299,99`) grouping. The LAST `.`/`,`
+/// is the decimal point ONLY when 1–2 digits follow it; a separator followed
+/// by exactly 3 digits (or none) is a thousands group and is dropped. So
+/// `"¥12,000"` → `"12000"` (was `12.0`), `"€1,299.99"` → `"1299.99"` (was
+/// `129999`), `"1.234,56"` → `"1234.56"`, `"53.28"` → `"53.28"`.
+fn normalize_decimal(digits: &str) -> String {
+    let decimal_pos = digits.rfind(['.', ',']).filter(|&pos| {
+        let trailing = digits.len() - pos - 1;
+        (1..=2).contains(&trailing)
+    });
+    let mut out = String::with_capacity(digits.len());
+    for (i, c) in digits.char_indices() {
+        match c {
+            '.' | ',' => {
+                if Some(i) == decimal_pos {
+                    out.push('.');
+                }
+                // else: thousands separator — drop it.
+            }
+            _ => out.push(c),
+        }
+    }
+    out
 }
 
 fn format_amount(amount: f64) -> String {
@@ -745,6 +768,30 @@ fn payment_sort_key(label: &str) -> u8 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn parse_price_text_handles_group_separators() {
+        // Thousands separators must NOT be read as decimals (the old bug:
+        // "¥12,000" -> 12.0, "€1,299.99" -> 129999.0).
+        assert_eq!(parse_price_text("¥12,000").0, 12000.0);
+        assert_eq!(parse_price_text("€1,299.99").0, 1299.99);
+        assert_eq!(parse_price_text("1.234,56").0, 1234.56); // European
+        assert_eq!(parse_price_text("$53.28").0, 53.28);
+        assert_eq!(parse_price_text("12,00").0, 12.0); // European decimal
+        assert_eq!(parse_price_text("1,234,567").0, 1234567.0);
+        assert_eq!(parse_price_text("980").0, 980.0);
+    }
+
+    #[test]
+    fn extract_height_mm_no_panic_on_non_ascii() {
+        // Non-ASCII before the "(H)" marker must not panic the byte slice
+        // (the old code indexed `size` with an offset from its lowercased copy).
+        assert_eq!(extract_height_mm("İ(H)17 cm"), Some(170));
+        assert_eq!(extract_height_mm("(H)25.5 cm x (W)10 cm"), Some(255));
+        assert_eq!(extract_height_mm("no marker here"), None);
+        // Mixed/upper case marker still matches.
+        assert_eq!(extract_height_mm("Height (h) 30 cm"), Some(300));
+    }
 
     /// Trimmed-down fixture mirroring an orzgk product page with both
     /// variations + spec rows + gallery + description block. Inspired by the

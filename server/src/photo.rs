@@ -13,7 +13,7 @@
 //!   3. The 4 multipart routes that need it shrink to one function call.
 
 use crate::error::{AppError, AppResult};
-use image::ImageFormat;
+use image::{ImageFormat, ImageReader, Limits};
 use std::io::Cursor;
 
 /// Format-validate, decode, dimension-check and re-encode `raw` as WebP.
@@ -42,7 +42,26 @@ fn sanitize_to_webp_blocking(raw: &[u8], max_dim: u32) -> AppResult<(Vec<u8>, u3
             "unsupported image format (use JPEG, PNG or WebP)",
         )),
     }
-    let img = image::load_from_memory_with_format(raw, format)
+    // Bound the decoder BEFORE it allocates. The free `load_from_memory_*`
+    // path applies only the image crate's 512 MiB default `max_alloc` — 8× our
+    // legitimate ceiling (max_dim² × 4 bytes) — and nothing rate-limits the
+    // upload routes, so a small "decompression bomb" (a uniform 25000×25000
+    // PNG compresses to a few hundred KB) could force a large transient
+    // allocation on the memory-capped container. Pinning width/height/alloc to
+    // the per-route cap makes the codec abort at the header/allocation stage.
+    let mut limits = Limits::default();
+    limits.max_image_width = Some(max_dim);
+    limits.max_image_height = Some(max_dim);
+    limits.max_alloc = Some(
+        (max_dim as u64)
+            .saturating_mul(max_dim as u64)
+            .saturating_mul(4)
+            .saturating_add(16 * 1024 * 1024),
+    );
+    let mut reader = ImageReader::with_format(Cursor::new(raw), format);
+    reader.limits(limits);
+    let img = reader
+        .decode()
         .map_err(|_| AppError::BadRequest("could not decode image"))?;
     let (w, h) = (img.width(), img.height());
     if w > max_dim || h > max_dim {

@@ -90,6 +90,10 @@ pub struct OwnedItemWithFigure {
     /// the SPA falls back to the catalog's primary photo or `figure_image`.
     pub cover_photo_id: Option<Uuid>,
     pub cover_scan_id: Option<Uuid>,
+    /// `storage_key` of the pinned cover photo (when `cover_photo_id` is set).
+    /// The SPA appends it as `?v=` so the CacheFirst service worker refreshes
+    /// the grid thumbnail after an in-place photo edit (same id, new bytes).
+    pub cover_photo_key: Option<String>,
     /// Catalogue-side primary photo id, joined here so the SPA doesn't have
     /// to re-query per row. Used purely as a fallback when no per-user
     /// cover is set.
@@ -230,6 +234,14 @@ pub async fn patch(
     if let Some(c) = &input.condition {
         if !ALLOWED_CONDITIONS.contains(&c.as_str()) {
             return Err(AppError::BadRequest("invalid condition"));
+        }
+    }
+    // Same ISO-4217 floor as create()/set_value(). Without it, a PATCH could
+    // store "eur"/"euros" and split one real currency into bogus per-currency
+    // buckets in /api/me/stats (which group by this raw string).
+    if let Some(c) = &input.price_currency {
+        if c.len() != 3 || !c.bytes().all(|b| b.is_ascii_uppercase()) {
+            return Err(AppError::BadRequest("price_currency must be ISO 4217 (3 chars)"));
         }
     }
 
@@ -378,6 +390,7 @@ pub async fn list_for_user(
             pp.amount   AS provider_price_amount,
             pp.currency AS provider_price_currency,
             o.cover_photo_id, o.cover_scan_id,
+            (SELECT ph.storage_key FROM photos ph WHERE ph.id = o.cover_photo_id) AS cover_photo_key,
             (
                 SELECT fp.id FROM figure_photos fp
                 WHERE fp.figure_id = o.figure_id
@@ -537,7 +550,46 @@ pub async fn set_cover(
     row.ok_or(AppError::NotFound)
 }
 
-pub async fn delete_for_user(pool: &PgPool, user_id: Uuid, id: Uuid) -> AppResult<()> {
+/// Storage keys orphaned when an owned item is deleted. The photo/scan ROWS
+/// cascade away with the item (ON DELETE CASCADE), taking their keys with
+/// them — so the caller must purge the Garage blobs from this snapshot.
+pub struct OrphanedBlobs {
+    /// `photos.storage_key` values (single objects).
+    pub photo_keys: Vec<String>,
+    /// `(scans.storage_prefix, scans.result_key)` — prefixes hold the frame
+    /// set + source video; the caller fans these out via `purge_scan_blobs`.
+    pub scan_blobs: Vec<(String, Option<String>)>,
+}
+
+pub async fn delete_for_user(
+    pool: &PgPool,
+    user_id: Uuid,
+    id: Uuid,
+) -> AppResult<OrphanedBlobs> {
+    // Snapshot the blob keys BEFORE the delete — the photo/scan rows vanish via
+    // ON DELETE CASCADE the moment the owned item goes, so their storage_keys
+    // are unreadable afterwards. Both selects are scoped through
+    // owned_items.user_id, so we never read another user's keys (and they
+    // return empty for an item that isn't this user's → nothing purged).
+    let photo_keys: Vec<String> = sqlx::query_scalar(
+        "SELECT p.storage_key FROM photos p
+         JOIN owned_items o ON o.id = p.owned_item_id
+         WHERE o.id = $1 AND o.user_id = $2",
+    )
+    .bind(id)
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?;
+    let scan_blobs: Vec<(String, Option<String>)> = sqlx::query_as(
+        "SELECT s.storage_prefix, s.result_key FROM scans s
+         JOIN owned_items o ON o.id = s.owned_item_id
+         WHERE o.id = $1 AND o.user_id = $2",
+    )
+    .bind(id)
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?;
+
     let result = sqlx::query("DELETE FROM owned_items WHERE id = $1 AND user_id = $2")
         .bind(id)
         .bind(user_id)
@@ -546,5 +598,8 @@ pub async fn delete_for_user(pool: &PgPool, user_id: Uuid, id: Uuid) -> AppResul
     if result.rows_affected() == 0 {
         return Err(AppError::NotFound);
     }
-    Ok(())
+    Ok(OrphanedBlobs {
+        photo_keys,
+        scan_blobs,
+    })
 }

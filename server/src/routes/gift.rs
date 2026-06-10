@@ -144,7 +144,13 @@ async fn public_list(
     let items = all
         .into_iter()
         .filter(|it| show_nsfw || !it.is_nsfw)
-        .map(|item| {
+        .map(|mut item| {
+            // `note` is the owner's private free-text reminder — strip it from
+            // the anonymous giver-facing surface. The target price
+            // (max_price_*) is kept: it's the gift-list's whole point (it tells
+            // a giver the budget). The owner's own view goes through a
+            // different (authenticated) endpoint and keeps the note.
+            item.note = None;
             let reserved_by = reserved.get(&item.figure_id).cloned();
             PublicItem {
                 reserved: reserved_by.is_some(),

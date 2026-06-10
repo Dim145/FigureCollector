@@ -26,11 +26,15 @@ export default function TurntableVideo({ onComplete, gsplat = false }) {
   const [file, setFile] = useState(null);
   const [previews, setPreviews] = useState([]);
 
-  // Revoke every preview blob URL at unmount — the user can navigate
-  // away mid-extraction and otherwise the browser holds dozens of large
-  // WebP/JPEG blobs in memory until GC eventually kicks in.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), []);
+  // Revoke every preview blob URL at unmount — the user can navigate away
+  // mid-extraction and otherwise the browser holds dozens of large WebP/JPEG
+  // blobs in memory until GC eventually kicks in. Mirror `previews` into a ref
+  // so this unmount-only cleanup revokes the CURRENT list: closing over
+  // `previews` directly captured the initial `[]` (empty deps never re-run the
+  // effect) and revoked nothing.
+  const previewsRef = useRef(previews);
+  previewsRef.current = previews;
+  useEffect(() => () => previewsRef.current.forEach((u) => URL.revokeObjectURL(u)), []);
   const [frames, setFrames] = useState([]);
   const [target, setTarget] = useState(24);
   const [busy, setBusy] = useState(false);

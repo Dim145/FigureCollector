@@ -179,7 +179,19 @@ async fn delete_mine(
     .ok()
     .flatten();
 
-    owned::delete_for_user(&state.pool, user_id, id).await?;
+    let orphaned = owned::delete_for_user(&state.pool, user_id, id).await?;
+
+    // Best-effort purge of the now-orphaned Garage blobs (the photo/scan rows
+    // already cascaded away). Failures are logged inside the storage layer; a
+    // missing key is a no-op on Garage.
+    for key in &orphaned.photo_keys {
+        if let Err(e) = state.storage.delete(key).await {
+            tracing::warn!(error = ?e, storage_key = %key, "orphan photo blob delete failed after owned-item delete");
+        }
+    }
+    for (prefix, result_key) in &orphaned.scan_blobs {
+        crate::services::scan_cleanup::purge_scan_blobs(&state, prefix, result_key.as_deref()).await;
+    }
 
     if let Some((figure_id, figure_name, manufacturer_name)) = snapshot {
         activity::record(

@@ -28,7 +28,10 @@ RUN apk add --no-cache \
 
 WORKDIR /build
 
-COPY Cargo.toml ./
+# Cargo.lock is copied + `--locked` enforced below so release images are
+# reproducible and a malicious patch release of any transitive crate can't be
+# silently pulled into the next build. Keep server/Cargo.lock committed.
+COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 COPY migrations ./migrations
 
@@ -37,7 +40,7 @@ COPY migrations ./migrations
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
     --mount=type=cache,target=/build/target \
-    cargo build --release && \
+    cargo build --release --locked && \
     cp /build/target/release/figurecollector-server /figurecollector-server
 
 # -----------------------------------------------------------------------------
