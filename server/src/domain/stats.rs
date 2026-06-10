@@ -210,7 +210,13 @@ pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<Collect
              SELECT COALESCE(o.price_currency, f.msrp_currency) AS currency,
                     COALESCE(o.price_amount, f.msrp_amount)     AS amount,
                     COALESCE(o.shipping_amount, 0)              AS shipping,
-                    f.msrp_amount                                AS catalog
+                    -- Only count the catalog MSRP toward catalog_total when its
+                    -- currency matches this row's bucket currency. Otherwise a
+                    -- 150 EUR purchase of a figure with a 15800 JPY MSRP would
+                    -- add 15800 to the EUR bucket, making the spent-vs-catalog
+                    -- delta nonsense across currencies.
+                    CASE WHEN f.msrp_currency = COALESCE(o.price_currency, f.msrp_currency)
+                         THEN f.msrp_amount END                  AS catalog
              FROM owned_items o
              JOIN figures f ON f.id = o.figure_id
              WHERE o.user_id = $1

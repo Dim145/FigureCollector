@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
+import { appLocale } from "../lib/locale.js";
 import {
   usePreorderForOwned,
   useRestoreOwnedItem,
@@ -160,7 +161,7 @@ function ReadMode({ owned, preorder, catalogMsrp, catalogCurrency, t }) {
       </Row>
       <Row label={t("owned.editor.field.purchase_date")}>
         {owned.purchase_date
-          ? new Date(owned.purchase_date).toLocaleDateString()
+          ? new Date(owned.purchase_date).toLocaleDateString(appLocale())
           : "—"}
       </Row>
       <Row label={t("owned.editor.field.store")}>
@@ -540,7 +541,7 @@ function priceDelta(paidRaw, msrpRaw) {
 function fmtMoney(raw) {
   const n = Number(raw);
   if (!Number.isFinite(n)) return "—";
-  return n.toLocaleString(undefined, {
+  return n.toLocaleString(appLocale(), {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });

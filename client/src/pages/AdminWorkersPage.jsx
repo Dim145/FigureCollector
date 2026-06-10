@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useT } from "../i18n/index.jsx";
+import { appLocale } from "../lib/locale.js";
 import {
   useAdminWorkers,
   useDeleteWorker,
@@ -62,7 +63,7 @@ export default function AdminWorkersPage() {
   const t = useT();
   const workers = useAdminWorkers();
 
-  const list = workers.data ?? [];
+  const list = useMemo(() => workers.data ?? [], [workers.data]);
   // Fleet roll-up for the StatCard strip — derived from the same list, no
   // extra fetch. Counts only, so tones stay quiet (online → gold "value",
   // offline → hanko-red "loss"), per the playbook.
@@ -248,7 +249,7 @@ function Row({ w, t }) {
                 ? ` · ${w.display_name}`
                 : null}
               <span className="opacity-40"> · </span>
-              <span title={new Date(w.last_seen).toLocaleString()}>
+              <span title={new Date(w.last_seen).toLocaleString(appLocale())}>
                 {t("admin.workers.last_seen")} {relativeTime(w.last_seen, t)}
               </span>
             </div>
@@ -278,7 +279,7 @@ function Row({ w, t }) {
               />
               <Spec
                 label={t("admin.workers.spec.registered")}
-                value={new Date(w.registered_at).toLocaleDateString()}
+                value={new Date(w.registered_at).toLocaleDateString(appLocale())}
                 mono
               />
             </dl>

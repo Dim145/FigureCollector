@@ -8,7 +8,15 @@
 // Used by both CollectionPage cards and the cover picker UI.
 export function resolveOwnedCover(item) {
   if (!item) return null;
-  if (item.cover_photo_id) return `/api/photos/${item.cover_photo_id}`;
+  if (item.cover_photo_id) {
+    // `?v=storage_key` busts the CacheFirst service-worker cache when the
+    // pinned photo is edited in place (id stays, bytes change); without it the
+    // grid keeps the stale thumbnail until the 30-day cache entry expires.
+    const v = item.cover_photo_key
+      ? `?v=${encodeURIComponent(item.cover_photo_key)}`
+      : "";
+    return `/api/photos/${item.cover_photo_id}${v}`;
+  }
   if (item.cover_scan_id) return `/api/scans/${item.cover_scan_id}/frames/0`;
   if (item.catalog_cover_photo_id) return `/api/figure-photos/${item.catalog_cover_photo_id}`;
   if (item.figure_image) return item.figure_image;

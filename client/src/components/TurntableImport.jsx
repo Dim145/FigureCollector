@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 
 /**
@@ -17,17 +17,20 @@ export default function TurntableImport({ onComplete }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  // Revoke every blob URL we own at unmount — otherwise dozens of large
-  // WebP blobs leak each time the user navigates away mid-import.
+  // Revoke every blob URL we own at unmount — otherwise dozens of large WebP
+  // blobs leak each time the user navigates away mid-import. Mirror `previews`
+  // into a ref so this unmount-only cleanup revokes the CURRENT list: closing
+  // over `previews` directly captured the initial `[]` (empty deps never re-run
+  // the effect) and revoked nothing. The setter still revokes the OLD list on
+  // re-import.
+  const previewsRef = useRef(previews);
+  // Keep the ref current in an effect (writing it during render trips
+  // react-hooks/refs). The empty-deps cleanup below then revokes the latest
+  // committed list at unmount.
   useEffect(() => {
-    return () => {
-      previews.forEach((u) => URL.revokeObjectURL(u));
-    };
-    // Empty deps: we only want to run this on unmount. The setter below
-    // already revokes the OLD list before replacing it; the cleanup is a
-    // belt-and-braces for the "navigate away while previews exist" path.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    previewsRef.current = previews;
+  }, [previews]);
+  useEffect(() => () => previewsRef.current.forEach((u) => URL.revokeObjectURL(u)), []);
 
   const onChange = async (e) => {
     const files = Array.from(e.target.files ?? []);

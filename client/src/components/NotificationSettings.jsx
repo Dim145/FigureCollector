@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useT } from "../i18n/index.jsx";
 import {
   subscribeToWebPush,
   unsubscribeFromWebPush,

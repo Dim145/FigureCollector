@@ -115,13 +115,19 @@ pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
     // origin(`stores.url`) + `figure_stores.link` (path+query); one row per
     // (figure, store-link).
     let rows = sqlx::query_as::<_, (Uuid, Option<String>, Option<String>, String, String)>(
+        // Order by staleness so the per-run cap rotates through the WHOLE
+        // catalogue: never-priced figures (pp.fetched_at NULL) come first, then
+        // the oldest refreshes. A static `ORDER BY f.id` re-processed the same
+        // first MAX_FIGURES_PER_RUN figures every run, so any figure past the
+        // cap (the newest ones) never got a price. f.id is the stable tiebreak.
         "SELECT f.id, f.version_name, f.msrp_currency, s.url, fs.link
          FROM figures f
          JOIN figure_stores fs ON fs.figure_id = f.id
          JOIN stores s         ON s.id = fs.store_id
+         LEFT JOIN figure_provider_prices pp ON pp.figure_id = f.id
          WHERE fs.link IS NOT NULL AND fs.link <> ''
            AND s.url  IS NOT NULL AND s.url  <> ''
-         ORDER BY f.id",
+         ORDER BY pp.fetched_at ASC NULLS FIRST, f.id",
     )
     .fetch_all(&state.pool)
     .await?;
@@ -202,17 +208,29 @@ pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
         ) {
             if let Some(amount) = Decimal::from_f64_retain(chosen.amount).map(|d| d.round_dp(2)) {
                 if amount > Decimal::ZERO {
-                    figure_price::upsert(
+                    // Normalise the scraped currency to a 3-letter ISO code or
+                    // NULL. The column is CHAR(3); a free-form value like "US
+                    // Dollar" raises 22001 — and because the sweep is a single
+                    // tx-less loop, the old `?` aborted EVERY later figure on
+                    // every run (a permanent wedge). Both the normalisation and
+                    // the per-figure error handling below prevent that.
+                    let currency = normalize_currency(chosen.currency.as_deref());
+                    match figure_price::upsert(
                         &state.pool,
                         fid,
                         amount,
-                        chosen.currency.as_deref(),
+                        currency.as_deref(),
                         chosen.matched_version.as_deref(),
                         &chosen.source,
                         Some(&chosen.url),
                     )
-                    .await?;
-                    updated += 1;
+                    .await
+                    {
+                        Ok(()) => updated += 1,
+                        Err(e) => {
+                            tracing::warn!(figure_id = %fid, error = ?e, "price-cron: upsert failed, skipping this figure");
+                        }
+                    }
                 }
             }
         }
@@ -220,6 +238,18 @@ pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
 
     tracing::info!(processed, updated, "price-cron: provider prices refreshed");
     Ok(serde_json::json!({ "processed": processed, "updated": updated }))
+}
+
+/// Fit a scraped currency to the CHAR(3) `figure_provider_prices.currency`
+/// column: a trimmed, uppercased 3-letter ASCII ISO code, or None for anything
+/// else (free-form labels like "US Dollar" would overflow the column).
+fn normalize_currency(raw: Option<&str>) -> Option<String> {
+    let c = raw?.trim();
+    if c.len() == 3 && c.bytes().all(|b| b.is_ascii_alphabetic()) {
+        Some(c.to_ascii_uppercase())
+    } else {
+        None
+    }
 }
 
 /// One scraped price line. `version_label` is the provider's version name (orzgk

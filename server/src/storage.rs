@@ -100,8 +100,18 @@ impl Storage {
             .get_object(key)
             .await
             .map_err(|e| AppError::Internal(anyhow::anyhow!("Garage get failed: {e}")))?;
-        if !(200..300).contains(&resp.status_code()) {
+        // Only a genuine 404 is "not found". Every other non-2xx (a Garage
+        // outage 5xx, a 403 credential/clock problem, …) must surface as a
+        // server error — collapsing them all to 404 hid outages from
+        // monitoring and told users "your photos are gone" during a blip.
+        let status = resp.status_code();
+        if status == 404 {
             return Err(AppError::NotFound);
+        }
+        if !(200..300).contains(&status) {
+            return Err(AppError::Internal(anyhow::anyhow!(
+                "Garage get returned status {status} for key {key}"
+            )));
         }
         let mime = resp.headers().get("content-type").cloned();
         Ok((resp.bytes().to_vec(), mime))

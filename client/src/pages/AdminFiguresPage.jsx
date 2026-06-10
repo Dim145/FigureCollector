@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
+import { appLocale } from "../lib/locale.js";
 import {
   useAdminFigures,
   useBulkDeleteFigures,
@@ -55,7 +56,7 @@ export default function AdminFiguresPage() {
   const del = useDeleteFigure();
   const bulkDel = useBulkDeleteFigures();
 
-  const rows = figures.data ?? [];
+  const rows = useMemo(() => figures.data ?? [], [figures.data]);
   const ids = useMemo(() => rows.map((f) => f.id), [rows]);
   const sel = useRowSelection(ids);
 
@@ -464,7 +465,7 @@ function FiguresTable({ rows, sel, t, onEdit, onDelete }) {
                 </td>
                 <td className="px-4 py-3 align-middle">
                   <span className="font-mono text-[10px] tracking-wider text-[var(--color-ivoire-soft)]/70">
-                    {new Date(f.created_at).toLocaleDateString()}
+                    {new Date(f.created_at).toLocaleDateString(appLocale())}
                   </span>
                 </td>
                 <td className="px-4 py-3 align-middle text-right">

@@ -157,12 +157,31 @@ async fn create(
 
 async fn get_one(
     State(state): State<AppState>,
+    session: Session,
     Path(id): Path<Uuid>,
 ) -> AppResult<Json<figure::Figure>> {
     let f = figure::find_by_id(&state.pool, id)
         .await?
         .ok_or(AppError::NotFound)?;
+    // NSFW gate, consistent with the list / entity paths: a viewer whose pref
+    // is "hide" — the default for anonymous callers — can't pull an NSFW
+    // figure's detail by id. Signed-in "blur"/"show" users still get it (the
+    // SPA applies the blur), exactly as in their lists.
+    if f.is_nsfw && viewer_hides_nsfw(&session, &state.pool).await {
+        return Err(AppError::NotFound);
+    }
     Ok(Json(f))
+}
+
+/// `true` when the request's viewer wants NSFW hidden — their `nsfw_visibility`
+/// is "hide", or they're anonymous (the hide-by-default ceiling). Mirrors the
+/// `nsfw_pref` logic the list/entity routes use.
+async fn viewer_hides_nsfw(session: &Session, pool: &sqlx::PgPool) -> bool {
+    auth::require_user_full(session, pool)
+        .await
+        .ok()
+        .map(|u| u.nsfw_visibility.as_str() == "hide")
+        .unwrap_or(true)
 }
 
 async fn patch_one(

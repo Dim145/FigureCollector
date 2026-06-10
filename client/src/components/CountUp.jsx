@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { appLocale } from "../lib/locale.js";
 
 /**
  * Counter that animates from 0 (or the previously-rendered value) up to
@@ -123,7 +124,7 @@ export default function CountUp({ value, duration = 1100, className = "", format
       const r = Math.round(n);
       // Math.round can yield -0 from a tiny negative float; V8 renders that
       // as the string "-0", so normalise it back to a plain 0.
-      return (Object.is(r, -0) ? 0 : r).toLocaleString();
+      return (Object.is(r, -0) ? 0 : r).toLocaleString(appLocale());
     });
 
   return (

@@ -16,13 +16,30 @@ use uuid::Uuid;
 
 // --- CSV primitives ----------------------------------------------------------
 
-/// Quote a field per RFC 4180 only when it carries a delimiter / quote /
-/// newline; double any embedded quotes.
+/// Render one CSV cell. Two concerns layered:
+///   1. CSV-injection guard: a cell whose first character is a spreadsheet
+///      formula trigger (`= + - @`, or a leading tab / CR that Excel strips
+///      before re-reading the trigger) is prefixed with a single quote so
+///      Excel / LibreOffice treat it as text, never a formula. Figure names,
+///      manufacturers and notes come from the shared catalog (any user can
+///      seed them), so `=HYPERLINK(...)` in one user's figure must not execute
+///      in another user's exported sheet. (OWASP CSV-injection guidance.)
+///   2. RFC 4180 quoting: quote when the (possibly prefixed) value carries a
+///      delimiter / quote / newline; double any embedded quotes.
 fn csv_field(s: &str) -> String {
-    if s.contains([',', '"', '\n', '\r']) {
-        format!("\"{}\"", s.replace('"', "\"\""))
+    let needs_formula_guard = s
+        .chars()
+        .next()
+        .is_some_and(|c| matches!(c, '=' | '+' | '-' | '@' | '\t' | '\r'));
+    let guarded = if needs_formula_guard {
+        format!("'{s}")
     } else {
         s.to_string()
+    };
+    if guarded.contains([',', '"', '\n', '\r']) {
+        format!("\"{}\"", guarded.replace('"', "\"\""))
+    } else {
+        guarded
     }
 }
 

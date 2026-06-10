@@ -33,8 +33,24 @@ const MAX_PHOTO_DIM: u32 = 4096;
 
 async fn list_photos(
     State(state): State<AppState>,
+    session: Session,
     Path(figure_id): Path<Uuid>,
 ) -> AppResult<Json<Vec<figure_photo::FigurePhoto>>> {
+    // NSFW gate, consistent with figure detail: a "hide"/anonymous viewer can't
+    // enumerate an NSFW figure's catalog photos.
+    let f = figure::find_by_id(&state.pool, figure_id)
+        .await?
+        .ok_or(AppError::NotFound)?;
+    if f.is_nsfw {
+        let hide = auth::require_user_full(&session, &state.pool)
+            .await
+            .ok()
+            .map(|u| u.nsfw_visibility.as_str() == "hide")
+            .unwrap_or(true);
+        if hide {
+            return Err(AppError::NotFound);
+        }
+    }
     Ok(Json(figure_photo::list(&state.pool, figure_id).await?))
 }
 
@@ -66,7 +82,8 @@ async fn upload_photo(
 
     let mut bytes: Option<Vec<u8>> = None;
     while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::BadRequest(Box::leak(format!("multipart error: {e}").into_boxed_str()))
+        tracing::warn!(error = %e, "multipart framing error");
+        AppError::BadRequest("malformed multipart request")
     })? {
         if field.name() == Some("file") {
             let data = field
@@ -206,7 +223,8 @@ async fn replace_photo(
 
     let mut bytes: Option<Vec<u8>> = None;
     while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::BadRequest(Box::leak(format!("multipart error: {e}").into_boxed_str()))
+        tracing::warn!(error = %e, "multipart framing error");
+        AppError::BadRequest("malformed multipart request")
     })? {
         if field.name() == Some("file") {
             let data = field
@@ -301,6 +319,10 @@ async fn fetch_photo(
     headers.insert(
         header::ETAG,
         HeaderValue::from_str(&etag).unwrap_or_else(|_| HeaderValue::from_static("\"\"")),
+    );
+    headers.insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
     );
     Ok((headers, Body::from(bytes)).into_response())
 }

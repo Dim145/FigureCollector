@@ -23,7 +23,6 @@ export default function UpdateToast() {
     updateServiceWorker,
   } = useRegisterSW({
     onRegisterError(error) {
-      // eslint-disable-next-line no-console
       console.warn("[pwa] registration error", error);
     },
   });

@@ -6,6 +6,7 @@ import {
   PieChart as RechartsPieChart,
 } from "recharts";
 import { useT } from "../i18n/index.jsx";
+import { appLocale } from "../lib/locale.js";
 import { useMe } from "../hooks/useMe.js";
 import { useMyStats, useInsights } from "../hooks/useStats.js";
 import AccentTitle from "../components/AccentTitle.jsx";
@@ -1180,7 +1181,7 @@ function CrownPieces({ data, t }) {
             <p className="micro-tight mt-5">
               {t("stats.most_expensive.acquired")} ·{" "}
               <time dateTime={m.purchase_date}>
-                {new Date(m.purchase_date).toLocaleDateString(undefined, {
+                {new Date(m.purchase_date).toLocaleDateString(appLocale(), {
                   year: "numeric",
                   month: "long",
                   day: "numeric",
@@ -1353,7 +1354,7 @@ function fmtMoney(raw, currency) {
   const n = Number(raw);
   if (!Number.isFinite(n)) return "—";
   const maxFrac = ZERO_DECIMALS.has(currency) ? 0 : 2;
-  return n.toLocaleString(undefined, {
+  return n.toLocaleString(appLocale(), {
     minimumFractionDigits: 0,
     maximumFractionDigits: maxFrac,
   });

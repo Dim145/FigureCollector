@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { parseTrackingUrl } from "../lib/carrierTracking.js";
+import { safeHref } from "../lib/safeUrl.js";
+import { appLocale } from "../lib/locale.js";
 import { useT } from "../i18n/index.jsx";
 import { api, ApiError } from "../lib/api.js";
 
@@ -61,7 +63,7 @@ export default function TrackingChip({ url, size = "full" }) {
   if (size === "compact") {
     return (
       <a
-        href={parsed.canonicalUrl}
+        href={safeHref(parsed.canonicalUrl)}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors border border-[var(--color-or)]/30 hover:border-[var(--color-or)] px-2.5 py-1"
@@ -217,7 +219,7 @@ function formatRelative(date) {
   if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m`;
   if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h`;
   if (diffSec < 86400 * 30) return `${Math.floor(diffSec / 86400)}d`;
-  return date.toLocaleDateString();
+  return date.toLocaleDateString(appLocale());
 }
 
 /** Minimal SVG glyph per carrier. Not pixel-perfect logos (those are

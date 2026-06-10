@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
+import { appLocale } from "../lib/locale.js";
 import {
   useMarkAllRead,
   useMarkRead,
@@ -203,5 +204,5 @@ function relTime(iso, t) {
   if (diff < 3600) return t("notifications.time.minutes", { n: Math.round(diff / 60) });
   if (diff < 86400) return t("notifications.time.hours", { n: Math.round(diff / 3600) });
   if (diff < 86400 * 7) return t("notifications.time.days", { n: Math.round(diff / 86400) });
-  return d.toLocaleDateString();
+  return d.toLocaleDateString(appLocale());
 }

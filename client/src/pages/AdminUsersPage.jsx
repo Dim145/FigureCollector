@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useT } from "../i18n/index.jsx";
+import { appLocale } from "../lib/locale.js";
 import { useMe } from "../hooks/useMe.js";
 import {
   useAdminUsers,
@@ -279,17 +280,17 @@ function Row({ user, mine, selected, onToggle, t }) {
         </Td>
         <Td right>
           <span className="figural text-base text-[var(--color-or-pale)]">
-            {Number(user.owned_count ?? 0).toLocaleString()}
+            {Number(user.owned_count ?? 0).toLocaleString(appLocale())}
           </span>
         </Td>
         <Td right>
           <span className="figural text-base text-[var(--color-or-pale)]">
-            {Number(user.figure_count ?? 0).toLocaleString()}
+            {Number(user.figure_count ?? 0).toLocaleString(appLocale())}
           </span>
         </Td>
         <Td>
           <span className="text-[10px] font-mono tracking-wider text-[var(--color-ivoire-soft)]/70">
-            {new Date(user.created_at).toLocaleDateString()}
+            {new Date(user.created_at).toLocaleDateString(appLocale())}
           </span>
         </Td>
         <Td right>

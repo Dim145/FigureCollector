@@ -130,12 +130,24 @@ pub async fn create_local(
     Ok(row)
 }
 
-/// Promote the first ever user to admin. Called inside a transaction so two
-/// simultaneous signups can't both flip to true (the `SELECT COUNT(*)` runs
-/// in the same row-locking context as the subsequent INSERT).
+/// Transaction-level advisory lock key guarding the first-user-admin bootstrap.
+/// Arbitrary fixed constant ("FC-ADMIN" in ASCII-ish); only this code path uses it.
+const ADMIN_BOOTSTRAP_LOCK: i64 = 0x4643_5f41_444d_494e;
+
+/// Promote the first ever user to admin. The `SELECT COUNT(*)` alone is NOT
+/// race-safe under PostgreSQL's default READ COMMITTED isolation: two
+/// concurrent signups can each see zero committed rows, both compute `count==0`
+/// and both become admin. We serialise the count→insert window with a
+/// transaction-level advisory lock — the second signup blocks until the first
+/// commits, then sees `count==1`. The lock auto-releases at tx end, and (unlike
+/// a single-admin unique index) it doesn't stop an admin promoting others later.
 async fn should_bootstrap_admin(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
 ) -> AppResult<bool> {
+    sqlx::query("SELECT pg_advisory_xact_lock($1)")
+        .bind(ADMIN_BOOTSTRAP_LOCK)
+        .execute(&mut **tx)
+        .await?;
     let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*)::bigint FROM users")
         .fetch_one(&mut **tx)
         .await?;

@@ -266,6 +266,12 @@ pub async fn patch(
 
     let mut tx = pool.begin().await?;
 
+    // FOR UPDATE locks the row for the duration of the tx. Without it, two
+    // concurrent PATCHes carrying the same new release date (a double-submit)
+    // both read the old date under READ COMMITTED, both decide it changed, and
+    // both INSERT a slip-history row — inflating slip_count on a feature whose
+    // whole point is an accurate count. The lock serialises them so the second
+    // reads the first's committed date and the no-op guard below skips it.
     let current: Option<Preorder> = sqlx::query_as(
         "SELECT id, user_id, figure_id, status, store_id, order_ref, tracking_url,
                 release_date_original, release_date_current,
@@ -273,7 +279,8 @@ pub async fn patch(
                 deposit_amount, deposit_refund_amount,
                 shipped_at, estimated_delivery_days, notes,
                 created_at, updated_at
-         FROM preorders WHERE id = $1 AND user_id = $2",
+         FROM preorders WHERE id = $1 AND user_id = $2
+         FOR UPDATE",
     )
     .bind(id)
     .bind(user_id)

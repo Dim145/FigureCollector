@@ -589,6 +589,18 @@ async fn send_browser_push(
 
     // ----- Fan out to each device endpoint -----
     for sub in &subs {
+        // SSRF guard. `sub.endpoint` is whatever the browser registered via
+        // POST /me/web-push/subscribe — fully user-controlled. Run it through
+        // the same loopback / RFC-1918 / link-local / metadata check the other
+        // outbound channels use, so a user can't register
+        // `http://169.254.169.254/...` (or an internal Docker host) and have
+        // the server fetch it. A bad endpoint is dropped like a dead one.
+        if let Err(e) = validate_outbound_url(&sub.endpoint).await {
+            tracing::warn!(error = %e, sub_id = %sub.id, "push endpoint blocked by SSRF guard, deleting");
+            let _ = notification::delete_push(&state.pool, user_id, sub.id).await;
+            continue;
+        }
+
         // Browser-sent p256dh / auth are base64url-no-pad (per the Push
         // API spec). web-push-native takes raw bytes — decode here.
         let p256dh_bytes = match URL_SAFE_NO_PAD.decode(&sub.p256dh) {
@@ -652,9 +664,11 @@ async fn send_browser_push(
         };
         let (parts, body) = req.into_parts();
 
-        // Reuse the shared reqwest client (rustls / aws-lc-rs).
+        // Reuse the no-redirect reqwest client (rustls / aws-lc-rs): a hostile
+        // push service must not be able to 30x us onto an internal IP after
+        // the up-front validate_outbound_url check (matches ntfy/webhook/apprise).
         let resp = match state
-            .http
+            .http_no_redirect
             .request(parts.method, parts.uri.to_string())
             .headers(parts.headers)
             .body(body)

@@ -430,7 +430,7 @@ export default function TurntableViewer({ scanId, frameCount, embedded = false }
       setCurrent(wrapped);
     }
   };
-  const onPointerUp = (e) => {
+  const onPointerUp = () => {
     const d = drag.current;
     if (!d) return;
     drag.current = null;

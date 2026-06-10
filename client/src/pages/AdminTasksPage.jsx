@@ -111,6 +111,8 @@ export default function AdminTasksPage() {
   // Merge worker scans + server job runs into one chronological timeline.
   // Both share the state vocabulary, so counts/filters apply uniformly; the
   // sort key is each row's latest activity (scan update vs job finish/start).
+  // (Also satisfies the branch's memoisation fix — `rows` is referentially
+  // stable for the `counts` memo below.)
   const rows = useMemo(() => {
     const scans = (q.data ?? []).map((s) => ({
       kind: "scan",

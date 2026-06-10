@@ -68,7 +68,7 @@ function fmtDate(s) {
 export default function AdminMangaServersPage() {
   const t = useT();
   const q = useAdminMangaServers();
-  const rows = q.data ?? [];
+  const rows = useMemo(() => q.data ?? [], [q.data]);
 
   const { pending, approved, revoked } = useMemo(
     () => ({

@@ -180,7 +180,7 @@ function EntityList({ kind, onPick, onDelete }) {
       ),
   });
 
-  const rows = list.data ?? [];
+  const rows = useMemo(() => list.data ?? [], [list.data]);
 
   // Stat strip — counts only, derived from the already-loaded list (no extra
   // fetch). Gold marks the headline figure-count tally, per the playbook.
@@ -400,7 +400,11 @@ function EntityEditDrawer({ kind, entity, onClose }) {
   const [refetchError, setRefetchError] = useState(null);
 
   useEffect(() => {
+    // Re-seed only when a DIFFERENT entity is selected (id change), not on
+    // every `entity` object reference change — otherwise an upstream refetch
+    // would clobber the admin's in-progress form edits.
     setForm(seedFromEntity(kind, entity));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind, entity?.id]);
 
   const set = (k) => (v) => setForm((s) => ({ ...s, [k]: v }));

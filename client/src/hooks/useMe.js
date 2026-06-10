@@ -26,6 +26,11 @@ export function useLogin() {
   return useMutation({
     mutationFn: (payload) => api.post("/auth/login", payload),
     onSuccess: (data) => {
+      // Clear any cached data left by a previous account on this device before
+      // seeding the new session. Query keys aren't user-scoped, so without this
+      // a fast account switch (without an intervening logout/reload) could
+      // briefly serve the previous user's cached collection/stats to the new one.
+      qc.clear();
       qc.setQueryData(["me"], { authenticated: true, user: data.user });
     },
   });
@@ -37,6 +42,11 @@ export function useRegister() {
   return useMutation({
     mutationFn: (payload) => api.post("/auth/register", payload),
     onSuccess: (data) => {
+      // Clear any cached data left by a previous account on this device before
+      // seeding the new session. Query keys aren't user-scoped, so without this
+      // a fast account switch (without an intervening logout/reload) could
+      // briefly serve the previous user's cached collection/stats to the new one.
+      qc.clear();
       qc.setQueryData(["me"], { authenticated: true, user: data.user });
     },
   });
@@ -50,6 +60,15 @@ export function useLogout() {
     onSuccess: () => {
       qc.setQueryData(["me"], { authenticated: false });
       qc.clear();
+      // Purge the service-worker caches holding authenticated, per-user
+      // responses — private photo bytes (fc-photos) especially. qc.clear()
+      // only drops the in-memory TanStack cache; Cache Storage survives logout
+      // and a later user on a shared device could otherwise read it. Best-effort.
+      if (typeof caches !== "undefined") {
+        for (const name of ["fc-photos", "fc-figures", "fc-external"]) {
+          caches.delete(name).catch(() => {});
+        }
+      }
     },
   });
 }

@@ -69,7 +69,8 @@ async fn create_scan(
     let mut video: Option<(Vec<u8>, String, String)> = None;
 
     while let Some(field) = multipart.next_field().await.map_err(|e| {
-        AppError::BadRequest(Box::leak(format!("multipart error: {e}").into_boxed_str()))
+        tracing::warn!(error = %e, "multipart framing error");
+        AppError::BadRequest("malformed multipart request")
     })? {
         match field.name() {
             Some("kind") => {
@@ -357,7 +358,10 @@ async fn fetch_frame(
         .ok_or(AppError::NotFound)?;
     let viewer: Option<Uuid> = session.get("user_id").await?;
     scan::assert_visible(&state.pool, viewer, &scan_row).await?;
-    if (idx as i32) >= scan_row.frame_count {
+    // Compare in u32 space. `idx as i32` made every idx in [2^31, 2^32)
+    // negative, silently passing the bound (it still 404'd on the missing key,
+    // but the check was wrong). frame_count is always small + non-negative.
+    if scan_row.frame_count < 0 || idx >= scan_row.frame_count as u32 {
         return Err(AppError::NotFound);
     }
 
