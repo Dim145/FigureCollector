@@ -4,9 +4,10 @@ import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useOwnedItems, useSetOwnedValue } from "../hooks/useCollection.js";
 import { useMyPriceHistory, useMyStats } from "../hooks/useStats.js";
-import { useFx } from "../hooks/useFx.js";
 import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
+import Money from "../components/Money.jsx";
+import { useDisplayCurrency } from "../components/DisplayCurrencyProvider.jsx";
 import { SectionSkeleton } from "../components/Skeleton.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import {
@@ -17,7 +18,7 @@ import {
   toSeries,
 } from "../components/PriceHistory.jsx";
 import { typeHue, typeKanji } from "../lib/typeHue.js";
-import { fmtMoney, effectiveValue, paidTotal, convertAmount } from "../lib/money.js";
+import { fmtMoney, effectiveValue, paidTotal } from "../lib/money.js";
 
 // Range chips for the evolution chart (days of look-back; "all" = full history).
 const RANGES = ["3m", "6m", "1y", "all"];
@@ -35,8 +36,9 @@ function hashFigureId() {
  * Hero: estimated total value (per dominant currency) + paid + latent
  * plus-value. Below: every owned piece ranked by value, each with an inline
  * editor for the manual valuation (the "cote"), falling back to the catalog
- * MSRP when none is set. Value source: manual + MSRP (no FX — amounts stay in
- * their own currency, aggregated per-currency like the rest of the app).
+ * MSRP when none is set. Amounts convert to the user's display currency at
+ * today's rate (DisplayCurrencyProvider); the per-currency originals stay
+ * available as the hero footnote and on hover.
  */
 export default function CotePage() {
   const t = useT();
@@ -48,8 +50,17 @@ export default function CotePage() {
   const locale = document.documentElement.lang || undefined;
   const prefCurrency = me.data?.user?.preferred_currency || "EUR";
 
-  const valueBuckets = stats.data?.value_by_currency ?? [];
-  const spendBuckets = stats.data?.spend_by_currency ?? [];
+  // Memoized so their identity is stable across renders — otherwise the `?? []`
+  // makes a fresh array each render, which would defeat the conversion memo
+  // below (and trips exhaustive-deps).
+  const valueBuckets = useMemo(
+    () => stats.data?.value_by_currency ?? [],
+    [stats.data?.value_by_currency],
+  );
+  const spendBuckets = useMemo(
+    () => stats.data?.spend_by_currency ?? [],
+    [stats.data?.spend_by_currency],
+  );
   const primary = valueBuckets[0] ?? null;
   const primaryPaid = primary
     ? spendBuckets.find((s) => s.currency === primary.currency) ?? null
@@ -61,29 +72,65 @@ export default function CotePage() {
       ? (plusValue / Number(primaryPaid.grand_total)) * 100
       : null;
 
-  // Optional display-currency overlay (off by default). Sums every per-currency
-  // bucket into the chosen display currency — approximate, never stored; the
-  // per-currency truth stays the footnote below the converted figure.
-  const fx = useFx();
-  const fxReady = fx.convert && Object.keys(fx.rates).length > 0;
-  const sumConverted = (buckets, field) =>
-    buckets.reduce((sum, b) => {
-      const c = convertAmount(b[field], b.currency, fx);
-      return c == null ? sum : sum + c;
-    }, 0);
-  const convValue = fxReady ? sumConverted(valueBuckets, "estimated_total") : null;
-  const convPaid = fxReady ? sumConverted(spendBuckets, "grand_total") : null;
-  const convPlus = convValue != null && convPaid != null ? convValue - convPaid : null;
+  // Display-currency conversion (on by default — see DisplayCurrencyProvider).
+  // Sums every per-currency bucket into the chosen display currency at today's
+  // rate — approximate, never stored; the per-currency truth stays the footnote
+  // below the converted figure. Off / no preferred currency → the dominant
+  // per-currency bucket, exactly as the rows read.
+  const dc = useDisplayCurrency();
+  const fxActive = dc.active && dc.ready;
+  // Sum each per-currency bucket into the display currency at today's rate, via
+  // a local reduce that hands toDisplay only primitives (the bucket's amount +
+  // currency) — never the bucket object. A stats bucket aliases `primary` (the
+  // `evo` memo's dep), and the React Compiler treats the imported toDisplay as
+  // possibly mutating its args; passing only primitives keeps `evo` optimizable.
+  // Converted totals (today's rate, EUR-anchored), computed inside a memo so the
+  // per-bucket reduce stays OUT of render scope. In render scope it sat next to
+  // `primary = valueBuckets[0]` — the `evo` memo's dependency — and the React
+  // Compiler then couldn't prove that dep stable, refusing to preserve `evo`'s
+  // memoization. Isolating the reduce here fixes it. (lib/money's sumInDisplay
+  // is fine on pages where no bucket aliases a memo dependency.)
+  const { convValue, convPaid } = useMemo(() => {
+    if (!fxActive) return { convValue: null, convPaid: null };
+    const eurRate = (cur) => {
+      const c = (cur || "").toUpperCase();
+      if (c === "EUR") return 1;
+      const r = dc.rates?.[c];
+      return r != null && Number(r) > 0 ? Number(r) : null;
+    };
+    const sum = (buckets, field) =>
+      buckets.reduce((s, b) => {
+        const rf = eurRate(b.currency);
+        const rt = eurRate(dc.display);
+        if (rf == null || rt == null) return s;
+        return s + (Number(b[field]) / rf) * rt;
+      }, 0);
+    return {
+      convValue: sum(valueBuckets, "estimated_total"),
+      convPaid: sum(spendBuckets, "grand_total"),
+    };
+  }, [fxActive, dc.rates, dc.display, valueBuckets, spendBuckets]);
+  const convPlus =
+    convValue != null && convPaid != null ? convValue - convPaid : null;
   const convPlusPct =
     convPlus != null && convPaid > 0 ? (convPlus / convPaid) * 100 : null;
 
-  // Which figures the hero/KPIs actually show — converted (overlay on) or the
-  // dominant per-currency bucket (overlay off).
-  const showFx = fxReady && convValue != null;
-  const dispPaid = showFx ? convPaid : primaryPaid ? Number(primaryPaid.grand_total) : null;
+  // What the hero/KPIs show — converted total (conversion on) or the dominant
+  // per-currency bucket (off / no preferred currency).
+  const showFx = fxActive && valueBuckets.length > 0;
+  const dispCur = showFx ? dc.display : primary?.currency;
+  const dispValue = showFx
+    ? convValue
+    : primary
+      ? Number(primary.estimated_total)
+      : null;
+  const dispPaid = showFx
+    ? convPaid
+    : primaryPaid
+      ? Number(primaryPaid.grand_total)
+      : null;
   const dispPlus = showFx ? convPlus : plusValue;
   const dispPlusPct = showFx ? convPlusPct : plusPct;
-  const dispCur = showFx ? fx.display : primary?.currency;
 
   const valuedCount = valueBuckets.reduce((a, b) => a + b.pieces_valued, 0);
   const autoCount = valueBuckets.reduce((a, b) => a + (b.pieces_auto ?? 0), 0);
@@ -254,7 +301,7 @@ export default function CotePage() {
                   {/* Rounded to whole units in the hero: keeps the giant figure
                       free of a comma whose descender bled into the panel below.
                       Exact amounts (cents) stay in the KPIs and the rows. */}
-                  {fxReady && convValue != null ? (
+                  {showFx ? (
                     // Converted: ≈ stays on the same line as the amount (a
                     // subordinate, smaller glyph). `figural-massive` lives on the
                     // *number* — its gold gradient is clipped to text, so putting
@@ -264,23 +311,23 @@ export default function CotePage() {
                     <span className="inline-flex items-baseline whitespace-nowrap max-w-full leading-[0.9] pb-[0.06em]">
                       <span className="figural text-[clamp(1.5rem,6cqi,3.5rem)] text-[var(--color-or-pale)] mr-3">≈</span>
                       <span className="figural-massive text-[clamp(2.25rem,15cqi,6rem)]">
-                        {fmtMoney(Math.round(convValue), fx.display, locale)}
+                        {fmtMoney(Math.round(dispValue), dispCur, locale)}
                       </span>
                     </span>
                   ) : (
                     <span className="figural-massive text-[clamp(4rem,11vw,8rem)] leading-[0.9] pb-[0.06em] inline-block">
-                      {primary
-                        ? fmtMoney(Math.round(Number(primary.estimated_total)), primary.currency, locale)
+                      {dispValue != null
+                        ? fmtMoney(Math.round(dispValue), dispCur, locale)
                         : "—"}
                     </span>
                   )}
                 </span>
-                {fxReady && convValue != null ? (
+                {showFx ? (
                   <p className="mt-3 text-[12px] text-[var(--color-ivoire-soft)]">
                     <span className="uppercase tracking-[0.18em] text-[10px] text-[var(--color-or-pale)]">
                       {t("fx.approx")}
                     </span>
-                    {fx.date ? <span className="font-mono"> · {fx.date}</span> : null}
+                    {dc.date ? <span className="font-mono"> · {dc.date}</span> : null}
                     {valueBuckets.length ? (
                       <span className="block font-mono mt-1">
                         {valueBuckets
@@ -299,16 +346,28 @@ export default function CotePage() {
               <div className="grid gap-px bg-[color-mix(in_oklab,var(--color-or)_14%,transparent)] border border-[color-mix(in_oklab,var(--color-or)_14%,transparent)]">
                 <Kpi label={t("cote.total_paid")}>
                   <span className="figural text-3xl">
-                    {dispPaid != null
-                      ? `${showFx ? "≈ " : ""}${fmtMoney(showFx ? Math.round(dispPaid) : dispPaid, dispCur, locale)}`
-                      : "—"}
+                    {dispPaid != null ? (
+                      <Money
+                        amount={dispPaid}
+                        currency={dispCur}
+                        approx={showFx ? true : undefined}
+                        round={showFx}
+                      />
+                    ) : (
+                      "—"
+                    )}
                   </span>
                 </Kpi>
                 <Kpi label={t("cote.plus_value")}>
                   {dispPlus != null && dispCur ? (
                     <span className={`figural text-3xl ${dispPlus >= 0 ? "text-[var(--color-jade)]" : "text-[var(--color-laque-bright)]"}`}>
-                      {showFx ? "≈ " : ""}{dispPlus >= 0 ? "+" : ""}
-                      {fmtMoney(showFx ? Math.round(dispPlus) : dispPlus, dispCur, locale)}
+                      {dispPlus >= 0 ? "+" : "−"}
+                      <Money
+                        amount={Math.abs(dispPlus)}
+                        currency={dispCur}
+                        approx={showFx ? true : undefined}
+                        round={showFx}
+                      />
                       {dispPlusPct != null ? (
                         <span className={`chip ml-2 align-middle ${dispPlus >= 0 ? "chip--jade" : "chip--laque"}`}>
                           {dispPlus >= 0 ? "+" : ""}{dispPlusPct.toFixed(1)} %
@@ -562,11 +621,12 @@ export default function CotePage() {
                           <span className="text-right font-mono">
                             {paid ? (
                               <span className="block text-[11px] text-[var(--color-ivoire-soft)]">
-                                {t("cote.paid_abbr")} {fmtMoney(paid.amount, paid.currency, locale)}
+                                {t("cote.paid_abbr")}{" "}
+                                <Money amount={paid.amount} currency={paid.currency} />
                               </span>
                             ) : null}
                             <span className="block text-sm text-[var(--color-ivoire)] group-hover/val:text-[var(--color-or-pale)] transition-colors">
-                              {fmtMoney(ev.amount, ev.currency, locale)}
+                              <Money amount={ev.amount} currency={ev.currency} />
                               {ev.source === "auto" ? (
                                 <span className="ml-1.5 text-[9px] uppercase tracking-[0.14em] text-[var(--color-jade)] align-middle">
                                   {t("cote.market_badge")}
@@ -580,7 +640,7 @@ export default function CotePage() {
                             {delta != null ? (
                               <span className={`block text-[11px] ${delta >= 0 ? "text-[var(--color-jade)]" : "text-[var(--color-laque-bright)]"}`}>
                                 {delta >= 0 ? "▲ +" : "▼ "}
-                                {fmtMoney(Math.abs(delta), ev.currency, locale)}
+                                <Money amount={Math.abs(delta)} currency={ev.currency} />
                               </span>
                             ) : null}
                           </span>

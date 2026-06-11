@@ -12,7 +12,9 @@ import FigureCard from "../components/FigureCard.jsx";
 import GiftSharePanel from "../components/GiftSharePanel.jsx";
 import StatCard from "../components/StatCard.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
-import { fmtMoney } from "../lib/money.js";
+import Money from "../components/Money.jsx";
+import { useDisplayCurrency } from "../components/DisplayCurrencyProvider.jsx";
+import { fmtMoney, sumInDisplay } from "../lib/money.js";
 
 const coverFor = (it) =>
   it.catalog_cover_photo_id ? `/api/figure-photos/${it.catalog_cover_photo_id}` : it.figure_image || null;
@@ -70,7 +72,10 @@ export default function WishlistPage() {
 
   const items = useMemo(() => wishlist.data ?? [], [wishlist.data]);
 
-  // Budget = sum of target prices, dominant currency.
+  // Budget = sum of target prices. Kept per-currency (buckets) so it can be
+  // shown converted into the display currency, with the dominant bucket as the
+  // native fallback when conversion is off.
+  const dc = useDisplayCurrency();
   const budget = useMemo(() => {
     const byCur = new Map();
     for (const it of items) {
@@ -79,10 +84,17 @@ export default function WishlistPage() {
       byCur.set(c, (byCur.get(c) || 0) + Number(it.max_price_amount));
     }
     if (byCur.size === 0) return null;
-    let best = null;
-    for (const [currency, amount] of byCur) if (!best || amount > best.amount) best = { currency, amount };
-    return best;
+    const buckets = [...byCur].map(([currency, amount]) => ({ currency, amount }));
+    let dominant = null;
+    for (const b of buckets) if (!dominant || b.amount > dominant.amount) dominant = b;
+    return { buckets, dominant };
   }, [items, prefCurrency]);
+  const budgetConv =
+    budget && dc.active && dc.ready
+      ? sumInDisplay(dc.rates, dc.display, budget.buckets, "amount")
+      : null;
+  const showBudgetConv =
+    budgetConv && (budget.buckets.length > 1 || budgetConv.converted);
 
   // Glanceable wishlist metrics derived from the data the `/me/wishlist` DTO
   // actually carries (no release-date/preorder-phase field on a wish, so we
@@ -193,7 +205,29 @@ export default function WishlistPage() {
               <StatCard label={t("wishlist.count_label")} value={items.length} />
               <StatCard
                 label={t("wishlist.budget_label")}
-                value={budget ? `~ ${fmtMoney(Math.round(budget.amount), budget.currency, locale)}` : "—"}
+                value={
+                  budget ? (
+                    showBudgetConv ? (
+                      <Money
+                        amount={budgetConv.amount}
+                        currency={dc.display}
+                        approx
+                        round
+                      />
+                    ) : (
+                      <span>
+                        {budget.buckets.length > 1 ? "~ " : ""}
+                        <Money
+                          amount={budget.dominant.amount}
+                          currency={budget.dominant.currency}
+                          round
+                        />
+                      </span>
+                    )
+                  ) : (
+                    "—"
+                  )
+                }
                 sub={budget ? t("wishlist.kpi.targeted_sub", { n: targeted, default: "{n} ciblées" }) : null}
                 tone="gold"
               />
@@ -386,7 +420,7 @@ function WishItem({
                   {t("wishlist.target")}
                 </span>
                 <span className="figural text-[13px] text-[var(--color-ivoire)]">
-                  ≤ {fmtMoney(it.max_price_amount, currency, locale)}
+                  ≤ <Money amount={it.max_price_amount} currency={currency} />
                 </span>
               </span>
             ) : (

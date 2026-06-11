@@ -16,6 +16,9 @@ import ErrorState from "../components/ErrorState.jsx";
 import Card from "../components/Card.jsx";
 import CountUp from "../components/CountUp.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
+import Money from "../components/Money.jsx";
+import { useDisplayCurrency } from "../components/DisplayCurrencyProvider.jsx";
+import { sumInDisplay } from "../lib/money.js";
 import { typeHue } from "../lib/typeHue.js";
 
 /**
@@ -513,6 +516,7 @@ function Satellite({ kanji, label, value, accent = "var(--color-or)" }) {
 // =============================================================================
 
 function SpendLedger({ data, t }) {
+  const dc = useDisplayCurrency();
   // We have acquisitions_by_year but not spend-by-year. The sparkline below
   // uses the year acquisition shape (clipped to the last ~8 years) as a soft
   // proxy for "buying intensity" — labelled as such, not as money over time.
@@ -520,6 +524,17 @@ function SpendLedger({ data, t }) {
     () => (data.acquisitions_by_year ?? []).slice(-8),
     [data.acquisitions_by_year],
   );
+
+  // One "all-in" figure across every spend currency, in the display currency
+  // (today's rate). The per-currency rows below stay the exact breakdown — this
+  // only adds the single total the user asked for. Shown when conversion is on
+  // and it actually merges more than one currency.
+  const buckets = data.spend_by_currency ?? [];
+  const conv =
+    dc.active && dc.ready && buckets.length > 0
+      ? sumInDisplay(dc.rates, dc.display, buckets, "grand_total")
+      : null;
+  const showConv = conv && (buckets.length > 1 || conv.converted);
   return (
     <Card className="relative p-7 overflow-hidden">
       <p className="micro mb-1 inline-flex items-center gap-2">
@@ -536,6 +551,18 @@ function SpendLedger({ data, t }) {
       >
         {t("stats.spend.kicker")}
       </p>
+
+      {showConv ? (
+        <div className="mb-6 pb-5 border-b border-dashed border-[var(--color-or)]/20">
+          <p className="ledger-figure" style={{ color: "var(--color-or)" }}>
+            <Money amount={conv.amount} currency={dc.display} approx round />
+          </p>
+          <p className="ledger-caption mt-1">
+            {t("stats.spend.all_currencies")}
+            {dc.date ? <span className="font-mono"> · {dc.date}</span> : null}
+          </p>
+        </div>
+      ) : null}
 
       {data.spend_by_currency.length === 0 ? (
         <p className="text-[var(--color-ivoire-soft)] italic">

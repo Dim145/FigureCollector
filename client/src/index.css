@@ -9660,3 +9660,21 @@ a.notif-page-row-title:hover {
 @media (prefers-reduced-motion: reduce) {
   .fc-skel::after { animation: none; }
 }
+
+/* ─── Converted money token (<Money>) ───
+ * Marks a price shown in the user's display currency rather than its own.
+ * Whisper-quiet: the figure keeps the page's weight; only the leading "≈" is
+ * tinted, and a hairline dotted gold underline signals the original sits on
+ * hover (title). Never shouts. */
+.fc-money-approx {
+  text-decoration: underline dotted
+    color-mix(in oklab, var(--color-or) 38%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+  cursor: help;
+}
+.fc-money-approx-mark {
+  color: var(--color-or-pale);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}

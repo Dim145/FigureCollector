@@ -1,13 +1,38 @@
-// Shared money helpers for the collection-value ("cote") surfaces.
+// Shared money helpers.
 //
-// The app has no FX layer — amounts are kept in their own ISO 4217 currency
-// and aggregated per-currency (see domain::stats). These helpers format a
-// single amount and resolve an owned item's *effective* value (manual value,
-// else the figure's catalog MSRP).
+// Amounts are STORED in their own ISO-4217 currency and never mutated. For
+// DISPLAY, a single chosen currency (the user's `preferred_currency`) is the
+// target: `toDisplay` / `sumInDisplay` convert through an EUR-anchored rate
+// table (ECB, see external::fx) at the current rate. Conversion is presentation
+// only — the original amount is always preserved and shown on hover.
+//
+// (Phase 1: cost is converted at today's rate like value. Phase 2 will freeze
+// the rate captured at purchase time for cost basis — see the pricing-refonte
+// memory.)
 
-/** Format an amount in a currency. Drops the decimals for whole numbers so
- *  "3 248 €" reads cleaner than "3 248,00 €". Falls back gracefully if the
- *  currency code is unknown to Intl. */
+/** Currencies offered for display + input. One source of truth for the SPA. */
+export const DISPLAY_CURRENCIES = ["EUR", "USD", "GBP", "JPY", "CHF", "CAD"];
+
+// Per-currency minor-unit count, resolved once via Intl (JPY→0, EUR→2, BHD→3).
+// Caching matters: `t`/render paths call fmtMoney a lot.
+const FRACTION_CACHE = {};
+function maxFractionDigits(cur) {
+  if (cur in FRACTION_CACHE) return FRACTION_CACHE[cur];
+  let d = 2;
+  try {
+    d = new Intl.NumberFormat(undefined, { style: "currency", currency: cur })
+      .resolvedOptions().maximumFractionDigits;
+  } catch {
+    d = 2;
+  }
+  FRACTION_CACHE[cur] = d;
+  return d;
+}
+
+/** Format an amount in a currency. `minimumFractionDigits: 0` drops a trailing
+ *  ".00" so "3 248 €" reads clean, while the max follows the currency's real
+ *  minor units — so a yen amount is never shown with decimals (the old code
+ *  forced 2, mis-rendering JPY). Falls back gracefully on an unknown code. */
 export function fmtMoney(amount, currency, locale) {
   const n = Number(amount);
   if (!Number.isFinite(n)) return "—";
@@ -17,12 +42,70 @@ export function fmtMoney(amount, currency, locale) {
       style: "currency",
       currency: cur,
       minimumFractionDigits: 0,
-      maximumFractionDigits: Number.isInteger(n) ? 0 : 2,
+      maximumFractionDigits: maxFractionDigits(cur),
     });
   } catch {
     return `${n.toLocaleString(locale || undefined)} ${cur}`;
   }
 }
+
+// =============================================================================
+// Display-currency conversion (EUR-anchored, current rate)
+// =============================================================================
+
+/** Units of `cur` per 1 EUR (frankfurter's convention; EUR itself = 1), or
+ *  null when the rate table doesn't cover it. */
+export function rateToEur(rates, cur) {
+  const c = (cur || "").toUpperCase();
+  if (c === "EUR") return 1;
+  const r = rates?.[c];
+  return r != null && Number(r) > 0 ? Number(r) : null;
+}
+
+/** Convert `amount` from `currency` to `display`, via EUR. Returns
+ *  `{ amount, currency, converted }`. `converted:false` (amount untouched, in
+ *  its own currency) when there's no display target, it's already the display
+ *  currency, or a needed rate is missing (`unconvertible:true` flags the last
+ *  case so callers can mark a total incomplete). Never throws. */
+export function toDisplay(rates, display, amount, currency) {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return null;
+  const from = (currency || "").toUpperCase();
+  const to = (display || "").toUpperCase();
+  if (!to || from === to) {
+    return { amount: n, currency: from || to || null, converted: false };
+  }
+  const rf = rateToEur(rates, from);
+  const rt = rateToEur(rates, to);
+  if (rf == null || rt == null) {
+    return { amount: n, currency: from, converted: false, unconvertible: true };
+  }
+  return { amount: (n / rf) * rt, currency: to, converted: true };
+}
+
+/** Sum per-currency `buckets` into `display`. Returns `{ amount, currency,
+ *  converted, partial }` — `partial:true` when a bucket couldn't convert and
+ *  was left out, so the caller can flag the total as incomplete. */
+export function sumInDisplay(rates, display, buckets, field, currencyKey = "currency") {
+  let amount = 0;
+  let converted = false;
+  let partial = false;
+  for (const b of buckets ?? []) {
+    const r = toDisplay(rates, display, b[field], b[currencyKey]);
+    if (!r) continue;
+    if (r.unconvertible) {
+      partial = true;
+      continue;
+    }
+    if (r.converted) converted = true;
+    amount += r.amount;
+  }
+  return { amount, currency: display, converted, partial };
+}
+
+// =============================================================================
+// Owned-item value resolution (unchanged semantics)
+// =============================================================================
 
 /** Effective current value of an owned item, by priority: the manual
  *  `value_amount`, else the auto-fetched provider/market price (the price
@@ -64,31 +147,6 @@ export function effectiveValue(item) {
     };
   }
   return null;
-}
-
-/** Optional display-currency conversion (display-only — see useFx + external::fx).
- *  `fx` is the shape from useFx(): `{ convert, display, rates, overrides }`.
- *  Returns the "1 `from` = X display" multiplier, or null when conversion is off
- *  or the rate is unknown. A manual override wins; else `1 / rates[from]` (the
- *  proxy gives display-per-`from` when base = display). */
-export function fxMultiplier(fx, from) {
-  if (!fx?.convert || !fx.display || !from) return null;
-  const cur = String(from).toUpperCase();
-  if (cur === fx.display) return 1;
-  const ov = fx.overrides?.[cur];
-  if (ov != null && Number.isFinite(Number(ov)) && Number(ov) > 0) return Number(ov);
-  const r = fx.rates?.[cur];
-  return r != null && Number(r) > 0 ? 1 / Number(r) : null;
-}
-
-/** Convert `amount` (in `from`) into the display currency, or null when the
- *  conversion isn't possible. Returns null for a non-finite `amount` too, so a
- *  garbage value can't poison a running sum with NaN. */
-export function convertAmount(amount, from, fx) {
-  const m = fxMultiplier(fx, from);
-  if (m == null) return null;
-  const n = Number(amount);
-  return Number.isFinite(n) ? n * m : null;
 }
 
 /** Total amount paid for an item (figure price + shipping), in

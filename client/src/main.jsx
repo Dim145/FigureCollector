@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import App from "./App.jsx";
 import { I18nProvider } from "./i18n/index.jsx";
+import { DisplayCurrencyProvider } from "./components/DisplayCurrencyProvider.jsx";
 import { queryClient } from "./lib/queryClient.js";
 import { initTheme } from "./lib/theme.js";
 import "./index.css";
@@ -16,7 +17,9 @@ createRoot(document.getElementById("root")).render(
   <StrictMode>
     <I18nProvider>
       <QueryClientProvider client={queryClient}>
-        <App />
+        <DisplayCurrencyProvider>
+          <App />
+        </DisplayCurrencyProvider>
       </QueryClientProvider>
     </I18nProvider>
   </StrictMode>,

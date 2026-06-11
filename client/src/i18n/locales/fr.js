@@ -133,14 +133,14 @@ export default {
   "cote.empty": "Aucune pièce à évaluer pour l'instant.",
   "cote.empty_cta": "Parcourir le catalogue",
 
-  // Conversion de devise optionnelle (Lot 7) — surcouche d'affichage
-  "fx.convert": "Convertir vers une devise d'affichage",
-  "fx.on": "Activé",
-  "fx.off": "Désactivé",
-  "fx.display": "Devise d'affichage",
-  "fx.hint": "Taux de la Banque centrale européenne, rafraîchis chaque jour. Confort d'affichage — tes figurines gardent leur propre devise.",
-  "fx.overrides": "Taux manuels (optionnel)",
-  "fx.auto": "auto",
+  // Devise d'affichage — la devise préférée EST la devise d'affichage,
+  // conversion au taux ECB du jour activée par défaut (refonte prix)
+  "fx.convertOn": "Tout afficher dans ma devise",
+  "fx.convertOff": "Garder les devises d'origine",
+  "fx.convertOnHint": "Les prix dans une autre devise sont convertis en {cur}.",
+  "fx.convertOffHint": "Chaque prix reste dans sa devise d'origine.",
+  "fx.hint": "Taux de la Banque centrale européenne, rafraîchis chaque jour. Le montant d'origine reste consultable au survol.",
+  "fx.noPreferred": "Choisis d'abord une devise préférée ci-dessus pour activer la conversion.",
   "fx.approx": "approx · converti",
 
   // Vitrines / étagères (« Les Vitrines ») — Lot 1
@@ -1293,6 +1293,7 @@ export default {
   "stats.headline.series": "Séries",
   "stats.headline.scans": "Scans 3D",
   "stats.spend.title": "Dépenses cumulées",
+  "stats.spend.all_currencies": "Toutes devises confondues",
   "stats.spend.priced_pieces": "{count} pièce(s) avec prix",
   "stats.spend.empty": "Aucun prix enregistré.",
   "stats.spend.row.item": "Figurines",
