@@ -3,7 +3,7 @@ import { useT } from "../i18n/index.jsx";
 import { appLocale } from "../lib/locale.js";
 import { useMe } from "../hooks/useMe.js";
 import { useYearInReview } from "../hooks/useActivity.js";
-import { fmtMoney } from "../lib/money.js";
+import Money from "../components/Money.jsx";
 import AppShell from "../components/AppShell.jsx";
 import PageSkeleton from "../components/Skeleton.jsx";
 import AccentTitle from "../components/AccentTitle.jsx";
@@ -238,13 +238,13 @@ function StatStrip({ data, t }) {
       <StatCard label={t("yir.pieces.label")} value={data.pieces_acquired} />
       <StatCard
         label={t("yir.spend.label")}
-        value={spend ? fmtMoney(Number(spend.total), spend.currency) : "—"}
+        value={spend ? <Money amount={spend.total} currency={spend.currency} round /> : "—"}
         sub={spend ? spend.currency : t("yir.spend.empty")}
         tone="gold"
       />
       <StatCard
         label={t("yir.losses.label")}
-        value={losses ? `− ${fmtMoney(Number(losses.total), losses.currency)}` : "—"}
+        value={losses ? <>− <Money amount={losses.total} currency={losses.currency} round /></> : "—"}
         sub={losses ? losses.currency : t("yir.losses.none", { default: "Aucune perte" })}
         tone={losses ? "red" : undefined}
       />
@@ -313,7 +313,7 @@ function SpendChapter({ data, t }) {
               <span className="display text-3xl md:text-4xl leading-none text-[var(--color-or)]">
                 <CountUp
                   value={Number(s.total)}
-                  format={(n) => fmtMoney(n, s.currency)}
+                  format={(n) => <Money amount={n} currency={s.currency} round />}
                 />
               </span>
             </li>
@@ -355,7 +355,7 @@ function SpendChapter({ data, t }) {
                   className="display text-2xl md:text-3xl leading-none"
                   style={{ color: "var(--color-laque-bright)" }}
                 >
-                  − <CountUp value={Number(s.total)} format={(n) => fmtMoney(n, s.currency)} />
+                  − <CountUp value={Number(s.total)} format={(n) => <Money amount={n} currency={s.currency} round />} />
                 </span>
               </li>
             ))}
@@ -676,7 +676,7 @@ function YearCompare({ data, t }) {
           label: t("yrcmp.spend"),
           now: Number(nowSpend?.total ?? 0),
           prev: Number(prevSpend?.total ?? 0),
-          fmt: (v) => fmtMoney(v, spendCur),
+          fmt: (v) => <Money amount={v} currency={spendCur} round />,
         }
       : null,
     {
