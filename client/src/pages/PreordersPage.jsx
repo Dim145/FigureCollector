@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import Money from "../components/Money.jsx";
 import { Link, Navigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { appLocale } from "../lib/locale.js";
@@ -571,11 +572,7 @@ function TimelineEntry({ preorder: p, index = 0, t }) {
                 {t("preorders.field.deposit")}
               </span>
               <span className="horarium-entry-meta-value is-mono">
-                {Number(p.deposit_amount).toLocaleString(appLocale(), {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 2,
-                })}{" "}
-                {p.price_currency ?? ""}
+                <Money amount={p.deposit_amount} currency={p.price_currency} />
               </span>
             </span>
           ) : null}

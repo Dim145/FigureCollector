@@ -142,6 +142,7 @@ export default {
   "fx.hint": "Taux de la Banque centrale européenne, rafraîchis chaque jour. Le montant d'origine reste consultable au survol.",
   "fx.noPreferred": "Choisis d'abord une devise préférée ci-dessus pour activer la conversion.",
   "fx.approx": "approx · converti",
+  "fx.partial": "total partiel — une devise non convertie est exclue",
 
   // Vitrines / étagères (« Les Vitrines ») — Lot 1
   "vitrines.eyebrow": "Rangement · Topographie",

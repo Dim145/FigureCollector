@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n, useT } from "../i18n/index.jsx";
 import { useFigureTypes } from "../hooks/useAdmin.js";
 import { useDefaultCurrency } from "../hooks/useMe.js";
+import { useCurrencies } from "../hooks/useCurrencies.js";
 import {
   useCharactersLookup,
   useManufacturersLookup,
@@ -29,8 +30,6 @@ const TYPE_OPTIONS_FALLBACK = [
   "nendoroid", "scale", "figma", "prize", "trading",
   "statue", "plamo", "bishoujo", "dakimakura", "other",
 ];
-
-const CURRENCY_OPTIONS = ["JPY", "EUR", "USD", "GBP", "CHF", "CAD"];
 
 /**
  * Shared form for both creating (AddFigurePage) and editing (FigureEditDialog)
@@ -65,6 +64,7 @@ export default function FigureForm({
   const t = useT();
   const { locale } = useI18n();
   const defaultCurrency = useDefaultCurrency();
+  const currencyOptions = useCurrencies();
   const isAdmin = useIsAdmin();
   // Live list of figure types (admin-curated). Falls back to the hard-coded
   // list during the first paint so the dropdown isn't ever empty.
@@ -362,7 +362,7 @@ export default function FigureForm({
             label={t("addfig.field.currency")}
             value={form.msrp_currency}
             onChange={set("msrp_currency")}
-            options={CURRENCY_OPTIONS.map((c) => ({ value: c, label: c }))}
+            options={currencyOptions.map((c) => ({ value: c, label: c }))}
             disabled={busy}
           />
         </div>

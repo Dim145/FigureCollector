@@ -570,6 +570,12 @@ function SpendLedger({ data, t }) {
           <p className="ledger-caption mt-1">
             {t("stats.spend.all_currencies")}
             {dc.date ? <span className="font-mono"> · {dc.date}</span> : null}
+            {data.eur?.partial ? (
+              <span className="text-[var(--color-laque-bright)]">
+                {" "}
+                · {t("fx.partial")}
+              </span>
+            ) : null}
           </p>
         </div>
       ) : null}

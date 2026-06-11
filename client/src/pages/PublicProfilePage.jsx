@@ -3,7 +3,7 @@ import { Link, Navigate, useParams } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { usePublicProfile } from "../hooks/useProfile.js";
-import { fmtMoney } from "../lib/money.js";
+import Money from "../components/Money.jsx";
 import AppShell from "../components/AppShell.jsx";
 import AccentTitle from "../components/AccentTitle.jsx";
 import Card from "../components/Card.jsx";
@@ -194,11 +194,14 @@ export default function PublicProfilePage() {
               <StatCard
                 label={t("profile.value_label")}
                 value={
-                  fmtMoney(
-                    Math.round(Number(dominantValue.amount)),
-                    dominantValue.currency,
-                    locale,
-                  ) + (value.length > 1 ? " …" : "")
+                  <>
+                    <Money
+                      amount={dominantValue.amount}
+                      currency={dominantValue.currency}
+                      round
+                    />
+                    {value.length > 1 ? " …" : ""}
+                  </>
                 }
                 tone="gold"
               />

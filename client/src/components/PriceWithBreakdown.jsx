@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useT } from "../i18n/index.jsx";
-import { appLocale } from "../lib/locale.js";
+import Money from "./Money.jsx";
 
 /**
  * Renders a total price with a tooltip-style popover detailing the
@@ -142,7 +142,7 @@ export default function PriceWithBreakdown({
   if (!hasBreakdown) {
     return (
       <span className={`${sizeClass} ${className}`}>
-        {fmtMoney(total)} {currency ?? ""}
+        <Money amount={total} currency={currency} />
       </span>
     );
   }
@@ -171,7 +171,7 @@ export default function PriceWithBreakdown({
         className={`inline-flex items-baseline gap-1.5 ${sizeClass} hover:text-[var(--color-or-pale)] transition-colors`}
       >
         <span>
-          {fmtMoney(total)} {currency ?? ""}
+          <Money amount={total} currency={currency} />
         </span>
         <span
           aria-hidden
@@ -226,7 +226,7 @@ export default function PriceWithBreakdown({
               hasLoss ? (
                 <BreakdownRow
                   label={t("price.breakdown.deposit_lost")}
-                  value={`${fmtMoney(lossNum)} ${currency ?? ""}`}
+                  value={<Money amount={lossNum} currency={currency} />}
                   loss
                 />
               ) : null
@@ -238,32 +238,32 @@ export default function PriceWithBreakdown({
                 {hasDeposit ? (
                   <BreakdownRow
                     label={t("price.breakdown.deposit")}
-                    value={`${fmtMoney(depositNum)} ${currency ?? ""}`}
+                    value={<Money amount={depositNum} currency={currency} />}
                   />
                 ) : null}
                 {hasItem ? (
                   <BreakdownRow
                     label={t("price.breakdown.item")}
-                    value={`${fmtMoney(balanceNum)} ${currency ?? ""}`}
+                    value={<Money amount={balanceNum} currency={currency} />}
                   />
                 ) : null}
                 {hasShipping ? (
                   <BreakdownRow
                     label={t("price.breakdown.shipping")}
-                    value={`${fmtMoney(shipNum)} ${currency ?? ""}`}
+                    value={<Money amount={shipNum} currency={currency} />}
                   />
                 ) : null}
               </>
             )}
             <BreakdownRow
               label={t("price.breakdown.total")}
-              value={`${fmtMoney(total)} ${currency ?? ""}`}
+              value={<Money amount={total} currency={currency} />}
               strong
             />
             {hasCatalog ? (
               <BreakdownRow
                 label={t("price.breakdown.catalog")}
-                value={`${fmtMoney(catalogNum)} ${catalogCurrency ?? currency ?? ""}`}
+                value={<Money amount={catalogNum} currency={catalogCurrency ?? currency} />}
                 dim
               />
             ) : null}
@@ -322,16 +322,6 @@ function toNum(v) {
   if (v === null || v === undefined || v === "") return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
-}
-
-function fmtMoney(n) {
-  if (n == null || !Number.isFinite(n)) return "—";
-  // Follow the app's chosen language (i18n sets <html lang>), not the browser
-  // locale, so an EN-browser / FR-app user sees FR grouping (1 234,5), not US.
-  return n.toLocaleString(appLocale(), {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  });
 }
 
 function deltaInfo(paid, msrp) {

@@ -9,6 +9,7 @@ import {
   useUpdatePreorder,
 } from "../hooks/useCollection.js";
 import { useDefaultCurrency } from "../hooks/useMe.js";
+import { useCurrencies } from "../hooks/useCurrencies.js";
 import Button from "./Button.jsx";
 import CancellationDialog from "./CancellationDialog.jsx";
 import FormField from "./FormField.jsx";
@@ -24,8 +25,6 @@ const CONDITION_OPTIONS = [
   "loose",
   "damaged",
 ];
-
-const CURRENCY_OPTIONS = ["JPY", "EUR", "USD", "GBP", "CHF", "CAD"];
 
 /**
  * Inline editor for the per-user metadata on a figure that's already in the
@@ -251,6 +250,7 @@ function ConditionChip({ code, t }) {
 
 function EditMode({ owned, preorder, catalogMsrp, catalogCurrency, onClose, t }) {
   const defaultCurrency = useDefaultCurrency();
+  const currencyOptions = useCurrencies();
   const [form, setForm] = useState(() => seedFromOwned(owned, preorder, defaultCurrency));
   const update = useUpdateOwnedItem();
   // The deposit lives on the linked preorder row, not on the owned_item,
@@ -434,7 +434,7 @@ function EditMode({ owned, preorder, catalogMsrp, catalogCurrency, onClose, t })
           label={t("owned.editor.field.currency")}
           value={form.price_currency}
           onChange={set("price_currency")}
-          options={CURRENCY_OPTIONS.map((c) => ({ value: c, label: c }))}
+          options={currencyOptions.map((c) => ({ value: c, label: c }))}
         />
       </div>
 

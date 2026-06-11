@@ -134,6 +134,7 @@ export default {
   "fx.hint": "Rates from the European Central Bank, refreshed daily. The original amount stays available on hover.",
   "fx.noPreferred": "Pick a preferred currency above first to enable conversion.",
   "fx.approx": "approx · converted",
+  "fx.partial": "partial total — a non-convertible currency is excluded",
 
   // Display cabinets ("Les Vitrines") — Lot 1
   "vitrines.eyebrow": "Storage · Topography",

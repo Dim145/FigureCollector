@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { typeHue } from "../lib/typeHue.js";
 import { nsfwClass } from "../lib/nsfw.js";
-import { fmtMoney } from "../lib/money.js";
+import Money from "./Money.jsx";
 import FollowButton from "./FollowButton.jsx";
 
 /**
@@ -13,7 +13,7 @@ import FollowButton from "./FollowButton.jsx";
  * `nsfwPref` is the viewer's nsfw_visibility — peek thumbnails blur per the
  * viewer even when the collector chose to show NSFW publicly.
  */
-export default function CollectorCard({ c, locale, nsfwPref, t }) {
+export default function CollectorCard({ c, nsfwPref, t }) {
   const initial = [...(c.display_name || c.username || "?")][0];
   const dominant = c.value && c.value.length ? c.value[0] : null;
 
@@ -53,7 +53,7 @@ export default function CollectorCard({ c, locale, nsfwPref, t }) {
         <Stat value={c.pieces} label={t("collector.pieces")} />
         {dominant ? (
           <Stat
-            value={fmtMoney(Math.round(Number(dominant.amount)), dominant.currency, locale)}
+            value={<Money amount={dominant.amount} currency={dominant.currency} round />}
             label={t("collector.value")}
             tone="gold"
           />

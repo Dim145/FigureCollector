@@ -23,6 +23,7 @@ import { resolveOwnedCover } from "../lib/coverUrl.js";
 import { typeHue, typeKanji } from "../lib/typeHue.js";
 import { preorderBadgeLabel, preorderPhase } from "../lib/preorderStatus.js";
 import { effectiveValue, paidTotal, fmtMoney } from "../lib/money.js";
+import Money from "../components/Money.jsx";
 
 const CONDITION_FILTERS = [
   "all", "mib_sealed", "opened_box", "displayed", "loose", "damaged",
@@ -282,9 +283,11 @@ export default function CollectionPage() {
               <StatCard
                 label={t("collection.kpi.value")}
                 value={
-                  stats.value
-                    ? fmtMoney(stats.value.sum, stats.value.cur)
-                    : "—"
+                  stats.value ? (
+                    <Money amount={stats.value.sum} currency={stats.value.cur} />
+                  ) : (
+                    "—"
+                  )
                 }
                 sub={
                   stats.paid
@@ -639,9 +642,9 @@ function FeaturedPiece({ item, t, onUnpin }) {
   const kanji = typeKanji(item.figure_type);
   const note = item.notes || item.note;
   const paid =
-    item.price_amount != null
-      ? fmtMoney(item.price_amount, item.price_currency || "EUR")
-      : null;
+    item.price_amount != null ? (
+      <Money amount={item.price_amount} currency={item.price_currency || "EUR"} />
+    ) : null;
   return (
     <section
       className="reveal mb-10 relative overflow-hidden border border-[var(--color-or)]/18 bg-[color-mix(in_oklab,var(--color-noir-soft)_70%,transparent)]"

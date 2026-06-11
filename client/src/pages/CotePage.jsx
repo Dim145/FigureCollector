@@ -332,6 +332,12 @@ export default function CotePage() {
                       {t("fx.approx")}
                     </span>
                     {dc.date ? <span className="font-mono"> · {dc.date}</span> : null}
+                    {serverEur?.partial ? (
+                      <span className="text-[var(--color-laque-bright)]">
+                        {" "}
+                        · {t("fx.partial")}
+                      </span>
+                    ) : null}
                     {valueBuckets.length ? (
                       <span className="block font-mono mt-1">
                         {valueBuckets

@@ -3,6 +3,7 @@ import { useT } from "../i18n/index.jsx";
 import { appLocale } from "../lib/locale.js";
 import { useAddOwnedItem } from "../hooks/useCollection.js";
 import { useDefaultCurrency } from "../hooks/useMe.js";
+import { useCurrencies } from "../hooks/useCurrencies.js";
 import Button from "./Button.jsx";
 import FormField from "./FormField.jsx";
 import Select from "./Select.jsx";
@@ -15,8 +16,6 @@ const CONDITION_OPTIONS = [
   "loose",
   "damaged",
 ];
-
-const CURRENCY_OPTIONS = ["JPY", "EUR", "USD", "GBP", "CHF", "CAD"];
 
 /**
  * Slim purchase-details form shown on /figures/:id in place of the bare
@@ -43,6 +42,7 @@ export default function AddToCollectionForm({
   const t = useT();
   const add = useAddOwnedItem();
   const defaultCurrency = useDefaultCurrency();
+  const currencyOptions = useCurrencies();
   const [moreOpen, setMoreOpen] = useState(false);
   const [form, setForm] = useState(() => ({
     condition: "mib_sealed",
@@ -153,7 +153,7 @@ export default function AddToCollectionForm({
           label={t("addowned.field.currency")}
           value={form.price_currency}
           onChange={set("price_currency")}
-          options={CURRENCY_OPTIONS.map((c) => ({ value: c, label: c }))}
+          options={currencyOptions.map((c) => ({ value: c, label: c }))}
         />
       </div>
 

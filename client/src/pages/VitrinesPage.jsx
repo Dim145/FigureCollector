@@ -23,7 +23,8 @@ import StatCard from "../components/StatCard.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import { typeHue, typeKanji } from "../lib/typeHue.js";
-import { fmtMoney, effectiveValue } from "../lib/money.js";
+import { effectiveValue } from "../lib/money.js";
+import Money from "../components/Money.jsx";
 import { resolveOwnedCover } from "../lib/coverUrl.js";
 
 const LOOSE = "__loose__";
@@ -322,7 +323,7 @@ export default function VitrinesPage() {
               />
               <StatCard
                 label={t("vitrines.stat.value", { default: "Valeur en vitrine" })}
-                value={totalValue ? `${totalValue.multi ? "≈ " : ""}${fmtMoney(totalValue.amount, totalValue.currency, locale)}` : "—"}
+                value={totalValue ? <Money amount={totalValue.amount} currency={totalValue.currency} /> : "—"}
                 tone="gold"
               />
             </div>
@@ -692,12 +693,12 @@ function TileVisual({ o, nsfwBlur }) {
   );
 }
 
-function CabinetValue({ items, locale, t }) {
+function CabinetValue({ items, t }) {
   const v = cabinetValue(items);
   if (!v) return null;
   return (
     <div className="text-right">
-      <div className="display text-lg text-[var(--color-or-pale)] whitespace-nowrap">{v.multi ? "≈ " : ""}{fmtMoney(v.amount, v.currency, locale)}</div>
+      <div className="display text-lg text-[var(--color-or-pale)] whitespace-nowrap"><Money amount={v.amount} currency={v.currency} /></div>
       <div className="text-[9px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)] mt-0.5">{t("vitrines.cabinet_value")}</div>
     </div>
   );

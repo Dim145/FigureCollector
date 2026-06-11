@@ -4,7 +4,8 @@ import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useIsAdmin, useMe } from "../hooks/useMe.js";
 import { useFigure, useOwnedItems, usePreorderForOwned } from "../hooks/useCollection.js";
-import { effectiveValue, paidTotal, fmtMoney } from "../lib/money.js";
+import { effectiveValue, paidTotal } from "../lib/money.js";
+import Money from "../components/Money.jsx";
 import {
   preorderPhase,
   preorderPhaseFromFigure,
@@ -598,13 +599,13 @@ function AcompteBar({ deposit, total, currency, t }) {
         <div>
           <p className="micro-tight">{t("figure.glance.deposit_paid", { default: "Acompte versé" })}</p>
           <p className="figural text-2xl text-[var(--color-or)] leading-none mt-1.5">
-            {fmtMoney(deposit, currency)}
+            <Money amount={deposit} currency={currency} />
           </p>
         </div>
         <div className="text-right">
           <p className="micro-tight">{t("figure.glance.balance_due", { default: "Solde restant" })}</p>
           <p className="figural text-2xl text-[var(--color-laque-bright)] leading-none mt-1.5">
-            {fmtMoney(balance, currency)}
+            <Money amount={balance} currency={currency} />
           </p>
         </div>
       </div>
@@ -645,13 +646,13 @@ function CoteGlance({ paid, value, gain, gainPct, figureId, figureName, t }) {
         <div>
           <p className="micro-tight">{t("cote.paid_abbr")}</p>
           <p className="figural text-2xl text-[var(--color-ivoire)] leading-none mt-1.5">
-            {paid ? fmtMoney(paid.amount, paid.currency) : "—"}
+            {paid ? <Money amount={paid.amount} currency={paid.currency} /> : "—"}
           </p>
         </div>
         <div className="text-right">
           <p className="micro-tight">{t("figure.glance.current_value", { default: "Valeur actuelle" })}</p>
           <p className="figural text-2xl text-[var(--color-or)] leading-none mt-1.5">
-            {value ? fmtMoney(value.amount, value.currency) : "—"}
+            {value ? <Money amount={value.amount} currency={value.currency} /> : "—"}
           </p>
           {series.length >= 2 ? (
             <div className="mt-2.5 flex flex-col items-end gap-1">
@@ -677,7 +678,7 @@ function CoteGlance({ paid, value, gain, gainPct, figureId, figureName, t }) {
             ? t("figure.glance.gain", { default: "Plus-value latente" })
             : t("figure.glance.loss", { default: "Moins-value latente" })}{" "}
           <span className="font-mono normal-case tracking-normal">
-            {gain > 0 ? "+" : ""}{fmtMoney(gain, value.currency)}
+            {gain > 0 ? "+" : ""}<Money amount={gain} currency={value.currency} />
           </span>
         </p>
       ) : null}
