@@ -7,7 +7,13 @@ import {
   useProxyEnabled,
 } from "../hooks/useProxy.js";
 import { ORZGK_URL_RE, buildPick, pickImage } from "../lib/orzgkMap.js";
-import { hostnameOf, proxyHandles, proxyProductToPick } from "../lib/proxyMap.js";
+import {
+  buildProxyPick,
+  defaultProxyPick,
+  hostnameOf,
+  pickProxyImage,
+  proxyHandles,
+} from "../lib/proxyMap.js";
 import Button from "./Button.jsx";
 
 /**
@@ -52,6 +58,8 @@ export default function FigureLookup({ initial = "", onPick }) {
   const [detail, setDetail] = useState(null);
   const [detailBusy, setDetailBusy] = useState(false);
   const [detailError, setDetailError] = useState(null);
+  // Which modal the detail flow drives: orzgk's, or the proxy's version picker.
+  const [detailSource, setDetailSource] = useState("orzgk");
 
   // 320ms debounce on the search input.
   useEffect(() => {
@@ -193,6 +201,7 @@ export default function FigureLookup({ initial = "", onPick }) {
   const detailReqRef = useRef(0);
   const openDetail = (url) => {
     const myReq = ++detailReqRef.current;
+    setDetailSource("orzgk");
     setDetailFor(url);
     setDetail(null);
     setDetailError(null);
@@ -230,6 +239,7 @@ export default function FigureLookup({ initial = "", onPick }) {
   // if the user clears + repastes a different URL.
   const openProxyProduct = (url) => {
     const myReq = ++detailReqRef.current;
+    setDetailSource("proxy");
     setDetailFor(url);
     setDetail(null);
     setDetailError(null);
@@ -237,10 +247,16 @@ export default function FigureLookup({ initial = "", onPick }) {
     fetchProxyProduct(url)
       .then((p) => {
         if (detailReqRef.current !== myReq) return;
-        // Map ProxyProduct → pick payload (shared with the bulk wishlist
-        // importer — lib/proxyMap.js). `source_url` is preserved so the
-        // backend can auto-link the new figure to the store via hostname.
-        applyPick(proxyProductToPick(p));
+        // More than one version → open the picker so the user chooses
+        // (Regular / EX …). Otherwise import the default straight away —
+        // no modal, no extra clicks. `source_url` (set in buildProxyPick)
+        // lets the backend auto-link the figure to the store by hostname.
+        if (p.versions?.length > 1) {
+          setDetail(p);
+          setDetailBusy(false);
+        } else {
+          applyPick(defaultProxyPick(p));
+        }
       })
       .catch((e) => {
         if (detailReqRef.current !== myReq) return;
@@ -355,10 +371,22 @@ export default function FigureLookup({ initial = "", onPick }) {
         ) : null}
       </div>
 
-      {detailFor ? (
+      {detailFor && detailSource === "orzgk" ? (
         <OrzgkDetailModal
           url={detailFor}
           detail={detail}
+          busy={detailBusy}
+          error={detailError}
+          onClose={closeDetail}
+          onApply={applyPick}
+          t={t}
+        />
+      ) : null}
+
+      {detailFor && detailSource === "proxy" ? (
+        <ProxyDetailModal
+          url={detailFor}
+          product={detail}
           busy={detailBusy}
           error={detailError}
           onClose={closeDetail}
@@ -627,6 +655,211 @@ function OrzgkDetailModal({ url, detail, busy, error, onClose, onApply, t }) {
       </div>
     </div>,
     document.body,
+  );
+}
+
+// Proxy product modal — same Versions → Prices → Apply flow as the orzgk
+// modal, for the external boutique proxy. Reuses VersionPicker / PricePicker /
+// Step; only opened when the product carries more than one version.
+function ProxyDetailModal({ url, product, busy, error, onClose, onApply, t }) {
+  const [selectedVersion, setSelectedVersion] = useState(null);
+  const [selectedPrice, setSelectedPrice] = useState(null);
+  const [step, setStep] = useState("version");
+
+  useEffect(() => {
+    if (!product) return;
+    if (product.versions?.length) {
+      setStep("version");
+      setSelectedVersion(
+        product.versions.length === 1 ? product.versions[0] : null,
+      );
+      setSelectedPrice(null);
+    } else {
+      setStep("price");
+      setSelectedVersion(null);
+      setSelectedPrice(null);
+    }
+  }, [product]);
+
+  // A version with a single tariff auto-selects it.
+  useEffect(() => {
+    if (selectedVersion?.prices?.length === 1) {
+      setSelectedPrice(selectedVersion.prices[0]);
+    }
+  }, [selectedVersion]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const versionPrices = selectedVersion?.prices ?? [];
+
+  const canApply = useMemo(() => {
+    if (!product) return false;
+    if (product.versions?.length && !selectedVersion) return false;
+    if (versionPrices.length > 0 && !selectedPrice) return false;
+    return true;
+  }, [product, selectedVersion, selectedPrice, versionPrices.length]);
+
+  const handleApply = () => {
+    if (!product) return;
+    onApply(buildProxyPick(product, selectedVersion, selectedPrice));
+  };
+
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal
+      aria-labelledby="proxy-detail-title"
+      onClick={onClose}
+      className="fixed inset-0 z-50 grid place-items-center bg-[var(--color-noir)]/85 backdrop-blur-sm p-4"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-[var(--color-noir-soft)] border border-[var(--color-or)]/40 w-[95vw] max-w-4xl max-h-[92vh] flex flex-col frame-corners"
+        style={{
+          boxShadow:
+            "0 60px 120px -50px rgba(0,0,0,0.85), inset 0 1px 0 oklch(0.92 0.03 75 / 0.06)",
+        }}
+      >
+        <header className="flex items-start justify-between gap-4 px-6 py-5 border-b border-[var(--color-or)]/20">
+          <div className="min-w-0">
+            <p className="micro-tight">{t("lookup.figure.detail.eyebrow")}</p>
+            <h2
+              id="proxy-detail-title"
+              className="display text-2xl text-[var(--color-ivoire)] mt-1 leading-tight truncate"
+            >
+              {product?.title ?? t("lookup.figure.detail.loading")}
+            </h2>
+            <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)]/60 mt-1 truncate">
+              {url}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t("editor.cancel")}
+            className="text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] text-xl leading-none px-2 py-1 -mt-1"
+          >
+            ✕
+          </button>
+        </header>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {busy ? (
+            <p className="text-sm text-[var(--color-ivoire-soft)] italic py-8 text-center">
+              {t("lookup.figure.detail.loading")}
+            </p>
+          ) : error ? (
+            <p role="alert" className="text-sm text-[var(--color-laque-bright)] py-4">
+              {error}
+            </p>
+          ) : product ? (
+            <div className="grid md:grid-cols-[200px_1fr] gap-6">
+              <div className="space-y-3">
+                <div className="aspect-square bg-[var(--color-noir-deep)] border border-[var(--color-or)]/15 overflow-hidden">
+                  {pickProxyImage(product, selectedVersion) ? (
+                    <img
+                      src={pickProxyImage(product, selectedVersion)}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="space-y-5">
+                <ProxySpecGrid product={product} t={t} />
+
+                {product.versions?.length ? (
+                  <Step
+                    n={1}
+                    label={t("lookup.figure.detail.step_version")}
+                    active={step === "version"}
+                    done={!!selectedVersion}
+                  >
+                    <VersionPicker
+                      versions={product.versions}
+                      selected={selectedVersion}
+                      onSelect={(v) => {
+                        setSelectedVersion(v);
+                        setSelectedPrice(null);
+                        setStep("price");
+                      }}
+                    />
+                  </Step>
+                ) : null}
+
+                {versionPrices.length > 0 ? (
+                  <Step
+                    n={product.versions?.length ? 2 : 1}
+                    label={t("lookup.figure.detail.step_price")}
+                    active={step === "price" || !product.versions?.length}
+                    done={!!selectedPrice}
+                  >
+                    <PricePicker
+                      prices={versionPrices}
+                      selected={selectedPrice}
+                      onSelect={setSelectedPrice}
+                      t={t}
+                    />
+                  </Step>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <footer className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[var(--color-or)]/20">
+          <Button variant="ghost" type="button" onClick={onClose}>
+            {t("editor.cancel")}
+          </Button>
+          <Button
+            type="button"
+            variant="primary"
+            disabled={!canApply}
+            onClick={handleApply}
+          >
+            {t("lookup.figure.detail.apply")}
+          </Button>
+        </footer>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// Proxy product spec rows. Reuses the orzgk detail field i18n keys.
+function ProxySpecGrid({ product, t }) {
+  const rows = [
+    ["brand", product.manufacturer],
+    ["origin", product.series],
+    ["character", product.character],
+    ["scale", product.scale],
+    ["height_mm", product.height_mm ? `${product.height_mm} mm` : null],
+    ["material", product.materials],
+    ["est_completion", product.release_date],
+  ].filter(([, v]) => !!v);
+
+  if (rows.length === 0) return null;
+
+  return (
+    <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 border border-[var(--color-or)]/15 bg-[var(--color-noir)]/40 px-4 py-3">
+      {rows.map(([k, v]) => (
+        <div key={k} className="flex gap-3 items-baseline">
+          <dt className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)]/80 shrink-0 w-[112px]">
+            {t(`lookup.figure.detail.field.${k}`)}
+          </dt>
+          <dd className="text-sm text-[var(--color-ivoire)] min-w-0 truncate">
+            {v}
+          </dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 

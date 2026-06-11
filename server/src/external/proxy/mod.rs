@@ -98,6 +98,12 @@ pub struct ProxyProduct {
     pub is_nsfw: bool,
     pub primary_image_url: Option<String>,
     pub description: Option<String>,
+    /// Purchasable versions (e.g. "Regular" / "EX"). Empty for single-version
+    /// products. Same shape as `external::scrape::OrzgkVersion` so the SPA's
+    /// existing version/price picker renders it; when non-empty the SPA opens
+    /// the picker instead of importing the default straight away.
+    #[serde(default)]
+    pub versions: Vec<ProxyVersion>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -107,6 +113,30 @@ pub struct ProxyPrice {
     /// site uses. The SPA accepts any string and falls back to the
     /// user's default currency when the proxy can't extract one.
     pub currency: Option<String>,
+}
+
+/// One purchasable version of a [`ProxyProduct`]. `prices` is ordered
+/// deposit-first, mirroring the orzgk variation model the SPA already renders.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyVersion {
+    /// Stable slug (`"regular"`, `"ex"`) — the picker's React key.
+    pub key: String,
+    /// Display label (`"Regular"`, `"EX"`).
+    pub label: String,
+    #[serde(default)]
+    pub image_url: Option<String>,
+    pub prices: Vec<ProxyVersionPrice>,
+}
+
+/// One tariff for a [`ProxyVersion`] — typically a `"deposit"` and a `"full"`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyVersionPrice {
+    /// Free-form, e.g. `"deposit"` / `"full"`.
+    pub label: String,
+    pub amount: f64,
+    pub currency: Option<String>,
+    /// Human-rendered amount, e.g. `"$255.00"`.
+    pub display: String,
 }
 
 /// One row of a scraped public wishlist (`/wishlist`). Deliberately the same

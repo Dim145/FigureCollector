@@ -296,9 +296,12 @@ export default function WishlistImportPage() {
           linked++;
         } else if (c.source === "proxy") {
           // Proxy boutique: resolve the product through the proxy contract,
-          // map it with the shared proxy→NewFigure mapping.
+          // map it with the shared proxy→NewFigure mapping (the wished
+          // variant, when known, pre-selects the version like orzgk does).
           const product = await fetchProxyProduct(c.detail_url);
-          const fig = await createFigure.mutateAsync(proxyProductToNewFigure(product));
+          const fig = await createFigure.mutateAsync(
+            proxyProductToNewFigure(product, c.version),
+          );
           await addWish.mutateAsync({ figure_id: fig.id });
           created++;
         } else if (c.source === "mfc") {
