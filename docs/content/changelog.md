@@ -3,6 +3,18 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.24 — imported prices, normalised
+
+- **Scraped prices land in supported currencies only** — imports (orzgk,
+  proxy boutiques, wishlist bulk import) and the market-price sweep normalise
+  before saving: exotic currencies (HKD, CNY, KRW…) convert to **USD at
+  today's ECB rate** with the shop price kept as provenance, a missing
+  currency is **assumed USD**, an unconvertible one drops the price rather
+  than store a wrong amount. → [Money & currencies](features/currency.md#scraped-prices-the-import-rule)
+- **Proxy contract**: price objects should now report the shop's ISO 4217
+  currency — proxies that don't keep working (amounts read as USD).
+  → [URL import](features/url-import.md#currencies)
+
 ## 0.23 — one currency, honest gains
 
 - **One display currency everywhere** — your default currency doubles as the

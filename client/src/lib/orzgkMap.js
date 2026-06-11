@@ -147,8 +147,15 @@ export function buildPick(detail, version, price) {
     edition: detail.limited_units ? `Limited ${detail.limited_units}` : undefined,
     official_image_url: pickImage(detail, version),
     version_name: version?.label,
-    msrp_amount: price?.amount ? String(price.amount.toFixed(2)) : undefined,
-    msrp_currency: mapCurrency(price?.currency),
+    // Amount and currency travel together: an amount whose currency the app
+    // doesn't support would be ambiguous data, so neither is set. (The server
+    // already normalises scraped prices into supported currencies — exotic →
+    // USD-converted, missing → assumed USD — so this is a safety net.)
+    msrp_amount:
+      price?.amount && mapCurrency(price?.currency)
+        ? String(price.amount.toFixed(2))
+        : undefined,
+    msrp_currency: price?.amount ? mapCurrency(price?.currency) : undefined,
     release_date: parseReleaseDate(detail.est_completion, detail.est_released_time),
     is_nsfw: isNsfw || undefined,
     description: descLines.length ? descLines.join("\n") : undefined,

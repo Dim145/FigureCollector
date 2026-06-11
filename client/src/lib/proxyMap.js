@@ -67,8 +67,14 @@ export function buildProxyPick(product, version, price) {
     height_mm: product.height_mm != null ? String(product.height_mm) : undefined,
     materials: product.materials ?? undefined,
     official_image_url: pickProxyImage(product, version) ?? undefined,
-    msrp_amount: amount != null ? String(Number(amount).toFixed(2)) : undefined,
-    msrp_currency: mapCurrency(currency),
+    // Amount and currency travel together — never an amount in a currency the
+    // app can't represent. (The server already normalises scraped prices into
+    // supported currencies; this is a safety net.)
+    msrp_amount:
+      amount != null && mapCurrency(currency)
+        ? String(Number(amount).toFixed(2))
+        : undefined,
+    msrp_currency: amount != null ? mapCurrency(currency) : undefined,
     release_date: product.release_date ?? undefined,
     description: product.description ?? undefined,
     is_nsfw: product.is_nsfw || undefined,
@@ -130,8 +136,12 @@ export function proxyProductToNewFigure(product, preferredVersionLabel) {
     height_mm: product.height_mm ?? undefined,
     materials: splitMaterials(product.materials),
     official_image_url: pickProxyImage(product, version) ?? undefined,
-    msrp_amount: amount != null ? Number(amount).toFixed(2) : undefined,
-    msrp_currency: mapCurrency(currency),
+    // Amount ↔ currency stay paired (same safety net as buildProxyPick).
+    msrp_amount:
+      amount != null && mapCurrency(currency)
+        ? Number(amount).toFixed(2)
+        : undefined,
+    msrp_currency: amount != null ? mapCurrency(currency) : undefined,
     release_date: isoReleaseDate(product.release_date),
     description: product.description ?? undefined,
     is_nsfw: product.is_nsfw || undefined,

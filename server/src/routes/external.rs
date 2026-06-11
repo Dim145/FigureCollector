@@ -4,15 +4,112 @@
 
 use crate::auth;
 use crate::error::{AppError, AppResult};
-use crate::external::{anilist, mal, mfc, orzgk, proxy, tracking};
+use crate::external::{anilist, fx, mal, mfc, orzgk, proxy, tracking};
 use crate::state::AppState;
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
     routing::{get, post},
 };
+use rust_decimal::Decimal;
+use rust_decimal::prelude::ToPrimitive;
 use serde::Deserialize;
 use tower_sessions::Session;
+
+// ─── Scraped-price normalisation (import rule) ──────────────────────────────
+//
+// Every price a lookup endpoint hands the SPA is normalised into a SUPPORTED
+// currency first (see fx::normalize_external_price): supported kept as-is,
+// missing/free-form → assumed USD, exotic (HKD, CNY…) → converted to USD at
+// today's ECB rate, unconvertible (TWD…) → the price is dropped rather than
+// imported wrong. The SPA therefore never sees a currency its pickers (and the
+// server's own whitelist) would reject.
+
+/// Normalise one scraped (amount, currency). Returns the supported-currency
+/// `(amount, code, original)` — `original = Some((amount, code))` when an
+/// actual conversion happened — or `None` when the price must be dropped.
+async fn normalize_scraped_price(
+    state: &AppState,
+    amount: f64,
+    currency: Option<&str>,
+) -> Option<(f64, String, Option<(f64, String)>)> {
+    let dec = Decimal::from_f64_retain(amount)?;
+    let norm = fx::normalize_external_price(&state.pool, &state.http, dec, currency).await?;
+    let out = norm.amount.to_f64()?;
+    let original = norm
+        .converted_from
+        .and_then(|(a, c)| Some((a.to_f64()?, c)));
+    Some((out, norm.currency, original))
+}
+
+/// In-place normalisation of an orzgk price list. Converted entries keep their
+/// shop price in the display string ("≈ $63.53 · HK$500.00") so the picker
+/// stays honest about the source; unconvertible entries are dropped.
+async fn normalize_orzgk_prices(state: &AppState, prices: &mut Vec<orzgk::OrzgkPrice>) {
+    let mut kept = Vec::with_capacity(prices.len());
+    for mut p in prices.drain(..) {
+        match normalize_scraped_price(state, p.amount, p.currency.as_deref()).await {
+            Some((amount, currency, original)) => {
+                if original.is_some() {
+                    let shop = if p.display.is_empty() {
+                        format!("{} {}", p.amount, p.currency.as_deref().unwrap_or(""))
+                    } else {
+                        p.display.clone()
+                    };
+                    p.display = format!("≈ ${amount:.2} · {shop}");
+                }
+                p.amount = amount;
+                p.currency = Some(currency);
+                kept.push(p);
+            }
+            None => {
+                tracing::debug!(currency = ?p.currency, "orzgk price dropped: unconvertible currency");
+            }
+        }
+    }
+    *prices = kept;
+}
+
+/// Same rule for a proxy version-price list (the struct carries a display too).
+async fn normalize_proxy_version_prices(
+    state: &AppState,
+    prices: &mut Vec<proxy::ProxyVersionPrice>,
+) {
+    let mut kept = Vec::with_capacity(prices.len());
+    for mut p in prices.drain(..) {
+        match normalize_scraped_price(state, p.amount, p.currency.as_deref()).await {
+            Some((amount, currency, original)) => {
+                if original.is_some() {
+                    let shop = if p.display.is_empty() {
+                        format!("{} {}", p.amount, p.currency.as_deref().unwrap_or(""))
+                    } else {
+                        p.display.clone()
+                    };
+                    p.display = format!("≈ ${amount:.2} · {shop}");
+                }
+                p.amount = amount;
+                p.currency = Some(currency);
+                kept.push(p);
+            }
+            None => {
+                tracing::debug!(currency = ?p.currency, "proxy price dropped: unconvertible currency");
+            }
+        }
+    }
+    *prices = kept;
+}
+
+/// Same rule for a bare `ProxyPrice` (no display string).
+async fn normalize_proxy_price(state: &AppState, price: &mut Option<proxy::ProxyPrice>) {
+    if let Some(p) = price.take() {
+        *price = normalize_scraped_price(state, p.amount, p.currency.as_deref())
+            .await
+            .map(|(amount, currency, _)| proxy::ProxyPrice {
+                amount,
+                currency: Some(currency),
+            });
+    }
+}
 
 #[derive(Deserialize)]
 struct SearchQuery {
@@ -286,7 +383,12 @@ async fn proxy_product(
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .ok_or(AppError::BadRequest("missing url parameter"))?;
-    Ok(Json(client.product(url).await?))
+    let mut product = client.product(url).await?;
+    normalize_proxy_price(&state, &mut product.price).await;
+    for v in &mut product.versions {
+        normalize_proxy_version_prices(&state, &mut v.prices).await;
+    }
+    Ok(Json(product))
 }
 
 /// Scrape a public wishlist page through the operator proxy (optional 4th
@@ -310,7 +412,11 @@ async fn proxy_wishlist(
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .ok_or(AppError::BadRequest("missing url parameter"))?;
-    Ok(Json(client.wishlist(url).await?))
+    let mut items = client.wishlist(url).await?;
+    for it in &mut items {
+        normalize_proxy_price(&state, &mut it.price).await;
+    }
+    Ok(Json(items))
 }
 
 /// Fetch + cache a single orzgk product page. Used by the lookup modal once
@@ -329,9 +435,18 @@ async fn orzgk_detail(
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .ok_or(AppError::BadRequest("missing url parameter"))?;
-    Ok(Json(
-        orzgk::detail(&state.pool, &state.http, url).await?,
-    ))
+    let mut detail = orzgk::detail(&state.pool, &state.http, url).await?;
+    normalize_orzgk_prices(&state, &mut detail.prices).await;
+    for v in &mut detail.versions {
+        normalize_orzgk_prices(&state, &mut v.prices).await;
+    }
+    // The page-level currency mirrors the (now-normalised) price lists.
+    detail.currency = detail
+        .prices
+        .iter()
+        .chain(detail.versions.iter().flat_map(|v| v.prices.iter()))
+        .find_map(|p| p.currency.clone());
+    Ok(Json(detail))
 }
 
 // ─── MAL via Jikan ──────────────────────────────────────────────────────────

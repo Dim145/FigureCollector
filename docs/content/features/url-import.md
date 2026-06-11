@@ -127,7 +127,7 @@ optional and narrows the search to a single boutique's catalogue.
 | `store_name` | string | no | Convenience — saves the SPA a lookup. |
 | `url` | string | yes | Full canonical URL to the product detail page. Used by the SPA to drive `/product` on click. |
 | `image_url` | string | no | Best high-resolution thumbnail available. Falls back to a placeholder. |
-| `price` | object | no | `{amount: number, currency: string\|null}`. Set to `null` when the listing doesn't expose a price (pre-order taking deposit only, sold out). |
+| `price` | object | no | `{amount: number, currency: string\|null}`. Set to `null` when the listing doesn't expose a price (pre-order taking deposit only, sold out). Report the **ISO 4217 currency** whenever the shop states one — see [Currencies](#currencies). |
 | `status` | string | no | Free-form, e.g. `"in_stock"`, `"preorder"`, `"sold_out"`. The SPA renders it as a chip on the result card. |
 
 Empty array (`[]`) is a perfectly valid response when nothing matched.
@@ -177,7 +177,7 @@ SPA only fills the form for fields that are actually present.
 | `scale` | string\|null | `"1/4"`, `"1/7"`, `"non-scale"`, etc. |
 | `height_mm` | integer\|null | Height in millimeters. |
 | `materials` | string\|null | Comma-separated material list. |
-| `price` | object\|null | `{amount, currency}`. |
+| `price` | object\|null | `{amount, currency}`. Report the **ISO 4217 currency** whenever the shop states one — see [Currencies](#currencies). |
 | `release_date` | string\|null | Free-form (`"2026-Q3"`, `"2026-10"`, …). |
 | `is_nsfw` | bool | Defaults to `false`. Set true for adult-rated listings; the SPA propagates this into the figure's NSFW flag. |
 | `primary_image_url` | string\|null | Hero image. Stored as `official_image_url` on the figure. |
@@ -229,6 +229,24 @@ Each `prices[]` entry is `{label, amount, currency?, display}` — `label` is
 free-form (`"deposit"`, `"full"`, …), `display` is the pre-rendered string the
 picker shows.
 
+### Currencies
+
+Whenever a price object is returned, the proxy **should report the shop's
+currency** as an ISO 4217 code (`"USD"`, `"JPY"`, `"HKD"`, …) — extract it
+from the page rather than guessing. What FigureCollector then does with it
+(the **import rule**, applied server-side to every lookup response and to the
+[market-price sweep](cote.md#market-prices-auto-tracked)):
+
+| Reported currency | Behaviour |
+|---|---|
+| A [supported](currency.md#the-supported-currencies) code | Kept as-is. |
+| A real but unsupported code (HKD, CNY, KRW…) | **Converted to USD** at today's ECB rate; the price's `display` keeps the shop price as provenance (`≈ $63.53 · HK$500`). |
+| Missing / unparseable (`null`, symbols, `"US Dollar"`) | The amount is **assumed to be USD**, unchanged. |
+| Unconvertible (a code the ECB table doesn't cover, e.g. TWD) | The price is **dropped** — a wrong amount is worse than none. |
+
+So a proxy that can't extract a currency still works — its amounts are just
+taken as dollars. Reporting the real code is what makes the conversion exact.
+
 ### `GET <base>/wishlist?url=<full>` (optional)
 
 Scrape a **public wishlist page** on one of the proxy's boutiques and
@@ -262,7 +280,7 @@ proxy doesn't support that list". Nothing else breaks.
 | `url` | string | yes | Canonical product URL. The import's commit step resolves it back through `/product`, so it must round-trip. |
 | `manufacturer` | string | no | Studio / brand — improves matching when present. |
 | `version` | string | no | The wished variant — pre-selected at figure creation. |
-| `price` | object | no | `{amount, currency}` — shown on the review card. |
+| `price` | object | no | `{amount, currency}` — shown on the review card. Same [currency rule](#currencies) as everywhere. |
 | `image_url` | string | no | Thumbnail for the review card. |
 | `store_id` | string | no | One of the `/stores` ids. |
 

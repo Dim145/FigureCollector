@@ -93,6 +93,25 @@ table), the total is flagged *partiel* rather than silently wrong.
     detail always carry the **original amount + currency**; the frozen rate is
     an extra column, not a replacement.
 
+## Scraped prices — the import rule
+
+Prices arriving from **outside** ([URL import](url-import.md), the wishlist
+bulk import, the [market-price sweep](cote.md#market-prices-auto-tracked)) may
+be in any currency a shop uses. They are normalised **before anything is
+saved or pre-filled**, so only supported currencies ever enter your data:
+
+- a supported currency is kept as-is;
+- a real but unsupported one (HKD, CNY, KRW…) is **converted to USD** at
+  today's ECB rate — the price picker keeps the shop price as provenance
+  (`≈ $63.53 · HK$500`);
+- a missing or unparseable currency is **assumed to be USD** (the most common
+  case for international boutiques), amount unchanged;
+- an unconvertible one (absent from the ECB table, e.g. TWD) is **dropped** —
+  a wrong amount is worse than no amount.
+
+The exact contract a scraping proxy must follow is documented in
+[URL import → Currencies](url-import.md#currencies).
+
 ## Where it applies
 
 Every price surface converts: La Cote (hero, KPIs, rows), the stats spend

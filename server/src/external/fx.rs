@@ -102,3 +102,166 @@ pub async fn freeze_rate_to_eur(
     let rates = latest(pool, http, "EUR").await.ok()?;
     Decimal::from_f64_retain(*rates.rates.get(&cur)?).filter(|d| *d > Decimal::ZERO)
 }
+
+// =============================================================================
+// External-price normalisation (imports + price sweep)
+// =============================================================================
+
+/// An externally-scraped price normalised into a supported currency.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NormalizedPrice {
+    pub amount: Decimal,
+    /// Always one of `domain::currency::SUPPORTED`.
+    pub currency: String,
+    /// `Some((amount, currency))` of the ORIGINAL price when a conversion
+    /// happened (e.g. HK$ 500 → $ 64.10) — lets callers keep provenance in
+    /// display strings.
+    pub converted_from: Option<(Decimal, String)>,
+    /// The source carried no usable currency, so USD was assumed (no
+    /// conversion — the amount is taken as-is).
+    pub assumed_usd: bool,
+}
+
+/// Normalise a scraped price into a supported currency (the import rule):
+///
+/// - **supported** currency → unchanged;
+/// - **missing / unparseable** currency (`None`, symbols, free-form labels
+///   like `"US Dollar"`) → **assumed USD**, amount untouched;
+/// - **known but unsupported** (HKD, CNY, KRW…) → **converted to USD** at the
+///   table's rate;
+/// - **unconvertible** (a real code the ECB table doesn't cover, e.g. TWD) →
+///   `None` — the caller drops the price rather than store a wrong amount.
+///
+/// Pure on a rate table so it's unit-testable; `rates` must be EUR-based.
+pub fn normalize_with_rates(
+    rates: &FxRates,
+    amount: Decimal,
+    currency: Option<&str>,
+) -> Option<NormalizedPrice> {
+    let shaped = currency
+        .map(str::trim)
+        .filter(|c| c.len() == 3 && c.bytes().all(|b| b.is_ascii_alphabetic()))
+        .map(str::to_ascii_uppercase);
+    let Some(cur) = shaped else {
+        return Some(NormalizedPrice {
+            amount,
+            currency: "USD".into(),
+            converted_from: None,
+            assumed_usd: true,
+        });
+    };
+    if crate::domain::currency::is_supported(&cur) {
+        return Some(NormalizedPrice {
+            amount,
+            currency: cur,
+            converted_from: None,
+            assumed_usd: false,
+        });
+    }
+    // Exotic but real: convert to USD through the EUR-based table.
+    let per_eur_src = Decimal::from_f64_retain(*rates.rates.get(&cur)?)?;
+    let per_eur_usd = Decimal::from_f64_retain(*rates.rates.get("USD")?)?;
+    if per_eur_src <= Decimal::ZERO || per_eur_usd <= Decimal::ZERO {
+        return None;
+    }
+    let converted = (amount / per_eur_src * per_eur_usd).round_dp(2);
+    Some(NormalizedPrice {
+        amount: converted,
+        currency: "USD".into(),
+        converted_from: Some((amount, cur)),
+        assumed_usd: false,
+    })
+}
+
+/// Async wrapper around [`normalize_with_rates`]: only fetches the (cached)
+/// rate table when an actual conversion is needed; the common supported /
+/// missing-currency cases never touch it. Returns `None` when the price must
+/// be dropped (unconvertible currency, or rates unavailable mid-conversion).
+pub async fn normalize_external_price(
+    pool: &PgPool,
+    http: &reqwest::Client,
+    amount: Decimal,
+    currency: Option<&str>,
+) -> Option<NormalizedPrice> {
+    let needs_rates = currency
+        .map(str::trim)
+        .filter(|c| c.len() == 3 && c.bytes().all(|b| b.is_ascii_alphabetic()))
+        .map(str::to_ascii_uppercase)
+        .is_some_and(|c| !crate::domain::currency::is_supported(&c));
+    if !needs_rates {
+        // Synthetic empty table — the pure fn won't look at it on these paths.
+        let empty = FxRates {
+            base: "EUR".into(),
+            date: String::new(),
+            rates: BTreeMap::new(),
+        };
+        return normalize_with_rates(&empty, amount, currency);
+    }
+    let rates = latest(pool, http, "EUR").await.ok()?;
+    normalize_with_rates(&rates, amount, currency)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn d(s: &str) -> Decimal {
+        s.parse().unwrap()
+    }
+
+    fn table() -> FxRates {
+        let mut rates = BTreeMap::new();
+        rates.insert("USD".into(), 1.08);
+        rates.insert("JPY".into(), 160.0);
+        rates.insert("HKD".into(), 8.5);
+        FxRates {
+            base: "EUR".into(),
+            date: "2026-06-12".into(),
+            rates,
+        }
+    }
+
+    #[test]
+    fn supported_currency_passes_through() {
+        let n = normalize_with_rates(&table(), d("12000"), Some("JPY")).unwrap();
+        assert_eq!(n.amount, d("12000"));
+        assert_eq!(n.currency, "JPY");
+        assert!(n.converted_from.is_none() && !n.assumed_usd);
+    }
+
+    #[test]
+    fn lowercase_supported_is_normalised() {
+        let n = normalize_with_rates(&table(), d("50"), Some(" usd ")).unwrap();
+        assert_eq!(n.currency, "USD");
+        assert!(!n.assumed_usd);
+    }
+
+    #[test]
+    fn missing_currency_is_assumed_usd_unchanged() {
+        let n = normalize_with_rates(&table(), d("199.5"), None).unwrap();
+        assert_eq!((n.amount, n.currency.as_str()), (d("199.5"), "USD"));
+        assert!(n.assumed_usd && n.converted_from.is_none());
+    }
+
+    #[test]
+    fn freeform_label_is_treated_as_missing() {
+        let n = normalize_with_rates(&table(), d("80"), Some("US Dollar")).unwrap();
+        assert_eq!(n.currency, "USD");
+        assert!(n.assumed_usd);
+    }
+
+    #[test]
+    fn exotic_currency_converts_to_usd() {
+        // HK$ 500 → 500 / 8.5 * 1.08 = 63.529… → 63.53 USD
+        let n = normalize_with_rates(&table(), d("500"), Some("HKD")).unwrap();
+        assert_eq!(n.amount, d("63.53"));
+        assert_eq!(n.currency, "USD");
+        assert_eq!(n.converted_from, Some((d("500"), "HKD".into())));
+        assert!(!n.assumed_usd);
+    }
+
+    #[test]
+    fn unconvertible_currency_drops_the_price() {
+        assert!(normalize_with_rates(&table(), d("4500"), Some("TWD")).is_none());
+    }
+}

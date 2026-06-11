@@ -179,6 +179,7 @@ pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
 
     let mut processed = 0usize;
     let mut updated = 0usize;
+    let mut skipped_unconvertible = 0usize;
     for fid in order {
         if processed >= MAX_FIGURES_PER_RUN {
             tracing::info!(
@@ -206,38 +207,63 @@ pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
             job.msrp_currency.as_deref(),
             &candidates,
         ) {
-            if let Some(amount) = Decimal::from_f64_retain(chosen.amount).map(|d| d.round_dp(2)) {
-                if amount > Decimal::ZERO {
-                    // Normalise the scraped currency to a 3-letter ISO code or
-                    // NULL. The column is CHAR(3); a free-form value like "US
-                    // Dollar" raises 22001 — and because the sweep is a single
-                    // tx-less loop, the old `?` aborted EVERY later figure on
-                    // every run (a permanent wedge). Both the normalisation and
-                    // the per-figure error handling below prevent that.
-                    let currency = normalize_currency(chosen.currency.as_deref());
-                    match figure_price::upsert(
+            if let Some(raw_amount) = Decimal::from_f64_retain(chosen.amount).map(|d| d.round_dp(2))
+            {
+                if raw_amount > Decimal::ZERO {
+                    // Normalise into a SUPPORTED currency before recording
+                    // (import rule): supported kept as-is; missing/free-form
+                    // ("US Dollar") → assumed USD; exotic (HKD, CNY…) →
+                    // converted to USD at today's ECB rate; unconvertible
+                    // (e.g. TWD, absent from the ECB table) → relevé skipped
+                    // rather than stored wrong. Also keeps the CHAR(3) column
+                    // safe from free-form labels (22001 used to wedge the
+                    // whole tx-less sweep).
+                    match crate::external::fx::normalize_external_price(
                         &state.pool,
-                        fid,
-                        amount,
-                        currency.as_deref(),
-                        chosen.matched_version.as_deref(),
-                        &chosen.source,
-                        Some(&chosen.url),
+                        &state.http,
+                        raw_amount,
+                        chosen.currency.as_deref(),
                     )
                     .await
                     {
-                        Ok(changed) => {
-                            updated += 1;
-                            // Wishlist target alerts — only on a price MOVE so a
-                            // stable price re-observed daily can't spam (the
-                            // notification dedup on (figure, amount) backstops it).
-                            if changed {
-                                notify_wishlist_targets(state, fid, amount, currency.as_deref())
-                                    .await;
+                        Some(norm) => {
+                            match figure_price::upsert(
+                                &state.pool,
+                                fid,
+                                norm.amount,
+                                Some(norm.currency.as_str()),
+                                chosen.matched_version.as_deref(),
+                                &chosen.source,
+                                Some(&chosen.url),
+                            )
+                            .await
+                            {
+                                Ok(changed) => {
+                                    updated += 1;
+                                    // Wishlist target alerts — only on a price MOVE so a
+                                    // stable price re-observed daily can't spam (the
+                                    // notification dedup on (figure, amount) backstops it).
+                                    if changed {
+                                        notify_wishlist_targets(
+                                            state,
+                                            fid,
+                                            norm.amount,
+                                            Some(norm.currency.as_str()),
+                                        )
+                                        .await;
+                                    }
+                                }
+                                Err(e) => {
+                                    tracing::warn!(figure_id = %fid, error = ?e, "price-cron: upsert failed, skipping this figure");
+                                }
                             }
                         }
-                        Err(e) => {
-                            tracing::warn!(figure_id = %fid, error = ?e, "price-cron: upsert failed, skipping this figure");
+                        None => {
+                            skipped_unconvertible += 1;
+                            tracing::debug!(
+                                figure_id = %fid, currency = ?chosen.currency,
+                                "price-cron: unconvertible currency, relevé skipped"
+                            );
                         }
                     }
                 }
@@ -245,8 +271,17 @@ pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
         }
     }
 
-    tracing::info!(processed, updated, "price-cron: provider prices refreshed");
-    Ok(serde_json::json!({ "processed": processed, "updated": updated }))
+    tracing::info!(
+        processed,
+        updated,
+        skipped_unconvertible,
+        "price-cron: provider prices refreshed"
+    );
+    Ok(serde_json::json!({
+        "processed": processed,
+        "updated": updated,
+        "skipped_unconvertible": skipped_unconvertible,
+    }))
 }
 
 /// Fire `wishlist_price_below_target` for every user whose wishlist target on
@@ -305,18 +340,6 @@ async fn notify_wishlist_targets(
             Some(&dedup),
         )
         .await;
-    }
-}
-
-/// Fit a scraped currency to the CHAR(3) `figure_provider_prices.currency`
-/// column: a trimmed, uppercased 3-letter ASCII ISO code, or None for anything
-/// else (free-form labels like "US Dollar" would overflow the column).
-fn normalize_currency(raw: Option<&str>) -> Option<String> {
-    let c = raw?.trim();
-    if c.len() == 3 && c.bytes().all(|b| b.is_ascii_alphabetic()) {
-        Some(c.to_ascii_uppercase())
-    } else {
-        None
     }
 }
 
