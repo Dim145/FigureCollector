@@ -19,12 +19,31 @@ const coverFor = (it) =>
 
 // Gold (金) is Direction A's value accent — the wishlist leans on it for every
 // target-price chip and money figure; hanko red stays for the heart marker and
-// destructive intent. A piece's MSRP at/under the user's cible is a "good deal".
-const dealIsMet = (it, prefCurrency) =>
-  it.max_price_amount != null &&
-  it.msrp_amount != null &&
-  (it.max_price_currency || prefCurrency) === (it.msrp_currency || it.max_price_currency || prefCurrency) &&
-  Number(it.msrp_amount) <= Number(it.max_price_amount);
+// destructive intent. A piece's market price (the cron's latest relevé, else
+// the catalog MSRP) at/under the user's cible is a "good deal".
+const marketPrice = (it) => {
+  if (it.provider_price_amount != null) {
+    return {
+      amount: Number(it.provider_price_amount),
+      currency: it.provider_price_currency || it.msrp_currency || null,
+    };
+  }
+  if (it.msrp_amount != null) {
+    return { amount: Number(it.msrp_amount), currency: it.msrp_currency || null };
+  }
+  return null;
+};
+
+const dealIsMet = (it, prefCurrency) => {
+  const m = marketPrice(it);
+  return (
+    it.max_price_amount != null &&
+    m != null &&
+    (it.max_price_currency || prefCurrency) ===
+      (m.currency || it.max_price_currency || prefCurrency) &&
+    m.amount <= Number(it.max_price_amount)
+  );
+};
 
 /**
  * « Souhaits » — the wishlist: catalogue figures the user covets, each with an
@@ -390,7 +409,13 @@ function WishItem({
           {/* Deal note + the user's reminder — quiet, value-toned. */}
           {deal ? (
             <p className="mt-2 px-1 text-[10px] uppercase tracking-[0.12em] text-[var(--color-jade)]">
-              ◆ {t("wishlist.under_target", { p: fmtMoney(it.msrp_amount, it.msrp_currency || prefCurrency, locale) })}
+              ◆ {t("wishlist.under_target", {
+                p: fmtMoney(
+                  marketPrice(it)?.amount,
+                  marketPrice(it)?.currency || prefCurrency,
+                  locale,
+                ),
+              })}
             </p>
           ) : null}
           {it.note ? (

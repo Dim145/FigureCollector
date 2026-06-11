@@ -5,6 +5,7 @@ import { useMe } from "../hooks/useMe.js";
 import { useYearInReview } from "../hooks/useActivity.js";
 import { fmtMoney } from "../lib/money.js";
 import AppShell from "../components/AppShell.jsx";
+import PageSkeleton from "../components/Skeleton.jsx";
 import AccentTitle from "../components/AccentTitle.jsx";
 import Card from "../components/Card.jsx";
 import StatCard from "../components/StatCard.jsx";
@@ -52,13 +53,7 @@ export default function YearInReviewPage() {
   if (yir.isLoading) {
     return (
       <AppShell>
-        <div
-          role="status"
-          aria-live="polite"
-          className="text-center py-32 text-[var(--color-ivoire-soft)] italic"
-        >
-          …
-        </div>
+        <PageSkeleton blocks={4} />
       </AppShell>
     );
   }

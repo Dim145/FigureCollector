@@ -11,6 +11,7 @@ import {
 } from "../lib/preorderStatus.js";
 import { useWishlistItems, useAddWishlistItem, useRemoveWishlistItem } from "../hooks/useWishlist.js";
 import TrackingChip from "../components/TrackingChip.jsx";
+import ErrorState from "../components/ErrorState.jsx";
 import { useDeleteFigure } from "../hooks/useAdmin.js";
 import { useStoresForFigure } from "../hooks/useStores.js";
 import { useScans } from "../hooks/useScans.js";
@@ -91,7 +92,7 @@ export default function FigureDetailPage() {
         {notFound ? (
           <MissingState t={t} figureId={id} />
         ) : (
-          <ErrorState t={t} error={figure.error} onRetry={() => figure.refetch()} />
+          <ErrorState error={figure.error} onRetry={() => figure.refetch()} />
         )}
       </AppShell>
     );
@@ -1345,29 +1346,8 @@ function MissingState({ t, figureId }) {
   );
 }
 
-function ErrorState({ t, error, onRetry }) {
-  return (
-    <div className="max-w-md mx-auto px-6 py-16 text-center">
-      <p className="display text-2xl text-[var(--color-laque-bright)]">!</p>
-      <h1 className="display text-3xl text-[var(--color-ivoire)] mt-4">
-        {t("error.unknown")}
-      </h1>
-      {error?.message ? (
-        <p className="mt-3 text-sm text-[var(--color-ivoire-soft)] italic break-words">
-          {error.message}
-        </p>
-      ) : null}
-      <div className="gold-rule mx-auto w-24 my-8" />
-      <button
-        type="button"
-        onClick={onRetry}
-        className="px-5 py-3 border border-[var(--color-or)]/40 text-[var(--color-ivoire)] text-[11px] uppercase tracking-[0.2em] hover:bg-[var(--color-or)]/10 transition-colors"
-      >
-        {t("figure.missing.cta_retry")}
-      </button>
-    </div>
-  );
-}
+// (The query-failure surface now lives in components/ErrorState.jsx — shared
+// with Stats and the other data pages.)
 
 function NsfwInterstitial({ t, figureId, onAcknowledge }) {
   return (

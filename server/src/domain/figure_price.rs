@@ -73,7 +73,9 @@ pub async fn history_for_user_owned(
 
 /// Record one resolved provider price for a figure: upserts the "latest"
 /// row AND appends a history point when the price changed — both in one
-/// transaction, so an accepted price can never skip the history.
+/// transaction, so an accepted price can never skip the history. Returns
+/// `true` when the price CHANGED (a history point was written) — the price
+/// cron uses that to fire wishlist target alerts only on movement.
 pub async fn upsert(
     pool: &PgPool,
     figure_id: Uuid,
@@ -82,7 +84,7 @@ pub async fn upsert(
     matched_version: Option<&str>,
     source: &str,
     source_url: Option<&str>,
-) -> AppResult<()> {
+) -> AppResult<bool> {
     let mut tx = pool.begin().await?;
 
     // History point, deduped: skipped when this figure's most recent point
@@ -90,7 +92,7 @@ pub async fn upsert(
     // chart a step curve, and a daily cron re-observing a stable price would
     // otherwise pile up identical rows. (`IS NOT DISTINCT FROM` makes a NULL
     // currency compare equal to NULL.)
-    sqlx::query(
+    let history = sqlx::query(
         "INSERT INTO figure_price_history
             (figure_id, amount, currency, source, matched_version)
          SELECT $1, $2, $3, $4, $5
@@ -136,5 +138,5 @@ pub async fn upsert(
     .await?;
 
     tx.commit().await?;
-    Ok(())
+    Ok(history.rows_affected() > 0)
 }

@@ -12,6 +12,7 @@ import {
 import { useRowSelection } from "../hooks/useRowSelection.js";
 import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
+import { SectionSkeleton } from "../components/Skeleton.jsx";
 import Button from "../components/Button.jsx";
 import Card from "../components/Card.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
@@ -304,7 +305,7 @@ export default function CollectionPage() {
 
         {/* ─── Empty / loading / grid ─── */}
         {owned.isLoading ? (
-          <p role="status" aria-live="polite" className="text-center text-[var(--color-ivoire-soft)] py-12">…</p>
+          <SectionSkeleton />
         ) : owned.data?.length === 0 ? (
           <EmptyState t={t} />
         ) : (

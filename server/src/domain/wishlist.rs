@@ -27,6 +27,10 @@ pub struct WishlistItem {
     pub scale: Option<String>,
     pub msrp_amount: Option<Decimal>,
     pub msrp_currency: Option<String>,
+    /// Latest market price observed by the price cron (None when never
+    /// priced) — the SPA's "deal met" check prefers it over the MSRP.
+    pub provider_price_amount: Option<Decimal>,
+    pub provider_price_currency: Option<String>,
     pub is_nsfw: bool,
     /// Catalogue primary photo id (cover fallback), so the SPA builds the
     /// `/api/figure-photos/{id}` URL without a second query per row.
@@ -61,7 +65,10 @@ const SELECT: &str = "
            f.name AS figure_name, f.slug AS figure_slug, f.figure_type,
            f.official_image_url AS figure_image,
            m.name AS manufacturer_name, f.scale,
-           f.msrp_amount, f.msrp_currency, f.is_nsfw,
+           f.msrp_amount, f.msrp_currency,
+           pp.amount   AS provider_price_amount,
+           pp.currency AS provider_price_currency,
+           f.is_nsfw,
            (
                SELECT fp.id FROM figure_photos fp
                WHERE fp.figure_id = f.id
@@ -70,6 +77,7 @@ const SELECT: &str = "
            ) AS catalog_cover_photo_id
     FROM wishlist_items w
     JOIN figures f          ON f.id = w.figure_id
+    LEFT JOIN figure_provider_prices pp ON pp.figure_id = f.id
     LEFT JOIN manufacturers m ON m.id = f.manufacturer_id";
 
 fn check_currency(c: &Option<String>) -> AppResult<()> {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Suspense, lazy, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 import {
   useCreateScan,
@@ -6,9 +6,13 @@ import {
   useScans,
 } from "../hooks/useScans.js";
 import ConfirmDialog from "./ConfirmDialog.jsx";
-import GsplatViewer from "./GsplatViewer.jsx";
-import TurntableViewer from "./TurntableViewer.jsx";
 import TurntableWizard from "./TurntableWizard.jsx";
+import { Skeleton } from "./Skeleton.jsx";
+
+// The 3D / 360° viewers drag the WebGL + gsplat chunks with them — lazy-load
+// so a figure page without an open viewer never pays for them.
+const GsplatViewer = lazy(() => import("./GsplatViewer.jsx"));
+const TurntableViewer = lazy(() => import("./TurntableViewer.jsx"));
 
 /**
  * Section rendered on FigureDetailPage when the user owns the figure.
@@ -60,18 +64,23 @@ export default function TurntableSection({ ownedId }) {
     setPendingReplaceId(scanId);
   };
 
+  const viewerFallback = <Skeleton className="h-64 w-full" />;
   const view3d = (
     <>
-      <GsplatViewer scanId={readyGsplat?.id} />
+      <Suspense fallback={viewerFallback}>
+        <GsplatViewer scanId={readyGsplat?.id} />
+      </Suspense>
       <p className="micro mt-2">{t("gsplat.viewer_label")}</p>
     </>
   );
   const view360 = latestTurntable ? (
     <>
-      <TurntableViewer
-        scanId={latestTurntable.id}
-        frameCount={latestTurntable.frame_count}
-      />
+      <Suspense fallback={viewerFallback}>
+        <TurntableViewer
+          scanId={latestTurntable.id}
+          frameCount={latestTurntable.frame_count}
+        />
+      </Suspense>
       <p className="micro mt-2">
         {t("turntable.section.frame_count", { n: latestTurntable.frame_count })}
       </p>

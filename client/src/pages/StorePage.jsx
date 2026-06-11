@@ -13,6 +13,7 @@ import { safeHref } from "../lib/safeUrl.js";
 import { buildBuyUrl } from "../lib/storeLink.js";
 import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
+import PageSkeleton, { SectionSkeleton } from "../components/Skeleton.jsx";
 import Button from "../components/Button.jsx";
 import Card from "../components/Card.jsx";
 import FigureCard from "../components/FigureCard.jsx";
@@ -85,13 +86,7 @@ export default function StorePage() {
   if (store.isLoading || !store.data) {
     return (
       <AppShell>
-        <main
-          role="status"
-          aria-live="polite"
-          className="max-w-5xl mx-auto px-6 py-20 text-center text-[var(--color-ivoire-soft)]"
-        >
-          …
-        </main>
+        <PageSkeleton blocks={3} />
       </AppShell>
     );
   }
@@ -503,7 +498,7 @@ function BulkEditCatalog({ storeId, currentlyLinkedIds, onDone, t }) {
       </div>
 
       {figures.isLoading ? (
-        <p className="text-center text-[var(--color-ivoire-soft)] py-12">…</p>
+        <SectionSkeleton blocks={2} />
       ) : filtered.length === 0 ? (
         <p className="text-center text-[var(--color-ivoire-soft)] italic py-8">
           {t("store.catalog.bulk_no_match")}

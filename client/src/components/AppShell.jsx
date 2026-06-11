@@ -8,6 +8,7 @@ import ThemeToggle from "./ThemeToggle.jsx";
 import NotificationBell from "./NotificationBell.jsx";
 import AuroraBackground from "./AuroraBackground.jsx";
 import TypeAccentVars from "./TypeAccentVars.jsx";
+import MobileTabBar from "./MobileTabBar.jsx";
 
 /**
  * Compact exhibition-style header.
@@ -79,7 +80,9 @@ export default function AppShell({ children }) {
   const user = me.data?.user;
 
   return (
-    <div className="min-h-dvh flex flex-col">
+    // The bottom tab bar (fixed, < lg) needs breathing room under the page so
+    // it never sits on the footer's last line — hence the mobile-only pb.
+    <div className={`min-h-dvh flex flex-col ${authed ? "pb-14 lg:pb-0" : ""}`}>
       <AuroraBackground />
       <TypeAccentVars />
       {/* Skip link — hidden until focused, then jumps the user past the
@@ -224,6 +227,21 @@ export default function AppShell({ children }) {
                   {it.label}
                 </NavLink>
               ))}
+              {/* Command palette — reachable on mobile from here (the ⌘K chip
+               *  is desktop-only in the top bar). */}
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileOpen(false);
+                  window.dispatchEvent(
+                    new CustomEvent("figurecollector:toggle-palette"),
+                  );
+                }}
+                className="col-span-2 mt-1 pt-3 border-t border-[var(--color-or)]/15 text-left text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors"
+              >
+                {t("nav.search", { default: "Recherche" })}{" "}
+                <span aria-hidden className="ja not-italic">検</span>
+              </button>
               {/* Language switcher — folded in here on mobile (hidden from the
                *  top bar below lg). */}
               <div className="col-span-2 mt-1 pt-3 border-t border-[var(--color-or)]/15 flex items-center justify-between normal-case tracking-normal">
@@ -272,6 +290,9 @@ export default function AppShell({ children }) {
           {children}
         </motion.main>
       )}
+
+      {/* Bottom tab bar — the phone-first primary nav (< lg, signed-in). */}
+      {authed ? <MobileTabBar onMore={() => { setMobileOpen(true); window.scrollTo({ top: 0, behavior: "smooth" }); }} /> : null}
 
       <footer className="seigaiha relative z-10 mt-20 border-t border-[var(--color-or)]/25 py-8 bg-[var(--color-noir-deep)]">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-[11px] uppercase tracking-[0.28em] text-[var(--color-ivoire-soft)]/80">

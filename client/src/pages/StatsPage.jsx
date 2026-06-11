@@ -11,6 +11,8 @@ import { useMe } from "../hooks/useMe.js";
 import { useMyStats, useInsights } from "../hooks/useStats.js";
 import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
+import PageSkeleton from "../components/Skeleton.jsx";
+import ErrorState from "../components/ErrorState.jsx";
 import Card from "../components/Card.jsx";
 import CountUp from "../components/CountUp.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
@@ -60,13 +62,7 @@ export default function StatsPage() {
   if (stats.isLoading) {
     return (
       <AppShell>
-        <div
-          role="status"
-          aria-live="polite"
-          className="text-center py-32 text-[var(--color-ivoire-soft)] italic"
-        >
-          …
-        </div>
+        <PageSkeleton blocks={4} />
       </AppShell>
     );
   }
@@ -74,12 +70,7 @@ export default function StatsPage() {
   if (stats.isError) {
     return (
       <AppShell>
-        <div
-          role="alert"
-          className="text-center py-32 text-[var(--color-ivoire-soft)] italic"
-        >
-          {t("error.unknown")}
-        </div>
+        <ErrorState error={stats.error} onRetry={() => stats.refetch()} />
       </AppShell>
     );
   }

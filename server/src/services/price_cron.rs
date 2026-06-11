@@ -226,7 +226,16 @@ pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
                     )
                     .await
                     {
-                        Ok(()) => updated += 1,
+                        Ok(changed) => {
+                            updated += 1;
+                            // Wishlist target alerts — only on a price MOVE so a
+                            // stable price re-observed daily can't spam (the
+                            // notification dedup on (figure, amount) backstops it).
+                            if changed {
+                                notify_wishlist_targets(state, fid, amount, currency.as_deref())
+                                    .await;
+                            }
+                        }
                         Err(e) => {
                             tracing::warn!(figure_id = %fid, error = ?e, "price-cron: upsert failed, skipping this figure");
                         }
@@ -238,6 +247,65 @@ pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
 
     tracing::info!(processed, updated, "price-cron: provider prices refreshed");
     Ok(serde_json::json!({ "processed": processed, "updated": updated }))
+}
+
+/// Fire `wishlist_price_below_target` for every user whose wishlist target on
+/// this figure is met by the freshly observed market price. Same-currency
+/// comparison only (the app has no stored FX); best-effort — an error here
+/// never aborts the sweep. Dedup key = `{figure_id}:{amount}`, so each price
+/// LEVEL notifies once and a further drop re-fires.
+async fn notify_wishlist_targets(
+    state: &AppState,
+    figure_id: Uuid,
+    amount: Decimal,
+    currency: Option<&str>,
+) {
+    let rows: Vec<(Uuid, Decimal, Option<String>, String)> = match sqlx::query_as(
+        "SELECT w.user_id, w.max_price_amount, w.max_price_currency, f.name
+         FROM wishlist_items w
+         JOIN figures f ON f.id = w.figure_id
+         WHERE w.figure_id = $1 AND w.max_price_amount IS NOT NULL",
+    )
+    .bind(figure_id)
+    .fetch_all(&state.pool)
+    .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!(figure_id = %figure_id, error = ?e, "price-cron: wishlist target lookup failed");
+            return;
+        }
+    };
+
+    for (user_id, target, target_currency, figure_name) in rows {
+        let same_currency = match (currency, target_currency.as_deref()) {
+            (Some(a), Some(b)) => a.trim().eq_ignore_ascii_case(b.trim()),
+            // A target without a currency adopts the observed one (mirrors
+            // the SPA's dealIsMet fallback); an uncurrencied price never
+            // matches an explicit target currency.
+            (_, None) => true,
+            (None, Some(_)) => false,
+        };
+        if !same_currency || amount > target {
+            continue;
+        }
+        let dedup = format!("{figure_id}:{amount}");
+        crate::services::notify::dispatch(
+            state,
+            user_id,
+            crate::domain::notification::EVENT_WISHLIST_PRICE_BELOW_TARGET,
+            serde_json::json!({
+                "figure_id": figure_id,
+                "figure_name": figure_name,
+                "amount": amount.to_string(),
+                "currency": currency,
+                "target_amount": target.to_string(),
+                "target_currency": target_currency,
+            }),
+            Some(&dedup),
+        )
+        .await;
+    }
 }
 
 /// Fit a scraped currency to the CHAR(3) `figure_provider_prices.currency`

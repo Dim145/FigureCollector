@@ -31,6 +31,7 @@ const TONE_BY_EVENT = {
   preorder_delivery_overdue: "var(--color-laque-bright)",
   manga_server_approved: "var(--color-jade)",
   manga_server_revoked: "var(--color-laque-bright)",
+  wishlist_price_below_target: "var(--color-jade)",
 };
 const toneForEvent = (eventType) =>
   TONE_BY_EVENT[eventType] ?? "var(--color-or)";

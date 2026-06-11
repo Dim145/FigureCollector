@@ -9630,3 +9630,33 @@ a.notif-page-row-title:hover {
 .FIE_carousel-item[class*="active"] {
   outline: 1px solid var(--color-or) !important; outline-offset: -1px;
 }
+
+/* ─── Skeleton loaders (components/Skeleton.jsx) ─────────────────────────────
+ * Noir-soft blocks with a slow gold sweep — the loading counterpart of the
+ * Card surface. The sweep is transform-only (GPU-cheap) and disabled under
+ * prefers-reduced-motion (the block stays as a static placeholder). */
+.fc-skel {
+  position: relative;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--color-noir-soft) 85%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 8%, transparent);
+}
+.fc-skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--color-or) 7%, transparent),
+    transparent
+  );
+  animation: fc-skel-sweep 1.7s ease-in-out infinite;
+}
+@keyframes fc-skel-sweep {
+  to { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fc-skel::after { animation: none; }
+}

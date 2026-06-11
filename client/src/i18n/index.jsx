@@ -23,6 +23,10 @@ const LOADERS = {
 // is shared across every useT() consumer.
 const cache = {};
 
+// Plural rules, one instance per locale (Intl.PluralRules allocation isn't
+// free and `t` runs in render paths).
+const pluralRules = {};
+
 function detectLocale() {
   const stored = typeof localStorage !== "undefined" && localStorage.getItem("fc_locale");
   if (stored && SUPPORTED.includes(stored)) return stored;
@@ -87,6 +91,14 @@ export function I18nProvider({ children }) {
       const fb = cache[FALLBACK] ?? {};
       const table = cache[locale] ?? fb;
       let value = table[key] ?? fb[key];
+      // Pluralisation: when the caller passes a numeric `n`, a CLDR-variant
+      // key ("key.one", "key.other", …) overrides the base entry. The base
+      // stays as the safety net for rules a locale file doesn't cover.
+      if (params && typeof params.n === "number") {
+        const rules = (pluralRules[locale] ??= new Intl.PluralRules(locale));
+        const variant = `${key}.${rules.select(params.n)}`;
+        value = table[variant] ?? fb[variant] ?? value;
+      }
       if (value == null) {
         // Caller-provided fallback for unknown keys — the server emits
         // achievement codes, status labels, kind/condition values that the

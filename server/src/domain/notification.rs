@@ -53,6 +53,11 @@ pub const EVENT_MANGA_SERVER_APPROVED: &str = "manga_server_approved";
 /// integration is disabled until they pick another. Payload:
 /// `{ base_url, label?, reason? }`.
 pub const EVENT_MANGA_SERVER_REVOKED: &str = "manga_server_revoked";
+/// The price cron observed a market price at or under the user's wishlist
+/// target for a wished figure. Fires once per (figure, price level) — a
+/// further drop re-fires. Payload: `{ figure_id, figure_name, amount,
+/// currency, target_amount, target_currency }`.
+pub const EVENT_WISHLIST_PRICE_BELOW_TARGET: &str = "wishlist_price_below_target";
 
 /// All event types the system can fire. Keep in lockstep with the SPA's
 /// i18n message keys (`notifications.event.<event_type>.*`).
@@ -62,6 +67,7 @@ pub const ALL_EVENTS: &[&str] = &[
     EVENT_PREORDER_RELEASE_J7,
     EVENT_PREORDER_DELIVERY_TODAY,
     EVENT_PREORDER_DELIVERY_OVERDUE,
+    EVENT_WISHLIST_PRICE_BELOW_TARGET,
 ];
 
 // =============================================================================

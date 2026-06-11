@@ -7,6 +7,7 @@ import { useFigureTypes } from "../hooks/useAdmin.js";
 import { useFigures, useOwnedItems } from "../hooks/useCollection.js";
 import { useWishlistItems } from "../hooks/useWishlist.js";
 import AppShell from "../components/AppShell.jsx";
+import { SectionSkeleton } from "../components/Skeleton.jsx";
 import StatCard from "../components/StatCard.jsx";
 import BarcodeScanner from "../components/BarcodeScanner.jsx";
 import FigureCard from "../components/FigureCard.jsx";
@@ -307,7 +308,7 @@ export default function BrowsePage() {
         </section>
 
         {figures.isLoading ? (
-          <p role="status" aria-live="polite" className="text-center text-[var(--color-ivoire-soft)] py-12">…</p>
+          <SectionSkeleton />
         ) : total === 0 ? (
           <EmptyResults t={t} />
         ) : (

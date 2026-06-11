@@ -7,6 +7,7 @@ import { useMyPriceHistory, useMyStats } from "../hooks/useStats.js";
 import { useFx } from "../hooks/useFx.js";
 import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
+import { SectionSkeleton } from "../components/Skeleton.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import {
   PriceLedger,
@@ -240,7 +241,7 @@ export default function CotePage() {
         </Reveal>
 
         {loading ? (
-          <p className="text-center text-[var(--color-ivoire-soft)] py-16">…</p>
+          <SectionSkeleton />
         ) : totalCount === 0 ? (
           <EmptyState t={t} />
         ) : (

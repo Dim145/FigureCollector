@@ -290,6 +290,18 @@ fn render_message(event_type: &str, payload: &serde_json::Value) -> RenderedMess
                 ),
             }
         }
+        notification::EVENT_WISHLIST_PRICE_BELOW_TARGET => {
+            let name = get_str("figure_name");
+            let amount = get_str("amount");
+            let currency = get_str("currency");
+            let target = get_str("target_amount");
+            RenderedMessage {
+                title: format!("FigureCollector — price target hit: {name}"),
+                body: format!(
+                    "{name} is now at {amount} {currency} — at or under your {target} target. Time to strike.",
+                ),
+            }
+        }
         other => RenderedMessage {
             title: format!("FigureCollector — {other}"),
             body: format!("Event: {other}\nPayload: {payload}"),

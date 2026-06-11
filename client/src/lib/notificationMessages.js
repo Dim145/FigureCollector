@@ -12,6 +12,7 @@ const KANJI_BY_EVENT = {
   preorder_delivery_overdue: "遅",
   manga_server_approved: "認",
   manga_server_revoked: "禁",
+  wishlist_price_below_target: "値",
 };
 
 /** Display name for a manga server: its label, else the bare host. */
@@ -77,6 +78,20 @@ export function formatNotification(n, t) {
           date: p.delivery_date ?? "—",
         }),
         href: p.figure_id ? `/figures/${p.figure_id}` : "/preorders",
+        kanji,
+      };
+    }
+    case "wishlist_price_below_target": {
+      return {
+        title: t("notifications.event.wishlist_price_below_target.title", {
+          name: p.figure_name ?? "—",
+        }),
+        sub: t("notifications.event.wishlist_price_below_target.sub", {
+          amount: p.amount ?? "—",
+          currency: p.currency ?? "",
+          target: p.target_amount ?? "—",
+        }),
+        href: p.figure_id ? `/figures/${p.figure_id}` : "/souhaits",
         kanji,
       };
     }
