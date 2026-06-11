@@ -733,10 +733,12 @@ function CandidateCard({ c, onToggle, onAssoc, t }) {
     >
       {/* Include / exclude seal — gold when in, hollow when out. Locked items
           (owned/wished) render an inert hanko-red ✕ instead. */}
+      {/* The seal sits BELOW FigureCard's brass type plaque (absolute top-3
+          left-3 z-[3]) — top-12 keeps both legible instead of stacking. */}
       {skip ? (
         <span
           aria-hidden
-          className="absolute top-3 left-3 z-[7] tap-target w-9 h-9 grid place-items-center text-sm bg-[color-mix(in_oklab,var(--color-noir-deep)_80%,transparent)] border border-[color-mix(in_oklab,var(--color-laque-bright)_45%,transparent)] text-[var(--color-laque-bright)]"
+          className="absolute top-12 left-3 z-[7] tap-target w-9 h-9 grid place-items-center text-sm bg-[color-mix(in_oklab,var(--color-noir-deep)_80%,transparent)] border border-[color-mix(in_oklab,var(--color-laque-bright)_45%,transparent)] text-[var(--color-laque-bright)]"
         >
           ✕
         </span>
@@ -746,7 +748,7 @@ function CandidateCard({ c, onToggle, onAssoc, t }) {
           onClick={onToggle}
           aria-pressed={c.selected}
           aria-label={t("import.toggle")}
-          className="absolute top-3 left-3 z-[7] tap-target w-9 h-9 grid place-items-center text-sm transition-colors"
+          className="absolute top-12 left-3 z-[7] tap-target w-9 h-9 grid place-items-center text-sm transition-colors"
           style={{
             background: c.selected
               ? "var(--color-or)"

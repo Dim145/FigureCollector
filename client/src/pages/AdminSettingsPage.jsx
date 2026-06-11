@@ -201,11 +201,12 @@ export default function AdminSettingsPage() {
             </span>
           </label>
 
-          {/* Live enabled/disabled state derived from the (possibly unsaved) value. */}
+          {/* Enabled/disabled reflects the SAVED schedule — the system's real
+              state — never the unsaved draft (which only drives dirty/save). */}
           <p
             className="mt-3 text-[11px] uppercase tracking-[0.18em]"
             style={{
-              color: cron.trim()
+              color: savedCron.trim()
                 ? "var(--color-or)"
                 : "var(--color-ivoire-soft)",
             }}
@@ -214,12 +215,12 @@ export default function AdminSettingsPage() {
               aria-hidden
               className="inline-block w-1.5 h-1.5 rotate-45 mr-2 align-middle"
               style={{
-                background: cron.trim()
+                background: savedCron.trim()
                   ? "var(--color-or)"
                   : "color-mix(in oklab, var(--color-ivoire-soft) 55%, transparent)",
               }}
             />
-            {cron.trim()
+            {savedCron.trim()
               ? t("admin.settings.cote.enabled")
               : t("admin.settings.cote.disabled")}
           </p>
