@@ -77,20 +77,27 @@ nav:
       - Environment variables: getting-started/env-vars.md
   - Features:
       - features/index.md
-      - Catalogue & collection: features/catalogue.md
-      - Vitrines (display cabinets): features/vitrines.md
-      - La Cote (value): features/cote.md
-      - Wishlist: features/wishlist.md
-      - URL import (orzgk + proxy): features/url-import.md
-      - Pre-orders: features/preorders.md
-      - Photos & 360° scans: features/photos.md
-      - Collectors (social): features/social.md
-      - MangaCollector synergy: features/manga.md
-      - Achievements, stats & insights: features/achievements-stats.md
-      - Data export: features/exports.md
-      - Notifications: features/notifications.md
-      - NSFW handling: features/nsfw.md
-      - PWA & offline: features/pwa.md
+      - Your collection:
+          - Catalogue & collection: features/catalogue.md
+          - Vitrines (display cabinets): features/vitrines.md
+          - Photos & 360° scans: features/photos.md
+      - Value & money:
+          - La Cote (value): features/cote.md
+          - Money & currencies: features/currency.md
+      - Acquiring:
+          - Wishlist: features/wishlist.md
+          - URL import (orzgk + proxy): features/url-import.md
+          - Pre-orders: features/preorders.md
+      - Community:
+          - Collectors (social): features/social.md
+          - MangaCollector synergy: features/manga.md
+      - Around the app:
+          - Achievements, stats & insights: features/achievements-stats.md
+          - Notifications: features/notifications.md
+          - Data export: features/exports.md
+          - NSFW handling: features/nsfw.md
+          - PWA & offline: features/pwa.md
+      - Administration: features/admin.md
   - Self-hosting:
       - self-hosting/index.md
       - Container hardening: self-hosting/hardening.md
@@ -101,6 +108,7 @@ nav:
       - Stack: architecture/stack.md
       - Data model: architecture/data-model.md
       - Security contract: architecture/security.md
+  - What's new: changelog.md
 
 plugins:
   - search

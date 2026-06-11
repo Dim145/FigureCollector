@@ -112,3 +112,39 @@
   color: oklch(0.78 0.10 80 / 0.5);
   letter-spacing: 0;
 }
+
+/* Tips carry the app's jade (the "gain / healthy" colour) so the admonition
+ * palette maps onto the product's own semantics: gold = note, jade = tip. */
+.md-typeset .admonition.tip,
+.md-typeset details.tip {
+  border-color: oklch(0.72 0.09 175 / 0.7);
+}
+.md-typeset .tip > .admonition-title,
+.md-typeset .tip > summary {
+  background-color: oklch(0.72 0.09 175 / 0.10);
+}
+.md-typeset .tip > .admonition-title::before,
+.md-typeset .tip > summary::before {
+  background-color: oklch(0.72 0.09 175);
+}
+
+/* Home grid cards — hairline gold like the app's stat lozenges, with a quiet
+ * lift on hover instead of Material's default shadow-only treatment. */
+.md-typeset .grid.cards > ul > li,
+.md-typeset .grid.cards > ol > li {
+  border: 1px solid oklch(0.78 0.10 80 / 0.16);
+  border-radius: 0;
+  transition: border-color 200ms ease, transform 200ms ease;
+}
+.md-typeset .grid.cards > ul > li:hover,
+.md-typeset .grid.cards > ol > li:hover {
+  border-color: oklch(0.78 0.10 80 / 0.45);
+  transform: translateY(-2px);
+}
+
+/* The "What's new" page: version headings read as ledger entries — a small
+ * gold version chip effect via the existing h2 styling plus tighter rhythm. */
+.md-typeset h2 code {
+  font-size: 0.7em;
+  vertical-align: middle;
+}

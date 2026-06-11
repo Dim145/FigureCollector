@@ -19,7 +19,9 @@ Each achievement has a **tier** (bronze / silver / gold) that escalates as the c
 `/year-in-review/<year>` produces an annual recap with:
 
 - **Pieces acquired** — count of new owned_items added in the year.
-- **Dépenses** — sum of `price_amount` per currency, with a "Pertes sur annulations" sub-block below painted in laque-red showing the net loss on cancelled preorders that year.
+- **Dépenses** — the year's spend (shown in [your display currency](currency.md),
+  per-currency underneath), with a "Pertes sur annulations" sub-block below
+  painted in laque-red showing the net loss on cancelled preorders that year.
 - **Fabricant favori** — most-common manufacturer this year.
 - **Série favorite** — most-common series.
 - **Sortie la plus repoussée** — preorder with the most slips in the year (with the original → current date delta).
@@ -29,14 +31,31 @@ Each achievement has a **tier** (bronze / silver / gold) that escalates as the c
 
 The page is intentionally print-friendly — you can print it as a yearly summary or export the layout to PDF via the browser.
 
-## Insights
+## Stats & insights
 
-`/stats` layers an analytical view over your data:
+`/stats` layers an analytical view over your data, in chapters:
+
+**Headline counters** — pieces, distinct types / manufacturers / series, 3D
+scans, pre-order lifecycle counts.
+
+**Dépenses cumulées** — the spend ledger, per currency (item cost, shipping,
+catalogue reference with a *saved / over catalogue* delta). With
+[display-currency conversion](currency.md) on, it leads with a single
+**≈ toutes devises confondues** total — costs counted at their
+purchase-time frozen rate, the same figure La Cote's *total payé* shows.
+
+**Insights** — the deeper cuts:
 
 - **Dépense par année** — spending per year, per currency.
 - **Complétion de séries** — how complete each owned series is (owned vs catalogue).
 - **Coût des souhaits** — the estimated cost of your [wishlist](wishlist.md), per currency.
 - **Santé des pré-commandes** — open deposits, average slip days, open vs cancelled counts.
+
+**Distribution des prix** — min / median / average / max paid per currency,
+with a histogram; plus the **most expensive piece** per currency.
+
+**Breakdowns** — by figure type, by condition, top manufacturers / series /
+sculptors, acquisitions per year.
 
 ## Prochain palier
 

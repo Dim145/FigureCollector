@@ -43,6 +43,16 @@ It is the figurine companion to [MangaCollector](https://github.com/Dim145/Manga
     ---
     Multi-upload, fullscreen lightbox with pinch-zoom, per-user covers, optional 360° turntable scans.
 
+- :material-finance:{ .lg .middle } **La Cote, auto-priced**
+
+    ---
+    A scheduled sweep prices your collection from the market (orzgk + proxy boutiques), historizes every change, and charts the evolution. Wishlist targets fire price alerts.
+
+- :material-cash-multiple:{ .lg .middle } **One display currency**
+
+    ---
+    Buy in ¥, € and $ — read everything in your currency, ≈-marked with originals on hover. Costs keep their purchase-time exchange rate, so the plus-value never drifts.
+
 - :material-shield-lock:{ .lg .middle } **Hardened by construction**
 
     ---
@@ -68,6 +78,7 @@ It is the figurine companion to [MangaCollector](https://github.com/Dim145/Manga
 - :material-puzzle: [**Features**](features/index.md) — what the app actually does.
 - :material-server: [**Self-hosting**](self-hosting/index.md) — production deployment, hardening, backups.
 - :material-source-branch: [**Architecture**](architecture/index.md) — stack, data model, security contract.
+- :material-new-box: [**What's new**](changelog.md) — the notable changes per version.
 
 ---
 

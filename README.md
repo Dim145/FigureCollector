@@ -17,8 +17,9 @@ It works **offline-first**, is **installable on iOS / Android / Desktop**, and p
 - ☑️ **Bulk collection edit** — multi-select pieces to re-shelve, set condition, archive, or delete in one pass.
 - 🧾 **Proof-of-purchase** — attach receipts / invoices / customs slips (PDF / JPG / PNG / WebP) to a piece, stored as-is behind an owner-only proxy.
 - 🗄️ **Vitrines** — arrange your collection into glass display cabinets with drag-and-drop, plus a "where is…?" search.
-- 💴 **La Cote** — what your collection is worth vs what you paid, aggregated per currency, with a manual per-piece valuation and an **optional display-currency overlay** (ECB rates, off by default, never stored).
-- ⭐ **Wishlist** — target prices, an owned≠wishlist rule with at-a-glance catalogue markers, **bulk import from a public orzgk wishlist**, and a **shareable gift list** (public link, anonymous reservations hidden from you).
+- 💴 **La Cote, auto-priced** — what your collection is worth vs what you paid: an admin-scheduled sweep prices owned figures from the market (orzgk + proxy boutiques), historizes every change, and charts the evolution; your manual valuations always win.
+- 💱 **One display currency** — buy in ¥, € and $, read everything in your currency (ECB rates, on by default, originals on hover). Costs keep their **purchase-time exchange rate**, so the plus-value never drifts with the market.
+- ⭐ **Wishlist with price alerts** — target prices that notify you when the market dips below them, an owned≠wishlist rule with at-a-glance catalogue markers, **bulk import** (public orzgk wishlist · proxy-handled boutiques · MFC CSV), and a **shareable gift list** (public link, anonymous reservations hidden from you).
 - 🛒 **Pre-orders with deposit tracking** — record the upfront acompte (OrzGK / AmiAmi style), see the balance left to pay, and get notified when delivery is overdue.
 - ✂️ **Cancellations with refund accounting** — cancelled preorder + partial refund? The piece is auto-archived, the loss surfaces in the yearly recap.
 - 📸 **Photo gallery** — multi-upload, **edit in place** (crop / filters / background removal), per-user covers, NSFW blurring, 360° turntable scans, fullscreen lightbox with pinch-zoom.
@@ -26,7 +27,8 @@ It works **offline-first**, is **installable on iOS / Android / Desktop**, and p
 - 📊 **Insights & year-in-review** — spend over time, series completion, wishlist cost, next-milestone palier, and an annual recap with losses on cancellations.
 - 🏆 **Achievements** — milestone seals (印) the user collects as their collection grows.
 - 💾 **Data export** — your collection / wishlist / pre-orders as CSV or JSON, plus a one-file backup.
-- 🔔 **Notifications** — in-app + email + ntfy + webhook + Apprise + Web Push, with per-channel routing per event (release J-day, J-7, delivery today, delivery overdue, achievement unlocked, …).
+- 🔔 **Notifications** — in-app + email + ntfy + webhook + Apprise + Web Push, with per-channel routing per event (release J-day, J-7, delivery today, delivery overdue, price below target, achievement unlocked, …).
+- 🛠️ **Operator-friendly** — live admin settings (3D-creation policy, price-sweep cron), every scheduled job run historized with a manual re-trigger, worker fleet status.
 - 🔒 **Hardened from the kernel up** — `FROM scratch` backend, distroless nginx, read-only filesystems, dropped capabilities, no shell, no OpenSSL anywhere.
 
 ---
@@ -156,7 +158,7 @@ cp .env.example .env.prod        # then edit
 docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
 ```
 
-Required env vars (no defaults): `POSTGRES_PASSWORD`, `FRONTEND_URL`, `SESSION_SECRET`, `AUTH_CLIENT_ID`, `AUTH_CLIENT_SECRET`, `AUTH_REDIRECT_URI`, `API_DOMAIN`, `WEB_DOMAIN`.
+Required env vars (no defaults): `POSTGRES_PASSWORD`, `FRONTEND_URL`, `WEB_DOMAIN`, `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`. Everything else (OIDC providers, rate limiting, parcel tracking…) is optional — see the [environment-variables reference](https://dim145.github.io/FigureCollector/getting-started/env-vars/).
 
 ### Self-host the docs
 

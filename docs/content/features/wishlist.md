@@ -5,9 +5,21 @@ with an optional **target price** (*cible*) and a note.
 
 ## Target price & budget
 
-Set a target per piece; the header sums them into a **targets budget** (dominant
-currency). When a figure's MSRP sits at or below your target, its card flags the
-deal.
+Set a target per piece; the header sums them into a **targets budget**, shown
+in [your display currency](currency.md) with the ≈ marker. When a figure's
+market price or MSRP sits at or below your target, its card flags the deal.
+
+## Price alerts
+
+Targets aren't just decorative — the [market-price sweep](cote.md#market-prices-auto-tracked)
+checks them on every run. When a figure's fetched price lands **at or below
+your target** (same currency), a `wishlist_price_below_target` notification
+fires through whatever [channels](notifications.md) you routed it to: the
+in-app bell, email, ntfy, push…
+
+Each **price level** notifies once — you won't be re-pinged every sweep at the
+same price, but a further drop fires again. No cron scheduled by the admin →
+no alerts (the wishlist still flags deals against the catalogue MSRP).
 
 ## Acquérir
 

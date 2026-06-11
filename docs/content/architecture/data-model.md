@@ -20,19 +20,44 @@ A condensed reference of the main Postgres tables. The authoritative source is `
 | Table | Purpose | Key fields |
 |---|---|---|
 | `users` | User accounts | `username`, `email`, `password_hash`, `is_admin`, `nsfw_visibility`, `preferred_currency`, `public_profile_show_nsfw` |
-| `owned_items` | Personal collection rows | `figure_id`, `condition`, `price_amount`, `price_currency`, `shipping_amount`, `purchase_date`, `cover_photo_id`, `cover_scan_id`, `archived_at` |
+| `owned_items` | Personal collection rows | `figure_id`, `condition`, `price_amount`, `price_currency`, `shipping_amount`, **`price_fx_rate`**, `value_amount`, `value_currency`, `purchase_date`, `store_id`, `cover_photo_id`, `cover_scan_id`, `sort_order`, `archived_at` |
 | `photos` | Personal photos | `owned_item_id`, `storage_key`, `position` |
 | `scans` | 360° turntable frames | `owned_item_id`, `storage_keys` (array) |
-| `wishlist_items` | "Want to own" list | `figure_id`, `max_price_amount` |
+| `wishlist_items` | "Want to own" list | `figure_id`, `max_price_amount`, `max_price_currency`, `note` |
+
+Money columns always come in pairs — `NUMERIC(12,2)` amount + `CHAR(3)` ISO
+currency — and store the **original** amount; display conversion is a reading
+layer ([Money & currencies](../features/currency.md)). **`price_fx_rate`**
+(also on `preorders`) is the *currency → EUR* rate **frozen when the cost was
+recorded**, powering the drift-free plus-value; `NULL` (pre-v0.23 rows) falls
+back to today's rate.
 
 ## Pre-order lifecycle
 
 | Table | Purpose | Key fields |
 |---|---|---|
-| `preorders` | Pre-order rows tied to an owned_item | `owned_item_id` (unique), `status`, `release_date_original`, `release_date_current`, `tracking_url`, `price_amount`, **`deposit_amount`**, **`deposit_refund_amount`**, **`shipped_at`**, **`estimated_delivery_days`** |
+| `preorders` | Pre-order rows tied to an owned_item | `owned_item_id` (unique), `status`, `release_date_original`, `release_date_current`, `tracking_url`, `price_amount`, `price_currency`, `price_fx_rate`, `deposit_amount`, `deposit_refund_amount`, `shipped_at`, `estimated_delivery_days` |
 | `preorder_date_history` | Slip log | `preorder_id`, `previous_date`, `new_date`, `source`, `note` |
 
-The **bolded** columns are the recent additions (deposit, cancellation refund, delivery ETA).
+## Market prices
+
+| Table | Purpose | Key fields |
+|---|---|---|
+| `figure_provider_prices` | Latest fetched market price per figure (overwritten each sweep) | `figure_id` (PK), `amount`, `currency`, `source`, `matched_version`, `fetched_at` |
+| `figure_price_history` | Append-only price change points (only when the price moves) | `figure_id`, `amount`, `currency`, `source`, `matched_version`, `recorded_at` |
+
+Both are filled by the admin-scheduled [price sweep](../features/admin.md);
+the history drives the sparklines + evolution charts on
+[La Cote](../features/cote.md).
+
+## Operations
+
+| Table | Purpose | Key fields |
+|---|---|---|
+| `app_settings` | Live instance policies (no restart) | `key` (`gsplat.creation_policy`, `cote.price_cron`), `value` |
+| `server_job_runs` | Historized scheduled-job runs (30 kept per job) | `job_name`, `triggered_by`, `state`, `result` (JSONB), `error_message`, `started_at`, `finished_at` |
+| `external_lookups` | TTL cache for external fetches (FX rates, scrapes) | `provider`, `lookup_key`, `payload`, `fetched_at` |
+| `stores` | Boutique registry (slug-deduped, user-created) | `name`, `slug` |
 
 ## Notifications
 
@@ -68,6 +93,6 @@ The link itself lives on `users` — `manga_server_id` (→ `manga_servers`) + `
 
 ## Migrations
 
-All migrations live in `server/migrations/` as plain `.sql` files, wrapped by `server/src/migration/m20260524_*.rs` modules. The SeaORM `MigratorTrait` runs them in lexical order on backend boot.
+All migrations live in `server/migrations/` as plain `.sql` files, wrapped by `server/src/migration/m2026*_*.rs` modules. The SeaORM `MigratorTrait` runs them in lexical order on backend boot.
 
 Idempotent by design (`IF NOT EXISTS`, `OR REPLACE`), so a restart is always safe.

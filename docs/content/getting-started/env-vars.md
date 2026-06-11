@@ -1,19 +1,46 @@
 # Environment variables
 
-The backend refuses to start if any **required** variable is missing — fail-fast instead of running with a broken default.
+Exactly one variable is **required** — the backend refuses to start without it.
+Everything else has a sensible default or quietly disables its feature.
+The authoritative source is `server/src/config.rs`.
 
 ## Required
 
 | Variable | What |
 |---|---|
 | `DATABASE_URL` | Postgres connection string, e.g. `postgres://figurecollector:…@postgres:5432/figurecollector` |
-| `SESSION_SECRET` | 32+ bytes (hex or base64), used to sign session cookies |
-| `FRONTEND_URL` | Canonical URL of the SPA (used in OAuth redirects, push payloads) |
-| `AUTH_CLIENT_ID`, `AUTH_CLIENT_SECRET` | OIDC client credentials |
-| `AUTH_REDIRECT_URI` | OIDC redirect URI, must match what's registered with the IdP |
-| `AUTH_ISSUER_URL` | OIDC issuer (e.g. `https://accounts.google.com`) |
 
-## Optional — storage
+!!! note "No session secret"
+    Sessions are server-side rows in Postgres (`tower-sessions`), so there is
+    no `SESSION_SECRET` to generate or rotate.
+
+## Core
+
+| Variable | Default | What |
+|---|---|---|
+| `FC_BIND_ADDR` | `0.0.0.0:3000` | HTTP listen address of the backend. |
+| `FRONTEND_URL` | `http://localhost:5173` | Canonical public URL of the SPA — drives OIDC redirects and the session cookie's `Secure` flag (on for `https://`, off for plain-HTTP dev). |
+| `FC_COOKIE_INSECURE` | derived from `FRONTEND_URL` | Force-disable the `Secure` cookie flag (only for odd plain-HTTP setups behind TLS-terminating proxies). |
+
+## Authentication
+
+Local username/password sign-in (Argon2id) is always available; OIDC providers
+appear automatically once their credentials are set.
+
+| Variable | Default | What |
+|---|---|---|
+| `ALLOW_LOCAL_SIGNUP` | `true` | Allow self-service account creation. Set `false` for an OIDC-only (or invite-by-admin) instance. |
+| `OIDC_GOOGLE_CLIENT_ID` / `OIDC_GOOGLE_CLIENT_SECRET` | — | Enable the Google sign-in button. |
+| `OIDC_GOOGLE_ISSUER_URL` | `https://accounts.google.com` | Rarely changed. |
+| `OIDC_GOOGLE_DISPLAY_NAME` | `Google` | Button label. |
+| `OIDC_GOOGLE_SCOPES` | `openid,email,profile` | Comma-separated. |
+| `OIDC_GENERIC_CLIENT_ID` / `OIDC_GENERIC_CLIENT_SECRET` | — | Enable a generic OIDC provider (Authelia, Keycloak, Authentik, …). |
+| `OIDC_GENERIC_ISSUER_URL` | — | **Required** when the generic provider is enabled. |
+| `OIDC_GENERIC_DISPLAY_NAME` | `Single sign-on` | Button label. |
+| `OIDC_GENERIC_SCOPES` | `openid,email,profile` | Comma-separated. |
+| `OIDC_REDIRECT_BASE` | `FRONTEND_URL` | Base of the OIDC callback URL — override only when the API is reachable on a different origin than the SPA. |
+
+## Storage
 
 If unset, uploads fall back to the local filesystem under `./data/uploads`.
 
@@ -23,26 +50,33 @@ If unset, uploads fall back to the local filesystem under `./data/uploads`.
 | `S3_REGION` | `garage` | S3 region tag |
 | `S3_BUCKET` | `figurecollector` | Bucket name |
 | `S3_ACCESS_KEY`, `S3_SECRET_KEY` | — | Garage / S3 credentials |
-| `S3_PATH_STYLE` | `true` | Path-style URLs (required by Garage) |
+| `S3_FORCE_PATH_STYLE` | `true` | Path-style URLs (required by Garage) |
 
-## Optional — notifications
-
-| Variable | What |
-|---|---|
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Email channel |
-| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Web Push channel (generate with the admin panel) |
-| `NTFY_DEFAULT_URL` | Default ntfy server when the user doesn't override |
-
-## Optional — external metadata
+## External metadata
 
 | Variable | What |
 |---|---|
-| `MFC_PROXY_URL` | HTTP proxy used for MFC scraping (rate-limited to 1 req/s) |
-| `ANILIST_CLIENT_ID`, `ANILIST_CLIENT_SECRET` | AniList API |
-| `FIGURE_PROXY_URL` | Base URL of the boutique-scraping proxy (no trailing slash). When unset, the `/api/external/proxy/*` routes return `feature_disabled` and the SPA hides the proxy lookup UI. See [URL import](../features/url-import.md). |
+| `FIGURE_PROXY_URL` | Base URL of the boutique-scraping proxy (no trailing slash). When unset, the `/api/external/proxy/*` routes return `feature_disabled` and the SPA hides the proxy lookup UI. Also powers the [market-price sweep](../features/cote.md) for non-orzgk boutiques. See [URL import](../features/url-import.md). |
 | `FIGURE_PROXY_API_KEY` | Optional bearer token sent on every proxy call. |
 
-## Optional — rate limiting
+## Parcel tracking
+
+Best-effort carrier lookups for shipped pre-orders — each key enables its
+carrier, missing keys simply hide it.
+
+| Variable | Carrier |
+|---|---|
+| `COLISSIMO_API_KEY` | La Poste / Colissimo |
+| `DHL_API_KEY` | DHL |
+| `UPS_CLIENT_ID`, `UPS_CLIENT_SECRET` | UPS (OAuth2) |
+
+!!! note "Notifications are configured in the app, not here"
+    SMTP credentials, the Web-Push VAPID keypair, and ntfy defaults are all
+    managed by the admin **in the UI** (*Administration → Notifications*) and
+    stored in the database — there are no `SMTP_*` / `VAPID_*` environment
+    variables. See [Notifications](../features/notifications.md).
+
+## Rate limiting
 
 The built-in rate limiter (tower_governor) guards the auth routes
 (`/api/auth/*`) — login / register / OIDC callbacks — keyed by client
@@ -62,12 +96,12 @@ IP. It does **not** touch the rest of the API.
     "retry" button if frames still fail, so a transient 429 no longer
     leaves a hole in the rotation.
 
-## Optional — observability
+## Housekeeping & observability
 
-| Variable | What |
-|---|---|
-| `RUST_LOG` | `info` by default. Set to `debug` for chatty logs. |
-| `LOG_FORMAT` | `json` or `text`. Production defaults to `json`. |
+| Variable | Default | What |
+|---|---|---|
+| `GSPLAT_KEEP_COMPLETED` | `5` | How many successful gsplat scans to keep **per figurine** — older ones (rows + blobs) are pruned by the `scan_cleanup` job. Floored at 1. |
+| `RUST_LOG` | `info` | Set to `debug` for chatty logs. |
 
 ---
 
@@ -76,3 +110,6 @@ IP. It does **not** touch the rest of the API.
 - **Development**: `server/.env` (loaded by `dotenvy`).
 - **Production**: `.env.prod` consumed by `docker-compose.prod.yml --env-file`. Never commit this file.
 - **CI**: GitHub Actions secrets — `gh secret set NAME` from the repo root.
+
+Environment changes need a container restart — unlike the
+[admin settings](../features/admin.md), which apply live.
