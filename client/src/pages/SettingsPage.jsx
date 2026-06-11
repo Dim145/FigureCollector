@@ -5,6 +5,8 @@ import { useMe } from "../hooks/useMe.js";
 import { useChannels } from "../hooks/useNotifications.js";
 import { useUpdateProfile } from "../hooks/useProfile.js";
 import { useMyStats, useInsights } from "../hooks/useStats.js";
+import { useCurrencies } from "../hooks/useCurrencies.js";
+import { CURRENCY_LABELS } from "../lib/money.js";
 import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
 import Card from "../components/Card.jsx";
@@ -62,6 +64,7 @@ export default function SettingsPage() {
   // already fetched; default to 0 while loading / on error.
   const stats = useMyStats();
   const insights = useInsights();
+  const currencies = useCurrencies();
   const [bgModel, setBgModel] = useState(() => getPref("bgModel"));
   const [active, setActive] = useState("profile");
   const [copied, setCopied] = useState(false);
@@ -306,12 +309,10 @@ export default function SettingsPage() {
                   }
                   options={[
                     { value: "", label: t("settings.currency.none") },
-                    { value: "JPY", label: "JPY · Yen" },
-                    { value: "EUR", label: "EUR · Euro" },
-                    { value: "USD", label: "USD · US Dollar" },
-                    { value: "GBP", label: "GBP · British Pound" },
-                    { value: "CHF", label: "CHF · Swiss Franc" },
-                    { value: "CAD", label: "CAD · Canadian Dollar" },
+                    ...currencies.map((c) => ({
+                      value: c,
+                      label: CURRENCY_LABELS[c] || c,
+                    })),
                   ]}
                 />
               </div>

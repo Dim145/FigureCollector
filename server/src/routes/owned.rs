@@ -68,7 +68,15 @@ async fn add_mine(
     Json(input): Json<NewOwnedItem>,
 ) -> AppResult<(StatusCode, Json<owned::OwnedItem>)> {
     let user_id = auth::require_user(&session).await?;
-    let item = owned::create(&state.pool, user_id, input).await?;
+    // Freeze the cost→EUR rate at save time when a real price is recorded, so
+    // the collection's plus-value doesn't drift with the market rate later.
+    let price_fx_rate = match (&input.price_amount, input.price_currency.as_deref()) {
+        (Some(_), Some(cur)) => {
+            crate::external::fx::freeze_rate_to_eur(&state.pool, &state.http, cur).await
+        }
+        _ => None,
+    };
+    let item = owned::create(&state.pool, user_id, input, price_fx_rate).await?;
 
     // Activity log: snapshot the figure so renames/deletes don't break the feed.
     let mut snap = activity::figure_snapshot(&state.pool, item.figure_id).await;
@@ -150,7 +158,14 @@ async fn patch_mine(
     Json(input): Json<OwnedPatch>,
 ) -> AppResult<Json<owned::OwnedItem>> {
     let user_id = auth::require_user(&session).await?;
-    let updated = owned::patch(&state.pool, user_id, id, input).await?;
+    // Compute a fresh frozen rate for the patch's currency; the UPDATE only
+    // adopts it when the currency actually changes (or was never captured), so
+    // editing other fields never clobbers the purchase-time rate.
+    let price_fx_rate = match input.price_currency.as_deref() {
+        Some(cur) => crate::external::fx::freeze_rate_to_eur(&state.pool, &state.http, cur).await,
+        None => None,
+    };
+    let updated = owned::patch(&state.pool, user_id, id, input, price_fx_rate).await?;
     state
         .events
         .publish(user_id, Event::OwnedItemUpdated { owned_id: id });

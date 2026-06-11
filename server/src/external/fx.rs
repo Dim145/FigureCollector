@@ -11,6 +11,7 @@
 use crate::error::{AppError, AppResult};
 use crate::external::cache;
 use chrono::Duration;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::collections::BTreeMap;
@@ -65,4 +66,39 @@ pub async fn latest(pool: &PgPool, http: &reqwest::Client, base: &str) -> AppRes
         },
     )
     .await
+}
+
+impl FxRates {
+    /// Convert `amount` (in `cur`) to the table's base currency, e.g.
+    /// `amount / rates[cur]`. `cur == base` is the identity. Returns `None`
+    /// when `cur` isn't covered (or its rate is non-positive), so callers can
+    /// flag a total as partial rather than silently dropping the amount.
+    pub fn convert_to_base(&self, amount: Decimal, cur: &str) -> Option<Decimal> {
+        let cur = cur.trim().to_ascii_uppercase();
+        if cur == self.base {
+            return Some(amount);
+        }
+        let rate = Decimal::from_f64_retain(*self.rates.get(&cur)?)?;
+        if rate <= Decimal::ZERO {
+            return None;
+        }
+        Some(amount / rate)
+    }
+}
+
+/// The rate to freeze when a cost is recorded: units of `cur` per 1 EUR right
+/// now (EUR → 1). Stored on the row so the cost's EUR value is pinned to the
+/// purchase-time rate. Returns `None` when rates are unavailable or `cur` isn't
+/// covered — the caller stores NULL and display falls back to today's rate.
+pub async fn freeze_rate_to_eur(
+    pool: &PgPool,
+    http: &reqwest::Client,
+    cur: &str,
+) -> Option<Decimal> {
+    let cur = cur.trim().to_ascii_uppercase();
+    if cur == "EUR" {
+        return Some(Decimal::ONE);
+    }
+    let rates = latest(pool, http, "EUR").await.ok()?;
+    Decimal::from_f64_retain(*rates.rates.get(&cur)?).filter(|d| *d > Decimal::ZERO)
 }

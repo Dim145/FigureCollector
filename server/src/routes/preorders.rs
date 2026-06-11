@@ -29,7 +29,15 @@ async fn add_mine(
     Json(input): Json<NewPreorder>,
 ) -> AppResult<(StatusCode, Json<preorder::Preorder>)> {
     let user_id = auth::require_user(&session).await?;
-    let po = preorder::create(&state.pool, user_id, input).await?;
+    // Freeze the cost→EUR rate at save time when a real price is recorded
+    // (covers price + deposit + refund, which share price_currency).
+    let price_fx_rate = match (&input.price_amount, input.price_currency.as_deref()) {
+        (Some(_), Some(cur)) => {
+            crate::external::fx::freeze_rate_to_eur(&state.pool, &state.http, cur).await
+        }
+        _ => None,
+    };
+    let po = preorder::create(&state.pool, user_id, input, price_fx_rate).await?;
 
     let mut snap = activity::figure_snapshot(&state.pool, po.figure_id).await;
     if let Some(obj) = snap.as_object_mut() {
@@ -89,7 +97,13 @@ async fn patch_mine(
     .ok()
     .flatten();
 
-    let updated = preorder::patch(&state.pool, user_id, id, input).await?;
+    // Re-freeze the cost rate for the patch's currency; the UPDATE only adopts
+    // it on a real currency change (or first capture).
+    let price_fx_rate = match input.price_currency.as_deref() {
+        Some(cur) => crate::external::fx::freeze_rate_to_eur(&state.pool, &state.http, cur).await,
+        None => None,
+    };
+    let updated = preorder::patch(&state.pool, user_id, id, input, price_fx_rate).await?;
 
     if let Some((figure_id, prev_status, prev_date)) = before {
         let mut snap = activity::figure_snapshot(&state.pool, figure_id).await;

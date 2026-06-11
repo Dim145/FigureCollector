@@ -152,8 +152,6 @@ fn default_type() -> String {
 // They moved into the `figure_types` table (migration 21) so the admin can
 // curate the list at runtime. See `domain::figure_type::exists`.
 
-const ALLOWED_CURRENCIES_LEN: usize = 3;
-
 const FIGURE_COLUMNS: &str = "id, name, slug, manufacturer_id, sculptor_id, figure_type, scale, \
      height_mm, materials, release_date, msrp_amount, msrp_currency, jan, exclusivity, edition, \
      version_name, official_image_url, description, mfc_id, created_by, is_user_submitted, \
@@ -311,9 +309,9 @@ pub async fn create(pool: &PgPool, created_by: Uuid, input: NewFigure) -> AppRes
         return Err(AppError::BadRequest("invalid figure_type"));
     }
     if let Some(c) = &input.msrp_currency {
-        if c.len() != ALLOWED_CURRENCIES_LEN || !c.bytes().all(|b| b.is_ascii_uppercase()) {
+        if !crate::domain::currency::is_supported(c) {
             return Err(AppError::BadRequest(
-                "msrp_currency must be a 3-letter ISO 4217 code",
+                "msrp_currency must be a supported currency code",
             ));
         }
     }
@@ -596,9 +594,9 @@ pub async fn patch(pool: &PgPool, id: Uuid, input: FigurePatch) -> AppResult<Fig
         }
     }
     if let Some(c) = &input.msrp_currency {
-        if c.len() != ALLOWED_CURRENCIES_LEN || !c.bytes().all(|b| b.is_ascii_uppercase()) {
+        if !crate::domain::currency::is_supported(c) {
             return Err(AppError::BadRequest(
-                "msrp_currency must be a 3-letter ISO 4217 code",
+                "msrp_currency must be a supported currency code",
             ));
         }
     }

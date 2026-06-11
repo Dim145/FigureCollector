@@ -10,8 +10,21 @@
 // the rate captured at purchase time for cost basis — see the pricing-refonte
 // memory.)
 
-/** Currencies offered for display + input. One source of truth for the SPA. */
-export const DISPLAY_CURRENCIES = ["EUR", "USD", "GBP", "JPY", "CHF", "CAD"];
+/** Fallback currency list used until the server's `/api/currencies` (the real
+ *  source of truth — see useCurrencies) resolves, so pickers are never empty. */
+export const DISPLAY_CURRENCIES = ["EUR", "USD", "JPY", "GBP", "CHF", "CAD"];
+
+/** Presentation labels for the currency pickers (code → "CODE · Name"). The
+ *  canonical code list comes from the server; this only prettifies it, falling
+ *  back to the bare code for anything not mapped here. */
+export const CURRENCY_LABELS = {
+  EUR: "EUR · Euro",
+  USD: "USD · US Dollar",
+  JPY: "JPY · Yen",
+  GBP: "GBP · British Pound",
+  CHF: "CHF · Swiss Franc",
+  CAD: "CAD · Canadian Dollar",
+};
 
 // Per-currency minor-unit count, resolved once via Intl (JPY→0, EUR→2, BHD→3).
 // Caching matters: `t`/render paths call fmtMoney a lot.

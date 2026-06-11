@@ -53,6 +53,11 @@ pub struct CollectionStats {
     pub most_expensive: Vec<MostExpensive>,
     /// Average and median piece price per currency.
     pub price_distribution: Vec<PriceDistribution>,
+    /// Everything normalised to a single EUR figure (pricing refonte): cost at
+    /// the rate frozen at purchase, value at today's rate, plus-value as their
+    /// difference. `None` when the rate table is momentarily unavailable — the
+    /// SPA then falls back to the per-currency buckets above.
+    pub eur: Option<EurTotals>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -140,7 +145,29 @@ pub struct PriceDistribution {
     pub max: Decimal,
 }
 
-pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<CollectionStats> {
+#[derive(Debug, Clone, Serialize)]
+pub struct EurTotals {
+    /// Total cost (price + shipping, MSRP fallback) normalised to EUR — each
+    /// row at its frozen purchase-time rate, or today's rate when none was
+    /// captured (rows predating the price_fx_rate column).
+    pub spend: Decimal,
+    /// Total estimated value normalised to EUR at today's rate.
+    pub value: Decimal,
+    /// `value - spend`: the latent plus-value in EUR, free of FX drift on the
+    /// frozen cost side.
+    pub plus_value: Decimal,
+    /// Date of the rate table used for the today's-rate conversions.
+    pub fx_date: String,
+    /// True when some amount couldn't be converted (its currency was absent
+    /// from the rate table) and was left out — the SPA marks the total approx.
+    pub partial: bool,
+}
+
+pub async fn collection_stats(
+    pool: &PgPool,
+    http: &reqwest::Client,
+    user_id: Uuid,
+) -> AppResult<CollectionStats> {
     // All 14 of the queries below are independent (different aggregates over
     // the same user's data, no cross-row dependencies). Sea of `fetch_one` /
     // `fetch_all` calls used to run strictly sequentially — total latency
@@ -268,6 +295,25 @@ pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<Collect
          WHERE amount IS NOT NULL AND currency IS NOT NULL
          GROUP BY currency
          ORDER BY 2 DESC",
+    )
+    .bind(user_id)
+    .fetch_all(pool);
+
+    // ----- Cost rows for EUR normalisation -----------------------------------
+    // One row per owned item with a recorded cost (price, else MSRP) + shipping,
+    // carrying the per-row FROZEN rate captured at purchase. The EUR spend total
+    // is summed in Rust below: frozen rate where present, today's rate as the
+    // graceful fallback for rows saved before the column existed. Mirrors the
+    // spend-bucket cost basis so the two stay consistent.
+    let eur_cost_rows_fut = sqlx::query_as::<_, (String, Decimal, Option<Decimal>)>(
+        "SELECT COALESCE(o.price_currency, f.msrp_currency)                                       AS currency,
+                (COALESCE(o.price_amount, f.msrp_amount) + COALESCE(o.shipping_amount, 0))::numeric AS amount,
+                o.price_fx_rate
+         FROM owned_items o
+         JOIN figures f ON f.id = o.figure_id
+         WHERE o.user_id = $1
+           AND COALESCE(o.price_amount, f.msrp_amount) IS NOT NULL
+           AND COALESCE(o.price_currency, f.msrp_currency) IS NOT NULL",
     )
     .bind(user_id)
     .fetch_all(pool);
@@ -418,6 +464,7 @@ pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<Collect
         year_rows,
         most_expensive_rows,
         price_rows,
+        eur_cost_rows,
     ) = tokio::try_join!(
         total_pieces,
         distinct_types,
@@ -435,6 +482,7 @@ pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<Collect
         year_rows_fut,
         most_expensive_rows_fut,
         price_rows_fut,
+        eur_cost_rows_fut,
     )?;
 
     let mut preorders = PreorderSummary {
@@ -468,7 +516,7 @@ pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<Collect
             },
         )
         .collect();
-    let value_by_currency = value_rows
+    let value_by_currency: Vec<ValueBucket> = value_rows
         .into_iter()
         .map(
             |(currency, estimated_total, pieces_valued, pieces_auto, pieces_msrp, pieces_total)| {
@@ -530,6 +578,44 @@ pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<Collect
         })
         .collect();
 
+    // EUR-normalised totals (pricing refonte): cost at the rate frozen when it
+    // was recorded — today's rate as a graceful fallback for rows saved before
+    // the price_fx_rate column existed — and value at today's rate. Computing
+    // it here, where the per-row frozen rate lives, keeps the plus-value free
+    // of FX drift on the cost side. Resilient: if the rate table can't be
+    // fetched, `eur` is None and the SPA falls back to the per-currency buckets.
+    let eur = match crate::external::fx::latest(pool, http, "EUR").await {
+        Ok(rates) => {
+            let mut spend = Decimal::ZERO;
+            let mut value = Decimal::ZERO;
+            let mut partial = false;
+            for (currency, amount, frozen) in &eur_cost_rows {
+                let converted = match frozen {
+                    Some(rate) if *rate > Decimal::ZERO => Some(*amount / *rate),
+                    _ => rates.convert_to_base(*amount, currency),
+                };
+                match converted {
+                    Some(v) => spend += v,
+                    None => partial = true,
+                }
+            }
+            for bucket in &value_by_currency {
+                match rates.convert_to_base(bucket.estimated_total, &bucket.currency) {
+                    Some(v) => value += v,
+                    None => partial = true,
+                }
+            }
+            Some(EurTotals {
+                spend,
+                value,
+                plus_value: value - spend,
+                fx_date: rates.date,
+                partial,
+            })
+        }
+        Err(_) => None,
+    };
+
     Ok(CollectionStats {
         total_pieces,
         distinct_types,
@@ -547,6 +633,7 @@ pub async fn collection_stats(pool: &PgPool, user_id: Uuid) -> AppResult<Collect
         acquisitions_by_year,
         most_expensive,
         price_distribution,
+        eur,
     })
 }
 

@@ -82,9 +82,9 @@ const SELECT: &str = "
 
 fn check_currency(c: &Option<String>) -> AppResult<()> {
     if let Some(c) = c {
-        if c.len() != 3 || !c.bytes().all(|b| b.is_ascii_uppercase()) {
+        if !crate::domain::currency::is_supported(c) {
             return Err(AppError::BadRequest(
-                "max_price_currency must be ISO 4217 (3 chars)",
+                "max_price_currency must be a supported currency code",
             ));
         }
     }

@@ -16,7 +16,9 @@ async fn my_stats(
     session: Session,
 ) -> AppResult<Json<CollectionStats>> {
     let user_id = auth::require_user(&session).await?;
-    Ok(Json(stats::collection_stats(&state.pool, user_id).await?))
+    Ok(Json(
+        stats::collection_stats(&state.pool, &state.http, user_id).await?,
+    ))
 }
 
 /// Deeper insights (Lot 5): spend-over-time, series completion, wishlist value,

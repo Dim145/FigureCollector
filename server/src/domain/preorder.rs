@@ -142,14 +142,19 @@ const ALLOWED_STATUS: &[&str] = &[
     "cancelled",
 ];
 
-pub async fn create(pool: &PgPool, user_id: Uuid, input: NewPreorder) -> AppResult<Preorder> {
+pub async fn create(
+    pool: &PgPool,
+    user_id: Uuid,
+    input: NewPreorder,
+    price_fx_rate: Option<Decimal>,
+) -> AppResult<Preorder> {
     if !ALLOWED_STATUS.contains(&input.status.as_str()) {
         return Err(AppError::BadRequest("invalid status"));
     }
     if let Some(c) = &input.price_currency {
-        if c.len() != 3 || !c.bytes().all(|b| b.is_ascii_uppercase()) {
+        if !crate::domain::currency::is_supported(c) {
             return Err(AppError::BadRequest(
-                "price_currency must be a 3-letter ISO 4217 code",
+                "price_currency must be a supported currency code",
             ));
         }
     }
@@ -167,11 +172,11 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewPreorder) -> AppResu
             id, user_id, figure_id, status, store_id, order_ref, tracking_url,
             release_date_original, release_date_current,
             price_amount, price_currency, deposit_amount, deposit_refund_amount,
-            estimated_delivery_days, shipped_at, notes
+            estimated_delivery_days, shipped_at, notes, price_fx_rate
          ) VALUES (
             $1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10,$11,$12,$13,
             CASE WHEN $4 = 'shipped' THEN NOW() ELSE NULL END,
-            $14
+            $14, $15
          )
          RETURNING id, user_id, figure_id, status, store_id, order_ref, tracking_url,
                    release_date_original, release_date_current,
@@ -194,6 +199,7 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewPreorder) -> AppResu
     .bind(input.deposit_refund_amount)
     .bind(input.estimated_delivery_days)
     .bind(&input.notes)
+    .bind(price_fx_rate)
     .fetch_one(pool)
     .await
     .map_err(|e| match e {
@@ -242,6 +248,7 @@ pub async fn patch(
     user_id: Uuid,
     id: Uuid,
     input: PreorderPatch,
+    price_fx_rate: Option<Decimal>,
 ) -> AppResult<Preorder> {
     if let Some(s) = &input.status {
         if !ALLOWED_STATUS.contains(&s.as_str()) {
@@ -249,9 +256,9 @@ pub async fn patch(
         }
     }
     if let Some(c) = &input.price_currency {
-        if c.len() != 3 || !c.bytes().all(|b| b.is_ascii_uppercase()) {
+        if !crate::domain::currency::is_supported(c) {
             return Err(AppError::BadRequest(
-                "price_currency must be a 3-letter ISO 4217 code",
+                "price_currency must be a supported currency code",
             ));
         }
     }
@@ -328,7 +335,15 @@ pub async fn patch(
                 WHEN $1 = 'shipped' AND shipped_at IS NULL THEN NOW()
                 ELSE shipped_at
             END,
-            notes                   = COALESCE($12, notes)
+            notes                   = COALESCE($12, notes),
+            -- Re-freeze the cost→EUR rate only on a real currency change (or
+            -- first capture); editing any other field keeps the purchase-time
+            -- rate, even if the SPA resends the unchanged currency.
+            price_fx_rate           = CASE
+                WHEN $7 IS NOT NULL AND ($7 <> price_currency OR price_fx_rate IS NULL)
+                    THEN COALESCE($15, price_fx_rate)
+                ELSE price_fx_rate
+              END
          WHERE id = $13 AND user_id = $14
          RETURNING id, user_id, figure_id, status, store_id, order_ref, tracking_url,
                    release_date_original, release_date_current,
@@ -353,6 +368,7 @@ pub async fn patch(
     .bind(&input.notes)
     .bind(id)
     .bind(user_id)
+    .bind(price_fx_rate)
     .fetch_one(&mut *tx)
     .await?;
 

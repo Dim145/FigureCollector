@@ -257,11 +257,6 @@ struct ProfileResponse {
     preferred_currency: Option<String>,
 }
 
-/// Currencies the SPA actually surfaces in its dropdowns. Anything else
-/// would be selectable in the user's row but invisible in the UI — keep
-/// the two sides in sync.
-const SUPPORTED_CURRENCIES: &[&str] = &["JPY", "EUR", "USD", "GBP", "CHF", "CAD"];
-
 async fn patch_my_profile(
     State(state): State<AppState>,
     session: Session,
@@ -281,9 +276,9 @@ async fn patch_my_profile(
         None => None,                 // leave untouched
         Some("") => Some(None),       // clear back to "no preference"
         Some(code) => {
-            if !SUPPORTED_CURRENCIES.contains(&code) {
+            if !crate::domain::currency::is_supported(code) {
                 return Err(crate::error::AppError::BadRequest(
-                    "preferred_currency must be one of: JPY, EUR, USD, GBP, CHF, CAD",
+                    "preferred_currency must be a supported currency code",
                 ));
             }
             Some(Some(code.to_string()))
@@ -447,6 +442,15 @@ async fn compare(
     }))
 }
 
+// --- GET /api/currencies -----------------------------------------------------
+
+/// The single supported-currency list (`domain::currency::SUPPORTED`) so the
+/// SPA renders its currency pickers from the server's source of truth instead
+/// of a hard-coded copy. Static + non-sensitive, so no auth.
+async fn list_currencies() -> Json<&'static [&'static str]> {
+    Json(crate::domain::currency::SUPPORTED)
+}
+
 // --- router ------------------------------------------------------------------
 
 pub fn router() -> Router<AppState> {
@@ -454,4 +458,5 @@ pub fn router() -> Router<AppState> {
         .route("/u/{slug}", get(get_public_profile))
         .route("/me/profile", patch_method(patch_my_profile))
         .route("/compare/{slug}", get(compare))
+        .route("/currencies", get(list_currencies))
 }

@@ -525,15 +525,25 @@ function SpendLedger({ data, t }) {
     [data.acquisitions_by_year],
   );
 
-  // One "all-in" figure across every spend currency, in the display currency
-  // (today's rate). The per-currency rows below stay the exact breakdown — this
-  // only adds the single total the user asked for. Shown when conversion is on
-  // and it actually merges more than one currency.
+  // One "all-in" spend figure across every currency, in the display currency.
+  // Phase 2: prefer the server's EUR-normalised spend (cost at the rate frozen
+  // at purchase — `data.eur.spend`) so it matches La Cote's "total payé"; fall
+  // back to a today's-rate client sum of the buckets. The per-currency rows
+  // below stay the exact breakdown. Shown only when conversion merges >1
+  // currency or actually converts.
   const buckets = data.spend_by_currency ?? [];
-  const conv =
-    dc.active && dc.ready && buckets.length > 0
-      ? sumInDisplay(dc.rates, dc.display, buckets, "grand_total")
-      : null;
+  const conv = (() => {
+    if (!(dc.active && dc.ready) || buckets.length === 0) return null;
+    const eur = data.eur;
+    if (eur) {
+      const perEur = dc.display === "EUR" ? 1 : Number(dc.rates?.[dc.display]);
+      if (perEur > 0) {
+        const converted = buckets.length > 1 || buckets[0].currency !== dc.display;
+        return { amount: Number(eur.spend) * perEur, converted };
+      }
+    }
+    return sumInDisplay(dc.rates, dc.display, buckets, "grand_total");
+  })();
   const showConv = conv && (buckets.length > 1 || conv.converted);
   return (
     <Card className="relative p-7 overflow-hidden">
@@ -555,7 +565,7 @@ function SpendLedger({ data, t }) {
       {showConv ? (
         <div className="mb-6 pb-5 border-b border-dashed border-[var(--color-or)]/20">
           <p className="ledger-figure" style={{ color: "var(--color-or)" }}>
-            <Money amount={conv.amount} currency={dc.display} approx round />
+            <Money amount={conv.amount} currency={dc.display} approx={conv.converted} round />
           </p>
           <p className="ledger-caption mt-1">
             {t("stats.spend.all_currencies")}

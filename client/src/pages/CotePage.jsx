@@ -73,23 +73,19 @@ export default function CotePage() {
       : null;
 
   // Display-currency conversion (on by default — see DisplayCurrencyProvider).
-  // Sums every per-currency bucket into the chosen display currency at today's
-  // rate — approximate, never stored; the per-currency truth stays the footnote
-  // below the converted figure. Off / no preferred currency → the dominant
-  // per-currency bucket, exactly as the rows read.
+  // Phase 2: prefer the server's EUR-normalised totals (`stats.eur`) — cost at
+  // the rate FROZEN at purchase, value at today's rate — then convert that one
+  // EUR figure into the display currency. This keeps the latent plus-value free
+  // of FX drift on the cost side. Falls back to a client-side per-currency sum
+  // at today's rate if the server couldn't compute them (rate table down). The
+  // per-currency originals stay the footnote; off / no preferred currency → the
+  // dominant per-currency bucket, exactly as the rows read.
   const dc = useDisplayCurrency();
   const fxActive = dc.active && dc.ready;
-  // Sum each per-currency bucket into the display currency at today's rate, via
-  // a local reduce that hands toDisplay only primitives (the bucket's amount +
-  // currency) — never the bucket object. A stats bucket aliases `primary` (the
-  // `evo` memo's dep), and the React Compiler treats the imported toDisplay as
-  // possibly mutating its args; passing only primitives keeps `evo` optimizable.
-  // Converted totals (today's rate, EUR-anchored), computed inside a memo so the
-  // per-bucket reduce stays OUT of render scope. In render scope it sat next to
-  // `primary = valueBuckets[0]` — the `evo` memo's dependency — and the React
-  // Compiler then couldn't prove that dep stable, refusing to preserve `evo`'s
-  // memoization. Isolating the reduce here fixes it. (lib/money's sumInDisplay
-  // is fine on pages where no bucket aliases a memo dependency.)
+  const serverEur = stats.data?.eur ?? null;
+  // Done in a memo so the per-bucket reduce + EUR math stay OUT of render scope:
+  // there they sat beside `primary = valueBuckets[0]` (the `evo` memo's dep) and
+  // the React Compiler refused to preserve evo's memoization.
   const { convValue, convPaid } = useMemo(() => {
     if (!fxActive) return { convValue: null, convPaid: null };
     const eurRate = (cur) => {
@@ -98,6 +94,14 @@ export default function CotePage() {
       const r = dc.rates?.[c];
       return r != null && Number(r) > 0 ? Number(r) : null;
     };
+    // EUR → display: units of the display currency per 1 EUR.
+    const displayPerEur = eurRate(dc.display);
+    if (serverEur && displayPerEur != null) {
+      return {
+        convValue: Number(serverEur.value) * displayPerEur,
+        convPaid: Number(serverEur.spend) * displayPerEur,
+      };
+    }
     const sum = (buckets, field) =>
       buckets.reduce((s, b) => {
         const rf = eurRate(b.currency);
@@ -109,7 +113,7 @@ export default function CotePage() {
       convValue: sum(valueBuckets, "estimated_total"),
       convPaid: sum(spendBuckets, "grand_total"),
     };
-  }, [fxActive, dc.rates, dc.display, valueBuckets, spendBuckets]);
+  }, [fxActive, serverEur, dc.rates, dc.display, valueBuckets, spendBuckets]);
   const convPlus =
     convValue != null && convPaid != null ? convValue - convPaid : null;
   const convPlusPct =

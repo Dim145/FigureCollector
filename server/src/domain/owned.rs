@@ -153,13 +153,20 @@ const OWNED_RETURNING: &str =
      store_id, purchase_date, location, notes, cover_photo_id, cover_scan_id, \
      archived_at, created_at, updated_at";
 
-pub async fn create(pool: &PgPool, user_id: Uuid, input: NewOwnedItem) -> AppResult<OwnedItem> {
+pub async fn create(
+    pool: &PgPool,
+    user_id: Uuid,
+    input: NewOwnedItem,
+    price_fx_rate: Option<Decimal>,
+) -> AppResult<OwnedItem> {
     if !ALLOWED_CONDITIONS.contains(&input.condition.as_str()) {
         return Err(AppError::BadRequest("invalid condition"));
     }
     if let Some(c) = &input.price_currency {
-        if c.len() != 3 || !c.bytes().all(|b| b.is_ascii_uppercase()) {
-            return Err(AppError::BadRequest("price_currency must be ISO 4217 (3 chars)"));
+        if !crate::domain::currency::is_supported(c) {
+            return Err(AppError::BadRequest(
+                "price_currency must be a supported currency code",
+            ));
         }
     }
     if input.notes.as_deref().is_some_and(|n| n.len() > 4096) {
@@ -179,8 +186,8 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewOwnedItem) -> AppRes
     let sql = format!(
         "INSERT INTO owned_items (
             id, user_id, figure_id, condition, price_amount, price_currency, shipping_amount,
-            store_id, purchase_date, location, notes
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+            store_id, purchase_date, location, notes, price_fx_rate
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
          RETURNING {OWNED_RETURNING}"
     );
 
@@ -196,6 +203,7 @@ pub async fn create(pool: &PgPool, user_id: Uuid, input: NewOwnedItem) -> AppRes
         .bind(input.purchase_date)
         .bind(&input.location)
         .bind(&input.notes)
+        .bind(price_fx_rate)
         .fetch_one(pool)
         .await
         .map_err(|e| match e {
@@ -230,18 +238,21 @@ pub async fn patch(
     user_id: Uuid,
     id: Uuid,
     input: OwnedPatch,
+    price_fx_rate: Option<Decimal>,
 ) -> AppResult<OwnedItem> {
     if let Some(c) = &input.condition {
         if !ALLOWED_CONDITIONS.contains(&c.as_str()) {
             return Err(AppError::BadRequest("invalid condition"));
         }
     }
-    // Same ISO-4217 floor as create()/set_value(). Without it, a PATCH could
-    // store "eur"/"euros" and split one real currency into bogus per-currency
-    // buckets in /api/me/stats (which group by this raw string).
+    // Same supported-currency floor as create()/set_value(). Without it, a
+    // PATCH could store "eur"/"BTC" and split one real currency into bogus
+    // per-currency buckets in /api/me/stats (which group by this raw string).
     if let Some(c) = &input.price_currency {
-        if c.len() != 3 || !c.bytes().all(|b| b.is_ascii_uppercase()) {
-            return Err(AppError::BadRequest("price_currency must be ISO 4217 (3 chars)"));
+        if !crate::domain::currency::is_supported(c) {
+            return Err(AppError::BadRequest(
+                "price_currency must be a supported currency code",
+            ));
         }
     }
 
@@ -262,8 +273,17 @@ pub async fn patch(
             store_id         = COALESCE($5, store_id),
             purchase_date    = COALESCE($6, purchase_date),
             location         = COALESCE($7, location),
-            notes            = COALESCE($8, notes)
-         WHERE id = $9 AND user_id = $10
+            notes            = COALESCE($8, notes),
+            -- Re-freeze the cost→EUR rate only when the currency actually
+            -- changes (or was never captured); editing any other field leaves
+            -- the purchase-time rate untouched, even if the SPA resends the
+            -- unchanged currency in a full-payload patch.
+            price_fx_rate    = CASE
+                WHEN $3 IS NOT NULL AND ($3 <> price_currency OR price_fx_rate IS NULL)
+                    THEN COALESCE($9, price_fx_rate)
+                ELSE price_fx_rate
+              END
+         WHERE id = $10 AND user_id = $11
          RETURNING {OWNED_RETURNING}"
     );
 
@@ -276,6 +296,7 @@ pub async fn patch(
         .bind(input.purchase_date)
         .bind(&input.location)
         .bind(&input.notes)
+        .bind(price_fx_rate)
         .bind(id)
         .bind(user_id)
         .fetch_optional(pool)
@@ -299,9 +320,9 @@ pub async fn set_value(
     let (amount, currency) = match amount {
         Some(a) => {
             if let Some(c) = &currency {
-                if c.len() != 3 || !c.bytes().all(|b| b.is_ascii_uppercase()) {
+                if !crate::domain::currency::is_supported(c) {
                     return Err(AppError::BadRequest(
-                        "value_currency must be ISO 4217 (3 chars)",
+                        "value_currency must be a supported currency code",
                     ));
                 }
             }
