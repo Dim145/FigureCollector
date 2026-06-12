@@ -14,7 +14,7 @@ import StatCard from "../components/StatCard.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import Money from "../components/Money.jsx";
 import { useDisplayCurrency } from "../components/DisplayCurrencyProvider.jsx";
-import { fmtMoney, sumInDisplay } from "../lib/money.js";
+import { fmtMoney, sumInDisplay, rateToEur } from "../lib/money.js";
 
 const coverFor = (it) =>
   it.catalog_cover_photo_id ? `/api/figure-photos/${it.catalog_cover_photo_id}` : it.figure_image || null;
@@ -36,15 +36,24 @@ const marketPrice = (it) => {
   return null;
 };
 
-const dealIsMet = (it, prefCurrency) => {
+// A deal compares the market price against the target ACROSS currencies: same
+// currency is a direct compare, otherwise both convert to EUR via the display
+// provider's rate table (mirrors the server's wishlist alert). When a rate is
+// missing — or the table isn't loaded (conversion off / no preferred currency)
+// — it falls back to same-currency only.
+const dealIsMet = (it, prefCurrency, rates) => {
   const m = marketPrice(it);
-  return (
-    it.max_price_amount != null &&
-    m != null &&
-    (it.max_price_currency || prefCurrency) ===
-      (m.currency || it.max_price_currency || prefCurrency) &&
-    m.amount <= Number(it.max_price_amount)
-  );
+  if (it.max_price_amount == null || m == null) return false;
+  const target = Number(it.max_price_amount);
+  const targetCur = it.max_price_currency || prefCurrency;
+  const priceCur = m.currency || targetCur;
+  if (!targetCur || !priceCur || targetCur === priceCur) {
+    return m.amount <= target;
+  }
+  const rt = rateToEur(rates, targetCur);
+  const rp = rateToEur(rates, priceCur);
+  if (rt == null || rp == null) return false;
+  return m.amount / rp <= target / rt;
 };
 
 /**
@@ -104,8 +113,8 @@ export default function WishlistPage() {
     [items],
   );
   const dealsMet = useMemo(
-    () => items.filter((it) => dealIsMet(it, prefCurrency)).length,
-    [items, prefCurrency],
+    () => items.filter((it) => dealIsMet(it, prefCurrency, dc.rates)).length,
+    [items, prefCurrency, dc.rates],
   );
 
   const [editId, setEditId] = useState(null);
@@ -329,8 +338,9 @@ function WishItem({
   saving,
   acquiring,
 }) {
+  const dc = useDisplayCurrency();
   const priced = it.max_price_amount != null;
-  const deal = dealIsMet(it, prefCurrency);
+  const deal = dealIsMet(it, prefCurrency, dc.rates);
   const currency = it.max_price_currency || prefCurrency;
 
   return (

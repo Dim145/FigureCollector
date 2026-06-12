@@ -14,6 +14,10 @@ detail live in the [git history](https://github.com/Dim145/FigureCollector/commi
 - **Proxy contract**: price objects should now report the shop's ISO 4217
   currency — proxies that don't keep working (amounts read as USD).
   → [URL import](features/url-import.md#currencies)
+- **Wishlist price alerts are now cross-currency** — a €50 target catches a
+  $45 price (both converted through today's ECB rate), instead of only firing
+  on an exact currency match. Same for the deal badge on the cards.
+  → [Wishlist](features/wishlist.md#price-alerts)
 
 ## 0.23 — one currency, honest gains
 

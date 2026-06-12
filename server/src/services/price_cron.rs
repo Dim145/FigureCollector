@@ -285,10 +285,12 @@ pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
 }
 
 /// Fire `wishlist_price_below_target` for every user whose wishlist target on
-/// this figure is met by the freshly observed market price. Same-currency
-/// comparison only (the app has no stored FX); best-effort — an error here
-/// never aborts the sweep. Dedup key = `{figure_id}:{amount}`, so each price
-/// LEVEL notifies once and a further drop re-fires.
+/// this figure is met by the freshly observed market price. The comparison is
+/// **cross-currency**: same currency compares directly, otherwise both sides
+/// convert through the EUR table (today's rate) — so a €50 target catches a
+/// $45 price. Best-effort — an error here never aborts the sweep. Dedup key =
+/// `{figure_id}:{amount}`, so each price LEVEL notifies once and a further
+/// drop re-fires.
 async fn notify_wishlist_targets(
     state: &AppState,
     figure_id: Uuid,
@@ -311,17 +313,25 @@ async fn notify_wishlist_targets(
             return;
         }
     };
+    if rows.is_empty() {
+        return;
+    }
+
+    // One EUR table for every cross-currency comparison this figure needs
+    // (cached 12h). On a fetch failure we degrade to same-currency-only —
+    // never worse than the old behaviour — via `target_met`'s None arm.
+    let rates = crate::external::fx::latest(&state.pool, &state.http, "EUR")
+        .await
+        .ok();
 
     for (user_id, target, target_currency, figure_name) in rows {
-        let same_currency = match (currency, target_currency.as_deref()) {
-            (Some(a), Some(b)) => a.trim().eq_ignore_ascii_case(b.trim()),
-            // A target without a currency adopts the observed one (mirrors
-            // the SPA's dealIsMet fallback); an uncurrencied price never
-            // matches an explicit target currency.
-            (_, None) => true,
-            (None, Some(_)) => false,
-        };
-        if !same_currency || amount > target {
+        if !target_met(
+            rates.as_ref(),
+            amount,
+            currency,
+            target,
+            target_currency.as_deref(),
+        ) {
             continue;
         }
         let dedup = format!("{figure_id}:{amount}");
@@ -340,6 +350,35 @@ async fn notify_wishlist_targets(
             Some(&dedup),
         )
         .await;
+    }
+}
+
+/// Is the observed market price at or below a wishlist target?
+///
+/// - same currency (case-insensitive) → direct compare;
+/// - target with no currency → adopts the observed one (the SPA's fallback);
+/// - different currencies → convert both through the EUR `rates` table and
+///   compare there;
+/// - can't be compared (a currency missing from the table, no rates at all, or
+///   an uncurrencied price against an explicit target) → `false`.
+fn target_met(
+    rates: Option<&crate::external::fx::FxRates>,
+    amount: Decimal,
+    currency: Option<&str>,
+    target: Decimal,
+    target_currency: Option<&str>,
+) -> bool {
+    match (currency, target_currency) {
+        (_, None) => amount <= target,
+        (None, Some(_)) => false,
+        (Some(a), Some(b)) if a.trim().eq_ignore_ascii_case(b.trim()) => amount <= target,
+        (Some(a), Some(b)) => match rates {
+            Some(r) => match (r.convert_to_base(amount, a), r.convert_to_base(target, b)) {
+                (Some(price_eur), Some(target_eur)) => price_eur <= target_eur,
+                _ => false,
+            },
+            None => false,
+        },
     }
 }
 
@@ -612,5 +651,53 @@ mod tests {
             reconstruct_url("https://shop.example/", "product/abc"),
             "https://shop.example/product/abc"
         );
+    }
+
+    fn fx() -> crate::external::fx::FxRates {
+        let mut rates = std::collections::BTreeMap::new();
+        rates.insert("USD".into(), 1.1); // €1 = $1.10
+        rates.insert("JPY".into(), 160.0);
+        crate::external::fx::FxRates {
+            base: "EUR".into(),
+            date: "2026-06-12".into(),
+            rates,
+        }
+    }
+
+    fn d(s: &str) -> Decimal {
+        s.parse().unwrap()
+    }
+
+    #[test]
+    fn target_met_same_currency_direct_compare() {
+        let r = fx();
+        assert!(target_met(Some(&r), d("45"), Some("USD"), d("50"), Some("USD")));
+        assert!(!target_met(Some(&r), d("55"), Some("USD"), d("50"), Some("USD")));
+    }
+
+    #[test]
+    fn target_met_cross_currency_converts_through_eur() {
+        let r = fx();
+        // $45 = €40.91; a €50 target is met. $60 = €54.55 is not.
+        assert!(target_met(Some(&r), d("45"), Some("USD"), d("50"), Some("EUR")));
+        assert!(!target_met(Some(&r), d("60"), Some("USD"), d("50"), Some("EUR")));
+        // ¥6400 = €40; €50 target met.
+        assert!(target_met(Some(&r), d("6400"), Some("JPY"), d("50"), Some("EUR")));
+    }
+
+    #[test]
+    fn target_met_targetless_adopts_observed() {
+        let r = fx();
+        assert!(target_met(Some(&r), d("45"), Some("HKD"), d("50"), None));
+        assert!(!target_met(Some(&r), d("55"), Some("HKD"), d("50"), None));
+    }
+
+    #[test]
+    fn target_met_uncomparable_is_false() {
+        let r = fx();
+        // No rate table at all → cross-currency can't be compared.
+        assert!(!target_met(None, d("45"), Some("USD"), d("50"), Some("EUR")));
+        // A priced-but-uncurrencied observation vs an explicit target.
+        assert!(!target_met(Some(&r), d("45"), None, d("50"), Some("EUR")));
     }
 }

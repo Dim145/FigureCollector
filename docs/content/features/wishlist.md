@@ -13,9 +13,11 @@ market price or MSRP sits at or below your target, its card flags the deal.
 
 Targets aren't just decorative — the [market-price sweep](cote.md#market-prices-auto-tracked)
 checks them on every run. When a figure's fetched price lands **at or below
-your target** (same currency), a `wishlist_price_below_target` notification
-fires through whatever [channels](notifications.md) you routed it to: the
-in-app bell, email, ntfy, push…
+your target**, a `wishlist_price_below_target` notification fires through
+whatever [channels](notifications.md) you routed it to: the in-app bell,
+email, ntfy, push… The comparison is **cross-currency** — a €50 target catches
+a $45 price, both converted through today's ECB rate (the same conversion
+behind [the deal badge](#target-price-budget) on the cards).
 
 Each **price level** notifies once — you won't be re-pinged every sweep at the
 same price, but a further drop fires again. No cron scheduled by the admin →
