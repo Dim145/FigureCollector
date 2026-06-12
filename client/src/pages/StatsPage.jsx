@@ -525,12 +525,13 @@ function SpendLedger({ data, t }) {
     [data.acquisitions_by_year],
   );
 
-  // One "all-in" spend figure across every currency, in the display currency.
-  // Phase 2: prefer the server's EUR-normalised spend (cost at the rate frozen
-  // at purchase — `data.eur.spend`) so it matches La Cote's "total payé"; fall
-  // back to a today's-rate client sum of the buckets. The per-currency rows
-  // below stay the exact breakdown. Shown only when conversion merges >1
-  // currency or actually converts.
+  // One "all-in" SPEND figure across every currency, in the display currency:
+  // the total outlay including shipping (`data.eur.spend`, costs at the rate
+  // frozen at purchase). This is the spend ledger, so it keeps shipping — it
+  // intentionally differs from La Cote's "payé", which is the figure cost only
+  // (the plus-value basis). Falls back to a today's-rate client sum of the
+  // bucket grand_totals. Shown only when conversion merges >1 currency or
+  // actually converts.
   const buckets = data.spend_by_currency ?? [];
   const conv = (() => {
     if (!(dc.active && dc.ready) || buckets.length === 0) return null;

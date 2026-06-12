@@ -18,6 +18,11 @@ detail live in the [git history](https://github.com/Dim145/FigureCollector/commi
   $45 price (both converted through today's ECB rate), instead of only firing
   on an exact currency match. Same for the deal badge on the cards.
   → [Wishlist](features/wishlist.md#price-alerts)
+- **Plus-value excludes shipping** — the latent gain now compares value against
+  the figure **price** only (deposit included), not price + shipping. Shipping
+  is a sunk cost a resale never recovers; counting it showed every shipped
+  piece at a perpetual loss. Your full outlay still shows in the stats spend
+  ledger. → [Money & currencies](features/currency.md#frozen-at-purchase-the-drift-free-plus-value)
 
 ## 0.23 — one currency, honest gains
 

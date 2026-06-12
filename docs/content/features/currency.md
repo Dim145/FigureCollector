@@ -79,9 +79,13 @@ The server then normalises everything to EUR (`/api/me/stats` → `eur` block):
 
 | Figure | Rate used |
 |---|---|
-| **Cost** (price + shipping, MSRP fallback) | the rate **frozen at purchase** (today's as fallback) |
+| **Cost** (figure price, MSRP fallback — **shipping excluded**) | the rate **frozen at purchase** (today's as fallback) |
 | **Value** (manual cote › market price › MSRP) | **today's** rate |
-| **Plus-value** | value − cost, both in EUR — no FX drift on the cost side |
+| **Plus-value** | value − cost, both in EUR — shipping is a sunk cost kept out (a resale recovers the figure's value, not the postage), and no FX drift on the cost side |
+
+The full **outlay** (price + shipping) is reported separately as the
+[stats spend ledger](achievements-stats.md) total — it's what left your wallet,
+distinct from the figure cost the plus-value is measured against.
 
 The result feeds the headline figures on [La Cote](cote.md) and the
 *toutes devises confondues* total on the [stats page](achievements-stats.md).

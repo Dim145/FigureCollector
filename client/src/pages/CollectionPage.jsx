@@ -22,7 +22,7 @@ import Reveal from "../components/motion/Reveal.jsx";
 import { resolveOwnedCover } from "../lib/coverUrl.js";
 import { typeHue, typeKanji } from "../lib/typeHue.js";
 import { preorderBadgeLabel, preorderPhase } from "../lib/preorderStatus.js";
-import { effectiveValue, paidTotal, fmtMoney } from "../lib/money.js";
+import { effectiveValue, figurePaid, fmtMoney } from "../lib/money.js";
 import Money from "../components/Money.jsx";
 
 const CONDITION_FILTERS = [
@@ -124,7 +124,7 @@ export default function CollectionPage() {
       vitrines: vitrines.size,
       preorders,
       value: dominant(effectiveValue),
-      paid: dominant(paidTotal),
+      paid: dominant(figurePaid),
     };
   }, [owned.data]);
 

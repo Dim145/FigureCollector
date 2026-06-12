@@ -4,7 +4,7 @@ import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useIsAdmin, useMe } from "../hooks/useMe.js";
 import { useFigure, useOwnedItems, usePreorderForOwned } from "../hooks/useCollection.js";
-import { effectiveValue, paidTotal } from "../lib/money.js";
+import { effectiveValue, figurePaid } from "../lib/money.js";
 import Money from "../components/Money.jsx";
 import {
   preorderPhase,
@@ -510,8 +510,9 @@ function OwnerGlance({ f, owned, t, delay = 7 }) {
     phase !== "cancelled" &&
     phase !== "received";
 
-  // La Cote: paid total vs effective value (manual value, else MSRP). Mirror
-  // lib/money's effectiveValue/paidTotal so the figures match the Cote page.
+  // La Cote: figure price vs effective value (manual value, else MSRP). The
+  // gain compares against the PRICE only (shipping excluded — a sunk cost), so
+  // it matches the Cote page and a shipped piece isn't shown at a perpetual loss.
   const value = effectiveValue({
     value_amount: owned.value_amount,
     value_currency: owned.value_currency,
@@ -521,7 +522,7 @@ function OwnerGlance({ f, owned, t, delay = 7 }) {
     msrp_amount: f.msrp_amount,
     msrp_currency: f.msrp_currency,
   });
-  const paid = paidTotal(owned);
+  const paid = figurePaid(owned);
   // Only compute a gain when both are in the SAME currency (no FX layer).
   const sameCurrency =
     paid && value && (paid.currency || "") === (value.currency || "");

@@ -21,13 +21,17 @@ so you always know how much of the total rests on real numbers.
 - **Valeur estimée** — the collection's effective value in large type, in
   [your display currency](currency.md) (the per-currency originals stay in the
   footnote).
-- **Total payé** — what you actually paid (`price_amount + shipping_amount`),
+- **Payé** — the figure **price** you paid (`price_amount`, deposit included),
   converted with each purchase's **frozen exchange rate** — see
   [the drift-free plus-value](currency.md#frozen-at-purchase-the-drift-free-plus-value).
-- **Plus-value** — value − paid, with a % badge: jade for a gain, laque-red
+  **Shipping is deliberately excluded** here: it's a sunk cost a resale never
+  recovers, so folding it in would show every shipped piece at a perpetual
+  loss. (Your full outlay incl. shipping lives in the
+  [stats spend ledger](achievements-stats.md).)
+- **Plus-value** — value − price, with a % badge: jade for a gain, laque-red
   for a loss.
 - A **ranked table** of every valued piece (highest first); each row shows
-  paid vs estimated vs the per-piece delta, plus a market sparkline.
+  price vs estimated vs the per-piece delta, plus a market sparkline.
 
 ## Market prices, auto-tracked
 

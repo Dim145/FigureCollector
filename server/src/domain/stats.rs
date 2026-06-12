@@ -147,14 +147,19 @@ pub struct PriceDistribution {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct EurTotals {
-    /// Total cost (price + shipping, MSRP fallback) normalised to EUR — each
-    /// row at its frozen purchase-time rate, or today's rate when none was
-    /// captured (rows predating the price_fx_rate column).
+    /// Figure COST (price only, MSRP fallback; deposit is part of the price)
+    /// normalised to EUR — each row at its frozen purchase-time rate, or
+    /// today's rate when none was captured. EXCLUDES shipping: this is the
+    /// plus-value basis (resale recovers a figure's value, not its shipping).
+    pub cost: Decimal,
+    /// Total OUTLAY (price + shipping) normalised to EUR — what actually left
+    /// the wallet. Feeds the stats spend ledger, NOT the plus-value.
     pub spend: Decimal,
     /// Total estimated value normalised to EUR at today's rate.
     pub value: Decimal,
-    /// `value - spend`: the latent plus-value in EUR, free of FX drift on the
-    /// frozen cost side.
+    /// `value - cost`: the latent plus-value in EUR. Compared against the
+    /// figure cost (shipping excluded — a sunk cost the resale never recovers),
+    /// and free of FX drift on the frozen cost side.
     pub plus_value: Decimal,
     /// Date of the rate table used for the today's-rate conversions.
     pub fx_date: String,
@@ -305,9 +310,10 @@ pub async fn collection_stats(
     // is summed in Rust below: frozen rate where present, today's rate as the
     // graceful fallback for rows saved before the column existed. Mirrors the
     // spend-bucket cost basis so the two stay consistent.
-    let eur_cost_rows_fut = sqlx::query_as::<_, (String, Decimal, Option<Decimal>)>(
-        "SELECT COALESCE(o.price_currency, f.msrp_currency)                                       AS currency,
-                (COALESCE(o.price_amount, f.msrp_amount) + COALESCE(o.shipping_amount, 0))::numeric AS amount,
+    let eur_cost_rows_fut = sqlx::query_as::<_, (String, Decimal, Decimal, Option<Decimal>)>(
+        "SELECT COALESCE(o.price_currency, f.msrp_currency)          AS currency,
+                COALESCE(o.price_amount, f.msrp_amount)::numeric     AS amount,
+                COALESCE(o.shipping_amount, 0)::numeric              AS shipping,
                 o.price_fx_rate
          FROM owned_items o
          JOIN figures f ON f.id = o.figure_id
@@ -586,16 +592,22 @@ pub async fn collection_stats(
     // fetched, `eur` is None and the SPA falls back to the per-currency buckets.
     let eur = match crate::external::fx::latest(pool, http, "EUR").await {
         Ok(rates) => {
+            let mut cost = Decimal::ZERO;
             let mut spend = Decimal::ZERO;
             let mut value = Decimal::ZERO;
             let mut partial = false;
-            for (currency, amount, frozen) in &eur_cost_rows {
-                let converted = match frozen {
-                    Some(rate) if *rate > Decimal::ZERO => Some(*amount / *rate),
-                    _ => rates.convert_to_base(*amount, currency),
+            for (currency, amount, shipping, frozen) in &eur_cost_rows {
+                // Convert via the rate frozen at purchase (today's as fallback);
+                // shipping shares the row's currency + frozen rate.
+                let to_eur = |v: Decimal| match frozen {
+                    Some(rate) if *rate > Decimal::ZERO => Some(v / *rate),
+                    _ => rates.convert_to_base(v, currency),
                 };
-                match converted {
-                    Some(v) => spend += v,
+                match to_eur(*amount) {
+                    Some(price_eur) => {
+                        cost += price_eur;
+                        spend += price_eur + to_eur(*shipping).unwrap_or(Decimal::ZERO);
+                    }
                     None => partial = true,
                 }
             }
@@ -606,9 +618,10 @@ pub async fn collection_stats(
                 }
             }
             Some(EurTotals {
+                cost,
                 spend,
                 value,
-                plus_value: value - spend,
+                plus_value: value - cost,
                 fx_date: rates.date,
                 partial,
             })

@@ -162,11 +162,26 @@ export function effectiveValue(item) {
   return null;
 }
 
-/** Total amount paid for an item (figure price + shipping), in
- *  `price_currency`. Returns `null` when no price was recorded. */
+/** Total OUTLAY for an item (figure price + shipping), in `price_currency` —
+ *  what actually left the wallet. Use for spend totals (the breakdown popover,
+ *  the stats ledger), NOT for the plus-value. Returns `null` when no price. */
 export function paidTotal(item) {
   if (item?.price_amount == null) return null;
   const amount = Number(item.price_amount) + Number(item.shipping_amount || 0);
+  if (!Number.isFinite(amount)) return null;
+  return {
+    amount,
+    currency: item.price_currency || null,
+  };
+}
+
+/** The figure's purchase PRICE only (`price_amount` — the deposit is part of
+ *  it; shipping is NOT), in `price_currency`. This is the plus-value basis:
+ *  resale recovers a figure's value, not the shipping you paid, so shipping is
+ *  a sunk cost kept out of the gain. Returns `null` when no price was recorded. */
+export function figurePaid(item) {
+  if (item?.price_amount == null) return null;
+  const amount = Number(item.price_amount);
   if (!Number.isFinite(amount)) return null;
   return {
     amount,

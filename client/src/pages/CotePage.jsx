@@ -18,7 +18,7 @@ import {
   toSeries,
 } from "../components/PriceHistory.jsx";
 import { typeHue, typeKanji } from "../lib/typeHue.js";
-import { fmtMoney, effectiveValue, paidTotal } from "../lib/money.js";
+import { fmtMoney, effectiveValue, figurePaid } from "../lib/money.js";
 
 // Range chips for the evolution chart (days of look-back; "all" = full history).
 const RANGES = ["3m", "6m", "1y", "all"];
@@ -65,11 +65,14 @@ export default function CotePage() {
   const primaryPaid = primary
     ? spendBuckets.find((s) => s.currency === primary.currency) ?? null
     : null;
+  // Plus-value compares value against the figure PRICE only (bucket `total`),
+  // not `grand_total` (price + shipping) — shipping is a sunk cost the resale
+  // never recovers, so folding it in would show a perpetual loss.
   const plusValue =
-    primary && primaryPaid ? Number(primary.estimated_total) - Number(primaryPaid.grand_total) : null;
+    primary && primaryPaid ? Number(primary.estimated_total) - Number(primaryPaid.total) : null;
   const plusPct =
-    plusValue != null && primaryPaid && Number(primaryPaid.grand_total) > 0
-      ? (plusValue / Number(primaryPaid.grand_total)) * 100
+    plusValue != null && primaryPaid && Number(primaryPaid.total) > 0
+      ? (plusValue / Number(primaryPaid.total)) * 100
       : null;
 
   // Display-currency conversion (on by default — see DisplayCurrencyProvider).
@@ -99,7 +102,7 @@ export default function CotePage() {
     if (serverEur && displayPerEur != null) {
       return {
         convValue: Number(serverEur.value) * displayPerEur,
-        convPaid: Number(serverEur.spend) * displayPerEur,
+        convPaid: Number(serverEur.cost) * displayPerEur,
       };
     }
     const sum = (buckets, field) =>
@@ -111,7 +114,7 @@ export default function CotePage() {
       }, 0);
     return {
       convValue: sum(valueBuckets, "estimated_total"),
-      convPaid: sum(spendBuckets, "grand_total"),
+      convPaid: sum(spendBuckets, "total"),
     };
   }, [fxActive, serverEur, dc.rates, dc.display, valueBuckets, spendBuckets]);
   const convPlus =
@@ -131,7 +134,7 @@ export default function CotePage() {
   const dispPaid = showFx
     ? convPaid
     : primaryPaid
-      ? Number(primaryPaid.grand_total)
+      ? Number(primaryPaid.total)
       : null;
   const dispPlus = showFx ? convPlus : plusValue;
   const dispPlusPct = showFx ? convPlusPct : plusPct;
@@ -145,7 +148,7 @@ export default function CotePage() {
   // the bulk-valuation surface (each row is inline-editable).
   const ranked = useMemo(() => {
     return (owned.data ?? [])
-      .map((o) => ({ o, ev: effectiveValue(o), paid: paidTotal(o) }))
+      .map((o) => ({ o, ev: effectiveValue(o), paid: figurePaid(o) }))
       .filter((r) => r.ev)
       .sort((a, b) => b.ev.amount - a.ev.amount);
   }, [owned.data]);
