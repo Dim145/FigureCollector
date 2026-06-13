@@ -153,7 +153,8 @@ export default function FigureForm({
           required
           disabled={busy}
         />
-        {/* External lookup — searches orzgk + MFC and pre-fills the form on pick. */}
+        {/* External lookup — searches orzgk + proxy boutiques (MFC is paste-only)
+            and pre-fills the form on pick. */}
         <FigureLookup
           initial={form.name}
           onPick={(pick) =>
@@ -161,9 +162,13 @@ export default function FigureForm({
               ...s,
               // Only overwrite fields the lookup actually returned; leave
               // anything the user has already typed alone if the lookup
-              // didn't fill that slot.
+              // didn't fill that slot. `coercePickFields` first maps the
+              // dual-typed fields a pick may carry (numeric height_mm, array
+              // materials) back to the form's string representation.
               ...Object.fromEntries(
-                Object.entries(pick).filter(([_, v]) => v !== undefined && v !== ""),
+                Object.entries(coercePickFields(pick)).filter(
+                  ([_, v]) => v !== undefined && v !== "",
+                ),
               ),
             }))
           }
@@ -623,6 +628,23 @@ function normalise(initial, defaultCurrency = "JPY") {
     series_meta: initial.series_meta ?? {},
     character_meta: initial.character_meta ?? {},
   };
+}
+
+/** A lookup pick may carry fields in their raw API types: orzgk's `buildPick`
+ *  emits a numeric `height_mm` and an array `materials` (it doubles as the
+ *  bulk importer's payload, which POSTs straight to /figures). The form stores
+ *  every field as a string, so coerce those two before merging a pick into
+ *  form state — otherwise the array reaches EntityAutocomplete and its
+ *  `value.trim()` throws. Mirrors the same conversions `normalise()` applies. */
+function coercePickFields(pick) {
+  const out = { ...pick };
+  if (out.height_mm != null && typeof out.height_mm !== "string") {
+    out.height_mm = String(out.height_mm);
+  }
+  if (Array.isArray(out.materials)) {
+    out.materials = out.materials.join(", ");
+  }
+  return out;
 }
 
 /** Produce the payload that goes to the backend. Empty strings → undefined

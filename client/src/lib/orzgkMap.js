@@ -85,7 +85,12 @@ export function pickImage(detail, version) {
  *  Exported for the proxy mapping (lib/proxyMap.js). */
 export function splitMaterials(raw) {
   if (!raw || typeof raw !== "string") return undefined;
-  const parts = raw.split(/[,/·;]/).map((s) => s.trim()).filter(Boolean);
+  const parts = raw
+    .split(/[,/·;]/)
+    .map((s) => s.trim())
+    // Drop empties and orzgk's "no data" dash placeholders ("--", "—") so they
+    // don't land as a junk material on import.
+    .filter((s) => s && !/^[-–—]+$/.test(s));
   return parts.length ? parts : undefined;
 }
 
