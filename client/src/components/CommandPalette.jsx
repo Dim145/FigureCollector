@@ -181,7 +181,7 @@ export default function CommandPalette() {
               onKeyDown={onKeyDown}
               placeholder={t("palette.placeholder")}
               aria-label={t("palette.placeholder")}
-              className="flex-1 bg-transparent text-[var(--color-ivoire)] outline-none placeholder:text-[var(--color-ivoire-soft)]"
+              className="flex-1 min-w-0 bg-transparent text-[var(--color-ivoire)] outline-none placeholder:text-[var(--color-ivoire-soft)]"
               style={{ fontFamily: "var(--font-sans)" }}
             />
           </div>
@@ -256,7 +256,7 @@ function Group({ title, items, filtered, selected, onSelect }) {
                     : "text-[var(--color-ivoire-soft)] hover:text-[var(--color-ivoire)]"
                 }`}
               >
-                <span className="truncate">
+                <span className="min-w-0 flex-1 truncate">
                   <span className={isActive ? "text-[var(--color-or)] mr-2" : "mr-2 opacity-40"}>
                     ›
                   </span>
