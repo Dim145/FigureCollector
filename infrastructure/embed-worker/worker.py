@@ -146,7 +146,7 @@ def _preprocess(im: Image.Image) -> np.ndarray:
     im = im.convert("RGB")
     w, h = im.size
     scale = SHORTEST_EDGE / min(w, h)
-    im = im.resize((round(w * scale), round(h * scale)), Image.BICUBIC)
+    im = im.resize((round(w * scale), round(h * scale)), Image.Resampling.BICUBIC)
     w, h = im.size
     left = (w - CROP) // 2
     top = (h - CROP) // 2
