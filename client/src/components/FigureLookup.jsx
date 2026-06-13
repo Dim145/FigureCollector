@@ -16,15 +16,36 @@ import {
 } from "../lib/proxyMap.js";
 import Button from "./Button.jsx";
 
+// Homepages we link out to from the supported-sources list. orzgk and MFC are
+// fixed; proxy boutiques carry their own `url` (with a host-derived fallback).
+const ORZGK_HOME = "https://orzgk.com";
+const MFC_HOME = "https://myfigurecollection.net";
+
+/** The boutiques a name-search hits AND whose product links can be pasted to
+ *  import directly: orzgk natively (always on) + every store the configured
+ *  proxy supports. Each entry carries a homepage `href` so the panel can link
+ *  out to the shop. MFC is intentionally absent — its search/scrape is
+ *  Cloudflare-blocked, so it's import-by-paste only (shown separately). */
+function searchSources(proxyStores) {
+  const orzgk = { id: "orzgk", name: "orzgk", href: ORZGK_HOME };
+  const proxied = (proxyStores ?? []).map((s) => ({
+    id: s.id,
+    name: s.name,
+    href: s.url || (s.hosts?.[0] ? `https://${s.hosts[0]}` : null),
+  }));
+  return [orzgk, ...proxied];
+}
+
 /**
  * Inline lookup panel that searches external providers for a figurine by
  * name, then opens a detail modal where the user picks (a) a version and
  * (b) a price. The full payload is then handed back to the form.
  *
  * Two entry points:
- *  1. Search (debounced 320 ms) against orzgk + MFC.
- *  2. **URL paste** — drop an orzgk product link in the search field and
- *     the panel jumps straight to detail fetch, bypassing search.
+ *  1. Search (debounced 320 ms) against orzgk natively + the configured proxy
+ *     boutiques. MFC is paste-only (its scrape is Cloudflare-blocked).
+ *  2. **URL paste** — drop an orzgk or proxy-boutique product link in the
+ *     search field and the panel jumps straight to detail fetch.
  *
  * Cache is server-side (24h TTL on `external_lookups`).
  *
@@ -44,7 +65,6 @@ export default function FigureLookup({ initial = "", onPick }) {
   const [results, setResults] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const [mfcNotice, setMfcNotice] = useState(null);
   const [mfcOpen, setMfcOpen] = useState(false);
   const inputRef = useRef(null);
   // Boutique proxy gate. `enabled` flips to true once the proxy is
@@ -52,6 +72,10 @@ export default function FigureLookup({ initial = "", onPick }) {
   // The hostname-routing test below uses `proxy.stores` to decide
   // whether a pasted non-orzgk URL should be sent to the proxy.
   const proxy = useProxyEnabled();
+  // The exact list of supported shops shown when the panel opens: orzgk +
+  // every proxy boutique. Doubles as "where we search" and "what links you
+  // can paste". Recomputed only when the proxy's store list changes.
+  const sources = useMemo(() => searchSources(proxy.stores), [proxy.stores]);
 
   // Detail-flow state (when a card is clicked or a URL is pasted).
   const [detailFor, setDetailFor] = useState(null); // url string, or null
@@ -98,40 +122,30 @@ export default function FigureLookup({ initial = "", onPick }) {
     const q = debouncedQuery.trim();
     // A URL paste is handled by the dispatcher above (orzgk modal /
     // proxy product). Suppress the search effect so we don't fire a
-    // useless `?q=https://...` against orzgk / MFC.
+    // useless `?q=https://...` against the name-search providers.
     if (/^https?:\/\//i.test(q)) {
       setResults([]);
       setError(null);
-      setMfcNotice(null);
       return;
     }
     if (q.length < 2) {
       setResults([]);
       setError(null);
-      setMfcNotice(null);
       return;
     }
     let cancelled = false;
     setBusy(true);
     setError(null);
-    setMfcNotice(null);
 
+    // Name search hits orzgk natively (always on); the proxy branch below
+    // adds its boutiques when configured. MFC is intentionally absent — its
+    // search/scrape is Cloudflare-blocked, so it's import-by-paste only.
     const calls = [
       api.get(`/external/orzgk/search?q=${encodeURIComponent(q)}`).then(
         (rows) => rows.map((r) => ({ ...r, source: "orzgk" })),
         (e) => {
           if (cancelled) return [];
           setError(e?.message ?? "orzgk failed");
-          return [];
-        },
-      ),
-      api.get(`/external/mfc/search?q=${encodeURIComponent(q)}`).then(
-        (rows) => rows.map((r) => ({ ...r, source: "mfc" })),
-        (e) => {
-          if (cancelled) return [];
-          if (e instanceof ApiError && e.code === "feature_disabled") {
-            setMfcNotice(e.message);
-          }
           return [];
         },
       ),
@@ -298,24 +312,58 @@ export default function FigureLookup({ initial = "", onPick }) {
           </button>
         </div>
 
-        <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)]/60 mb-3">
-          {proxy.enabled
-            ? t("lookup.figure.paste_hint_proxy", {
-                stores: proxy.stores
-                  .map((s) => s.name)
-                  .slice(0, 3)
-                  .join(", "),
-              })
-            : t("lookup.figure.paste_hint")}
-        </p>
+        {/* Supported shops — the exact list a name-search hits AND whose
+            product links can be pasted to import directly. orzgk is always
+            on; the proxy adds its boutiques when configured. Each name links
+            out to the shop in a new tab. */}
+        <div className="mb-3">
+          <p className="micro-tight text-[var(--color-or-pale)] mb-2 flex items-center gap-2">
+            <span aria-hidden className="ja not-italic text-[var(--color-or)] text-xs leading-none">
+              店
+            </span>
+            {t("lookup.figure.sources_label", { default: "Boutiques prises en charge" })}
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {sources.map((s) => (
+              <SourceLink key={s.id} name={s.name} href={s.href} />
+            ))}
+            {proxy.loading ? (
+              <span className="self-center px-1.5 text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)]/45">
+                …
+              </span>
+            ) : null}
+          </div>
+          <p className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)]/60 mt-2 leading-relaxed">
+            {t("lookup.figure.sources_note", {
+              default:
+                "Cherche par nom, ou colle un lien produit de l'une de ces boutiques.",
+            })}
+          </p>
+        </div>
 
-        <button
-          type="button"
-          onClick={() => setMfcOpen(true)}
-          className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors mb-3 inline-block"
-        >
-          ↳ {t("mfc.open")}
-        </button>
+        {/* MFC sits apart from the searchable sources: its search/scrape is
+            Cloudflare-blocked, so it's import-by-paste only. The name links
+            out; the button opens the HTML-paste modal. */}
+        <div className="mb-3 border-t border-[var(--color-or)]/12 pt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+          <span className="inline-flex items-center gap-1.5">
+            <span aria-hidden className="ja text-[var(--color-or-pale)] text-xs leading-none">
+              輸
+            </span>
+            <SourceLink name="MyFigureCollection" href={MFC_HOME} bare />
+          </span>
+          <span className="text-[10px] uppercase tracking-[0.16em] text-[var(--color-ivoire-soft)]/55">
+            {t("lookup.figure.mfc_paste_note", {
+              default: "recherche bloquée — colle le HTML de la fiche",
+            })}
+          </span>
+          <button
+            type="button"
+            onClick={() => setMfcOpen(true)}
+            className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors"
+          >
+            ↳ {t("mfc.open")}
+          </button>
+        </div>
 
         {ORZGK_URL_RE.test(query.trim()) ? (
           // URL paste mode — keep the panel quiet, the modal does the work.
@@ -363,12 +411,6 @@ export default function FigureLookup({ initial = "", onPick }) {
             {error}
           </p>
         ) : null}
-
-        {mfcNotice ? (
-          <p className="mt-3 text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)]/70 border-t border-[var(--color-or)]/15 pt-2">
-            MFC · {mfcNotice}
-          </p>
-        ) : null}
       </div>
 
       {detailFor && detailSource === "orzgk" ? (
@@ -405,8 +447,50 @@ export default function FigureLookup({ initial = "", onPick }) {
   );
 }
 
+/** A supported-shop name that opens the shop's homepage in a new tab.
+ *  Direction A: flat, gold on hover, with a discreet ↗. The default form is a
+ *  hairline-bordered chip (for the searchable-sources list); `bare` drops the
+ *  border for inline use (the MFC line). Renders plain text when no URL. */
+function SourceLink({ name, href, bare = false }) {
+  if (!href) {
+    return bare ? (
+      <span className="text-[11px] text-[var(--color-ivoire-soft)]">{name}</span>
+    ) : (
+      <span className="inline-flex items-center px-2 py-1 text-[11px] border border-[var(--color-or)]/20 text-[var(--color-ivoire-soft)]">
+        {name}
+      </span>
+    );
+  }
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={
+        bare
+          ? "group inline-flex items-center gap-1 text-[11px] text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors"
+          : "group inline-flex items-center gap-1 px-2 py-1 text-[11px] border border-[var(--color-or)]/25 text-[var(--color-ivoire-soft)] hover:border-[var(--color-or)]/55 hover:text-[var(--color-or)] transition-colors"
+      }
+    >
+      {name}
+      <span
+        aria-hidden
+        className="text-[9px] opacity-70 group-hover:opacity-100 transition-opacity"
+      >
+        ↗
+      </span>
+    </a>
+  );
+}
+
 function ResultRow({ row, onPick }) {
   const isOrzgk = row.source === "orzgk";
+  const isProxy = row.source === "proxy";
+  // Honest source badge: orzgk natively, the boutique name for proxy rows
+  // (their `studio` IS the store name), MFC only for legacy paste-shaped rows.
+  const sourceLabel = isOrzgk ? "ORZGK" : isProxy ? row.studio || "BOUTIQUE" : "MFC";
+  // For proxy rows the studio already shows in the badge — don't repeat it.
+  const showStudio = row.studio && !isProxy;
 
   return (
     <button
@@ -430,9 +514,9 @@ function ResultRow({ row, onPick }) {
             className={`chip text-[8.5px] ${isOrzgk ? "" : "chip--laque"}`}
             style={{ padding: "0.1em 0.45em" }}
           >
-            {isOrzgk ? "ORZGK" : "MFC"}
+            {sourceLabel}
           </span>
-          {row.studio ? (
+          {showStudio ? (
             <span className="font-mono text-[10px] tracking-wider text-[var(--color-or-pale)]/80 uppercase">
               {row.studio}
             </span>

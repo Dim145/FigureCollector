@@ -23,6 +23,11 @@ detail live in the [git history](https://github.com/Dim145/FigureCollector/commi
   is a sunk cost a resale never recovers; counting it showed every shipped
   piece at a perpetual loss. Your full outlay still shows in the stats spend
   ledger. → [Money & currencies](features/currency.md#frozen-at-purchase-the-drift-free-plus-value)
+- **The add-page lookup names its sources** — opening the figure search now
+  lists the exact supported shops (orzgk + every proxy boutique), each a
+  clickable link to the store, doubling as what you can search and which
+  product links you can paste. MFC sits apart as paste-only (its search is
+  Cloudflare-blocked). → [URL import](features/url-import.md#configuring-the-proxy)
 
 ## 0.23 — one currency, honest gains
 

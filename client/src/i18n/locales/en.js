@@ -266,7 +266,7 @@ export default {
   "figdup.proceed": "Create it anyway",
 
   // MFC import-by-paste — Lot 2
-  "mfc.open": "Paste from MFC",
+  "mfc.open": "Paste the sheet HTML",
   "mfc.title": "Import from MyFigureCollection",
   "mfc.note": "MFC blocks direct access. Open the item on myfigurecollection.net → view page source (Ctrl+U) → select all (Ctrl+A) → copy → paste here.",
   "mfc.textarea_ph": "<!doctype html> … paste the MFC page HTML here …",
@@ -441,10 +441,11 @@ export default {
   "addfig.lookup_char_scoped": "Filtered by series: {series}",
 
   // External figurine search (orzgk + MFC)
-  "lookup.figure.open": "Search this figure on orzgk / MFC",
-  "lookup.figure.placeholder": "Nendoroid Miku, Asuka 1/6, Saber Alter… or paste an orzgk link",
-  "lookup.figure.paste_hint": "Tip — paste an orzgk.com/product/… URL to import directly",
-  "lookup.figure.paste_hint_proxy": "Tip — paste an orzgk.com URL or one from a proxy-supported store ({stores}) to import directly",
+  "lookup.figure.open": "Search this figure online",
+  "lookup.figure.placeholder": "Nendoroid Miku, Asuka 1/6, Saber Alter… or paste a product link",
+  "lookup.figure.sources_label": "Supported shops",
+  "lookup.figure.sources_note": "Search by name, or paste a product link from any of these shops.",
+  "lookup.figure.mfc_paste_note": "search is blocked — paste the sheet HTML",
   "lookup.figure.url_detected": "Link detected — opening the listing…",
   "lookup.figure.hint_min": "Type at least 2 characters to start the search.",
   "lookup.figure.no_results": "No results. Try a different keyword.",
@@ -1974,7 +1975,7 @@ export default {
   "addfig.ways.manual.title": "Manual entry",
   "addfig.ways.manual.body": "Fill in the record yourself. It's always possible — every field can be edited by hand.",
   "addfig.ways.lookup.title": "Search & scan",
-  "addfig.ways.lookup.body": "Search MFC / AniList / orzgk, paste a link, or scan a barcode — the fields found are pre-filled. Tweak them afterwards.",
+  "addfig.ways.lookup.body": "Search orzgk (and the proxy's shops), paste a product link, import an MFC sheet, or scan a barcode — the fields found are pre-filled. Tweak them afterwards.",
   "addfig.scanned_jan": "Barcode scanned « {jan} » — pre-filled below. Complete the record then create it.",
   "addfig.form.eyebrow": "Catalogue record",
   "addfig.form.title": "The record",

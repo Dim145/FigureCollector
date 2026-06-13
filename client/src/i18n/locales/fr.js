@@ -274,7 +274,7 @@ export default {
   "figdup.proceed": "Créer quand même",
 
   // Import MFC par collage — Lot 2
-  "mfc.open": "Coller depuis MFC",
+  "mfc.open": "Coller le HTML de la fiche",
   "mfc.title": "Importer depuis MyFigureCollection",
   "mfc.note": "MFC bloque l'accès direct. Ouvre la fiche sur myfigurecollection.net → affiche le code source (Ctrl+U) → tout sélectionner (Ctrl+A) → copier → colle ici.",
   "mfc.textarea_ph": "<!doctype html> … colle ici le HTML de la fiche MFC …",
@@ -453,10 +453,11 @@ export default {
   "addfig.lookup_char_scoped": "Filtré par la série : {series}",
 
   // External figurine search (orzgk + MFC)
-  "lookup.figure.open": "Chercher cette figurine sur orzgk / MFC",
-  "lookup.figure.placeholder": "Nendoroid Miku, Asuka 1/6, Saber Alter… ou colle un lien orzgk",
-  "lookup.figure.paste_hint": "Astuce — colle un lien orzgk.com/product/… pour importer directement",
-  "lookup.figure.paste_hint_proxy": "Astuce — colle un lien orzgk.com ou d'une boutique gérée par le proxy ({stores}) pour importer directement",
+  "lookup.figure.open": "Chercher cette figurine en ligne",
+  "lookup.figure.placeholder": "Nendoroid Miku, Asuka 1/6, Saber Alter… ou colle un lien produit",
+  "lookup.figure.sources_label": "Boutiques prises en charge",
+  "lookup.figure.sources_note": "Cherche par nom, ou colle un lien produit de l'une de ces boutiques.",
+  "lookup.figure.mfc_paste_note": "recherche bloquée — colle le HTML de la fiche",
   "lookup.figure.url_detected": "Lien détecté — ouverture de la fiche…",
   "lookup.figure.hint_min": "Tape au moins 2 caractères pour lancer la recherche.",
   "lookup.figure.no_results": "Aucun résultat. Essaie un autre mot-clé.",
@@ -2004,7 +2005,7 @@ export default {
   "addfig.ways.manual.title": "Saisie manuelle",
   "addfig.ways.manual.body": "Remplissez la fiche vous-même. C'est toujours possible — chaque champ s'édite à la main.",
   "addfig.ways.lookup.title": "Recherche & scan",
-  "addfig.ways.lookup.body": "Cherchez sur MFC / AniList / orzgk, collez un lien, ou scannez un code-barres — les champs trouvés se pré-remplissent. À retoucher ensuite.",
+  "addfig.ways.lookup.body": "Cherchez sur orzgk (et les boutiques du proxy), collez un lien produit, importez une fiche MFC, ou scannez un code-barres — les champs trouvés se pré-remplissent. À retoucher ensuite.",
   "addfig.scanned_jan": "Code-barres scanné « {jan} » — pré-rempli ci-dessous. Complétez la fiche puis créez-la.",
   "addfig.form.eyebrow": "Fiche catalogue",
   "addfig.form.title": "La fiche",

@@ -19,8 +19,8 @@ import { mapApiError } from "../lib/errorMap.js";
  *     → italic gloss) over a faint kanji-mark watermark;
  *   - a "two ways in" band that makes the hard product rule visible — manual
  *     entry is *always* available, side-by-side with the external lookup
- *     (MFC / AniList / orzgk) and barcode-scan entry points that live inside
- *     the form itself;
+ *     (orzgk + the proxy's boutiques, plus MFC paste-import) and barcode-scan
+ *     entry points that live inside the form itself;
  *   - the form wrapped in a clearly-sectioned Card panel (kicker sub-label +
  *     kanji + gold-rule divider, like SettingsPage), with the "also add to my
  *     collection" choice promoted into a refined gold-accent control;
