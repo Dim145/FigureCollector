@@ -506,6 +506,12 @@ html {
 }
 
 body {
+  /* Clip on the body too: in-flow / absolutely-positioned decorative bleed
+     (page hero-glows with negative insets, off-screen seals, etc.) would
+     otherwise stretch the MOBILE layout viewport — zooming out and cutting
+     off the whole page on a phone. `clip` (not `hidden`) keeps the sticky
+     header and vertical scroll intact, and never touches fixed overlays. */
+  overflow-x: clip;
   font-family: var(--font-sans);
   background-color: var(--color-noir);
   color: var(--color-ivoire);
@@ -1944,6 +1950,25 @@ html {
   height: 1px;
   background:
     linear-gradient(90deg, transparent, color-mix(in oklab, var(--color-or) 50%, transparent), transparent);
+}
+/* Phones: the 5-track rule (roman · line · label · line · kanji) with a wide
+   0.42em nowrap label overflows ~360px. Tighten spacing + glyphs so it fits. */
+@media (max-width: 640px) {
+  .chapter-rule {
+    gap: 0.5rem;
+    margin: 3rem 0 1.75rem;
+  }
+  .chapter-rule-roman {
+    font-size: 18px;
+  }
+  .chapter-rule-label {
+    letter-spacing: 0.16em;
+    font-size: 11px;
+    padding: 0;
+  }
+  .chapter-rule-kanji {
+    font-size: 18px;
+  }
 }
 
 /* ─── Massive figural numerals — used for the hero count and the "weight"

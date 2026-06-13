@@ -152,7 +152,7 @@ export default function CommandPalette() {
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 grid place-items-start pt-[12vh] px-4"
+      className="fixed inset-0 z-50 grid grid-cols-1 place-items-start pt-[12vh] px-4"
       onClick={() => setOpen(false)}
     >
       <div
@@ -163,7 +163,7 @@ export default function CommandPalette() {
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className="relative w-full max-w-xl focus:outline-none"
+        className="relative w-full max-w-xl min-w-0 focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <div
