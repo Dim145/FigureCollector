@@ -451,7 +451,7 @@ export default function VitrinesPage() {
             onDragEnd={onDragEnd}
             onDragCancel={onDragCancel}
           >
-            <div className="mt-8 grid gap-7 [grid-template-columns:repeat(auto-fill,minmax(300px,1fr))]">
+            <div className="mt-8 grid gap-7 [grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))]">
               {cabinetKeys.map((key) => (
                 <Cabinet
                   key={key}

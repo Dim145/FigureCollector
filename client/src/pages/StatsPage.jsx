@@ -824,7 +824,7 @@ function PolarBreakdown({ title, kanji, rows, t, typed = false }) {
         />
         <span style={typed ? { color: headerHue } : undefined}>{title}</span>
       </p>
-      <div className="grid grid-cols-[170px_1fr] gap-7 items-center">
+      <div className="grid grid-cols-1 sm:grid-cols-[170px_1fr] gap-6 sm:gap-7 items-center">
         <PolarChart
           rows={rows}
           kanji={kanji}
