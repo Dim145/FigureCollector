@@ -1986,6 +1986,13 @@ html {
   letter-spacing: -0.045em;
   line-height: 0.82;
   font-size: clamp(7rem, 16vw, 14rem);
+  /* The fill is a gradient clipped to the glyphs (background-clip: text), and
+     the background only covers the box. A trailing currency glyph like € has
+     ink that overhangs its advance width (compounded by the negative trailing
+     letter-spacing above), so that sliver fell outside the box → unpainted /
+     transparent on the right, "out of frame". A hair of right padding extends
+     the (padding-box) background past the glyph so it's fully gilded. */
+  padding-right: 0.12em;
   /* Two clipped layers on the SAME element: a diagonal highlight (top) that
    * sweeps across, over the static embossed gold gradient (bottom). Folding
    * the shine in here — rather than a duplicate ::after content:attr() — means
