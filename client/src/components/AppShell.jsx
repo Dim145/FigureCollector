@@ -9,6 +9,7 @@ import NotificationBell from "./NotificationBell.jsx";
 import AuroraBackground from "./AuroraBackground.jsx";
 import TypeAccentVars from "./TypeAccentVars.jsx";
 import MobileTabBar from "./MobileTabBar.jsx";
+import MobileNavSheet from "./MobileNavSheet.jsx";
 
 /**
  * Compact exhibition-style header.
@@ -20,8 +21,10 @@ import MobileTabBar from "./MobileTabBar.jsx";
  * keeps the chrome tight while remaining one click away.
  *
  * On scroll the header gains a backdrop-blur + tighter padding so the page
- * content reads underneath. Mobile collapses every nav item into a single
- * hamburger drawer.
+ * content reads underneath. On phones the header stays minimal (logo · +
+ * Ajouter · bell · theme · avatar, no hamburger) — navigation lives in the
+ * bottom tab bar and its "⋯ Plus" sheet (MobileNavSheet), while the avatar
+ * menu holds account + preferences, so the three never overlap.
  */
 export default function AppShell({ children }) {
   const t = useT();
@@ -63,6 +66,10 @@ export default function AppShell({ children }) {
     { to: "/stats", label: t("nav.stats") },
   ];
 
+  // Desktop avatar "secondary nav" — destinations not surfaced in the primary
+  // bar. Paramètres is intentionally NOT here: it's account, surfaced in the
+  // avatar menu's own account section (alongside logout, and — on mobile —
+  // language), so it never reads as just another nav row.
   const secondary = [
     { to: "/souhaits", label: t("wishlist.title") },
     { to: "/cote", label: t("cote.title") },
@@ -73,8 +80,13 @@ export default function AppShell({ children }) {
     ...(isAdmin
       ? [{ to: "/admin", label: t("nav.admin"), accent: true }]
       : []),
-    { to: "/settings", label: t("nav.settings") },
   ];
+
+  // Mobile "Plus" sheet — every destination NOT already on the bottom tab bar
+  // (which carries Collection · Catalogue · La Cote). Strictly navigation;
+  // account + preferences live in the avatar menu, so the two never overlap.
+  const barRoutes = new Set(["/collection", "/browse", "/cote"]);
+  const moreNav = [...primary, ...secondary].filter((it) => !barRoutes.has(it.to));
 
   const authed = me.data?.authenticated;
   const user = me.data?.user;
@@ -178,22 +190,13 @@ export default function AppShell({ children }) {
             {authed ? (
               <UserMenu
                 user={user}
-                items={secondary}
+                navItems={secondary}
                 onSignOut={onSignOut}
                 t={t}
               />
             ) : null}
-
-            {/* Hamburger (mobile + medium) */}
-            <button
-              type="button"
-              onClick={() => setMobileOpen((x) => !x)}
-              aria-expanded={mobileOpen}
-              aria-label="Menu"
-              className="lg:hidden text-[var(--color-or-pale)] hover:text-[var(--color-or)] p-1 transition-colors"
-            >
-              <Burger open={mobileOpen} />
-            </button>
+            {/* No mobile hamburger: the bottom tab bar's "⋯ Plus" opens the
+                MobileNavSheet, and the avatar holds account/preferences. */}
           </div>
         </div>
 
@@ -204,65 +207,9 @@ export default function AppShell({ children }) {
           }`}
         />
 
-        {/* Mobile drawer */}
-        {mobileOpen ? (
-          <div className="lg:hidden bg-[var(--color-noir)]/95 backdrop-blur-md border-t border-[var(--color-or)]/15">
-            <nav className="max-w-7xl mx-auto px-5 py-4 grid grid-cols-2 gap-x-6 gap-y-2.5 text-[11px] uppercase tracking-[0.22em]">
-              {[...primary, ...secondary].map((it) => (
-                <NavLink
-                  key={it.to}
-                  to={it.to}
-                  end={it.to === "/admin" ? false : undefined}
-                  onClick={() => setMobileOpen(false)}
-                  className={({ isActive }) =>
-                    `py-1.5 transition-colors ${
-                      isActive
-                        ? "text-[var(--color-or)]"
-                        : it.accent
-                          ? "text-[var(--color-or-pale)] hover:text-[var(--color-or)]"
-                          : "text-[var(--color-ivoire-soft)] hover:text-[var(--color-or-pale)]"
-                    }`
-                  }
-                >
-                  {it.label}
-                </NavLink>
-              ))}
-              {/* Command palette — reachable on mobile from here (the ⌘K chip
-               *  is desktop-only in the top bar). */}
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileOpen(false);
-                  window.dispatchEvent(
-                    new CustomEvent("figurecollector:toggle-palette"),
-                  );
-                }}
-                className="col-span-2 mt-1 pt-3 border-t border-[var(--color-or)]/15 text-left text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors"
-              >
-                {t("nav.search", { default: "Recherche" })}{" "}
-                <span aria-hidden className="ja not-italic">検</span>
-              </button>
-              {/* Language switcher — folded in here on mobile (hidden from the
-               *  top bar below lg). */}
-              <div className="col-span-2 mt-1 pt-3 border-t border-[var(--color-or)]/15 flex items-center justify-between normal-case tracking-normal">
-                <span className="text-[11px] text-[var(--color-ivoire-soft)]">Langue · Language</span>
-                <LocaleSwitcher />
-              </div>
-              {authed ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMobileOpen(false);
-                    onSignOut();
-                  }}
-                  className="col-span-2 mt-2 pt-3 border-t border-[var(--color-or)]/15 text-left text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] transition-colors"
-                >
-                  {t("nav.signout")}
-                </button>
-              ) : null}
-            </nav>
-          </div>
-        ) : null}
+        {/* The mobile drawer that used to live here is gone — its navigation
+            moved to the bottom bar + MobileNavSheet ("⋯ Plus"), and its
+            account/language rows to the avatar menu. */}
       </header>
 
       {/* Page-enter transition: each route fades + rises in. Keyed by path so
@@ -291,8 +238,19 @@ export default function AppShell({ children }) {
         </motion.main>
       )}
 
-      {/* Bottom tab bar — the phone-first primary nav (< lg, signed-in). */}
-      {authed ? <MobileTabBar onMore={() => { setMobileOpen(true); window.scrollTo({ top: 0, behavior: "smooth" }); }} /> : null}
+      {/* Bottom tab bar — the phone-first primary nav (< lg, signed-in) — and
+          the "⋯ Plus" sheet it opens for every other destination. */}
+      {authed ? <MobileTabBar onMore={() => setMobileOpen(true)} /> : null}
+      {authed ? (
+        <MobileNavSheet
+          open={mobileOpen}
+          onClose={() => setMobileOpen(false)}
+          items={moreNav}
+          onSearch={() =>
+            window.dispatchEvent(new CustomEvent("figurecollector:toggle-palette"))
+          }
+        />
+      ) : null}
 
       <footer className="seigaiha relative z-10 mt-20 border-t border-[var(--color-or)]/25 py-8 bg-[var(--color-noir-deep)]">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4 text-[11px] uppercase tracking-[0.28em] text-[var(--color-ivoire-soft)]/80">
@@ -388,7 +346,7 @@ function NavItem({ to, children }) {
   );
 }
 
-function UserMenu({ user, items, onSignOut, t }) {
+function UserMenu({ user, navItems, onSignOut, t }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -450,8 +408,11 @@ function UserMenu({ user, items, onSignOut, t }) {
             </p>
           </header>
 
-          <nav className="py-1" aria-label="navigation secondaire">
-            {items.map((it) => (
+          {/* Secondary navigation — desktop only. On a phone the bottom bar +
+              the "⋯ Plus" sheet carry navigation, so this menu is account-only
+              there and never duplicates the sheet. */}
+          <nav className="hidden lg:block py-1" aria-label="navigation secondaire">
+            {navItems.map((it) => (
               <NavLink
                 key={it.to}
                 to={it.to}
@@ -476,6 +437,33 @@ function UserMenu({ user, items, onSignOut, t }) {
             ))}
           </nav>
 
+          {/* Account + preferences. Settings is always here; on mobile the
+              language switch folds in too (desktop keeps it in the header).
+              A divider sits above only on desktop, where nav precedes it. */}
+          <div className="py-1 lg:border-t lg:border-[var(--color-or)]/15">
+            <NavLink
+              to="/settings"
+              onClick={() => setOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-2 text-[11px] uppercase tracking-[0.22em] transition-colors ${
+                  isActive
+                    ? "text-[var(--color-or)] bg-[var(--color-or)]/8"
+                    : "text-[var(--color-ivoire-soft)] hover:text-[var(--color-or-pale)] hover:bg-[var(--color-or)]/5"
+                }`
+              }
+            >
+              <span aria-hidden className="w-1 h-1 bg-current opacity-50 rotate-45 shrink-0" />
+              {t("nav.settings")}
+            </NavLink>
+            <div className="lg:hidden flex items-center justify-between gap-3 px-4 py-2">
+              <span className="flex items-center gap-3 text-[11px] uppercase tracking-[0.22em] text-[var(--color-ivoire-soft)]">
+                <span aria-hidden className="w-1 h-1 bg-current opacity-50 rotate-45 shrink-0" />
+                {t("nav.language", { default: "Langue" })}
+              </span>
+              <LocaleSwitcher />
+            </div>
+          </div>
+
           <div className="border-t border-[var(--color-or)]/15">
             <button
               type="button"
@@ -495,36 +483,3 @@ function UserMenu({ user, items, onSignOut, t }) {
   );
 }
 
-function Burger({ open }) {
-  return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 22 22"
-      stroke="currentColor"
-      strokeWidth="1.2"
-      fill="none"
-    >
-      <line
-        x1="3" y1="6" x2="19" y2="6"
-        style={{
-          transition: "transform 250ms var(--ease-curtain), opacity 200ms var(--ease-quick)",
-          transformOrigin: "center",
-          transform: open ? "translate(0, 5px) rotate(45deg)" : "",
-        }}
-      />
-      <line
-        x1="3" y1="11" x2="19" y2="11"
-        style={{ transition: "opacity 150ms", opacity: open ? 0 : 1 }}
-      />
-      <line
-        x1="3" y1="16" x2="19" y2="16"
-        style={{
-          transition: "transform 250ms var(--ease-curtain), opacity 200ms var(--ease-quick)",
-          transformOrigin: "center",
-          transform: open ? "translate(0, -5px) rotate(-45deg)" : "",
-        }}
-      />
-    </svg>
-  );
-}
