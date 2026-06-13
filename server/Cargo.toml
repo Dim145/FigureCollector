@@ -1,6 +1,6 @@
 [package]
 name = "figurecollector-server"
-version = "0.24.1"
+version = "0.25.0"
 edition = "2024"
 rust-version = "1.95"
 license = "MIT"
@@ -52,6 +52,12 @@ sqlx = { version = "0.8", default-features = false, features = [
     "postgres", "runtime-tokio", "tls-rustls-aws-lc-rs",
     "chrono", "uuid", "json", "macros", "migrate", "rust_decimal",
 ] }
+
+# --- pgvector — vector(384) embeddings for the visual (photo) search ---
+# Already pinned to 0.4.2 in Cargo.lock (pulled transitively by sea-orm). Its
+# only extra dep is serde + the sqlx Encode/Decode glue — no OpenSSL, so it
+# respects the zero-OpenSSL hard rule.
+pgvector = { version = "0.4", default-features = false, features = ["sqlx"] }
 
 # --- Sessions (Postgres-backed) ---
 # Pinned to 0.14 because `tower-sessions-sqlx-store` 0.15 (the latest released

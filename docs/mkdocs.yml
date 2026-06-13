@@ -87,6 +87,7 @@ nav:
       - Acquiring:
           - Wishlist: features/wishlist.md
           - URL import (orzgk + proxy): features/url-import.md
+          - Photo search: features/visual-search.md
           - Pre-orders: features/preorders.md
       - Community:
           - Collectors (social): features/social.md

@@ -4,6 +4,7 @@ use crate::auth;
 use crate::domain::figure::{self, FigurePatch, NewFigure};
 use crate::domain::figure_price;
 use crate::domain::figure_type;
+use crate::domain::visual_search;
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use axum::{
@@ -152,6 +153,9 @@ async fn create(
     let user_id = auth::require_user(&session).await?;
     let figure = figure::create(&state.pool, user_id, input).await?;
     tracing::info!(figure_id = %figure.id, created_by = %user_id, "figure created");
+    // Keep the visual-search index current: queue this figure's images (its
+    // official image now; any photos as they're uploaded). Best-effort + gated.
+    visual_search::enqueue_figure_if_enabled(&state.pool, figure.id).await;
     Ok((StatusCode::CREATED, Json(figure)))
 }
 
@@ -206,6 +210,8 @@ async fn patch_one(
         as_admin = user.is_admin && !owner,
         "figure updated",
     );
+    // An edit may have set/changed the official image — keep the index current.
+    visual_search::enqueue_figure_if_enabled(&state.pool, updated.id).await;
     Ok(Json(updated))
 }
 

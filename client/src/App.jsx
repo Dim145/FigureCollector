@@ -46,6 +46,7 @@ const AdminStoresPage      = lazy(() => import("./pages/AdminStoresPage.jsx"));
 const AdminNotificationsPage = lazy(() => import("./pages/AdminNotificationsPage.jsx"));
 const AdminMangaServersPage = lazy(() => import("./pages/AdminMangaServersPage.jsx"));
 const AdminWorkersPage     = lazy(() => import("./pages/AdminWorkersPage.jsx"));
+const RecognizePage        = lazy(() => import("./pages/RecognizePage.jsx"));
 const AdminTasksPage       = lazy(() => import("./pages/AdminTasksPage.jsx"));
 const AdminSettingsPage    = lazy(() => import("./pages/AdminSettingsPage.jsx"));
 const StorePage            = lazy(() => import("./pages/StorePage.jsx"));
@@ -99,6 +100,7 @@ export default function App() {
             <Route path="/souhaits" element={<WishlistPage />} />
             <Route path="/browse" element={<BrowsePage />} />
             <Route path="/figures/new" element={<AddFigurePage />} />
+            <Route path="/recognize" element={<RecognizePage />} />
             <Route path="/figures/:id" element={<FigureDetailPage />} />
             <Route
               path="/manufacturers/:slug"

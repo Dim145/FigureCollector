@@ -39,6 +39,16 @@ export default function AddFigurePage() {
   // form opens pre-filled with the scanned barcode.
   const [searchParams] = useSearchParams();
   const scannedJan = searchParams.get("jan");
+  // Photo search (/recognize) that found no catalogue match can hand off the
+  // best external guess as ?name=… so the form opens with the name pre-filled.
+  const prefillName = searchParams.get("name");
+  const formInitial =
+    scannedJan || prefillName
+      ? {
+          ...(scannedJan ? { jan: scannedJan } : {}),
+          ...(prefillName ? { name: prefillName } : {}),
+        }
+      : undefined;
   const createFigure = useCreateFigure();
   const addOwned = useAddOwnedItem();
   const [alsoAddToCollection, setAlsoAddToCollection] = useState(true);
@@ -212,7 +222,7 @@ export default function AddFigurePage() {
           <div className="relative">
             <FigureForm
               mode="create"
-              initial={scannedJan ? { jan: scannedJan } : undefined}
+              initial={formInitial}
               onSubmit={onSubmit}
               busy={isPending}
               errorMessage={errorMessage}

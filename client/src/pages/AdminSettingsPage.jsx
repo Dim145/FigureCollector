@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { useT } from "../i18n/index.jsx";
-import { useAdminSettings, useUpdateAdminSettings } from "../hooks/useAdmin.js";
+import {
+  useAdminSettings,
+  useReindexVisualSearch,
+  useUpdateAdminSettings,
+} from "../hooks/useAdmin.js";
+import { useVisualSearchStatus } from "../hooks/useVisualSearch.js";
 import AccentTitle from "../components/AccentTitle.jsx";
 import Button from "../components/Button.jsx";
 import Card from "../components/Card.jsx";
@@ -25,12 +30,20 @@ export default function AdminSettingsPage() {
   const settings = useAdminSettings();
   const update = useUpdateAdminSettings();
   const updateCron = useUpdateAdminSettings();
+  const updateVs = useUpdateAdminSettings();
+  const reindex = useReindexVisualSearch();
+  const vsStatus = useVisualSearchStatus();
 
   // The server value is the source of truth; the drafts hold each section's
   // pending edit (null = nothing unsaved). Deriving the live values during
   // render sidesteps a sync effect and re-syncs for free once a save refetches.
   const [draft, setDraft] = useState(null);
   const [cronDraft, setCronDraft] = useState(null);
+  // Photo-search section drafts (null = unchanged). The API key is write-only:
+  // `keyDraft === null` means "leave the stored key as is".
+  const [vsDraft, setVsDraft] = useState(null);
+  const [vsExtDraft, setVsExtDraft] = useState(null);
+  const [keyDraft, setKeyDraft] = useState(null);
 
   if (settings.isLoading) {
     return (
@@ -52,6 +65,30 @@ export default function AdminSettingsPage() {
   const savedCron = settings.data.price_cron ?? "";
   const cron = cronDraft ?? savedCron;
   const cronDirty = cronDraft !== null && cronDraft.trim() !== savedCron.trim();
+
+  // ─── Photo-search section ───
+  const savedVs = !!settings.data.visual_search;
+  const vs = vsDraft ?? savedVs;
+  const savedVsExt = !!settings.data.visual_search_external;
+  const vsExt = vsExtDraft ?? savedVsExt;
+  const keyStored = !!settings.data.visual_search_external_key_set;
+  const vsDirty =
+    (vsDraft !== null && vsDraft !== savedVs) ||
+    (vsExtDraft !== null && vsExtDraft !== savedVsExt) ||
+    keyDraft !== null;
+  const saveVs = () => {
+    const patch = {};
+    if (vsDraft !== null) patch.visual_search = vsDraft;
+    if (vsExtDraft !== null) patch.visual_search_external = vsExtDraft;
+    if (keyDraft !== null) patch.visual_search_external_key = keyDraft;
+    updateVs.mutate(patch, {
+      onSuccess: () => {
+        setVsDraft(null);
+        setVsExtDraft(null);
+        setKeyDraft(null);
+      },
+    });
+  };
 
   return (
     <div className="relative">
@@ -249,6 +286,184 @@ export default function AdminSettingsPage() {
               }
               disabled={!cronDirty || updateCron.isPending}
               loading={updateCron.isPending}
+            >
+              {t("admin.settings.save")}
+            </Button>
+          </div>
+        </Card>
+      </div>
+
+      {/* ─── Photo (visual) search ─── */}
+      <div className="reveal mt-8" style={{ "--i": 6 }}>
+        <Card className="p-6 md:p-8">
+          <p className="micro flex items-center gap-2.5">
+            <span
+              aria-hidden
+              className="ja not-italic text-[var(--color-or)] text-base leading-none"
+            >
+              視
+            </span>
+            {t("admin.settings.visual.kicker")}
+          </p>
+          <h3 className="display text-2xl md:text-3xl mt-2 text-[var(--color-ivoire)]">
+            {t("admin.settings.visual.title")}
+          </h3>
+          <div className="gold-rule w-12 mt-4 mb-4" />
+          <p className="text-sm text-[var(--color-ivoire-soft)] leading-relaxed max-w-2xl">
+            {t("admin.settings.visual.desc")}
+          </p>
+
+          {/* Master enable toggle */}
+          <div className="atelier-toggle-row mt-6">
+            <div id="vs-enable-label" className="atelier-toggle-row-text">
+              <span className={`atelier-toggle-row-state ${vs ? "is-on" : ""}`}>
+                {vs
+                  ? t("admin.settings.visual.enable_on")
+                  : t("admin.settings.visual.enable_off")}
+              </span>
+              <span className="atelier-toggle-row-hint">
+                {t("admin.settings.visual.enable_hint")}
+              </span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={vs}
+              aria-labelledby="vs-enable-label"
+              onClick={() => setVsDraft(!vs)}
+              className={`atelier-toggle ${vs ? "is-on" : ""}`}
+            />
+          </div>
+
+          {/* Index status + re-index */}
+          <div className="mt-5 flex flex-wrap items-end justify-between gap-3">
+            <div className="text-xs text-[var(--color-ivoire-soft)] leading-relaxed">
+              {vsStatus.data ? (
+                <>
+                  <p>
+                    {t("admin.settings.visual.index_status", {
+                      embedded: vsStatus.data.embedded ?? 0,
+                      pending: vsStatus.data.pending ?? 0,
+                    })}
+                  </p>
+                  <p
+                    className="mt-1"
+                    style={{
+                      color: vsStatus.data.worker_present
+                        ? "var(--color-or)"
+                        : "var(--color-ivoire-soft)",
+                    }}
+                  >
+                    <span
+                      aria-hidden
+                      className="inline-block w-1.5 h-1.5 rotate-45 mr-2 align-middle"
+                      style={{
+                        background: vsStatus.data.worker_present
+                          ? "var(--color-or)"
+                          : "color-mix(in oklab, var(--color-ivoire-soft) 55%, transparent)",
+                      }}
+                    />
+                    {vsStatus.data.worker_present
+                      ? t("admin.settings.visual.worker_on")
+                      : t("admin.settings.visual.worker_off")}
+                  </p>
+                </>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-3">
+              {reindex.isSuccess ? (
+                <p role="status" className="text-xs text-[var(--color-or)]">
+                  {t("admin.settings.visual.reindex_done", {
+                    queued: reindex.data?.queued ?? 0,
+                  })}
+                </p>
+              ) : null}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => reindex.mutate()}
+                disabled={!savedVs || reindex.isPending}
+                loading={reindex.isPending}
+              >
+                {t("admin.settings.visual.reindex")}
+              </Button>
+            </div>
+          </div>
+          <p className="mt-1.5 text-xs text-[var(--color-ivoire-soft)]/70">
+            {t("admin.settings.visual.reindex_hint")}
+          </p>
+
+          {/* External (Google Vision) fallback */}
+          <div className="mt-7 pt-6 border-t border-dashed border-[var(--color-or)]/20">
+            <div className={`atelier-toggle-row ${!vs ? "opacity-50" : ""}`}>
+              <div id="vs-ext-label" className="atelier-toggle-row-text">
+                <span className={`atelier-toggle-row-state ${vsExt ? "is-on" : ""}`}>
+                  {vsExt
+                    ? t("admin.settings.visual.external_on")
+                    : t("admin.settings.visual.external_off")}
+                </span>
+                <span className="atelier-toggle-row-hint">
+                  {t("admin.settings.visual.external_hint")}
+                </span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={vsExt}
+                aria-labelledby="vs-ext-label"
+                onClick={() => setVsExtDraft(!vsExt)}
+                disabled={!vs}
+                className={`atelier-toggle ${vsExt ? "is-on" : ""}`}
+              />
+            </div>
+
+            <label className="block mt-5 max-w-md">
+              <span className="micro block mb-2">
+                {t("admin.settings.visual.key_label")}
+              </span>
+              <input
+                type="password"
+                value={keyDraft ?? ""}
+                onChange={(e) => setKeyDraft(e.target.value)}
+                placeholder={t("admin.settings.visual.key_placeholder")}
+                spellCheck={false}
+                autoComplete="off"
+                disabled={!vs}
+                aria-label={t("admin.settings.visual.key_label")}
+                className="w-full bg-[var(--color-noir)] border border-[var(--color-or)]/30 px-4 py-3 text-[var(--color-ivoire)] outline-none transition-colors focus:border-[var(--color-or)] disabled:opacity-50"
+                style={{ fontFamily: "var(--font-mono)", letterSpacing: "0.04em" }}
+              />
+              <span
+                className="mt-2 block text-xs leading-relaxed"
+                style={{
+                  color: keyStored
+                    ? "var(--color-or-pale)"
+                    : "var(--color-ivoire-soft)",
+                }}
+              >
+                {keyStored
+                  ? t("admin.settings.visual.key_set")
+                  : t("admin.settings.visual.key_unset")}
+              </span>
+            </label>
+          </div>
+
+          {/* Save row */}
+          <div className="mt-7 flex items-center justify-end gap-4">
+            {updateVs.isSuccess && !vsDirty ? (
+              <p
+                role="status"
+                aria-live="polite"
+                className="text-xs tracking-wide text-[var(--color-or)]"
+              >
+                {t("admin.settings.saved")}
+              </p>
+            ) : null}
+            <Button
+              variant="primary"
+              onClick={saveVs}
+              disabled={!vsDirty || updateVs.isPending}
+              loading={updateVs.isPending}
             >
               {t("admin.settings.save")}
             </Button>

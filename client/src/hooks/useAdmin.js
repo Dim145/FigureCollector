@@ -32,6 +32,21 @@ export function useUpdateAdminSettings() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "settings"] });
       qc.invalidateQueries({ queryKey: ["scans", "capabilities"] });
+      // The photo-search nav entry + page gate on this status.
+      qc.invalidateQueries({ queryKey: ["visual-search", "status"] });
+    },
+  });
+}
+
+/** POST /admin/visual-search/reindex — queue every catalog image missing an
+ *  embedding for the current model. The embed-capable worker drains the queue;
+ *  returns `{ queued }`. */
+export function useReindexVisualSearch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post("/admin/visual-search/reindex"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["visual-search", "status"] });
     },
   });
 }

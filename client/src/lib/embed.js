@@ -1,0 +1,112 @@
+// Client-side image embedding for visual (photo) search — DINOv2-small, 384-d.
+//
+// The model is SELF-HOSTED under /models/ (so the CSP stays `'self'`), and the
+// ONNX Runtime WASM is the same Vite-bundled runtime the background remover
+// already ships. The transformers.js library is loaded with a dynamic import
+// so its weight never enters the main bundle (mirrors lib/bgRemoval.js).
+//
+// The catalog index is embedded with the EXACT same model + preprocessing
+// (see the worker / dev seed), so the query vector and the catalog vectors
+// share one space — `MODEL_VERSION` here must match the server's.
+
+/** Must equal `domain::visual_search::MODEL_VERSION` on the server. */
+export const MODEL_VERSION = "dinov2-small/1";
+const MODEL_ID = "Xenova/dinov2-small";
+export const EMBED_DIM = 384;
+
+let _extractorPromise = null;
+
+/** Lazily load (download + init) the embedding pipeline. Cached after first
+ *  call. `onProgress({status, file, progress})` surfaces the one-time model
+ *  download so the UI can show a "preparing…" state. */
+async function getExtractor(onProgress) {
+  if (_extractorPromise) return _extractorPromise;
+  _extractorPromise = (async () => {
+    const { pipeline, env } = await import("@huggingface/transformers");
+    // Never reach out to huggingface.co — the model lives under our origin.
+    env.allowRemoteModels = false;
+    env.allowLocalModels = true;
+    env.localModelPath = "/models/";
+    // Self-host the ONNX Runtime WASM too (transformers.js bundles ORT 1.26 and
+    // otherwise fetches its .wasm from a CDN, which the strict `connect-src
+    // 'self'` CSP blocks). Files live in public/ort/ (jsep for WebGPU, plain
+    // for the WASM fallback).
+    env.backends.onnx.wasm.wasmPaths = "/ort/";
+    const device = hasWebGPU() ? "webgpu" : "wasm";
+    return pipeline("image-feature-extraction", MODEL_ID, {
+      device,
+      dtype: "q8",
+      progress_callback: onProgress,
+    });
+  })();
+  return _extractorPromise;
+}
+
+/** Warm the model (download + init) ahead of the first capture, so the user
+ *  doesn't wait on it after taking the photo. Safe to call repeatedly. */
+export function warmUp(onProgress) {
+  return getExtractor(onProgress).then(() => true).catch(() => false);
+}
+
+/** L2-normalise a vector in place-safe fashion (returns a new array). A zero
+ *  vector is returned unchanged to avoid dividing by zero. */
+function l2normalize(vec) {
+  let sum = 0;
+  for (let i = 0; i < vec.length; i++) sum += vec[i] * vec[i];
+  const norm = Math.sqrt(sum);
+  if (!(norm > 0)) return vec;
+  return vec.map((x) => x / norm);
+}
+
+/** Embed an image into a 384-d L2-normalised vector, comparable against the
+ *  catalog index. Accepts a Blob/File or an image URL (data:/blob:/https:).
+ *
+ *  Contract with the indexing worker (Phase 5): both sides run DINOv2-small,
+ *  take the CLS token of `last_hidden_state` as the global descriptor, and
+ *  L2-normalise. Keep these in lockstep — the query and the index must share
+ *  one vector space. */
+export async function embedImage(source, onProgress) {
+  const extractor = await getExtractor(onProgress);
+  let input = source;
+  let objectUrl = null;
+  if (source instanceof Blob) {
+    objectUrl = URL.createObjectURL(source);
+    input = objectUrl;
+  }
+  try {
+    // NOTE: the `image-feature-extraction` pipeline only honours a `pool`
+    // boolean (mean-pool) — unlike the text feature pipeline it ignores
+    // `pooling: "cls"` / `normalize`. So it returns the full
+    // `last_hidden_state` ([1, tokens, 384] for DINOv2: 1 CLS + 256 patches).
+    // We slice the CLS token (row 0) ourselves and normalise below.
+    const out = await extractor(input);
+    const data = out?.data ?? out;
+    const arr = Array.from(data, (x) => Number(x));
+    let vec;
+    if (arr.length === EMBED_DIM) {
+      // Already pooled to a single 384-d vector.
+      vec = arr;
+    } else if (arr.length % EMBED_DIM === 0 && arr.length > 0) {
+      // [tokens, 384] row-major → the CLS token is the first row.
+      vec = arr.slice(0, EMBED_DIM);
+    } else {
+      throw new Error(`unexpected embedding length ${arr.length}`);
+    }
+    return l2normalize(vec);
+  } finally {
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+  }
+}
+
+/** WebGPU availability — used for a UI hint about speed and to decide whether
+ *  to nudge the user to wait (WASM is slower on weak devices). */
+export function hasWebGPU() {
+  return typeof navigator !== "undefined" && !!navigator.gpu;
+}
+
+// Diagnostic / seed hook: exposes the embedder so the catalog index can be
+// seeded from the browser with the EXACT same model the query uses (the dev
+// seed tooling drives this). Harmless — it's just a reference to embedImage.
+if (typeof window !== "undefined") {
+  window.__fcEmbedImage = embedImage;
+}

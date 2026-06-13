@@ -12,6 +12,7 @@ use crate::domain::scan::{self, AdminScan};
 use crate::domain::server_job;
 use crate::domain::settings;
 use crate::domain::store::{self, NewStore, StorePatch, StoreUsage};
+use crate::domain::visual_search;
 use crate::domain::worker::{self, WorkerPatch, WorkerView};
 use crate::error::{AppError, AppResult};
 use crate::services::notify;
@@ -945,12 +946,43 @@ async fn patch_settings(
         settings::set_price_cron_schedule(&state.pool, schedule).await?;
         tracing::info!(by_admin = %actor.id, schedule, "admin updated price-cron schedule");
     }
+    if let Some(enabled) = input.visual_search {
+        settings::set_visual_search_enabled(&state.pool, enabled).await?;
+        tracing::info!(by_admin = %actor.id, enabled, "admin toggled visual search");
+    }
+    if let Some(enabled) = input.visual_search_external {
+        settings::set_visual_search_external_enabled(&state.pool, enabled).await?;
+        tracing::info!(by_admin = %actor.id, enabled, "admin toggled visual-search external fallback");
+    }
+    if let Some(key) = input.visual_search_external_key.as_deref() {
+        settings::set_visual_search_external_api_key(&state.pool, key).await?;
+        // Log only WHETHER a key is now set — never the secret itself.
+        tracing::info!(
+            by_admin = %actor.id,
+            set = !key.trim().is_empty(),
+            "admin updated visual-search external API key"
+        );
+    }
     Ok(Json(settings::all(&state.pool).await?))
+}
+
+/// Queue every catalog image still missing an embedding for the current model
+/// — the embed-capable worker drains the queue and writes the vectors. Returns
+/// how many were queued.
+async fn reindex_visual_search(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<serde_json::Value>> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    let queued = visual_search::enqueue_missing(&state.pool, visual_search::MODEL_VERSION).await?;
+    tracing::info!(by_admin = %actor.id, queued, "admin queued visual-search reindex");
+    Ok(Json(json!({ "queued": queued })))
 }
 
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/admin/settings", get(get_settings).patch(patch_settings))
+        .route("/admin/visual-search/reindex", post(reindex_visual_search))
         .route("/admin/overview", get(overview))
         .route("/admin/users", get(list_users).post(create_user))
         .route(

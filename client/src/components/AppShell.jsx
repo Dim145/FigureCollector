@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "motion/react";
 import { useT } from "../i18n/index.jsx";
 import { useIsAdmin, useLogout, useMe } from "../hooks/useMe.js";
+import { useVisualSearchStatus } from "../hooks/useVisualSearch.js";
 import LocaleSwitcher from "./LocaleSwitcher.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
 import NotificationBell from "./NotificationBell.jsx";
@@ -30,6 +31,7 @@ export default function AppShell({ children }) {
   const t = useT();
   const me = useMe();
   const isAdmin = useIsAdmin();
+  const visualSearch = useVisualSearchStatus();
   const navigate = useNavigate();
   const logout = useLogout();
   const [scrolled, setScrolled] = useState(false);
@@ -72,6 +74,11 @@ export default function AppShell({ children }) {
   // language), so it never reads as just another nav row.
   const secondary = [
     { to: "/souhaits", label: t("wishlist.title") },
+    // Photo search — only when the instance has it enabled (admin flag); the
+    // entry otherwise leads to a dead "indisponible" page. Shared cached status.
+    ...(visualSearch.data?.enabled
+      ? [{ to: "/recognize", label: t("nav.recognize") }]
+      : []),
     { to: "/cote", label: t("cote.title") },
     { to: "/collectionneurs", label: t("nav.discover") },
     { to: "/croisements", label: t("nav.croisements") },

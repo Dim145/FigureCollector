@@ -35,6 +35,7 @@ pub mod profile;
 pub mod scans;
 pub mod stats;
 pub mod stores;
+pub mod visual_search;
 pub mod web_push;
 pub mod wishlist;
 pub mod ws;
@@ -119,6 +120,31 @@ pub fn build_router(state: AppState) -> Router {
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(8 * 1024 * 1024));
 
+    // External (off-device) photo-search fallback — carries a base64 image, so
+    // it needs more than the 2 MB default; an 8 MB cap leaves headroom over the
+    // ~1 MB downscaled payload. It also forwards to a PAID API (Google Vision),
+    // so it gets a tight IP-keyed rate limit (burst 4, ~1/s sustained) as an
+    // abuse/cost backstop on top of the per-search user consent. Gated by the
+    // same RATE_LIMIT_ENABLED toggle as the auth limiter.
+    let external_search_routes = {
+        let routes = visual_search::external_router()
+            .layer(DefaultBodyLimit::disable())
+            .layer(RequestBodyLimitLayer::new(8 * 1024 * 1024));
+        if state.config.auth.rate_limit_enabled {
+            let conf = Arc::new(
+                GovernorConfigBuilder::default()
+                    .per_second(1)
+                    .burst_size(4)
+                    .key_extractor(SmartIpKeyExtractor)
+                    .finish()
+                    .expect("valid governor configuration"),
+            );
+            routes.layer(GovernorLayer::new(conf))
+        } else {
+            routes
+        }
+    };
+
     let api = Router::new()
         .merge(health::router())
         .merge(me::router())
@@ -142,6 +168,8 @@ pub fn build_router(state: AppState) -> Router {
         .merge(web_push::router())
         .merge(stats::router())
         .merge(stores::router())
+        .merge(visual_search::router())
+        .merge(external_search_routes)
         .merge(admin::router())
         .merge(photo_routes)
         .merge(figure_photo_routes)

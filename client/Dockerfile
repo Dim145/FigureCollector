@@ -14,6 +14,14 @@ COPY package.json pnpm-lock.yaml* .npmrc ./
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile || pnpm install
 
+# Self-hosted ML assets for visual search (ORT WASM + DINOv2-small weights,
+# ~97 MB) are NOT in the build context (.dockerignore) — fetch them in their
+# own layer so the model download is cached across source-only rebuilds. The
+# prebuild hook re-runs this on `pnpm run build` but finds everything present
+# and skips the download.
+COPY scripts ./scripts
+RUN node scripts/fetch-ml-assets.mjs
+
 COPY . ./
 RUN pnpm run build
 

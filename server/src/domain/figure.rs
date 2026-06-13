@@ -544,6 +544,32 @@ pub async fn list(pool: &PgPool, q: ListQuery) -> AppResult<Vec<Figure>> {
     Ok(query.fetch_all(pool).await?)
 }
 
+/// Fetch figures by a set of ids with the same enriched projection as
+/// [`list`] (manufacturer name/slug, primary catalog photo). Used by visual
+/// search to hydrate its ranked candidate ids into cards. NSFW rows drop when
+/// `exclude_nsfw`. Result order is unspecified — the caller re-orders by score.
+pub async fn by_ids(pool: &PgPool, ids: &[Uuid], exclude_nsfw: bool) -> AppResult<Vec<Figure>> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut sql = format!(
+        "SELECT {FIGURE_COLUMNS_PREFIXED}{FIGURE_NAME_PROJECTION},
+                (SELECT fp.id FROM figure_photos fp
+                 WHERE fp.figure_id = f.id
+                 ORDER BY fp.is_primary DESC, fp.position ASC, fp.created_at ASC
+                 LIMIT 1) AS primary_photo_id
+         FROM figures f {FIGURE_NAME_JOINS}
+         WHERE f.id = ANY($1)"
+    );
+    if exclude_nsfw {
+        sql.push_str(" AND NOT f.is_nsfw");
+    }
+    Ok(sqlx::query_as::<_, Figure>(&sql)
+        .bind(ids)
+        .fetch_all(pool)
+        .await?)
+}
+
 pub async fn find_by_id(pool: &PgPool, id: Uuid) -> AppResult<Option<Figure>> {
     let sql = format!(
         "SELECT {FIGURE_COLUMNS_PREFIXED}{FIGURE_NAME_PROJECTION} \

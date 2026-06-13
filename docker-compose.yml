@@ -12,7 +12,10 @@
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # pgvector/pgvector ships PostgreSQL 16 + the `vector` extension (visual
+    # search embeddings). Same PG16 major as before, so the data volume is
+    # compatible; it just adds the extension `postgres:16-alpine` lacked.
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_DB: figurecollector

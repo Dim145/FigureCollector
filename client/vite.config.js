@@ -196,6 +196,11 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes("node_modules")) {
+            // transformers.js (visual-search embedding) — matched BEFORE the
+            // bg-removal branch since both pull in onnxruntime-web.
+            if (id.includes("@huggingface/transformers")) {
+              return "vendor-transformers";
+            }
             if (
               id.includes("@imgly/background-removal") ||
               id.includes("onnxruntime-web")

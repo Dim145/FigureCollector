@@ -172,6 +172,28 @@ pub async fn any_live(pool: &PgPool) -> AppResult<bool> {
     Ok(row.0)
 }
 
+/// Like [`any_live`], but also requires the worker to advertise `capability`
+/// (e.g. `"embed"`). Gates visual-search index (re)building — the catalog is
+/// embedded by an embed-capable worker. Existing gsplat workers that don't
+/// advertise the capability simply don't match (the column defaults to an
+/// empty set).
+pub async fn any_live_with_capability(pool: &PgPool, capability: &str) -> AppResult<bool> {
+    let row: (bool,) = sqlx::query_as(
+        "SELECT EXISTS (
+             SELECT 1 FROM workers
+             WHERE enabled = TRUE
+               AND last_seen > NOW()
+                  - make_interval(secs => heartbeat_interval_secs * $1)
+               AND capabilities @> ARRAY[$2]::text[]
+         )",
+    )
+    .bind(OFFLINE_MISS_THRESHOLD)
+    .bind(capability)
+    .fetch_one(pool)
+    .await?;
+    Ok(row.0)
+}
+
 // Worker → DB write paths (UPSERT on startup, heartbeat tick) run inline
 // from the Python workers via asyncpg — same pattern as how they already
 // `claim_next_pending` directly against the DB. Keeping the schema in one

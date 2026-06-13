@@ -20,3 +20,4 @@ pub mod notify_channel;
 pub mod orzgk;
 pub mod proxy;
 pub mod tracking;
+pub mod vision;

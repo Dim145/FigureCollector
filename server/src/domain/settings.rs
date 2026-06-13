@@ -88,22 +88,124 @@ pub async fn set_price_cron_schedule(pool: &PgPool, schedule: &str) -> AppResult
     Ok(())
 }
 
+/// Whether photo (visual) search is exposed to users. Off by default — it
+/// needs a catalog embedding index, built by an `embed`-capable worker.
+const VISUAL_SEARCH_KEY: &str = "visual_search.enabled";
+
+pub async fn visual_search_enabled(pool: &PgPool) -> AppResult<bool> {
+    let value: Option<String> = sqlx::query_scalar("SELECT value FROM app_settings WHERE key = $1")
+        .bind(VISUAL_SEARCH_KEY)
+        .fetch_optional(pool)
+        .await?;
+    Ok(value.as_deref() == Some("true"))
+}
+
+pub async fn set_visual_search_enabled(pool: &PgPool, enabled: bool) -> AppResult<()> {
+    sqlx::query(
+        "INSERT INTO app_settings (key, value, updated_at)
+         VALUES ($1, $2, now())
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()",
+    )
+    .bind(VISUAL_SEARCH_KEY)
+    .bind(if enabled { "true" } else { "false" })
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// External (off-device) photo-search fallback — when the in-catalog search
+/// finds nothing, the user may opt in to a reverse-image lookup via Google
+/// Cloud Vision (Web Detection). This is the ONLY path where the photo leaves
+/// the device, so it's gated by a distinct admin toggle AND a configured key,
+/// on top of the parent `visual_search` flag.
+const VISUAL_SEARCH_EXTERNAL_KEY: &str = "visual_search.external.enabled";
+/// The Google Cloud Vision API key. A secret: stored here (same trust boundary
+/// as the rest of `app_settings`) but NEVER returned by the API — the admin
+/// view only exposes whether one is set.
+const VISUAL_SEARCH_EXTERNAL_API_KEY: &str = "visual_search.external.google_api_key";
+
+pub async fn visual_search_external_enabled(pool: &PgPool) -> AppResult<bool> {
+    let value: Option<String> = sqlx::query_scalar("SELECT value FROM app_settings WHERE key = $1")
+        .bind(VISUAL_SEARCH_EXTERNAL_KEY)
+        .fetch_optional(pool)
+        .await?;
+    Ok(value.as_deref() == Some("true"))
+}
+
+pub async fn set_visual_search_external_enabled(pool: &PgPool, enabled: bool) -> AppResult<()> {
+    sqlx::query(
+        "INSERT INTO app_settings (key, value, updated_at)
+         VALUES ($1, $2, now())
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()",
+    )
+    .bind(VISUAL_SEARCH_EXTERNAL_KEY)
+    .bind(if enabled { "true" } else { "false" })
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// The configured Google Vision API key, or `None` when unset/blank.
+pub async fn visual_search_external_api_key(pool: &PgPool) -> AppResult<Option<String>> {
+    let value: Option<String> = sqlx::query_scalar("SELECT value FROM app_settings WHERE key = $1")
+        .bind(VISUAL_SEARCH_EXTERNAL_API_KEY)
+        .fetch_optional(pool)
+        .await?;
+    Ok(value.filter(|s| !s.trim().is_empty()))
+}
+
+pub async fn set_visual_search_external_api_key(pool: &PgPool, key: &str) -> AppResult<()> {
+    sqlx::query(
+        "INSERT INTO app_settings (key, value, updated_at)
+         VALUES ($1, $2, now())
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()",
+    )
+    .bind(VISUAL_SEARCH_EXTERNAL_API_KEY)
+    .bind(key.trim())
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// External fallback is usable: the parent feature is on, the admin enabled the
+/// external fallback, AND a key is configured. The query path checks this
+/// before ever forwarding a photo to Google.
+pub async fn visual_search_external_ready(pool: &PgPool) -> AppResult<bool> {
+    Ok(visual_search_enabled(pool).await?
+        && visual_search_external_enabled(pool).await?
+        && visual_search_external_api_key(pool).await?.is_some())
+}
+
 /// The admin-facing settings view (extend as more settings are added).
 #[derive(Debug, Serialize)]
 pub struct Settings {
     pub gsplat_creation_policy: String,
     pub price_cron: String,
+    pub visual_search: bool,
+    pub visual_search_external: bool,
+    /// Whether a Google Vision API key is configured (the key itself is never
+    /// returned).
+    pub visual_search_external_key_set: bool,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct SettingsPatch {
     pub gsplat_creation_policy: Option<String>,
     pub price_cron: Option<String>,
+    pub visual_search: Option<bool>,
+    pub visual_search_external: Option<bool>,
+    /// New Google Vision API key. `Some(non-empty)` sets it, `Some("")` clears
+    /// it, `None` leaves it unchanged (so the admin UI never round-trips the
+    /// secret).
+    pub visual_search_external_key: Option<String>,
 }
 
 pub async fn all(pool: &PgPool) -> AppResult<Settings> {
     Ok(Settings {
         gsplat_creation_policy: gsplat_creation_policy(pool).await?,
         price_cron: price_cron_schedule(pool).await?,
+        visual_search: visual_search_enabled(pool).await?,
+        visual_search_external: visual_search_external_enabled(pool).await?,
+        visual_search_external_key_set: visual_search_external_api_key(pool).await?.is_some(),
     })
 }

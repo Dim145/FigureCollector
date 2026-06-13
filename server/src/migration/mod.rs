@@ -59,6 +59,8 @@ mod m20260607_000002_figure_provider_prices;
 mod m20260610_000001_server_job_runs;
 mod m20260610_000002_figure_price_history;
 mod m20260611_000001_pricing_frozen_fx;
+mod m20260613_000001_visual_search;
+mod m20260613_000002_worker_embed_kind;
 
 pub struct Migrator;
 
@@ -113,6 +115,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260610_000001_server_job_runs::Migration),
             Box::new(m20260610_000002_figure_price_history::Migration),
             Box::new(m20260611_000001_pricing_frozen_fx::Migration),
+            Box::new(m20260613_000001_visual_search::Migration),
+            Box::new(m20260613_000002_worker_embed_kind::Migration),
         ]
     }
 }

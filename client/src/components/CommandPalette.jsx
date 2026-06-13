@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useFigures, useOwnedItems } from "../hooks/useCollection.js";
+import { useVisualSearchStatus } from "../hooks/useVisualSearch.js";
 import { useFocusTrap } from "../hooks/useFocusTrap.js";
 
 /**
@@ -41,6 +42,9 @@ export default function CommandPalette() {
   // openings; TanStack Query won't refetch unless its staleTime expired.
   const owned = useOwnedItems({ enabled: open });
   const figures = useFigures({}, { enabled: open });
+  // Cheap: AppShell already primed this query, so opening the palette reads
+  // it from cache. Gates the photo-search command on the feature flag.
+  const visualSearch = useVisualSearchStatus({ enabled: open });
 
   // Global ⌘K / Ctrl+K toggle
   useEffect(() => {
@@ -84,6 +88,9 @@ export default function CommandPalette() {
       { id: "nav-browse", group: "navigation", label: t("nav.browse"), to: "/browse" },
       { id: "nav-stats", group: "navigation", label: t("nav.stats"), to: "/stats" },
       { id: "nav-add", group: "navigation", label: t("nav.add_figure"), to: "/figures/new" },
+      ...(visualSearch.data?.enabled
+        ? [{ id: "nav-recognize", group: "navigation", label: t("nav.recognize"), to: "/recognize" }]
+        : []),
       { id: "nav-settings", group: "navigation", label: t("nav.settings"), to: "/settings" },
     ];
 
@@ -106,7 +113,7 @@ export default function CommandPalette() {
       })) ?? [];
 
     return [...navigation, ...collectionItems, ...catalogItems];
-  }, [t, owned.data, figures.data]);
+  }, [t, owned.data, figures.data, visualSearch.data?.enabled]);
 
   const filtered = useMemo(() => {
     if (!query) return items;

@@ -1,6 +1,11 @@
 node_modules/
 dist/
 dev-dist/
+# Self-hosted ML assets (~97 MB) — regenerated in the build via the prebuild
+# hook (scripts/fetch-ml-assets.mjs), so they're excluded from the context to
+# keep the build reproducible and the upload small.
+public/ort/
+public/models/
 .env
 .env.local
 .env.*.local

@@ -1430,7 +1430,7 @@ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 
 [[package]]
 name = "figurecollector-server"
-version = "0.24.1"
+version = "0.25.0"
 dependencies = [
  "anyhow",
  "argon2",
@@ -1448,6 +1448,7 @@ dependencies = [
  "openidconnect",
  "p256",
  "password-hash",
+ "pgvector",
  "rand 0.10.1",
  "reqwest",
  "rust-s3",
@@ -2982,6 +2983,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3673cba5b9a124916096a423b806a9f29620972c6c97b08db5f2053e9428b481"
 dependencies = [
  "serde",
+ "sqlx",
 ]
 
 [[package]]

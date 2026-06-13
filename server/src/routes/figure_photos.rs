@@ -12,7 +12,7 @@
 //! collection divide it belongs to.
 
 use crate::auth;
-use crate::domain::{figure, figure_photo};
+use crate::domain::{figure, figure_photo, visual_search};
 use crate::error::{AppError, AppResult};
 use crate::photo as photo_pipeline;
 use crate::state::AppState;
@@ -141,6 +141,8 @@ async fn upload_photo(
         as_admin = user.is_admin && !is_owner,
         "catalog photo uploaded",
     );
+    // New catalog image → queue it for the visual-search index (best-effort + gated).
+    visual_search::enqueue_figure_if_enabled(&state.pool, figure_id).await;
     Ok((StatusCode::CREATED, Json(saved)))
 }
 
@@ -194,6 +196,9 @@ async fn delete_photo(
     if let Err(e) = state.storage.delete(&storage_key).await {
         tracing::warn!(error = ?e, storage_key, "failed to delete catalog photo blob");
     }
+    // Drop the photo's visual-search vector + queue row (no FK cascades from
+    // figure_photos), so it stops matching.
+    visual_search::forget_image(&state.pool, &photo_id.to_string()).await;
     Ok(StatusCode::NO_CONTENT)
 }
 
@@ -274,6 +279,9 @@ async fn replace_photo(
         by_user = %user.id,
         "catalog photo replaced",
     );
+    // Same image_ref (the photo id), new bytes → re-arm its queue row so the
+    // worker recomputes the embedding for the edited image.
+    visual_search::requeue_image_if_enabled(&state.pool, &photo_id.to_string()).await;
     Ok(Json(saved))
 }
 

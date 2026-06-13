@@ -3,6 +3,23 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.25 — find it by photo
+
+- **Search the catalog by photo** — photograph a figure and FigureCollector
+  finds the matching catalog entry. The visual fingerprint is computed **in your
+  browser** (DINOv2-small), so the photo never leaves your device — only an
+  anonymous 384-number signature travels to find the piece.
+  → [Photo search](features/visual-search.md)
+- **Optional web fallback** — when nothing in the catalog matches, you can
+  choose to extend the search to the web (Google Vision). This is **opt-in and
+  explicit**: it's the one path where the photo is sent off-device, and it
+  returns identification leads (a best guess, recognised terms, matching pages)
+  to help you add the piece by hand. Admin-configured, off by default.
+  → [Photo search](features/visual-search.md#web-fallback)
+- **Admin**: a single toggle enables photo search; a dedicated **embed-worker**
+  (CPU-friendly, no GPU) builds the catalog index, and new figures/photos are
+  indexed automatically. → [Photo search](features/visual-search.md#admin)
+
 ## 0.24 — imported prices, normalised
 
 - **Scraped prices land in supported currencies only** — imports (orzgk,
