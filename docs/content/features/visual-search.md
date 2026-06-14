@@ -66,26 +66,33 @@ Everything lives under **Admin → Réglages → Recherche par photo**:
   (write-only; the stored key is never shown back). Both must be set for the
   fallback to appear.
 
-### The embed-worker
+### Who builds the index
 
-The catalog index is built by a dedicated **embed-worker** — a small,
-CPU-friendly service (no GPU needed) that drains the embedding queue. It
-registers itself with the `embed` capability; the server only lets you build
-the index while one is online.
+A worker drains the embedding queue, advertising the `embed` **capability** —
+the server only lets you build the index while one is online. The embedding runs
+on **CPU** (DINOv2-small is light), so it never competes with gsplat training for
+the GPU. Two ways to provide it:
 
-It runs the **same model and preprocessing as the browser**, so query and index
-vectors live in one space. Build and run it from
-`infrastructure/embed-worker/` (see its `README.md`):
+- **Your gsplat worker already does it.** The [scan worker](photos.md) runs the
+  embed loop as a concurrent, CPU-only task alongside training — so if you run
+  it, photo search just works once you enable the feature. Nothing extra to
+  deploy. (Rebuild the worker image to pick this up.)
+- **A standalone, for a GPU-less host.** If you don't run a gsplat worker — or
+  want indexing to live elsewhere — `infrastructure/embed-worker/` is a tiny
+  CPU-only image that does only this:
 
-```sh
-docker build -t figurecollector-embed-worker infrastructure/embed-worker
-docker run --rm \
-  -e DATABASE_URL="postgres://…@db:5432/figurecollector" \
-  -e SERVER_URL="http://server:3000" \
-  figurecollector-embed-worker
-```
+  ```sh
+  docker build -t figurecollector-embed-worker infrastructure/embed-worker
+  docker run --rm \
+    -e DATABASE_URL="postgres://…@db:5432/figurecollector" \
+    -e SERVER_URL="http://server:3000" \
+    figurecollector-embed-worker
+  ```
+
+Both run the **same model and preprocessing as the browser** (shared
+`embed_index.py`), so query and index vectors live in one space.
 
 !!! tip "No GPU required"
-    Unlike the [gsplat scan worker](photos.md), embedding is light — DINOv2-small
-    runs fine on CPU. You can run the embed-worker anywhere it can reach the
-    database and the API.
+    Embedding is light — DINOv2-small runs fine on CPU. Whether folded into the
+    gsplat worker or run standalone, it only needs to reach the database and the
+    API.

@@ -23,6 +23,10 @@ dist/
 dev-dist/
 target/
 
+# --- Python (infrastructure workers) ---
+__pycache__/
+*.pyc
+
 # --- Logs / scratch ---
 *.log
 *.tmp

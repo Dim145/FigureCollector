@@ -9,6 +9,11 @@ model + preprocessing**, so query and index live in one space.
 Unlike the gsplat worker this needs **no GPU** — DINOv2-small (q8) runs on CPU
 via onnxruntime. Run it anywhere that can reach the database and the API.
 
+> **You may not need this.** The gsplat scan worker already runs the *same*
+> embed loop (`embed_index.py`, shared byte-for-byte) as a concurrent CPU task,
+> so if you run it, the index builds itself — no separate deployment. This
+> standalone exists for **GPU-less hosts**, or to move indexing off the GPU box.
+
 ## How it fits
 
 - Registers in the `workers` table with `kind='embed'` and advertises the

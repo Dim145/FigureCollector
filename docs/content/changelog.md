@@ -16,9 +16,10 @@ detail live in the [git history](https://github.com/Dim145/FigureCollector/commi
   returns identification leads (a best guess, recognised terms, matching pages)
   to help you add the piece by hand. Admin-configured, off by default.
   → [Photo search](features/visual-search.md#web-fallback)
-- **Admin**: a single toggle enables photo search; a dedicated **embed-worker**
-  (CPU-friendly, no GPU) builds the catalog index, and new figures/photos are
-  indexed automatically. → [Photo search](features/visual-search.md#admin)
+- **Admin**: a single toggle enables photo search; a CPU-only worker builds the
+  catalog index — your gsplat worker does it by default, or run the standalone
+  `embed-worker` on a GPU-less host — and new figures/photos are indexed
+  automatically. → [Photo search](features/visual-search.md#admin)
 
 ## 0.24 — imported prices, normalised
 

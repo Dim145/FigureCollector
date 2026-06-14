@@ -24,7 +24,7 @@ RUN python -c "import urllib.request, os; \
     os.makedirs('/models/dinov2-small', exist_ok=True); \
     urllib.request.urlretrieve('https://huggingface.co/Xenova/dinov2-small/resolve/main/onnx/model_quantized.onnx', '/models/dinov2-small/model_quantized.onnx')"
 
-COPY worker.py ./
+COPY embed_index.py worker.py ./
 
 # Hardened: non-root uid 65532 (matches the project's container policy). Pair
 # with read_only + tmpfs /tmp + cap_drop ALL + no-new-privileges at run time.

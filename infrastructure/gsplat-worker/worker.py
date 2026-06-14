@@ -65,6 +65,11 @@ import structlog
 from botocore.config import Config as BotoConfig
 from PIL import Image
 
+# First-party: the shared visual-search embed loop. Pure CPU (onnxruntime, no
+# torch), so it runs as a concurrent task here without touching the trainer's
+# VRAM. Byte-identical copy in infrastructure/embed-worker/embed_index.py.
+import embed_index
+
 # -----------------------------------------------------------------------------
 # Config
 # -----------------------------------------------------------------------------
@@ -136,7 +141,7 @@ RECOVER_ABANDONED = os.environ.get("RECOVER_ABANDONED", "true").lower() in ("1",
 # so 30s here ≈ 90s of grace before the admin UI marks us hors-ligne.
 HEARTBEAT_INTERVAL = int(os.environ.get("HEARTBEAT_INTERVAL", "30"))
 WORKER_KIND = "cuda"
-WORKER_VERSION = "0.16.0"
+WORKER_VERSION = "0.17.0"
 
 MIN_FRAMES = 6
 # COLMAP must register at least this many frames for a non-degenerate sparse
@@ -280,6 +285,10 @@ async def main() -> None:
         except Exception as e:  # noqa: BLE001
             log.warning("recover_abandoned failed", error=str(e))
     heartbeat_task = asyncio.create_task(_heartbeat_loop(pool, state))
+    # Visual-search index builder, concurrent with the gsplat loop below. It's
+    # CPU-only (won't touch the trainer's VRAM) and self-disables if its model
+    # isn't baked, so it never jeopardises gsplat training.
+    embed_task = asyncio.create_task(embed_index.run_embed_loop(pool, state))
     try:
         while True:
             # Admin can flip `enabled` off at any moment; the heartbeat
@@ -317,11 +326,12 @@ async def main() -> None:
                 )
                 await mark_failed(pool, scan_id, f"{type(e).__name__}: {e}\n{trace}")
     finally:
-        heartbeat_task.cancel()
-        try:
-            await heartbeat_task
-        except (asyncio.CancelledError, Exception):  # noqa: BLE001
-            pass
+        for task in (heartbeat_task, embed_task):
+            task.cancel()
+            try:
+                await task
+            except (asyncio.CancelledError, Exception):  # noqa: BLE001
+                pass
         await pool.close()
 
 
@@ -393,9 +403,9 @@ async def _register_worker(pool: asyncpg.Pool) -> WorkerState:
             """
             INSERT INTO workers (
                 id, hostname, kind, os, arch, gpu, gpu_memory_mb,
-                runtime_version, worker_version, heartbeat_interval_secs,
-                last_seen
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+                runtime_version, worker_version, capabilities,
+                heartbeat_interval_secs, last_seen
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
             ON CONFLICT (hostname, kind) DO UPDATE SET
                 os                      = EXCLUDED.os,
                 arch                    = EXCLUDED.arch,
@@ -403,6 +413,7 @@ async def _register_worker(pool: asyncpg.Pool) -> WorkerState:
                 gpu_memory_mb           = EXCLUDED.gpu_memory_mb,
                 runtime_version         = EXCLUDED.runtime_version,
                 worker_version          = EXCLUDED.worker_version,
+                capabilities            = EXCLUDED.capabilities,
                 heartbeat_interval_secs = EXCLUDED.heartbeat_interval_secs,
                 last_seen               = NOW()
             RETURNING id, enabled
@@ -416,6 +427,9 @@ async def _register_worker(pool: asyncpg.Pool) -> WorkerState:
             info["gpu_memory_mb"],
             info["runtime_version"],
             WORKER_VERSION,
+            # This worker also builds the visual-search index (embed loop below),
+            # so it advertises the `embed` capability the server gates on.
+            [embed_index.EMBED_CAPABILITY],
             max(1, HEARTBEAT_INTERVAL),
         )
     return WorkerState(id=row["id"], enabled=row["enabled"])
