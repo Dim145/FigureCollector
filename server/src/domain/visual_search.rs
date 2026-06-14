@@ -9,6 +9,7 @@
 //! never user photos. A figure matches if ANY of its images is a near
 //! neighbour (max-similarity), so multi-view figures rank on their best angle.
 
+use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -130,6 +131,67 @@ pub async fn index_stats(pool: &PgPool, model_version: &str) -> AppResult<IndexS
     .fetch_one(pool)
     .await?;
     Ok(IndexStats { embedded, pending })
+}
+
+/// Full embed-queue breakdown for the admin Tasks view — per-state counts, the
+/// live index size, and the most recent activity. Surfaces the indexing job's
+/// progress (done vs the rest) the way scans/jobs surface theirs.
+#[derive(Debug, Clone, Serialize)]
+pub struct QueueStats {
+    /// Vectors currently in the index for this model.
+    pub embedded: i64,
+    pub pending: i64,
+    pub processing: i64,
+    pub done: i64,
+    pub failed: i64,
+    /// Most recent claim/enqueue across the queue — the job's "last seen".
+    pub last_activity: Option<DateTime<Utc>>,
+}
+
+pub async fn queue_stats(pool: &PgPool, model_version: &str) -> AppResult<QueueStats> {
+    let embedded: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM figure_embeddings WHERE model_version = $1")
+            .bind(model_version)
+            .fetch_one(pool)
+            .await?;
+    // One pass over the queue: per-state counts + last activity. Aggregates over
+    // an empty table still return one row (zeros / NULL), so this is safe when
+    // nothing has been queued yet.
+    let row: (i64, i64, i64, i64, Option<DateTime<Utc>>) = sqlx::query_as(
+        "SELECT
+            COUNT(*) FILTER (WHERE state = 'pending'),
+            COUNT(*) FILTER (WHERE state = 'processing'),
+            COUNT(*) FILTER (WHERE state = 'done'),
+            COUNT(*) FILTER (WHERE state = 'failed'),
+            MAX(COALESCE(claimed_at, enqueued_at))
+         FROM figure_embedding_queue
+         WHERE model_version = $1",
+    )
+    .bind(model_version)
+    .fetch_one(pool)
+    .await?;
+    Ok(QueueStats {
+        embedded,
+        pending: row.0,
+        processing: row.1,
+        done: row.2,
+        failed: row.3,
+        last_activity: row.4,
+    })
+}
+
+/// Re-arm every failed queue row (admin "retry failures" on the Tasks view) so
+/// the worker takes another pass. Returns how many were reset.
+pub async fn retry_failed(pool: &PgPool, model_version: &str) -> AppResult<u64> {
+    let res = sqlx::query(
+        "UPDATE figure_embedding_queue
+            SET state = 'pending', error_message = NULL, attempts = 0, claimed_at = NULL
+          WHERE state = 'failed' AND model_version = $1",
+    )
+    .bind(model_version)
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected())
 }
 
 /// Enqueue every catalog image still lacking an embedding for `model_version`:

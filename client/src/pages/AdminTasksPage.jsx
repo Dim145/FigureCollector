@@ -8,6 +8,9 @@ import {
   useDeleteScan,
   useAdminJobs,
   useRetryJob,
+  useAdminVisualSearchQueue,
+  useReindexVisualSearch,
+  useRetryFailedEmbeddings,
 } from "../hooks/useAdmin.js";
 import StatCard from "../components/StatCard.jsx";
 import EmptyState from "../components/EmptyState.jsx";
@@ -102,6 +105,164 @@ function execTime(claimed, finished) {
   return m > 0 ? `${m} min ${s.toString().padStart(2, "0")} s` : `${s} s`;
 }
 
+/**
+ * The visual-search indexing job — a queue of many tiny per-image embeds, so it
+ * reads as ONE aggregate panel (progress + state breakdown) rather than flooding
+ * the timeline with thousands of rows. Polls live like the scan/job feeds; hides
+ * itself entirely until indexing has happened (nothing queued, nothing indexed).
+ */
+function IndexingPanel({ t }) {
+  const queue = useAdminVisualSearchQueue();
+  const reindex = useReindexVisualSearch();
+  const retryFailed = useRetryFailedEmbeddings();
+  const d = queue.data;
+  if (!d) return null;
+  const done = d.done ?? 0;
+  const total = (d.pending ?? 0) + (d.processing ?? 0) + done + (d.failed ?? 0);
+  // Never indexed and nothing queued → nothing to show.
+  if (total === 0 && (d.embedded ?? 0) === 0) return null;
+  const pct = total > 0 ? clampPct((done / total) * 100) : 100;
+  const active = (d.pending ?? 0) + (d.processing ?? 0) > 0;
+  // done → the "ready" slot (済 jade); the rest map straight across.
+  const chips = [
+    { state: "ready", label: t("admin.tasks.indexing.chip.done", { default: "Encodées" }), n: done },
+    { state: "processing", label: t("admin.tasks.indexing.chip.processing", { default: "En cours" }), n: d.processing ?? 0 },
+    { state: "pending", label: t("admin.tasks.indexing.chip.pending", { default: "En attente" }), n: d.pending ?? 0 },
+    { state: "failed", label: t("admin.tasks.indexing.chip.failed", { default: "Échecs" }), n: d.failed ?? 0 },
+  ];
+
+  return (
+    <section
+      className="reveal mt-8"
+      style={{ "--i": 4 }}
+      aria-label={t("admin.tasks.indexing.title", { default: "Indexation des images" })}
+    >
+      <div
+        className="relative p-4 sm:p-5"
+        style={{
+          border: "1px solid color-mix(in oklab, var(--color-or) 14%, transparent)",
+          borderLeft: `2px solid ${active ? OR : pct >= 100 ? JADE : IVOIRE}`,
+          background: "color-mix(in oklab, var(--color-noir-soft) 50%, transparent)",
+        }}
+      >
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <p className="micro flex items-center gap-2">
+              <span aria-hidden className="ja not-italic text-[var(--color-or)]">視</span>
+              {t("admin.tasks.indexing.eyebrow", { default: "Recherche par photo" })}
+            </p>
+            <h3 className="display text-xl text-[var(--color-ivoire)] mt-1 leading-tight">
+              {t("admin.tasks.indexing.title", { default: "Indexation des images" })}
+            </h3>
+          </div>
+          <span
+            className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] font-mono mt-0.5"
+            style={{ color: d.worker_present ? JADE : "var(--color-ivoire-soft)" }}
+          >
+            <span
+              aria-hidden
+              className="w-1.5 h-1.5 rotate-45"
+              style={{
+                background: d.worker_present
+                  ? JADE
+                  : "color-mix(in oklab, var(--color-ivoire-soft) 50%, transparent)",
+              }}
+            />
+            {d.worker_present
+              ? t("admin.tasks.indexing.worker_on", { default: "Worker en ligne" })
+              : t("admin.tasks.indexing.worker_off", { default: "Aucun worker" })}
+          </span>
+        </div>
+
+        {/* Progress bar — done over the whole queue. */}
+        <div className="mt-4">
+          <div
+            className="relative h-[6px] overflow-hidden"
+            style={{ background: `color-mix(in oklab, ${OR} 14%, transparent)` }}
+          >
+            <i
+              className="absolute inset-y-0 left-0 not-italic transition-[width] duration-500"
+              style={{ width: `${pct}%`, background: pct >= 100 ? JADE : OR }}
+            />
+          </div>
+          <div className="flex items-baseline justify-between mt-1.5 gap-3">
+            <span className="font-mono text-[10px]" style={{ color: pct >= 100 ? JADE : OR }}>
+              {t("admin.tasks.indexing.progress", {
+                done,
+                total,
+                pct,
+                default: `${done} / ${total} · ${pct} %`,
+              })}
+            </span>
+            <span className="font-mono text-[10px] text-[var(--color-ivoire-soft)]">
+              {t("admin.tasks.indexing.embedded", {
+                n: d.embedded ?? 0,
+                default: `${d.embedded ?? 0} dans l'index`,
+              })}
+            </span>
+          </div>
+        </div>
+
+        {/* State breakdown. */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          {chips.map((c) => {
+            const tone = STATE_TONE[c.state];
+            const dim = !c.n;
+            return (
+              <span
+                key={c.state}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 border text-[10px] uppercase tracking-[0.12em] font-mono"
+                style={{
+                  color: dim ? "var(--color-ivoire-soft)" : tone,
+                  borderColor: `color-mix(in oklab, ${dim ? "var(--color-ivoire-soft)" : tone} ${dim ? 22 : 45}%, transparent)`,
+                  background: dim ? "transparent" : `color-mix(in oklab, ${tone} 8%, transparent)`,
+                  opacity: dim ? 0.5 : 1,
+                }}
+              >
+                <span aria-hidden className="ja not-italic text-xs leading-none">
+                  {STATE_KANJI[c.state]}
+                </span>
+                {c.label}
+                <span className="tabular-nums">{c.n}</span>
+              </span>
+            );
+          })}
+        </div>
+
+        {/* Last activity + controls. */}
+        <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
+          <span className="font-mono text-[10px] text-[var(--color-ivoire-soft)]/70">
+            {d.last_activity
+              ? t("admin.tasks.updated", { rel: rel(d.last_activity, t) })
+              : t("admin.tasks.indexing.idle", { default: "Aucune activité" })}
+          </span>
+          <div className="flex items-center gap-2">
+            {(d.failed ?? 0) > 0 ? (
+              <ActBtn
+                tone={LAQUE}
+                glyph="↻"
+                label={t("admin.tasks.indexing.retry_failed", {
+                  n: d.failed,
+                  default: `Relancer les échecs (${d.failed})`,
+                })}
+                onClick={() => retryFailed.mutate()}
+                busy={retryFailed.isPending}
+              />
+            ) : null}
+            <ActBtn
+              tone={OR}
+              ghost
+              label={t("admin.tasks.indexing.reindex", { default: "Réindexer" })}
+              onClick={() => reindex.mutate()}
+              busy={reindex.isPending}
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function AdminTasksPage() {
   const t = useT();
   const q = useAdminScans();
@@ -192,6 +353,9 @@ export default function AdminTasksPage() {
           {t("admin.tasks.body")}
         </p>
       </header>
+
+      {/* ─── Visual-search indexing (aggregate job, not a timeline row) ─── */}
+      <IndexingPanel t={t} />
 
       {/* ─── Queue counters strip ─── */}
       <section

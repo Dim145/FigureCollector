@@ -979,10 +979,48 @@ async fn reindex_visual_search(
     Ok(Json(json!({ "queued": queued })))
 }
 
+/// The embed-queue progress for the admin Tasks view: per-state counts, index
+/// size, last activity, and whether an embed-capable worker is live to drain it.
+async fn visual_search_queue(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<serde_json::Value>> {
+    auth::require_admin(&session, &state.pool).await?;
+    let stats = visual_search::queue_stats(&state.pool, visual_search::MODEL_VERSION).await?;
+    let worker_present =
+        crate::domain::worker::any_live_with_capability(&state.pool, "embed").await?;
+    Ok(Json(json!({
+        "model_version": visual_search::MODEL_VERSION,
+        "embedded": stats.embedded,
+        "pending": stats.pending,
+        "processing": stats.processing,
+        "done": stats.done,
+        "failed": stats.failed,
+        "last_activity": stats.last_activity,
+        "worker_present": worker_present,
+    })))
+}
+
+/// Re-arm every failed embed-queue row so the worker takes another pass.
+async fn retry_failed_embeddings(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<serde_json::Value>> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    let requeued = visual_search::retry_failed(&state.pool, visual_search::MODEL_VERSION).await?;
+    tracing::info!(by_admin = %actor.id, requeued, "admin re-queued failed embeddings");
+    Ok(Json(json!({ "requeued": requeued })))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/admin/settings", get(get_settings).patch(patch_settings))
         .route("/admin/visual-search/reindex", post(reindex_visual_search))
+        .route("/admin/visual-search/queue", get(visual_search_queue))
+        .route(
+            "/admin/visual-search/retry-failed",
+            post(retry_failed_embeddings),
+        )
         .route("/admin/overview", get(overview))
         .route("/admin/users", get(list_users).post(create_user))
         .route(

@@ -19,7 +19,9 @@ detail live in the [git history](https://github.com/Dim145/FigureCollector/commi
 - **Admin**: a single toggle enables photo search; a CPU-only worker builds the
   catalog index — your gsplat worker does it by default, or run the standalone
   `embed-worker` on a GPU-less host — and new figures/photos are indexed
-  automatically. → [Photo search](features/visual-search.md#admin)
+  automatically. Indexing progress (done/queued/failed, worker status, re-index
+  + retry-failed) shows live on **Admin → Tasks**.
+  → [Photo search](features/visual-search.md#admin)
 
 ## 0.24 — imported prices, normalised
 

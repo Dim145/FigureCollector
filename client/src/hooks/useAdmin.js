@@ -47,6 +47,31 @@ export function useReindexVisualSearch() {
     mutationFn: () => api.post("/admin/visual-search/reindex"),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["visual-search", "status"] });
+      qc.invalidateQueries({ queryKey: ["admin", "visual-search", "queue"] });
+    },
+  });
+}
+
+/** GET /admin/visual-search/queue — embed-queue progress for the Tasks view
+ *  (per-state counts, index size, last activity, worker presence). Polled live,
+ *  matching the scan/job feeds. */
+export function useAdminVisualSearchQueue() {
+  return useQuery({
+    queryKey: ["admin", "visual-search", "queue"],
+    queryFn: () => api.get("/admin/visual-search/queue"),
+    staleTime: 3_000,
+    refetchInterval: 6_000,
+  });
+}
+
+/** POST /admin/visual-search/retry-failed — re-arm failed embed-queue rows. */
+export function useRetryFailedEmbeddings() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post("/admin/visual-search/retry-failed"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "visual-search", "queue"] });
+      qc.invalidateQueries({ queryKey: ["visual-search", "status"] });
     },
   });
 }
