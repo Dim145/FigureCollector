@@ -156,17 +156,22 @@ RUN CONDA_OVERRIDE_CUDA=12.9 micromamba create -y -n sfm -c conda-forge \
 # drift fails the BUILD here, not a ~40-min run.
 RUN python3 -c "import gsplat; from gsplat import rasterization; from gsplat.strategy import MCMCStrategy; print('gsplat', getattr(gsplat, '__version__', '?'))"
 
-# DINOv2-small (q8 ONNX) for the visual-search embed loop (embed_index.py runs
-# concurrently with training). The SAME file the browser loads (Xenova/dinov2-
-# small) so query + index vectors share one space. Baked because the read-only
-# container (uid 65532) can't fetch at runtime; embed runs on CPU regardless.
-# Deliberately LAST (just before the cheap source COPYs): keeps it off the
-# critical path so re-baking the model never invalidates the ~2 GB conda/COLMAP
-# layer above it.
+# DINOv2-small ONNX for the visual-search embed loop (embed_index.py runs
+# concurrently with training). The SAME model the browser loads (Xenova/dinov2-
+# small) so query + index vectors share one space. Two graphs: q8 for CPU
+# (EMBED_DEVICE=cpu, the default) and fp16 for the GPU (EMBED_DEVICE=cuda) — the
+# q8 graph's int8 ops fall back to CPU on CUDA (Memcpy churn), fp16 runs fully on
+# the GPU (its vectors match q8 to ~0.008 cosine). Baked because the read-only
+# container (uid 65532) can't fetch at runtime. Deliberately LAST (just before
+# the cheap source COPYs): keeps it off the critical path so re-baking never
+# invalidates the ~2 GB conda/COLMAP layer above it.
 RUN mkdir -p /models/dinov2-small && \
     curl -fSL -o /models/dinov2-small/model_quantized.onnx \
       https://huggingface.co/Xenova/dinov2-small/resolve/main/onnx/model_quantized.onnx && \
     echo "3afdc8bc63b50558d6e5770f5b799bb82455c2311183a2de43803f343a29d917  /models/dinov2-small/model_quantized.onnx" | sha256sum -c - && \
+    curl -fSL -o /models/dinov2-small/model_fp16.onnx \
+      https://huggingface.co/Xenova/dinov2-small/resolve/main/onnx/model_fp16.onnx && \
+    echo "4e9ea6fe106e2225e28ee3c1c3d53b5b92aa4af62142f6ed6b66b6a92213cf04  /models/dinov2-small/model_fp16.onnx" | sha256sum -c - && \
     chmod -R a+rX /models
 
 COPY worker.py /app/worker.py

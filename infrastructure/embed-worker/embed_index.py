@@ -39,6 +39,15 @@ SERVER_URL = os.environ.get("SERVER_URL", "http://server:3000").rstrip("/")
 MODEL_PATH = os.environ.get(
     "EMBED_MODEL_PATH", "/models/dinov2-small/model_quantized.onnx"
 )
+# fp16 graph, used when running on CUDA: the q8 (int8) graph's integer ops aren't
+# implemented on the CUDA provider, so they fall back to CPU and shuffle tensors
+# GPU↔CPU (the "Memcpy nodes" warning) — no real speedup. fp16 runs fully on the
+# GPU. Same float32 in/out as q8 (a drop-in), and its vectors match q8 to ~0.008
+# cosine distance, so the index stays aligned with the browser's q8 query. Only
+# the gsplat worker bakes it; on CPU we always use q8 (faster there).
+MODEL_PATH_FP16 = os.environ.get(
+    "EMBED_MODEL_PATH_FP16", "/models/dinov2-small/model_fp16.onnx"
+)
 POLL_INTERVAL = int(os.environ.get("EMBED_POLL_INTERVAL", "5"))
 MAX_ATTEMPTS = int(os.environ.get("EMBED_MAX_ATTEMPTS", "3"))
 HTTP_TIMEOUT = int(os.environ.get("EMBED_HTTP_TIMEOUT", "30"))
@@ -93,7 +102,15 @@ class Embedder:
 
     @classmethod
     def load(cls) -> "Embedder":
-        session = ort.InferenceSession(MODEL_PATH, providers=_resolve_providers())
+        providers = _resolve_providers()
+        # On CUDA, prefer the fp16 graph (q8 isn't GPU-friendly); on CPU, q8 is
+        # fastest. Fall back to q8 if the fp16 file isn't present (e.g. the
+        # standalone CPU image doesn't bake it).
+        on_cuda = providers[0] == "CUDAExecutionProvider"
+        model_path = (
+            MODEL_PATH_FP16 if on_cuda and os.path.exists(MODEL_PATH_FP16) else MODEL_PATH
+        )
+        session = ort.InferenceSession(model_path, providers=providers)
         input_name = session.get_inputs()[0].name
         outs = session.get_outputs()
         output_name = next(
@@ -107,6 +124,7 @@ class Embedder:
         log.info(
             "embed model loaded",
             device=EMBED_DEVICE,
+            model=os.path.basename(model_path),
             providers=session.get_providers(),
             input=input_name,
             output=output_name,
