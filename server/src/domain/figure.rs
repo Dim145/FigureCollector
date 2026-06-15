@@ -743,18 +743,30 @@ pub async fn patch(pool: &PgPool, id: Uuid, input: FigurePatch) -> AppResult<Fig
 }
 
 /// Hard-delete a figure. Cascading is handled by the schema:
-/// owned_items.figure_id has `ON DELETE CASCADE`, so this also removes any
-/// user's instance of the figure. Admin endpoints must double-check that
-/// the caller really wants this.
-pub async fn delete(pool: &PgPool, id: Uuid) -> AppResult<()> {
+/// owned_items, figure_photos, and the visual-search embeddings/queue all have
+/// `figure_id … ON DELETE CASCADE`, so their rows go with the figure. Admin
+/// endpoints must double-check that the caller really wants this.
+///
+/// Returns the deleted figure's catalog-photo `storage_key`s: those S3 blobs do
+/// NOT cascade (Garage has no FK), so the caller must drop them or they leak.
+/// Collected in the same transaction as the delete so the set is consistent.
+pub async fn delete(pool: &PgPool, id: Uuid) -> AppResult<Vec<String>> {
+    let mut tx = pool.begin().await?;
+    let storage_keys: Vec<String> =
+        sqlx::query_scalar("SELECT storage_key FROM figure_photos WHERE figure_id = $1")
+            .bind(id)
+            .fetch_all(&mut *tx)
+            .await?;
     let result = sqlx::query("DELETE FROM figures WHERE id = $1")
         .bind(id)
-        .execute(pool)
+        .execute(&mut *tx)
         .await?;
     if result.rows_affected() == 0 {
+        tx.rollback().await?;
         return Err(AppError::NotFound);
     }
-    Ok(())
+    tx.commit().await?;
+    Ok(storage_keys)
 }
 
 // ----- Helpers ---------------------------------------------------------------

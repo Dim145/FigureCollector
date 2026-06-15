@@ -665,10 +665,18 @@ async fn bulk_delete_figures(
     auth::require_admin(&session, &state.pool).await?;
     let (mut deleted, mut skipped) = (0, 0);
     for id in b.ids {
-        if figure::delete(&state.pool, id).await.is_ok() {
-            deleted += 1;
-        } else {
-            skipped += 1;
+        match figure::delete(&state.pool, id).await {
+            Ok(storage_keys) => {
+                deleted += 1;
+                // Photo blobs don't cascade with the row — drop them so they
+                // don't leak in Garage.
+                for key in &storage_keys {
+                    if let Err(e) = state.storage.delete(key).await {
+                        tracing::warn!(error = ?e, storage_key = %key, "failed to delete figure photo blob on bulk delete");
+                    }
+                }
+            }
+            Err(_) => skipped += 1,
         }
     }
     tracing::info!(deleted, skipped, "admin bulk-deleted figures");

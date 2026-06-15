@@ -23,6 +23,7 @@ import asyncio
 import io
 import os
 import traceback
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from typing import Any
@@ -204,6 +205,31 @@ async def mark_failure(pool: asyncpg.Pool, item: asyncpg.Record, error: str) -> 
     )
 
 
+async def reconcile_missing(pool: asyncpg.Pool, item: asyncpg.Record) -> None:
+    """The image is gone (a 404 from the photo proxy or the official URL) — drop
+    its index + queue rows so the catalog stays aligned. This is NOT a failure:
+    it's the worker self-healing references left behind by a deleted photo or a
+    dead external URL. (A `photo` row won't be re-queued — its figure_photos row
+    is gone; a dead `official` URL may re-queue on the next reindex and reconcile
+    again, harmlessly.)"""
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute(
+                "DELETE FROM figure_embeddings WHERE image_ref = $1 AND model_version = $2",
+                item["image_ref"],
+                item["model_version"],
+            )
+            await conn.execute(
+                "DELETE FROM figure_embedding_queue WHERE id = $1",
+                item["id"],
+            )
+    log.info(
+        "reconciled missing image (404) — dropped from index",
+        source=item["source"],
+        image_ref=item["image_ref"][:64],
+    )
+
+
 # --- Loop --------------------------------------------------------------------
 async def run_embed_loop(pool: asyncpg.Pool, state: Any) -> None:
     """Drain figure_embedding_queue until cancelled. `state` is any object with a
@@ -236,6 +262,13 @@ async def run_embed_loop(pool: asyncpg.Pool, state: Any) -> None:
                 source=item["source"],
                 image_ref=item["image_ref"][:64],
             )
+        except urllib.error.HTTPError as e:
+            # 404 = the image no longer exists → self-heal (drop the entry), not
+            # a failure. Any other HTTP status is a real error → retry/fail.
+            if e.code == 404:
+                await reconcile_missing(pool, item)
+            else:
+                await mark_failure(pool, item, f"HTTP {e.code}: {e}")
         except Exception as e:  # noqa: BLE001
             trace = traceback.format_exc()[-2000:]
             await mark_failure(pool, item, f"{type(e).__name__}: {e}\n{trace}")

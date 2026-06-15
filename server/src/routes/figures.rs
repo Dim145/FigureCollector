@@ -210,7 +210,14 @@ async fn patch_one(
         as_admin = user.is_admin && !owner,
         "figure updated",
     );
-    // An edit may have set/changed the official image — keep the index current.
+    // If the official image URL changed, forget the OLD one's index + queue entry
+    // (image_ref is the URL itself — no FK to cascade), then enqueue the new one.
+    // Otherwise a stale embedding for the replaced URL would linger.
+    if let Some(old) = existing.official_image_url.as_deref() {
+        if !old.is_empty() && updated.official_image_url.as_deref() != Some(old) {
+            visual_search::forget_image(&state.pool, old).await;
+        }
+    }
     visual_search::enqueue_figure_if_enabled(&state.pool, updated.id).await;
     Ok(Json(updated))
 }
@@ -228,11 +235,18 @@ async fn delete_one(
     if !user.is_admin && !owner {
         return Err(AppError::Forbidden);
     }
-    figure::delete(&state.pool, id).await?;
+    let storage_keys = figure::delete(&state.pool, id).await?;
+    // Photo blobs don't cascade with the row — drop them so they don't leak.
+    for key in &storage_keys {
+        if let Err(e) = state.storage.delete(key).await {
+            tracing::warn!(error = ?e, storage_key = %key, "failed to delete figure photo blob on figure delete");
+        }
+    }
     tracing::info!(
         figure_id = %id,
         by_user = %user.id,
         as_admin = user.is_admin && !owner,
+        photos = storage_keys.len(),
         "figure deleted",
     );
     Ok(StatusCode::NO_CONTENT)
