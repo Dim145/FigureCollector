@@ -196,11 +196,14 @@ export default function RecognizePage() {
           <>
             {/* ─── Capture affordance ─── */}
             <section className="reveal" style={{ "--i": 4 }}>
+              {/* No `capture` attribute on purpose: it would force the camera
+                  open directly on mobile. Without it the browser shows the
+                  native chooser (Prendre une photo / Galerie), matching the
+                  figure photo-add input (FigurePhotosSection). */}
               <input
                 ref={fileRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
                 hidden
                 onChange={(e) => onFile(e.target.files?.[0])}
               />
