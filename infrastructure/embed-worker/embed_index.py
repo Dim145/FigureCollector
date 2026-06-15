@@ -43,6 +43,14 @@ POLL_INTERVAL = int(os.environ.get("EMBED_POLL_INTERVAL", "5"))
 MAX_ATTEMPTS = int(os.environ.get("EMBED_MAX_ATTEMPTS", "3"))
 HTTP_TIMEOUT = int(os.environ.get("EMBED_HTTP_TIMEOUT", "30"))
 MAX_IMAGE_BYTES = int(os.environ.get("EMBED_MAX_IMAGE_BYTES", str(25 * 1024 * 1024)))
+# Inference device: "cpu" (default), "cuda" (use the GPU — needs onnxruntime-gpu,
+# which the gsplat worker bundles; the standalone CPU image does not), or "auto"
+# (GPU if available, else CPU). Default is CPU on purpose: folded into the gsplat
+# worker on a 6 GB card, a CUDA embed session would hold a few hundred MB of VRAM
+# continuously and tighten the trainer's tight budget — and DINOv2-small q8 is
+# fast enough on CPU for typical catalogs. Set EMBED_DEVICE=cuda on a worker with
+# spare VRAM (or a dedicated/bigger GPU) to index much faster.
+EMBED_DEVICE = os.environ.get("EMBED_DEVICE", "cpu").strip().lower()
 
 # MUST equal domain::visual_search::MODEL_VERSION (server) and MODEL_VERSION
 # (client/src/lib/embed.js). The `embed` capability gates index (re)building.
@@ -60,6 +68,23 @@ log = structlog.get_logger()
 
 
 # --- Model -------------------------------------------------------------------
+def _resolve_providers() -> list[str]:
+    """onnxruntime execution providers per EMBED_DEVICE. CUDA is preferred only
+    when explicitly asked (or 'auto') AND actually available, with CPU as a
+    fallback; otherwise CPU. A missing CUDA provider under EMBED_DEVICE=cuda
+    degrades to CPU with a warning rather than crashing the worker."""
+    if EMBED_DEVICE in ("cuda", "auto"):
+        available = ort.get_available_providers()
+        if "CUDAExecutionProvider" in available:
+            return ["CUDAExecutionProvider", "CPUExecutionProvider"]
+        if EMBED_DEVICE == "cuda":
+            log.warning(
+                "EMBED_DEVICE=cuda but CUDAExecutionProvider is unavailable — using CPU",
+                available=available,
+            )
+    return ["CPUExecutionProvider"]
+
+
 @dataclass
 class Embedder:
     session: ort.InferenceSession
@@ -68,9 +93,7 @@ class Embedder:
 
     @classmethod
     def load(cls) -> "Embedder":
-        # CPU-only on purpose: the embed pass must never contend with the gsplat
-        # trainer for VRAM, and the standalone worker has no GPU anyway.
-        session = ort.InferenceSession(MODEL_PATH, providers=["CPUExecutionProvider"])
+        session = ort.InferenceSession(MODEL_PATH, providers=_resolve_providers())
         input_name = session.get_inputs()[0].name
         outs = session.get_outputs()
         output_name = next(
@@ -81,7 +104,13 @@ class Embedder:
                 (o.name for o in outs if o.shape and o.shape[-1] == EMBED_DIM),
                 outs[0].name,
             )
-        log.info("embed model loaded", input=input_name, output=output_name)
+        log.info(
+            "embed model loaded",
+            device=EMBED_DEVICE,
+            providers=session.get_providers(),
+            input=input_name,
+            output=output_name,
+        )
         return cls(session=session, input_name=input_name, output_name=output_name)
 
     def embed(self, image_bytes: bytes) -> list[float]:

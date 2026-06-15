@@ -48,12 +48,13 @@ at the database and `SERVER_URL` at the API origin.
 |---|---|---|
 | `DATABASE_URL` | — (required) | `postgres://user:pass@host:5432/db` |
 | `SERVER_URL` | `http://server:3000` | API base for `photo` fetches |
-| `MODEL_PATH` | `/models/dinov2-small/model_quantized.onnx` | baked into the image |
-| `POLL_INTERVAL` | `5` | seconds between polls when the queue is empty |
+| `EMBED_DEVICE` | `cpu` | `cpu` · `cuda` (needs onnxruntime-gpu — the gsplat worker bundles it; this CPU image falls back to CPU) · `auto` |
+| `EMBED_MODEL_PATH` | `/models/dinov2-small/model_quantized.onnx` | baked into the image |
+| `EMBED_POLL_INTERVAL` | `5` | seconds between polls when the queue is empty |
 | `HEARTBEAT_INTERVAL` | `30` | liveness ping; server flags offline after 3× |
-| `MAX_ATTEMPTS` | `3` | retries before a queue row is marked `failed` |
-| `HTTP_TIMEOUT` | `30` | per-image fetch timeout (seconds) |
-| `MAX_IMAGE_BYTES` | `26214400` | reject a fetched image larger than this |
+| `EMBED_MAX_ATTEMPTS` | `3` | retries before a queue row is marked `failed` |
+| `EMBED_HTTP_TIMEOUT` | `30` | per-image fetch timeout (seconds) |
+| `EMBED_MAX_IMAGE_BYTES` | `26214400` | reject a fetched image larger than this |
 
 ### Hardening
 

@@ -92,7 +92,8 @@ the GPU. Two ways to provide it:
 Both run the **same model and preprocessing as the browser** (shared
 `embed_index.py`), so query and index vectors live in one space.
 
-!!! tip "No GPU required"
-    Embedding is light — DINOv2-small runs fine on CPU. Whether folded into the
-    gsplat worker or run standalone, it only needs to reach the database and the
-    API.
+!!! tip "No GPU required (but optional)"
+    Embedding is light — DINOv2-small runs fine on CPU, which is the default so
+    it never competes with the gsplat trainer for VRAM. On a worker with spare
+    VRAM (or a dedicated/bigger GPU) set `EMBED_DEVICE=cuda` to index much
+    faster; on the standalone CPU image that flag harmlessly falls back to CPU.
