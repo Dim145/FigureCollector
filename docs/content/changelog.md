@@ -8,7 +8,9 @@ detail live in the [git history](https://github.com/Dim145/FigureCollector/commi
 - **Search the catalog by photo** — photograph a figure and FigureCollector
   finds the matching catalog entry. The visual fingerprint is computed **in your
   browser** (DINOv2-small), so the photo never leaves your device — only an
-  anonymous 384-number signature travels to find the piece.
+  anonymous 384-number signature travels to find the piece. Reach it from its
+  own page or the **camera button in the catalogue search bar** (snap a photo →
+  results, no detour).
   → [Photo search](features/visual-search.md)
 - **Optional web fallback** — when nothing in the catalog matches, you can
   choose to extend the search to the web (Google Vision). This is **opt-in and

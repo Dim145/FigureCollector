@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { api } from "../lib/api.js";
 import { useI18n, useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useFigureTypes } from "../hooks/useAdmin.js";
+import { useVisualSearchStatus } from "../hooks/useVisualSearch.js";
+import { stashCapturedFile } from "../lib/visualSearchStash.js";
 import { useFigures, useOwnedItems } from "../hooks/useCollection.js";
 import { useWishlistItems } from "../hooks/useWishlist.js";
 import AppShell from "../components/AppShell.jsx";
@@ -63,6 +65,10 @@ export default function BrowsePage() {
   const [sort, setSort] = useState("recent");
   const navigate = useNavigate();
   const [scanOpen, setScanOpen] = useState(false);
+  // Photo search is gated on the feature flag (same as the nav entry); the
+  // camera button in the search bar only appears when it's on.
+  const { data: vsStatus } = useVisualSearchStatus();
+  const photoInputRef = useRef(null);
   // Barcode scan → catalogue lookup by JAN: a hit opens the figure; an unknown
   // barcode jumps to the add page with the JAN pre-filled.
   const onScan = useCallback(
@@ -78,6 +84,18 @@ export default function BrowsePage() {
         /* unknown / error → fall through to manual add */
       }
       navigate(`/figures/new?jan=${encodeURIComponent(jan)}`);
+    },
+    [navigate],
+  );
+
+  // Camera → photo search. The pick happens inside the user's tap (so the
+  // native camera/gallery chooser actually opens), then we stash the File and
+  // hand off to /recognize, which embeds + searches it on arrival.
+  const onPhoto = useCallback(
+    (file) => {
+      if (!file) return;
+      stashCapturedFile(file);
+      navigate("/recognize");
     },
     [navigate],
   );
@@ -268,18 +286,55 @@ export default function BrowsePage() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder={t("browse.search_placeholder")}
-              className="w-full pl-11 pr-14 py-4 bg-[var(--color-noir)] border border-[var(--color-or)]/25 text-[var(--color-ivoire)] placeholder:text-[var(--color-ivoire-soft)]/40 text-lg outline-none focus:border-[var(--color-or)] transition-colors"
+              className={`w-full pl-11 ${vsStatus?.enabled ? "pr-[6.5rem]" : "pr-14"} py-4 bg-[var(--color-noir)] border border-[var(--color-or)]/25 text-[var(--color-ivoire)] placeholder:text-[var(--color-ivoire-soft)]/40 text-lg outline-none focus:border-[var(--color-or)] transition-colors`}
               style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.005em" }}
             />
-            <button
-              type="button"
-              onClick={() => setScanOpen(true)}
-              title={t("scan.title")}
-              aria-label={t("scan.title")}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 grid place-items-center w-11 h-11 text-[var(--color-jade)] hover:text-[var(--color-or)] text-2xl leading-none transition-colors"
-            >
-              ⌗
-            </button>
+            {/* Right-side input actions: photo search (gold camera) + barcode scan (jade). */}
+            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+              {vsStatus?.enabled ? (
+                <>
+                  {/* No `capture` attr → native camera/gallery chooser, same as /recognize. */}
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={(e) => onPhoto(e.target.files?.[0])}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    title={t("recognize.title")}
+                    aria-label={t("recognize.title")}
+                    className="grid place-items-center w-11 h-11 text-[var(--color-or)] hover:text-[var(--color-laque-bright)] transition-colors"
+                  >
+                    <svg
+                      aria-hidden
+                      viewBox="0 0 24 24"
+                      width="21"
+                      height="21"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M4 7.5h3l1.4-2.1A1 1 0 0 1 9.2 5h5.6a1 1 0 0 1 .83.45L17 7.5h3a1 1 0 0 1 1 1v9.5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8.5a1 1 0 0 1 1-1z" />
+                      <circle cx="12" cy="13" r="3.3" />
+                    </svg>
+                  </button>
+                </>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setScanOpen(true)}
+                title={t("scan.title")}
+                aria-label={t("scan.title")}
+                className="grid place-items-center w-11 h-11 text-[var(--color-jade)] hover:text-[var(--color-or)] text-2xl leading-none transition-colors"
+              >
+                ⌗
+              </button>
+            </div>
           </div>
 
           <nav

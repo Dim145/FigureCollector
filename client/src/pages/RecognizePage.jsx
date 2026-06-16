@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useVisualSearchStatus } from "../hooks/useVisualSearch.js";
 import { api } from "../lib/api.js";
+import { clearCapturedFile, getCapturedFile } from "../lib/visualSearchStash.js";
 import { embedImage, hasWebGPU, warmUp } from "../lib/embed.js";
 import { resolveFigureCover } from "../lib/coverUrl.js";
 import AppShell from "../components/AppShell.jsx";
@@ -74,41 +75,59 @@ export default function RecognizePage() {
     [previewUrl],
   );
 
+  // Embed the chosen photo in the browser, then search the catalog. Memoised so
+  // the auto-run effect below has a stable reference (and hooks stay above the
+  // early returns).
+  const onFile = useCallback(
+    async (file) => {
+      if (!file) return;
+      setError(null);
+      setResults(null);
+      setExternalHints(null);
+      setExternalError(null);
+      setCapturedFile(file);
+      setPreviewUrl((old) => {
+        if (old) URL.revokeObjectURL(old);
+        return URL.createObjectURL(file);
+      });
+      try {
+        setPhase("preparing");
+        setProgress(0);
+        const embedding = await embedImage(file, (p) => {
+          if (p?.status === "progress" && p.total) {
+            setProgress(Math.round((p.loaded / p.total) * 100));
+          } else if (p?.status === "ready" || p?.status === "done") {
+            setPhase("analysing");
+          }
+        });
+        setPhase("analysing");
+        const candidates = await api.post("/me/visual-search", { embedding });
+        setResults(Array.isArray(candidates) ? candidates : []);
+        setPhase("idle");
+      } catch (e) {
+        setError(e?.message ?? t("recognize.error"));
+        setPhase("idle");
+      }
+    },
+    [t],
+  );
+
+  // Camera shortcut from the catalogue search bar: a File was stashed before
+  // navigating here → embed + search it straight away, so the user never picks
+  // a second time. Consumed once (the stash is cleared).
+  useEffect(() => {
+    if (!status?.enabled) return;
+    const stashed = getCapturedFile();
+    if (stashed) {
+      clearCapturedFile();
+      onFile(stashed);
+    }
+  }, [status?.enabled, onFile]);
+
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
 
   const nsfwBlur = (me.data?.user?.nsfw_visibility ?? "hide") === "blur";
-
-  const onFile = async (file) => {
-    if (!file) return;
-    setError(null);
-    setResults(null);
-    setExternalHints(null);
-    setExternalError(null);
-    setCapturedFile(file);
-    setPreviewUrl((old) => {
-      if (old) URL.revokeObjectURL(old);
-      return URL.createObjectURL(file);
-    });
-    try {
-      setPhase("preparing");
-      setProgress(0);
-      const embedding = await embedImage(file, (p) => {
-        if (p?.status === "progress" && p.total) {
-          setProgress(Math.round((p.loaded / p.total) * 100));
-        } else if (p?.status === "ready" || p?.status === "done") {
-          setPhase("analysing");
-        }
-      });
-      setPhase("analysing");
-      const candidates = await api.post("/me/visual-search", { embedding });
-      setResults(Array.isArray(candidates) ? candidates : []);
-      setPhase("idle");
-    } catch (e) {
-      setError(e?.message ?? t("recognize.error"));
-      setPhase("idle");
-    }
-  };
 
   // Opt-in: only runs on an explicit tap, AFTER an empty in-catalog result.
   // This is the one path where the photo leaves the device (→ Google Vision).
