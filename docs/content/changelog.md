@@ -3,6 +3,20 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.28 — browse by vibe
+
+- **Ambiances** — an optional way to browse the catalogue by visual *vibe*
+  rather than by category: the collection is grouped into families of
+  similar-looking figures (same on-device fingerprint as photo search). A toggle
+  on the catalogue switches between the flat grid and the vibe gallery; open a
+  vibe to see its members. Each tile shows a mosaic, its dominant type, and a
+  count.
+- **Admin opt-in, off by default** — vibes only pay off on a large, varied
+  catalogue, so an admin turns them on in **Réglages** once the collection is
+  big enough. The setting carries a one-line description, a relevance estimate
+  (≈ 50 varied figures) with the live catalogue count, and a "?" explaining what
+  a vibe is.
+
 ## 0.27 — recommendations & catalogue hygiene
 
 - **Recommandé pour toi** — your Collection page now ends with a personalised

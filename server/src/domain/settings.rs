@@ -209,6 +209,32 @@ pub async fn set_visual_search_similarity_threshold(pool: &PgPool, threshold: f6
     Ok(())
 }
 
+const VISUAL_SEARCH_AMBIANCES_KEY: &str = "visual_search.ambiances_enabled";
+
+/// Whether the "browse par ambiance" view (visual-style clustering) is offered.
+/// Off by default — it only pays off on a large, varied catalogue, so an admin
+/// opts in once the collection is big and diverse enough.
+pub async fn visual_search_ambiances_enabled(pool: &PgPool) -> AppResult<bool> {
+    let value: Option<String> = sqlx::query_scalar("SELECT value FROM app_settings WHERE key = $1")
+        .bind(VISUAL_SEARCH_AMBIANCES_KEY)
+        .fetch_optional(pool)
+        .await?;
+    Ok(value.as_deref() == Some("true"))
+}
+
+pub async fn set_visual_search_ambiances_enabled(pool: &PgPool, enabled: bool) -> AppResult<()> {
+    sqlx::query(
+        "INSERT INTO app_settings (key, value, updated_at)
+         VALUES ($1, $2, now())
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()",
+    )
+    .bind(VISUAL_SEARCH_AMBIANCES_KEY)
+    .bind(enabled.to_string())
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 /// The admin-facing settings view (extend as more settings are added).
 #[derive(Debug, Serialize)]
 pub struct Settings {
@@ -221,6 +247,8 @@ pub struct Settings {
     pub visual_search_external_key_set: bool,
     /// Match floor for the discovery rails, as a percentage (0–100).
     pub visual_search_similarity_threshold: f64,
+    /// Whether the "browse par ambiance" clustering view is offered.
+    pub visual_search_ambiances: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -235,6 +263,7 @@ pub struct SettingsPatch {
     pub visual_search_external_key: Option<String>,
     /// New match floor (0–100 %); server clamps to range on write.
     pub visual_search_similarity_threshold: Option<f64>,
+    pub visual_search_ambiances: Option<bool>,
 }
 
 pub async fn all(pool: &PgPool) -> AppResult<Settings> {
@@ -245,5 +274,6 @@ pub async fn all(pool: &PgPool) -> AppResult<Settings> {
         visual_search_external: visual_search_external_enabled(pool).await?,
         visual_search_external_key_set: visual_search_external_api_key(pool).await?.is_some(),
         visual_search_similarity_threshold: visual_search_similarity_threshold(pool).await?,
+        visual_search_ambiances: visual_search_ambiances_enabled(pool).await?,
     })
 }

@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useT } from "../i18n/index.jsx";
 import {
   useAdminSettings,
+  useAdminOverview,
   useReindexVisualSearch,
   useUpdateAdminSettings,
 } from "../hooks/useAdmin.js";
@@ -33,6 +35,7 @@ export default function AdminSettingsPage() {
   const updateVs = useUpdateAdminSettings();
   const reindex = useReindexVisualSearch();
   const vsStatus = useVisualSearchStatus();
+  const overview = useAdminOverview();
 
   // The server value is the source of truth; the drafts hold each section's
   // pending edit (null = nothing unsaved). Deriving the live values during
@@ -45,6 +48,8 @@ export default function AdminSettingsPage() {
   const [vsExtDraft, setVsExtDraft] = useState(null);
   const [keyDraft, setKeyDraft] = useState(null);
   const [thresholdDraft, setThresholdDraft] = useState(null);
+  const [ambiancesDraft, setAmbiancesDraft] = useState(null);
+  const [helpOpen, setHelpOpen] = useState(false);
 
   if (settings.isLoading) {
     return (
@@ -76,11 +81,14 @@ export default function AdminSettingsPage() {
   const savedThreshold = Math.round(
     settings.data.visual_search_similarity_threshold ?? 75,
   );
+  const savedAmbiances = !!settings.data.visual_search_ambiances;
+  const ambiances = ambiancesDraft ?? savedAmbiances;
   const vsDirty =
     (vsDraft !== null && vsDraft !== savedVs) ||
     (vsExtDraft !== null && vsExtDraft !== savedVsExt) ||
     keyDraft !== null ||
-    (thresholdDraft !== null && thresholdDraft !== savedThreshold);
+    (thresholdDraft !== null && thresholdDraft !== savedThreshold) ||
+    (ambiancesDraft !== null && ambiancesDraft !== savedAmbiances);
   const saveVs = () => {
     const patch = {};
     if (vsDraft !== null) patch.visual_search = vsDraft;
@@ -88,12 +96,14 @@ export default function AdminSettingsPage() {
     if (keyDraft !== null) patch.visual_search_external_key = keyDraft;
     if (thresholdDraft !== null)
       patch.visual_search_similarity_threshold = thresholdDraft;
+    if (ambiancesDraft !== null) patch.visual_search_ambiances = ambiancesDraft;
     updateVs.mutate(patch, {
       onSuccess: () => {
         setVsDraft(null);
         setVsExtDraft(null);
         setKeyDraft(null);
         setThresholdDraft(null);
+        setAmbiancesDraft(null);
       },
     });
   };
@@ -492,6 +502,57 @@ export default function AdminSettingsPage() {
             </label>
           </div>
 
+          {/* Ambiances — opt-in clustering view, off by default. */}
+          <div className="mt-7 pt-6 border-t border-[var(--color-or)]/15">
+            <div className="atelier-toggle-row">
+              <div id="vs-ambiances-label" className="atelier-toggle-row-text">
+                <span className="flex items-center gap-2">
+                  <span className={`atelier-toggle-row-state ${ambiances ? "is-on" : ""}`}>
+                    {ambiances
+                      ? t("admin.settings.visual.ambiances_on", { default: "Ambiances activées" })
+                      : t("admin.settings.visual.ambiances_off", { default: "Ambiances désactivées" })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setHelpOpen(true)}
+                    aria-label={t("admin.settings.visual.ambiances_help_aria", {
+                      default: "Qu'est-ce qu'une ambiance ?",
+                    })}
+                    title={t("admin.settings.visual.ambiances_help_aria", {
+                      default: "Qu'est-ce qu'une ambiance ?",
+                    })}
+                    className="shrink-0 grid place-items-center w-5 h-5 rounded-full border border-[var(--color-or)]/40 text-[var(--color-or)] text-[11px] leading-none hover:bg-[var(--color-or)]/15 transition-colors"
+                  >
+                    ?
+                  </button>
+                </span>
+                <span className="atelier-toggle-row-hint">
+                  {t("admin.settings.visual.ambiances_hint", {
+                    default:
+                      "Regroupe le catalogue en familles d'allure visuelle (mêmes poses, couleurs, style). Pertinent à partir d'une cinquantaine de figurines variées.",
+                  })}
+                </span>
+                {typeof overview.data?.figure_count === "number" ? (
+                  <span className="mt-1 block font-mono not-italic text-[11px] text-[var(--color-ivoire-soft)]/55">
+                    {t("admin.settings.visual.ambiances_count", {
+                      n: overview.data.figure_count,
+                      default: `Catalogue actuel : ${overview.data.figure_count}.`,
+                    })}
+                  </span>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={ambiances}
+                aria-labelledby="vs-ambiances-label"
+                onClick={() => setAmbiancesDraft(!ambiances)}
+                disabled={!vs}
+                className={`atelier-toggle ${ambiances ? "is-on" : ""} ${!vs ? "opacity-40 pointer-events-none" : ""}`}
+              />
+            </div>
+          </div>
+
           {/* Save row */}
           <div className="mt-7 flex items-center justify-end gap-4">
             {updateVs.isSuccess && !vsDirty ? (
@@ -514,6 +575,10 @@ export default function AdminSettingsPage() {
           </div>
         </Card>
       </div>
+
+      {helpOpen ? (
+        <AmbianceHelpModal t={t} onClose={() => setHelpOpen(false)} />
+      ) : null}
     </div>
   );
 }
@@ -521,6 +586,75 @@ export default function AdminSettingsPage() {
 // One policy row: a hidden native radio for a11y + keyboard, an A diamond
 // marker (hanko-red + glow when active, hairline gold otherwise), and a
 // label/description stack. The whole row is the click + focus target.
+/** Modal explaining what an "ambiance" is, in plain language. */
+function AmbianceHelpModal({ t, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] grid place-items-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("admin.settings.visual.ambiances_help_title", {
+        default: "Qu'est-ce qu'une ambiance ?",
+      })}
+    >
+      <button
+        type="button"
+        aria-label={t("common.close", { default: "Fermer" })}
+        onClick={onClose}
+        className="absolute inset-0 bg-[var(--color-noir)]/80 backdrop-blur-sm"
+      />
+      <div className="relative z-10 w-full max-w-lg bg-[var(--color-noir)] border border-[var(--color-or)]/30 p-7 shadow-2xl">
+        <header className="mb-4">
+          <p className="micro flex items-center gap-2">
+            <span aria-hidden className="ja not-italic text-[var(--color-or)]">彩</span>
+            {t("admin.settings.visual.ambiances_help_eyebrow", { default: "Recherche par photo" })}
+          </p>
+          <h3 className="display text-2xl text-[var(--color-ivoire)] mt-1">
+            {t("admin.settings.visual.ambiances_help_title", {
+              default: "Qu'est-ce qu'une ambiance ?",
+            })}
+          </h3>
+          <div className="gold-rule w-16 mt-3" />
+        </header>
+        <div className="space-y-3 text-sm leading-relaxed text-[var(--color-ivoire-soft)]">
+          <p>
+            {t("admin.settings.visual.ambiances_help_p1", {
+              default:
+                "Une ambiance regroupe des figurines qui se ressemblent à l'œil — même style, même atmosphère (pose, couleurs, composition) — indépendamment de leur type ou de leur fabricant.",
+            })}
+          </p>
+          <p>
+            {t("admin.settings.visual.ambiances_help_p2", {
+              default:
+                "Le regroupement est calculé à partir des images elles-mêmes (la même empreinte visuelle que la recherche par photo), pas à partir des fiches : deux pièces au rendu proche se retrouvent dans la même ambiance.",
+            })}
+          </p>
+          <p>
+            {t("admin.settings.visual.ambiances_help_p3", {
+              default:
+                "C'est une aide à la découverte : feuilleter sa collection « par atmosphère » plutôt que par catégorie. Ça n'a d'intérêt que sur une collection assez grande et variée — sur un petit catalogue, ou s'il ne contient qu'un seul genre de pièces, les ambiances sont peu parlantes. C'est pourquoi c'est désactivé par défaut.",
+            })}
+          </p>
+        </div>
+        <div className="mt-6 flex justify-end">
+          <Button variant="primary" onClick={onClose}>
+            {t("common.got_it", { default: "Compris" })}
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function PolicyOption({ value, active, label, desc, onSelect }) {
   return (
     <label

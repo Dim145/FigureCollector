@@ -976,6 +976,10 @@ async fn patch_settings(
         settings::set_visual_search_similarity_threshold(&state.pool, clamped).await?;
         tracing::info!(by_admin = %actor.id, threshold = clamped, "admin updated visual-search similarity threshold");
     }
+    if let Some(enabled) = input.visual_search_ambiances {
+        settings::set_visual_search_ambiances_enabled(&state.pool, enabled).await?;
+        tracing::info!(by_admin = %actor.id, enabled, "admin toggled visual-search ambiances");
+    }
     Ok(Json(settings::all(&state.pool).await?))
 }
 

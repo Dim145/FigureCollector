@@ -20,7 +20,7 @@ use sqlx::PgPool;
 use tower_sessions::Session;
 use uuid::Uuid;
 
-use crate::domain::{figure, settings, visual_search, worker};
+use crate::domain::{clustering, figure, settings, visual_search, worker};
 use crate::external::vision;
 use crate::{
     auth,
@@ -178,6 +178,9 @@ struct Status {
     /// on + admin toggle on + API key set. Drives the "search elsewhere"
     /// affordance shown after an empty in-catalog result.
     external_enabled: bool,
+    /// Admin opt-in for the "browse par ambiance" clustering view (off by
+    /// default). Drives whether the catalogue offers the Ambiances toggle.
+    ambiances: bool,
 }
 
 async fn status(State(state): State<AppState>, session: Session) -> AppResult<Json<Status>> {
@@ -186,6 +189,7 @@ async fn status(State(state): State<AppState>, session: Session) -> AppResult<Js
     let stats = visual_search::index_stats(&state.pool, visual_search::MODEL_VERSION).await?;
     let worker_present = worker::any_live_with_capability(&state.pool, "embed").await?;
     let external_enabled = settings::visual_search_external_ready(&state.pool).await?;
+    let ambiances = settings::visual_search_ambiances_enabled(&state.pool).await?;
     Ok(Json(Status {
         enabled,
         model_version: visual_search::MODEL_VERSION.to_string(),
@@ -194,6 +198,7 @@ async fn status(State(state): State<AppState>, session: Session) -> AppResult<Js
         ready: stats.embedded > 0,
         worker_present,
         external_enabled,
+        ambiances,
     }))
 }
 
@@ -249,12 +254,105 @@ async fn external_search(
     Ok(Json(hints))
 }
 
+#[derive(Serialize)]
+struct AmbianceCluster {
+    /// Display order index (clusters are returned largest-first).
+    id: usize,
+    /// Most common figure_type slug in the cluster — the client maps it to the
+    /// kanji/label. `None` only if every member somehow lacks a type.
+    dominant_type: Option<String>,
+    /// Visible member count, after the viewer's NSFW filter.
+    count: usize,
+    /// Visible member ids, closest-to-centroid first — the client filters the
+    /// catalogue grid to these when the ambiance is opened.
+    member_ids: Vec<Uuid>,
+    /// Up to 4 hydrated representatives (closest to centroid) for the mosaic.
+    representatives: Vec<figure::Figure>,
+}
+
+/// `GET /visual-search/clusters` — the "browse par ambiance" view: the
+/// catalogue grouped into visual-style clusters (DINOv2 k-means). Honours the
+/// viewer's NSFW pref (hide → adult members dropped, empty clusters omitted).
+async fn ambiance_clusters(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<Vec<AmbianceCluster>>> {
+    auth::require_user(&session).await?;
+    if !settings::visual_search_enabled(&state.pool).await? {
+        return Err(AppError::FeatureDisabled("visual search is not enabled"));
+    }
+    if !settings::visual_search_ambiances_enabled(&state.pool).await? {
+        return Err(AppError::FeatureDisabled("ambiances are not enabled"));
+    }
+    let exclude_nsfw = crate::routes::figures::viewer_hides_nsfw(&session, &state.pool).await;
+    let raw = clustering::clusters(&state.pool, visual_search::MODEL_VERSION).await?;
+
+    // Per cluster: keep the visible members (in centroid order), derive the
+    // dominant type, and pick the first 4 as mosaic representatives.
+    struct Pending {
+        dominant_type: Option<String>,
+        member_ids: Vec<Uuid>,
+        rep_ids: Vec<Uuid>,
+    }
+    let mut pending: Vec<Pending> = Vec::new();
+    for c in &raw {
+        let visible: Vec<&clustering::MemberMeta> = c
+            .members
+            .iter()
+            .filter(|m| !(exclude_nsfw && m.is_nsfw))
+            .collect();
+        if visible.is_empty() {
+            continue;
+        }
+        let mut type_counts: HashMap<&str, usize> = HashMap::new();
+        for m in &visible {
+            *type_counts.entry(m.figure_type.as_str()).or_insert(0) += 1;
+        }
+        let dominant_type = type_counts
+            .into_iter()
+            .max_by_key(|(_, n)| *n)
+            .map(|(t, _)| t.to_string());
+        let member_ids: Vec<Uuid> = visible.iter().map(|m| m.id).collect();
+        let rep_ids = member_ids.iter().take(4).copied().collect();
+        pending.push(Pending {
+            dominant_type,
+            member_ids,
+            rep_ids,
+        });
+    }
+    // Largest ambiances first.
+    pending.sort_by(|a, b| b.member_ids.len().cmp(&a.member_ids.len()));
+
+    // Hydrate every representative across clusters in one query.
+    let all_rep_ids: Vec<Uuid> = pending.iter().flat_map(|p| p.rep_ids.iter().copied()).collect();
+    let figures = figure::by_ids(&state.pool, &all_rep_ids, exclude_nsfw).await?;
+    let by_id: HashMap<Uuid, figure::Figure> = figures.into_iter().map(|f| (f.id, f)).collect();
+
+    let out = pending
+        .into_iter()
+        .enumerate()
+        .map(|(id, p)| AmbianceCluster {
+            id,
+            dominant_type: p.dominant_type,
+            count: p.member_ids.len(),
+            representatives: p
+                .rep_ids
+                .iter()
+                .filter_map(|rid| by_id.get(rid).cloned())
+                .collect(),
+            member_ids: p.member_ids,
+        })
+        .collect();
+    Ok(Json(out))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/visual-search/status", get(status))
         .route("/me/visual-search", post(search_by_image))
         .route("/me/recommendations", get(recommendations))
         .route("/figures/{id}/similar", get(similar_figures))
+        .route("/visual-search/clusters", get(ambiance_clusters))
 }
 
 /// The external fallback is split into its own router so it can carry an image

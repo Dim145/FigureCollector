@@ -4,7 +4,7 @@ import { api } from "../lib/api.js";
 import { useI18n, useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useFigureTypes } from "../hooks/useAdmin.js";
-import { useVisualSearchStatus } from "../hooks/useVisualSearch.js";
+import { useVisualSearchStatus, useVisualClusters } from "../hooks/useVisualSearch.js";
 import { stashCapturedFile } from "../lib/visualSearchStash.js";
 import { useFigures, useOwnedItems } from "../hooks/useCollection.js";
 import { useWishlistItems } from "../hooks/useWishlist.js";
@@ -65,6 +65,10 @@ export default function BrowsePage() {
   const [sort, setSort] = useState("recent");
   const navigate = useNavigate();
   const [scanOpen, setScanOpen] = useState(false);
+  // "catalogue" (flat grid) ↔ "ambiances" (visual-style clusters). When an
+  // ambiance is opened we drill into its members.
+  const [viewMode, setViewMode] = useState("catalogue");
+  const [openCluster, setOpenCluster] = useState(null);
   // Photo search is gated on the feature flag (same as the nav entry); the
   // camera button in the search bar only appears when it's on.
   const { data: vsStatus } = useVisualSearchStatus();
@@ -129,10 +133,15 @@ export default function BrowsePage() {
     return () => clearTimeout(id);
   }, [q]);
 
+  // In the ambiance view we load the whole catalogue (no q/type filter) so a
+  // drill-in can map a cluster's member ids straight onto loaded figures.
+  const ambiance =
+    !!vsStatus?.enabled && !!vsStatus?.ambiances && viewMode === "ambiances";
   const figures = useFigures({
-    q: debouncedQ.trim() || undefined,
-    figure_type: type || undefined,
+    q: ambiance ? undefined : debouncedQ.trim() || undefined,
+    figure_type: ambiance ? undefined : type || undefined,
   });
+  const clusters = useVisualClusters({ enabled: ambiance });
 
   // Per-user catalogue markers — derived from the already-cached wishlist and
   // collection lists (no extra request). A card shows the gold "owned" seal or
@@ -185,10 +194,29 @@ export default function BrowsePage() {
     }
   }, [figures.data, sort]);
 
+  // Type-slug → { kanji, label } for ambiance cluster labels (reuses the rail's
+  // already-localized tiles).
+  const typeMeta = useMemo(() => {
+    const m = new Map();
+    for (const tt of typeTiles) m.set(tt.id, tt);
+    return m;
+  }, [typeTiles]);
+
+  // Drill-in: a cluster's members mapped onto the loaded catalogue, in centroid
+  // order (member_ids comes closest-first).
+  const clusterFigures = useMemo(() => {
+    if (!openCluster) return [];
+    const byId = new Map((figures.data ?? []).map((f) => [f.id, f]));
+    return openCluster.member_ids.map((id) => byId.get(id)).filter(Boolean);
+  }, [openCluster, figures.data]);
+
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
 
   const total = figures.data?.length ?? 0;
+  // What the grid renders: the catalogue (sorted) normally, or the opened
+  // ambiance's members in the drill-in.
+  const gridFigures = ambiance ? (openCluster ? clusterFigures : []) : sorted;
 
   return (
     <AppShell>
@@ -252,27 +280,60 @@ export default function BrowsePage() {
               ) : null}
             </div>
 
-            {/* Sort + total cluster — sits opposite the title on lg+ */}
+            {/* View mode (catalogue ↔ ambiances) + sort */}
             <div className="reveal flex items-center gap-3" style={{ "--i": 3 }}>
-              <label className="toolbar-pill">
-                <span aria-hidden className="text-[10px] opacity-60">⇅</span>
-                <select
-                  value={sort}
-                  onChange={(e) => setSort(e.target.value)}
-                  aria-label={t("browse.sort.aria")}
+              {vsStatus?.enabled && vsStatus?.ambiances ? (
+                <div
+                  className="inline-flex border border-[var(--color-or)]/25"
+                  role="tablist"
+                  aria-label={t("browse.view.aria", { default: "Mode d'affichage" })}
                 >
-                  {SORT_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {t(o.labelKey)}
-                    </option>
+                  {[
+                    { id: "catalogue", label: t("browse.view.catalogue", { default: "Catalogue" }) },
+                    { id: "ambiances", label: t("browse.view.ambiances", { default: "Ambiances" }) },
+                  ].map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={viewMode === m.id}
+                      onClick={() => {
+                        setViewMode(m.id);
+                        setOpenCluster(null);
+                      }}
+                      className={`px-3.5 py-2 text-[11px] uppercase tracking-[0.18em] transition-colors ${
+                        viewMode === m.id
+                          ? "bg-[var(--color-or)]/15 text-[var(--color-or)]"
+                          : "text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)]"
+                      }`}
+                    >
+                      {m.label}
+                    </button>
                   ))}
-                </select>
-              </label>
+                </div>
+              ) : null}
+              {!ambiance ? (
+                <label className="toolbar-pill">
+                  <span aria-hidden className="text-[10px] opacity-60">⇅</span>
+                  <select
+                    value={sort}
+                    onChange={(e) => setSort(e.target.value)}
+                    aria-label={t("browse.sort.aria")}
+                  >
+                    {SORT_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {t(o.labelKey)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : null}
             </div>
           </div>
         </header>
 
-        {/* ─── Control strip : search + kanji-tile filter ─── */}
+        {/* ─── Control strip : search + kanji-tile filter (catalogue only) ─── */}
+        {!ambiance ? (
         <section className="mb-10 reveal" style={{ "--i": 4 }}>
           <div className="relative mb-5">
             <span
@@ -361,46 +422,43 @@ export default function BrowsePage() {
             ))}
           </nav>
         </section>
+        ) : null}
 
         {figures.isLoading ? (
           <SectionSkeleton />
+        ) : ambiance && !openCluster ? (
+          <AmbianceGallery
+            query={clusters}
+            typeMeta={typeMeta}
+            onOpen={setOpenCluster}
+            me={me}
+            t={t}
+          />
+        ) : ambiance && openCluster ? (
+          <AmbianceDrillIn
+            cluster={openCluster}
+            typeMeta={typeMeta}
+            onBack={() => setOpenCluster(null)}
+            t={t}
+          >
+            <FigureGrid
+              figures={gridFigures}
+              ownedIds={ownedIds}
+              wishedIds={wishedIds}
+              me={me}
+              t={t}
+            />
+          </AmbianceDrillIn>
         ) : total === 0 ? (
           <EmptyResults t={t} />
         ) : (
-          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {sorted.map((f, i) => (
-              <Reveal
-                as="li"
-                key={f.id}
-                delay={Math.min(i, 7) * 0.05}
-                y={24}
-              >
-                <FigureCard
-                  figureId={f.id}
-                  href={`/figures/${f.id}`}
-                  name={f.name}
-                  type={f.figure_type}
-                  manufacturer={f.manufacturer_name ?? null}
-                  imageUrl={resolveFigureCover(f)}
-                  scale={f.scale}
-                  versionName={f.version_name}
-                  owned={ownedIds.has(f.id)}
-                  wished={wishedIds.has(f.id)}
-                  blurImage={
-                    f.is_nsfw &&
-                    (me.data?.user?.nsfw_visibility ?? "hide") === "blur"
-                  }
-                  badge={(() => {
-                    const phase = preorderPhaseFromFigure(f);
-                    const label = preorderBadgeLabel(phase, t);
-                    return label
-                      ? { label, tone: phase === "imminent" ? "imminent" : "preorder" }
-                      : null;
-                  })()}
-                />
-              </Reveal>
-            ))}
-          </ul>
+          <FigureGrid
+            figures={sorted}
+            ownedIds={ownedIds}
+            wishedIds={wishedIds}
+            me={me}
+            t={t}
+          />
         )}
         {scanOpen ? (
           <BarcodeScanner onDetect={onScan} onClose={() => setScanOpen(false)} />
@@ -457,6 +515,159 @@ function EmptyResults({ t }) {
       <p className="display text-2xl text-[var(--color-ivoire)] mt-2 relative">
         {t("browse.empty")}
       </p>
+    </div>
+  );
+}
+
+/**
+ * The catalogue's figure grid — shared by the flat catalogue view and the
+ * ambiance drill-in. Staggered reveal + the standard owned/wished/preorder card
+ * chrome.
+ */
+function FigureGrid({ figures, ownedIds, wishedIds, me, t }) {
+  return (
+    <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      {figures.map((f, i) => (
+        <Reveal as="li" key={f.id} delay={Math.min(i, 7) * 0.05} y={24}>
+          <FigureCard
+            figureId={f.id}
+            href={`/figures/${f.id}`}
+            name={f.name}
+            type={f.figure_type}
+            manufacturer={f.manufacturer_name ?? null}
+            imageUrl={resolveFigureCover(f)}
+            scale={f.scale}
+            versionName={f.version_name}
+            owned={ownedIds.has(f.id)}
+            wished={wishedIds.has(f.id)}
+            blurImage={
+              f.is_nsfw && (me.data?.user?.nsfw_visibility ?? "hide") === "blur"
+            }
+            badge={(() => {
+              const phase = preorderPhaseFromFigure(f);
+              const label = preorderBadgeLabel(phase, t);
+              return label
+                ? { label, tone: phase === "imminent" ? "imminent" : "preorder" }
+                : null;
+            })()}
+          />
+        </Reveal>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * "Browse par ambiance" — a gallery of DINOv2 visual-style clusters. Each tile
+ * is a 2×2 mosaic of representative covers + the dominant type + a count.
+ */
+function AmbianceGallery({ query, typeMeta, onOpen, me, t }) {
+  if (query.isPending) return <SectionSkeleton />;
+  if (query.isError) return <EmptyResults t={t} />;
+  // Drop singletons — a 1-figure "vibe" (a visual outlier k-means parked on its
+  // own) isn't browseable; it still shows in the flat catalogue.
+  const clusters = (query.data ?? []).filter((c) => c.count >= 2);
+  if (clusters.length === 0) {
+    return (
+      <p className="text-center text-[var(--color-ivoire-soft)] italic py-16">
+        {t("browse.ambiance.empty", {
+          default:
+            "Pas encore assez d'images indexées pour dégager des ambiances.",
+        })}
+      </p>
+    );
+  }
+  return (
+    <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {clusters.map((c, i) => (
+        <Reveal as="li" key={c.id} delay={Math.min(i, 6) * 0.06} y={24}>
+          <AmbianceTile cluster={c} typeMeta={typeMeta} onOpen={onOpen} me={me} t={t} />
+        </Reveal>
+      ))}
+    </ul>
+  );
+}
+
+function AmbianceTile({ cluster, typeMeta, onOpen, me, t }) {
+  const meta = typeMeta.get(cluster.dominant_type);
+  const reps = cluster.representatives ?? [];
+  const nsfwPref = me.data?.user?.nsfw_visibility ?? "hide";
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(cluster)}
+      className="group block w-full text-left border border-[var(--color-or)]/20 bg-[var(--color-noir)]/40 hover:border-[var(--color-or)]/50 transition-colors overflow-hidden"
+    >
+      <div className="grid grid-cols-2 gap-px bg-[var(--color-or)]/10 aspect-[4/3]">
+        {Array.from({ length: 4 }).map((_, idx) => {
+          const f = reps[idx];
+          return (
+            <div key={idx} className="relative overflow-hidden bg-[var(--color-noir)]">
+              {f ? (
+                <img
+                  src={resolveFigureCover(f)}
+                  alt=""
+                  loading="lazy"
+                  className={`absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${
+                    f.is_nsfw && nsfwPref === "blur" ? "nsfw-blur" : ""
+                  }`}
+                />
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <span className="flex items-center gap-2 min-w-0">
+          <span aria-hidden className="ja not-italic text-[var(--color-or)] text-lg shrink-0">
+            {meta?.kanji ?? "彩"}
+          </span>
+          <span
+            className="truncate text-[var(--color-ivoire)]"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            {meta?.label ?? t("browse.ambiance.untitled", { default: "Ambiance" })}
+          </span>
+        </span>
+        <span className="shrink-0 font-mono text-[11px] text-[var(--color-ivoire-soft)]">
+          {cluster.count}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+/** Drill-in header for an opened ambiance, wrapping its figure grid. */
+function AmbianceDrillIn({ cluster, typeMeta, onBack, t, children }) {
+  const meta = typeMeta.get(cluster.dominant_type);
+  return (
+    <div>
+      <div className="flex items-center flex-wrap gap-x-3 gap-y-2 mb-6 reveal">
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] transition-colors"
+        >
+          <span aria-hidden>←</span>
+          {t("browse.ambiance.back", { default: "Ambiances" })}
+        </button>
+        <span aria-hidden className="text-[var(--color-or)]/30">·</span>
+        <span className="flex items-center gap-2">
+          <span aria-hidden className="ja not-italic text-[var(--color-or)] text-lg">
+            {meta?.kanji ?? "彩"}
+          </span>
+          <span
+            className="text-[var(--color-ivoire)]"
+            style={{ fontFamily: "var(--font-display)" }}
+          >
+            {meta?.label ?? t("browse.ambiance.untitled", { default: "Ambiance" })}
+          </span>
+          <span className="font-mono text-[11px] text-[var(--color-ivoire-soft)]">
+            {cluster.count}
+          </span>
+        </span>
+      </div>
+      {children}
     </div>
   );
 }

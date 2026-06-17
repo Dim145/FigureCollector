@@ -52,3 +52,20 @@ export function useRecommendations(options = {}) {
     ...options,
   });
 }
+
+/**
+ * GET /api/visual-search/clusters — "browse par ambiance": the catalogue
+ * grouped into DINOv2 visual-style clusters. Each entry carries a dominant
+ * figure-type, the member ids (closest-to-centroid first), and up to 4 hydrated
+ * representatives for the mosaic. Gate via `options.enabled` so it only fetches
+ * when the ambiance view is open.
+ */
+export function useVisualClusters(options = {}) {
+  return useQuery({
+    queryKey: ["visual-search", "clusters"],
+    queryFn: () => api.get("/visual-search/clusters"),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+    ...options,
+  });
+}
