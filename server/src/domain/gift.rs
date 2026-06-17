@@ -22,8 +22,9 @@ pub struct Reservation {
 
 /// Mint a URL-safe, unguessable share/reserver token: 128 bits of entropy as
 /// 32 hex chars. Uses `rand::random` (already a dependency) — no UUID v4
-/// feature needed, and full randomness (unlike v7) leaks nothing.
-fn mint_token() -> String {
+/// feature needed, and full randomness (unlike v7) leaks nothing. Shared with
+/// the calendar feed (`domain::calendar`), which needs the same kind of secret.
+pub(crate) fn mint_token() -> String {
     format!(
         "{:016x}{:016x}",
         rand::random::<u64>(),

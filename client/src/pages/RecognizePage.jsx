@@ -127,7 +127,11 @@ export default function RecognizePage() {
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
 
-  const nsfwBlur = (me.data?.user?.nsfw_visibility ?? "hide") === "blur";
+  // Photo search is an *active* query, so we keep NSFW matches (a hide-viewer
+  // may be identifying their own adult figure) but blur them unless the viewer
+  // explicitly wants NSFW shown — i.e. blur for both "hide" and "blur", clear
+  // only for "show". Aligns the result cards with the app's NSFW preference.
+  const nsfwBlur = (me.data?.user?.nsfw_visibility ?? "hide") !== "show";
 
   // Opt-in: only runs on an explicit tap, AFTER an empty in-catalog result.
   // This is the one path where the photo leaves the device (→ Google Vision).

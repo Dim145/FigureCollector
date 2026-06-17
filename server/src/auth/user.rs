@@ -183,6 +183,17 @@ pub async fn find_by_gift_token(pool: &PgPool, token: &str) -> AppResult<Option<
     Ok(row)
 }
 
+/// Resolve a calendar feed token to its owner. Used by the anonymous
+/// `/calendar/{token}/preorders.ics` surface — the token is the only credential.
+pub async fn find_by_calendar_token(pool: &PgPool, token: &str) -> AppResult<Option<User>> {
+    let sql = format!("SELECT {USER_COLUMNS} FROM users WHERE calendar_token = $1");
+    let row = sqlx::query_as::<_, User>(&sql)
+        .bind(token)
+        .fetch_optional(pool)
+        .await?;
+    Ok(row)
+}
+
 pub async fn get_local_password_hash(pool: &PgPool, user_id: Uuid) -> AppResult<Option<String>> {
     let row: Option<(String,)> =
         sqlx::query_as("SELECT password_hash FROM local_credentials WHERE user_id = $1")

@@ -3,6 +3,7 @@
 pub mod achievement;
 pub mod activity;
 pub mod admin;
+pub mod calendar;
 pub mod currency;
 pub mod entity;
 pub mod export;

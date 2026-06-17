@@ -20,3 +20,19 @@ export function useVisualSearchStatus(options = {}) {
     ...options,
   });
 }
+
+/**
+ * GET /api/figures/{id}/similar — the "figurines proches" rail: catalog
+ * neighbours of a figure by DINOv2 cosine distance. Returns `[]` (so the rail
+ * hides) when the figure isn't on the index yet. Gate the caller on the
+ * feature flag via `options.enabled` so it doesn't fire when search is off.
+ */
+export function useSimilarFigures(figureId, options = {}) {
+  return useQuery({
+    queryKey: ["visual-search", "similar", figureId],
+    queryFn: () => api.get(`/figures/${figureId}/similar`),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+    ...options,
+  });
+}

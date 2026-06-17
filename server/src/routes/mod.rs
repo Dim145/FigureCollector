@@ -14,6 +14,7 @@ pub mod achievements;
 pub mod activity;
 pub mod admin;
 pub mod auth;
+pub mod calendar;
 pub mod documents;
 pub mod entities;
 pub mod export;
@@ -87,6 +88,23 @@ pub fn build_router(state: AppState) -> Router {
         gift::router()
     };
 
+    // Public pre-order calendar feed (`/api/calendar/{token}/preorders.ics`) is
+    // anonymous (token-only) and polled by calendar apps, so it gets the same
+    // IP-keyed limiter as the gift routes.
+    let calendar_feed_routes = if state.config.auth.rate_limit_enabled {
+        let conf = Arc::new(
+            GovernorConfigBuilder::default()
+                .per_second(state.config.auth.auth_rate_limit_per_second)
+                .burst_size(10)
+                .key_extractor(SmartIpKeyExtractor)
+                .finish()
+                .expect("valid governor configuration"),
+        );
+        calendar::feed_router().layer(GovernorLayer::new(conf))
+    } else {
+        calendar::feed_router()
+    };
+
     // Multipart photo uploads — 5 MB per file + multipart framing.
     // Both layers are needed: `DefaultBodyLimit::disable()` removes the
     // 2-MB default that axum applies to every route (otherwise the Multipart
@@ -157,6 +175,8 @@ pub fn build_router(state: AppState) -> Router {
         .merge(wishlist::router())
         .merge(gift_routes)
         .merge(preorders::router())
+        .merge(calendar::router())
+        .merge(calendar_feed_routes)
         .merge(profile::router())
         .merge(follow::router())
         .merge(export::router())

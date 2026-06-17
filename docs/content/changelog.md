@@ -3,6 +3,17 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.26 — neighbours & a release calendar
+
+- **Figurines proches** — every figure page now ends with a "similar figures"
+  rail: its closest visual neighbours from the catalogue, found via the same
+  on-device DINOv2 fingerprints that power photo search. Honours your NSFW
+  preference (hidden, blurred, or shown) like the rest of the catalogue.
+- **Subscribe to your pre-orders** — a private iCal feed of your release dates,
+  one tap from the Pre-orders page. Add it to Google / Apple / Outlook calendar
+  and your upcoming figures appear as all-day events; the link is secret and can
+  be regenerated if it ever leaks.
+
 ## 0.25 — find it by photo
 
 - **Search the catalog by photo** — photograph a figure and FigureCollector

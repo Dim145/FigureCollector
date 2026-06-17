@@ -109,6 +109,53 @@ pub async fn search(
     Ok(out)
 }
 
+/// Nearest catalog figures to a *source figure* — the "figurines proches" rail
+/// on a figure's page. Seeds the search from the source figure's OWN image
+/// embeddings (it may have several: photos + the official image), keeps each
+/// other figure's best (smallest) cross-image distance, and returns the top `k`
+/// distinct neighbours. The source figure itself is excluded.
+///
+/// One query: for every seed embedding the LATERAL rides the HNSW index
+/// (`ORDER BY … <=> seed LIMIT fanout`), then `MIN()` per candidate figure
+/// collapses multi-view matches to their closest angle — the same
+/// max-similarity rule `search()` uses.
+pub async fn similar_figures(
+    pool: &PgPool,
+    figure_id: Uuid,
+    model_version: &str,
+    k: i64,
+) -> AppResult<Vec<Candidate>> {
+    // Over-fetch per seed (as in search()) so dedup-by-figure still yields k
+    // distinct neighbours when one figure owns several near images.
+    let fanout = (k * 5).clamp(20, 200);
+    let rows: Vec<(Uuid, f64)> = sqlx::query_as(
+        "SELECT n.figure_id, MIN(n.distance) AS distance
+         FROM figure_embeddings src
+         CROSS JOIN LATERAL (
+             SELECT e.figure_id, (e.embedding <=> src.embedding) AS distance
+             FROM figure_embeddings e
+             WHERE e.model_version = $2 AND e.figure_id <> $1
+             ORDER BY e.embedding <=> src.embedding
+             LIMIT $3
+         ) n
+         WHERE src.figure_id = $1 AND src.model_version = $2
+         GROUP BY n.figure_id
+         ORDER BY distance
+         LIMIT $4",
+    )
+    .bind(figure_id)
+    .bind(model_version)
+    .bind(fanout)
+    .bind(k)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(figure_id, distance)| Candidate { figure_id, distance: distance as f32 })
+        .collect())
+}
+
 /// Index readiness for the current model — how many catalog images are
 /// embedded vs still queued.
 #[derive(Debug, Clone, Serialize)]

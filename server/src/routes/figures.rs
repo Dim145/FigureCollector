@@ -179,8 +179,9 @@ async fn get_one(
 
 /// `true` when the request's viewer wants NSFW hidden — their `nsfw_visibility`
 /// is "hide", or they're anonymous (the hide-by-default ceiling). Mirrors the
-/// `nsfw_pref` logic the list/entity routes use.
-async fn viewer_hides_nsfw(session: &Session, pool: &sqlx::PgPool) -> bool {
+/// `nsfw_pref` logic the list/entity routes use. Shared with the visual-search
+/// "similar" rail so it filters NSFW for hide-viewers the same way.
+pub(crate) async fn viewer_hides_nsfw(session: &Session, pool: &sqlx::PgPool) -> bool {
     auth::require_user_full(session, pool)
         .await
         .ok()

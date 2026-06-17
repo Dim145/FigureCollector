@@ -11,11 +11,12 @@ use std::collections::HashMap;
 
 use axum::{
     Json, Router,
-    extract::State,
+    extract::{Path, State},
     routing::{get, post},
 };
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 use tower_sessions::Session;
 use uuid::Uuid;
 
@@ -29,6 +30,10 @@ use crate::{
 
 /// How many candidate figures to return for one photo.
 const TOP_K: i64 = 12;
+
+/// How many neighbours the "figurines proches" rail shows on a figure page —
+/// two tidy rows on the widest grid (lg = 4 across).
+const SIMILAR_K: i64 = 8;
 
 /// Decoded-image cap (bytes) for the external fallback. The client downscales
 /// to ~1024 px JPEG (far under this); the cap is a defensive backstop against a
@@ -57,29 +62,64 @@ async fn search_by_image(
     if !settings::visual_search_enabled(&state.pool).await? {
         return Err(AppError::FeatureDisabled("visual search is not enabled"));
     }
+    // Search is an *active* query (the user took a photo), so we keep NSFW
+    // matches and let the client blur per pref — a hide-viewer may well be
+    // identifying an adult figure they own.
     let candidates =
         visual_search::search(&state.pool, input.embedding, visual_search::MODEL_VERSION, TOP_K)
             .await?;
+    Ok(Json(hydrate(&state.pool, candidates, false).await?))
+}
+
+/// Hydrate distance-ranked candidates into full catalog cards, preserving the
+/// ANN ordering. `exclude_nsfw` drops adult figures for a hide-viewer (passive
+/// surfaces); when kept, they ride along and the client blurs per pref.
+async fn hydrate(
+    pool: &PgPool,
+    candidates: Vec<visual_search::Candidate>,
+    exclude_nsfw: bool,
+) -> AppResult<Vec<ScoredFigure>> {
     if candidates.is_empty() {
-        return Ok(Json(Vec::new()));
+        return Ok(Vec::new());
     }
     let ids: Vec<Uuid> = candidates.iter().map(|c| c.figure_id).collect();
-    // Hydrate the ranked ids into full catalog cards. NSFW rows are kept and
-    // blurred client-side per the viewer's pref (as elsewhere in the app), so
-    // we don't exclude them here.
-    let figures = figure::by_ids(&state.pool, &ids, false).await?;
+    let figures = figure::by_ids(pool, &ids, exclude_nsfw).await?;
     let mut by_id: HashMap<Uuid, figure::Figure> =
         figures.into_iter().map(|f| (f.id, f)).collect();
-    // Re-order by the ANN ranking (candidates are already distance-sorted).
-    let scored = candidates
+    Ok(candidates
         .into_iter()
         .filter_map(|c| {
             by_id
                 .remove(&c.figure_id)
                 .map(|figure| ScoredFigure { distance: c.distance, figure })
         })
-        .collect();
-    Ok(Json(scored))
+        .collect())
+}
+
+/// `GET /figures/{id}/similar` — the "figurines proches" rail. Seeds the ANN
+/// from the figure's own image embeddings and returns its nearest catalog
+/// neighbours. Returns 200 `[]` when the figure isn't on the index yet (no
+/// embeddings), so the client just hides the rail.
+async fn similar_figures(
+    State(state): State<AppState>,
+    session: Session,
+    Path(figure_id): Path<Uuid>,
+) -> AppResult<Json<Vec<ScoredFigure>>> {
+    auth::require_user(&session).await?;
+    if !settings::visual_search_enabled(&state.pool).await? {
+        return Err(AppError::FeatureDisabled("visual search is not enabled"));
+    }
+    let candidates = visual_search::similar_figures(
+        &state.pool,
+        figure_id,
+        visual_search::MODEL_VERSION,
+        SIMILAR_K,
+    )
+    .await?;
+    // Passive discovery rail → honour the viewer's NSFW pref: a hide-viewer
+    // never receives adult neighbours (the catalogue lists filter the same way).
+    let exclude_nsfw = crate::routes::figures::viewer_hides_nsfw(&session, &state.pool).await;
+    Ok(Json(hydrate(&state.pool, candidates, exclude_nsfw).await?))
 }
 
 #[derive(Serialize)]
@@ -173,6 +213,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/visual-search/status", get(status))
         .route("/me/visual-search", post(search_by_image))
+        .route("/figures/{id}/similar", get(similar_figures))
 }
 
 /// The external fallback is split into its own router so it can carry an image
