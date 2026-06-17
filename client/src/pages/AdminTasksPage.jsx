@@ -11,9 +11,11 @@ import {
   useAdminVisualSearchQueue,
   useReindexVisualSearch,
   useRetryFailedEmbeddings,
+  useAdminVisualSearchDuplicates,
 } from "../hooks/useAdmin.js";
 import StatCard from "../components/StatCard.jsx";
 import EmptyState from "../components/EmptyState.jsx";
+import { resolveFigureCover } from "../lib/coverUrl.js";
 
 /**
  * /admin/tasks — every background task of the server, redrawn to Direction A
@@ -111,6 +113,112 @@ function execTime(claimed, finished) {
  * the timeline with thousands of rows. Polls live like the scan/job feeds; hides
  * itself entirely until indexing has happened (nothing queued, nothing indexed).
  */
+/**
+ * "Doublons potentiels" — catalogue figures the DINOv2 index flags as visually
+ * near-identical (same piece listed twice, or a re-release). A read-only review
+ * aid: each pair links to both figures so the admin can compare + merge/delete
+ * manually. Self-hides when nothing is flagged. NSFW shown un-blurred on
+ * purpose (admin needs to compare; the panel is require_admin-gated).
+ */
+function DuplicatesPanel({ t }) {
+  const dupes = useAdminVisualSearchDuplicates();
+  const pairs = dupes.data ?? [];
+  if (dupes.isPending || dupes.isError || pairs.length === 0) return null;
+
+  return (
+    <section
+      className="reveal mt-8"
+      style={{ "--i": 5 }}
+      aria-label={t("admin.tasks.dupes.title", { default: "Doublons potentiels" })}
+    >
+      <div
+        className="relative p-4 sm:p-5"
+        style={{
+          border: "1px solid color-mix(in oklab, var(--color-or) 14%, transparent)",
+          borderLeft: `2px solid ${LAQUE}`,
+          background: "color-mix(in oklab, var(--color-noir-soft) 50%, transparent)",
+        }}
+      >
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <p className="micro flex items-center gap-2">
+              <span aria-hidden className="ja not-italic text-[var(--color-or)]">重</span>
+              {t("admin.tasks.dupes.eyebrow", { default: "Intégrité du catalogue" })}
+            </p>
+            <h3 className="display text-xl text-[var(--color-ivoire)] mt-1 leading-tight">
+              {t("admin.tasks.dupes.title", { default: "Doublons potentiels" })}
+            </h3>
+          </div>
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-ivoire-soft)] mt-0.5">
+            {t("admin.tasks.dupes.count", { n: pairs.length, default: `${pairs.length} paire(s)` })}
+          </span>
+        </div>
+        <p className="mt-2 text-[12px] text-[var(--color-ivoire-soft)]/70">
+          {t("admin.tasks.dupes.hint", {
+            default:
+              "Paires visuellement quasi identiques — vérifie, puis fusionne ou supprime la pièce en double.",
+          })}
+        </p>
+        <ul className="mt-4 space-y-2.5">
+          {pairs.map((p) => (
+            <FigurePairRow key={`${p.a.id}-${p.b.id}`} pair={p} />
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function FigurePairRow({ pair }) {
+  const { a, b, distance } = pair;
+  const sim = Math.max(0, Math.min(100, Math.round((1 - distance) * 100)));
+  return (
+    <li
+      className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 p-2.5"
+      style={{
+        border: "1px solid color-mix(in oklab, var(--color-or) 10%, transparent)",
+        background: "color-mix(in oklab, var(--color-noir) 40%, transparent)",
+      }}
+    >
+      <DupeFigure fig={a} align="right" />
+      <span
+        className="font-mono text-[11px] px-2 py-0.5 whitespace-nowrap"
+        style={{ color: OR, border: `1px solid color-mix(in oklab, ${OR} 30%, transparent)` }}
+        title={`distance ${distance.toFixed(3)}`}
+      >
+        {sim}%
+      </span>
+      <DupeFigure fig={b} align="left" />
+    </li>
+  );
+}
+
+function DupeFigure({ fig, align }) {
+  return (
+    <Link
+      to={`/figures/${fig.id}`}
+      className={`group flex items-center gap-2.5 min-w-0 ${
+        align === "right" ? "flex-row-reverse text-right" : ""
+      }`}
+    >
+      <img
+        src={resolveFigureCover(fig)}
+        alt=""
+        loading="lazy"
+        className="w-12 h-14 object-cover shrink-0 border border-[color-mix(in_oklab,var(--color-or)_15%,transparent)]"
+      />
+      <span className="min-w-0">
+        <span className="block truncate text-[13px] text-[var(--color-ivoire)] group-hover:text-[var(--color-or)] transition-colors">
+          {fig.name}
+        </span>
+        <span className="block truncate text-[11px] text-[var(--color-ivoire-soft)]/55 font-mono">
+          {fig.manufacturer_name ?? fig.id.slice(0, 8)}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
 function IndexingPanel({ t }) {
   const queue = useAdminVisualSearchQueue();
   const reindex = useReindexVisualSearch();
@@ -356,6 +464,7 @@ export default function AdminTasksPage() {
 
       {/* ─── Visual-search indexing (aggregate job, not a timeline row) ─── */}
       <IndexingPanel t={t} />
+      <DuplicatesPanel t={t} />
 
       {/* ─── Queue counters strip ─── */}
       <section

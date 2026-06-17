@@ -32,8 +32,21 @@ use crate::{
 const TOP_K: i64 = 12;
 
 /// How many neighbours the "figurines proches" rail shows on a figure page —
-/// two tidy rows on the widest grid (lg = 4 across).
-const SIMILAR_K: i64 = 8;
+/// one tidy row on the widest grid (lg = 4 across). No skip there, so this is
+/// exactly what's displayed.
+const SIMILAR_K: i64 = 4;
+
+/// Recommendation pool size — the collection rail shows 4 at a time but the
+/// client lets you "skip" through the rest, so we hand it a deeper pool.
+const RECO_K: i64 = 12;
+
+/// Convert the admin similarity-% floor into a max cosine distance: 75 % →
+/// 0.25 (only matches at least that similar surface). 0 % keeps everything,
+/// 100 % keeps only (near-)identical.
+async fn max_distance_for_threshold(pool: &PgPool) -> AppResult<f64> {
+    let pct = settings::visual_search_similarity_threshold(pool).await?;
+    Ok((1.0 - pct / 100.0).clamp(0.0, 2.0))
+}
 
 /// Decoded-image cap (bytes) for the external fallback. The client downscales
 /// to ~1024 px JPEG (far under this); the cap is a defensive backstop against a
@@ -109,15 +122,42 @@ async fn similar_figures(
     if !settings::visual_search_enabled(&state.pool).await? {
         return Err(AppError::FeatureDisabled("visual search is not enabled"));
     }
+    let max_distance = max_distance_for_threshold(&state.pool).await?;
     let candidates = visual_search::similar_figures(
         &state.pool,
         figure_id,
         visual_search::MODEL_VERSION,
         SIMILAR_K,
+        max_distance,
     )
     .await?;
     // Passive discovery rail → honour the viewer's NSFW pref: a hide-viewer
     // never receives adult neighbours (the catalogue lists filter the same way).
+    let exclude_nsfw = crate::routes::figures::viewer_hides_nsfw(&session, &state.pool).await;
+    Ok(Json(hydrate(&state.pool, candidates, exclude_nsfw).await?))
+}
+
+/// `GET /me/recommendations` — the "reco par goût" rail. Nearest catalogue
+/// figures to what the user owns, minus what they already own or wishlist.
+/// Returns 200 `[]` when they own nothing on the index (the client hides the
+/// rail). Honours the viewer's NSFW pref like the catalogue lists.
+async fn recommendations(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<Vec<ScoredFigure>>> {
+    let user_id = auth::require_user(&session).await?;
+    if !settings::visual_search_enabled(&state.pool).await? {
+        return Err(AppError::FeatureDisabled("visual search is not enabled"));
+    }
+    let max_distance = max_distance_for_threshold(&state.pool).await?;
+    let candidates = visual_search::recommendations(
+        &state.pool,
+        user_id,
+        visual_search::MODEL_VERSION,
+        RECO_K,
+        max_distance,
+    )
+    .await?;
     let exclude_nsfw = crate::routes::figures::viewer_hides_nsfw(&session, &state.pool).await;
     Ok(Json(hydrate(&state.pool, candidates, exclude_nsfw).await?))
 }
@@ -213,6 +253,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/visual-search/status", get(status))
         .route("/me/visual-search", post(search_by_image))
+        .route("/me/recommendations", get(recommendations))
         .route("/figures/{id}/similar", get(similar_figures))
 }
 

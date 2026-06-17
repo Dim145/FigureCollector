@@ -1225,7 +1225,7 @@ function SimilarFiguresSection({ figureId, nsfwPref, t }) {
         <div className="gold-rule w-20 mx-auto mt-4" />
       </header>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-        {figures.map(({ figure: g }) => (
+        {figures.map(({ figure: g, distance }) => (
           <FigureCard
             key={g.id}
             figureId={g.id}
@@ -1239,6 +1239,7 @@ function SimilarFiguresSection({ figureId, nsfwPref, t }) {
             owned={ownedIds.has(g.id)}
             wished={wishedIds.has(g.id)}
             blurImage={g.is_nsfw && nsfwPref === "blur"}
+            badge={{ label: `${Math.round((1 - distance) * 100)}%`, tone: "match" }}
           />
         ))}
       </div>

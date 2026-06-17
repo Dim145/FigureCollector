@@ -176,6 +176,39 @@ pub async fn visual_search_external_ready(pool: &PgPool) -> AppResult<bool> {
         && visual_search_external_api_key(pool).await?.is_some())
 }
 
+const VISUAL_SEARCH_SIMILARITY_KEY: &str = "visual_search.similarity_threshold";
+/// Default match floor: a candidate must be ≥ 75 % similar to surface in the
+/// "figurines proches" / "recommandé pour toi" rails. Admin-tunable.
+const VISUAL_SEARCH_SIMILARITY_DEFAULT: f64 = 75.0;
+
+/// The minimum similarity (0–100 %) a catalogue figure must reach to count as a
+/// "close" match in the discovery rails. Lower = looser (more, weaker matches);
+/// higher = stricter. Callers convert it to a max cosine distance.
+pub async fn visual_search_similarity_threshold(pool: &PgPool) -> AppResult<f64> {
+    let value: Option<String> = sqlx::query_scalar("SELECT value FROM app_settings WHERE key = $1")
+        .bind(VISUAL_SEARCH_SIMILARITY_KEY)
+        .fetch_optional(pool)
+        .await?;
+    Ok(value
+        .and_then(|v| v.parse::<f64>().ok())
+        .map(|v| v.clamp(0.0, 100.0))
+        .unwrap_or(VISUAL_SEARCH_SIMILARITY_DEFAULT))
+}
+
+pub async fn set_visual_search_similarity_threshold(pool: &PgPool, threshold: f64) -> AppResult<()> {
+    let clamped = threshold.clamp(0.0, 100.0);
+    sqlx::query(
+        "INSERT INTO app_settings (key, value, updated_at)
+         VALUES ($1, $2, now())
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()",
+    )
+    .bind(VISUAL_SEARCH_SIMILARITY_KEY)
+    .bind(clamped.to_string())
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 /// The admin-facing settings view (extend as more settings are added).
 #[derive(Debug, Serialize)]
 pub struct Settings {
@@ -186,6 +219,8 @@ pub struct Settings {
     /// Whether a Google Vision API key is configured (the key itself is never
     /// returned).
     pub visual_search_external_key_set: bool,
+    /// Match floor for the discovery rails, as a percentage (0–100).
+    pub visual_search_similarity_threshold: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -198,6 +233,8 @@ pub struct SettingsPatch {
     /// it, `None` leaves it unchanged (so the admin UI never round-trips the
     /// secret).
     pub visual_search_external_key: Option<String>,
+    /// New match floor (0–100 %); server clamps to range on write.
+    pub visual_search_similarity_threshold: Option<f64>,
 }
 
 pub async fn all(pool: &PgPool) -> AppResult<Settings> {
@@ -207,5 +244,6 @@ pub async fn all(pool: &PgPool) -> AppResult<Settings> {
         visual_search: visual_search_enabled(pool).await?,
         visual_search_external: visual_search_external_enabled(pool).await?,
         visual_search_external_key_set: visual_search_external_api_key(pool).await?.is_some(),
+        visual_search_similarity_threshold: visual_search_similarity_threshold(pool).await?,
     })
 }

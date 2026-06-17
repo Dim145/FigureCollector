@@ -36,3 +36,19 @@ export function useSimilarFigures(figureId, options = {}) {
     ...options,
   });
 }
+
+/**
+ * GET /api/me/recommendations — the "reco par goût" rail: catalogue figures
+ * nearest to what the user owns, minus what they already own or wishlist.
+ * Returns `[]` (rail hides) when they own nothing on the index. Gate the caller
+ * on the feature flag via `options.enabled`.
+ */
+export function useRecommendations(options = {}) {
+  return useQuery({
+    queryKey: ["visual-search", "recommendations"],
+    queryFn: () => api.get("/me/recommendations"),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+    ...options,
+  });
+}

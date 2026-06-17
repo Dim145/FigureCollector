@@ -124,6 +124,7 @@ pub async fn similar_figures(
     figure_id: Uuid,
     model_version: &str,
     k: i64,
+    max_distance: f64,
 ) -> AppResult<Vec<Candidate>> {
     // Over-fetch per seed (as in search()) so dedup-by-figure still yields k
     // distinct neighbours when one figure owns several near images.
@@ -140,6 +141,7 @@ pub async fn similar_figures(
          ) n
          WHERE src.figure_id = $1 AND src.model_version = $2
          GROUP BY n.figure_id
+         HAVING MIN(n.distance) <= $5
          ORDER BY distance
          LIMIT $4",
     )
@@ -147,12 +149,126 @@ pub async fn similar_figures(
     .bind(model_version)
     .bind(fanout)
     .bind(k)
+    .bind(max_distance)
     .fetch_all(pool)
     .await?;
 
     Ok(rows
         .into_iter()
         .map(|(figure_id, distance)| Candidate { figure_id, distance: distance as f32 })
+        .collect())
+}
+
+/// Personalised recommendations — the "reco par goût" rail. Seeds the ANN from
+/// the embeddings of every figure the user OWNS (non-archived) and returns the
+/// nearest catalogue figures they neither own nor wishlist, deduped to one row
+/// per figure (its closest owned seed wins). Empty when the user owns nothing
+/// that's on the index.
+pub async fn recommendations(
+    pool: &PgPool,
+    user_id: Uuid,
+    model_version: &str,
+    k: i64,
+    max_distance: f64,
+) -> AppResult<Vec<Candidate>> {
+    // Over-fetch per seed so the owned/wishlisted exclusion still leaves k
+    // distinct recommendations (as in search()/similar_figures()).
+    let fanout = (k * 5).clamp(20, 200);
+    let rows: Vec<(Uuid, f64)> = sqlx::query_as(
+        "SELECT n.figure_id, MIN(n.distance) AS distance
+         FROM figure_embeddings src
+         JOIN owned_items oi
+           ON oi.figure_id = src.figure_id AND oi.user_id = $1 AND oi.archived_at IS NULL
+         CROSS JOIN LATERAL (
+             SELECT e.figure_id, (e.embedding <=> src.embedding) AS distance
+             FROM figure_embeddings e
+             WHERE e.model_version = $2
+               AND NOT EXISTS (
+                   SELECT 1 FROM owned_items o
+                   WHERE o.user_id = $1 AND o.figure_id = e.figure_id AND o.archived_at IS NULL
+               )
+               AND NOT EXISTS (
+                   SELECT 1 FROM wishlist_items w
+                   WHERE w.user_id = $1 AND w.figure_id = e.figure_id
+               )
+             ORDER BY e.embedding <=> src.embedding
+             LIMIT $3
+         ) n
+         WHERE src.model_version = $2
+         GROUP BY n.figure_id
+         HAVING MIN(n.distance) <= $5
+         ORDER BY distance
+         LIMIT $4",
+    )
+    .bind(user_id)
+    .bind(model_version)
+    .bind(fanout)
+    .bind(k)
+    .bind(max_distance)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(figure_id, distance)| Candidate { figure_id, distance: distance as f32 })
+        .collect())
+}
+
+/// A catalogue figure pair that looks visually near-identical — a likely
+/// duplicate listing or re-release. `distance` is the closest cross-figure
+/// cosine distance (0 = identical).
+#[derive(Debug, Clone, Serialize)]
+pub struct DuplicatePair {
+    pub figure_id_a: Uuid,
+    pub figure_id_b: Uuid,
+    pub distance: f32,
+}
+
+/// Catalogue duplicate sweep (admin): figure pairs whose closest cross-figure
+/// distance sits under `max_distance`. Each embedding's single nearest
+/// *other-figure* neighbour rides the HNSW index (the LATERAL); pairs are
+/// normalised to (lo, hi), deduped to their closest distance, and filtered by
+/// the threshold. O(#embeddings) index lookups — not an O(n²) all-pairs scan.
+pub async fn find_duplicates(
+    pool: &PgPool,
+    model_version: &str,
+    max_distance: f64,
+    limit: i64,
+) -> AppResult<Vec<DuplicatePair>> {
+    let rows: Vec<(Uuid, Uuid, f64)> = sqlx::query_as(
+        "SELECT lo AS figure_id_a, hi AS figure_id_b, MIN(dist) AS distance
+         FROM (
+             SELECT LEAST(src.figure_id, n.figure_id)    AS lo,
+                    GREATEST(src.figure_id, n.figure_id) AS hi,
+                    n.dist
+             FROM figure_embeddings src
+             CROSS JOIN LATERAL (
+                 SELECT e.figure_id, (e.embedding <=> src.embedding) AS dist
+                 FROM figure_embeddings e
+                 WHERE e.model_version = $1 AND e.figure_id <> src.figure_id
+                 ORDER BY e.embedding <=> src.embedding
+                 LIMIT 1
+             ) n
+             WHERE src.model_version = $1
+         ) p
+         GROUP BY lo, hi
+         HAVING MIN(dist) < $2
+         ORDER BY distance
+         LIMIT $3",
+    )
+    .bind(model_version)
+    .bind(max_distance)
+    .bind(limit)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(figure_id_a, figure_id_b, distance)| DuplicatePair {
+            figure_id_a,
+            figure_id_b,
+            distance: distance as f32,
+        })
         .collect())
 }
 

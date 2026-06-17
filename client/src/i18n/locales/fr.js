@@ -343,6 +343,9 @@ export default {
 
   // Collection
   "collection.title": "Ma collection",
+  "collection.reco.eyebrow": "D'après ta collection",
+  "collection.reco.title": "Recommandé pour toi",
+  "collection.reco.skip": "Passer",
   "collection.subtitle": "Pièce par pièce.",
 
   // Per-piece owned-item editor on /figures/:id
@@ -1459,6 +1462,8 @@ export default {
   "admin.settings.visual.external_on": "Repli web (Google Vision) activé",
   "admin.settings.visual.external_off": "Repli web (Google Vision) désactivé",
   "admin.settings.visual.external_hint": "En l'absence de correspondance au catalogue, l'utilisateur peut — sur action explicite — envoyer sa photo à Google Vision pour obtenir des pistes d'identification. C'est le seul cas où la photo quitte l'appareil.",
+  "admin.settings.visual.threshold_label": "Seuil de similarité",
+  "admin.settings.visual.threshold_hint": "En-dessous de ce seuil, une figurine n'est proposée ni comme « proche » ni comme « recommandée ». Plus haut = moins de suggestions, mais plus pertinentes.",
   "admin.settings.visual.key_label": "Clé API Google Cloud Vision",
   "admin.settings.visual.key_set": "Une clé est enregistrée. Saisir une nouvelle valeur la remplace ; vider le champ et enregistrer l'efface.",
   "admin.settings.visual.key_unset": "Aucune clé enregistrée — le repli web reste indisponible tant qu'aucune clé n'est fournie.",
@@ -1485,6 +1490,9 @@ export default {
   "admin.tasks.progress": "entraînement · {pct} %",
   "admin.tasks.indexing.eyebrow": "Recherche par photo",
   "admin.tasks.indexing.title": "Indexation des images",
+  "admin.tasks.dupes.eyebrow": "Intégrité du catalogue",
+  "admin.tasks.dupes.title": "Doublons potentiels",
+  "admin.tasks.dupes.hint": "Paires visuellement quasi identiques — vérifie, puis fusionne ou supprime la pièce en double.",
   "admin.tasks.indexing.worker_on": "Worker en ligne",
   "admin.tasks.indexing.worker_off": "Aucun worker",
   "admin.tasks.indexing.progress": "{done} / {total} · {pct} %",

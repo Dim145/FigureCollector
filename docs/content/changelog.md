@@ -3,6 +3,20 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.27 — recommendations & catalogue hygiene
+
+- **Recommandé pour toi** — your Collection page now ends with a personalised
+  rail: catalogue figures whose look is closest to what you own (DINOv2),
+  excluding anything you already own or wishlist. Shows four at a time with a
+  match-% on each; "Passer" skips one and reveals the next, and the rail bows
+  out once you've seen them all.
+- **A quality bar you control** — both this rail and the figure-page "figurines
+  proches" only surface genuinely-close matches (default **75 %**). Tune the
+  floor in **Admin → Réglages → Seuil de similarité**.
+- **Catalogue duplicate detection** (admin) — a "Doublons potentiels" panel on
+  the Tasks page flags figure pairs that look near-identical (the same piece
+  listed twice, or a re-release), side by side, so you can merge or remove.
+
 ## 0.26 — neighbours & a release calendar
 
 - **Figurines proches** — every figure page now ends with a "similar figures"

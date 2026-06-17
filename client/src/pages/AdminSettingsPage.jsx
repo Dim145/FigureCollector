@@ -44,6 +44,7 @@ export default function AdminSettingsPage() {
   const [vsDraft, setVsDraft] = useState(null);
   const [vsExtDraft, setVsExtDraft] = useState(null);
   const [keyDraft, setKeyDraft] = useState(null);
+  const [thresholdDraft, setThresholdDraft] = useState(null);
 
   if (settings.isLoading) {
     return (
@@ -72,20 +73,27 @@ export default function AdminSettingsPage() {
   const savedVsExt = !!settings.data.visual_search_external;
   const vsExt = vsExtDraft ?? savedVsExt;
   const keyStored = !!settings.data.visual_search_external_key_set;
+  const savedThreshold = Math.round(
+    settings.data.visual_search_similarity_threshold ?? 75,
+  );
   const vsDirty =
     (vsDraft !== null && vsDraft !== savedVs) ||
     (vsExtDraft !== null && vsExtDraft !== savedVsExt) ||
-    keyDraft !== null;
+    keyDraft !== null ||
+    (thresholdDraft !== null && thresholdDraft !== savedThreshold);
   const saveVs = () => {
     const patch = {};
     if (vsDraft !== null) patch.visual_search = vsDraft;
     if (vsExtDraft !== null) patch.visual_search_external = vsExtDraft;
     if (keyDraft !== null) patch.visual_search_external_key = keyDraft;
+    if (thresholdDraft !== null)
+      patch.visual_search_similarity_threshold = thresholdDraft;
     updateVs.mutate(patch, {
       onSuccess: () => {
         setVsDraft(null);
         setVsExtDraft(null);
         setKeyDraft(null);
+        setThresholdDraft(null);
       },
     });
   };
@@ -444,6 +452,42 @@ export default function AdminSettingsPage() {
                 {keyStored
                   ? t("admin.settings.visual.key_set")
                   : t("admin.settings.visual.key_unset")}
+              </span>
+            </label>
+          </div>
+
+          {/* Similarity threshold — the match floor for the "figurines
+              proches" / "recommandé pour toi" discovery rails. */}
+          <div className="mt-7 pt-6 border-t border-[var(--color-or)]/15">
+            <label className="block max-w-md">
+              <span className="micro block mb-3">
+                {t("admin.settings.visual.threshold_label", {
+                  default: "Seuil de similarité",
+                })}
+              </span>
+              <div className="flex items-center gap-4">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={thresholdDraft ?? savedThreshold}
+                  onChange={(e) => setThresholdDraft(Number(e.target.value))}
+                  disabled={!vs}
+                  aria-label={t("admin.settings.visual.threshold_label", {
+                    default: "Seuil de similarité",
+                  })}
+                  className="flex-1 accent-[var(--color-laque-bright)] disabled:opacity-50"
+                />
+                <span className="font-mono text-sm text-[var(--color-or)] w-12 text-right tabular-nums">
+                  {thresholdDraft ?? savedThreshold}%
+                </span>
+              </div>
+              <span className="mt-2 block text-xs leading-relaxed text-[var(--color-ivoire-soft)]">
+                {t("admin.settings.visual.threshold_hint", {
+                  default:
+                    "En-dessous de ce seuil, une figurine n'est proposée ni comme « proche » ni comme « recommandée ». Plus haut = moins de suggestions, mais plus pertinentes.",
+                })}
               </span>
             </label>
           </div>

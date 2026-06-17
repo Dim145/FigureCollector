@@ -971,6 +971,11 @@ async fn patch_settings(
             "admin updated visual-search external API key"
         );
     }
+    if let Some(threshold) = input.visual_search_similarity_threshold {
+        let clamped = threshold.clamp(0.0, 100.0);
+        settings::set_visual_search_similarity_threshold(&state.pool, clamped).await?;
+        tracing::info!(by_admin = %actor.id, threshold = clamped, "admin updated visual-search similarity threshold");
+    }
     Ok(Json(settings::all(&state.pool).await?))
 }
 
@@ -1020,6 +1025,65 @@ async fn retry_failed_embeddings(
     Ok(Json(json!({ "requeued": requeued })))
 }
 
+#[derive(serde::Deserialize)]
+struct DuplicateQuery {
+    /// Max cross-figure cosine distance to flag as a likely duplicate (0 =
+    /// identical). Defaults to a conservative 0.15.
+    max_distance: Option<f64>,
+    limit: Option<i64>,
+}
+
+#[derive(serde::Serialize)]
+struct DuplicatePairOut {
+    distance: f32,
+    a: figure::Figure,
+    b: figure::Figure,
+}
+
+/// Catalogue duplicate detection — figure pairs that look visually
+/// near-identical (the same figure listed twice, or a re-release). Hydrated
+/// into full figures so the admin can eyeball them side by side; NSFW kept
+/// (admin sees the whole catalogue). Empty `[]` when nothing is below threshold.
+async fn visual_search_duplicates(
+    State(state): State<AppState>,
+    session: Session,
+    Query(q): Query<DuplicateQuery>,
+) -> AppResult<Json<Vec<DuplicatePairOut>>> {
+    auth::require_admin(&session, &state.pool).await?;
+    let max_distance = q.max_distance.unwrap_or(0.15).clamp(0.0, 2.0);
+    let limit = q.limit.unwrap_or(50).clamp(1, 200);
+    let pairs = visual_search::find_duplicates(
+        &state.pool,
+        visual_search::MODEL_VERSION,
+        max_distance,
+        limit,
+    )
+    .await?;
+    if pairs.is_empty() {
+        return Ok(Json(Vec::new()));
+    }
+    // Hydrate every figure across the pairs in one query, then build the cards.
+    let mut ids: Vec<uuid::Uuid> = Vec::with_capacity(pairs.len() * 2);
+    for p in &pairs {
+        ids.push(p.figure_id_a);
+        ids.push(p.figure_id_b);
+    }
+    let figures = figure::by_ids(&state.pool, &ids, false).await?;
+    let by_id: std::collections::HashMap<uuid::Uuid, figure::Figure> =
+        figures.into_iter().map(|f| (f.id, f)).collect();
+    let out = pairs
+        .into_iter()
+        .filter_map(|p| {
+            Some(DuplicatePairOut {
+                distance: p.distance,
+                a: by_id.get(&p.figure_id_a)?.clone(),
+                b: by_id.get(&p.figure_id_b)?.clone(),
+            })
+        })
+        .collect();
+    Ok(Json(out))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/admin/settings", get(get_settings).patch(patch_settings))
@@ -1028,6 +1092,10 @@ pub fn router() -> Router<AppState> {
         .route(
             "/admin/visual-search/retry-failed",
             post(retry_failed_embeddings),
+        )
+        .route(
+            "/admin/visual-search/duplicates",
+            get(visual_search_duplicates),
         )
         .route("/admin/overview", get(overview))
         .route("/admin/users", get(list_users).post(create_user))

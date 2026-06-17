@@ -334,6 +334,9 @@ export default {
   "recognize.external.error": "Web search failed. Try again later.",
 
   "collection.title": "My collection",
+  "collection.reco.eyebrow": "Based on your collection",
+  "collection.reco.title": "Recommended for you",
+  "collection.reco.skip": "Skip",
   "collection.subtitle": "Piece by piece.",
 
   // Per-piece owned-item editor on /figures/:id
@@ -1429,6 +1432,8 @@ export default {
   "admin.settings.visual.external_on": "Web fallback (Google Vision) enabled",
   "admin.settings.visual.external_off": "Web fallback (Google Vision) disabled",
   "admin.settings.visual.external_hint": "When the catalog has no match, the user can — on an explicit tap — send their photo to Google Vision for identification leads. This is the only case where the photo leaves the device.",
+  "admin.settings.visual.threshold_label": "Similarity threshold",
+  "admin.settings.visual.threshold_hint": "Below this floor, a figure isn't surfaced as \"close\" or \"recommended\". Higher = fewer but more relevant suggestions.",
   "admin.settings.visual.key_label": "Google Cloud Vision API key",
   "admin.settings.visual.key_set": "A key is stored. Entering a new value replaces it; clearing the field and saving removes it.",
   "admin.settings.visual.key_unset": "No key stored — the web fallback stays unavailable until one is provided.",
@@ -1455,6 +1460,9 @@ export default {
   "admin.tasks.progress": "training · {pct}%",
   "admin.tasks.indexing.eyebrow": "Photo search",
   "admin.tasks.indexing.title": "Image indexing",
+  "admin.tasks.dupes.eyebrow": "Catalogue integrity",
+  "admin.tasks.dupes.title": "Potential duplicates",
+  "admin.tasks.dupes.hint": "Visually near-identical pairs — review, then merge or delete the duplicate piece.",
   "admin.tasks.indexing.worker_on": "Worker online",
   "admin.tasks.indexing.worker_off": "No worker",
   "admin.tasks.indexing.progress": "{done} / {total} · {pct}%",

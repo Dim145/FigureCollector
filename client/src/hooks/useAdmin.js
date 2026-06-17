@@ -76,6 +76,17 @@ export function useRetryFailedEmbeddings() {
   });
 }
 
+/** GET /admin/visual-search/duplicates — catalogue figure pairs that look
+ *  near-identical (likely duplicate listings / re-releases), hydrated into full
+ *  figures so the admin can eyeball them. Returns `[]` when none are flagged. */
+export function useAdminVisualSearchDuplicates() {
+  return useQuery({
+    queryKey: ["admin", "visual-search", "duplicates"],
+    queryFn: () => api.get("/admin/visual-search/duplicates"),
+    staleTime: 60_000,
+  });
+}
+
 // -------------------- users --------------------
 
 export function useAdminUsers() {
