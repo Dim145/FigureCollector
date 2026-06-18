@@ -116,7 +116,12 @@ async def main() -> None:
         kind=WORKER_KIND,
     )
     asyncio.create_task(heartbeat_loop(pool, state))
-    await embed_index.run_embed_loop(pool, state)
+    # Drain image + text queues concurrently (disjoint rows). Each loop loads its
+    # model best-effort, so a worker baking only one model just idles the other.
+    await asyncio.gather(
+        embed_index.run_embed_loop(pool, state),
+        embed_index.run_text_embed_loop(pool, state),
+    )
 
 
 if __name__ == "__main__":

@@ -24,8 +24,15 @@ use crate::error::{AppError, AppResult};
 /// model.
 pub const MODEL_VERSION: &str = "dinov2-small/1";
 
-/// DINOv2-small feature dimension.
+/// DINOv2-small feature dimension. Shared by the text model below (both 384-d),
+/// so text embeddings reuse the same `figure_embeddings` table + HNSW index.
 pub const EMBED_DIM: usize = 384;
+
+/// Semantic text model — multilingual-e5-small, also 384-d. Its embeddings live
+/// in `figure_embeddings` with this `model_version` and `source = "text"`
+/// (`image_ref = "text:<figure_id>"`), so `search()`/`index_stats()`/
+/// `upsert_embedding()` work unchanged; only the model_version differs.
+pub const TEXT_MODEL_VERSION: &str = "e5-small/1";
 
 /// A catalog figure that matched the query photo, with its best (smallest)
 /// cosine distance across that figure's images. 0 = identical, 2 = opposite;
@@ -395,6 +402,27 @@ pub async fn enqueue_missing(pool: &PgPool, model_version: &str) -> AppResult<u6
     .await?;
 
     Ok(photos.rows_affected() + official.rows_affected())
+}
+
+/// Enqueue every catalogue figure once for SEMANTIC TEXT indexing — one queue
+/// row per figure (`source = 'text'`, `image_ref = 'text:<id>'`). Idempotent:
+/// skips figures already embedded or queued for the text model. The worker
+/// fetches each figure's text and embeds it with multilingual-e5-small.
+pub async fn enqueue_missing_text(pool: &PgPool) -> AppResult<u64> {
+    let res = sqlx::query(
+        "INSERT INTO figure_embedding_queue (figure_id, source, image_ref, model_version)
+         SELECT f.id, 'text', 'text:' || f.id::text, $1
+         FROM figures f
+         WHERE NOT EXISTS (
+             SELECT 1 FROM figure_embeddings e
+             WHERE e.image_ref = 'text:' || f.id::text AND e.model_version = $1
+         )
+         ON CONFLICT (image_ref, model_version) DO NOTHING",
+    )
+    .bind(TEXT_MODEL_VERSION)
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected())
 }
 
 /// Enqueue just one figure's images (called when a figure or its photos

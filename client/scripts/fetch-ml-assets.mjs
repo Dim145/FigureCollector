@@ -32,13 +32,28 @@ const clientDir = join(here, "..");
 const require = createRequire(import.meta.url);
 
 const ORT_OUT = join(clientDir, "public", "ort");
-const MODEL_ID = "Xenova/dinov2-small";
-const MODEL_OUT = join(clientDir, "public", "models", MODEL_ID);
-// dtype "q8" (src/lib/embed.js) → the quantised ONNX graph.
-const MODEL_FILES = [
-  "config.json",
-  "preprocessor_config.json",
-  "onnx/model_quantized.onnx",
+// dtype "q8" (src/lib/embed.js) → the quantised ONNX graph. Image models need
+// preprocessor_config; text models need the tokenizer files instead.
+const MODELS = [
+  {
+    id: "Xenova/dinov2-small",
+    files: [
+      "config.json",
+      "preprocessor_config.json",
+      "onnx/model_quantized.onnx",
+    ],
+  },
+  {
+    // Semantic text search (Batch 4).
+    id: "Xenova/multilingual-e5-small",
+    files: [
+      "config.json",
+      "tokenizer.json",
+      "tokenizer_config.json",
+      "special_tokens_map.json",
+      "onnx/model_quantized.onnx",
+    ],
+  },
 ];
 
 function log(msg) {
@@ -66,26 +81,31 @@ function copyOrtRuntime() {
   log(`ORT runtime: copied ${files.length} files from ${ortDist}`);
 }
 
-// ── 2. Model weights + preprocessing (HuggingFace Hub) ────────────────────────
-async function fetchModel() {
-  for (const rel of MODEL_FILES) {
-    const dest = join(MODEL_OUT, rel);
+// ── 2. Model weights + preprocessing / tokenizer (HuggingFace Hub) ────────────
+async function fetchModel(id, files) {
+  const out = join(clientDir, "public", "models", id);
+  for (const rel of files) {
+    const dest = join(out, rel);
     if (existsSync(dest) && statSync(dest).size > 0) {
-      log(`model: ${rel} already present, skipping`);
+      log(`model: ${id}/${rel} already present, skipping`);
       continue;
     }
     mkdirSync(dirname(dest), { recursive: true });
-    const url = `https://huggingface.co/${MODEL_ID}/resolve/main/${rel}`;
+    const url = `https://huggingface.co/${id}/resolve/main/${rel}`;
     const res = await fetch(url);
     if (!res.ok) {
-      throw new Error(`fetch ${url} → HTTP ${res.status}`);
+      // Some tokenizer files are optional per model — warn + skip rather than
+      // break the build. A genuinely-required missing file surfaces when the
+      // model fails to load at runtime.
+      log(`model: ${id}/${rel} → HTTP ${res.status}, skipping`);
+      continue;
     }
     const buf = Buffer.from(await res.arrayBuffer());
     writeFileSync(dest, buf);
-    log(`model: downloaded ${rel} (${(buf.length / 1024).toFixed(0)} KiB)`);
+    log(`model: downloaded ${id}/${rel} (${(buf.length / 1024).toFixed(0)} KiB)`);
   }
 }
 
 copyOrtRuntime();
-await fetchModel();
+for (const m of MODELS) await fetchModel(m.id, m.files);
 log("done.");

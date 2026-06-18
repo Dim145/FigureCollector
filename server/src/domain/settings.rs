@@ -209,6 +209,40 @@ pub async fn set_visual_search_similarity_threshold(pool: &PgPool, threshold: f6
     Ok(())
 }
 
+const TEXT_SEARCH_MIN_MATCH_KEY: &str = "text_search.min_match";
+/// Default semantic-match floor. 0 % keeps every top-K hit: e5 compresses cosine
+/// similarity into a high, narrow band (~78–90 %), so a non-zero floor mainly
+/// trims the weak tail rather than obvious junk. Admin-tunable.
+const TEXT_SEARCH_MIN_MATCH_DEFAULT: f64 = 0.0;
+
+/// The minimum similarity (0–100 %) a catalogue figure must reach to surface in
+/// semantic ("Sens") search. The handler converts it to a max cosine distance,
+/// exactly like the visual rails' similarity threshold.
+pub async fn text_search_min_match(pool: &PgPool) -> AppResult<f64> {
+    let value: Option<String> = sqlx::query_scalar("SELECT value FROM app_settings WHERE key = $1")
+        .bind(TEXT_SEARCH_MIN_MATCH_KEY)
+        .fetch_optional(pool)
+        .await?;
+    Ok(value
+        .and_then(|v| v.parse::<f64>().ok())
+        .map(|v| v.clamp(0.0, 100.0))
+        .unwrap_or(TEXT_SEARCH_MIN_MATCH_DEFAULT))
+}
+
+pub async fn set_text_search_min_match(pool: &PgPool, threshold: f64) -> AppResult<()> {
+    let clamped = threshold.clamp(0.0, 100.0);
+    sqlx::query(
+        "INSERT INTO app_settings (key, value, updated_at)
+         VALUES ($1, $2, now())
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()",
+    )
+    .bind(TEXT_SEARCH_MIN_MATCH_KEY)
+    .bind(clamped.to_string())
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 const VISUAL_SEARCH_AMBIANCES_KEY: &str = "visual_search.ambiances_enabled";
 
 /// Whether the "browse par ambiance" view (visual-style clustering) is offered.
@@ -235,6 +269,31 @@ pub async fn set_visual_search_ambiances_enabled(pool: &PgPool, enabled: bool) -
     Ok(())
 }
 
+const TEXT_SEARCH_KEY: &str = "text_search.enabled";
+
+/// Whether semantic (text) search is offered. Off by default — it needs the
+/// text index built (worker) + the in-browser model, so an admin opts in.
+pub async fn text_search_enabled(pool: &PgPool) -> AppResult<bool> {
+    let value: Option<String> = sqlx::query_scalar("SELECT value FROM app_settings WHERE key = $1")
+        .bind(TEXT_SEARCH_KEY)
+        .fetch_optional(pool)
+        .await?;
+    Ok(value.as_deref() == Some("true"))
+}
+
+pub async fn set_text_search_enabled(pool: &PgPool, enabled: bool) -> AppResult<()> {
+    sqlx::query(
+        "INSERT INTO app_settings (key, value, updated_at)
+         VALUES ($1, $2, now())
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()",
+    )
+    .bind(TEXT_SEARCH_KEY)
+    .bind(enabled.to_string())
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 /// The admin-facing settings view (extend as more settings are added).
 #[derive(Debug, Serialize)]
 pub struct Settings {
@@ -249,6 +308,10 @@ pub struct Settings {
     pub visual_search_similarity_threshold: f64,
     /// Whether the "browse par ambiance" clustering view is offered.
     pub visual_search_ambiances: bool,
+    /// Whether semantic text search is offered.
+    pub text_search: bool,
+    /// Match floor for semantic ("Sens") search, as a percentage (0–100).
+    pub text_search_min_match: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -264,6 +327,9 @@ pub struct SettingsPatch {
     /// New match floor (0–100 %); server clamps to range on write.
     pub visual_search_similarity_threshold: Option<f64>,
     pub visual_search_ambiances: Option<bool>,
+    pub text_search: Option<bool>,
+    /// New semantic-match floor (0–100 %); server clamps to range on write.
+    pub text_search_min_match: Option<f64>,
 }
 
 pub async fn all(pool: &PgPool) -> AppResult<Settings> {
@@ -275,5 +341,7 @@ pub async fn all(pool: &PgPool) -> AppResult<Settings> {
         visual_search_external_key_set: visual_search_external_api_key(pool).await?.is_some(),
         visual_search_similarity_threshold: visual_search_similarity_threshold(pool).await?,
         visual_search_ambiances: visual_search_ambiances_enabled(pool).await?,
+        text_search: text_search_enabled(pool).await?,
+        text_search_min_match: text_search_min_match(pool).await?,
     })
 }

@@ -1,7 +1,10 @@
-# Image-embedding worker — deliberately light (no torch/CUDA). DINOv2-small q8
-# runs fine on CPU via onnxruntime; a GPU box can add onnxruntime-gpu instead.
+# Image + text embedding worker — deliberately light (no torch/CUDA).
+# DINOv2-small q8 (image) and multilingual-e5-small q8 (text) both run fine on
+# CPU via onnxruntime; a GPU box can add onnxruntime-gpu instead.
 asyncpg==0.30.0
 numpy==1.26.4
 onnxruntime==1.20.1
 Pillow==12.2.0
 structlog==24.4.0
+# Text-search query tokeniser (multilingual-e5-small); pure-Rust wheel, no deps.
+tokenizers==0.23.1

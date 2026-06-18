@@ -64,6 +64,19 @@ export function useAdminVisualSearchQueue() {
   });
 }
 
+/** POST /admin/visual-search/reindex-text — queue every figure's text for
+ *  semantic (e5-small) embedding; the worker builds the text index. */
+export function useReindexTextSearch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post("/admin/visual-search/reindex-text"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "visual-search", "queue"] });
+      qc.invalidateQueries({ queryKey: ["visual-search", "status"] });
+    },
+  });
+}
+
 /** POST /admin/visual-search/retry-failed — re-arm failed embed-queue rows. */
 export function useRetryFailedEmbeddings() {
   const qc = useQueryClient();

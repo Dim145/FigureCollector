@@ -5,6 +5,7 @@ import {
   useAdminSettings,
   useAdminOverview,
   useReindexVisualSearch,
+  useReindexTextSearch,
   useUpdateAdminSettings,
 } from "../hooks/useAdmin.js";
 import { useVisualSearchStatus } from "../hooks/useVisualSearch.js";
@@ -34,6 +35,7 @@ export default function AdminSettingsPage() {
   const updateCron = useUpdateAdminSettings();
   const updateVs = useUpdateAdminSettings();
   const reindex = useReindexVisualSearch();
+  const reindexText = useReindexTextSearch();
   const vsStatus = useVisualSearchStatus();
   const overview = useAdminOverview();
 
@@ -49,6 +51,8 @@ export default function AdminSettingsPage() {
   const [keyDraft, setKeyDraft] = useState(null);
   const [thresholdDraft, setThresholdDraft] = useState(null);
   const [ambiancesDraft, setAmbiancesDraft] = useState(null);
+  const [textSearchDraft, setTextSearchDraft] = useState(null);
+  const [minMatchDraft, setMinMatchDraft] = useState(null);
   const [helpOpen, setHelpOpen] = useState(false);
 
   if (settings.isLoading) {
@@ -83,12 +87,18 @@ export default function AdminSettingsPage() {
   );
   const savedAmbiances = !!settings.data.visual_search_ambiances;
   const ambiances = ambiancesDraft ?? savedAmbiances;
+  const savedTextSearch = !!settings.data.text_search;
+  const textSearch = textSearchDraft ?? savedTextSearch;
+  const savedMinMatch = Math.round(settings.data.text_search_min_match ?? 0);
+  const minMatch = minMatchDraft ?? savedMinMatch;
   const vsDirty =
     (vsDraft !== null && vsDraft !== savedVs) ||
     (vsExtDraft !== null && vsExtDraft !== savedVsExt) ||
     keyDraft !== null ||
     (thresholdDraft !== null && thresholdDraft !== savedThreshold) ||
-    (ambiancesDraft !== null && ambiancesDraft !== savedAmbiances);
+    (ambiancesDraft !== null && ambiancesDraft !== savedAmbiances) ||
+    (textSearchDraft !== null && textSearchDraft !== savedTextSearch) ||
+    (minMatchDraft !== null && minMatchDraft !== savedMinMatch);
   const saveVs = () => {
     const patch = {};
     if (vsDraft !== null) patch.visual_search = vsDraft;
@@ -97,6 +107,8 @@ export default function AdminSettingsPage() {
     if (thresholdDraft !== null)
       patch.visual_search_similarity_threshold = thresholdDraft;
     if (ambiancesDraft !== null) patch.visual_search_ambiances = ambiancesDraft;
+    if (textSearchDraft !== null) patch.text_search = textSearchDraft;
+    if (minMatchDraft !== null) patch.text_search_min_match = minMatchDraft;
     updateVs.mutate(patch, {
       onSuccess: () => {
         setVsDraft(null);
@@ -104,6 +116,8 @@ export default function AdminSettingsPage() {
         setKeyDraft(null);
         setThresholdDraft(null);
         setAmbiancesDraft(null);
+        setTextSearchDraft(null);
+        setMinMatchDraft(null);
       },
     });
   };
@@ -551,6 +565,90 @@ export default function AdminSettingsPage() {
                 className={`atelier-toggle ${ambiances ? "is-on" : ""} ${!vs ? "opacity-40 pointer-events-none" : ""}`}
               />
             </div>
+          </div>
+
+          {/* Semantic text search — opt-in, independent of photo search. */}
+          <div className="mt-7 pt-6 border-t border-[var(--color-or)]/15">
+            <div className="atelier-toggle-row">
+              <div id="vs-text-label" className="atelier-toggle-row-text">
+                <span className={`atelier-toggle-row-state ${textSearch ? "is-on" : ""}`}>
+                  {textSearch
+                    ? t("admin.settings.visual.text_on", { default: "Recherche par le sens activée" })
+                    : t("admin.settings.visual.text_off", { default: "Recherche par le sens désactivée" })}
+                </span>
+                <span className="atelier-toggle-row-hint">
+                  {t("admin.settings.visual.text_hint", {
+                    default:
+                      "Ajoute un mode « Sens » à la recherche : retrouver une figurine par une description, pas seulement par mots-clés. Indexe d'abord les textes ci-dessous.",
+                  })}
+                </span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={textSearch}
+                aria-labelledby="vs-text-label"
+                onClick={() => setTextSearchDraft(!textSearch)}
+                className={`atelier-toggle ${textSearch ? "is-on" : ""}`}
+              />
+            </div>
+            <div className="mt-3 flex items-center gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={() => reindexText.mutate()}
+                disabled={reindexText.isPending}
+                className="px-3 py-1.5 border border-[var(--color-or)]/30 text-[11px] uppercase tracking-[0.18em] text-[var(--color-or)] hover:bg-[var(--color-or)]/10 transition-colors disabled:opacity-50"
+              >
+                {t("admin.settings.visual.text_reindex", { default: "Indexer les textes" })}
+              </button>
+              {typeof vsStatus.data?.text_embedded === "number" ? (
+                <span className="font-mono text-[11px] text-[var(--color-ivoire-soft)]">
+                  {t("admin.settings.visual.text_indexed", {
+                    n: vsStatus.data.text_embedded,
+                    default: `${vsStatus.data.text_embedded} indexées`,
+                  })}
+                </span>
+              ) : null}
+              {reindexText.isSuccess ? (
+                <span className="text-[11px] text-[var(--color-jade)]">
+                  {t("admin.settings.visual.text_reindex_done", { default: "File alimentée." })}
+                </span>
+              ) : null}
+            </div>
+            {/* Semantic match floor — minimum "% match" for a "Sens" result to
+                show. e5 packs similarity into a high band, so this mostly trims
+                the weak tail; 0 % keeps every hit. */}
+            <label className="mt-6 block max-w-md">
+              <span className="micro block mb-3">
+                {t("admin.settings.visual.text_min_match_label", {
+                  default: "Pertinence minimale",
+                })}
+              </span>
+              <div className="flex items-center gap-4">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={minMatch}
+                  onChange={(e) => setMinMatchDraft(Number(e.target.value))}
+                  disabled={!textSearch}
+                  aria-label={t("admin.settings.visual.text_min_match_label", {
+                    default: "Pertinence minimale",
+                  })}
+                  className="flex-1 accent-[var(--color-laque-bright)] disabled:opacity-50"
+                />
+                <span className="font-mono text-sm text-[var(--color-or)] w-12 text-right tabular-nums">
+                  {minMatch} %
+                </span>
+              </div>
+              <span className="mt-2 block text-xs leading-relaxed text-[var(--color-ivoire-soft)]">
+                {t("admin.settings.visual.text_min_match_hint", {
+                  default:
+                    "Score minimum pour qu'un résultat « Sens » s'affiche. e5 resserre les scores dans une bande haute (~80–90 %) : monte ce seuil pour couper la queue de résultats faibles. 0 % affiche tout.",
+                })}
+              </span>
+            </label>
           </div>
 
           {/* Save row */}

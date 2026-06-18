@@ -1,20 +1,28 @@
 """
-FigureCollector — shared image-embedding logic for visual (photo) search.
+FigureCollector — shared embedding logic for visual (photo) + semantic (text)
+search.
 
 ⚠ DUPLICATED — an identical copy lives in BOTH:
     infrastructure/gsplat-worker/embed_index.py   (folded into the gsplat worker)
     infrastructure/embed-worker/embed_index.py    (the standalone CPU worker)
-Keep the two byte-identical. The model + preprocessing contract is mirrored a
-THIRD time in client/src/lib/embed.js (the in-browser query side) — bump
-MODEL_VERSION on ALL of them together and re-index when the model changes.
+Keep the two byte-identical. Each model + its preprocessing contract is mirrored
+a THIRD time in client/src/lib/embed.js (the in-browser query side) — bump the
+matching version (MODEL_VERSION / TEXT_MODEL_VERSION) on ALL of them together
+and re-index when a model changes.
 
-Drains `figure_embedding_queue`: fetch each catalog image, embed it with
-DINOv2-small (384-d, the CLS token of last_hidden_state, L2-normalised) and
-write the vector to `figure_embeddings`. This is deliberately **CPU-only** — it
-runs beside the gsplat trainer without ever touching its 6 GB of VRAM, and the
+Drains `figure_embedding_queue` with two concurrent loops over disjoint rows:
+  • run_embed_loop — fetch each catalog image, embed it with DINOv2-small
+    (384-d, the CLS token of last_hidden_state, L2-normalised).
+  • run_text_embed_loop — compose each figure's text (structured fields + a
+    cleaned description) and embed it with multilingual-e5-small (384-d, the
+    attention-masked mean of last_hidden_state, L2-normalised).
+Both write to `figure_embeddings` and are deliberately **CPU-only** — they run
+beside the gsplat trainer without ever touching its 6 GB of VRAM, and the
 standalone variant needs no GPU at all. Coordination is direct PostgreSQL
-(asyncpg), matching the gsplat worker; catalog images are fetched over HTTP
-(`photo` rows via the server's public proxy, `official` rows from their URL).
+(asyncpg); catalog images are fetched over HTTP (`photo` rows via the server's
+public proxy, `official` rows from their URL), figure text straight from the DB.
+Each loop loads its model best-effort: a worker that bakes only one model just
+runs that one loop.
 """
 
 from __future__ import annotations
@@ -66,6 +74,24 @@ EMBED_DEVICE = os.environ.get("EMBED_DEVICE", "cpu").strip().lower()
 MODEL_VERSION = "dinov2-small/1"
 EMBED_DIM = 384
 EMBED_CAPABILITY = "embed"
+
+# --- Text model (semantic search) --------------------------------------------
+# multilingual-e5-small: the SAME model the browser loads for "Sens" search.
+# Catalog figures are indexed as `passage:` text (structured fields + a cleaned
+# description), the browser embeds queries as `query:`; both mean-pool the last
+# hidden state weighted by the attention mask and L2-normalise → 384-d. The
+# Python path here is verified bit-for-bit identical to transformers.js. MUST
+# equal domain::visual_search::TEXT_MODEL_VERSION (server) and TEXT_MODEL_VERSION
+# (client/src/lib/embed.js) — bump all three together and reindex on change.
+TEXT_MODEL_PATH = os.environ.get(
+    "EMBED_TEXT_MODEL_PATH", "/models/e5-small/model_quantized.onnx"
+)
+TEXT_TOKENIZER_PATH = os.environ.get(
+    "EMBED_TEXT_TOKENIZER_PATH", "/models/e5-small/tokenizer.json"
+)
+TEXT_MODEL_VERSION = "e5-small/1"
+TEXT_PASSAGE_PREFIX = "passage: "
+TEXT_MAX_TOKENS = int(os.environ.get("EMBED_TEXT_MAX_TOKENS", "512"))
 
 # Preprocessing — verbatim from Xenova/dinov2-small/preprocessor_config.json.
 SHORTEST_EDGE = 256
@@ -163,6 +189,63 @@ def _preprocess(im: Image.Image) -> np.ndarray:
     return np.ascontiguousarray(arr, dtype=np.float32)
 
 
+# --- Text model --------------------------------------------------------------
+@dataclass
+class TextEmbedder:
+    session: ort.InferenceSession
+    tokenizer: Any
+    input_names: set
+    output_name: str
+
+    @classmethod
+    def load(cls) -> "TextEmbedder":
+        from tokenizers import Tokenizer  # local import: only needed for text
+
+        providers = _resolve_providers()
+        session = ort.InferenceSession(TEXT_MODEL_PATH, providers=providers)
+        tokenizer = Tokenizer.from_file(TEXT_TOKENIZER_PATH)
+        try:
+            tokenizer.enable_truncation(max_length=TEXT_MAX_TOKENS)
+        except Exception:  # noqa: BLE001
+            pass
+        names = {i.name for i in session.get_inputs()}
+        outs = [o.name for o in session.get_outputs()]
+        output_name = next((o for o in outs if "last_hidden" in o.lower()), outs[0])
+        log.info(
+            "text embed model loaded",
+            device=EMBED_DEVICE,
+            model=os.path.basename(TEXT_MODEL_PATH),
+            providers=session.get_providers(),
+            inputs=sorted(names),
+            output=output_name,
+        )
+        return cls(
+            session=session,
+            tokenizer=tokenizer,
+            input_names=names,
+            output_name=output_name,
+        )
+
+    def embed(self, text: str) -> list[float]:
+        enc = self.tokenizer.encode(TEXT_PASSAGE_PREFIX + (text or ""))
+        ids = np.array([enc.ids], dtype=np.int64)
+        mask = np.array([enc.attention_mask], dtype=np.int64)
+        feeds: dict[str, np.ndarray] = {"input_ids": ids, "attention_mask": mask}
+        if "token_type_ids" in self.input_names:
+            feeds["token_type_ids"] = np.zeros_like(ids)
+        out = self.session.run([self.output_name], feeds)[0]
+        hidden = np.asarray(out, dtype=np.float32)[0]  # [seq, 384]
+        m = mask[0][:, None].astype(np.float32)  # [seq, 1]
+        denom = float(m.sum()) or 1.0
+        vec = (hidden * m).sum(axis=0) / denom  # attention-masked mean pool
+        if vec.shape[0] != EMBED_DIM:
+            raise ValueError(f"unexpected text embedding length {vec.shape[0]}")
+        norm = float(np.linalg.norm(vec))
+        if norm > 0:
+            vec = vec / norm
+        return vec.astype(np.float32).tolist()
+
+
 # --- Image fetch -------------------------------------------------------------
 def fetch_image(source: str, image_ref: str) -> bytes:
     """Catalog photos via the server's public proxy (storage-agnostic);
@@ -182,6 +265,84 @@ def fetch_image(source: str, image_ref: str) -> bytes:
     return data
 
 
+# --- Text fetch + composition ------------------------------------------------
+def _clean_text(s: str | None) -> str:
+    """Strip the scraped boilerplate that only dilutes the embedding (source
+    URLs, 'not specified' placeholders) while keeping descriptive prose."""
+    import re
+
+    if not s:
+        return ""
+    lines = [l for l in s.split("\n") if not re.match(r"^\s*source\s*:", l, re.I)]
+    s = " ".join(lines)
+    s = re.sub(r"https?://\S+", " ", s)
+    s = re.sub(r"\b(not specified|n/a|unknown)\b", " ", s, flags=re.I)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def compose_figure_text(rec: asyncpg.Record) -> str:
+    """Build the passage text for a figure. MUST mirror the client/dev-seed
+    composition (client/src/lib/embed.js + the catalogue's semantic seed): the
+    same field order and cleaning, so the worker-built index lines up with the
+    vectors the browser embeds queries against."""
+    parts: list[str] = []
+    if rec["name"]:
+        parts.append(rec["name"])
+    ctx = [x for x in (rec["character_name"], rec["series_name"]) if x]
+    if ctx:
+        parts.append(", ".join(ctx))
+    made: list[str] = []
+    if rec["manufacturer_name"]:
+        made.append(rec["manufacturer_name"])
+    if rec["sculptor_name"]:
+        made.append("sculpté par " + rec["sculptor_name"])
+    if made:
+        parts.append(", ".join(made))
+    specs: list[str] = []
+    if rec["figure_type"]:
+        specs.append(rec["figure_type"])
+    if rec["scale"]:
+        specs.append("échelle " + rec["scale"])
+    if rec["materials"]:
+        specs.append(", ".join(rec["materials"]))
+    if rec["version_name"]:
+        specs.append(rec["version_name"])
+    if rec["edition"]:
+        specs.append(rec["edition"])
+    if rec["exclusivity"]:
+        specs.append(rec["exclusivity"])
+    if specs:
+        parts.append(", ".join(specs))
+    desc = _clean_text(rec["description"])
+    if desc:
+        parts.append(desc[:500])
+    return ". ".join(parts)
+
+
+async def fetch_figure_text(pool: asyncpg.Pool, figure_id: Any) -> str | None:
+    """Load a figure + its joined names and compose its passage text. Returns
+    None if the figure no longer exists (deleted) → the caller reconciles."""
+    async with pool.acquire() as conn:
+        rec = await conn.fetchrow(
+            """
+            SELECT f.name, f.figure_type, f.scale, f.materials, f.version_name,
+                   f.edition, f.exclusivity, f.description,
+                   m.name  AS manufacturer_name,
+                   sc.name AS sculptor_name,
+                   (SELECT s.name FROM figure_series fs JOIN series s ON s.id = fs.series_id
+                     WHERE fs.figure_id = f.id ORDER BY fs.series_id LIMIT 1) AS series_name,
+                   (SELECT ch.name FROM figure_characters fc JOIN characters ch ON ch.id = fc.character_id
+                     WHERE fc.figure_id = f.id ORDER BY fc.character_id LIMIT 1) AS character_name
+              FROM figures f
+              LEFT JOIN manufacturers m  ON m.id  = f.manufacturer_id
+              LEFT JOIN sculptors     sc ON sc.id = f.sculptor_id
+             WHERE f.id = $1
+            """,
+            figure_id,
+        )
+    return None if rec is None else compose_figure_text(rec)
+
+
 # --- Queue lifecycle ---------------------------------------------------------
 async def claim_next(pool: asyncpg.Pool) -> asyncpg.Record | None:
     async with pool.acquire() as conn:
@@ -199,6 +360,28 @@ async def claim_next(pool: asyncpg.Pool) -> asyncpg.Record | None:
          RETURNING id, figure_id, source, image_ref, model_version, attempts
             """,
             MODEL_VERSION,
+        )
+
+
+async def claim_next_text(pool: asyncpg.Pool) -> asyncpg.Record | None:
+    """Same SKIP LOCKED claim as `claim_next`, but for the TEXT model rows
+    (`model_version = e5-small/1`, `source = 'text'`). The two loops drain
+    disjoint queue rows so they never contend for the same work."""
+    async with pool.acquire() as conn:
+        return await conn.fetchrow(
+            """
+            UPDATE figure_embedding_queue
+               SET state = 'processing', claimed_at = now(), attempts = attempts + 1
+             WHERE id = (
+                 SELECT id FROM figure_embedding_queue
+                  WHERE state = 'pending' AND model_version = $1
+                  ORDER BY enqueued_at ASC
+                  FOR UPDATE SKIP LOCKED
+                  LIMIT 1
+             )
+         RETURNING id, figure_id, source, image_ref, model_version, attempts
+            """,
+            TEXT_MODEL_VERSION,
         )
 
 
@@ -316,6 +499,48 @@ async def run_embed_loop(pool: asyncpg.Pool, state: Any) -> None:
                 await reconcile_missing(pool, item)
             else:
                 await mark_failure(pool, item, f"HTTP {e.code}: {e}")
+        except Exception as e:  # noqa: BLE001
+            trace = traceback.format_exc()[-2000:]
+            await mark_failure(pool, item, f"{type(e).__name__}: {e}\n{trace}")
+
+
+async def run_text_embed_loop(pool: asyncpg.Pool, state: Any) -> None:
+    """Drain the TEXT rows of figure_embedding_queue (model_version=e5-small/1):
+    compose each figure's passage text, embed it with multilingual-e5-small,
+    store the 384-d vector. The text twin of run_embed_loop — runs as a SECOND
+    concurrent task beside it, draining a disjoint set of queue rows.
+
+    Best-effort load (mirrors run_embed_loop): if the e5 model/tokenizer isn't
+    baked into this image, it logs and exits WITHOUT taking the host worker
+    down — an image-only worker simply skips text indexing."""
+    try:
+        embedder = await asyncio.to_thread(TextEmbedder.load)
+    except Exception as e:  # noqa: BLE001
+        log.warning("text embed model load failed — text embed loop disabled", error=str(e))
+        return
+    log.info("text embed loop started", model_version=TEXT_MODEL_VERSION, server_url=SERVER_URL)
+    while True:
+        if not getattr(state, "enabled", True):
+            await asyncio.sleep(POLL_INTERVAL)
+            continue
+        item = await claim_next_text(pool)
+        if item is None:
+            await asyncio.sleep(POLL_INTERVAL)
+            continue
+        try:
+            text = await fetch_figure_text(pool, item["figure_id"])
+            if text is None:
+                # The figure was deleted → drop its text index + queue rows
+                # (self-heal, not a failure), same as a vanished image.
+                await reconcile_missing(pool, item)
+                continue
+            embedding = await asyncio.to_thread(embedder.embed, text)
+            await store_embedding(pool, item, embedding)
+            log.info(
+                "text embedded",
+                figure_id=str(item["figure_id"]),
+                image_ref=item["image_ref"][:64],
+            )
         except Exception as e:  # noqa: BLE001
             trace = traceback.format_exc()[-2000:]
             await mark_failure(pool, item, f"{type(e).__name__}: {e}\n{trace}")

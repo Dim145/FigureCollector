@@ -3,6 +3,22 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.29 — search by meaning
+
+- **Semantic ("Sens") search** — the catalogue search bar gains a *Meaning* mode
+  beside *Keywords*: describe a figure in your own words — even in another
+  language — and find it by sense, not just exact text. Cross-lingual matches
+  that keyword search misses now work (e.g. *mariée* surfaces a *Wedding*
+  figure). Runs fully on-device (multilingual-e5-small), like photo search — your
+  query never leaves the browser, and it honours your NSFW preference like the
+  rest of the catalogue.
+- **Match % + a tunable floor** — each result carries a match-%, strongest
+  first. An admin sets the minimum a result must reach in **Réglages →
+  Recherche par le sens → Pertinence minimale** to trim the weak tail.
+- **Admin opt-in, off by default** — turn it on in **Réglages**, then **Indexer
+  les textes** to build the index; the embed worker keeps it current as figures
+  change.
+
 ## 0.28 — browse by vibe
 
 - **Ambiances** — an optional way to browse the catalogue by visual *vibe*

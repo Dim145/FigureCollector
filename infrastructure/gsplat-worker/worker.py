@@ -285,10 +285,12 @@ async def main() -> None:
         except Exception as e:  # noqa: BLE001
             log.warning("recover_abandoned failed", error=str(e))
     heartbeat_task = asyncio.create_task(_heartbeat_loop(pool, state))
-    # Visual-search index builder, concurrent with the gsplat loop below. It's
-    # CPU-only (won't touch the trainer's VRAM) and self-disables if its model
-    # isn't baked, so it never jeopardises gsplat training.
+    # Search index builders, concurrent with the gsplat loop below. Both are
+    # CPU-only (won't touch the trainer's VRAM) and self-disable if their model
+    # isn't baked, so they never jeopardise gsplat training: image (DINOv2) and
+    # text (multilingual-e5) drain disjoint queue rows.
     embed_task = asyncio.create_task(embed_index.run_embed_loop(pool, state))
+    text_embed_task = asyncio.create_task(embed_index.run_text_embed_loop(pool, state))
     try:
         while True:
             # Admin can flip `enabled` off at any moment; the heartbeat
@@ -326,7 +328,7 @@ async def main() -> None:
                 )
                 await mark_failed(pool, scan_id, f"{type(e).__name__}: {e}\n{trace}")
     finally:
-        for task in (heartbeat_task, embed_task):
+        for task in (heartbeat_task, embed_task, text_embed_task):
             task.cancel()
             try:
                 await task

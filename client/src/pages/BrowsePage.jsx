@@ -69,6 +69,9 @@ export default function BrowsePage() {
   // ambiance is opened we drill into its members.
   const [viewMode, setViewMode] = useState("catalogue");
   const [openCluster, setOpenCluster] = useState(null);
+  // Search mode within the catalogue view: keyword filter vs semantic (e5) search.
+  const [searchMode, setSearchMode] = useState("keyword");
+  const [semantic, setSemantic] = useState({ results: null, busy: false, error: false });
   // Photo search is gated on the feature flag (same as the nav entry); the
   // camera button in the search bar only appears when it's on.
   const { data: vsStatus } = useVisualSearchStatus();
@@ -137,11 +140,41 @@ export default function BrowsePage() {
   // drill-in can map a cluster's member ids straight onto loaded figures.
   const ambiance =
     !!vsStatus?.enabled && !!vsStatus?.ambiances && viewMode === "ambiances";
+  const isSemantic =
+    !ambiance && searchMode === "semantic" && !!vsStatus?.text_search_enabled;
+  // Keyword mode filters the catalogue server-side; ambiance + semantic modes
+  // load the full catalogue (they pick figures another way).
   const figures = useFigures({
-    q: ambiance ? undefined : debouncedQ.trim() || undefined,
+    q: ambiance || isSemantic ? undefined : debouncedQ.trim() || undefined,
     figure_type: ambiance ? undefined : type || undefined,
   });
   const clusters = useVisualClusters({ enabled: ambiance });
+
+  // Semantic search: embed the query in-browser (e5-small) and hit the
+  // text-search endpoint, debounced like the keyword search.
+  useEffect(() => {
+    if (!isSemantic) return;
+    const query = debouncedQ.trim();
+    // No query → nothing to search; SemanticResults shows the prompt via
+    // `hasQuery`, so we don't need to reset state here.
+    if (!query) return;
+    let cancelled = false;
+    setSemantic((s) => ({ ...s, busy: true, error: false }));
+    (async () => {
+      try {
+        const { embedText } = await import("../lib/embed.js");
+        const embedding = await embedText(`query: ${query}`);
+        if (cancelled) return;
+        const results = await api.post("/me/text-search", { embedding });
+        if (!cancelled) setSemantic({ results, busy: false, error: false });
+      } catch {
+        if (!cancelled) setSemantic({ results: null, busy: false, error: true });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isSemantic, debouncedQ]);
 
   // Per-user catalogue markers — derived from the already-cached wishlist and
   // collection lists (no extra request). A card shows the gold "owned" seal or
@@ -214,9 +247,21 @@ export default function BrowsePage() {
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
 
   const total = figures.data?.length ?? 0;
-  // What the grid renders: the catalogue (sorted) normally, or the opened
-  // ambiance's members in the drill-in.
-  const gridFigures = ambiance ? (openCluster ? clusterFigures : []) : sorted;
+  // What the grid renders: semantic results in "Sens" mode, the opened
+  // ambiance's members in the drill-in, else the catalogue (sorted).
+  const semanticFigures = (semantic.results ?? []).map((r) => r.figure);
+  // figure id → cosine distance, so the semantic grid can stamp a "% match"
+  // badge (lower distance = stronger match) like the discovery rails.
+  const semanticScores = new Map(
+    (semantic.results ?? []).map((r) => [r.figure.id, r.distance]),
+  );
+  const gridFigures = ambiance
+    ? openCluster
+      ? clusterFigures
+      : []
+    : isSemantic
+      ? semanticFigures
+      : sorted;
 
   return (
     <AppShell>
@@ -335,6 +380,33 @@ export default function BrowsePage() {
         {/* ─── Control strip : search + kanji-tile filter (catalogue only) ─── */}
         {!ambiance ? (
         <section className="mb-10 reveal" style={{ "--i": 4 }}>
+          {vsStatus?.text_search_enabled ? (
+            <div
+              className="mb-3 inline-flex border border-[var(--color-or)]/25"
+              role="tablist"
+              aria-label={t("browse.search.mode_aria", { default: "Mode de recherche" })}
+            >
+              {[
+                { id: "keyword", label: t("browse.search.keyword", { default: "Mots-clés" }) },
+                { id: "semantic", label: t("browse.search.semantic", { default: "Sens" }) },
+              ].map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={searchMode === m.id}
+                  onClick={() => setSearchMode(m.id)}
+                  className={`px-3.5 py-1.5 text-[11px] uppercase tracking-[0.18em] transition-colors ${
+                    searchMode === m.id
+                      ? "bg-[var(--color-or)]/15 text-[var(--color-or)]"
+                      : "text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)]"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <div className="relative mb-5">
             <span
               aria-hidden
@@ -346,7 +418,13 @@ export default function BrowsePage() {
               type="text"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder={t("browse.search_placeholder")}
+              placeholder={
+                isSemantic
+                  ? t("browse.search.semantic_placeholder", {
+                      default: "Décris une figurine (ex. fille aux cheveux blancs)…",
+                    })
+                  : t("browse.search_placeholder")
+              }
               className={`w-full pl-11 ${vsStatus?.enabled ? "pr-[6.5rem]" : "pr-14"} py-4 bg-[var(--color-noir)] border border-[var(--color-or)]/25 text-[var(--color-ivoire)] placeholder:text-[var(--color-ivoire-soft)]/40 text-lg outline-none focus:border-[var(--color-or)] transition-colors`}
               style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.005em" }}
             />
@@ -398,6 +476,7 @@ export default function BrowsePage() {
             </div>
           </div>
 
+          {!isSemantic ? (
           <nav
             aria-label="filter by type"
             className="tile-rail"
@@ -421,12 +500,11 @@ export default function BrowsePage() {
               />
             ))}
           </nav>
+          ) : null}
         </section>
         ) : null}
 
-        {figures.isLoading ? (
-          <SectionSkeleton />
-        ) : ambiance && !openCluster ? (
+        {ambiance && !openCluster ? (
           <AmbianceGallery
             query={clusters}
             typeMeta={typeMeta}
@@ -449,6 +527,19 @@ export default function BrowsePage() {
               t={t}
             />
           </AmbianceDrillIn>
+        ) : isSemantic ? (
+          <SemanticResults
+            state={semantic}
+            hasQuery={!!debouncedQ.trim()}
+            figures={semanticFigures}
+            scores={semanticScores}
+            ownedIds={ownedIds}
+            wishedIds={wishedIds}
+            me={me}
+            t={t}
+          />
+        ) : figures.isLoading ? (
+          <SectionSkeleton />
         ) : total === 0 ? (
           <EmptyResults t={t} />
         ) : (
@@ -520,11 +611,56 @@ function EmptyResults({ t }) {
 }
 
 /**
- * The catalogue's figure grid — shared by the flat catalogue view and the
- * ambiance drill-in. Staggered reveal + the standard owned/wished/preorder card
- * chrome.
+ * Semantic ("Sens") search results — prompt / busy / error / empty states, then
+ * the figure grid. The query is embedded in-browser (e5-small), so the first
+ * search waits on the one-time model download.
  */
-function FigureGrid({ figures, ownedIds, wishedIds, me, t }) {
+function SemanticResults({ state, hasQuery, figures, scores, ownedIds, wishedIds, me, t }) {
+  if (!hasQuery) {
+    return (
+      <p className="text-center text-[var(--color-ivoire-soft)] italic py-16">
+        {t("browse.search.semantic_prompt", {
+          default: "Décris une figurine pour la retrouver par le sens.",
+        })}
+      </p>
+    );
+  }
+  if (state.busy) {
+    return (
+      <p className="micro text-center text-[var(--color-ivoire-soft)] py-16">
+        {t("browse.search.semantic_busy", { default: "Recherche par le sens…" })}
+      </p>
+    );
+  }
+  if (state.error) {
+    return (
+      <p className="text-center text-[var(--color-laque-bright)] py-16">
+        {t("browse.search.semantic_error", { default: "La recherche a échoué — réessaie." })}
+      </p>
+    );
+  }
+  if (figures.length === 0) {
+    return <EmptyResults t={t} />;
+  }
+  return (
+    <FigureGrid
+      figures={figures}
+      scores={scores}
+      ownedIds={ownedIds}
+      wishedIds={wishedIds}
+      me={me}
+      t={t}
+    />
+  );
+}
+
+/**
+ * The catalogue's figure grid — shared by the flat catalogue view, the ambiance
+ * drill-in, and semantic results. Staggered reveal + the standard owned/wished/
+ * preorder card chrome. When `scores` (id → cosine distance) is supplied, each
+ * card stamps a "% match" badge instead of its preorder badge.
+ */
+function FigureGrid({ figures, scores, ownedIds, wishedIds, me, t }) {
   return (
     <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       {figures.map((f, i) => (
@@ -541,9 +677,15 @@ function FigureGrid({ figures, ownedIds, wishedIds, me, t }) {
             owned={ownedIds.has(f.id)}
             wished={wishedIds.has(f.id)}
             blurImage={
-              f.is_nsfw && (me.data?.user?.nsfw_visibility ?? "hide") === "blur"
+              f.is_nsfw && (me.data?.user?.nsfw_visibility ?? "hide") !== "show"
             }
             badge={(() => {
+              // Semantic mode: a "% match" stamp (lower distance = stronger),
+              // mirroring the discovery rails. Otherwise the preorder badge.
+              const dist = scores?.get(f.id);
+              if (dist != null) {
+                return { label: `${Math.round((1 - dist) * 100)}%`, tone: "match" };
+              }
               const phase = preorderPhaseFromFigure(f);
               const label = preorderBadgeLabel(phase, t);
               return label

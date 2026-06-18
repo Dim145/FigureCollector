@@ -104,9 +104,66 @@ export function hasWebGPU() {
   return typeof navigator !== "undefined" && !!navigator.gpu;
 }
 
-// Diagnostic / seed hook: exposes the embedder so the catalog index can be
+// ── Semantic TEXT search — multilingual-e5-small, 384-d ──────────────────────
+//
+// Same self-hosted setup as the image model. The `feature-extraction` pipeline
+// (unlike `image-feature-extraction`) honours `pooling`/`normalize`, so it
+// returns a single mean-pooled, L2-normalised 384-d vector directly.
+//
+// e5 is a RETRIEVAL model: prefix the text with "query: " for a search query
+// and "passage: " for a catalogue document. The caller passes the FULL string
+// (prefix included); the worker + dev seed use "passage: ", the search uses
+// "query: ". Keep them in lockstep — the query and the index share one space.
+
+/** Must equal `domain::visual_search::TEXT_MODEL_VERSION` on the server. */
+export const TEXT_MODEL_VERSION = "e5-small/1";
+const TEXT_MODEL_ID = "Xenova/multilingual-e5-small";
+
+let _textExtractorPromise = null;
+
+async function getTextExtractor(onProgress) {
+  if (_textExtractorPromise) return _textExtractorPromise;
+  _textExtractorPromise = (async () => {
+    const { pipeline, env } = await import("@huggingface/transformers");
+    env.allowRemoteModels = false;
+    env.allowLocalModels = true;
+    env.localModelPath = "/models/";
+    env.backends.onnx.wasm.wasmPaths = "/ort/";
+    const device = hasWebGPU() ? "webgpu" : "wasm";
+    return pipeline("feature-extraction", TEXT_MODEL_ID, {
+      device,
+      dtype: "q8",
+      progress_callback: onProgress,
+    });
+  })();
+  return _textExtractorPromise;
+}
+
+/** Warm the text model (download + init) ahead of the first semantic search. */
+export function warmUpText(onProgress) {
+  return getTextExtractor(onProgress)
+    .then(() => true)
+    .catch(() => false);
+}
+
+/** Embed a TEXT string into a 384-d L2-normalised vector (multilingual-e5-small).
+ *  Pass the FULL text WITH the e5 prefix: "query: …" for a search query,
+ *  "passage: …" for a catalogue document. */
+export async function embedText(text, onProgress) {
+  const extractor = await getTextExtractor(onProgress);
+  const out = await extractor(text, { pooling: "mean", normalize: true });
+  const data = out?.data ?? out;
+  const arr = Array.from(data, (x) => Number(x));
+  if (arr.length !== EMBED_DIM) {
+    throw new Error(`unexpected text embedding length ${arr.length}`);
+  }
+  return arr;
+}
+
+// Diagnostic / seed hooks: expose the embedders so the catalog index can be
 // seeded from the browser with the EXACT same model the query uses (the dev
-// seed tooling drives this). Harmless — it's just a reference to embedImage.
+// seed tooling drives these).
 if (typeof window !== "undefined") {
   window.__fcEmbedImage = embedImage;
+  window.__fcEmbedText = embedText;
 }

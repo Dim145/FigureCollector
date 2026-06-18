@@ -84,6 +84,46 @@ async fn search_by_image(
     Ok(Json(hydrate(&state.pool, candidates, false).await?))
 }
 
+#[derive(Deserialize)]
+struct TextSearchInput {
+    /// 384-d L2-normalised multilingual-e5-small embedding of the query text
+    /// (the client prefixes the query with "query: " before embedding).
+    embedding: Vec<f32>,
+}
+
+/// `POST /me/text-search` — semantic text search. The query is embedded
+/// in-browser (e5-small) and we run the same pgvector ANN, filtered to the text
+/// model. Gated on the `text_search` admin toggle.
+async fn text_search(
+    State(state): State<AppState>,
+    session: Session,
+    Json(input): Json<TextSearchInput>,
+) -> AppResult<Json<Vec<ScoredFigure>>> {
+    auth::require_user(&session).await?;
+    if !settings::text_search_enabled(&state.pool).await? {
+        return Err(AppError::FeatureDisabled("text search is not enabled"));
+    }
+    let mut candidates = visual_search::search(
+        &state.pool,
+        input.embedding,
+        visual_search::TEXT_MODEL_VERSION,
+        TOP_K,
+    )
+    .await?;
+    // Admin-tunable match floor: drop hits below the min-match %. e5 compresses
+    // cosine similarity into a high band, so this mainly trims the weak tail.
+    // Default 0 % → max_distance 1.0 → keeps every top-K hit.
+    let max_distance = 1.0 - settings::text_search_min_match(&state.pool).await? / 100.0;
+    candidates.retain(|c| f64::from(c.distance) <= max_distance);
+    // Semantic search lives in the catalogue's search box, so it honours the
+    // viewer's NSFW pref exactly like the keyword list (`figures::list` sets
+    // `exclude_nsfw = pref == "hide"`): a hide-viewer never receives adult
+    // matches — toggling "Sens" must not surface what keyword search hides —
+    // while blur-viewers get them and the client blurs per pref.
+    let exclude_nsfw = crate::routes::figures::viewer_hides_nsfw(&session, &state.pool).await;
+    Ok(Json(hydrate(&state.pool, candidates, exclude_nsfw).await?))
+}
+
 /// Hydrate distance-ranked candidates into full catalog cards, preserving the
 /// ANN ordering. `exclude_nsfw` drops adult figures for a hide-viewer (passive
 /// surfaces); when kept, they ride along and the client blurs per pref.
@@ -181,6 +221,14 @@ struct Status {
     /// Admin opt-in for the "browse par ambiance" clustering view (off by
     /// default). Drives whether the catalogue offers the Ambiances toggle.
     ambiances: bool,
+    /// Admin opt-in for semantic text search (off by default). Drives the
+    /// catalogue's "Sens" search-mode toggle.
+    text_search_enabled: bool,
+    /// The text model the client must load so its query vectors match the index.
+    text_model_version: String,
+    /// At least one figure's text is embedded → semantic search can return hits.
+    text_ready: bool,
+    text_embedded: i64,
 }
 
 async fn status(State(state): State<AppState>, session: Session) -> AppResult<Json<Status>> {
@@ -190,6 +238,9 @@ async fn status(State(state): State<AppState>, session: Session) -> AppResult<Js
     let worker_present = worker::any_live_with_capability(&state.pool, "embed").await?;
     let external_enabled = settings::visual_search_external_ready(&state.pool).await?;
     let ambiances = settings::visual_search_ambiances_enabled(&state.pool).await?;
+    let text_search_enabled = settings::text_search_enabled(&state.pool).await?;
+    let text_stats =
+        visual_search::index_stats(&state.pool, visual_search::TEXT_MODEL_VERSION).await?;
     Ok(Json(Status {
         enabled,
         model_version: visual_search::MODEL_VERSION.to_string(),
@@ -199,6 +250,10 @@ async fn status(State(state): State<AppState>, session: Session) -> AppResult<Js
         worker_present,
         external_enabled,
         ambiances,
+        text_search_enabled,
+        text_model_version: visual_search::TEXT_MODEL_VERSION.to_string(),
+        text_ready: text_stats.embedded > 0,
+        text_embedded: text_stats.embedded,
     }))
 }
 
@@ -350,6 +405,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/visual-search/status", get(status))
         .route("/me/visual-search", post(search_by_image))
+        .route("/me/text-search", post(text_search))
         .route("/me/recommendations", get(recommendations))
         .route("/figures/{id}/similar", get(similar_figures))
         .route("/visual-search/clusters", get(ambiance_clusters))

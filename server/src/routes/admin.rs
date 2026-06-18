@@ -980,6 +980,15 @@ async fn patch_settings(
         settings::set_visual_search_ambiances_enabled(&state.pool, enabled).await?;
         tracing::info!(by_admin = %actor.id, enabled, "admin toggled visual-search ambiances");
     }
+    if let Some(enabled) = input.text_search {
+        settings::set_text_search_enabled(&state.pool, enabled).await?;
+        tracing::info!(by_admin = %actor.id, enabled, "admin toggled semantic text search");
+    }
+    if let Some(threshold) = input.text_search_min_match {
+        let clamped = threshold.clamp(0.0, 100.0);
+        settings::set_text_search_min_match(&state.pool, clamped).await?;
+        tracing::info!(by_admin = %actor.id, threshold = clamped, "admin updated semantic text-search min match");
+    }
     Ok(Json(settings::all(&state.pool).await?))
 }
 
@@ -993,6 +1002,18 @@ async fn reindex_visual_search(
     let actor = auth::require_admin(&session, &state.pool).await?;
     let queued = visual_search::enqueue_missing(&state.pool, visual_search::MODEL_VERSION).await?;
     tracing::info!(by_admin = %actor.id, queued, "admin queued visual-search reindex");
+    Ok(Json(json!({ "queued": queued })))
+}
+
+/// Queue every figure's text for semantic (e5-small) embedding — the worker
+/// builds the text index. Returns how many were queued.
+async fn reindex_text_search(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<serde_json::Value>> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    let queued = visual_search::enqueue_missing_text(&state.pool).await?;
+    tracing::info!(by_admin = %actor.id, queued, "admin queued text-search reindex");
     Ok(Json(json!({ "queued": queued })))
 }
 
@@ -1092,6 +1113,7 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/admin/settings", get(get_settings).patch(patch_settings))
         .route("/admin/visual-search/reindex", post(reindex_visual_search))
+        .route("/admin/visual-search/reindex-text", post(reindex_text_search))
         .route("/admin/visual-search/queue", get(visual_search_queue))
         .route(
             "/admin/visual-search/retry-failed",

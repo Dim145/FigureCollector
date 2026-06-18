@@ -60,7 +60,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 RUN --mount=type=cache,target=/root/.cache/pip \
     python3 -m pip install \
       asyncpg==0.30.0 "boto3==1.35.*" "structlog==24.4.*" \
-      "rembg==2.0.*" onnxruntime-gpu
+      "rembg==2.0.*" onnxruntime-gpu "tokenizers==0.23.1"
 
 # onnxruntime's CUDA EP dlopens the BARE soname `libnvrtc.so`; torch ships NVRTC
 # only as the versioned libnvrtc.so.12, so drop an unversioned symlink on the
@@ -156,22 +156,30 @@ RUN CONDA_OVERRIDE_CUDA=12.9 micromamba create -y -n sfm -c conda-forge \
 # drift fails the BUILD here, not a ~40-min run.
 RUN python3 -c "import gsplat; from gsplat import rasterization; from gsplat.strategy import MCMCStrategy; print('gsplat', getattr(gsplat, '__version__', '?'))"
 
-# DINOv2-small ONNX for the visual-search embed loop (embed_index.py runs
-# concurrently with training). The SAME model the browser loads (Xenova/dinov2-
-# small) so query + index vectors share one space. Two graphs: q8 for CPU
-# (EMBED_DEVICE=cpu, the default) and fp16 for the GPU (EMBED_DEVICE=cuda) — the
+# ONNX models for the embed loops (embed_index.py runs concurrently with
+# training). The SAME models the browser loads so query + index vectors share
+# one space. Image (Xenova/dinov2-small): two graphs — q8 for CPU
+# (EMBED_DEVICE=cpu, the default) and fp16 for the GPU (EMBED_DEVICE=cuda); the
 # q8 graph's int8 ops fall back to CPU on CUDA (Memcpy churn), fp16 runs fully on
-# the GPU (its vectors match q8 to ~0.008 cosine). Baked because the read-only
-# container (uid 65532) can't fetch at runtime. Deliberately LAST (just before
-# the cheap source COPYs): keeps it off the critical path so re-baking never
-# invalidates the ~2 GB conda/COLMAP layer above it.
-RUN mkdir -p /models/dinov2-small && \
+# the GPU (its vectors match q8 to ~0.008 cosine). Text (Xenova/multilingual-e5-
+# small): q8 only — text indexing is low-volume, so CPU is fine even here — plus
+# its tokenizer.json. Baked because the read-only container (uid 65532) can't
+# fetch at runtime. Deliberately LAST (just before the cheap source COPYs): keeps
+# it off the critical path so re-baking never invalidates the ~2 GB conda/COLMAP
+# layer above it.
+RUN mkdir -p /models/dinov2-small /models/e5-small && \
     curl -fSL -o /models/dinov2-small/model_quantized.onnx \
       https://huggingface.co/Xenova/dinov2-small/resolve/main/onnx/model_quantized.onnx && \
     echo "3afdc8bc63b50558d6e5770f5b799bb82455c2311183a2de43803f343a29d917  /models/dinov2-small/model_quantized.onnx" | sha256sum -c - && \
     curl -fSL -o /models/dinov2-small/model_fp16.onnx \
       https://huggingface.co/Xenova/dinov2-small/resolve/main/onnx/model_fp16.onnx && \
     echo "4e9ea6fe106e2225e28ee3c1c3d53b5b92aa4af62142f6ed6b66b6a92213cf04  /models/dinov2-small/model_fp16.onnx" | sha256sum -c - && \
+    curl -fSL -o /models/e5-small/model_quantized.onnx \
+      https://huggingface.co/Xenova/multilingual-e5-small/resolve/main/onnx/model_quantized.onnx && \
+    echo "f80102d3f2a1229f387d3c81909990d8945513e347b0eab049f7de3c6f98c193  /models/e5-small/model_quantized.onnx" | sha256sum -c - && \
+    curl -fSL -o /models/e5-small/tokenizer.json \
+      https://huggingface.co/Xenova/multilingual-e5-small/resolve/main/tokenizer.json && \
+    echo "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39  /models/e5-small/tokenizer.json" | sha256sum -c - && \
     chmod -R a+rX /models
 
 COPY worker.py /app/worker.py
