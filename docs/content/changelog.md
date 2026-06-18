@@ -3,6 +3,15 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.32 — clearer search modes
+
+- **"Sens" renamed "Description"** — the meaning-based search mode now reads
+  *Description* (clearer than the abstract "Sens"/"Meaning"), with matching
+  placeholder and empty-state copy.
+- **Search-mode help** — a discreet "?" beside the mode switch opens a short
+  popup explaining the ways to search (Keywords, Description, Look), listing
+  only the modes your admin has enabled.
+
 ## 0.31 — semantic search learns to look
 
 - **"Sens" search now finds figures by appearance** — an opt-in worker tags each

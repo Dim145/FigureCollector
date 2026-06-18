@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Navigate, useNavigate } from "react-router-dom";
 import { api } from "../lib/api.js";
 import { useI18n, useT } from "../i18n/index.jsx";
@@ -13,6 +14,7 @@ import { SectionSkeleton } from "../components/Skeleton.jsx";
 import StatCard from "../components/StatCard.jsx";
 import BarcodeScanner from "../components/BarcodeScanner.jsx";
 import FigureCard from "../components/FigureCard.jsx";
+import Button from "../components/Button.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import { resolveFigureCover } from "../lib/coverUrl.js";
 import { typeHue } from "../lib/typeHue.js";
@@ -74,6 +76,7 @@ export default function BrowsePage() {
   const [searchMode, setSearchMode] = useState("keyword");
   const [semantic, setSemantic] = useState({ results: null, busy: false, error: false });
   const [look, setLook] = useState({ results: null, busy: false, error: false });
+  const [searchHelpOpen, setSearchHelpOpen] = useState(false);
   // Photo search is gated on the feature flag (same as the nav entry); the
   // camera button in the search bar only appears when it's on.
   const { data: vsStatus } = useVisualSearchStatus();
@@ -424,15 +427,16 @@ export default function BrowsePage() {
         {!ambiance ? (
         <section className="mb-10 reveal" style={{ "--i": 4 }}>
           {vsStatus?.text_search_enabled || vsStatus?.clip_search_enabled ? (
+            <div className="mb-3 flex items-center gap-2">
             <div
-              className="mb-3 inline-flex border border-[var(--color-or)]/25"
+              className="inline-flex border border-[var(--color-or)]/25"
               role="tablist"
               aria-label={t("browse.search.mode_aria", { default: "Mode de recherche" })}
             >
               {[
                 { id: "keyword", label: t("browse.search.keyword", { default: "Mots-clés" }) },
                 ...(vsStatus?.text_search_enabled
-                  ? [{ id: "semantic", label: t("browse.search.semantic", { default: "Sens" }) }]
+                  ? [{ id: "semantic", label: t("browse.search.semantic", { default: "Description" }) }]
                   : []),
                 ...(vsStatus?.clip_search_enabled
                   ? [{ id: "look", label: t("browse.search.look", { default: "Apparence" }) }]
@@ -454,6 +458,23 @@ export default function BrowsePage() {
                 </button>
               ))}
             </div>
+              <button
+                type="button"
+                onClick={() => setSearchHelpOpen(true)}
+                aria-label={t("browse.search.help_aria", { default: "À quoi servent ces modes ?" })}
+                title={t("browse.search.help_aria", { default: "À quoi servent ces modes ?" })}
+                className="grid place-items-center w-6 h-6 rounded-full border border-[var(--color-or)]/30 text-[12px] leading-none text-[var(--color-or)]/70 hover:text-[var(--color-or)] hover:border-[var(--color-or)]/60 transition-colors"
+              >
+                ?
+              </button>
+            </div>
+          ) : null}
+          {searchHelpOpen ? (
+            <SearchModesHelpModal
+              t={t}
+              vsStatus={vsStatus}
+              onClose={() => setSearchHelpOpen(false)}
+            />
           ) : null}
           <div className="relative mb-5">
             <span
@@ -469,7 +490,7 @@ export default function BrowsePage() {
               placeholder={
                 isSemantic
                   ? t("browse.search.semantic_placeholder", {
-                      default: "Par le sens — ex. mariée, statue en résine, Re:Zero…",
+                      default: "Par description — ex. mariée, statue en résine, Re:Zero…",
                     })
                   : isLook
                     ? t("browse.search.look_placeholder", {
@@ -702,8 +723,8 @@ function SemanticResults({
         }
       : {
           prompt:
-            "Cherche par le sens : un nom, une série, une matière, un mot dans une autre langue.",
-          busy: "Recherche par le sens…",
+            "Cherche par description : un nom, une série, une matière, un mot dans une autre langue.",
+          busy: "Recherche par description…",
           error: "La recherche a échoué — réessaie.",
         };
   if (!hasQuery) {
@@ -899,5 +920,75 @@ function AmbianceDrillIn({ cluster, typeMeta, onBack, t, children }) {
       </div>
       {children}
     </div>
+  );
+}
+
+/**
+ * Help modal for the catalogue search modes — a discreet "?" by the toggle opens
+ * it. Mirrors the atelier help-modal style (Direction A: noir + gold, kanji
+ * eyebrow, gold-rule). Explains Mots-clés / Description / Apparence in one place.
+ */
+function SearchModesHelpModal({ t, vsStatus, onClose }) {
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  // Only describe the modes actually offered by the toggle (admin gating).
+  const modes = [
+    { kanji: "字", key: "help_keyword", default: "Mots-clés — recherche exacte dans les noms, séries et fabricants." },
+    ...(vsStatus?.text_search_enabled
+      ? [{ kanji: "意", key: "help_semantic", default: "Description — par le sens : un nom, une série, une matière, ou un mot dans une autre langue ; et l'allure si les tags d'apparence sont activés." }]
+      : []),
+    ...(vsStatus?.clip_search_enabled
+      ? [{ kanji: "似", key: "help_look", default: "Apparence — recherche visuelle : décris l'allure, on la compare à l'image des figurines." }]
+      : []),
+  ];
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] grid place-items-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t("browse.search.help_title", { default: "Trois façons de chercher" })}
+    >
+      <button
+        type="button"
+        aria-label={t("common.close", { default: "Fermer" })}
+        onClick={onClose}
+        className="absolute inset-0 bg-[var(--color-noir)]/80 backdrop-blur-sm"
+      />
+      <div className="relative z-10 w-full max-w-lg bg-[var(--color-noir)] border border-[var(--color-or)]/30 p-7 shadow-2xl">
+        <header className="mb-4">
+          <p className="micro flex items-center gap-2">
+            <span aria-hidden className="ja not-italic text-[var(--color-or)]">探</span>
+            {t("browse.search.help_eyebrow", { default: "Modes de recherche" })}
+          </p>
+          <h3 className="display text-2xl text-[var(--color-ivoire)] mt-1">
+            {t("browse.search.help_title", { default: "Trois façons de chercher" })}
+          </h3>
+          <div className="gold-rule w-16 mt-3" />
+        </header>
+        <ul className="space-y-3 text-sm leading-relaxed text-[var(--color-ivoire-soft)]">
+          {modes.map((m) => (
+            <li key={m.key} className="flex gap-3">
+              <span aria-hidden className="ja not-italic text-[var(--color-or)]/80 mt-0.5">
+                {m.kanji}
+              </span>
+              <span>{t(`browse.search.${m.key}`, { default: m.default })}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-6 flex justify-end">
+          <Button variant="primary" onClick={onClose}>
+            {t("common.got_it", { default: "Compris" })}
+          </Button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
