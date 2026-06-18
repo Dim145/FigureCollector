@@ -265,6 +265,11 @@ struct Status {
     /// At least one catalog image has a SigLIP embedding → clip search can hit.
     clip_ready: bool,
     clip_embedded: i64,
+    /// Admin opt-in for appearance tagging (WD-Tagger → e5). When on, the worker
+    /// tags images and the tags enrich "Sens" search.
+    appearance_tags_enabled: bool,
+    /// How many figures have appearance tags (tagging progress).
+    tagged: i64,
 }
 
 async fn status(State(state): State<AppState>, session: Session) -> AppResult<Json<Status>> {
@@ -279,6 +284,8 @@ async fn status(State(state): State<AppState>, session: Session) -> AppResult<Js
         visual_search::index_stats(&state.pool, visual_search::TEXT_MODEL_VERSION).await?;
     let clip_search_enabled = settings::clip_search_enabled(&state.pool).await?;
     let clip_stats = visual_search::index_stats_clip(&state.pool).await?;
+    let appearance_tags_enabled = settings::appearance_tags_enabled(&state.pool).await?;
+    let tagged = visual_search::tagged_count(&state.pool).await?;
     Ok(Json(Status {
         enabled,
         model_version: visual_search::MODEL_VERSION.to_string(),
@@ -296,6 +303,8 @@ async fn status(State(state): State<AppState>, session: Session) -> AppResult<Js
         clip_model_version: visual_search::CLIP_MODEL_VERSION.to_string(),
         clip_ready: clip_stats.embedded > 0,
         clip_embedded: clip_stats.embedded,
+        appearance_tags_enabled,
+        tagged,
     }))
 }
 

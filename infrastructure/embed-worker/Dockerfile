@@ -17,20 +17,23 @@ RUN apt-get update \
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Bake the SAME q8 ONNX models the browser loads, so the index and the
-# in-browser query vectors come from identical weights and the runtime container
-# needs no network: image (Xenova/dinov2-small), text (Xenova/multilingual-e5-
-# small + tokenizer), and the "search by look" VISION tower (onnx-community/
-# siglip2-base-patch16-224-ONNX — the worker embeds images; the browser holds the
-# matching text tower).
+# Bake the models the worker needs (no network at runtime): image (Xenova/
+# dinov2-small) + text (Xenova/multilingual-e5-small + tokenizer) — same q8
+# weights as the browser; the "search by look" VISION tower (onnx-community/
+# siglip2-base-patch16-224-ONNX — browser holds the matching text tower); and the
+# appearance tagger (SmilingWolf/wd-vit-tagger-v3 + its tags csv — worker-only,
+# its output enriches the e5 text, so there's no in-browser counterpart).
 RUN python -c "import urllib.request, os; \
     os.makedirs('/models/dinov2-small', exist_ok=True); \
     os.makedirs('/models/e5-small', exist_ok=True); \
     os.makedirs('/models/siglip2', exist_ok=True); \
+    os.makedirs('/models/wd-tagger-v3', exist_ok=True); \
     urllib.request.urlretrieve('https://huggingface.co/Xenova/dinov2-small/resolve/main/onnx/model_quantized.onnx', '/models/dinov2-small/model_quantized.onnx'); \
     urllib.request.urlretrieve('https://huggingface.co/Xenova/multilingual-e5-small/resolve/main/onnx/model_quantized.onnx', '/models/e5-small/model_quantized.onnx'); \
     urllib.request.urlretrieve('https://huggingface.co/Xenova/multilingual-e5-small/resolve/main/tokenizer.json', '/models/e5-small/tokenizer.json'); \
-    urllib.request.urlretrieve('https://huggingface.co/onnx-community/siglip2-base-patch16-224-ONNX/resolve/main/onnx/vision_model_quantized.onnx', '/models/siglip2/vision_model_quantized.onnx')"
+    urllib.request.urlretrieve('https://huggingface.co/onnx-community/siglip2-base-patch16-224-ONNX/resolve/main/onnx/vision_model_quantized.onnx', '/models/siglip2/vision_model_quantized.onnx'); \
+    urllib.request.urlretrieve('https://huggingface.co/SmilingWolf/wd-vit-tagger-v3/resolve/main/model.onnx', '/models/wd-tagger-v3/model.onnx'); \
+    urllib.request.urlretrieve('https://huggingface.co/SmilingWolf/wd-vit-tagger-v3/resolve/main/selected_tags.csv', '/models/wd-tagger-v3/selected_tags.csv')"
 
 COPY embed_index.py worker.py ./
 

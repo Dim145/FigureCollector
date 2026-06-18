@@ -89,6 +89,18 @@ export function useReindexClipSearch() {
   });
 }
 
+/** POST /admin/visual-search/reindex-tags — queue catalog images for tagging. */
+export function useReindexTags() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post("/admin/visual-search/reindex-tags"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "visual-search", "queue"] });
+      qc.invalidateQueries({ queryKey: ["visual-search", "status"] });
+    },
+  });
+}
+
 /** POST /admin/visual-search/retry-failed — re-arm failed embed-queue rows. */
 export function useRetryFailedEmbeddings() {
   const qc = useQueryClient();

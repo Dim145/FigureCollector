@@ -998,6 +998,10 @@ async fn patch_settings(
         settings::set_clip_search_min_match(&state.pool, clamped).await?;
         tracing::info!(by_admin = %actor.id, threshold = clamped, "admin updated clip-search min match");
     }
+    if let Some(enabled) = input.appearance_tags {
+        settings::set_appearance_tags_enabled(&state.pool, enabled).await?;
+        tracing::info!(by_admin = %actor.id, enabled, "admin toggled appearance tagging");
+    }
     Ok(Json(settings::all(&state.pool).await?))
 }
 
@@ -1033,6 +1037,16 @@ async fn reindex_clip_search(
     let actor = auth::require_admin(&session, &state.pool).await?;
     let queued = visual_search::enqueue_missing_clip(&state.pool).await?;
     tracing::info!(by_admin = %actor.id, queued, "admin queued clip-search reindex");
+    Ok(Json(json!({ "queued": queued })))
+}
+
+async fn reindex_tags(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<serde_json::Value>> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    let queued = visual_search::enqueue_missing_tags(&state.pool).await?;
+    tracing::info!(by_admin = %actor.id, queued, "admin queued appearance-tags reindex");
     Ok(Json(json!({ "queued": queued })))
 }
 
@@ -1134,6 +1148,7 @@ pub fn router() -> Router<AppState> {
         .route("/admin/visual-search/reindex", post(reindex_visual_search))
         .route("/admin/visual-search/reindex-text", post(reindex_text_search))
         .route("/admin/visual-search/reindex-clip", post(reindex_clip_search))
+        .route("/admin/visual-search/reindex-tags", post(reindex_tags))
         .route("/admin/visual-search/queue", get(visual_search_queue))
         .route(
             "/admin/visual-search/retry-failed",

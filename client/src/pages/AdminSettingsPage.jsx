@@ -7,6 +7,7 @@ import {
   useReindexVisualSearch,
   useReindexTextSearch,
   useReindexClipSearch,
+  useReindexTags,
   useUpdateAdminSettings,
 } from "../hooks/useAdmin.js";
 import { useVisualSearchStatus } from "../hooks/useVisualSearch.js";
@@ -38,6 +39,7 @@ export default function AdminSettingsPage() {
   const reindex = useReindexVisualSearch();
   const reindexText = useReindexTextSearch();
   const reindexClip = useReindexClipSearch();
+  const reindexTags = useReindexTags();
   const vsStatus = useVisualSearchStatus();
   const overview = useAdminOverview();
 
@@ -57,6 +59,7 @@ export default function AdminSettingsPage() {
   const [minMatchDraft, setMinMatchDraft] = useState(null);
   const [clipSearchDraft, setClipSearchDraft] = useState(null);
   const [clipMinMatchDraft, setClipMinMatchDraft] = useState(null);
+  const [appearanceTagsDraft, setAppearanceTagsDraft] = useState(null);
   const [helpOpen, setHelpOpen] = useState(false);
 
   if (settings.isLoading) {
@@ -99,6 +102,8 @@ export default function AdminSettingsPage() {
   const clipSearch = clipSearchDraft ?? savedClipSearch;
   const savedClipMinMatch = Math.round(settings.data.clip_search_min_match ?? 0);
   const clipMinMatch = clipMinMatchDraft ?? savedClipMinMatch;
+  const savedAppearanceTags = !!settings.data.appearance_tags;
+  const appearanceTags = appearanceTagsDraft ?? savedAppearanceTags;
   const vsDirty =
     (vsDraft !== null && vsDraft !== savedVs) ||
     (vsExtDraft !== null && vsExtDraft !== savedVsExt) ||
@@ -108,7 +113,8 @@ export default function AdminSettingsPage() {
     (textSearchDraft !== null && textSearchDraft !== savedTextSearch) ||
     (minMatchDraft !== null && minMatchDraft !== savedMinMatch) ||
     (clipSearchDraft !== null && clipSearchDraft !== savedClipSearch) ||
-    (clipMinMatchDraft !== null && clipMinMatchDraft !== savedClipMinMatch);
+    (clipMinMatchDraft !== null && clipMinMatchDraft !== savedClipMinMatch) ||
+    (appearanceTagsDraft !== null && appearanceTagsDraft !== savedAppearanceTags);
   const saveVs = () => {
     const patch = {};
     if (vsDraft !== null) patch.visual_search = vsDraft;
@@ -121,6 +127,7 @@ export default function AdminSettingsPage() {
     if (minMatchDraft !== null) patch.text_search_min_match = minMatchDraft;
     if (clipSearchDraft !== null) patch.clip_search = clipSearchDraft;
     if (clipMinMatchDraft !== null) patch.clip_search_min_match = clipMinMatchDraft;
+    if (appearanceTagsDraft !== null) patch.appearance_tags = appearanceTagsDraft;
     updateVs.mutate(patch, {
       onSuccess: () => {
         setVsDraft(null);
@@ -132,6 +139,7 @@ export default function AdminSettingsPage() {
         setMinMatchDraft(null);
         setClipSearchDraft(null);
         setClipMinMatchDraft(null);
+        setAppearanceTagsDraft(null);
       },
     });
   };
@@ -750,6 +758,60 @@ export default function AdminSettingsPage() {
                 })}
               </span>
             </label>
+          </div>
+
+          {/* Appearance tags (WD-Tagger → e5): enriches "Sens" with how figures look. */}
+          <div className="mt-7 pt-6 border-t border-[var(--color-or)]/15">
+            <div className="atelier-toggle-row">
+              <div id="vs-tags-label" className="atelier-toggle-row-text">
+                <span className={`atelier-toggle-row-state ${appearanceTags ? "is-on" : ""}`}>
+                  {appearanceTags
+                    ? t("admin.settings.visual.tags_on", {
+                        default: "Recherche par apparence (tags) activée",
+                      })
+                    : t("admin.settings.visual.tags_off", {
+                        default: "Recherche par apparence (tags) désactivée",
+                      })}
+                </span>
+                <span className="atelier-toggle-row-hint">
+                  {t("admin.settings.visual.tags_hint", {
+                    default:
+                      "Étiquette chaque image (personnage, cheveux, tenue, « elfe »…) et ajoute ces tags au texte « Sens » : la recherche par le sens trouve alors aussi par apparence. Tourne dans le worker, aucun modèle de plus dans le navigateur. Indexe ci-dessous.",
+                  })}
+                </span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={appearanceTags}
+                aria-labelledby="vs-tags-label"
+                onClick={() => setAppearanceTagsDraft(!appearanceTags)}
+                className={`atelier-toggle ${appearanceTags ? "is-on" : ""}`}
+              />
+            </div>
+            <div className="mt-3 flex items-center gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={() => reindexTags.mutate()}
+                disabled={reindexTags.isPending}
+                className="px-3 py-1.5 border border-[var(--color-or)]/30 text-[11px] uppercase tracking-[0.18em] text-[var(--color-or)] hover:bg-[var(--color-or)]/10 transition-colors disabled:opacity-50"
+              >
+                {t("admin.settings.visual.tags_reindex", { default: "Indexer l'apparence (tags)" })}
+              </button>
+              {typeof vsStatus.data?.tagged === "number" ? (
+                <span className="font-mono text-[11px] text-[var(--color-ivoire-soft)]">
+                  {t("admin.settings.visual.tags_indexed", {
+                    n: vsStatus.data.tagged,
+                    default: `${vsStatus.data.tagged} taguées`,
+                  })}
+                </span>
+              ) : null}
+              {reindexTags.isSuccess ? (
+                <span className="text-[11px] text-[var(--color-jade)]">
+                  {t("admin.settings.visual.text_reindex_done", { default: "File alimentée." })}
+                </span>
+              ) : null}
+            </div>
           </div>
 
           {/* Save row */}

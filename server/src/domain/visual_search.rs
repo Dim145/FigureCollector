@@ -44,6 +44,13 @@ pub const CLIP_MODEL_VERSION: &str = "siglip2-base/1";
 /// SigLIP2-base projection dimension.
 pub const CLIP_EMBED_DIM: usize = 768;
 
+/// Appearance tagging — WD-Tagger v3 (Danbooru tags). NOT an embedding model:
+/// the worker tags each catalogue image and writes the tags to `figures.
+/// visual_tags`, which `compose_figure_text` appends to the e5 passage so the
+/// "Sens" (text) search finds figures by look. Rides the shared embed queue with
+/// this `model_version` + `source = 'tags'`.
+pub const TAGGER_MODEL_VERSION: &str = "wd-tagger-v3/1";
+
 /// A catalog figure that matched the query photo, with its best (smallest)
 /// cosine distance across that figure's images. 0 = identical, 2 = opposite;
 /// in practice a strong match sits well under ~0.3.
@@ -215,6 +222,36 @@ pub async fn index_stats_clip(pool: &PgPool) -> AppResult<IndexStats> {
     .fetch_one(pool)
     .await?;
     Ok(IndexStats { embedded, pending })
+}
+
+/// Enqueue one tagging job per figure that has an image but no `visual_tags`
+/// yet (one row per figure, `source = 'tags'`, `image_ref = 'tags:<id>'`). The
+/// worker tags the figure's image, writes the tags, then re-enqueues its e5
+/// text so the tags reach the semantic index.
+pub async fn enqueue_missing_tags(pool: &PgPool) -> AppResult<u64> {
+    let res = sqlx::query(
+        "INSERT INTO figure_embedding_queue (figure_id, source, image_ref, model_version)
+         SELECT f.id, 'tags', 'tags:' || f.id::text, $1
+         FROM figures f
+         WHERE f.visual_tags IS NULL
+           AND (
+             (f.official_image_url IS NOT NULL AND f.official_image_url <> '')
+             OR EXISTS (SELECT 1 FROM figure_photos fp WHERE fp.figure_id = f.id)
+           )
+         ON CONFLICT (image_ref, model_version) DO NOTHING",
+    )
+    .bind(TAGGER_MODEL_VERSION)
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected())
+}
+
+/// How many catalogue figures have appearance tags — surfaced in the status so
+/// the admin sees tagging progress.
+pub async fn tagged_count(pool: &PgPool) -> AppResult<i64> {
+    Ok(sqlx::query_scalar("SELECT COUNT(*) FROM figures WHERE visual_tags IS NOT NULL")
+        .fetch_one(pool)
+        .await?)
 }
 
 /// Nearest catalog figures to a *source figure* — the "figurines proches" rail
@@ -577,6 +614,22 @@ pub async fn enqueue_figure_if_enabled(pool: &PgPool, figure_id: Uuid) {
     if matches!(settings::clip_search_enabled(pool).await, Ok(true)) {
         if let Err(e) = enqueue_figure(pool, figure_id, CLIP_MODEL_VERSION).await {
             tracing::warn!(error = ?e, %figure_id, "clip-search auto-enqueue failed");
+        }
+    }
+    // Appearance tags: one tagging job for the figure (the worker re-embeds its
+    // e5 text once tagged). ON CONFLICT skips figures already tagged.
+    if matches!(settings::appearance_tags_enabled(pool).await, Ok(true)) {
+        let res = sqlx::query(
+            "INSERT INTO figure_embedding_queue (figure_id, source, image_ref, model_version)
+             VALUES ($1, 'tags', 'tags:' || $1::text, $2)
+             ON CONFLICT (image_ref, model_version) DO NOTHING",
+        )
+        .bind(figure_id)
+        .bind(TAGGER_MODEL_VERSION)
+        .execute(pool)
+        .await;
+        if let Err(e) = res {
+            tracing::warn!(error = ?e, %figure_id, "appearance-tags auto-enqueue failed");
         }
     }
 }

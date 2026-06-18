@@ -351,6 +351,33 @@ pub async fn set_clip_search_min_match(pool: &PgPool, threshold: f64) -> AppResu
     Ok(())
 }
 
+const APPEARANCE_TAGS_KEY: &str = "appearance_tags.enabled";
+
+/// Whether appearance tagging (WD-Tagger) is enabled. When on, the worker tags
+/// each catalogue image and the tags enrich the figure's e5 text, so semantic
+/// ("Sens") search finds figures by look. Off by default — it needs the tagger
+/// worker + a reindex. No in-browser model (the query side is the existing e5).
+pub async fn appearance_tags_enabled(pool: &PgPool) -> AppResult<bool> {
+    let value: Option<String> = sqlx::query_scalar("SELECT value FROM app_settings WHERE key = $1")
+        .bind(APPEARANCE_TAGS_KEY)
+        .fetch_optional(pool)
+        .await?;
+    Ok(value.as_deref() == Some("true"))
+}
+
+pub async fn set_appearance_tags_enabled(pool: &PgPool, enabled: bool) -> AppResult<()> {
+    sqlx::query(
+        "INSERT INTO app_settings (key, value, updated_at)
+         VALUES ($1, $2, now())
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()",
+    )
+    .bind(APPEARANCE_TAGS_KEY)
+    .bind(enabled.to_string())
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 /// The admin-facing settings view (extend as more settings are added).
 #[derive(Debug, Serialize)]
 pub struct Settings {
@@ -373,6 +400,8 @@ pub struct Settings {
     pub clip_search: bool,
     /// Match floor for "search by look", as a percentage (0–100).
     pub clip_search_min_match: f64,
+    /// Whether appearance tagging (WD-Tagger → e5) is enabled.
+    pub appearance_tags: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -394,6 +423,7 @@ pub struct SettingsPatch {
     pub clip_search: Option<bool>,
     /// New "search by look" match floor (0–100 %); server clamps on write.
     pub clip_search_min_match: Option<f64>,
+    pub appearance_tags: Option<bool>,
 }
 
 pub async fn all(pool: &PgPool) -> AppResult<Settings> {
@@ -409,5 +439,6 @@ pub async fn all(pool: &PgPool) -> AppResult<Settings> {
         text_search_min_match: text_search_min_match(pool).await?,
         clip_search: clip_search_enabled(pool).await?,
         clip_search_min_match: clip_search_min_match(pool).await?,
+        appearance_tags: appearance_tags_enabled(pool).await?,
     })
 }

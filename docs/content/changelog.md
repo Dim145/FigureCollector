@@ -3,6 +3,18 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.31 — semantic search learns to look
+
+- **"Sens" search now finds figures by appearance** — an opt-in worker tags each
+  catalogue image (character, hair colour, outfit, "elf", "pointy ears"…) with
+  an anime-aware tagger, and those tags feed the semantic index. Describe how a
+  figure *looks* in **Sens** — "white-haired elf", "blue-haired maid" — and it
+  surfaces, in any language, reusing the existing on-device e5 model (no extra
+  in-browser download). Complements the SigLIP "Apparence" mode with a lighter,
+  tag-driven path.
+- **Admin opt-in, off by default** — turn it on in **Réglages**, then **Indexer
+  l'apparence (tags)** to tag the catalogue; the embed worker keeps it current.
+
 ## 0.30 — search by look
 
 - **"Apparence" search** — a third catalogue search mode (beside *Keywords* and

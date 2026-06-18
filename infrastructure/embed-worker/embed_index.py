@@ -107,6 +107,22 @@ CLIP_MODEL_VERSION = "siglip2-base/1"
 CLIP_EMBED_DIM = 768
 CLIP_IMAGE_SIZE = 224
 
+# --- Appearance tagging (WD-Tagger v3) ---------------------------------------
+# Tags catalog images with Danbooru tags (character, hair colour, outfit, "elf"…)
+# and writes them to figures.visual_tags; compose_figure_text appends them to
+# the e5 passage so semantic "Sens" search finds figures by look. NOT an
+# embedding model — worker-only, no in-browser counterpart (the query side is the
+# existing e5). Preprocessing (SmilingWolf wd-v3): pad to square (white), resize
+# 448 (BICUBIC), RGB→BGR, raw 0-255 (NHWC), no mean/std. MUST equal
+# domain::visual_search::TAGGER_MODEL_VERSION.
+TAGGER_MODEL_PATH = os.environ.get("EMBED_TAGGER_MODEL_PATH", "/models/wd-tagger-v3/model.onnx")
+TAGGER_TAGS_PATH = os.environ.get("EMBED_TAGGER_TAGS_PATH", "/models/wd-tagger-v3/selected_tags.csv")
+TAGGER_MODEL_VERSION = "wd-tagger-v3/1"
+TAGGER_IMAGE_SIZE = 448
+TAGGER_GENERAL_THRESHOLD = float(os.environ.get("EMBED_TAGGER_GENERAL_THRESHOLD", "0.35"))
+TAGGER_CHARACTER_THRESHOLD = float(os.environ.get("EMBED_TAGGER_CHARACTER_THRESHOLD", "0.5"))
+TAGGER_MAX_GENERAL = int(os.environ.get("EMBED_TAGGER_MAX_GENERAL", "25"))
+
 # Preprocessing — verbatim from Xenova/dinov2-small/preprocessor_config.json.
 SHORTEST_EDGE = 256
 CROP = 224
@@ -303,6 +319,57 @@ class ClipVisionEmbedder:
         return vec.astype(np.float32).tolist()
 
 
+# --- Appearance tagger (WD-Tagger v3) ----------------------------------------
+@dataclass
+class TaggerEmbedder:
+    session: ort.InferenceSession
+    input_name: str
+    names: list
+    cats: list
+
+    @classmethod
+    def load(cls) -> "TaggerEmbedder":
+        import csv as _csv
+
+        providers = _resolve_providers()
+        session = ort.InferenceSession(TAGGER_MODEL_PATH, providers=providers)
+        names, cats = [], []
+        with open(TAGGER_TAGS_PATH, newline="", encoding="utf-8") as fh:
+            for row in _csv.DictReader(fh):
+                names.append(row["name"])
+                cats.append(int(row["category"]))
+        log.info(
+            "tagger model loaded",
+            device=EMBED_DEVICE,
+            model=os.path.basename(TAGGER_MODEL_PATH),
+            providers=session.get_providers(),
+            tags=len(names),
+        )
+        return cls(session=session, input_name=session.get_inputs()[0].name, names=names, cats=cats)
+
+    def tag(self, image_bytes: bytes) -> str:
+        with Image.open(io.BytesIO(image_bytes)) as im:
+            im = im.convert("RGBA")
+            bg = Image.new("RGBA", im.size, (255, 255, 255, 255))
+            bg.alpha_composite(im)
+            im = bg.convert("RGB")
+            side = max(im.size)
+            sq = Image.new("RGB", (side, side), (255, 255, 255))
+            sq.paste(im, ((side - im.width) // 2, (side - im.height) // 2))
+            sq = sq.resize((TAGGER_IMAGE_SIZE, TAGGER_IMAGE_SIZE), Image.BICUBIC)
+            arr = np.asarray(sq, dtype=np.float32)[:, :, ::-1]  # RGB→BGR, 0-255
+        arr = np.ascontiguousarray(arr[np.newaxis])  # 1, 448, 448, 3 (NHWC)
+        probs = self.session.run(None, {self.input_name: arr})[0][0]
+        chars, gens = [], []
+        for i in np.argsort(-probs):  # highest probability first
+            cat, p = self.cats[i], float(probs[i])
+            if cat == 4 and p > TAGGER_CHARACTER_THRESHOLD:
+                chars.append(self.names[i])
+            elif cat == 0 and p > TAGGER_GENERAL_THRESHOLD and len(gens) < TAGGER_MAX_GENERAL:
+                gens.append(self.names[i])
+        return ", ".join(t.replace("_", " ") for t in (chars + gens))
+
+
 # --- Image fetch -------------------------------------------------------------
 def fetch_image(source: str, image_ref: str) -> bytes:
     """Catalog photos via the server's public proxy (storage-agnostic);
@@ -398,6 +465,15 @@ async def fetch_figure_text(pool: asyncpg.Pool, figure_id: Any) -> str | None:
             figure_id,
         )
     return None if rec is None else compose_figure_text(rec)
+
+
+async def fetch_figure_tags(pool: asyncpg.Pool, figure_id: Any) -> str | None:
+    """The figure's appearance tags as a passage (its own e5 vector, kept apart
+    from the descriptive text so the tags aren't diluted). None if absent."""
+    async with pool.acquire() as conn:
+        tags = await conn.fetchval("SELECT visual_tags FROM figures WHERE id = $1", figure_id)
+    tags = (tags or "").strip() if tags is not None else None
+    return tags or None
 
 
 # --- Queue lifecycle ---------------------------------------------------------
@@ -585,10 +661,18 @@ async def run_text_embed_loop(pool: asyncpg.Pool, state: Any) -> None:
             await asyncio.sleep(POLL_INTERVAL)
             continue
         try:
-            text = await fetch_figure_text(pool, item["figure_id"])
+            # Two kinds of e5 rows share this loop: 'text:<id>' (the figure's
+            # descriptive passage) and 'tagvec:<id>' (its appearance tags as a
+            # SEPARATE vector, so tags aren't diluted by the description). Search
+            # dedups by figure and keeps whichever is the closer match.
+            is_tags = item["image_ref"].startswith("tagvec:")
+            text = (
+                await fetch_figure_tags(pool, item["figure_id"])
+                if is_tags
+                else await fetch_figure_text(pool, item["figure_id"])
+            )
             if text is None:
-                # The figure was deleted → drop its text index + queue rows
-                # (self-heal, not a failure), same as a vanished image.
+                # Figure deleted, or no tags to embed → drop index + queue rows.
                 await reconcile_missing(pool, item)
                 continue
             embedding = await asyncio.to_thread(embedder.embed, text)
@@ -596,6 +680,7 @@ async def run_text_embed_loop(pool: asyncpg.Pool, state: Any) -> None:
             log.info(
                 "text embedded",
                 figure_id=str(item["figure_id"]),
+                kind="tags" if is_tags else "text",
                 image_ref=item["image_ref"][:64],
             )
         except Exception as e:  # noqa: BLE001
@@ -706,6 +791,119 @@ async def run_clip_embed_loop(pool: asyncpg.Pool, state: Any) -> None:
         except urllib.error.HTTPError as e:
             if e.code == 404:
                 await reconcile_missing_clip(pool, item)
+            else:
+                await mark_failure(pool, item, f"HTTP {e.code}: {e}")
+        except Exception as e:  # noqa: BLE001
+            trace = traceback.format_exc()[-2000:]
+            await mark_failure(pool, item, f"{type(e).__name__}: {e}\n{trace}")
+
+
+# --- Appearance tagging lifecycle --------------------------------------------
+async def claim_next_tags(pool: asyncpg.Pool) -> asyncpg.Record | None:
+    """Claim a pending tagging job (model_version = wd-tagger-v3/1, one per
+    figure: source='tags', image_ref='tags:<id>')."""
+    async with pool.acquire() as conn:
+        return await conn.fetchrow(
+            """
+            UPDATE figure_embedding_queue
+               SET state = 'processing', claimed_at = now(), attempts = attempts + 1
+             WHERE id = (
+                 SELECT id FROM figure_embedding_queue
+                  WHERE state = 'pending' AND model_version = $1
+                  ORDER BY enqueued_at ASC
+                  FOR UPDATE SKIP LOCKED
+                  LIMIT 1
+             )
+         RETURNING id, figure_id, source, image_ref, model_version, attempts
+            """,
+            TAGGER_MODEL_VERSION,
+        )
+
+
+async def fetch_figure_primary_image(pool: asyncpg.Pool, figure_id: Any):
+    """The image to tag: the figure's primary photo, else any photo, else its
+    official image. Returns (source, image_ref) for fetch_image, or None."""
+    async with pool.acquire() as conn:
+        rec = await conn.fetchrow(
+            """
+            SELECT f.primary_photo_id::text AS primary_photo,
+                   (SELECT fp.id::text FROM figure_photos fp
+                     WHERE fp.figure_id = $1 ORDER BY fp.id LIMIT 1) AS any_photo,
+                   f.official_image_url
+              FROM figures f WHERE f.id = $1
+            """,
+            figure_id,
+        )
+    if rec is None:
+        return None
+    photo = rec["primary_photo"] or rec["any_photo"]
+    if photo:
+        return ("photo", photo)
+    if rec["official_image_url"]:
+        return ("official", rec["official_image_url"])
+    return None
+
+
+async def store_tags(pool: asyncpg.Pool, item: asyncpg.Record, tags: str) -> None:
+    """Write the figure's appearance tags, mark the job done, and enqueue a
+    SEPARATE e5 vector for the tags ('tagvec:<id>') so the semantic index can
+    match them without dilution (the text loop embeds it next)."""
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute(
+                "UPDATE figures SET visual_tags = $2 WHERE id = $1", item["figure_id"], tags
+            )
+            await conn.execute(
+                "UPDATE figure_embedding_queue SET state = 'done', error_message = NULL WHERE id = $1",
+                item["id"],
+            )
+            await conn.execute(
+                """
+                INSERT INTO figure_embedding_queue (figure_id, source, image_ref, model_version)
+                VALUES ($1, 'tags', 'tagvec:' || $1::text, $2)
+                ON CONFLICT (image_ref, model_version) DO UPDATE
+                  SET state = 'pending', error_message = NULL, attempts = 0, claimed_at = NULL
+                """,
+                item["figure_id"],
+                TEXT_MODEL_VERSION,
+            )
+
+
+async def run_tagger_loop(pool: asyncpg.Pool, state: Any) -> None:
+    """Drain the tagging jobs: tag each figure's image with WD-Tagger and write
+    figures.visual_tags (then store_tags re-embeds its e5 text). A FOURTH
+    concurrent worker loop. Best-effort load — skips if the WD model isn't baked
+    into this image, without taking the host worker down."""
+    try:
+        tagger = await asyncio.to_thread(TaggerEmbedder.load)
+    except Exception as e:  # noqa: BLE001
+        log.warning("tagger model load failed — tagger loop disabled", error=str(e))
+        return
+    log.info("tagger loop started", model_version=TAGGER_MODEL_VERSION, server_url=SERVER_URL)
+    while True:
+        if not getattr(state, "enabled", True):
+            await asyncio.sleep(POLL_INTERVAL)
+            continue
+        item = await claim_next_tags(pool)
+        if item is None:
+            await asyncio.sleep(POLL_INTERVAL)
+            continue
+        try:
+            img = await fetch_figure_primary_image(pool, item["figure_id"])
+            if img is None:
+                # Figure gone or imageless → nothing to tag; drop the job row.
+                async with pool.acquire() as conn:
+                    await conn.execute("DELETE FROM figure_embedding_queue WHERE id = $1", item["id"])
+                continue
+            source, ref = img
+            data = await asyncio.to_thread(fetch_image, source, ref)
+            tags = await asyncio.to_thread(tagger.tag, data)
+            await store_tags(pool, item, tags)
+            log.info("tagged", figure_id=str(item["figure_id"]), tags=tags[:80])
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                async with pool.acquire() as conn:
+                    await conn.execute("DELETE FROM figure_embedding_queue WHERE id = $1", item["id"])
             else:
                 await mark_failure(pool, item, f"HTTP {e.code}: {e}")
         except Exception as e:  # noqa: BLE001

@@ -122,6 +122,7 @@ async def main() -> None:
         embed_index.run_embed_loop(pool, state),
         embed_index.run_text_embed_loop(pool, state),
         embed_index.run_clip_embed_loop(pool, state),
+        embed_index.run_tagger_loop(pool, state),
     )
 
 

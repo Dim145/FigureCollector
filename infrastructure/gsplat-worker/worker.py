@@ -292,6 +292,7 @@ async def main() -> None:
     embed_task = asyncio.create_task(embed_index.run_embed_loop(pool, state))
     text_embed_task = asyncio.create_task(embed_index.run_text_embed_loop(pool, state))
     clip_embed_task = asyncio.create_task(embed_index.run_clip_embed_loop(pool, state))
+    tagger_task = asyncio.create_task(embed_index.run_tagger_loop(pool, state))
     try:
         while True:
             # Admin can flip `enabled` off at any moment; the heartbeat
@@ -329,7 +330,7 @@ async def main() -> None:
                 )
                 await mark_failed(pool, scan_id, f"{type(e).__name__}: {e}\n{trace}")
     finally:
-        for task in (heartbeat_task, embed_task, text_embed_task, clip_embed_task):
+        for task in (heartbeat_task, embed_task, text_embed_task, clip_embed_task, tagger_task):
             task.cancel()
             try:
                 await task

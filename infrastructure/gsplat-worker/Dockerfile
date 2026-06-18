@@ -184,6 +184,13 @@ RUN mkdir -p /models/dinov2-small /models/e5-small && \
     curl -fSL -o /models/siglip2/vision_model_quantized.onnx \
       https://huggingface.co/onnx-community/siglip2-base-patch16-224-ONNX/resolve/main/onnx/vision_model_quantized.onnx && \
     echo "5f2b401c1a4fc095702a5d45348e17ad46c4f87064085365b43c6e8eaa5c0070  /models/siglip2/vision_model_quantized.onnx" | sha256sum -c - && \
+    mkdir -p /models/wd-tagger-v3 && \
+    curl -fSL -o /models/wd-tagger-v3/model.onnx \
+      https://huggingface.co/SmilingWolf/wd-vit-tagger-v3/resolve/main/model.onnx && \
+    echo "35f23693620b668f4d53fd3c62bf65e40af739bc52c7eb0fbc49258b58d065b6  /models/wd-tagger-v3/model.onnx" | sha256sum -c - && \
+    curl -fSL -o /models/wd-tagger-v3/selected_tags.csv \
+      https://huggingface.co/SmilingWolf/wd-vit-tagger-v3/resolve/main/selected_tags.csv && \
+    echo "298633d94d0031d2081c0893f29c82eab7f0df00b08483ba8f29d1e979441217  /models/wd-tagger-v3/selected_tags.csv" | sha256sum -c - && \
     chmod -R a+rX /models
 
 COPY worker.py /app/worker.py
