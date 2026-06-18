@@ -5,7 +5,6 @@ export default {
   "app.tagline_en": "Catalogue your shelf, figure by figure.",
   "app.tagline": "Catalogue your shelf, figure by figure.",
   "landing.hero": "Every piece, magnified.",
-  "app.phase": "v0.22.0",
 
   "nav.signin": "Sign in",
   "nav.signup": "Create account",

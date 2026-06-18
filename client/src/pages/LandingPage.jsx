@@ -65,7 +65,7 @@ export default function LandingPage() {
 
         <div className="relative max-w-3xl text-center z-10">
           <p className="micro reveal" style={{ "--i": 1 }}>
-            {t("app.phase")}
+            v{__APP_VERSION__}
           </p>
 
           <h1

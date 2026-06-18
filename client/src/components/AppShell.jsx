@@ -266,7 +266,7 @@ export default function AppShell({ children }) {
               像
             </span>
             FigureCollector ·{" "}
-            <span className="font-mono normal-case tracking-wide">{t("app.phase")}</span>
+            <span className="font-mono normal-case tracking-wide">v{__APP_VERSION__}</span>
           </p>
           <nav
             aria-label={t("footer.links")}

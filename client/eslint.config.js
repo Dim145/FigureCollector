@@ -20,6 +20,8 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.serviceworker,
+        // Injected at build time by Vite `define` (see vite.config.js).
+        __APP_VERSION__: "readonly",
       },
     },
     plugins: {

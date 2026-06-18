@@ -6,7 +6,6 @@ export default {
   "app.tagline_en": "Catalogue your shelf, figure by figure.",
   "app.tagline": "Cataloguez votre vitrine, pièce par pièce.",
   "landing.hero": "Chaque pièce, magnifiée.",
-  "app.phase": "v0.22.0",
 
   // Navigation
   "nav.signin": "Se connecter",
