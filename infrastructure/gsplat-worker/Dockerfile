@@ -180,6 +180,10 @@ RUN mkdir -p /models/dinov2-small /models/e5-small && \
     curl -fSL -o /models/e5-small/tokenizer.json \
       https://huggingface.co/Xenova/multilingual-e5-small/resolve/main/tokenizer.json && \
     echo "0b44a9d7b51c3c62626640cda0e2c2f70fdacdc25bbbd68038369d14ebdf4c39  /models/e5-small/tokenizer.json" | sha256sum -c - && \
+    mkdir -p /models/siglip2 && \
+    curl -fSL -o /models/siglip2/vision_model_quantized.onnx \
+      https://huggingface.co/onnx-community/siglip2-base-patch16-224-ONNX/resolve/main/onnx/vision_model_quantized.onnx && \
+    echo "5f2b401c1a4fc095702a5d45348e17ad46c4f87064085365b43c6e8eaa5c0070  /models/siglip2/vision_model_quantized.onnx" | sha256sum -c - && \
     chmod -R a+rX /models
 
 COPY worker.py /app/worker.py

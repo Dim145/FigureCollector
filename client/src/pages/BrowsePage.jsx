@@ -69,9 +69,11 @@ export default function BrowsePage() {
   // ambiance is opened we drill into its members.
   const [viewMode, setViewMode] = useState("catalogue");
   const [openCluster, setOpenCluster] = useState(null);
-  // Search mode within the catalogue view: keyword filter vs semantic (e5) search.
+  // Search mode within the catalogue view: keyword filter, semantic (e5) text
+  // search, or "look" (SigLIP text→image / Apparence).
   const [searchMode, setSearchMode] = useState("keyword");
   const [semantic, setSemantic] = useState({ results: null, busy: false, error: false });
+  const [look, setLook] = useState({ results: null, busy: false, error: false });
   // Photo search is gated on the feature flag (same as the nav entry); the
   // camera button in the search bar only appears when it's on.
   const { data: vsStatus } = useVisualSearchStatus();
@@ -142,10 +144,12 @@ export default function BrowsePage() {
     !!vsStatus?.enabled && !!vsStatus?.ambiances && viewMode === "ambiances";
   const isSemantic =
     !ambiance && searchMode === "semantic" && !!vsStatus?.text_search_enabled;
-  // Keyword mode filters the catalogue server-side; ambiance + semantic modes
-  // load the full catalogue (they pick figures another way).
+  const isLook =
+    !ambiance && searchMode === "look" && !!vsStatus?.clip_search_enabled;
+  // Keyword mode filters the catalogue server-side; ambiance + semantic + look
+  // modes load the full catalogue (they pick figures another way).
   const figures = useFigures({
-    q: ambiance || isSemantic ? undefined : debouncedQ.trim() || undefined,
+    q: ambiance || isSemantic || isLook ? undefined : debouncedQ.trim() || undefined,
     figure_type: ambiance ? undefined : type || undefined,
   });
   const clusters = useVisualClusters({ enabled: ambiance });
@@ -175,6 +179,31 @@ export default function BrowsePage() {
       cancelled = true;
     };
   }, [isSemantic, debouncedQ]);
+
+  // "Look" search (Apparence): embed the description with the SigLIP text tower
+  // in-browser (lazy, ≈283 MB on first use) and hit the clip-search endpoint —
+  // matches the query against catalogue IMAGE embeddings.
+  useEffect(() => {
+    if (!isLook) return;
+    const query = debouncedQ.trim();
+    if (!query) return;
+    let cancelled = false;
+    setLook((s) => ({ ...s, busy: true, error: false }));
+    (async () => {
+      try {
+        const { embedClipText } = await import("../lib/embed.js");
+        const embedding = await embedClipText(query);
+        if (cancelled) return;
+        const results = await api.post("/me/clip-search", { embedding });
+        if (!cancelled) setLook({ results, busy: false, error: false });
+      } catch {
+        if (!cancelled) setLook({ results: null, busy: false, error: true });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isLook, debouncedQ]);
 
   // Per-user catalogue markers — derived from the already-cached wishlist and
   // collection lists (no extra request). A card shows the gold "owned" seal or
@@ -250,10 +279,22 @@ export default function BrowsePage() {
   // What the grid renders: semantic results in "Sens" mode, the opened
   // ambiance's members in the drill-in, else the catalogue (sorted).
   const semanticFigures = (semantic.results ?? []).map((r) => r.figure);
-  // figure id → cosine distance, so the semantic grid can stamp a "% match"
-  // badge (lower distance = stronger match) like the discovery rails.
+  const lookFigures = (look.results ?? []).map((r) => r.figure);
+  // figure id → DISPLAY "% match" (the grid stamps it like the discovery rails).
+  // e5 (Sens): cosine sim ×100 directly — it already sits in a credible band.
+  // SigLIP (Apparence): cross-modal cosine is genuinely low (~0.05–0.16) and its
+  // own sigmoid calibration reads ~0 % for out-of-domain figure photos, so a raw
+  // % looks broken. We instead rescale that observed band to a readable 0–100
+  // relevance score (ranking unchanged); see clipMatchPct.
+  const clipMatchPct = (dist) => {
+    const sim = 1 - dist;
+    return Math.max(0, Math.min(100, Math.round(((sim - 0.03) / 0.12) * 100)));
+  };
   const semanticScores = new Map(
-    (semantic.results ?? []).map((r) => [r.figure.id, r.distance]),
+    (semantic.results ?? []).map((r) => [r.figure.id, Math.round((1 - r.distance) * 100)]),
+  );
+  const lookScores = new Map(
+    (look.results ?? []).map((r) => [r.figure.id, clipMatchPct(r.distance)]),
   );
   const gridFigures = ambiance
     ? openCluster
@@ -261,7 +302,9 @@ export default function BrowsePage() {
       : []
     : isSemantic
       ? semanticFigures
-      : sorted;
+      : isLook
+        ? lookFigures
+        : sorted;
 
   return (
     <AppShell>
@@ -380,7 +423,7 @@ export default function BrowsePage() {
         {/* ─── Control strip : search + kanji-tile filter (catalogue only) ─── */}
         {!ambiance ? (
         <section className="mb-10 reveal" style={{ "--i": 4 }}>
-          {vsStatus?.text_search_enabled ? (
+          {vsStatus?.text_search_enabled || vsStatus?.clip_search_enabled ? (
             <div
               className="mb-3 inline-flex border border-[var(--color-or)]/25"
               role="tablist"
@@ -388,7 +431,12 @@ export default function BrowsePage() {
             >
               {[
                 { id: "keyword", label: t("browse.search.keyword", { default: "Mots-clés" }) },
-                { id: "semantic", label: t("browse.search.semantic", { default: "Sens" }) },
+                ...(vsStatus?.text_search_enabled
+                  ? [{ id: "semantic", label: t("browse.search.semantic", { default: "Sens" }) }]
+                  : []),
+                ...(vsStatus?.clip_search_enabled
+                  ? [{ id: "look", label: t("browse.search.look", { default: "Apparence" }) }]
+                  : []),
               ].map((m) => (
                 <button
                   key={m.id}
@@ -421,9 +469,13 @@ export default function BrowsePage() {
               placeholder={
                 isSemantic
                   ? t("browse.search.semantic_placeholder", {
-                      default: "Décris une figurine (ex. fille aux cheveux blancs)…",
+                      default: "Par le sens — ex. mariée, statue en résine, Re:Zero…",
                     })
-                  : t("browse.search_placeholder")
+                  : isLook
+                    ? t("browse.search.look_placeholder", {
+                        default: "Par l'apparence — ex. fille aux cheveux blancs, robot mécha…",
+                      })
+                    : t("browse.search_placeholder")
               }
               className={`w-full pl-11 ${vsStatus?.enabled ? "pr-[6.5rem]" : "pr-14"} py-4 bg-[var(--color-noir)] border border-[var(--color-or)]/25 text-[var(--color-ivoire)] placeholder:text-[var(--color-ivoire-soft)]/40 text-lg outline-none focus:border-[var(--color-or)] transition-colors`}
               style={{ fontFamily: "var(--font-display)", letterSpacing: "-0.005em" }}
@@ -476,7 +528,7 @@ export default function BrowsePage() {
             </div>
           </div>
 
-          {!isSemantic ? (
+          {!isSemantic && !isLook ? (
           <nav
             aria-label="filter by type"
             className="tile-rail"
@@ -529,10 +581,23 @@ export default function BrowsePage() {
           </AmbianceDrillIn>
         ) : isSemantic ? (
           <SemanticResults
+            kind="semantic"
             state={semantic}
             hasQuery={!!debouncedQ.trim()}
             figures={semanticFigures}
             scores={semanticScores}
+            ownedIds={ownedIds}
+            wishedIds={wishedIds}
+            me={me}
+            t={t}
+          />
+        ) : isLook ? (
+          <SemanticResults
+            kind="look"
+            state={look}
+            hasQuery={!!debouncedQ.trim()}
+            figures={lookFigures}
+            scores={lookScores}
             ownedIds={ownedIds}
             wishedIds={wishedIds}
             me={me}
@@ -615,27 +680,50 @@ function EmptyResults({ t }) {
  * the figure grid. The query is embedded in-browser (e5-small), so the first
  * search waits on the one-time model download.
  */
-function SemanticResults({ state, hasQuery, figures, scores, ownedIds, wishedIds, me, t }) {
+function SemanticResults({
+  kind = "semantic",
+  state,
+  hasQuery,
+  figures,
+  scores,
+  ownedIds,
+  wishedIds,
+  me,
+  t,
+}) {
+  // Per-mode copy (semantic = e5 text-match; look = SigLIP appearance-match).
+  const copy =
+    kind === "look"
+      ? {
+          prompt:
+            "Décris l'apparence d'une figurine pour la retrouver — pose, couleur de cheveux, tenue…",
+          busy: "Recherche par l'apparence…",
+          error: "La recherche a échoué — réessaie.",
+        }
+      : {
+          prompt:
+            "Cherche par le sens : un nom, une série, une matière, un mot dans une autre langue.",
+          busy: "Recherche par le sens…",
+          error: "La recherche a échoué — réessaie.",
+        };
   if (!hasQuery) {
     return (
       <p className="text-center text-[var(--color-ivoire-soft)] italic py-16">
-        {t("browse.search.semantic_prompt", {
-          default: "Décris une figurine pour la retrouver par le sens.",
-        })}
+        {t(`browse.search.${kind}_prompt`, { default: copy.prompt })}
       </p>
     );
   }
   if (state.busy) {
     return (
       <p className="micro text-center text-[var(--color-ivoire-soft)] py-16">
-        {t("browse.search.semantic_busy", { default: "Recherche par le sens…" })}
+        {t(`browse.search.${kind}_busy`, { default: copy.busy })}
       </p>
     );
   }
   if (state.error) {
     return (
       <p className="text-center text-[var(--color-laque-bright)] py-16">
-        {t("browse.search.semantic_error", { default: "La recherche a échoué — réessaie." })}
+        {t(`browse.search.${kind}_error`, { default: copy.error })}
       </p>
     );
   }
@@ -680,11 +768,11 @@ function FigureGrid({ figures, scores, ownedIds, wishedIds, me, t }) {
               f.is_nsfw && (me.data?.user?.nsfw_visibility ?? "hide") !== "show"
             }
             badge={(() => {
-              // Semantic mode: a "% match" stamp (lower distance = stronger),
-              // mirroring the discovery rails. Otherwise the preorder badge.
-              const dist = scores?.get(f.id);
-              if (dist != null) {
-                return { label: `${Math.round((1 - dist) * 100)}%`, tone: "match" };
+              // Semantic/look modes: a "% match" stamp (the scores map already
+              // holds the display percent). Otherwise the preorder badge.
+              const pct = scores?.get(f.id);
+              if (pct != null) {
+                return { label: `${pct}%`, tone: "match" };
               }
               const phase = preorderPhaseFromFigure(f);
               const label = preorderBadgeLabel(phase, t);

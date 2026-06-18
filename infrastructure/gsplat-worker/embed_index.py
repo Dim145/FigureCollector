@@ -93,6 +93,20 @@ TEXT_MODEL_VERSION = "e5-small/1"
 TEXT_PASSAGE_PREFIX = "passage: "
 TEXT_MAX_TOKENS = int(os.environ.get("EMBED_TEXT_MAX_TOKENS", "512"))
 
+# --- Multimodal model (search by look) ---------------------------------------
+# multilingual-SigLIP2-base VISION tower: embeds catalog images into the shared
+# image+text space the browser's text tower queries. 768-d, its own table
+# `figure_clip_embeddings`. SigLIP preprocessing differs from DINOv2: a plain
+# resize to 224² (no shortest-edge + crop), rescale /255, normalise with 0.5 mean
+# & std. The image embedding is the vision tower's `pooler_output`, L2-normalised.
+# MUST equal domain::visual_search::CLIP_MODEL_VERSION (server).
+CLIP_MODEL_PATH = os.environ.get(
+    "EMBED_CLIP_MODEL_PATH", "/models/siglip2/vision_model_quantized.onnx"
+)
+CLIP_MODEL_VERSION = "siglip2-base/1"
+CLIP_EMBED_DIM = 768
+CLIP_IMAGE_SIZE = 224
+
 # Preprocessing — verbatim from Xenova/dinov2-small/preprocessor_config.json.
 SHORTEST_EDGE = 256
 CROP = 224
@@ -240,6 +254,49 @@ class TextEmbedder:
         vec = (hidden * m).sum(axis=0) / denom  # attention-masked mean pool
         if vec.shape[0] != EMBED_DIM:
             raise ValueError(f"unexpected text embedding length {vec.shape[0]}")
+        norm = float(np.linalg.norm(vec))
+        if norm > 0:
+            vec = vec / norm
+        return vec.astype(np.float32).tolist()
+
+
+# --- Multimodal vision model (search by look) --------------------------------
+@dataclass
+class ClipVisionEmbedder:
+    session: ort.InferenceSession
+    input_name: str
+    output_name: str
+
+    @classmethod
+    def load(cls) -> "ClipVisionEmbedder":
+        providers = _resolve_providers()
+        session = ort.InferenceSession(CLIP_MODEL_PATH, providers=providers)
+        input_name = session.get_inputs()[0].name
+        outs = [o.name for o in session.get_outputs()]
+        output_name = next((o for o in outs if "pool" in o.lower()), outs[-1])
+        log.info(
+            "clip vision model loaded",
+            device=EMBED_DEVICE,
+            model=os.path.basename(CLIP_MODEL_PATH),
+            providers=session.get_providers(),
+            input=input_name,
+            output=output_name,
+        )
+        return cls(session=session, input_name=input_name, output_name=output_name)
+
+    def embed(self, image_bytes: bytes) -> list[float]:
+        # SigLIP preprocessing: plain resize to 224² (no crop), /255, normalise 0.5.
+        with Image.open(io.BytesIO(image_bytes)) as im:
+            im = im.convert("RGB").resize((CLIP_IMAGE_SIZE, CLIP_IMAGE_SIZE), Image.BILINEAR)
+            arr = (np.asarray(im, dtype=np.float32) / 255.0 - 0.5) / 0.5
+        arr = np.transpose(arr, (2, 0, 1))[np.newaxis]  # 1, C, H, W
+        out = self.session.run(
+            [self.output_name],
+            {self.input_name: np.ascontiguousarray(arr, dtype=np.float32)},
+        )[0]
+        vec = np.asarray(out, dtype=np.float32).reshape(-1)
+        if vec.shape[0] != CLIP_EMBED_DIM:
+            raise ValueError(f"unexpected clip embedding length {vec.shape[0]}")
         norm = float(np.linalg.norm(vec))
         if norm > 0:
             vec = vec / norm
@@ -541,6 +598,116 @@ async def run_text_embed_loop(pool: asyncpg.Pool, state: Any) -> None:
                 figure_id=str(item["figure_id"]),
                 image_ref=item["image_ref"][:64],
             )
+        except Exception as e:  # noqa: BLE001
+            trace = traceback.format_exc()[-2000:]
+            await mark_failure(pool, item, f"{type(e).__name__}: {e}\n{trace}")
+
+
+async def claim_next_clip(pool: asyncpg.Pool) -> asyncpg.Record | None:
+    """Claim a pending SigLIP image row (model_version = siglip2-base/1) — the
+    image twin of `claim_next_text`, draining its own disjoint queue rows."""
+    async with pool.acquire() as conn:
+        return await conn.fetchrow(
+            """
+            UPDATE figure_embedding_queue
+               SET state = 'processing', claimed_at = now(), attempts = attempts + 1
+             WHERE id = (
+                 SELECT id FROM figure_embedding_queue
+                  WHERE state = 'pending' AND model_version = $1
+                  ORDER BY enqueued_at ASC
+                  FOR UPDATE SKIP LOCKED
+                  LIMIT 1
+             )
+         RETURNING id, figure_id, source, image_ref, model_version, attempts
+            """,
+            CLIP_MODEL_VERSION,
+        )
+
+
+async def store_clip_embedding(
+    pool: asyncpg.Pool, item: asyncpg.Record, embedding: list[float]
+) -> None:
+    """Write the 768-d SigLIP vector to figure_clip_embeddings + mark the queue
+    row done, atomically (pgvector text literal cast server-side)."""
+    literal = "[" + ",".join(f"{x:.7f}" for x in embedding) + "]"
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute(
+                """
+                INSERT INTO figure_clip_embeddings
+                    (figure_id, source, image_ref, model_version, embedding)
+                VALUES ($1, $2, $3, $4, $5::vector)
+                ON CONFLICT (image_ref, model_version) DO UPDATE SET
+                    figure_id  = EXCLUDED.figure_id,
+                    source     = EXCLUDED.source,
+                    embedding  = EXCLUDED.embedding,
+                    created_at = now()
+                """,
+                item["figure_id"],
+                item["source"],
+                item["image_ref"],
+                item["model_version"],
+                literal,
+            )
+            await conn.execute(
+                "UPDATE figure_embedding_queue SET state = 'done', error_message = NULL WHERE id = $1",
+                item["id"],
+            )
+
+
+async def reconcile_missing_clip(pool: asyncpg.Pool, item: asyncpg.Record) -> None:
+    """The image is gone (404) → drop its clip index + queue rows. Self-heal,
+    not a failure (mirrors reconcile_missing for the clip table)."""
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute(
+                "DELETE FROM figure_clip_embeddings WHERE image_ref = $1 AND model_version = $2",
+                item["image_ref"],
+                item["model_version"],
+            )
+            await conn.execute("DELETE FROM figure_embedding_queue WHERE id = $1", item["id"])
+    log.info(
+        "reconciled missing clip image (404) — dropped from index",
+        source=item["source"],
+        image_ref=item["image_ref"][:64],
+    )
+
+
+async def run_clip_embed_loop(pool: asyncpg.Pool, state: Any) -> None:
+    """Drain the SigLIP image rows of figure_embedding_queue: fetch each catalog
+    image, embed it with the SigLIP vision tower (768-d), store in
+    figure_clip_embeddings. The "search by look" twin of run_embed_loop — runs as
+    a THIRD concurrent task. Best-effort load: skips if the SigLIP model isn't
+    baked into this image, without taking the host worker down."""
+    try:
+        embedder = await asyncio.to_thread(ClipVisionEmbedder.load)
+    except Exception as e:  # noqa: BLE001
+        log.warning("clip vision model load failed — clip embed loop disabled", error=str(e))
+        return
+    log.info("clip embed loop started", model_version=CLIP_MODEL_VERSION, server_url=SERVER_URL)
+    while True:
+        if not getattr(state, "enabled", True):
+            await asyncio.sleep(POLL_INTERVAL)
+            continue
+        item = await claim_next_clip(pool)
+        if item is None:
+            await asyncio.sleep(POLL_INTERVAL)
+            continue
+        try:
+            data = await asyncio.to_thread(fetch_image, item["source"], item["image_ref"])
+            embedding = await asyncio.to_thread(embedder.embed, data)
+            await store_clip_embedding(pool, item, embedding)
+            log.info(
+                "clip embedded",
+                figure_id=str(item["figure_id"]),
+                source=item["source"],
+                image_ref=item["image_ref"][:64],
+            )
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                await reconcile_missing_clip(pool, item)
+            else:
+                await mark_failure(pool, item, f"HTTP {e.code}: {e}")
         except Exception as e:  # noqa: BLE001
             trace = traceback.format_exc()[-2000:]
             await mark_failure(pool, item, f"{type(e).__name__}: {e}\n{trace}")

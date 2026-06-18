@@ -62,6 +62,7 @@ mod m20260611_000001_pricing_frozen_fx;
 mod m20260613_000001_visual_search;
 mod m20260613_000002_worker_embed_kind;
 mod m20260617_000001_calendar_token;
+mod m20260618_000001_clip_search;
 
 pub struct Migrator;
 
@@ -119,6 +120,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260613_000001_visual_search::Migration),
             Box::new(m20260613_000002_worker_embed_kind::Migration),
             Box::new(m20260617_000001_calendar_token::Migration),
+            Box::new(m20260618_000001_clip_search::Migration),
         ]
     }
 }

@@ -6,6 +6,7 @@ import {
   useAdminOverview,
   useReindexVisualSearch,
   useReindexTextSearch,
+  useReindexClipSearch,
   useUpdateAdminSettings,
 } from "../hooks/useAdmin.js";
 import { useVisualSearchStatus } from "../hooks/useVisualSearch.js";
@@ -36,6 +37,7 @@ export default function AdminSettingsPage() {
   const updateVs = useUpdateAdminSettings();
   const reindex = useReindexVisualSearch();
   const reindexText = useReindexTextSearch();
+  const reindexClip = useReindexClipSearch();
   const vsStatus = useVisualSearchStatus();
   const overview = useAdminOverview();
 
@@ -53,6 +55,8 @@ export default function AdminSettingsPage() {
   const [ambiancesDraft, setAmbiancesDraft] = useState(null);
   const [textSearchDraft, setTextSearchDraft] = useState(null);
   const [minMatchDraft, setMinMatchDraft] = useState(null);
+  const [clipSearchDraft, setClipSearchDraft] = useState(null);
+  const [clipMinMatchDraft, setClipMinMatchDraft] = useState(null);
   const [helpOpen, setHelpOpen] = useState(false);
 
   if (settings.isLoading) {
@@ -91,6 +95,10 @@ export default function AdminSettingsPage() {
   const textSearch = textSearchDraft ?? savedTextSearch;
   const savedMinMatch = Math.round(settings.data.text_search_min_match ?? 0);
   const minMatch = minMatchDraft ?? savedMinMatch;
+  const savedClipSearch = !!settings.data.clip_search;
+  const clipSearch = clipSearchDraft ?? savedClipSearch;
+  const savedClipMinMatch = Math.round(settings.data.clip_search_min_match ?? 0);
+  const clipMinMatch = clipMinMatchDraft ?? savedClipMinMatch;
   const vsDirty =
     (vsDraft !== null && vsDraft !== savedVs) ||
     (vsExtDraft !== null && vsExtDraft !== savedVsExt) ||
@@ -98,7 +106,9 @@ export default function AdminSettingsPage() {
     (thresholdDraft !== null && thresholdDraft !== savedThreshold) ||
     (ambiancesDraft !== null && ambiancesDraft !== savedAmbiances) ||
     (textSearchDraft !== null && textSearchDraft !== savedTextSearch) ||
-    (minMatchDraft !== null && minMatchDraft !== savedMinMatch);
+    (minMatchDraft !== null && minMatchDraft !== savedMinMatch) ||
+    (clipSearchDraft !== null && clipSearchDraft !== savedClipSearch) ||
+    (clipMinMatchDraft !== null && clipMinMatchDraft !== savedClipMinMatch);
   const saveVs = () => {
     const patch = {};
     if (vsDraft !== null) patch.visual_search = vsDraft;
@@ -109,6 +119,8 @@ export default function AdminSettingsPage() {
     if (ambiancesDraft !== null) patch.visual_search_ambiances = ambiancesDraft;
     if (textSearchDraft !== null) patch.text_search = textSearchDraft;
     if (minMatchDraft !== null) patch.text_search_min_match = minMatchDraft;
+    if (clipSearchDraft !== null) patch.clip_search = clipSearchDraft;
+    if (clipMinMatchDraft !== null) patch.clip_search_min_match = clipMinMatchDraft;
     updateVs.mutate(patch, {
       onSuccess: () => {
         setVsDraft(null);
@@ -118,6 +130,8 @@ export default function AdminSettingsPage() {
         setAmbiancesDraft(null);
         setTextSearchDraft(null);
         setMinMatchDraft(null);
+        setClipSearchDraft(null);
+        setClipMinMatchDraft(null);
       },
     });
   };
@@ -646,6 +660,93 @@ export default function AdminSettingsPage() {
                 {t("admin.settings.visual.text_min_match_hint", {
                   default:
                     "Score minimum pour qu'un résultat « Sens » s'affiche. e5 resserre les scores dans une bande haute (~80–90 %) : monte ce seuil pour couper la queue de résultats faibles. 0 % affiche tout.",
+                })}
+              </span>
+            </label>
+          </div>
+
+          {/* Multimodal "search by look" (SigLIP) — opt-in, independent. */}
+          <div className="mt-7 pt-6 border-t border-[var(--color-or)]/15">
+            <div className="atelier-toggle-row">
+              <div id="vs-clip-label" className="atelier-toggle-row-text">
+                <span className={`atelier-toggle-row-state ${clipSearch ? "is-on" : ""}`}>
+                  {clipSearch
+                    ? t("admin.settings.visual.clip_on", {
+                        default: "Recherche par l'apparence activée",
+                      })
+                    : t("admin.settings.visual.clip_off", {
+                        default: "Recherche par l'apparence désactivée",
+                      })}
+                </span>
+                <span className="atelier-toggle-row-hint">
+                  {t("admin.settings.visual.clip_hint", {
+                    default:
+                      "Ajoute un mode « Apparence » : retrouver une figurine en décrivant à quoi elle ressemble (pose, cheveux, tenue), via SigLIP. Indexe d'abord les images ci-dessous ; le modèle texte (~283 Mo) ne se charge qu'à l'usage.",
+                  })}
+                </span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={clipSearch}
+                aria-labelledby="vs-clip-label"
+                onClick={() => setClipSearchDraft(!clipSearch)}
+                className={`atelier-toggle ${clipSearch ? "is-on" : ""}`}
+              />
+            </div>
+            <div className="mt-3 flex items-center gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={() => reindexClip.mutate()}
+                disabled={reindexClip.isPending}
+                className="px-3 py-1.5 border border-[var(--color-or)]/30 text-[11px] uppercase tracking-[0.18em] text-[var(--color-or)] hover:bg-[var(--color-or)]/10 transition-colors disabled:opacity-50"
+              >
+                {t("admin.settings.visual.clip_reindex", {
+                  default: "Indexer les images (apparence)",
+                })}
+              </button>
+              {typeof vsStatus.data?.clip_embedded === "number" ? (
+                <span className="font-mono text-[11px] text-[var(--color-ivoire-soft)]">
+                  {t("admin.settings.visual.clip_indexed", {
+                    n: vsStatus.data.clip_embedded,
+                    default: `${vsStatus.data.clip_embedded} indexées`,
+                  })}
+                </span>
+              ) : null}
+              {reindexClip.isSuccess ? (
+                <span className="text-[11px] text-[var(--color-jade)]">
+                  {t("admin.settings.visual.text_reindex_done", { default: "File alimentée." })}
+                </span>
+              ) : null}
+            </div>
+            <label className="mt-6 block max-w-md">
+              <span className="micro block mb-3">
+                {t("admin.settings.visual.clip_min_match_label", {
+                  default: "Pertinence minimale",
+                })}
+              </span>
+              <div className="flex items-center gap-4">
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={clipMinMatch}
+                  onChange={(e) => setClipMinMatchDraft(Number(e.target.value))}
+                  disabled={!clipSearch}
+                  aria-label={t("admin.settings.visual.clip_min_match_label", {
+                    default: "Pertinence minimale",
+                  })}
+                  className="flex-1 accent-[var(--color-laque-bright)] disabled:opacity-50"
+                />
+                <span className="font-mono text-sm text-[var(--color-or)] w-12 text-right tabular-nums">
+                  {clipMinMatch} %
+                </span>
+              </div>
+              <span className="mt-2 block text-xs leading-relaxed text-[var(--color-ivoire-soft)]">
+                {t("admin.settings.visual.clip_min_match_hint", {
+                  default:
+                    "Score minimum pour qu'un résultat « Apparence » s'affiche. SigLIP donne des scores bas et resserrés : monte ce seuil pour couper la queue. 0 % affiche tout.",
                 })}
               </span>
             </label>

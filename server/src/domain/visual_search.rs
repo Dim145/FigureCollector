@@ -34,6 +34,16 @@ pub const EMBED_DIM: usize = 384;
 /// `upsert_embedding()` work unchanged; only the model_version differs.
 pub const TEXT_MODEL_VERSION: &str = "e5-small/1";
 
+/// Multimodal model — multilingual SigLIP2-base (768-d, text+image shared
+/// space). Catalog IMAGES are embedded with its vision tower (worker) and the
+/// query TEXT with its text tower (browser), so a description retrieves figures
+/// by look. 768-d ≠ the 384-d models, so these vectors live in their OWN table
+/// `figure_clip_embeddings` (the work-queue is shared, keyed by model_version).
+pub const CLIP_MODEL_VERSION: &str = "siglip2-base/1";
+
+/// SigLIP2-base projection dimension.
+pub const CLIP_EMBED_DIM: usize = 768;
+
 /// A catalog figure that matched the query photo, with its best (smallest)
 /// cosine distance across that figure's images. 0 = identical, 2 = opposite;
 /// in practice a strong match sits well under ~0.3.
@@ -114,6 +124,97 @@ pub async fn search(
         }
     }
     Ok(out)
+}
+
+/// Nearest catalog figures to a SigLIP text-query embedding — the "recherche par
+/// apparence" mode. Same per-image ANN + dedup-by-figure as `search()`, but over
+/// the 768-d `figure_clip_embeddings` table (a description retrieves figures by
+/// look). The query vector comes from the browser's SigLIP text tower.
+pub async fn clip_search(pool: &PgPool, query: Vec<f32>, k: i64) -> AppResult<Vec<Candidate>> {
+    if query.len() != CLIP_EMBED_DIM {
+        return Err(AppError::BadRequest("query embedding has the wrong dimension"));
+    }
+    let fanout = (k * 5).clamp(20, 200);
+    let qv = pgvector::Vector::from(query);
+    let rows: Vec<(Uuid, f64)> = sqlx::query_as(
+        "SELECT figure_id, (embedding <=> $1) AS distance
+         FROM figure_clip_embeddings
+         WHERE model_version = $2
+         ORDER BY embedding <=> $1
+         LIMIT $3",
+    )
+    .bind(qv)
+    .bind(CLIP_MODEL_VERSION)
+    .bind(fanout)
+    .fetch_all(pool)
+    .await?;
+
+    let mut seen = std::collections::HashSet::new();
+    let mut out = Vec::new();
+    for (figure_id, distance) in rows {
+        if seen.insert(figure_id) {
+            out.push(Candidate { figure_id, distance: distance as f32 });
+            if out.len() as i64 >= k {
+                break;
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Enqueue every catalog image still lacking a SigLIP embedding (photos +
+/// official), checking `figure_clip_embeddings`. Mirrors `enqueue_missing` for
+/// the clip model/table; the worker drains them with its vision tower.
+pub async fn enqueue_missing_clip(pool: &PgPool) -> AppResult<u64> {
+    let photos = sqlx::query(
+        "INSERT INTO figure_embedding_queue (figure_id, source, image_ref, model_version)
+         SELECT fp.figure_id, 'photo', fp.id::text, $1
+         FROM figure_photos fp
+         WHERE NOT EXISTS (
+             SELECT 1 FROM figure_clip_embeddings e
+             WHERE e.image_ref = fp.id::text AND e.model_version = $1
+         )
+         ON CONFLICT (image_ref, model_version) DO NOTHING",
+    )
+    .bind(CLIP_MODEL_VERSION)
+    .execute(pool)
+    .await?;
+
+    let official = sqlx::query(
+        "INSERT INTO figure_embedding_queue (figure_id, source, image_ref, model_version)
+         SELECT f.id, 'official', f.official_image_url, $1
+         FROM figures f
+         WHERE f.official_image_url IS NOT NULL
+           AND f.official_image_url <> ''
+           AND NOT EXISTS (
+             SELECT 1 FROM figure_clip_embeddings e
+             WHERE e.image_ref = f.official_image_url AND e.model_version = $1
+           )
+         ON CONFLICT (image_ref, model_version) DO NOTHING",
+    )
+    .bind(CLIP_MODEL_VERSION)
+    .execute(pool)
+    .await?;
+
+    Ok(photos.rows_affected() + official.rows_affected())
+}
+
+/// Index stats for the clip model: embedded count from `figure_clip_embeddings`,
+/// pending from the shared queue.
+pub async fn index_stats_clip(pool: &PgPool) -> AppResult<IndexStats> {
+    let embedded: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM figure_clip_embeddings WHERE model_version = $1")
+            .bind(CLIP_MODEL_VERSION)
+            .fetch_one(pool)
+            .await?;
+    let pending: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM figure_embedding_queue
+         WHERE model_version = $1 AND state IN ('pending', 'processing')",
+    )
+    .bind(CLIP_MODEL_VERSION)
+    .fetch_one(pool)
+    .await?;
+    Ok(IndexStats { embedded, pending })
 }
 
 /// Nearest catalog figures to a *source figure* — the "figurines proches" rail
@@ -471,6 +572,13 @@ pub async fn enqueue_figure_if_enabled(pool: &PgPool, figure_id: Uuid) {
         Ok(false) => {}
         Err(e) => tracing::warn!(error = ?e, "visual-search enqueue gate check failed"),
     }
+    // SigLIP "search by look" rides the same per-image queue (different model);
+    // keep its index current too when it's enabled.
+    if matches!(settings::clip_search_enabled(pool).await, Ok(true)) {
+        if let Err(e) = enqueue_figure(pool, figure_id, CLIP_MODEL_VERSION).await {
+            tracing::warn!(error = ?e, %figure_id, "clip-search auto-enqueue failed");
+        }
+    }
 }
 
 /// Best-effort: reset an already-queued image back to `pending` so the worker
@@ -478,16 +586,20 @@ pub async fn enqueue_figure_if_enabled(pool: &PgPool, figure_id: Uuid) {
 /// is unchanged but the bytes swapped, so a plain enqueue would no-op on the
 /// existing row — this re-arms it instead. Gated + non-fatal.
 pub async fn requeue_image_if_enabled(pool: &PgPool, image_ref: &str) {
-    if !matches!(settings::visual_search_enabled(pool).await, Ok(true)) {
+    let vs = matches!(settings::visual_search_enabled(pool).await, Ok(true));
+    let clip = matches!(settings::clip_search_enabled(pool).await, Ok(true));
+    if !vs && !clip {
         return;
     }
+    // Re-arm every image-model row for this ref (DINOv2 + SigLIP); the text
+    // model keys off `text:<id>`, so it never matches an image ref here.
     let res = sqlx::query(
         "UPDATE figure_embedding_queue
             SET state = 'pending', error_message = NULL, attempts = 0, claimed_at = NULL
-          WHERE image_ref = $1 AND model_version = $2",
+          WHERE image_ref = $1 AND model_version <> $2",
     )
     .bind(image_ref)
-    .bind(MODEL_VERSION)
+    .bind(TEXT_MODEL_VERSION)
     .execute(pool)
     .await;
     if let Err(e) = res {

@@ -54,6 +54,19 @@ const MODELS = [
       "onnx/model_quantized.onnx",
     ],
   },
+  {
+    // Multimodal "search by look" (Batch 5) — SigLIP2 TEXT tower only (the
+    // worker holds the vision tower). Shared 768-d image+text space; the text
+    // ONNX (~283 MB q8) is runtime-cached, loaded only when "Apparence" is used.
+    id: "onnx-community/siglip2-base-patch16-224-ONNX",
+    files: [
+      "config.json",
+      "tokenizer.json",
+      "tokenizer_config.json",
+      "special_tokens_map.json",
+      "onnx/text_model_quantized.onnx",
+    ],
+  },
 ];
 
 function log(msg) {

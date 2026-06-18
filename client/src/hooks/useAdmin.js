@@ -77,6 +77,18 @@ export function useReindexTextSearch() {
   });
 }
 
+/** POST /admin/visual-search/reindex-clip — queue catalog images for SigLIP. */
+export function useReindexClipSearch() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post("/admin/visual-search/reindex-clip"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "visual-search", "queue"] });
+      qc.invalidateQueries({ queryKey: ["visual-search", "status"] });
+    },
+  });
+}
+
 /** POST /admin/visual-search/retry-failed — re-arm failed embed-queue rows. */
 export function useRetryFailedEmbeddings() {
   const qc = useQueryClient();

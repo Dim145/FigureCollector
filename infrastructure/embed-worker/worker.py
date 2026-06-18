@@ -121,6 +121,7 @@ async def main() -> None:
     await asyncio.gather(
         embed_index.run_embed_loop(pool, state),
         embed_index.run_text_embed_loop(pool, state),
+        embed_index.run_clip_embed_loop(pool, state),
     )
 
 

@@ -989,6 +989,15 @@ async fn patch_settings(
         settings::set_text_search_min_match(&state.pool, clamped).await?;
         tracing::info!(by_admin = %actor.id, threshold = clamped, "admin updated semantic text-search min match");
     }
+    if let Some(enabled) = input.clip_search {
+        settings::set_clip_search_enabled(&state.pool, enabled).await?;
+        tracing::info!(by_admin = %actor.id, enabled, "admin toggled multimodal clip search");
+    }
+    if let Some(threshold) = input.clip_search_min_match {
+        let clamped = threshold.clamp(0.0, 100.0);
+        settings::set_clip_search_min_match(&state.pool, clamped).await?;
+        tracing::info!(by_admin = %actor.id, threshold = clamped, "admin updated clip-search min match");
+    }
     Ok(Json(settings::all(&state.pool).await?))
 }
 
@@ -1014,6 +1023,16 @@ async fn reindex_text_search(
     let actor = auth::require_admin(&session, &state.pool).await?;
     let queued = visual_search::enqueue_missing_text(&state.pool).await?;
     tracing::info!(by_admin = %actor.id, queued, "admin queued text-search reindex");
+    Ok(Json(json!({ "queued": queued })))
+}
+
+async fn reindex_clip_search(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<serde_json::Value>> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    let queued = visual_search::enqueue_missing_clip(&state.pool).await?;
+    tracing::info!(by_admin = %actor.id, queued, "admin queued clip-search reindex");
     Ok(Json(json!({ "queued": queued })))
 }
 
@@ -1114,6 +1133,7 @@ pub fn router() -> Router<AppState> {
         .route("/admin/settings", get(get_settings).patch(patch_settings))
         .route("/admin/visual-search/reindex", post(reindex_visual_search))
         .route("/admin/visual-search/reindex-text", post(reindex_text_search))
+        .route("/admin/visual-search/reindex-clip", post(reindex_clip_search))
         .route("/admin/visual-search/queue", get(visual_search_queue))
         .route(
             "/admin/visual-search/retry-failed",

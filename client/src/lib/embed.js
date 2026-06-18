@@ -160,10 +160,80 @@ export async function embedText(text, onProgress) {
   return arr;
 }
 
+// ── Multimodal "search by look" — multilingual SigLIP2-base TEXT tower, 768-d ─
+//
+// SigLIP shares ONE space for images and text: the worker embeds catalog images
+// with the VISION tower, the browser embeds the query with the TEXT tower (here)
+// — a description retrieves figures by look. Loaded lazily (only when the user
+// opens "Apparence"), self-hosted under /models/ like the others. Unlike e5,
+// SigLIP isn't a `feature-extraction` pipeline: it pads to a fixed 64 tokens and
+// the sentence vector is the text tower's `pooler_output` (L2-normalised here).
+
+/** Must equal `domain::visual_search::CLIP_MODEL_VERSION` on the server. */
+export const CLIP_MODEL_VERSION = "siglip2-base/1";
+const CLIP_MODEL_ID = "onnx-community/siglip2-base-patch16-224-ONNX";
+const CLIP_EMBED_DIM = 768;
+const CLIP_MAX_TOKENS = 64;
+
+let _clipTextPromise = null;
+
+async function getClipTextEncoder(onProgress) {
+  if (_clipTextPromise) return _clipTextPromise;
+  _clipTextPromise = (async () => {
+    const { AutoTokenizer, SiglipTextModel, env } = await import(
+      "@huggingface/transformers"
+    );
+    env.allowRemoteModels = false;
+    env.allowLocalModels = true;
+    env.localModelPath = "/models/";
+    env.backends.onnx.wasm.wasmPaths = "/ort/";
+    const device = hasWebGPU() ? "webgpu" : "wasm";
+    const [tokenizer, model] = await Promise.all([
+      AutoTokenizer.from_pretrained(CLIP_MODEL_ID, { progress_callback: onProgress }),
+      SiglipTextModel.from_pretrained(CLIP_MODEL_ID, {
+        device,
+        dtype: "q8",
+        progress_callback: onProgress,
+      }),
+    ]);
+    return { tokenizer, model };
+  })();
+  return _clipTextPromise;
+}
+
+/** Warm the SigLIP text tower (≈283 MB) ahead of the first "Apparence" search. */
+export function warmUpClipText(onProgress) {
+  return getClipTextEncoder(onProgress)
+    .then(() => true)
+    .catch(() => false);
+}
+
+/** Embed a free-text description into a 768-d L2-normalised SigLIP text vector
+ *  (the shared image+text space) for multimodal "search by look". */
+export async function embedClipText(text, onProgress) {
+  const { tokenizer, model } = await getClipTextEncoder(onProgress);
+  const inputs = tokenizer(text, {
+    padding: "max_length",
+    max_length: CLIP_MAX_TOKENS,
+    truncation: true,
+  });
+  const out = await model(inputs);
+  const data = (out.pooler_output ?? out.text_embeds ?? out.last_hidden_state)?.data;
+  if (!data) throw new Error("clip text: model returned no pooled output");
+  let arr = Array.from(data, (x) => Number(x));
+  if (arr.length !== CLIP_EMBED_DIM) {
+    throw new Error(`unexpected clip text embedding length ${arr.length}`);
+  }
+  const norm = Math.sqrt(arr.reduce((s, x) => s + x * x, 0));
+  if (norm > 0) arr = arr.map((x) => x / norm);
+  return arr;
+}
+
 // Diagnostic / seed hooks: expose the embedders so the catalog index can be
 // seeded from the browser with the EXACT same model the query uses (the dev
 // seed tooling drives these).
 if (typeof window !== "undefined") {
   window.__fcEmbedImage = embedImage;
   window.__fcEmbedText = embedText;
+  window.__fcEmbedClipText = embedClipText;
 }

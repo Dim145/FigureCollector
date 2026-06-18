@@ -3,6 +3,22 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.30 — search by look
+
+- **"Apparence" search** — a third catalogue search mode (beside *Keywords* and
+  *Meaning*): describe how a figure *looks* — pose, hair colour, outfit, "a
+  white-haired elf" — and find it by appearance. Powered by multilingual SigLIP2
+  (text→image, fully on-device): the worker embeds catalogue images, the browser
+  embeds your description, both in one shared space. Works across languages and
+  honours your NSFW preference like the rest of the catalogue.
+- **Match % + a tunable floor** — each result carries a match score, with an
+  admin **Pertinence minimale** floor to trim the weak tail.
+- **Admin opt-in, off by default** — enable it in **Réglages**, then **Indexer
+  les images (apparence)** to build the index; the embed worker keeps it
+  current. The SigLIP text model (~283 MB) downloads only the first time you
+  open "Apparence", then stays cached. *Meaning* search (e5) remains a separate,
+  lighter option — the two are complementary.
+
 ## 0.29 — search by meaning
 
 - **Semantic ("Sens") search** — the catalogue search bar gains a *Meaning* mode

@@ -124,6 +124,34 @@ async fn text_search(
     Ok(Json(hydrate(&state.pool, candidates, exclude_nsfw).await?))
 }
 
+#[derive(Deserialize)]
+struct ClipSearchInput {
+    /// 768-d L2-normalised SigLIP2 text-tower embedding of the query text.
+    embedding: Vec<f32>,
+}
+
+/// `POST /me/clip-search` — multimodal "search by look". The query text is
+/// embedded in-browser (SigLIP2 text tower) and matched against catalog IMAGE
+/// embeddings (SigLIP2 vision tower, built by the worker) in their shared space.
+/// Gated on the `clip_search` admin toggle.
+async fn clip_search(
+    State(state): State<AppState>,
+    session: Session,
+    Json(input): Json<ClipSearchInput>,
+) -> AppResult<Json<Vec<ScoredFigure>>> {
+    auth::require_user(&session).await?;
+    if !settings::clip_search_enabled(&state.pool).await? {
+        return Err(AppError::FeatureDisabled("clip search is not enabled"));
+    }
+    let mut candidates = visual_search::clip_search(&state.pool, input.embedding, TOP_K).await?;
+    // Admin-tunable match floor (SigLIP cosine sits low → mostly trims the tail).
+    let max_distance = 1.0 - settings::clip_search_min_match(&state.pool).await? / 100.0;
+    candidates.retain(|c| f64::from(c.distance) <= max_distance);
+    // Active catalogue search → honour the viewer's NSFW pref like keyword/Sens.
+    let exclude_nsfw = crate::routes::figures::viewer_hides_nsfw(&session, &state.pool).await;
+    Ok(Json(hydrate(&state.pool, candidates, exclude_nsfw).await?))
+}
+
 /// Hydrate distance-ranked candidates into full catalog cards, preserving the
 /// ANN ordering. `exclude_nsfw` drops adult figures for a hide-viewer (passive
 /// surfaces); when kept, they ride along and the client blurs per pref.
@@ -229,6 +257,14 @@ struct Status {
     /// At least one figure's text is embedded → semantic search can return hits.
     text_ready: bool,
     text_embedded: i64,
+    /// Admin opt-in for multimodal "search by look" (off by default). Drives the
+    /// catalogue's "Apparence" search-mode toggle.
+    clip_search_enabled: bool,
+    /// The SigLIP model the client must load so its query vectors match the index.
+    clip_model_version: String,
+    /// At least one catalog image has a SigLIP embedding → clip search can hit.
+    clip_ready: bool,
+    clip_embedded: i64,
 }
 
 async fn status(State(state): State<AppState>, session: Session) -> AppResult<Json<Status>> {
@@ -241,6 +277,8 @@ async fn status(State(state): State<AppState>, session: Session) -> AppResult<Js
     let text_search_enabled = settings::text_search_enabled(&state.pool).await?;
     let text_stats =
         visual_search::index_stats(&state.pool, visual_search::TEXT_MODEL_VERSION).await?;
+    let clip_search_enabled = settings::clip_search_enabled(&state.pool).await?;
+    let clip_stats = visual_search::index_stats_clip(&state.pool).await?;
     Ok(Json(Status {
         enabled,
         model_version: visual_search::MODEL_VERSION.to_string(),
@@ -254,6 +292,10 @@ async fn status(State(state): State<AppState>, session: Session) -> AppResult<Js
         text_model_version: visual_search::TEXT_MODEL_VERSION.to_string(),
         text_ready: text_stats.embedded > 0,
         text_embedded: text_stats.embedded,
+        clip_search_enabled,
+        clip_model_version: visual_search::CLIP_MODEL_VERSION.to_string(),
+        clip_ready: clip_stats.embedded > 0,
+        clip_embedded: clip_stats.embedded,
     }))
 }
 
@@ -406,6 +448,7 @@ pub fn router() -> Router<AppState> {
         .route("/visual-search/status", get(status))
         .route("/me/visual-search", post(search_by_image))
         .route("/me/text-search", post(text_search))
+        .route("/me/clip-search", post(clip_search))
         .route("/me/recommendations", get(recommendations))
         .route("/figures/{id}/similar", get(similar_figures))
         .route("/visual-search/clusters", get(ambiance_clusters))
