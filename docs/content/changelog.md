@@ -3,6 +3,21 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.33 — indexing you can see and steer
+
+- **Appearance tags from every angle** — the tagger now reads *all* of a figure's
+  images (uploaded photos + the official one) and merges the tags, so search by
+  description/appearance catches what any single shot would miss.
+- **Indexing in the task history** — each (re)index now shows up in **Réglages ▸
+  Tâches** like the other server jobs: live progress while it runs, then a result
+  (encoded / failed) when it finishes. The page was reorganised around one
+  unified timeline for a clearer read.
+- **Reindex from scratch** — admins get a "De zéro" wipe-and-rebuild per index
+  (plus a global one) for a clean slate, and a plain re-index now also retries
+  any failed items instead of silently doing nothing.
+- **Lighter, faster** — indexing models load on demand and unload after an idle
+  grace period (configurable), and are cached so they download only once.
+
 ## 0.32 — clearer search modes
 
 - **"Sens" renamed "Description"** — the meaning-based search mode now reads

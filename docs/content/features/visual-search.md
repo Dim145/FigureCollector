@@ -97,3 +97,10 @@ Both run the **same model and preprocessing as the browser** (shared
     it never competes with the gsplat trainer for VRAM. On a worker with spare
     VRAM (or a dedicated/bigger GPU) set `EMBED_DEVICE=cuda` to index much
     faster; on the standalone CPU image that flag harmlessly falls back to CPU.
+
+!!! tip "Low idle memory"
+    Each model (image, text, look, tagger) loads on demand and is freed after
+    `EMBED_MODEL_IDLE_GRACE` seconds without work — default `300` (5 min) — so an
+    idle worker holds no model in RAM and reloads only when jobs arrive. Lower it
+    to reclaim memory sooner, raise it to avoid reloading on bursty queues, or set
+    `0` to unload as soon as the queue drains.
