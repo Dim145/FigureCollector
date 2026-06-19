@@ -500,6 +500,9 @@ export default {
   "lookup.figure.url_detected": "Lien détecté — ouverture de la fiche…",
   "lookup.figure.hint_min": "Tape au moins 2 caractères pour lancer la recherche.",
   "lookup.figure.no_results": "Aucun résultat. Essaie un autre mot-clé.",
+  "lookup.figure.searching": "Recherche en cours…",
+  "lookup.figure.view": "Voir",
+  "lookup.figure.open_shop": "Ouvrir dans la boutique (nouvel onglet)",
   "lookup.figure.source_prefix": "Source :",
 
   // Detail modal (orzgk product page import)

@@ -64,7 +64,10 @@ export default function FigureLookup({ initial = "", onPick }) {
   const [debouncedQuery, setDebouncedQuery] = useState(initial);
   const [results, setResults] = useState([]);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
+  // Per-source failures: [{ source: "orzgk" | "proxy", message }]. Attributing
+  // the error to its provider answers "which one broke?" instead of one
+  // anonymous line.
+  const [errors, setErrors] = useState([]);
   const [mfcOpen, setMfcOpen] = useState(false);
   const inputRef = useRef(null);
   // Boutique proxy gate. `enabled` flips to true once the proxy is
@@ -84,6 +87,29 @@ export default function FigureLookup({ initial = "", onPick }) {
   const [detailError, setDetailError] = useState(null);
   // Which modal the detail flow drives: orzgk's, or the proxy's version picker.
   const [detailSource, setDetailSource] = useState("orzgk");
+
+  // Hover-to-enlarge for result thumbnails: a big floating preview beside the
+  // hovered thumb. Portaled to <body> + position:fixed so the results list's
+  // `overflow-y-auto` can't clip it. `null` when nothing is hovered.
+  const [preview, setPreview] = useState(null);
+  const showPreview = (src, el) => {
+    if (!src || !el) {
+      setPreview(null);
+      return;
+    }
+    const r = el.getBoundingClientRect();
+    const SIZE = 256;
+    const GAP = 12;
+    // Prefer the right of the thumbnail; flip to the left if it'd overflow.
+    let left = r.right + GAP;
+    if (left + SIZE > window.innerWidth - 8) left = r.left - GAP - SIZE;
+    left = Math.max(8, left);
+    const top = Math.min(
+      Math.max(8, r.top + r.height / 2 - SIZE / 2),
+      window.innerHeight - SIZE - 8,
+    );
+    setPreview({ src, top, left, size: SIZE });
+  };
 
   // 320ms debounce on the search input.
   useEffect(() => {
@@ -125,74 +151,75 @@ export default function FigureLookup({ initial = "", onPick }) {
     // useless `?q=https://...` against the name-search providers.
     if (/^https?:\/\//i.test(q)) {
       setResults([]);
-      setError(null);
+      setErrors([]);
       return;
     }
     if (q.length < 2) {
       setResults([]);
-      setError(null);
+      setErrors([]);
       return;
     }
     let cancelled = false;
     setBusy(true);
-    setError(null);
+    setErrors([]);
 
-    // Name search hits orzgk natively (always on); the proxy branch below
-    // adds its boutiques when configured. MFC is intentionally absent — its
-    // search/scrape is Cloudflare-blocked, so it's import-by-paste only.
+    // Each provider resolves to { rows, error } so a failure is attributed to
+    // its source in the UI (not one anonymous "internal"). Name search hits
+    // orzgk natively (always on); the proxy branch adds its boutiques when
+    // configured. MFC is absent — its scrape is Cloudflare-blocked (paste-only).
     const calls = [
       api.get(`/external/orzgk/search?q=${encodeURIComponent(q)}`).then(
-        (rows) => rows.map((r) => ({ ...r, source: "orzgk" })),
-        (e) => {
-          if (cancelled) return [];
-          setError(e?.message ?? "orzgk failed");
-          return [];
-        },
+        (rows) => ({
+          rows: rows.map((r) => ({ ...r, source: "orzgk" })),
+          error: null,
+        }),
+        (e) => ({
+          rows: [],
+          error: { source: "orzgk", message: e?.message ?? "échec" },
+        }),
       ),
     ];
 
-    // Optional third branch — the external boutique proxy. Same shape
-    // adapted into the result-row contract so the existing ResultRow
-    // renders it without code-paths.
     if (proxy.enabled) {
       calls.push(
-        api
-          .get(`/external/proxy/search?q=${encodeURIComponent(q)}`)
-          .then(
-            (rows) =>
-              rows.map((r) => ({
-                source: "proxy",
-                title: r.title,
-                detail_url: r.url,
-                image_url: r.image_url ?? null,
-                studio: r.store_name ?? r.store_id,
-                // Map status string to the same field orzgk's card uses.
-                status: r.status ?? null,
-                // Keep the structured price for tooltip rendering.
-                price_range:
-                  r.price?.amount != null
-                    ? `${r.price.amount} ${r.price.currency ?? ""}`.trim()
-                    : null,
-                // Carry the store_id through so the modal can route the
-                // detail call back to the proxy.
-                proxy_store_id: r.store_id,
-              })),
-            (e) => {
-              if (cancelled) return [];
-              // proxy errors are silent in the results list — the
-              // gating UI shows the cause separately.
-              if (!(e instanceof ApiError && e.code === "feature_disabled")) {
-                console.warn("proxy search failed", e);
-              }
-              return [];
-            },
-          ),
+        api.get(`/external/proxy/search?q=${encodeURIComponent(q)}`).then(
+          (rows) => ({
+            rows: rows.map((r) => ({
+              source: "proxy",
+              title: r.title,
+              detail_url: r.url,
+              image_url: r.image_url ?? null,
+              studio: r.store_name ?? r.store_id,
+              // Map status string to the same field orzgk's card uses.
+              status: r.status ?? null,
+              // Keep the structured price for tooltip rendering.
+              price_range:
+                r.price?.amount != null
+                  ? `${r.price.amount} ${r.price.currency ?? ""}`.trim()
+                  : null,
+              // Carry the store_id through so the modal can route the
+              // detail call back to the proxy.
+              proxy_store_id: r.store_id,
+            })),
+            error: null,
+          }),
+          (e) => ({
+            rows: [],
+            // "proxy not configured" is the normal off state, not a failure —
+            // the gating UI explains it, so don't flag it as a source error.
+            error:
+              e instanceof ApiError && e.code === "feature_disabled"
+                ? null
+                : { source: "proxy", message: e?.message ?? "échec" },
+          }),
+        ),
       );
     }
 
-    Promise.all(calls).then((lists) => {
+    Promise.all(calls).then((parts) => {
       if (cancelled) return;
-      setResults(lists.flat());
+      setResults(parts.flatMap((p) => p.rows));
+      setErrors(parts.map((p) => p.error).filter(Boolean));
       setBusy(false);
     });
 
@@ -371,7 +398,28 @@ export default function FigureLookup({ initial = "", onPick }) {
             {t("lookup.figure.url_detected")}
           </p>
         ) : busy ? (
-          <p className="text-xs text-[var(--color-ivoire-soft)] italic">…</p>
+          <div
+            role="status"
+            className="flex items-center gap-3 py-4 text-xs text-[var(--color-ivoire-soft)]"
+          >
+            <span className="flex gap-1" aria-hidden>
+              <span
+                className="w-1.5 h-1.5 rotate-45 bg-[var(--color-or)] animate-pulse"
+                style={{ animationDelay: "0ms" }}
+              />
+              <span
+                className="w-1.5 h-1.5 rotate-45 bg-[var(--color-or)] animate-pulse"
+                style={{ animationDelay: "160ms" }}
+              />
+              <span
+                className="w-1.5 h-1.5 rotate-45 bg-[var(--color-or)] animate-pulse"
+                style={{ animationDelay: "320ms" }}
+              />
+            </span>
+            <span>
+              {t("lookup.figure.searching", { default: "Recherche en cours…" })}
+            </span>
+          </div>
         ) : debouncedQuery.trim().length < 2 ? (
           <p className="text-xs text-[var(--color-ivoire-soft)] italic">
             {t("lookup.figure.hint_min")}
@@ -386,6 +434,7 @@ export default function FigureLookup({ initial = "", onPick }) {
               <li key={`${r.source}-${i}-${r.detail_url ?? r.mfc_id ?? i}`}>
                 <ResultRow
                   row={r}
+                  onPreview={showPreview}
                   onPick={() => {
                     if (r.source === "orzgk" && r.detail_url) {
                       openDetail(r.detail_url);
@@ -403,13 +452,20 @@ export default function FigureLookup({ initial = "", onPick }) {
           </ul>
         )}
 
-        {error ? (
-          <p
-            role="alert"
-            className="mt-3 text-xs text-[var(--color-laque-bright)]"
-          >
-            {error}
-          </p>
+        {errors.length > 0 ? (
+          <ul role="alert" className="mt-3 space-y-1.5">
+            {errors.map((e) => (
+              <li
+                key={e.source}
+                className="flex items-start gap-2 text-xs text-[var(--color-laque-bright)]"
+              >
+                <span className="shrink-0 mt-px font-mono text-[9px] uppercase tracking-[0.15em] px-1.5 py-0.5 border border-[var(--color-laque-bright)]/40">
+                  {e.source === "proxy" ? "Proxy" : "orzgk"}
+                </span>
+                <span className="leading-snug">{e.message}</span>
+              </li>
+            ))}
+          </ul>
         ) : null}
       </div>
 
@@ -443,6 +499,28 @@ export default function FigureLookup({ initial = "", onPick }) {
         onApply={applyPick}
         t={t}
       />
+
+      {preview
+        ? createPortal(
+            <div
+              className="fixed z-[200] pointer-events-none border border-[var(--color-or)]/45 bg-[var(--color-noir-deep)] shadow-2xl"
+              style={{
+                top: preview.top,
+                left: preview.left,
+                width: preview.size,
+                height: preview.size,
+              }}
+              aria-hidden
+            >
+              <img
+                src={preview.src}
+                alt=""
+                className="w-full h-full object-contain"
+              />
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }
@@ -483,7 +561,7 @@ function SourceLink({ name, href, bare = false }) {
   );
 }
 
-function ResultRow({ row, onPick }) {
+function ResultRow({ row, onPick, onPreview, t }) {
   const isOrzgk = row.source === "orzgk";
   const isProxy = row.source === "proxy";
   // Honest source badge: orzgk natively, the boutique name for proxy rows
@@ -491,55 +569,87 @@ function ResultRow({ row, onPick }) {
   const sourceLabel = isOrzgk ? "ORZGK" : isProxy ? row.studio || "BOUTIQUE" : "MFC";
   // For proxy rows the studio already shows in the badge — don't repeat it.
   const showStudio = row.studio && !isProxy;
+  const shopUrl = row.detail_url ?? null;
 
   return (
-    <button
-      type="button"
-      onClick={onPick}
-      className="w-full text-left flex items-start gap-3 p-2 hover:bg-[var(--color-or)]/8 border border-transparent hover:border-[var(--color-or)]/25 transition-all"
-    >
-      <span className="shrink-0 w-14 h-14 bg-[var(--color-noir-deep)] border border-[var(--color-or)]/15 overflow-hidden">
-        {row.image_url ? (
-          <img
-            src={row.image_url}
-            alt=""
-            loading="lazy"
-            className="w-full h-full object-cover"
-          />
-        ) : null}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-baseline gap-2">
-          <span
-            className={`chip text-[8.5px] ${isOrzgk ? "" : "chip--laque"}`}
-            style={{ padding: "0.1em 0.45em" }}
-          >
-            {sourceLabel}
+    <div className="relative">
+      <button
+        type="button"
+        onClick={onPick}
+        className="w-full text-left flex items-start gap-3 p-2 pr-14 hover:bg-[var(--color-or)]/8 border border-transparent hover:border-[var(--color-or)]/25 transition-all"
+      >
+        <span
+          className="shrink-0 w-14 h-14 bg-[var(--color-noir-deep)] border border-[var(--color-or)]/15 overflow-hidden"
+          onMouseEnter={
+            row.image_url
+              ? (e) => onPreview?.(row.image_url, e.currentTarget)
+              : undefined
+          }
+          onMouseLeave={row.image_url ? () => onPreview?.(null) : undefined}
+        >
+          {row.image_url ? (
+            <img
+              src={row.image_url}
+              alt=""
+              loading="lazy"
+              className="w-full h-full object-cover"
+            />
+          ) : null}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-baseline gap-2">
+            <span
+              className={`chip text-[8.5px] ${isOrzgk ? "" : "chip--laque"}`}
+              style={{ padding: "0.1em 0.45em" }}
+            >
+              {sourceLabel}
+            </span>
+            {showStudio ? (
+              <span className="font-mono text-[10px] tracking-wider text-[var(--color-or-pale)]/80 uppercase">
+                {row.studio}
+              </span>
+            ) : null}
+            {row.status ? (
+              <span className="font-mono text-[9px] tracking-wider text-[var(--color-ivoire-soft)]/70 uppercase">
+                · {row.status}
+              </span>
+            ) : null}
           </span>
-          {showStudio ? (
-            <span className="font-mono text-[10px] tracking-wider text-[var(--color-or-pale)]/80 uppercase">
-              {row.studio}
-            </span>
-          ) : null}
-          {row.status ? (
-            <span className="font-mono text-[9px] tracking-wider text-[var(--color-ivoire-soft)]/70 uppercase">
-              · {row.status}
-            </span>
-          ) : null}
+          <span className="block display text-base text-[var(--color-ivoire)] mt-1 leading-tight line-clamp-2">
+            {row.title ?? row.name}
+          </span>
+          <span className="block text-[10px] mt-1 text-[var(--color-ivoire-soft)] flex flex-wrap gap-x-3">
+            {row.scale ? <span>{row.scale}</span> : null}
+            {row.price_range ? (
+              <span className="text-[var(--color-or-pale)]/80">
+                {row.price_range}
+              </span>
+            ) : null}
+          </span>
         </span>
-        <span className="block display text-base text-[var(--color-ivoire)] mt-1 leading-tight line-clamp-2">
-          {row.title ?? row.name}
-        </span>
-        <span className="block text-[10px] mt-1 text-[var(--color-ivoire-soft)] flex flex-wrap gap-x-3">
-          {row.scale ? <span>{row.scale}</span> : null}
-          {row.price_range ? (
-            <span className="text-[var(--color-or-pale)]/80">
-              {row.price_range}
-            </span>
-          ) : null}
-        </span>
-      </span>
-    </button>
+      </button>
+      {/* Opens the figurine in its shop (new tab). Sibling of the pick button —
+          not nested — so the markup stays valid and the click doesn't pick. */}
+      {shopUrl ? (
+        <a
+          href={shopUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={t?.("lookup.figure.open_shop", {
+            default: "Ouvrir dans la boutique",
+          })}
+          className="group/voir absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-1 text-[10px] uppercase tracking-[0.12em] border border-[var(--color-or)]/30 bg-[var(--color-noir)]/75 text-[var(--color-or-pale)] hover:border-[var(--color-or)]/60 hover:text-[var(--color-or)] transition-colors"
+        >
+          {t?.("lookup.figure.view", { default: "Voir" })}
+          <span
+            aria-hidden
+            className="text-[9px] opacity-70 group-hover/voir:opacity-100 transition-opacity"
+          >
+            ↗
+          </span>
+        </a>
+      ) : null}
+    </div>
   );
 }
 
