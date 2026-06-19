@@ -21,20 +21,24 @@ beside the gsplat trainer without ever touching its 6 GB of VRAM, and the
 standalone variant needs no GPU at all. Coordination is direct PostgreSQL
 (asyncpg); catalog images are fetched over HTTP (`photo` rows via the server's
 public proxy, `official` rows from their URL), figure text straight from the DB.
-Each loop loads its model best-effort: a worker that bakes only one model just
-runs that one loop.
+Each loop loads its model lazily — on the first queued item, then freed again
+after EMBED_MODEL_IDLE_GRACE seconds idle so it only occupies RAM while work is
+flowing — and best-effort: a worker missing a given model releases that model's
+jobs and disables just that one loop.
 """
 
 from __future__ import annotations
 
 import asyncio
+import gc
 import io
 import os
+import time
 import traceback
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 import asyncpg
 import numpy as np
@@ -57,6 +61,10 @@ MODEL_PATH_FP16 = os.environ.get(
     "EMBED_MODEL_PATH_FP16", "/models/dinov2-small/model_fp16.onnx"
 )
 POLL_INTERVAL = int(os.environ.get("EMBED_POLL_INTERVAL", "5"))
+# Seconds a model stays resident after its last use before it's unloaded to free
+# RAM (it reloads on demand when work next arrives). Default 5 min; 0 = unload as
+# soon as the queue drains.
+MODEL_IDLE_GRACE = int(os.environ.get("EMBED_MODEL_IDLE_GRACE", "300"))
 MAX_ATTEMPTS = int(os.environ.get("EMBED_MAX_ATTEMPTS", "3"))
 HTTP_TIMEOUT = int(os.environ.get("EMBED_HTTP_TIMEOUT", "30"))
 MAX_IMAGE_BYTES = int(os.environ.get("EMBED_MAX_IMAGE_BYTES", str(25 * 1024 * 1024)))
@@ -122,6 +130,10 @@ TAGGER_IMAGE_SIZE = 448
 TAGGER_GENERAL_THRESHOLD = float(os.environ.get("EMBED_TAGGER_GENERAL_THRESHOLD", "0.35"))
 TAGGER_CHARACTER_THRESHOLD = float(os.environ.get("EMBED_TAGGER_CHARACTER_THRESHOLD", "0.5"))
 TAGGER_MAX_GENERAL = int(os.environ.get("EMBED_TAGGER_MAX_GENERAL", "25"))
+# Tag up to this many of a figure's images (all uploaded photos + the official
+# image, primary first) and MERGE the tags — most overlap, but extra angles add
+# detail. Caps the per-figure cost; raise/lower via env.
+TAGGER_MAX_IMAGES = int(os.environ.get("EMBED_TAGGER_MAX_IMAGES", "10"))
 
 # Preprocessing — verbatim from Xenova/dinov2-small/preprocessor_config.json.
 SHORTEST_EDGE = 256
@@ -148,6 +160,37 @@ def _resolve_providers() -> list[str]:
                 available=available,
             )
     return ["CPUExecutionProvider"]
+
+
+class LazyModel:
+    """Loads an embedder on first use and frees it after `grace` seconds of
+    inactivity, so a model only occupies RAM while work is flowing (plus the
+    grace window). One instance per loop — never shared — so no lock is needed:
+    the owning loop is the only coroutine that touches it, between awaits.
+
+    `acquire()` (re)loads off-thread on demand; `unload_if_idle()` is called from
+    the loop's idle branch and drops the ONNX session once the queue goes quiet."""
+
+    def __init__(self, label: str, loader: Callable[[], Any]) -> None:
+        self.label = label
+        self._loader = loader
+        self._model: Any = None
+        self._last_used = 0.0
+
+    async def acquire(self) -> Any:
+        """The loaded model — loaded off-thread on first use / after an unload."""
+        if self._model is None:
+            self._model = await asyncio.to_thread(self._loader)
+        self._last_used = time.monotonic()
+        return self._model
+
+    def unload_if_idle(self, grace: float) -> None:
+        """Drop the model if it's been idle ≥ grace seconds (frees its ONNX
+        session). No-op when already unloaded or still within the grace window."""
+        if self._model is not None and time.monotonic() - self._last_used >= grace:
+            self._model = None
+            gc.collect()
+            log.info("model unloaded (idle)", model=self.label, grace_s=int(grace))
 
 
 @dataclass
@@ -593,6 +636,20 @@ async def reconcile_missing(pool: asyncpg.Pool, item: asyncpg.Record) -> None:
     )
 
 
+async def release_claim(pool: asyncpg.Pool, item: asyncpg.Record) -> None:
+    """Return a claimed item to 'pending' WITHOUT counting a failure — used when
+    this worker can't load the model for it (e.g. that model isn't baked into this
+    image). Undoes claim's attempts++ so the job keeps its full retry budget and
+    stays available for a worker that can handle it."""
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE figure_embedding_queue "
+            "SET state = 'pending', claimed_at = NULL, attempts = GREATEST(attempts - 1, 0) "
+            "WHERE id = $1",
+            item["id"],
+        )
+
+
 # --- Loop --------------------------------------------------------------------
 async def run_embed_loop(pool: asyncpg.Pool, state: Any) -> None:
     """Drain figure_embedding_queue until cancelled. `state` is any object with a
@@ -601,20 +658,24 @@ async def run_embed_loop(pool: asyncpg.Pool, state: Any) -> None:
 
     Loading the model is best-effort: if it can't be loaded (e.g. not baked into
     this image) the loop logs and exits WITHOUT taking the host worker down."""
-    try:
-        embedder = await asyncio.to_thread(Embedder.load)
-    except Exception as e:  # noqa: BLE001
-        log.error("embed model load failed — embed loop disabled", error=str(e))
-        return
+    model = LazyModel("dinov2", Embedder.load)
     log.info("embed loop started", model_version=MODEL_VERSION, server_url=SERVER_URL)
     while True:
         if not getattr(state, "enabled", True):
+            model.unload_if_idle(MODEL_IDLE_GRACE)
             await asyncio.sleep(POLL_INTERVAL)
             continue
         item = await claim_next(pool)
         if item is None:
+            model.unload_if_idle(MODEL_IDLE_GRACE)
             await asyncio.sleep(POLL_INTERVAL)
             continue
+        try:
+            embedder = await model.acquire()
+        except Exception as e:  # noqa: BLE001
+            log.error("embed model load failed — releasing item, embed loop disabled", error=str(e))
+            await release_claim(pool, item)
+            return
         try:
             data = await asyncio.to_thread(fetch_image, item["source"], item["image_ref"])
             embedding = await asyncio.to_thread(embedder.embed, data)
@@ -646,20 +707,24 @@ async def run_text_embed_loop(pool: asyncpg.Pool, state: Any) -> None:
     Best-effort load (mirrors run_embed_loop): if the e5 model/tokenizer isn't
     baked into this image, it logs and exits WITHOUT taking the host worker
     down — an image-only worker simply skips text indexing."""
-    try:
-        embedder = await asyncio.to_thread(TextEmbedder.load)
-    except Exception as e:  # noqa: BLE001
-        log.warning("text embed model load failed — text embed loop disabled", error=str(e))
-        return
+    model = LazyModel("e5-text", TextEmbedder.load)
     log.info("text embed loop started", model_version=TEXT_MODEL_VERSION, server_url=SERVER_URL)
     while True:
         if not getattr(state, "enabled", True):
+            model.unload_if_idle(MODEL_IDLE_GRACE)
             await asyncio.sleep(POLL_INTERVAL)
             continue
         item = await claim_next_text(pool)
         if item is None:
+            model.unload_if_idle(MODEL_IDLE_GRACE)
             await asyncio.sleep(POLL_INTERVAL)
             continue
+        try:
+            embedder = await model.acquire()
+        except Exception as e:  # noqa: BLE001
+            log.warning("text embed model load failed — releasing item, text embed loop disabled", error=str(e))
+            await release_claim(pool, item)
+            return
         try:
             # Two kinds of e5 rows share this loop: 'text:<id>' (the figure's
             # descriptive passage) and 'tagvec:<id>' (its appearance tags as a
@@ -764,20 +829,24 @@ async def run_clip_embed_loop(pool: asyncpg.Pool, state: Any) -> None:
     figure_clip_embeddings. The "search by look" twin of run_embed_loop — runs as
     a THIRD concurrent task. Best-effort load: skips if the SigLIP model isn't
     baked into this image, without taking the host worker down."""
-    try:
-        embedder = await asyncio.to_thread(ClipVisionEmbedder.load)
-    except Exception as e:  # noqa: BLE001
-        log.warning("clip vision model load failed — clip embed loop disabled", error=str(e))
-        return
+    model = LazyModel("siglip-vision", ClipVisionEmbedder.load)
     log.info("clip embed loop started", model_version=CLIP_MODEL_VERSION, server_url=SERVER_URL)
     while True:
         if not getattr(state, "enabled", True):
+            model.unload_if_idle(MODEL_IDLE_GRACE)
             await asyncio.sleep(POLL_INTERVAL)
             continue
         item = await claim_next_clip(pool)
         if item is None:
+            model.unload_if_idle(MODEL_IDLE_GRACE)
             await asyncio.sleep(POLL_INTERVAL)
             continue
+        try:
+            embedder = await model.acquire()
+        except Exception as e:  # noqa: BLE001
+            log.warning("clip vision model load failed — releasing item, clip embed loop disabled", error=str(e))
+            await release_claim(pool, item)
+            return
         try:
             data = await asyncio.to_thread(fetch_image, item["source"], item["image_ref"])
             embedding = await asyncio.to_thread(embedder.embed, data)
@@ -820,28 +889,28 @@ async def claim_next_tags(pool: asyncpg.Pool) -> asyncpg.Record | None:
         )
 
 
-async def fetch_figure_primary_image(pool: asyncpg.Pool, figure_id: Any):
-    """The image to tag: the figure's primary photo, else any photo, else its
-    official image. Returns (source, image_ref) for fetch_image, or None."""
+async def fetch_figure_all_images(pool: asyncpg.Pool, figure_id: Any) -> list:
+    """Every image worth tagging for a figure — all its uploaded photos (primary
+    first) PLUS its official image — capped at TAGGER_MAX_IMAGES. The tagger tags
+    each and merges the results, so the figure picks up whatever any angle reveals
+    (most tags overlap; extras add detail). Returns [(source, image_ref), …]."""
     async with pool.acquire() as conn:
-        rec = await conn.fetchrow(
+        rows = await conn.fetch(
             """
-            SELECT f.primary_photo_id::text AS primary_photo,
-                   (SELECT fp.id::text FROM figure_photos fp
-                     WHERE fp.figure_id = $1 ORDER BY fp.id LIMIT 1) AS any_photo,
-                   f.official_image_url
-              FROM figures f WHERE f.id = $1
+            SELECT fp.id::text AS ref
+              FROM figure_photos fp
+             WHERE fp.figure_id = $1
+             ORDER BY fp.is_primary DESC, fp.position ASC, fp.created_at ASC
             """,
             figure_id,
         )
-    if rec is None:
-        return None
-    photo = rec["primary_photo"] or rec["any_photo"]
-    if photo:
-        return ("photo", photo)
-    if rec["official_image_url"]:
-        return ("official", rec["official_image_url"])
-    return None
+        official = await conn.fetchval(
+            "SELECT official_image_url FROM figures WHERE id = $1", figure_id
+        )
+    imgs = [("photo", r["ref"]) for r in rows]
+    if official and official.strip():
+        imgs.append(("official", official))
+    return imgs[:TAGGER_MAX_IMAGES]
 
 
 async def store_tags(pool: asyncpg.Pool, item: asyncpg.Record, tags: str) -> None:
@@ -860,11 +929,12 @@ async def store_tags(pool: asyncpg.Pool, item: asyncpg.Record, tags: str) -> Non
             await conn.execute(
                 """
                 INSERT INTO figure_embedding_queue (figure_id, source, image_ref, model_version)
-                VALUES ($1, 'tags', 'tagvec:' || $1::text, $2)
+                VALUES ($1, 'tags', $2, $3)
                 ON CONFLICT (image_ref, model_version) DO UPDATE
                   SET state = 'pending', error_message = NULL, attempts = 0, claimed_at = NULL
                 """,
                 item["figure_id"],
+                f"tagvec:{item['figure_id']}",
                 TEXT_MODEL_VERSION,
             )
 
@@ -874,38 +944,55 @@ async def run_tagger_loop(pool: asyncpg.Pool, state: Any) -> None:
     figures.visual_tags (then store_tags re-embeds its e5 text). A FOURTH
     concurrent worker loop. Best-effort load — skips if the WD model isn't baked
     into this image, without taking the host worker down."""
-    try:
-        tagger = await asyncio.to_thread(TaggerEmbedder.load)
-    except Exception as e:  # noqa: BLE001
-        log.warning("tagger model load failed — tagger loop disabled", error=str(e))
-        return
+    model = LazyModel("wd-tagger", TaggerEmbedder.load)
     log.info("tagger loop started", model_version=TAGGER_MODEL_VERSION, server_url=SERVER_URL)
     while True:
         if not getattr(state, "enabled", True):
+            model.unload_if_idle(MODEL_IDLE_GRACE)
             await asyncio.sleep(POLL_INTERVAL)
             continue
         item = await claim_next_tags(pool)
         if item is None:
+            model.unload_if_idle(MODEL_IDLE_GRACE)
             await asyncio.sleep(POLL_INTERVAL)
             continue
         try:
-            img = await fetch_figure_primary_image(pool, item["figure_id"])
-            if img is None:
+            tagger = await model.acquire()
+        except Exception as e:  # noqa: BLE001
+            log.warning("tagger model load failed — releasing item, tagger loop disabled", error=str(e))
+            await release_claim(pool, item)
+            return
+        try:
+            imgs = await fetch_figure_all_images(pool, item["figure_id"])
+            if not imgs:
                 # Figure gone or imageless → nothing to tag; drop the job row.
                 async with pool.acquire() as conn:
                     await conn.execute("DELETE FROM figure_embedding_queue WHERE id = $1", item["id"])
                 continue
-            source, ref = img
-            data = await asyncio.to_thread(fetch_image, source, ref)
-            tags = await asyncio.to_thread(tagger.tag, data)
-            await store_tags(pool, item, tags)
-            log.info("tagged", figure_id=str(item["figure_id"]), tags=tags[:80])
-        except urllib.error.HTTPError as e:
-            if e.code == 404:
+            # Tag every image; MERGE the tags (dedup, first-seen order) so the
+            # figure gets the union across all angles. A vanished image (404) is
+            # skipped, not fatal — only an all-gone figure drops the job.
+            seen: set = set()
+            merged: list = []
+            for source, ref in imgs:
+                try:
+                    data = await asyncio.to_thread(fetch_image, source, ref)
+                except urllib.error.HTTPError as e:
+                    if e.code == 404:
+                        continue
+                    raise
+                tag_str = await asyncio.to_thread(tagger.tag, data)
+                for tag in (t.strip() for t in tag_str.split(",")):
+                    if tag and tag not in seen:
+                        seen.add(tag)
+                        merged.append(tag)
+            if not merged:
                 async with pool.acquire() as conn:
                     await conn.execute("DELETE FROM figure_embedding_queue WHERE id = $1", item["id"])
-            else:
-                await mark_failure(pool, item, f"HTTP {e.code}: {e}")
+                continue
+            tags = ", ".join(merged)
+            await store_tags(pool, item, tags)
+            log.info("tagged", figure_id=str(item["figure_id"]), images=len(imgs), tags=tags[:80])
         except Exception as e:  # noqa: BLE001
             trace = traceback.format_exc()[-2000:]
             await mark_failure(pool, item, f"{type(e).__name__}: {e}\n{trace}")

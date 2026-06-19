@@ -124,7 +124,12 @@ RUN mkdir -p /opt/colmap-models && \
 # COLMAP 4.0.4 (CUDA build) — the WHOLE Structure-from-Motion, into an isolated
 # micromamba env. It's the exact COLMAP the macOS worker runs (Homebrew 4.0.4),
 # whose reworked incremental mapper is why glossy turntables reconstruct reliably.
-# Pin 4.0.4 explicitly: conda-forge's `=cpu*` glob silently resolved to 3.11.1.
+# Pin the build NUMBER (`cuda_*_1`), not just the version. conda-forge is a
+# rolling repo: a bare `cuda_*` glob floats to the newest build, and the
+# 2026-06-15 `_2` rebuild (libboost 1.88→1.90, colmap-feedstock #93) broke the
+# runtime link — colmap couldn't load libboost_*.so.1.90.0, failing the smoke
+# test below. `_1` is the last pre-migration build (what 0.16.x shipped). (A bare
+# `=cpu*` glob had earlier silently resolved to 3.11.1 — same rolling-repo trap.)
 # CONDA_OVERRIDE_CUDA=12.9 lets the `cuda_129` build's `__cuda >=12.9` constraint
 # pass on a GPU-less build host (the host's NVIDIA driver provides it at runtime).
 #
@@ -144,7 +149,7 @@ ENV MAMBA_ROOT_PREFIX=/opt/micromamba
 # tarballs so the baked layer stays slim; the `colmap help` smoke test catches an
 # incomplete env.
 RUN CONDA_OVERRIDE_CUDA=12.9 micromamba create -y -n sfm -c conda-forge \
-      "colmap=4.0.4=cuda_*" "libfaiss=*=cpu_openblas*" && \
+      "colmap=4.0.4=cuda_*_1" "libfaiss=*=cpu_openblas*" && \
     micromamba clean -a -y && \
     test -x /opt/micromamba/envs/sfm/bin/colmap && \
     micromamba list -n sfm colmap && micromamba list -n sfm libfaiss && \
