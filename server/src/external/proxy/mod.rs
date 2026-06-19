@@ -33,10 +33,6 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-/// Wall-clock cap on any single proxy call. Generous because the proxy
-/// may have to wait on slow upstream sites (Cloudflare warm-ups).
-const REQUEST_TIMEOUT_SECS: u64 = 30;
-
 // =============================================================================
 // Response types
 //
@@ -252,7 +248,7 @@ impl<'a> ProxyClient<'a> {
             .http
             .get(&endpoint)
             .query(query)
-            .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
+            .timeout(Duration::from_secs(self.cfg.timeout_secs))
             .header(reqwest::header::ACCEPT, "application/json")
             .header(
                 reqwest::header::USER_AGENT,

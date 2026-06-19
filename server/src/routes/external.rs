@@ -4,7 +4,7 @@
 
 use crate::auth;
 use crate::error::{AppError, AppResult};
-use crate::external::{anilist, fx, mal, mfc, orzgk, proxy, tracking};
+use crate::external::{anilist, circuit_breaker, fx, mal, mfc, orzgk, proxy, tracking};
 use crate::state::AppState;
 use axum::{
     Json, Router,
@@ -15,6 +15,14 @@ use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 use serde::Deserialize;
 use tower_sessions::Session;
+
+// Circuit-breaker 503 messages (static, so they reach the SPA verbatim). After
+// repeated failures `circuit_breaker::guard` pauses the source and answers with
+// these instead of hammering an upstream that's likely rate-limiting us.
+const ORZGK_PAUSED: &str =
+    "orzgk est en pause suite à des erreurs répétées (probable rate-limit), réessaie dans quelques minutes";
+const PROXY_PAUSED: &str =
+    "le proxy de boutiques est en pause suite à des erreurs répétées, réessaie dans quelques minutes";
 
 // ─── Scraped-price normalisation (import rule) ──────────────────────────────
 //
@@ -241,7 +249,12 @@ async fn orzgk_search(
     if query.trim().len() < 2 {
         return Err(AppError::BadRequest("query must be at least 2 chars"));
     }
-    Ok(Json(orzgk::search(&state.pool, &state.http, &query).await?))
+    Ok(Json(
+        circuit_breaker::guard("orzgk", AppError::ServiceUnavailable(ORZGK_PAUSED), || {
+            orzgk::search(&state.pool, &state.http, &query)
+        })
+        .await?,
+    ))
 }
 
 /// Fetch a public orzgk wishlist (wlfmc) by its share URL, following
@@ -259,7 +272,10 @@ async fn orzgk_wishlist(
         .filter(|s| !s.is_empty())
         .ok_or(AppError::BadRequest("missing url parameter"))?;
     Ok(Json(
-        orzgk::fetch_wishlist(&state.pool, &state.http, url).await?,
+        circuit_breaker::guard("orzgk", AppError::ServiceUnavailable(ORZGK_PAUSED), || {
+            orzgk::fetch_wishlist(&state.pool, &state.http, url)
+        })
+        .await?,
     ))
 }
 
@@ -342,7 +358,12 @@ async fn proxy_stores(
              (set FIGURE_PROXY_URL)",
         ));
     }
-    Ok(Json(client.stores().await?))
+    Ok(Json(
+        circuit_breaker::guard("proxy", AppError::ServiceUnavailable(PROXY_PAUSED), || {
+            client.stores()
+        })
+        .await?,
+    ))
 }
 
 async fn proxy_search(
@@ -362,7 +383,12 @@ async fn proxy_search(
         return Err(AppError::BadRequest("query must be at least 2 chars"));
     }
     let store_filter = q.store.as_deref().map(str::trim).filter(|s| !s.is_empty());
-    Ok(Json(client.search(query.trim(), store_filter).await?))
+    Ok(Json(
+        circuit_breaker::guard("proxy", AppError::ServiceUnavailable(PROXY_PAUSED), || {
+            client.search(query.trim(), store_filter)
+        })
+        .await?,
+    ))
 }
 
 async fn proxy_product(
@@ -383,7 +409,12 @@ async fn proxy_product(
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .ok_or(AppError::BadRequest("missing url parameter"))?;
-    let mut product = client.product(url).await?;
+    let mut product = circuit_breaker::guard(
+        "proxy",
+        AppError::ServiceUnavailable(PROXY_PAUSED),
+        || client.product(url),
+    )
+    .await?;
     normalize_proxy_price(&state, &mut product.price).await;
     for v in &mut product.versions {
         normalize_proxy_version_prices(&state, &mut v.prices).await;
@@ -412,7 +443,12 @@ async fn proxy_wishlist(
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .ok_or(AppError::BadRequest("missing url parameter"))?;
-    let mut items = client.wishlist(url).await?;
+    let mut items = circuit_breaker::guard(
+        "proxy",
+        AppError::ServiceUnavailable(PROXY_PAUSED),
+        || client.wishlist(url),
+    )
+    .await?;
     for it in &mut items {
         normalize_proxy_price(&state, &mut it.price).await;
     }
@@ -435,7 +471,12 @@ async fn orzgk_detail(
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .ok_or(AppError::BadRequest("missing url parameter"))?;
-    let mut detail = orzgk::detail(&state.pool, &state.http, url).await?;
+    let mut detail = circuit_breaker::guard(
+        "orzgk",
+        AppError::ServiceUnavailable(ORZGK_PAUSED),
+        || orzgk::detail(&state.pool, &state.http, url),
+    )
+    .await?;
     normalize_orzgk_prices(&state, &mut detail.prices).await;
     for v in &mut detail.versions {
         normalize_orzgk_prices(&state, &mut v.prices).await;

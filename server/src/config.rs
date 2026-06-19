@@ -39,6 +39,10 @@ pub struct ProxyConfig {
     /// proxy call. Pair with a self-hosted proxy that gates its routes,
     /// or leave unset for a proxy reachable on a trusted network only.
     pub api_key: Option<String>,
+    /// Wall-clock cap (seconds) on any single proxy call. The proxy may wait
+    /// on slow upstream sites (Cloudflare warm-ups, paginated scrapes), so this
+    /// is generous and tunable via `FIGURE_PROXY_TIMEOUT_SECS`. Default 60.
+    pub timeout_secs: u64,
 }
 
 /// Shipping-carrier API credentials. All optional — the corresponding
@@ -144,6 +148,11 @@ impl AppConfig {
             base_url: env_nonempty("FIGURE_PROXY_URL")
                 .map(|s| s.trim_end_matches('/').to_string()),
             api_key: env_nonempty("FIGURE_PROXY_API_KEY"),
+            timeout_secs: env::var("FIGURE_PROXY_TIMEOUT_SECS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .filter(|&n| n > 0)
+                .unwrap_or(60),
         };
 
         Ok(Self {
