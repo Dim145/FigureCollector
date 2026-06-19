@@ -1008,46 +1008,99 @@ async fn patch_settings(
 /// Queue every catalog image still missing an embedding for the current model
 /// — the embed-capable worker drains the queue and writes the vectors. Returns
 /// how many were queued.
+/// `?force=true` wipes the index (vectors + queue rows) before re-enqueuing, for
+/// a true from-scratch rebuild. Without it, we top up the rows still missing AND
+/// re-arm any `failed` rows, so a plain re-trigger resumes stuck work instead of
+/// silently no-op-ing on the `ON CONFLICT DO NOTHING`.
+#[derive(serde::Deserialize)]
+struct ReindexQuery {
+    #[serde(default)]
+    force: bool,
+}
+
+/// Record an admin reindex as a tracked server job (so it appears in the Tasks
+/// history; the reconciler flips it to 'ready' with the final counts once the
+/// queue drains), then run the wipe/enqueue. A wipe/enqueue error marks the job
+/// failed. `start()` returns None when one is already in flight (single-flight) —
+/// we still (re)enqueue, riding the existing job's history row.
+async fn run_reindex(state: &AppState, kind: &str, force: bool) -> AppResult<serde_json::Value> {
+    let run = server_job::start(&state.pool, visual_search::reindex_job_name(kind), "manual").await?;
+    match visual_search::reindex(&state.pool, kind, force).await {
+        Ok(queued) => Ok(json!({ "queued": queued })),
+        Err(e) => {
+            if let Some(id) = run {
+                let _ = server_job::finish_failed(&state.pool, id, &e.to_string()).await;
+            }
+            Err(e)
+        }
+    }
+}
+
 async fn reindex_visual_search(
     State(state): State<AppState>,
     session: Session,
+    Query(q): Query<ReindexQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
     let actor = auth::require_admin(&session, &state.pool).await?;
-    let queued = visual_search::enqueue_missing(&state.pool, visual_search::MODEL_VERSION).await?;
-    tracing::info!(by_admin = %actor.id, queued, "admin queued visual-search reindex");
-    Ok(Json(json!({ "queued": queued })))
+    let out = run_reindex(&state, "image", q.force).await?;
+    tracing::info!(by_admin = %actor.id, force = q.force, "admin queued visual-search reindex");
+    Ok(Json(out))
 }
 
-/// Queue every figure's text for semantic (e5-small) embedding — the worker
-/// builds the text index. Returns how many were queued.
+/// Queue every figure's text for semantic (e5-small) embedding.
 async fn reindex_text_search(
     State(state): State<AppState>,
     session: Session,
+    Query(q): Query<ReindexQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
     let actor = auth::require_admin(&session, &state.pool).await?;
-    let queued = visual_search::enqueue_missing_text(&state.pool).await?;
-    tracing::info!(by_admin = %actor.id, queued, "admin queued text-search reindex");
-    Ok(Json(json!({ "queued": queued })))
+    let out = run_reindex(&state, "text", q.force).await?;
+    tracing::info!(by_admin = %actor.id, force = q.force, "admin queued text-search reindex");
+    Ok(Json(out))
 }
 
 async fn reindex_clip_search(
     State(state): State<AppState>,
     session: Session,
+    Query(q): Query<ReindexQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
     let actor = auth::require_admin(&session, &state.pool).await?;
-    let queued = visual_search::enqueue_missing_clip(&state.pool).await?;
-    tracing::info!(by_admin = %actor.id, queued, "admin queued clip-search reindex");
-    Ok(Json(json!({ "queued": queued })))
+    let out = run_reindex(&state, "look", q.force).await?;
+    tracing::info!(by_admin = %actor.id, force = q.force, "admin queued clip-search reindex");
+    Ok(Json(out))
 }
 
 async fn reindex_tags(
     State(state): State<AppState>,
     session: Session,
+    Query(q): Query<ReindexQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
     let actor = auth::require_admin(&session, &state.pool).await?;
-    let queued = visual_search::enqueue_missing_tags(&state.pool).await?;
-    tracing::info!(by_admin = %actor.id, queued, "admin queued appearance-tags reindex");
-    Ok(Json(json!({ "queued": queued })))
+    let out = run_reindex(&state, "tags", q.force).await?;
+    tracing::info!(by_admin = %actor.id, force = q.force, "admin queued appearance-tags reindex");
+    Ok(Json(out))
+}
+
+/// Force a from-scratch rebuild of ALL four indexes at once — the admin "Tout
+/// réindexer de zéro" action.
+async fn reindex_all(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<serde_json::Value>> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    let run = server_job::start(&state.pool, visual_search::JOB_REINDEX_ALL, "manual").await?;
+    match visual_search::reindex_all(&state.pool).await {
+        Ok(queued) => {
+            tracing::info!(by_admin = %actor.id, queued, "admin force-reindexed ALL indexes from scratch");
+            Ok(Json(json!({ "queued": queued })))
+        }
+        Err(e) => {
+            if let Some(id) = run {
+                let _ = server_job::finish_failed(&state.pool, id, &e.to_string()).await;
+            }
+            Err(e)
+        }
+    }
 }
 
 /// The embed-queue progress for the admin Tasks view: per-state counts, index
@@ -1057,17 +1110,11 @@ async fn visual_search_queue(
     session: Session,
 ) -> AppResult<Json<serde_json::Value>> {
     auth::require_admin(&session, &state.pool).await?;
-    let stats = visual_search::queue_stats(&state.pool, visual_search::MODEL_VERSION).await?;
+    let indexes = visual_search::all_index_queues(&state.pool).await?;
     let worker_present =
         crate::domain::worker::any_live_with_capability(&state.pool, "embed").await?;
     Ok(Json(json!({
-        "model_version": visual_search::MODEL_VERSION,
-        "embedded": stats.embedded,
-        "pending": stats.pending,
-        "processing": stats.processing,
-        "done": stats.done,
-        "failed": stats.failed,
-        "last_activity": stats.last_activity,
+        "indexes": indexes,
         "worker_present": worker_present,
     })))
 }
@@ -1149,6 +1196,7 @@ pub fn router() -> Router<AppState> {
         .route("/admin/visual-search/reindex-text", post(reindex_text_search))
         .route("/admin/visual-search/reindex-clip", post(reindex_clip_search))
         .route("/admin/visual-search/reindex-tags", post(reindex_tags))
+        .route("/admin/visual-search/reindex-all", post(reindex_all))
         .route("/admin/visual-search/queue", get(visual_search_queue))
         .route(
             "/admin/visual-search/retry-failed",

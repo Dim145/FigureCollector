@@ -141,6 +141,23 @@ async fn main() -> anyhow::Result<()> {
         Err(e) => tracing::warn!(error = ?e, "could not close interrupted server job runs"),
     }
 
+    // Close admin reindex jobs once their embedding queue drains. The work runs
+    // in the external embed worker, so the server polls the queue (every 15 s) to
+    // detect completion and stamp the final counts onto the Tasks-history row.
+    {
+        let pool = state.pool.clone();
+        tokio::spawn(async move {
+            let mut tick = tokio::time::interval(Duration::from_secs(15));
+            tick.tick().await;
+            loop {
+                tick.tick().await;
+                if let Err(e) = domain::visual_search::reconcile_reindex_jobs(&pool).await {
+                    tracing::warn!(error = ?e, "reindex job reconcile failed");
+                }
+            }
+        });
+    }
+
     // Daily release-date scheduler — fires J-day + J-7 notifications on
     // preorders that hit their release date.
     services::release_cron::spawn(state.clone());

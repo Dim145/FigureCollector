@@ -126,13 +126,18 @@ pub async fn get(pool: &PgPool, id: Uuid) -> AppResult<Option<ServerJobRun>> {
 /// Close runs orphaned by a process death: anything still `processing` when
 /// the server boots was interrupted mid-run. Called once at startup so the
 /// admin Tasks page never shows ghost in-flight runs.
+///
+/// Reindex jobs (`reindex_*`) are EXEMPT: their work runs in the external embed
+/// worker, not in this process, so a server restart doesn't interrupt them — the
+/// reconciler closes them once the queue drains.
 pub async fn mark_interrupted(pool: &PgPool) -> AppResult<u64> {
     let res = sqlx::query(
         "UPDATE server_job_runs
          SET state = 'failed',
              error_message = 'interrupted by a server restart',
              finished_at = now()
-         WHERE state = 'processing'",
+         WHERE state = 'processing'
+           AND job_name NOT LIKE 'reindex\\_%' ESCAPE '\\'",
     )
     .execute(pool)
     .await?;

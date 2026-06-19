@@ -441,53 +441,6 @@ pub async fn index_stats(pool: &PgPool, model_version: &str) -> AppResult<IndexS
     Ok(IndexStats { embedded, pending })
 }
 
-/// Full embed-queue breakdown for the admin Tasks view — per-state counts, the
-/// live index size, and the most recent activity. Surfaces the indexing job's
-/// progress (done vs the rest) the way scans/jobs surface theirs.
-#[derive(Debug, Clone, Serialize)]
-pub struct QueueStats {
-    /// Vectors currently in the index for this model.
-    pub embedded: i64,
-    pub pending: i64,
-    pub processing: i64,
-    pub done: i64,
-    pub failed: i64,
-    /// Most recent claim/enqueue across the queue — the job's "last seen".
-    pub last_activity: Option<DateTime<Utc>>,
-}
-
-pub async fn queue_stats(pool: &PgPool, model_version: &str) -> AppResult<QueueStats> {
-    let embedded: i64 =
-        sqlx::query_scalar("SELECT COUNT(*) FROM figure_embeddings WHERE model_version = $1")
-            .bind(model_version)
-            .fetch_one(pool)
-            .await?;
-    // One pass over the queue: per-state counts + last activity. Aggregates over
-    // an empty table still return one row (zeros / NULL), so this is safe when
-    // nothing has been queued yet.
-    let row: (i64, i64, i64, i64, Option<DateTime<Utc>>) = sqlx::query_as(
-        "SELECT
-            COUNT(*) FILTER (WHERE state = 'pending'),
-            COUNT(*) FILTER (WHERE state = 'processing'),
-            COUNT(*) FILTER (WHERE state = 'done'),
-            COUNT(*) FILTER (WHERE state = 'failed'),
-            MAX(COALESCE(claimed_at, enqueued_at))
-         FROM figure_embedding_queue
-         WHERE model_version = $1",
-    )
-    .bind(model_version)
-    .fetch_one(pool)
-    .await?;
-    Ok(QueueStats {
-        embedded,
-        pending: row.0,
-        processing: row.1,
-        done: row.2,
-        failed: row.3,
-        last_activity: row.4,
-    })
-}
-
 /// Re-arm every failed queue row (admin "retry failures" on the Tasks view) so
 /// the worker takes another pass. Returns how many were reset.
 pub async fn retry_failed(pool: &PgPool, model_version: &str) -> AppResult<u64> {
@@ -500,6 +453,262 @@ pub async fn retry_failed(pool: &PgPool, model_version: &str) -> AppResult<u64> 
     .execute(pool)
     .await?;
     Ok(res.rows_affected())
+}
+
+/// Wipe ONE index from scratch: delete its stored vectors/tags AND its queue
+/// rows so the caller's `enqueue_missing_*` re-adds everything. `kind` is one of
+/// "image" | "text" | "look" | "tags". Wrapped in a transaction so a half-wipe
+/// can't leave the index inconsistent.
+///
+/// Note the e5 `figure_embeddings` table holds BOTH the descriptive text vectors
+/// (`source = 'text'`, `image_ref = 'text:…'`) and the appearance-tag vectors
+/// (`source = 'tags'`, `image_ref = 'tagvec:…'`), so "text" and "tags" each scope
+/// their deletes by source/prefix and never clobber the other.
+pub async fn wipe_index(pool: &PgPool, kind: &str) -> AppResult<()> {
+    let mut tx = pool.begin().await?;
+    match kind {
+        "image" => {
+            sqlx::query("DELETE FROM figure_embeddings WHERE model_version = $1")
+                .bind(MODEL_VERSION)
+                .execute(&mut *tx)
+                .await?;
+            sqlx::query("DELETE FROM figure_embedding_queue WHERE model_version = $1")
+                .bind(MODEL_VERSION)
+                .execute(&mut *tx)
+                .await?;
+        }
+        "text" => {
+            sqlx::query(
+                "DELETE FROM figure_embeddings WHERE model_version = $1 AND source = 'text'",
+            )
+            .bind(TEXT_MODEL_VERSION)
+            .execute(&mut *tx)
+            .await?;
+            sqlx::query(
+                "DELETE FROM figure_embedding_queue
+                 WHERE model_version = $1 AND image_ref LIKE 'text:%'",
+            )
+            .bind(TEXT_MODEL_VERSION)
+            .execute(&mut *tx)
+            .await?;
+        }
+        "look" => {
+            sqlx::query("DELETE FROM figure_clip_embeddings WHERE model_version = $1")
+                .bind(CLIP_MODEL_VERSION)
+                .execute(&mut *tx)
+                .await?;
+            sqlx::query("DELETE FROM figure_embedding_queue WHERE model_version = $1")
+                .bind(CLIP_MODEL_VERSION)
+                .execute(&mut *tx)
+                .await?;
+        }
+        "tags" => {
+            // The tags themselves, the tag-derived e5 vectors, the tagging jobs,
+            // and any pending tagvec re-embed jobs — all reset so a fresh tagging
+            // pass regenerates everything.
+            sqlx::query("UPDATE figures SET visual_tags = NULL WHERE visual_tags IS NOT NULL")
+                .execute(&mut *tx)
+                .await?;
+            sqlx::query(
+                "DELETE FROM figure_embeddings WHERE model_version = $1 AND source = 'tags'",
+            )
+            .bind(TEXT_MODEL_VERSION)
+            .execute(&mut *tx)
+            .await?;
+            sqlx::query(
+                "DELETE FROM figure_embedding_queue
+                 WHERE model_version = $1 AND image_ref LIKE 'tagvec:%'",
+            )
+            .bind(TEXT_MODEL_VERSION)
+            .execute(&mut *tx)
+            .await?;
+            sqlx::query("DELETE FROM figure_embedding_queue WHERE model_version = $1")
+                .bind(TAGGER_MODEL_VERSION)
+                .execute(&mut *tx)
+                .await?;
+        }
+        _ => return Err(AppError::BadRequest("unknown index kind")),
+    }
+    tx.commit().await?;
+    Ok(())
+}
+
+/// One index's live size + queue breakdown for the admin Tasks view, so the
+/// panel can show all four (image / text / look / tags) instead of just image.
+#[derive(Debug, Clone, Serialize)]
+pub struct IndexQueue {
+    pub index: &'static str,
+    pub model_version: &'static str,
+    /// Items currently in this index's own store (embeddings, or tagged figures).
+    pub indexed: i64,
+    pub pending: i64,
+    pub processing: i64,
+    pub done: i64,
+    pub failed: i64,
+    pub last_activity: Option<DateTime<Utc>>,
+}
+
+/// Per-state queue counts for `model_version`, optionally restricted to rows
+/// whose `image_ref` matches `ref_prefix` (used to split the shared e5 queue into
+/// its text: and tagvec: halves). `indexed` is computed by the caller because
+/// each index counts its size from a different table.
+async fn index_queue_row(
+    pool: &PgPool,
+    index: &'static str,
+    model_version: &'static str,
+    ref_prefix: Option<&str>,
+    indexed: i64,
+) -> AppResult<IndexQueue> {
+    let row: (i64, i64, i64, i64, Option<DateTime<Utc>>) = sqlx::query_as(
+        "SELECT
+            COUNT(*) FILTER (WHERE state = 'pending'),
+            COUNT(*) FILTER (WHERE state = 'processing'),
+            COUNT(*) FILTER (WHERE state = 'done'),
+            COUNT(*) FILTER (WHERE state = 'failed'),
+            MAX(COALESCE(claimed_at, enqueued_at))
+         FROM figure_embedding_queue
+         WHERE model_version = $1
+           AND ($2::text IS NULL OR image_ref LIKE $2)",
+    )
+    .bind(model_version)
+    .bind(ref_prefix)
+    .fetch_one(pool)
+    .await?;
+    Ok(IndexQueue {
+        index,
+        model_version,
+        indexed,
+        pending: row.0,
+        processing: row.1,
+        done: row.2,
+        failed: row.3,
+        last_activity: row.4,
+    })
+}
+
+/// All four indexes' size + queue snapshot for the admin Tasks view.
+pub async fn all_index_queues(pool: &PgPool) -> AppResult<Vec<IndexQueue>> {
+    let img: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM figure_embeddings WHERE model_version = $1")
+            .bind(MODEL_VERSION)
+            .fetch_one(pool)
+            .await?;
+    let txt: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM figure_embeddings WHERE model_version = $1 AND source = 'text'",
+    )
+    .bind(TEXT_MODEL_VERSION)
+    .fetch_one(pool)
+    .await?;
+    let look: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM figure_clip_embeddings WHERE model_version = $1")
+            .bind(CLIP_MODEL_VERSION)
+            .fetch_one(pool)
+            .await?;
+    let tags: i64 = tagged_count(pool).await?;
+    Ok(vec![
+        index_queue_row(pool, "image", MODEL_VERSION, None, img).await?,
+        index_queue_row(pool, "text", TEXT_MODEL_VERSION, Some("text:%"), txt).await?,
+        index_queue_row(pool, "look", CLIP_MODEL_VERSION, None, look).await?,
+        index_queue_row(pool, "tags", TAGGER_MODEL_VERSION, None, tags).await?,
+    ])
+}
+
+// --- Admin reindex as tracked history jobs -----------------------------------
+// Each admin-triggered reindex is recorded as a `server_job_runs` row so it
+// appears in the Tasks history. The embedding work runs in the external worker,
+// so the row stays 'processing' until `reconcile_reindex_jobs` sees that index's
+// queue drain, then flips it to 'ready' with the final indexed/failed counts.
+pub const JOB_REINDEX_IMAGE: &str = "reindex_image";
+pub const JOB_REINDEX_TEXT: &str = "reindex_text";
+pub const JOB_REINDEX_LOOK: &str = "reindex_look";
+pub const JOB_REINDEX_TAGS: &str = "reindex_tags";
+pub const JOB_REINDEX_ALL: &str = "reindex_all";
+
+/// The server_job name for a single-index reindex kind.
+pub fn reindex_job_name(kind: &str) -> &'static str {
+    match kind {
+        "text" => JOB_REINDEX_TEXT,
+        "look" => JOB_REINDEX_LOOK,
+        "tags" => JOB_REINDEX_TAGS,
+        _ => JOB_REINDEX_IMAGE,
+    }
+}
+
+/// Run one index's reindex: wipe it first when `force`, (re)enqueue what's
+/// missing, and on a non-force run also re-arm its failed rows so a plain
+/// re-trigger resumes stuck work. Returns how many queue rows were added.
+pub async fn reindex(pool: &PgPool, kind: &str, force: bool) -> AppResult<u64> {
+    if force {
+        wipe_index(pool, kind).await?;
+    }
+    let queued = match kind {
+        "image" => enqueue_missing(pool, MODEL_VERSION).await?,
+        "text" => enqueue_missing_text(pool).await?,
+        "look" => enqueue_missing_clip(pool).await?,
+        "tags" => enqueue_missing_tags(pool).await?,
+        _ => return Err(AppError::BadRequest("unknown index kind")),
+    };
+    if !force {
+        let mv = match kind {
+            "text" => TEXT_MODEL_VERSION,
+            "look" => CLIP_MODEL_VERSION,
+            "tags" => TAGGER_MODEL_VERSION,
+            _ => MODEL_VERSION,
+        };
+        retry_failed(pool, mv).await?;
+    }
+    Ok(queued)
+}
+
+/// Force a from-scratch rebuild of ALL four indexes (wipe + re-enqueue each).
+pub async fn reindex_all(pool: &PgPool) -> AppResult<u64> {
+    for kind in ["image", "text", "look", "tags"] {
+        wipe_index(pool, kind).await?;
+    }
+    Ok(enqueue_missing(pool, MODEL_VERSION).await?
+        + enqueue_missing_text(pool).await?
+        + enqueue_missing_clip(pool).await?
+        + enqueue_missing_tags(pool).await?)
+}
+
+/// Close admin reindex jobs once their index's queue has drained (pending +
+/// processing = 0), recording the final indexed/failed counts. Runs on a short
+/// server interval — the embedding itself happens in the external worker, so the
+/// server can't finish these synchronously at trigger time.
+pub async fn reconcile_reindex_jobs(pool: &PgPool) -> AppResult<()> {
+    let runs: Vec<(Uuid, String)> = sqlx::query_as(
+        "SELECT id, job_name FROM server_job_runs
+          WHERE state = 'processing' AND job_name LIKE 'reindex\\_%' ESCAPE '\\'",
+    )
+    .fetch_all(pool)
+    .await?;
+    if runs.is_empty() {
+        return Ok(());
+    }
+    let queues = all_index_queues(pool).await?;
+    let find = |idx: &str| queues.iter().find(|q| q.index == idx);
+    for (id, name) in runs {
+        let kinds: &[&str] = match name.as_str() {
+            JOB_REINDEX_IMAGE => &["image"],
+            JOB_REINDEX_TEXT => &["text"],
+            JOB_REINDEX_LOOK => &["look"],
+            JOB_REINDEX_TAGS => &["tags"],
+            JOB_REINDEX_ALL => &["image", "text", "look", "tags"],
+            _ => continue,
+        };
+        let stats: Vec<&IndexQueue> = kinds.iter().filter_map(|k| find(k)).collect();
+        if stats.len() != kinds.len() {
+            continue; // stats momentarily unavailable — try again next tick
+        }
+        if stats.iter().all(|s| s.pending + s.processing == 0) {
+            let result = serde_json::json!({
+                "indexed": stats.iter().map(|s| s.indexed).sum::<i64>(),
+                "failed": stats.iter().map(|s| s.failed).sum::<i64>(),
+            });
+            crate::domain::server_job::finish_ok(pool, id, &result).await?;
+        }
+    }
+    Ok(())
 }
 
 /// Enqueue every catalog image still lacking an embedding for `model_version`:
