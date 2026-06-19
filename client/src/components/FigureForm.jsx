@@ -440,6 +440,31 @@ export default function FigureForm({
         </label>
       </section>
 
+      {/* ──────────── Appearance tags ────────────
+       *  Edit-only — there's no figure (nor images to tag) before creation.
+       *  Visibility/edit follow the route gate (admin OR the figure's owner),
+       *  same as every other field here. */}
+      {mode === "edit" && initial?.id ? (
+        <section className="relative">
+          <header className="mb-4">
+            <p className="micro-tight">
+              {t("figure.form.section.tags.eyebrow", { default: "Recherche par description" })}
+            </p>
+            <h3 className="display text-xl text-[var(--color-ivoire)] mt-1">
+              {t("figure.form.section.tags.title", { default: "Tags d'apparence" })}
+            </h3>
+            <div className="gold-rule w-12 mt-3 opacity-70" />
+          </header>
+          <p className="micro-tight mb-3 opacity-80 max-w-xl">
+            {t("figure.form.tags.hint", {
+              default:
+                "Générés par l'indexation (personnage, cheveux, tenue…). Modifie-les pour affiner la recherche par description ; tes changements ne seront pas écrasés.",
+            })}
+          </p>
+          <TagsEditor value={form.visual_tags} onChange={set("visual_tags")} disabled={busy} t={t} />
+        </section>
+      ) : null}
+
       {/* Admin-only section for editing the figure↔store M2M. Only shown
        *  when editing an existing figure (we need a stable id to mutate). */}
       {mode === "edit" && isAdmin && initial?.id ? (
@@ -559,6 +584,79 @@ function DuplicateWarning({ name, jan, t }) {
   );
 }
 
+/** Chip editor for a figure's appearance tags. In/out is the comma-separated
+ *  string the form + server use; the UI shows removable chips and an input where
+ *  Enter or comma adds (Backspace on an empty input removes the last). */
+function TagsEditor({ value, onChange, disabled, t }) {
+  const [draft, setDraft] = useState("");
+  const tags = (value || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const commit = (raw) => {
+    const add = raw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!add.length) return;
+    const next = tags.slice();
+    for (const tag of add) {
+      if (!next.some((x) => x.toLowerCase() === tag.toLowerCase())) next.push(tag);
+    }
+    onChange(next.join(", "));
+    setDraft("");
+  };
+  const remove = (tag) => onChange(tags.filter((x) => x !== tag).join(", "));
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2 min-h-[1.75rem]">
+        {tags.length === 0 ? (
+          <span className="text-sm italic text-[var(--color-ivoire-soft)]/55">
+            {t("figure.form.tags.empty", { default: "Aucun tag pour l'instant." })}
+          </span>
+        ) : (
+          tags.map((tag) => (
+            <span
+              key={tag}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[12px] border border-[var(--color-or)]/30 bg-[var(--color-or)]/5 text-[var(--color-ivoire)]"
+            >
+              {tag}
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => remove(tag)}
+                aria-label={t("figure.form.tags.remove", { tag, default: `Retirer ${tag}` })}
+                className="text-[var(--color-laque-bright)]/70 hover:text-[var(--color-laque-bright)] leading-none text-base disabled:opacity-50"
+              >
+                ×
+              </button>
+            </span>
+          ))
+        )}
+      </div>
+      <input
+        type="text"
+        value={draft}
+        disabled={disabled}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === ",") {
+            e.preventDefault();
+            commit(draft);
+          } else if (e.key === "Backspace" && !draft && tags.length) {
+            remove(tags[tags.length - 1]);
+          }
+        }}
+        onBlur={() => draft.trim() && commit(draft)}
+        placeholder={t("figure.form.tags.add", {
+          default: "Ajouter un tag — Entrée ou virgule pour valider…",
+        })}
+        className="mt-3 w-full px-3 py-2 bg-[var(--color-noir)] border border-[var(--color-or)]/25 text-[var(--color-ivoire)] placeholder:text-[var(--color-ivoire-soft)]/40 text-sm outline-none focus:border-[var(--color-or)] transition-colors"
+      />
+    </div>
+  );
+}
+
 const EMPTY = {
   name: "",
   manufacturer_name: "",
@@ -579,6 +677,7 @@ const EMPTY = {
   official_image_url: "",
   description: "",
   is_nsfw: false,
+  visual_tags: "",
   // Captured from FigureLookup.buildPick when the user imports a figure
   // by pasting a store product URL. Sent alongside the create payload so
   // the backend can auto-link the new figure to the matching store. Not
@@ -621,6 +720,7 @@ function normalise(initial, defaultCurrency = "JPY") {
     official_image_url: initial.official_image_url ?? "",
     description: initial.description ?? "",
     is_nsfw: !!initial.is_nsfw,
+    visual_tags: initial.visual_tags ?? "",
     // Source URL is transient (only set when freshly imported via lookup);
     // editing an existing figure restarts blank.
     source_url: "",
@@ -650,7 +750,7 @@ function coercePickFields(pick) {
 /** Produce the payload that goes to the backend. Empty strings → undefined
  *  so the COALESCE-style PATCH on the server side doesn't overwrite real
  *  values with empties. Numbers are parsed. Materials are split on comma. */
-function serialise(form, _mode) {
+function serialise(form, mode) {
   const trim = (s) => (typeof s === "string" ? s.trim() : s);
   const nz = (s) => {
     const v = trim(s);
@@ -681,6 +781,10 @@ function serialise(form, _mode) {
     official_image_url: nz(form.official_image_url),
     description: nz(form.description),
     is_nsfw: !!form.is_nsfw,
+    // Appearance tags only on edit (the section is edit-only). Sent as a raw
+    // string — incl. "" so clearing all tags reaches the server (vs `nz()`,
+    // which would drop it and the COALESCE would keep the old tags).
+    visual_tags: mode === "edit" ? (form.visual_tags ?? "") : undefined,
     // Source URL only forwarded on create — the backend matches its
     // hostname against `stores.url` and INSERTs into figure_stores for
     // every matching store before committing the figure.

@@ -3,6 +3,13 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.34 — edit a figure's appearance tags
+
+- **Editable tags** — the figure editor (admin or the figure's owner) gains an
+  "Appearance tags" section: see the auto-generated tags as chips and add/remove
+  them by hand. Edits feed the Description search right away and are never
+  overwritten by the auto-tagger.
+
 ## 0.33 — indexing you can see and steer
 
 - **Appearance tags from every angle** — the tagger now reads *all* of a figure's

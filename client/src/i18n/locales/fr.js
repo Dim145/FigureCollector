@@ -1225,6 +1225,12 @@ export default {
   "figure.form.section.flags.title": "Contenu",
   "figure.form.field.is_nsfw": "Marquer cette figurine comme NSFW",
   "figure.form.field.is_nsfw_hint": "Drapeau partagé par tous les collectionneurs : nudité, érotisme, ou poses suggestives. La visibilité dépend ensuite de la préférence de chaque utilisateur.",
+  "figure.form.section.tags.eyebrow": "Recherche par description",
+  "figure.form.section.tags.title": "Tags d'apparence",
+  "figure.form.tags.hint": "Générés par l'indexation (personnage, cheveux, tenue…). Modifie-les pour affiner la recherche par description ; tes changements ne seront pas écrasés.",
+  "figure.form.tags.empty": "Aucun tag pour l'instant.",
+  "figure.form.tags.add": "Ajouter un tag — Entrée ou virgule pour valider…",
+  "figure.form.tags.remove": "Retirer {tag}",
 
   "nsfw.warn_on_create": "Cette figurine sera marquée NSFW. Votre préférence actuelle est de les cacher : vous ne la verrez pas dans votre catalogue ni dans votre collection (mais elle restera visible pour les autres utilisateurs qui l'autorisent). Continuer ?",
   "nsfw.upload_blocked": "✕ Ajout de photo désactivé (NSFW + flouté)",
