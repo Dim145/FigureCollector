@@ -981,10 +981,11 @@ function AmbianceTile({ cluster, typeMeta, onOpen, me, t }) {
             {meta?.kanji ?? "彩"}
           </span>
           <span
-            className="truncate text-[var(--color-ivoire)]"
+            className="truncate capitalize text-[var(--color-ivoire)]"
             style={{ fontFamily: "var(--font-display)" }}
           >
-            {meta?.label ?? t("browse.ambiance.untitled", { default: "Ambiance" })}
+            {cluster.name ||
+              `${t("browse.ambiance.untitled", { default: "Ambiance" })} ${cluster.id + 1}`}
           </span>
         </span>
         <span className="shrink-0 font-mono text-[11px] text-[var(--color-ivoire-soft)]">
@@ -1015,10 +1016,11 @@ function AmbianceDrillIn({ cluster, typeMeta, onBack, t, children }) {
             {meta?.kanji ?? "彩"}
           </span>
           <span
-            className="text-[var(--color-ivoire)]"
+            className="capitalize text-[var(--color-ivoire)]"
             style={{ fontFamily: "var(--font-display)" }}
           >
-            {meta?.label ?? t("browse.ambiance.untitled", { default: "Ambiance" })}
+            {cluster.name ||
+              `${t("browse.ambiance.untitled", { default: "Ambiance" })} ${cluster.id + 1}`}
           </span>
           <span className="font-mono text-[11px] text-[var(--color-ivoire-soft)]">
             {cluster.count}

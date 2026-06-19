@@ -364,8 +364,14 @@ async fn external_search(
 struct AmbianceCluster {
     /// Display order index (clusters are returned largest-first).
     id: usize,
+    /// The ambiance's name — the appearance tag(s) most distinctive of this
+    /// cluster vs the rest of the catalogue (TF-IDF over the WD-Tagger tags),
+    /// joined by " · ". `None` when no member is tagged or nothing stands out,
+    /// in which case the client falls back to a numbered label. This is what
+    /// titles the card; `dominant_type` only drives the kanji icon.
+    name: Option<String>,
     /// Most common figure_type slug in the cluster — the client maps it to the
-    /// kanji/label. `None` only if every member somehow lacks a type.
+    /// kanji icon. `None` only if every member somehow lacks a type.
     dominant_type: Option<String>,
     /// Visible member count, after the viewer's NSFW filter.
     count: usize,
@@ -374,6 +380,20 @@ struct AmbianceCluster {
     member_ids: Vec<Uuid>,
     /// Up to 4 hydrated representatives (closest to centroid) for the mosaic.
     representatives: Vec<figure::Figure>,
+}
+
+/// Split a figure's comma-separated WD-Tagger string into a deduped set of
+/// lowercased tags (empty if untagged) — the unit the ambiance-name TF-IDF
+/// counts over.
+fn parse_tags(raw: &Option<String>) -> std::collections::BTreeSet<String> {
+    raw.as_deref()
+        .map(|s| {
+            s.split(',')
+                .map(|t| t.trim().to_lowercase())
+                .filter(|t| !t.is_empty())
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 /// `GET /visual-search/clusters` — the "browse par ambiance" view: the
@@ -393,9 +413,31 @@ async fn ambiance_clusters(
     let exclude_nsfw = crate::routes::figures::viewer_hides_nsfw(&session, &state.pool).await;
     let raw = clustering::clusters(&state.pool, visual_search::MODEL_VERSION).await?;
 
+    // Appearance-tag document frequency across every visible figure, used by the
+    // TF-IDF that names each ambiance after what's distinctive about it. Each
+    // figure lands in exactly one cluster, so this counts each visible figure once.
+    let mut global_df: HashMap<String, usize> = HashMap::new();
+    let mut global_n: usize = 0;
+    for c in &raw {
+        for m in &c.members {
+            if exclude_nsfw && m.is_nsfw {
+                continue;
+            }
+            global_n += 1;
+            for tag in parse_tags(&m.visual_tags) {
+                *global_df.entry(tag).or_insert(0) += 1;
+            }
+        }
+    }
+    // Drop tags present in more than 60% of the catalogue ("1girl", "solo",
+    // "censored"…): they describe everything, so they'd name nothing.
+    let df_ceiling = (global_n as f64 * 0.6).max(1.0);
+
     // Per cluster: keep the visible members (in centroid order), derive the
-    // dominant type, and pick the first 4 as mosaic representatives.
+    // dominant type + a distinctive-tag name, and pick the first 4 as mosaic
+    // representatives.
     struct Pending {
+        name: Option<String>,
         dominant_type: Option<String>,
         member_ids: Vec<Uuid>,
         rep_ids: Vec<Uuid>,
@@ -418,9 +460,52 @@ async fn ambiance_clusters(
             .into_iter()
             .max_by_key(|(_, n)| *n)
             .map(|(t, _)| t.to_string());
+
+        // Name = the 1–2 tags most over-represented here vs the catalogue.
+        // cf >= 2 keeps it a shared theme (not one member's quirk); the df<=60%
+        // cut already removed near-universal tags. idf rewards rarity, tf
+        // (cf/size) rewards how much the cluster agrees on it.
+        let size = visible.len();
+        let mut cf: HashMap<String, usize> = HashMap::new();
+        for m in &visible {
+            for tag in parse_tags(&m.visual_tags) {
+                *cf.entry(tag).or_insert(0) += 1;
+            }
+        }
+        let mut scored: Vec<(String, f64)> = cf
+            .into_iter()
+            .filter(|(tag, c)| {
+                *c >= 2 && (*global_df.get(tag).unwrap_or(&1) as f64) <= df_ceiling
+            })
+            .map(|(tag, c)| {
+                let df = (*global_df.get(&tag).unwrap_or(&1)).max(1);
+                let idf = ((global_n as f64 + 1.0) / df as f64).ln();
+                (tag, (c as f64 / size as f64) * idf)
+            })
+            .collect();
+        // Highest score first; tag name as a stable tie-break.
+        scored.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.0.cmp(&b.0))
+        });
+        let name = if scored.is_empty() {
+            None
+        } else {
+            Some(
+                scored
+                    .iter()
+                    .take(2)
+                    .map(|(t, _)| t.clone())
+                    .collect::<Vec<_>>()
+                    .join(" · "),
+            )
+        };
+
         let member_ids: Vec<Uuid> = visible.iter().map(|m| m.id).collect();
         let rep_ids = member_ids.iter().take(4).copied().collect();
         pending.push(Pending {
+            name,
             dominant_type,
             member_ids,
             rep_ids,
@@ -439,6 +524,7 @@ async fn ambiance_clusters(
         .enumerate()
         .map(|(id, p)| AmbianceCluster {
             id,
+            name: p.name,
             dominant_type: p.dominant_type,
             count: p.member_ids.len(),
             representatives: p

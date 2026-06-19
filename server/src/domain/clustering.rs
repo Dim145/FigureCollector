@@ -16,12 +16,16 @@ use uuid::Uuid;
 use crate::error::AppResult;
 
 /// Per-figure metadata kept beside its centroid so a cluster can be labelled
-/// (dominant type) and NSFW-filtered without re-querying.
+/// (dominant type + distinctive appearance tags) and NSFW-filtered without
+/// re-querying.
 #[derive(Debug, Clone)]
 pub struct MemberMeta {
     pub id: Uuid,
     pub figure_type: String,
     pub is_nsfw: bool,
+    /// Comma-separated WD-Tagger appearance tags (e.g. "1girl, elf, red hair").
+    /// `None`/empty until the figure is tagged; used to name each ambiance.
+    pub visual_tags: Option<String>,
 }
 
 /// A computed ambiance: its members ordered closest-to-centroid first (so the
@@ -69,12 +73,12 @@ pub async fn clusters(pool: &PgPool, model_version: &str) -> AppResult<Vec<Compu
 async fn compute(pool: &PgPool, model_version: &str) -> AppResult<Vec<ComputedCluster>> {
     // One centroid per figure (mean of its image embeddings), stable order so
     // the deterministic init is reproducible.
-    let rows: Vec<(Uuid, String, bool, pgvector::Vector)> = sqlx::query_as(
-        "SELECT f.id, f.figure_type, f.is_nsfw, AVG(e.embedding)
+    let rows: Vec<(Uuid, String, bool, Option<String>, pgvector::Vector)> = sqlx::query_as(
+        "SELECT f.id, f.figure_type, f.is_nsfw, f.visual_tags, AVG(e.embedding)
          FROM figure_embeddings e
          JOIN figures f ON f.id = e.figure_id
          WHERE e.model_version = $1
-         GROUP BY f.id, f.figure_type, f.is_nsfw
+         GROUP BY f.id, f.figure_type, f.is_nsfw, f.visual_tags
          ORDER BY f.id",
     )
     .bind(model_version)
@@ -87,13 +91,14 @@ async fn compute(pool: &PgPool, model_version: &str) -> AppResult<Vec<ComputedCl
 
     let meta: Vec<MemberMeta> = rows
         .iter()
-        .map(|(id, ft, nsfw, _)| MemberMeta {
+        .map(|(id, ft, nsfw, tags, _)| MemberMeta {
             id: *id,
             figure_type: ft.clone(),
             is_nsfw: *nsfw,
+            visual_tags: tags.clone(),
         })
         .collect();
-    let mut points: Vec<Vec<f32>> = rows.iter().map(|(_, _, _, v)| v.to_vec()).collect();
+    let mut points: Vec<Vec<f32>> = rows.iter().map(|(_, _, _, _, v)| v.to_vec()).collect();
     for p in &mut points {
         normalize(p);
     }
