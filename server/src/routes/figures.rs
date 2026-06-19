@@ -219,6 +219,11 @@ async fn patch_one(
             visual_search::forget_image(&state.pool, old).await;
         }
     }
+    // A by-hand appearance-tags edit → re-embed the figure's tagvec so the
+    // "Description" search reflects it (gated; the auto-tagger won't overwrite it).
+    if updated.visual_tags != existing.visual_tags {
+        visual_search::requeue_tagvec_if_enabled(&state.pool, updated.id).await;
+    }
     visual_search::enqueue_figure_if_enabled(&state.pool, updated.id).await;
     Ok(Json(updated))
 }

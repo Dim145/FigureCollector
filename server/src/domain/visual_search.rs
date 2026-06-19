@@ -825,12 +825,14 @@ pub async fn enqueue_figure_if_enabled(pool: &PgPool, figure_id: Uuid) {
             tracing::warn!(error = ?e, %figure_id, "clip-search auto-enqueue failed");
         }
     }
-    // Appearance tags: one tagging job for the figure (the worker re-embeds its
-    // e5 text once tagged). ON CONFLICT skips figures already tagged.
+    // Appearance tags: auto-tag ONLY figures that have no tags yet, so we never
+    // overwrite tags an admin/owner set (or the tagger already produced) by hand.
+    // A manual edit refreshes the index via `requeue_tagvec_if_enabled` instead.
     if matches!(settings::appearance_tags_enabled(pool).await, Ok(true)) {
         let res = sqlx::query(
             "INSERT INTO figure_embedding_queue (figure_id, source, image_ref, model_version)
-             VALUES ($1, 'tags', 'tags:' || $1::text, $2)
+             SELECT $1, 'tags', 'tags:' || $1::text, $2
+             WHERE EXISTS (SELECT 1 FROM figures WHERE id = $1 AND visual_tags IS NULL)
              ON CONFLICT (image_ref, model_version) DO NOTHING",
         )
         .bind(figure_id)
@@ -840,6 +842,29 @@ pub async fn enqueue_figure_if_enabled(pool: &PgPool, figure_id: Uuid) {
         if let Err(e) = res {
             tracing::warn!(error = ?e, %figure_id, "appearance-tags auto-enqueue failed");
         }
+    }
+}
+
+/// Re-arm a figure's tagvec (e5) embedding after its appearance tags were edited
+/// by hand, so the "Description" search reflects the change. If the tags were
+/// cleared (empty), the text loop drops the vector. Best-effort + feature-gated.
+pub async fn requeue_tagvec_if_enabled(pool: &PgPool, figure_id: Uuid) {
+    if !matches!(settings::appearance_tags_enabled(pool).await, Ok(true)) {
+        return;
+    }
+    let res = sqlx::query(
+        "INSERT INTO figure_embedding_queue (figure_id, source, image_ref, model_version)
+         SELECT $1, 'tags', 'tagvec:' || $1::text, $2
+         WHERE EXISTS (SELECT 1 FROM figures WHERE id = $1 AND visual_tags IS NOT NULL)
+         ON CONFLICT (image_ref, model_version) DO UPDATE
+           SET state = 'pending', error_message = NULL, attempts = 0, claimed_at = NULL",
+    )
+    .bind(figure_id)
+    .bind(TEXT_MODEL_VERSION)
+    .execute(pool)
+    .await;
+    if let Err(e) = res {
+        tracing::warn!(error = ?e, %figure_id, "tagvec re-enqueue after tag edit failed");
     }
 }
 

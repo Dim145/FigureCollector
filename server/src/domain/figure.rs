@@ -32,6 +32,11 @@ pub struct Figure {
     pub created_by: Option<Uuid>,
     pub is_user_submitted: bool,
     pub is_nsfw: bool,
+    /// Appearance tags (WD-Tagger output, comma-separated) — viewable + editable
+    /// by an admin/owner in the figure editor; feeds the "Description" search via
+    /// the tagvec e5 embedding. `#[sqlx(default)]` keeps narrower projections OK.
+    #[sqlx(default)]
+    pub visual_tags: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     /// Resolved catalog cover photo id — only populated by `list()` (which
@@ -155,7 +160,7 @@ fn default_type() -> String {
 const FIGURE_COLUMNS: &str = "id, name, slug, manufacturer_id, sculptor_id, figure_type, scale, \
      height_mm, materials, release_date, msrp_amount, msrp_currency, jan, exclusivity, edition, \
      version_name, official_image_url, description, mfc_id, created_by, is_user_submitted, \
-     is_nsfw, created_at, updated_at";
+     is_nsfw, visual_tags, created_at, updated_at";
 
 /// Same columns as `FIGURE_COLUMNS` but each prefixed with the `f.` table
 /// alias, for use in joined SELECTs.
@@ -163,7 +168,7 @@ const FIGURE_COLUMNS_PREFIXED: &str =
     "f.id, f.name, f.slug, f.manufacturer_id, f.sculptor_id, f.figure_type, f.scale, \
      f.height_mm, f.materials, f.release_date, f.msrp_amount, f.msrp_currency, f.jan, \
      f.exclusivity, f.edition, f.version_name, f.official_image_url, f.description, f.mfc_id, \
-     f.created_by, f.is_user_submitted, f.is_nsfw, f.created_at, f.updated_at";
+     f.created_by, f.is_user_submitted, f.is_nsfw, f.visual_tags, f.created_at, f.updated_at";
 
 /// LEFT JOINs that pull the human-readable manufacturer / sculptor / series /
 /// character names alongside the figure row.
@@ -605,6 +610,9 @@ pub struct FigurePatch {
     pub series_name: Option<String>,
     pub character_name: Option<String>,
     pub is_nsfw: Option<bool>,
+    /// Appearance tags (comma-separated). Send "" to clear; editing it re-embeds
+    /// the figure's tagvec so the "Description" search reflects the change.
+    pub visual_tags: Option<String>,
     #[serde(default)]
     pub manufacturer_meta: ManufacturerMeta,
     #[serde(default)]
@@ -669,8 +677,9 @@ pub async fn patch(pool: &PgPool, id: Uuid, input: FigurePatch) -> AppResult<Fig
             version_name       = COALESCE($14, version_name),
             official_image_url = COALESCE($15, official_image_url),
             description        = COALESCE($16, description),
-            is_nsfw            = COALESCE($17, is_nsfw)
-         WHERE id = $18
+            is_nsfw            = COALESCE($17, is_nsfw),
+            visual_tags        = COALESCE($18, visual_tags)
+         WHERE id = $19
          RETURNING {FIGURE_COLUMNS}"
     );
 
@@ -692,6 +701,7 @@ pub async fn patch(pool: &PgPool, id: Uuid, input: FigurePatch) -> AppResult<Fig
         .bind(&input.official_image_url)
         .bind(&input.description)
         .bind(input.is_nsfw)
+        .bind(&input.visual_tags)
         .bind(id)
         .fetch_optional(&mut *tx)
         .await
