@@ -120,6 +120,21 @@ IP. It does **not** touch the rest of the API.
 | `GSPLAT_KEEP_COMPLETED` | `5` | How many successful gsplat scans to keep **per figurine** — older ones (rows + blobs) are pruned by the `scan_cleanup` job. Floored at 1. |
 | `RUST_LOG` | `info` | Set to `debug` for chatty logs. |
 
+## Cache
+
+A small cache-aside layer accelerates the heavy per-user aggregates
+(`/me/stats`, `/me/insights`, `/me/price-history`); the keys are dropped the
+moment the user changes their collection, so reads stay fresh. The default
+in-process backend is **per-replica** — correct for a single instance; a shared
+backend (Redis) can be slotted in later (implement the `CacheStore` trait + one
+factory arm) without touching call sites, which is what makes the cache correct
+across multiple replicas.
+
+| Variable | Default | What |
+|---|---|---|
+| `CACHE_BACKEND` | `memory` | `memory` (in-process, per-replica) or `off` (caching disabled). `redis` / `memcached` are reserved for a future shared backend — needed only when running several backend replicas. |
+| `CACHE_MAX_ENTRIES` | `10000` | Max entries the in-process (`memory`) backend holds before LRU eviction. |
+
 ## Workers (indexing & 3D)
 
 These apply to the optional **worker containers**, not the API:

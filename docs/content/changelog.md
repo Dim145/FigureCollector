@@ -3,6 +3,17 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.37 — a cache built to scale
+
+- **Snappier collection pages** — the heavy per-user aggregates (stats,
+  insights, price history) are cached and served instantly on repeat views, and
+  dropped the instant you change your collection so they never go stale.
+- **Pluggable backend, multi-instance-ready** — the cache sits behind a backend
+  interface: today it's in-process (per replica, on by default, nothing to
+  configure), and a shared backend (Redis…) can be slotted in later with no
+  call-site changes, for when you scale to several backend replicas. Tune via
+  `CACHE_BACKEND` / `CACHE_MAX_ENTRIES`.
+
 ## 0.36 — sturdier, clearer online search
 
 - **Online search shows its work** — searching a figure online now shows an
