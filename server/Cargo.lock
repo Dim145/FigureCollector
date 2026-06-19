@@ -1430,7 +1430,7 @@ checksum = "28dea519a9695b9977216879a3ebfddf92f1c08c05d984f8996aecd6ecdc811d"
 
 [[package]]
 name = "figurecollector-server"
-version = "0.35.1"
+version = "0.36.0"
 dependencies = [
  "anyhow",
  "argon2",
