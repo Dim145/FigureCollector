@@ -52,6 +52,7 @@ async fn add_mine(
         // link, so we skip embedding it here.
     }
     activity::record(&state.pool, user_id, "preorder_created", snap).await;
+    state.cache.invalidate_user_collection(user_id).await;
 
     state.events.publish(
         user_id,
@@ -104,6 +105,7 @@ async fn patch_mine(
         None => None,
     };
     let updated = preorder::patch(&state.pool, user_id, id, input, price_fx_rate).await?;
+    state.cache.invalidate_user_collection(user_id).await;
 
     if let Some((figure_id, prev_status, prev_date)) = before {
         let mut snap = activity::figure_snapshot(&state.pool, figure_id).await;
@@ -179,6 +181,7 @@ async fn delete_mine(
 ) -> AppResult<StatusCode> {
     let user_id = auth::require_user(&session).await?;
     preorder::delete_for_user(&state.pool, user_id, id).await?;
+    state.cache.invalidate_user_collection(user_id).await;
     state
         .events
         .publish(user_id, Event::PreorderDeleted { preorder_id: id });

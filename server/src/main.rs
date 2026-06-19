@@ -3,6 +3,7 @@ use std::net::SocketAddr;
 use std::time::Duration;
 
 mod auth;
+mod cache;
 mod config;
 mod db;
 mod domain;
@@ -105,6 +106,7 @@ async fn main() -> anyhow::Result<()> {
     let session_layer = auth::sessions::build(&pool, config.cookie_secure).await?;
     let storage = Storage::from_env()?;
     let events = EventBus::new();
+    let cache = cache::Cache::from_env();
 
     // GC stale event channels every 5 min.
     {
@@ -131,6 +133,7 @@ async fn main() -> anyhow::Result<()> {
         http_no_redirect,
         storage,
         events,
+        cache,
     };
 
     // Job runs left 'processing' by a previous process died with it — close

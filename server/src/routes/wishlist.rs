@@ -30,6 +30,7 @@ async fn add_mine(
 ) -> AppResult<(StatusCode, Json<wishlist::WishlistItem>)> {
     let user_id = auth::require_user(&session).await?;
     let item = wishlist::add(&state.pool, user_id, input).await?;
+    state.cache.invalidate_user_collection(user_id).await;
     Ok((StatusCode::CREATED, Json(item)))
 }
 
@@ -40,9 +41,9 @@ async fn patch_mine(
     Json(input): Json<WishlistPatch>,
 ) -> AppResult<Json<wishlist::WishlistItem>> {
     let user_id = auth::require_user(&session).await?;
-    Ok(Json(
-        wishlist::patch(&state.pool, user_id, figure_id, input).await?,
-    ))
+    let item = wishlist::patch(&state.pool, user_id, figure_id, input).await?;
+    state.cache.invalidate_user_collection(user_id).await;
+    Ok(Json(item))
 }
 
 async fn delete_mine(
@@ -52,6 +53,7 @@ async fn delete_mine(
 ) -> AppResult<StatusCode> {
     let user_id = auth::require_user(&session).await?;
     wishlist::remove(&state.pool, user_id, figure_id).await?;
+    state.cache.invalidate_user_collection(user_id).await;
     Ok(StatusCode::NO_CONTENT)
 }
 

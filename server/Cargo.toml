@@ -47,6 +47,12 @@ futures = "0.3"
 # schedule disables the feature.
 croner = "3"
 
+# --- In-process cache (moka, pure-Rust, no OpenSSL) ---
+# Backs the `cache` module's default in-memory backend (per-entry TTL via moka's
+# Expiry trait). Pluggable: a Redis/memcached backend is just another CacheStore
+# impl behind the same trait, selected by CACHE_BACKEND.
+moka = { version = "0.12", features = ["future"] }
+
 # --- Database (sqlx with rustls / aws-lc-rs — NO OpenSSL) ---
 sqlx = { version = "0.8", default-features = false, features = [
     "postgres", "runtime-tokio", "tls-rustls-aws-lc-rs",

@@ -77,6 +77,7 @@ async fn add_mine(
         _ => None,
     };
     let item = owned::create(&state.pool, user_id, input, price_fx_rate).await?;
+    state.cache.invalidate_user_collection(user_id).await;
 
     // Activity log: snapshot the figure so renames/deletes don't break the feed.
     let mut snap = activity::figure_snapshot(&state.pool, item.figure_id).await;
@@ -166,6 +167,7 @@ async fn patch_mine(
         None => None,
     };
     let updated = owned::patch(&state.pool, user_id, id, input, price_fx_rate).await?;
+    state.cache.invalidate_user_collection(user_id).await;
     state
         .events
         .publish(user_id, Event::OwnedItemUpdated { owned_id: id });
@@ -195,6 +197,7 @@ async fn delete_mine(
     .flatten();
 
     let orphaned = owned::delete_for_user(&state.pool, user_id, id).await?;
+    state.cache.invalidate_user_collection(user_id).await;
 
     // Best-effort purge of the now-orphaned Garage blobs (the photo/scan rows
     // already cascaded away). Failures are logged inside the storage layer; a
@@ -259,6 +262,7 @@ async fn set_value_mine(
 ) -> AppResult<Json<owned::OwnedItem>> {
     let user_id = auth::require_user(&session).await?;
     let updated = owned::set_value(&state.pool, user_id, id, body.amount, body.currency).await?;
+    state.cache.invalidate_user_collection(user_id).await;
     state
         .events
         .publish(user_id, Event::OwnedItemUpdated { owned_id: id });

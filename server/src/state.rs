@@ -1,6 +1,7 @@
 //! Shared application state (cheaply cloneable).
 
 use crate::auth::oidc::OidcRegistry;
+use crate::cache::Cache;
 use crate::config::AppConfig;
 use crate::events::EventBus;
 use crate::storage::Storage;
@@ -26,4 +27,6 @@ pub struct AppState {
     pub http_no_redirect: reqwest::Client,
     pub storage: Storage,
     pub events: EventBus,
+    /// Pluggable cache-aside layer (in-process moka by default; see `cache`).
+    pub cache: Cache,
 }
