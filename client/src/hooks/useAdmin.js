@@ -44,7 +44,8 @@ export function useUpdateAdminSettings() {
 export function useReindexVisualSearch() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => api.post("/admin/visual-search/reindex"),
+    mutationFn: ({ force } = {}) =>
+      api.post(`/admin/visual-search/reindex${force ? "?force=true" : ""}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["visual-search", "status"] });
       qc.invalidateQueries({ queryKey: ["admin", "visual-search", "queue"] });
@@ -69,7 +70,8 @@ export function useAdminVisualSearchQueue() {
 export function useReindexTextSearch() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => api.post("/admin/visual-search/reindex-text"),
+    mutationFn: ({ force } = {}) =>
+      api.post(`/admin/visual-search/reindex-text${force ? "?force=true" : ""}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "visual-search", "queue"] });
       qc.invalidateQueries({ queryKey: ["visual-search", "status"] });
@@ -81,7 +83,8 @@ export function useReindexTextSearch() {
 export function useReindexClipSearch() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => api.post("/admin/visual-search/reindex-clip"),
+    mutationFn: ({ force } = {}) =>
+      api.post(`/admin/visual-search/reindex-clip${force ? "?force=true" : ""}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "visual-search", "queue"] });
       qc.invalidateQueries({ queryKey: ["visual-search", "status"] });
@@ -93,7 +96,21 @@ export function useReindexClipSearch() {
 export function useReindexTags() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => api.post("/admin/visual-search/reindex-tags"),
+    mutationFn: ({ force } = {}) =>
+      api.post(`/admin/visual-search/reindex-tags${force ? "?force=true" : ""}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "visual-search", "queue"] });
+      qc.invalidateQueries({ queryKey: ["visual-search", "status"] });
+    },
+  });
+}
+
+/** POST /admin/visual-search/reindex-all — wipe & rebuild ALL four indexes from
+ *  scratch (destructive: clears every vector + the tags, then re-queues all). */
+export function useReindexAll() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.post("/admin/visual-search/reindex-all"),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "visual-search", "queue"] });
       qc.invalidateQueries({ queryKey: ["visual-search", "status"] });

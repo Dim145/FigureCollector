@@ -8,6 +8,7 @@ import {
   useReindexTextSearch,
   useReindexClipSearch,
   useReindexTags,
+  useReindexAll,
   useUpdateAdminSettings,
 } from "../hooks/useAdmin.js";
 import { useVisualSearchStatus } from "../hooks/useVisualSearch.js";
@@ -40,6 +41,7 @@ export default function AdminSettingsPage() {
   const reindexText = useReindexTextSearch();
   const reindexClip = useReindexClipSearch();
   const reindexTags = useReindexTags();
+  const reindexAll = useReindexAll();
   const vsStatus = useVisualSearchStatus();
   const overview = useAdminOverview();
 
@@ -441,6 +443,11 @@ export default function AdminSettingsPage() {
               >
                 {t("admin.settings.visual.reindex")}
               </Button>
+              <ForceButton
+                t={t}
+                busy={!savedVs || reindex.isPending}
+                onForce={() => reindex.mutate({ force: true })}
+              />
             </div>
           </div>
           <p className="mt-1.5 text-xs text-[var(--color-ivoire-soft)]/70">
@@ -623,6 +630,11 @@ export default function AdminSettingsPage() {
               >
                 {t("admin.settings.visual.text_reindex", { default: "Indexer les textes" })}
               </button>
+              <ForceButton
+                t={t}
+                busy={reindexText.isPending}
+                onForce={() => reindexText.mutate({ force: true })}
+              />
               {typeof vsStatus.data?.text_embedded === "number" ? (
                 <span className="font-mono text-[11px] text-[var(--color-ivoire-soft)]">
                   {t("admin.settings.visual.text_indexed", {
@@ -713,6 +725,11 @@ export default function AdminSettingsPage() {
                   default: "Indexer les images (apparence)",
                 })}
               </button>
+              <ForceButton
+                t={t}
+                busy={reindexClip.isPending}
+                onForce={() => reindexClip.mutate({ force: true })}
+              />
               {typeof vsStatus.data?.clip_embedded === "number" ? (
                 <span className="font-mono text-[11px] text-[var(--color-ivoire-soft)]">
                   {t("admin.settings.visual.clip_indexed", {
@@ -798,6 +815,11 @@ export default function AdminSettingsPage() {
               >
                 {t("admin.settings.visual.tags_reindex", { default: "Indexer l'apparence (tags)" })}
               </button>
+              <ForceButton
+                t={t}
+                busy={reindexTags.isPending}
+                onForce={() => reindexTags.mutate({ force: true })}
+              />
               {typeof vsStatus.data?.tagged === "number" ? (
                 <span className="font-mono text-[11px] text-[var(--color-ivoire-soft)]">
                   {t("admin.settings.visual.tags_indexed", {
@@ -812,6 +834,27 @@ export default function AdminSettingsPage() {
                 </span>
               ) : null}
             </div>
+          </div>
+
+          {/* Danger zone — wipe & rebuild every index from scratch */}
+          <div className="mt-7 pt-5 border-t border-dashed border-[var(--color-laque)]/25 flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-[11px] text-[var(--color-ivoire-soft)]/60 max-w-sm leading-relaxed">
+              {t("admin.settings.visual.force_all_hint", {
+                default:
+                  "Efface tous les index (vecteurs + tags) et relance une indexation complète de zéro.",
+              })}
+            </p>
+            <ForceButton
+              t={t}
+              busy={reindexAll.isPending}
+              onForce={() => reindexAll.mutate()}
+              label={t("admin.settings.visual.force_all", {
+                default: "Tout réindexer de zéro",
+              })}
+              confirmLabel={t("admin.settings.visual.force_all_confirm", {
+                default: "Confirmer — tout effacer & réindexer",
+              })}
+            />
           </div>
 
           {/* Save row */}
@@ -847,6 +890,46 @@ export default function AdminSettingsPage() {
 // One policy row: a hidden native radio for a11y + keyboard, an A diamond
 // marker (hanko-red + glow when active, hairline gold otherwise), and a
 // label/description stack. The whole row is the click + focus target.
+/** Destructive "from scratch" reindex control. First click ARMS it (turns
+ *  laque-red, auto-disarms after 4 s); the second click fires `onForce`. A
+ *  deliberate two-step confirm without the weight of a modal, since wiping an
+ *  index deletes its vectors/tags before rebuilding. */
+function ForceButton({ t, onForce, busy, label, confirmLabel }) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return undefined;
+    const id = setTimeout(() => setArmed(false), 4000);
+    return () => clearTimeout(id);
+  }, [armed]);
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      title={t("admin.settings.visual.force_hint", {
+        default: "Efface l'index puis relance une indexation complète",
+      })}
+      onClick={() => {
+        if (armed) {
+          setArmed(false);
+          onForce();
+        } else {
+          setArmed(true);
+        }
+      }}
+      className={`px-3 py-1.5 border text-[11px] uppercase tracking-[0.18em] transition-colors disabled:opacity-50 ${
+        armed
+          ? "border-[var(--color-laque)] bg-[var(--color-laque)]/15 text-[var(--color-laque-bright)]"
+          : "border-[var(--color-laque)]/30 text-[var(--color-laque-bright)]/70 hover:bg-[var(--color-laque)]/10"
+      }`}
+    >
+      {armed
+        ? (confirmLabel ??
+          t("admin.settings.visual.force_confirm", { default: "Confirmer — effacer" }))
+        : (label ?? t("admin.settings.visual.force", { default: "De zéro" }))}
+    </button>
+  );
+}
+
 /** Modal explaining what an "ambiance" is, in plain language. */
 function AmbianceHelpModal({ t, onClose }) {
   useEffect(() => {

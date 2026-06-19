@@ -9,8 +9,6 @@ import {
   useAdminJobs,
   useRetryJob,
   useAdminVisualSearchQueue,
-  useReindexVisualSearch,
-  useRetryFailedEmbeddings,
   useAdminVisualSearchDuplicates,
 } from "../hooks/useAdmin.js";
 import StatCard from "../components/StatCard.jsx";
@@ -219,162 +217,15 @@ function DupeFigure({ fig, align }) {
   );
 }
 
-function IndexingPanel({ t }) {
-  const queue = useAdminVisualSearchQueue();
-  const reindex = useReindexVisualSearch();
-  const retryFailed = useRetryFailedEmbeddings();
-  const d = queue.data;
-  if (!d) return null;
-  const done = d.done ?? 0;
-  const total = (d.pending ?? 0) + (d.processing ?? 0) + done + (d.failed ?? 0);
-  // Never indexed and nothing queued → nothing to show.
-  if (total === 0 && (d.embedded ?? 0) === 0) return null;
-  const pct = total > 0 ? clampPct((done / total) * 100) : 100;
-  const active = (d.pending ?? 0) + (d.processing ?? 0) > 0;
-  // done → the "ready" slot (済 jade); the rest map straight across.
-  const chips = [
-    { state: "ready", label: t("admin.tasks.indexing.chip.done", { default: "Encodées" }), n: done },
-    { state: "processing", label: t("admin.tasks.indexing.chip.processing", { default: "En cours" }), n: d.processing ?? 0 },
-    { state: "pending", label: t("admin.tasks.indexing.chip.pending", { default: "En attente" }), n: d.pending ?? 0 },
-    { state: "failed", label: t("admin.tasks.indexing.chip.failed", { default: "Échecs" }), n: d.failed ?? 0 },
-  ];
-
-  return (
-    <section
-      className="reveal mt-8"
-      style={{ "--i": 4 }}
-      aria-label={t("admin.tasks.indexing.title", { default: "Indexation des images" })}
-    >
-      <div
-        className="relative p-4 sm:p-5"
-        style={{
-          border: "1px solid color-mix(in oklab, var(--color-or) 14%, transparent)",
-          borderLeft: `2px solid ${active ? OR : pct >= 100 ? JADE : IVOIRE}`,
-          background: "color-mix(in oklab, var(--color-noir-soft) 50%, transparent)",
-        }}
-      >
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div>
-            <p className="micro flex items-center gap-2">
-              <span aria-hidden className="ja not-italic text-[var(--color-or)]">視</span>
-              {t("admin.tasks.indexing.eyebrow", { default: "Recherche par photo" })}
-            </p>
-            <h3 className="display text-xl text-[var(--color-ivoire)] mt-1 leading-tight">
-              {t("admin.tasks.indexing.title", { default: "Indexation des images" })}
-            </h3>
-          </div>
-          <span
-            className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] font-mono mt-0.5"
-            style={{ color: d.worker_present ? JADE : "var(--color-ivoire-soft)" }}
-          >
-            <span
-              aria-hidden
-              className="w-1.5 h-1.5 rotate-45"
-              style={{
-                background: d.worker_present
-                  ? JADE
-                  : "color-mix(in oklab, var(--color-ivoire-soft) 50%, transparent)",
-              }}
-            />
-            {d.worker_present
-              ? t("admin.tasks.indexing.worker_on", { default: "Worker en ligne" })
-              : t("admin.tasks.indexing.worker_off", { default: "Aucun worker" })}
-          </span>
-        </div>
-
-        {/* Progress bar — done over the whole queue. */}
-        <div className="mt-4">
-          <div
-            className="relative h-[6px] overflow-hidden"
-            style={{ background: `color-mix(in oklab, ${OR} 14%, transparent)` }}
-          >
-            <i
-              className="absolute inset-y-0 left-0 not-italic transition-[width] duration-500"
-              style={{ width: `${pct}%`, background: pct >= 100 ? JADE : OR }}
-            />
-          </div>
-          <div className="flex items-baseline justify-between mt-1.5 gap-3">
-            <span className="font-mono text-[10px]" style={{ color: pct >= 100 ? JADE : OR }}>
-              {t("admin.tasks.indexing.progress", {
-                done,
-                total,
-                pct,
-                default: `${done} / ${total} · ${pct} %`,
-              })}
-            </span>
-            <span className="font-mono text-[10px] text-[var(--color-ivoire-soft)]">
-              {t("admin.tasks.indexing.embedded", {
-                n: d.embedded ?? 0,
-                default: `${d.embedded ?? 0} dans l'index`,
-              })}
-            </span>
-          </div>
-        </div>
-
-        {/* State breakdown. */}
-        <div className="mt-4 flex flex-wrap gap-2">
-          {chips.map((c) => {
-            const tone = STATE_TONE[c.state];
-            const dim = !c.n;
-            return (
-              <span
-                key={c.state}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 border text-[10px] uppercase tracking-[0.12em] font-mono"
-                style={{
-                  color: dim ? "var(--color-ivoire-soft)" : tone,
-                  borderColor: `color-mix(in oklab, ${dim ? "var(--color-ivoire-soft)" : tone} ${dim ? 22 : 45}%, transparent)`,
-                  background: dim ? "transparent" : `color-mix(in oklab, ${tone} 8%, transparent)`,
-                  opacity: dim ? 0.5 : 1,
-                }}
-              >
-                <span aria-hidden className="ja not-italic text-xs leading-none">
-                  {STATE_KANJI[c.state]}
-                </span>
-                {c.label}
-                <span className="tabular-nums">{c.n}</span>
-              </span>
-            );
-          })}
-        </div>
-
-        {/* Last activity + controls. */}
-        <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
-          <span className="font-mono text-[10px] text-[var(--color-ivoire-soft)]/70">
-            {d.last_activity
-              ? t("admin.tasks.updated", { rel: rel(d.last_activity, t) })
-              : t("admin.tasks.indexing.idle", { default: "Aucune activité" })}
-          </span>
-          <div className="flex items-center gap-2">
-            {(d.failed ?? 0) > 0 ? (
-              <ActBtn
-                tone={LAQUE}
-                glyph="↻"
-                label={t("admin.tasks.indexing.retry_failed", {
-                  n: d.failed,
-                  default: `Relancer les échecs (${d.failed})`,
-                })}
-                onClick={() => retryFailed.mutate()}
-                busy={retryFailed.isPending}
-              />
-            ) : null}
-            <ActBtn
-              tone={OR}
-              ghost
-              label={t("admin.tasks.indexing.reindex", { default: "Réindexer" })}
-              onClick={() => reindex.mutate()}
-              busy={reindex.isPending}
-            />
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 export default function AdminTasksPage() {
   const t = useT();
   const q = useAdminScans();
   const jobsQ = useAdminJobs();
+  // Live embed-queue stats — drives the worker strip and the live progress shown
+  // inside in-flight reindex history rows (indexing now lives in the timeline).
+  const queue = useAdminVisualSearchQueue();
+  const indexQueues = queue.data?.indexes ?? [];
+  const workerPresent = queue.data?.worker_present;
   const [filter, setFilter] = useState("all");
 
   // Merge worker scans + server job runs into one chronological timeline.
@@ -462,9 +313,34 @@ export default function AdminTasksPage() {
         </p>
       </header>
 
-      {/* ─── Visual-search indexing (aggregate job, not a timeline row) ─── */}
-      <IndexingPanel t={t} />
-      <DuplicatesPanel t={t} />
+      {/* ─── Live: embed-worker presence. Indexing runs now appear as rows in
+            the timeline below (with live progress while in flight). ─── */}
+      {queue.data ? (
+        <div
+          className="reveal mb-6 inline-flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.14em] px-3 py-1.5 border"
+          style={{
+            "--i": 3,
+            color: workerPresent ? JADE : "var(--color-ivoire-soft)",
+            borderColor: `color-mix(in oklab, ${workerPresent ? JADE : "var(--color-ivoire-soft)"} 35%, transparent)`,
+            background: workerPresent ? `color-mix(in oklab, ${JADE} 7%, transparent)` : "transparent",
+          }}
+        >
+          <span
+            aria-hidden
+            className="w-1.5 h-1.5 rotate-45"
+            style={{
+              background: workerPresent
+                ? JADE
+                : "color-mix(in oklab, var(--color-ivoire-soft) 50%, transparent)",
+            }}
+          />
+          {t("admin.tasks.indexing.worker_label", { default: "Worker d'indexation" })}
+          {" · "}
+          {workerPresent
+            ? t("admin.tasks.indexing.worker_on", { default: "Worker en ligne" })
+            : t("admin.tasks.indexing.worker_off", { default: "Aucun worker" })}
+        </div>
+      ) : null}
 
       {/* ─── Queue counters strip ─── */}
       <section
@@ -571,11 +447,15 @@ export default function AdminTasksPage() {
             r.kind === "scan" ? (
               <TaskRow key={r.key} scan={r.scan} t={t} index={i} />
             ) : (
-              <JobRow key={r.key} job={r.job} t={t} index={i} />
+              <JobRow key={r.key} job={r.job} t={t} index={i} indexQueues={indexQueues} />
             ),
           )}
         </ol>
       )}
+
+      {/* ─── Catalogue integrity (potential duplicates) — secondary section,
+            self-hides when nothing is flagged ─── */}
+      <DuplicatesPanel t={t} />
     </div>
   );
 }
@@ -788,8 +668,21 @@ const RESULT_LABELLED = new Set([
   "release_j7",
   "delivery_today",
   "delivery_overdue",
+  "indexed",
+  "failed",
+  "queued",
 ]);
 const RESULT_SKIP = new Set(["keep"]);
+
+// Reindex job_name → the index kind(s) it covers, so a still-running reindex row
+// can show live drain progress pulled from the embed-queue stats.
+const REINDEX_KINDS = {
+  reindex_image: ["image"],
+  reindex_text: ["text"],
+  reindex_look: ["look"],
+  reindex_tags: ["tags"],
+  reindex_all: ["image", "text", "look", "tags"],
+};
 
 /** "127 figurines traitées · 42 prix mis à jour" from a result JSON. Zero
  *  counts are dropped; an all-zero run reads "aucune action nécessaire". */
@@ -807,7 +700,51 @@ function formatJobResult(result, t) {
   return parts.length ? parts.join(" · ") : t("admin.tasks.result.nothing");
 }
 
-function JobRow({ job, t, index = 0 }) {
+/** Live drain progress for an in-flight reindex job, read from the embed-queue
+ *  stats. Falls back to the generic running note for non-reindex jobs (or before
+ *  the queue stats have loaded). */
+function ReindexProgress({ job, indexQueues, t }) {
+  const kinds = REINDEX_KINDS[job.job_name];
+  const stats = kinds
+    ? kinds.map((k) => indexQueues.find((q) => q.index === k)).filter(Boolean)
+    : [];
+  if (!kinds || stats.length === 0) {
+    return (
+      <p className="mt-2 text-[11px] font-mono" style={{ color: OR }}>
+        {t("admin.tasks.job_running")}
+      </p>
+    );
+  }
+  const done = stats.reduce((a, s) => a + (s.done ?? 0), 0);
+  const total = stats.reduce(
+    (a, s) => a + (s.pending ?? 0) + (s.processing ?? 0) + (s.done ?? 0) + (s.failed ?? 0),
+    0,
+  );
+  const pct = total > 0 ? clampPct((done / total) * 100) : 0;
+  return (
+    <div className="mt-2 max-w-[420px]">
+      <div
+        className="relative h-[5px] overflow-hidden"
+        style={{ background: `color-mix(in oklab, ${OR} 14%, transparent)` }}
+      >
+        <i
+          className="absolute inset-y-0 left-0 not-italic transition-[width] duration-500"
+          style={{ width: `${pct}%`, background: OR }}
+        />
+      </div>
+      <p className="mt-1 text-[10px] font-mono" style={{ color: OR }}>
+        {t("admin.tasks.indexing.progress", {
+          done,
+          total,
+          pct,
+          default: `${done} / ${total} · ${pct} %`,
+        })}
+      </p>
+    </div>
+  );
+}
+
+function JobRow({ job, t, index = 0, indexQueues = [] }) {
   const retry = useRetryJob();
 
   const tone = STATE_TONE[job.state] ?? OR;
@@ -871,9 +808,7 @@ function JobRow({ job, t, index = 0 }) {
 
             {/* State-specific read-out: running note / error / result. */}
             {job.state === "processing" ? (
-              <p className="mt-2 text-[11px] font-mono" style={{ color: OR }}>
-                {t("admin.tasks.job_running")}
-              </p>
+              <ReindexProgress job={job} indexQueues={indexQueues} t={t} />
             ) : job.state === "failed" && job.error_message ? (
               <p
                 className="mt-2 text-[11px] font-mono max-w-[560px] px-2.5 py-1.5"
