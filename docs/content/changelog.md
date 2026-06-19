@@ -3,6 +3,19 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.36 — sturdier, clearer online search
+
+- **Online search shows its work** — searching a figure online now shows an
+  animated loader, and names *which* source failed (orzgk vs the boutique proxy)
+  instead of one anonymous error. Each result gains a **Voir** link (opens the
+  shop in a new tab) and a hover-to-enlarge preview of its photo.
+- **It stops hammering a broken source** — after repeated failures from orzgk or
+  the proxy (typically a rate-limit), that source is paused automatically and
+  recovers on its own; the proxy call timeout is now configurable
+  (`FIGURE_PROXY_TIMEOUT_SECS`).
+- **Appearance search caches like Description** — repeating an *Apparence* search
+  reuses the on-device query embedding, so the repeat is instant (no model run).
+
 ## 0.35 — search that shows its work
 
 - **Staged search feedback** — the *Description* and *Look* searches drop the flat
