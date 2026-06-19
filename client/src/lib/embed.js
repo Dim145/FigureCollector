@@ -146,10 +146,62 @@ export function warmUpText(onProgress) {
     .catch(() => false);
 }
 
+// --- In-browser query-embedding cache ----------------------------------------
+// e5 query embeddings are deterministic, so a repeated description search ("elf
+// vert" twice) reuses the cached vector and skips the on-device model run — the
+// repeat is near-instant. LRU, persisted to localStorage, capped well under
+// 10 MB; keyed by model version so a model bump drops stale vectors.
+//
+// NB this caches the WHOLE-query embedding by design. A transformer's sentence
+// embedding can't be rebuilt from per-word embeddings (every token attends to
+// every other, then we mean-pool), so "elf bleu" after "elf vert" is — correctly
+// — a fresh compute, not a recombination of cached words.
+const TEXT_CACHE_STORE = `fc:e5qcache:${TEXT_MODEL_VERSION}`;
+const TEXT_CACHE_MAX = 500; // ~500 × ~7 KB JSON ≈ 3–4 MB ≪ 10 MB
+
+let _textCache = null;
+
+function textCache() {
+  if (_textCache) return _textCache;
+  _textCache = new Map();
+  try {
+    const raw = localStorage.getItem(TEXT_CACHE_STORE);
+    if (raw) for (const [k, v] of JSON.parse(raw)) _textCache.set(k, v);
+  } catch {
+    _textCache = new Map();
+  }
+  return _textCache;
+}
+
+function persistTextCache(cache) {
+  try {
+    localStorage.setItem(TEXT_CACHE_STORE, JSON.stringify([...cache.entries()]));
+  } catch {
+    // Storage full/blocked (private mode, quota): trim hard and retry once;
+    // failing that, keep the in-memory cache and skip persistence.
+    while (cache.size > 50) cache.delete(cache.keys().next().value);
+    try {
+      localStorage.setItem(TEXT_CACHE_STORE, JSON.stringify([...cache.entries()]));
+    } catch {
+      /* in-memory only */
+    }
+  }
+}
+
 /** Embed a TEXT string into a 384-d L2-normalised vector (multilingual-e5-small).
  *  Pass the FULL text WITH the e5 prefix: "query: …" for a search query,
- *  "passage: …" for a catalogue document. */
+ *  "passage: …" for a catalogue document. Identical inputs are served from a
+ *  small in-browser LRU cache (no model run, no download). */
 export async function embedText(text, onProgress) {
+  const key = (text ?? "").trim();
+  const cache = textCache();
+  const cached = cache.get(key);
+  if (cached) {
+    // LRU touch: re-insert so it counts as most-recently used.
+    cache.delete(key);
+    cache.set(key, cached);
+    return cached.slice();
+  }
   const extractor = await getTextExtractor(onProgress);
   const out = await extractor(text, { pooling: "mean", normalize: true });
   const data = out?.data ?? out;
@@ -157,7 +209,10 @@ export async function embedText(text, onProgress) {
   if (arr.length !== EMBED_DIM) {
     throw new Error(`unexpected text embedding length ${arr.length}`);
   }
-  return arr;
+  cache.set(key, arr);
+  while (cache.size > TEXT_CACHE_MAX) cache.delete(cache.keys().next().value);
+  persistTextCache(cache);
+  return arr.slice();
 }
 
 // ── Multimodal "search by look" — multilingual SigLIP2-base TEXT tower, 768-d ─
