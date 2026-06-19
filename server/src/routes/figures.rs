@@ -4,6 +4,7 @@ use crate::auth;
 use crate::domain::figure::{self, FigurePatch, NewFigure};
 use crate::domain::figure_price;
 use crate::domain::figure_type;
+use crate::domain::tags;
 use crate::domain::visual_search;
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
@@ -11,9 +12,11 @@ use axum::{
     Json, Router,
     extract::{Path, Query, State},
     http::StatusCode,
+    response::Response,
     routing::{get, post},
 };
 use serde::Deserialize;
+use std::time::Duration;
 use tower_sessions::Session;
 use uuid::Uuid;
 
@@ -143,6 +146,18 @@ async fn list(
         .unwrap_or("hide");
     q.exclude_nsfw = pref == "hide";
     Ok(Json(figure::list(&state.pool, q).await?))
+}
+
+/// Popular appearance tags across the catalogue (busiest first, generic tags +
+/// the long tail dropped) — drives the catalogue's tag picker. NSFW figures are
+/// excluded from the facets; cached (10 min) since it scans the catalogue.
+async fn list_tags(State(state): State<AppState>) -> AppResult<Response> {
+    state
+        .cache
+        .json_cached("tag-facets", Duration::from_secs(600), || {
+            tags::facets(&state.pool, 60)
+        })
+        .await
 }
 
 async fn create(
@@ -289,6 +304,7 @@ pub fn router() -> Router<AppState> {
         .route("/figures", get(list).post(create))
         .route("/figures/duplicates", get(duplicates))
         .route("/figures/by-jan", get(by_jan))
+        .route("/figures/tags", get(list_tags))
         .route("/figures/match", post(match_figures))
         .route(
             "/figures/{id}",

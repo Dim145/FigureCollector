@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api.js";
 import { useI18n, useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useFigureTypes } from "../hooks/useAdmin.js";
 import { useVisualSearchStatus, useVisualClusters } from "../hooks/useVisualSearch.js";
 import { stashCapturedFile } from "../lib/visualSearchStash.js";
-import { useFigures, useOwnedItems } from "../hooks/useCollection.js";
+import { useFigures, useOwnedItems, useTagFacets } from "../hooks/useCollection.js";
 import { useWishlistItems } from "../hooks/useWishlist.js";
 import AppShell from "../components/AppShell.jsx";
 import { SectionSkeleton } from "../components/Skeleton.jsx";
@@ -15,6 +15,7 @@ import StatCard from "../components/StatCard.jsx";
 import BarcodeScanner from "../components/BarcodeScanner.jsx";
 import FigureCard from "../components/FigureCard.jsx";
 import Button from "../components/Button.jsx";
+import TagRail from "../components/TagRail.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import { resolveFigureCover } from "../lib/coverUrl.js";
 import { typeHue } from "../lib/typeHue.js";
@@ -66,6 +67,29 @@ export default function BrowsePage() {
   const [type, setType] = useState("");
   const [sort, setSort] = useState("recent");
   const navigate = useNavigate();
+  // Appearance-tag filter, driven by the URL (`/browse?tag=elf`) so figure-page
+  // chips deep-link into a filtered catalogue and the filter is shareable.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tag = searchParams.get("tag") || "";
+  const setTag = useCallback(
+    (next) =>
+      setSearchParams((prev) => {
+        const p = new URLSearchParams(prev);
+        if (next) p.set("tag", next);
+        else p.delete("tag");
+        return p;
+      }),
+    [setSearchParams],
+  );
+  const tagFacets = useTagFacets();
+  // Popular tags, already ordered by figure count (= relevance) from the
+  // server. Capped generously so "+N" can reveal a meaningful tail; the rail
+  // shows only what fits on one line until expanded. Memoised so the rail's
+  // measurement effect doesn't re-run on every render.
+  const popularTags = useMemo(
+    () => (tagFacets.data ?? []).slice(0, 40),
+    [tagFacets.data],
+  );
   const [scanOpen, setScanOpen] = useState(false);
   // "catalogue" (flat grid) ↔ "ambiances" (visual-style clusters). When an
   // ambiance is opened we drill into its members.
@@ -153,17 +177,20 @@ export default function BrowsePage() {
 
   // In the ambiance view we load the whole catalogue (no q/type filter) so a
   // drill-in can map a cluster's member ids straight onto loaded figures.
+  // An active tag filter forces the flat catalogue (it's a catalogue facet, not
+  // a semantic/ambiance mode) — so the tag-filtered grid always shows.
   const ambiance =
-    !!vsStatus?.enabled && !!vsStatus?.ambiances && viewMode === "ambiances";
+    !!vsStatus?.enabled && !!vsStatus?.ambiances && viewMode === "ambiances" && !tag;
   const isSemantic =
-    !ambiance && searchMode === "semantic" && !!vsStatus?.text_search_enabled;
+    !ambiance && !tag && searchMode === "semantic" && !!vsStatus?.text_search_enabled;
   const isLook =
-    !ambiance && searchMode === "look" && !!vsStatus?.clip_search_enabled;
+    !ambiance && !tag && searchMode === "look" && !!vsStatus?.clip_search_enabled;
   // Keyword mode filters the catalogue server-side; ambiance + semantic + look
   // modes load the full catalogue (they pick figures another way).
   const figures = useFigures({
     q: ambiance || isSemantic || isLook ? undefined : debouncedQ.trim() || undefined,
     figure_type: ambiance ? undefined : type || undefined,
+    tag: tag || undefined,
   });
   const clusters = useVisualClusters({ enabled: ambiance });
 
@@ -585,6 +612,24 @@ export default function BrowsePage() {
             </div>
           </div>
 
+          {tag ? (
+            <div className="mb-5 flex flex-wrap items-center gap-2">
+              <span className="micro text-[var(--color-ivoire-soft)]">
+                {t("browse.tags.filtered_by", { default: "Filtré par tag" })}
+              </span>
+              <button
+                type="button"
+                onClick={() => setTag("")}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[12px] capitalize border border-[var(--color-or)]/50 bg-[var(--color-or)]/10 text-[var(--color-or)] hover:border-[var(--color-laque-bright)] hover:text-[var(--color-laque-bright)] transition-colors"
+              >
+                {tag}
+                <span aria-hidden className="text-[13px] leading-none">
+                  ×
+                </span>
+              </button>
+            </div>
+          ) : null}
+
           {!isSemantic && !isLook ? (
           <nav
             aria-label="filter by type"
@@ -609,6 +654,38 @@ export default function BrowsePage() {
               />
             ))}
           </nav>
+          ) : null}
+
+          {!isSemantic && !isLook && popularTags.length > 0 ? (
+            <div className="mt-5">
+              <p className="micro text-[var(--color-ivoire-soft)] mb-2">
+                {t("browse.tags.popular", { default: "Tags populaires" })}
+              </p>
+              <TagRail
+                items={popularTags}
+                keyOf={(facet) => facet.tag}
+                ariaLabel={t("browse.tags.popular", { default: "Tags populaires" })}
+                renderChip={(facet) => {
+                  const active = facet.tag === tag;
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setTag(active ? "" : facet.tag)}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[12px] capitalize border transition-colors ${
+                        active
+                          ? "border-[var(--color-or)] bg-[var(--color-or)]/15 text-[var(--color-or)]"
+                          : "border-[var(--color-or)]/20 text-[var(--color-ivoire-soft)] hover:border-[var(--color-or)]/50 hover:text-[var(--color-or)]"
+                      }`}
+                    >
+                      {facet.tag}
+                      <span className="font-mono text-[9px] opacity-60">
+                        {facet.count}
+                      </span>
+                    </button>
+                  );
+                }}
+              />
+            </div>
           ) : null}
         </section>
         ) : null}

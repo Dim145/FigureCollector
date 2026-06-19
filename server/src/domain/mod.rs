@@ -27,6 +27,7 @@ pub mod server_job;
 pub mod settings;
 pub mod stats;
 pub mod store;
+pub mod tags;
 pub mod visual_search;
 pub mod wishlist;
 pub mod worker;

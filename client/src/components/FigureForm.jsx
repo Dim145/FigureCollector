@@ -13,6 +13,7 @@ import {
 import { useIsAdmin, useMe } from "../hooks/useMe.js";
 import { useFigureDuplicates } from "../hooks/useCollection.js";
 import { typeHue, typeKanji } from "../lib/typeHue.js";
+import { nsfwTags } from "../lib/tags.js";
 import AniListLookup from "./AniListLookup.jsx";
 import AniListCharacterLookup from "./AniListCharacterLookup.jsx";
 import Button from "./Button.jsx";
@@ -127,6 +128,12 @@ export default function FigureForm({
   }, [defaultCurrency, initial?.id]);
 
   const set = (k) => (v) => setForm((s) => ({ ...s, [k]: v }));
+
+  // Explicit appearance tags found by the WD-Tagger. When present and the
+  // figure isn't already flagged adult, we nudge the user to mark it NSFW —
+  // a suggestion only (never auto-set), so a false positive stays harmless.
+  const nsfwHints = useMemo(() => nsfwTags(form.visual_tags), [form.visual_tags]);
+  const suggestNsfw = nsfwHints.length > 0 && !form.is_nsfw;
 
   const submitLabel = useMemo(
     () => (mode === "edit" ? t("figure.form.save") : t("addfig.submit")),
@@ -438,6 +445,34 @@ export default function FigureForm({
             </span>
           </span>
         </label>
+        {/* Tag-driven NSFW nudge — surfaces only when the WD-Tagger found
+            explicit tags and the flag is still off. Sibling of the label (not
+            inside it) so the action button doesn't toggle the checkbox. */}
+        {suggestNsfw ? (
+          <div className="mt-3 flex items-start gap-3 border border-[var(--color-laque-bright)]/40 bg-[var(--color-laque-bright)]/8 px-3 py-2.5">
+            <span aria-hidden className="text-[var(--color-laque-bright)] mt-0.5 leading-none">
+              ⚠
+            </span>
+            <div className="flex-1 min-w-0 text-sm">
+              <p className="text-[var(--color-ivoire)]">{t("figure.form.nsfw_suggest.text")}</p>
+              <p className="micro-tight mt-1 opacity-80">
+                {t("figure.form.nsfw_suggest.based_on")}{" "}
+                <span className="font-mono capitalize text-[var(--color-laque-bright)]/90">
+                  {nsfwHints.slice(0, 5).join(", ")}
+                  {nsfwHints.length > 5 ? "…" : ""}
+                </span>
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => set("is_nsfw")(true)}
+              className="shrink-0 text-[10px] uppercase tracking-[0.14em] border border-[var(--color-laque-bright)]/50 text-[var(--color-laque-bright)] px-2.5 py-1.5 hover:bg-[var(--color-laque-bright)]/10 transition-colors disabled:opacity-50"
+            >
+              {t("figure.form.nsfw_suggest.action")}
+            </button>
+          </div>
+        ) : null}
       </section>
 
       {/* ──────────── Appearance tags ────────────

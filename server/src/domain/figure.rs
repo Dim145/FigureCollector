@@ -479,6 +479,8 @@ pub struct ListQuery {
     pub q: Option<String>,
     pub figure_type: Option<String>,
     pub manufacturer: Option<String>,
+    /// Exact appearance-tag filter (one WD-Tagger tag, case-insensitive).
+    pub tag: Option<String>,
     #[serde(default)]
     pub limit: Option<i64>,
     #[serde(default)]
@@ -529,6 +531,17 @@ pub async fn list(pool: &PgPool, q: ListQuery) -> AppResult<Vec<Figure>> {
             binds.len()
         ));
     }
+    if q.tag.is_some() {
+        binds.push("tag".into());
+        // Exact appearance-tag match: split the comma list into an array (after
+        // collapsing the ", " separator) and test membership. `= ANY` avoids
+        // LIKE-metacharacter pitfalls and matches whole tags only — never a
+        // substring of a larger tag.
+        sql.push_str(&format!(
+            " AND ${} = ANY(string_to_array(replace(lower(f.visual_tags), ', ', ','), ',')) ",
+            binds.len()
+        ));
+    }
     sql.push_str(" ORDER BY f.created_at DESC LIMIT ");
     binds.push("limit".into());
     sql.push_str(&format!("${} OFFSET ", binds.len()));
@@ -541,6 +554,7 @@ pub async fn list(pool: &PgPool, q: ListQuery) -> AppResult<Vec<Figure>> {
             "name_ilike" => query.bind(format!("%{}%", q.q.as_deref().unwrap())),
             "type" => query.bind(q.figure_type.clone().unwrap()),
             "manufacturer" => query.bind(q.manufacturer.clone().unwrap()),
+            "tag" => query.bind(q.tag.as_deref().unwrap_or_default().trim().to_lowercase()),
             "limit" => query.bind(limit),
             "offset" => query.bind(offset),
             _ => query,

@@ -9,6 +9,7 @@ export function useFigures(params = {}, { enabled = true } = {}) {
   if (params.q) search.set("q", params.q);
   if (params.figure_type) search.set("figure_type", params.figure_type);
   if (params.manufacturer) search.set("manufacturer", params.manufacturer);
+  if (params.tag) search.set("tag", params.tag);
   const qs = search.toString();
   return useQuery({
     queryKey: ["figures", params],
@@ -20,6 +21,17 @@ export function useFigures(params = {}, { enabled = true } = {}) {
     // (or freshly-changed primary photos) appear on the very next
     // navigation, without forcing a full page reload.
     refetchOnMount: "always",
+    enabled,
+  });
+}
+
+// Popular appearance tags across the catalogue (busiest first, generic tags
+// dropped) — feeds the catalogue's tag picker. Rarely changes → long stale time.
+export function useTagFacets({ enabled = true } = {}) {
+  return useQuery({
+    queryKey: ["figure-tags"],
+    queryFn: () => api.get("/figures/tags"),
+    staleTime: 5 * 60 * 1000,
     enabled,
   });
 }

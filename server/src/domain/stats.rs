@@ -669,6 +669,13 @@ pub struct Insights {
     pub wishlist_value: Vec<CurrencyAmount>,
     pub wishlist_count: i64,
     pub preorder_health: PreorderHealth,
+    /// "Collection DNA" — the appearance tags recurring most across the user's
+    /// owned figures (generic tags dropped, popular-first). Empty until the
+    /// WD-Tagger has indexed the collection.
+    pub collection_dna: Vec<crate::domain::tags::TagFacet>,
+    /// Owned figures carrying at least one tag — the share denominator the SPA
+    /// pairs with each `collection_dna` count.
+    pub dna_pieces: i64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -819,11 +826,16 @@ pub async fn insights(pool: &PgPool, user_id: Uuid) -> AppResult<Insights> {
     .fetch_one(pool)
     .await?;
 
+    // ----- collection DNA (top appearance tags among owned figures) ---------
+    let (collection_dna, dna_pieces) = crate::domain::tags::collection_dna(pool, user_id, 16).await?;
+
     Ok(Insights {
         spend_by_year,
         series_completion,
         wishlist_value,
         wishlist_count,
+        collection_dna,
+        dna_pieces,
         preorder_health: PreorderHealth {
             deposits: deposit_rows
                 .into_iter()

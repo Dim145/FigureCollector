@@ -3,6 +3,19 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.38 — tags you can actually use
+
+- **Filter the catalogue by appearance tag** — the WD-Tagger tags (character,
+  hair, outfit…) are now clickable everywhere: tap one on a figure's page to see
+  every figure that shares it, or pick from the catalogue's *Popular tags*. Tags
+  show as one tidy line sized to your screen, with a **+N** to unfold the rest.
+- **Collection DNA** — your statistics gain an *appearance DNA*: the traits that
+  recur most across your shelf, drawn as a genome strip with a clickable
+  breakdown that jumps straight to the matching catalogue filter.
+- **NSFW suggested from the tags** — when a figure's tags look explicit and it
+  isn't flagged yet, the editor offers a one-click *Mark NSFW* — a suggestion
+  only, never set behind your back.
+
 ## 0.37 — a cache built to scale
 
 - **Snappier collection pages** — the heavy per-user aggregates (stats,

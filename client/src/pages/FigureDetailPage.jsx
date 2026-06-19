@@ -20,6 +20,8 @@ import { useFigurePriceHistory } from "../hooks/useStats.js";
 import { ApiError } from "../lib/api.js";
 import { typeHue, typeKanji } from "../lib/typeHue.js";
 import { buildBuyUrl } from "../lib/storeLink.js";
+import { displayTags } from "../lib/tags.js";
+import TagRail from "../components/TagRail.jsx";
 import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
@@ -971,8 +973,17 @@ function Cartouche({ f, t, onScanJan }) {
   ].some(Boolean);
 
   const market = [f.msrp_amount, f.jan, f.is_nsfw, f.is_user_submitted].some(Boolean);
+  // Appearance tags (WD-Tagger), generic ones dropped — clickable chips that
+  // open the catalogue filtered on that tag. Kept in tagger order (≈ confidence,
+  // i.e. relevance). Memoised so the rail's measurement effect only re-runs when
+  // the tag set actually changes.
+  const appearanceTags = useMemo(
+    () => displayTags(f.visual_tags, { max: 40 }),
+    [f.visual_tags],
+  );
 
-  if (!production && !market && stores.length === 0) return null;
+  if (!production && !market && stores.length === 0 && appearanceTags.length === 0)
+    return null;
 
   return (
     <div className="fig-cartouche">
@@ -1077,6 +1088,36 @@ function Cartouche({ f, t, onScanJan }) {
               />
             ) : null}
           </dl>
+        </div>
+      ) : null}
+
+      {appearanceTags.length > 0 ? (
+        <div className="fig-cartouche-block">
+          <header className="fig-cartouche-heading">
+            <span className="fig-cartouche-heading-kanji" aria-hidden>
+              札
+            </span>
+            <span className="fig-cartouche-heading-label">
+              {t("figure.cartouche.tags", { default: "Tags" })}
+            </span>
+            <span className="fig-cartouche-heading-rule" />
+          </header>
+          <TagRail
+            items={appearanceTags}
+            keyOf={(tag) => tag}
+            ariaLabel={t("figure.cartouche.tags", { default: "Tags" })}
+            renderChip={(tag) => (
+              <Link
+                to={`/browse?tag=${encodeURIComponent(tag)}`}
+                title={t("figure.cartouche.tag_filter", {
+                  default: "Voir les figurines avec ce tag",
+                })}
+                className="inline-flex items-center px-2.5 py-1 text-[12px] capitalize border border-[var(--color-or)]/25 bg-[var(--color-or)]/5 text-[var(--color-ivoire)] hover:border-[var(--color-or)]/60 hover:text-[var(--color-or)] transition-colors"
+              >
+                {tag}
+              </Link>
+            )}
+          />
         </div>
       ) : null}
     </div>

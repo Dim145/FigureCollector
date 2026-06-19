@@ -244,12 +244,14 @@ function InsightsChapters({ insights, t }) {
   const completion = insights.series_completion ?? [];
   const wl = insights.wishlist_value ?? [];
   const ph = insights.preorder_health ?? {};
+  const dna = insights.collection_dna ?? [];
   const hasSpend = spend.length > 0;
   const hasComp = completion.length > 0;
   const hasWl = wl.length > 0 || (insights.wishlist_count ?? 0) > 0;
   const hasPh =
     (ph.deposits?.length ?? 0) > 0 || (ph.open ?? 0) > 0 || (ph.cancellations ?? 0) > 0;
-  if (!hasSpend && !hasComp && !hasWl && !hasPh) return null;
+  const hasDna = dna.length > 0;
+  if (!hasSpend && !hasComp && !hasWl && !hasPh && !hasDna) return null;
 
   return (
     <>
@@ -339,6 +341,91 @@ function InsightsChapters({ insights, t }) {
           </div>
         </>
       ) : null}
+
+      {hasDna ? <CollectionDna dna={dna} pieces={insights.dna_pieces ?? 0} t={t} /> : null}
+    </>
+  );
+}
+
+/**
+ * XII — ADN de collection. The appearance tags that recur most across the
+ * shelf, read as a genome: a proportional "barcode" strip up top (each top
+ * trait a champagne→bronze segment), then a clickable legend where every tag
+ * links straight to the catalogue filtered by it (`/browse?tag=`), tying the
+ * insight back to the tag-filter feature. Counts read as a share of the
+ * tagged collection. Self-hides upstream when no figure carries a tag yet.
+ */
+function CollectionDna({ dna, pieces, t }) {
+  const max = Math.max(1, ...dna.map((d) => Number(d.count) || 0));
+  return (
+    <>
+      <ChapterRule
+        roman="XII"
+        label={t("insights.ch.dna")}
+        kanji="姿"
+        accent="var(--color-neon-cyan)"
+      />
+      <div className="ins-panel">
+        {/* Genome barcode — proportional segments of the dominant traits. */}
+        <div
+          className="flex h-2.5 w-full overflow-hidden rounded-full border border-[var(--color-or)]/20 mb-7"
+          role="presentation"
+        >
+          {dna.map((d, i) => (
+            <span
+              key={d.tag}
+              title={`${d.tag} · ${d.count}`}
+              className="h-full transition-[filter] hover:brightness-125"
+              style={{
+                flexGrow: Number(d.count) || 1,
+                minWidth: "3px",
+                background: segmentColor(i, dna.length),
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Legend — each trait links to the catalogue filtered by that tag. */}
+        <ul className="grid sm:grid-cols-2 gap-x-10 gap-y-3">
+          {dna.map((d, i) => {
+            const share = pieces > 0 ? (Number(d.count) / pieces) * 100 : 0;
+            const rel = (Number(d.count) / max) * 100;
+            return (
+              <li key={d.tag}>
+                <Link
+                  to={`/browse?tag=${encodeURIComponent(d.tag)}`}
+                  className="group flex items-baseline gap-3 text-sm"
+                  title={t("insights.dna.filter", { tag: d.tag })}
+                >
+                  <span
+                    aria-hidden
+                    className="block w-2 h-2 shrink-0 self-center"
+                    style={{ background: segmentColor(i, dna.length) }}
+                  />
+                  <span className="flex-1 truncate capitalize text-[var(--color-ivoire)] group-hover:text-[var(--color-or-pale)] transition-colors">
+                    {d.tag}
+                  </span>
+                  <span className="font-mono text-[10.5px] tracking-wider text-[var(--color-or-pale)]/80 shrink-0">
+                    {d.count}
+                  </span>
+                  <span className="font-mono text-[10px] w-10 text-right text-[var(--color-ivoire-soft)]/70 shrink-0">
+                    {share.toFixed(0)}%
+                  </span>
+                </Link>
+                <span className="mt-1.5 block h-px bg-[var(--color-or)]/10">
+                  <span
+                    className="block h-full"
+                    style={{ width: `${rel}%`, background: colorMix("var(--color-neon-cyan)", 60) }}
+                  />
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="micro-tight mt-6 text-center opacity-70">
+          {t("insights.dna.caption", { n: pieces })}
+        </p>
+      </div>
     </>
   );
 }

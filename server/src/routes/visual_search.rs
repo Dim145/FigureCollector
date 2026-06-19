@@ -20,7 +20,7 @@ use sqlx::PgPool;
 use tower_sessions::Session;
 use uuid::Uuid;
 
-use crate::domain::{clustering, figure, settings, visual_search, worker};
+use crate::domain::{clustering, figure, settings, tags, visual_search, worker};
 use crate::external::vision;
 use crate::{
     auth,
@@ -382,20 +382,6 @@ struct AmbianceCluster {
     representatives: Vec<figure::Figure>,
 }
 
-/// Split a figure's comma-separated WD-Tagger string into a deduped set of
-/// lowercased tags (empty if untagged) — the unit the ambiance-name TF-IDF
-/// counts over.
-fn parse_tags(raw: &Option<String>) -> std::collections::BTreeSet<String> {
-    raw.as_deref()
-        .map(|s| {
-            s.split(',')
-                .map(|t| t.trim().to_lowercase())
-                .filter(|t| !t.is_empty())
-                .collect()
-        })
-        .unwrap_or_default()
-}
-
 /// `GET /visual-search/clusters` — the "browse par ambiance" view: the
 /// catalogue grouped into visual-style clusters (DINOv2 k-means). Honours the
 /// viewer's NSFW pref (hide → adult members dropped, empty clusters omitted).
@@ -424,7 +410,7 @@ async fn ambiance_clusters(
                 continue;
             }
             global_n += 1;
-            for tag in parse_tags(&m.visual_tags) {
+            for tag in tags::parse(&m.visual_tags) {
                 *global_df.entry(tag).or_insert(0) += 1;
             }
         }
@@ -468,7 +454,7 @@ async fn ambiance_clusters(
         let size = visible.len();
         let mut cf: HashMap<String, usize> = HashMap::new();
         for m in &visible {
-            for tag in parse_tags(&m.visual_tags) {
+            for tag in tags::parse(&m.visual_tags) {
                 *cf.entry(tag).or_insert(0) += 1;
             }
         }

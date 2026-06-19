@@ -131,6 +131,7 @@ async fn list_figures(
         q: q.q,
         figure_type: q.figure_type,
         manufacturer: q.manufacturer,
+        tag: None,
         limit: q.limit.or(Some(200)),
         offset: q.offset,
         // Admin moderation lists everything, regardless of viewer pref.
