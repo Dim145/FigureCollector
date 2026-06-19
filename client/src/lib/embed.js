@@ -147,46 +147,67 @@ export function warmUpText(onProgress) {
 }
 
 // --- In-browser query-embedding cache ----------------------------------------
-// e5 query embeddings are deterministic, so a repeated description search ("elf
-// vert" twice) reuses the cached vector and skips the on-device model run — the
-// repeat is near-instant. LRU, persisted to localStorage, capped well under
-// 10 MB; keyed by model version so a model bump drops stale vectors.
+// Query embeddings are deterministic, so a repeated search reuses the cached
+// vector and skips the on-device model run — the repeat is near-instant. One
+// store per model (e5 "Description" + SigLIP "Apparence"): an LRU Map persisted
+// to localStorage, keyed by the query string and versioned by model so a model
+// bump drops stale vectors. Each store is capped well under the ~10 MB budget.
 //
 // NB this caches the WHOLE-query embedding by design. A transformer's sentence
 // embedding can't be rebuilt from per-word embeddings (every token attends to
-// every other, then we mean-pool), so "elf bleu" after "elf vert" is — correctly
-// — a fresh compute, not a recombination of cached words.
-const TEXT_CACHE_STORE = `fc:e5qcache:${TEXT_MODEL_VERSION}`;
-const TEXT_CACHE_MAX = 500; // ~500 × ~7 KB JSON ≈ 3–4 MB ≪ 10 MB
-
-let _textCache = null;
-
-function textCache() {
-  if (_textCache) return _textCache;
-  _textCache = new Map();
-  try {
-    const raw = localStorage.getItem(TEXT_CACHE_STORE);
-    if (raw) for (const [k, v] of JSON.parse(raw)) _textCache.set(k, v);
-  } catch {
-    _textCache = new Map();
-  }
-  return _textCache;
-}
-
-function persistTextCache(cache) {
-  try {
-    localStorage.setItem(TEXT_CACHE_STORE, JSON.stringify([...cache.entries()]));
-  } catch {
-    // Storage full/blocked (private mode, quota): trim hard and retry once;
-    // failing that, keep the in-memory cache and skip persistence.
-    while (cache.size > 50) cache.delete(cache.keys().next().value);
+// every other, then we pool), so "elf bleu" after "elf vert" is — correctly —
+// a fresh compute, not a recombination of cached words.
+function createQueryCache(storeKey, maxEntries) {
+  let map = null;
+  const load = () => {
+    if (map) return map;
+    map = new Map();
     try {
-      localStorage.setItem(TEXT_CACHE_STORE, JSON.stringify([...cache.entries()]));
+      const raw = localStorage.getItem(storeKey);
+      if (raw) for (const [k, v] of JSON.parse(raw)) map.set(k, v);
     } catch {
-      /* in-memory only */
+      map = new Map();
     }
-  }
+    return map;
+  };
+  const persist = (cache) => {
+    try {
+      localStorage.setItem(storeKey, JSON.stringify([...cache.entries()]));
+    } catch {
+      // Storage full/blocked (private mode, quota): trim hard and retry once;
+      // failing that, keep the in-memory cache and skip persistence.
+      while (cache.size > Math.min(50, maxEntries))
+        cache.delete(cache.keys().next().value);
+      try {
+        localStorage.setItem(storeKey, JSON.stringify([...cache.entries()]));
+      } catch {
+        /* in-memory only */
+      }
+    }
+  };
+  return {
+    /** Cached vector for `key` (a copy), touched as most-recently-used; null
+     *  if absent. */
+    get(key) {
+      const cache = load();
+      const hit = cache.get(key);
+      if (!hit) return null;
+      cache.delete(key); // LRU touch: re-insert so it counts as most-recent
+      cache.set(key, hit);
+      return hit.slice();
+    },
+    /** Store `vec` under `key`, evict the LRU tail past the cap, persist. */
+    set(key, vec) {
+      const cache = load();
+      cache.set(key, vec);
+      while (cache.size > maxEntries) cache.delete(cache.keys().next().value);
+      persist(cache);
+    },
+  };
 }
+
+// e5 text (Description) queries — 384-d. ~500 × ~7 KB JSON ≈ 3–4 MB.
+const textQueryCache = createQueryCache(`fc:e5qcache:${TEXT_MODEL_VERSION}`, 500);
 
 /** Embed a TEXT string into a 384-d L2-normalised vector (multilingual-e5-small).
  *  Pass the FULL text WITH the e5 prefix: "query: …" for a search query,
@@ -198,14 +219,8 @@ function persistTextCache(cache) {
  *  the embedding runs. A cache hit returns before either, so it stays silent. */
 export async function embedText(text, onStage) {
   const key = (text ?? "").trim();
-  const cache = textCache();
-  const cached = cache.get(key);
-  if (cached) {
-    // LRU touch: re-insert so it counts as most-recently used.
-    cache.delete(key);
-    cache.set(key, cached);
-    return cached.slice();
-  }
+  const cached = textQueryCache.get(key);
+  if (cached) return cached;
   onStage?.("model");
   const extractor = await getTextExtractor();
   onStage?.("local");
@@ -215,9 +230,7 @@ export async function embedText(text, onStage) {
   if (arr.length !== EMBED_DIM) {
     throw new Error(`unexpected text embedding length ${arr.length}`);
   }
-  cache.set(key, arr);
-  while (cache.size > TEXT_CACHE_MAX) cache.delete(cache.keys().next().value);
-  persistTextCache(cache);
+  textQueryCache.set(key, arr);
   return arr.slice();
 }
 
@@ -235,6 +248,13 @@ export const CLIP_MODEL_VERSION = "siglip2-base/1";
 const CLIP_MODEL_ID = "onnx-community/siglip2-base-patch16-224-ONNX";
 const CLIP_EMBED_DIM = 768;
 const CLIP_MAX_TOKENS = 64;
+
+// SigLIP text (Apparence) queries — 768-d (≈2× an e5 vector), so a smaller cap
+// keeps this store ~3–4 MB, leaving both caches comfortably under ~10 MB.
+const clipQueryCache = createQueryCache(
+  `fc:siglipqcache:${CLIP_MODEL_VERSION}`,
+  250,
+);
 
 let _clipTextPromise = null;
 
@@ -270,10 +290,14 @@ export function warmUpClipText(onProgress) {
 }
 
 /** Embed a free-text description into a 768-d L2-normalised SigLIP text vector
- *  (the shared image+text space) for multimodal "search by look".
- *  `onStage(stage)` reports "model" (load/download) then "local" (embedding)
- *  for a staged loader. */
+ *  (the shared image+text space) for multimodal "search by look". Identical
+ *  inputs are served from a small in-browser LRU cache (no model run, no
+ *  download). `onStage(stage)` reports "model" (load/download) then "local"
+ *  (embedding) for a staged loader; a cache hit returns before either. */
 export async function embedClipText(text, onStage) {
+  const key = (text ?? "").trim();
+  const cached = clipQueryCache.get(key);
+  if (cached) return cached;
   onStage?.("model");
   const { tokenizer, model } = await getClipTextEncoder();
   onStage?.("local");
@@ -291,7 +315,8 @@ export async function embedClipText(text, onStage) {
   }
   const norm = Math.sqrt(arr.reduce((s, x) => s + x * x, 0));
   if (norm > 0) arr = arr.map((x) => x / norm);
-  return arr;
+  clipQueryCache.set(key, arr);
+  return arr.slice();
 }
 
 // Diagnostic / seed hooks: expose the embedders so the catalog index can be
