@@ -74,8 +74,18 @@ export default function BrowsePage() {
   // Search mode within the catalogue view: keyword filter, semantic (e5) text
   // search, or "look" (SigLIP text→image / Apparence).
   const [searchMode, setSearchMode] = useState("keyword");
-  const [semantic, setSemantic] = useState({ results: null, busy: false, error: false });
-  const [look, setLook] = useState({ results: null, busy: false, error: false });
+  const [semantic, setSemantic] = useState({
+    results: null,
+    busy: false,
+    error: false,
+    phase: null,
+  });
+  const [look, setLook] = useState({
+    results: null,
+    busy: false,
+    error: false,
+    phase: null,
+  });
   const [searchHelpOpen, setSearchHelpOpen] = useState(false);
   // Photo search is gated on the feature flag (same as the nav entry); the
   // camera button in the search bar only appears when it's on.
@@ -158,7 +168,9 @@ export default function BrowsePage() {
   const clusters = useVisualClusters({ enabled: ambiance });
 
   // Semantic search: embed the query in-browser (e5-small) and hit the
-  // text-search endpoint, debounced like the keyword search.
+  // text-search endpoint, debounced like the keyword search. `phase` drives the
+  // staged loader (model → local → server → results); the AbortController makes
+  // a query change cancel the in-flight request, not just ignore its result.
   useEffect(() => {
     if (!isSemantic) return;
     const query = debouncedQ.trim();
@@ -166,20 +178,32 @@ export default function BrowsePage() {
     // `hasQuery`, so we don't need to reset state here.
     if (!query) return;
     let cancelled = false;
-    setSemantic((s) => ({ ...s, busy: true, error: false }));
+    const ctrl = new AbortController();
+    const setPhase = (phase) => {
+      if (!cancelled) setSemantic((s) => ({ ...s, phase }));
+    };
+    setSemantic((s) => ({ ...s, busy: true, error: false, phase: null }));
     (async () => {
       try {
         const { embedText } = await import("../lib/embed.js");
-        const embedding = await embedText(`query: ${query}`);
+        const embedding = await embedText(`query: ${query}`, setPhase);
         if (cancelled) return;
-        const results = await api.post("/me/text-search", { embedding });
-        if (!cancelled) setSemantic({ results, busy: false, error: false });
-      } catch {
-        if (!cancelled) setSemantic({ results: null, busy: false, error: true });
+        setPhase("server");
+        const results = await api.post(
+          "/me/text-search",
+          { embedding },
+          { signal: ctrl.signal, onResponse: () => setPhase("results") },
+        );
+        if (!cancelled)
+          setSemantic({ results, busy: false, error: false, phase: null });
+      } catch (e) {
+        if (!cancelled && e?.name !== "AbortError")
+          setSemantic({ results: null, busy: false, error: true, phase: null });
       }
     })();
     return () => {
       cancelled = true;
+      ctrl.abort();
     };
   }, [isSemantic, debouncedQ]);
 
@@ -191,20 +215,32 @@ export default function BrowsePage() {
     const query = debouncedQ.trim();
     if (!query) return;
     let cancelled = false;
-    setLook((s) => ({ ...s, busy: true, error: false }));
+    const ctrl = new AbortController();
+    const setPhase = (phase) => {
+      if (!cancelled) setLook((s) => ({ ...s, phase }));
+    };
+    setLook((s) => ({ ...s, busy: true, error: false, phase: null }));
     (async () => {
       try {
         const { embedClipText } = await import("../lib/embed.js");
-        const embedding = await embedClipText(query);
+        const embedding = await embedClipText(query, setPhase);
         if (cancelled) return;
-        const results = await api.post("/me/clip-search", { embedding });
-        if (!cancelled) setLook({ results, busy: false, error: false });
-      } catch {
-        if (!cancelled) setLook({ results: null, busy: false, error: true });
+        setPhase("server");
+        const results = await api.post(
+          "/me/clip-search",
+          { embedding },
+          { signal: ctrl.signal, onResponse: () => setPhase("results") },
+        );
+        if (!cancelled)
+          setLook({ results, busy: false, error: false, phase: null });
+      } catch (e) {
+        if (!cancelled && e?.name !== "AbortError")
+          setLook({ results: null, busy: false, error: true, phase: null });
       }
     })();
     return () => {
       cancelled = true;
+      ctrl.abort();
     };
   }, [isLook, debouncedQ]);
 
@@ -696,6 +732,73 @@ function EmptyResults({ t }) {
   );
 }
 
+// ── Staged search loader ─────────────────────────────────────────────────────
+// The two on-device searches run in phases — download the AI model (first use
+// only), embed the query locally, query the server, receive the results. Each
+// phase surfaces only once it has lasted ≥750 ms, so a quick search shows no
+// loader at all and a slow one explains itself step by step.
+const SEARCH_STAGE_FALLBACK = {
+  model: "Téléchargement du modèle d'IA…",
+  local: "Traitement local de la demande…",
+  server: "Recherche sur le serveur…",
+  results: "Réception des résultats…",
+};
+
+/** Reveal-on-dwell tracker: returns the ordered list of phases that have each
+ *  stayed current for ≥750 ms. Stays empty while every phase so far has been
+ *  quick (so the loader never flashes on a fast search). Resets when the search
+ *  ends (`active` false) or has no phase yet. */
+function useStagedReveal(phase, active) {
+  const [revealed, setRevealed] = useState([]);
+  useEffect(() => {
+    if (!active || !phase) {
+      setRevealed((r) => (r.length ? [] : r));
+      return;
+    }
+    const id = setTimeout(() => {
+      setRevealed((r) => (r.includes(phase) ? r : [...r, phase]));
+    }, 750);
+    return () => clearTimeout(id);
+  }, [phase, active]);
+  return revealed;
+}
+
+/** The staged loader itself. `revealed` is the done-trail of slow phases; the
+ *  live `phase` is always the pulsing head (even before it crosses 750 ms), so
+ *  the gold diamond and the caption beneath always agree. Flat + GPU-light:
+ *  jade diamonds for done, a breathing gold one for the current step. */
+function SearchProgress({ phase, revealed, t }) {
+  const trail =
+    phase && !revealed.includes(phase) ? [...revealed, phase] : revealed;
+  return (
+    <div
+      className="py-16 flex flex-col items-center gap-5"
+      role="status"
+      aria-live="polite"
+    >
+      <ol className="flex items-center" aria-hidden="true">
+        {trail.map((s, i) => (
+          <li key={s} className="flex items-center">
+            {i > 0 && <span className="w-10 h-px bg-[var(--color-or)]/25" />}
+            <span
+              className={
+                s === phase
+                  ? "w-2.5 h-2.5 rotate-45 bg-[var(--color-or)] animate-pulse"
+                  : "w-2.5 h-2.5 rotate-45 bg-[var(--color-jade)]"
+              }
+            />
+          </li>
+        ))}
+      </ol>
+      <p className="micro text-center text-[var(--color-ivoire-soft)]">
+        {t(`browse.search.stage.${phase}`, {
+          default: SEARCH_STAGE_FALLBACK[phase] ?? "…",
+        })}
+      </p>
+    </div>
+  );
+}
+
 /**
  * Semantic ("Sens") search results — prompt / busy / error / empty states, then
  * the figure grid. The query is embedded in-browser (e5-small), so the first
@@ -712,6 +815,8 @@ function SemanticResults({
   me,
   t,
 }) {
+  // Reveal-on-dwell: only phases that take ≥750 ms surface in the staged loader.
+  const revealed = useStagedReveal(state.phase, state.busy && hasQuery);
   // Per-mode copy (semantic = e5 text-match; look = SigLIP appearance-match).
   const copy =
     kind === "look"
@@ -735,11 +840,13 @@ function SemanticResults({
     );
   }
   if (state.busy) {
-    return (
-      <p className="micro text-center text-[var(--color-ivoire-soft)] py-16">
-        {t(`browse.search.${kind}_busy`, { default: copy.busy })}
-      </p>
-    );
+    // A phase that ran ≥750 ms → show the staged loader. Otherwise keep the
+    // previous results on screen if we have them (no blank flash on a quick
+    // re-search); with nothing to show yet, stay quiet rather than flash a
+    // "no results" empty state while the search is still running.
+    if (revealed.length > 0)
+      return <SearchProgress phase={state.phase} revealed={revealed} t={t} />;
+    if (figures.length === 0) return null;
   }
   if (state.error) {
     return (

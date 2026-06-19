@@ -191,8 +191,12 @@ function persistTextCache(cache) {
 /** Embed a TEXT string into a 384-d L2-normalised vector (multilingual-e5-small).
  *  Pass the FULL text WITH the e5 prefix: "query: …" for a search query,
  *  "passage: …" for a catalogue document. Identical inputs are served from a
- *  small in-browser LRU cache (no model run, no download). */
-export async function embedText(text, onProgress) {
+ *  small in-browser LRU cache (no model run, no download).
+ *
+ *  `onStage(stage)` reports the work phase for a staged loader: "model" while
+ *  the model loads (download on first use, else instant), then "local" while
+ *  the embedding runs. A cache hit returns before either, so it stays silent. */
+export async function embedText(text, onStage) {
   const key = (text ?? "").trim();
   const cache = textCache();
   const cached = cache.get(key);
@@ -202,7 +206,9 @@ export async function embedText(text, onProgress) {
     cache.set(key, cached);
     return cached.slice();
   }
-  const extractor = await getTextExtractor(onProgress);
+  onStage?.("model");
+  const extractor = await getTextExtractor();
+  onStage?.("local");
   const out = await extractor(text, { pooling: "mean", normalize: true });
   const data = out?.data ?? out;
   const arr = Array.from(data, (x) => Number(x));
@@ -264,9 +270,13 @@ export function warmUpClipText(onProgress) {
 }
 
 /** Embed a free-text description into a 768-d L2-normalised SigLIP text vector
- *  (the shared image+text space) for multimodal "search by look". */
-export async function embedClipText(text, onProgress) {
-  const { tokenizer, model } = await getClipTextEncoder(onProgress);
+ *  (the shared image+text space) for multimodal "search by look".
+ *  `onStage(stage)` reports "model" (load/download) then "local" (embedding)
+ *  for a staged loader. */
+export async function embedClipText(text, onStage) {
+  onStage?.("model");
+  const { tokenizer, model } = await getClipTextEncoder();
+  onStage?.("local");
   const inputs = tokenizer(text, {
     padding: "max_length",
     max_length: CLIP_MAX_TOKENS,

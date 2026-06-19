@@ -3,6 +3,17 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.35 — search that shows its work
+
+- **Staged search feedback** — the *Description* and *Look* searches drop the flat
+  "Searching…" line for a step-by-step indicator: downloading the AI model,
+  processing on your device, querying the server, receiving the results. Each
+  step only surfaces once it actually takes a moment (≥ 750 ms), so a quick
+  search shows nothing at all and a slow first run explains itself.
+- **No wasted requests** — typing stays debounced, and changing the query now
+  *cancels* the search in flight instead of letting it finish unseen, so a burst
+  of keystrokes fires a single search rather than a pile-up.
+
 ## 0.34 — edit a figure's appearance tags
 
 - **Editable tags** — the figure editor (admin or the figure's owner) gains an

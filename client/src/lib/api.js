@@ -13,7 +13,10 @@ export class ApiError extends Error {
   }
 }
 
-async function request(path, { method = "GET", body, headers } = {}) {
+async function request(
+  path,
+  { method = "GET", body, headers, signal, onResponse } = {},
+) {
   let res;
   try {
     res = await fetch(`/api${path}`, {
@@ -25,10 +28,18 @@ async function request(path, { method = "GET", body, headers } = {}) {
         ...(headers ?? {}),
       },
       body: body != null ? JSON.stringify(body) : undefined,
+      signal,
     });
   } catch (e) {
+    // Caller cancelled (AbortController): propagate the DOMException as-is so
+    // callers can branch on `err.name === "AbortError"` rather than mistaking
+    // it for a genuine network failure.
+    if (e?.name === "AbortError") throw e;
     throw new ApiError(0, "network", e?.message ?? "network");
   }
+
+  // Response headers are in — anything after this is body transfer/parse.
+  onResponse?.();
 
   if (res.status === 204) return null;
 
@@ -52,8 +63,8 @@ function safeJson(text) {
 }
 
 export const api = {
-  get: (path) => request(path),
-  post: (path, body) => request(path, { method: "POST", body }),
+  get: (path, opts) => request(path, { ...opts }),
+  post: (path, body, opts) => request(path, { method: "POST", body, ...opts }),
   put: (path, body) => request(path, { method: "PUT", body }),
   patch: (path, body) => request(path, { method: "PATCH", body }),
   delete: (path) => request(path, { method: "DELETE" }),
