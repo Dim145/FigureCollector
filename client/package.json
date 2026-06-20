@@ -28,6 +28,8 @@
     "dexie": "^4.4.0",
     "dexie-react-hooks": "^1.1.7",
     "gsplat": "^1.2.9",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "motion": "^12.40.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

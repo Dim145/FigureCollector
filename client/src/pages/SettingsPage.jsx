@@ -5,9 +5,12 @@ import { useMe } from "../hooks/useMe.js";
 import { useChannels } from "../hooks/useNotifications.js";
 import { useUpdateProfile } from "../hooks/useProfile.js";
 import { useMyStats, useInsights } from "../hooks/useStats.js";
+import { useOwnedItems } from "../hooks/useCollection.js";
 import { useCurrencies } from "../hooks/useCurrencies.js";
 import { CURRENCY_LABELS } from "../lib/money.js";
+import { exportInventoryCsv, exportInventoryPdf } from "../lib/inventoryExport.js";
 import AccentTitle from "../components/AccentTitle.jsx";
+import DossierExportButton from "../components/DossierExportButton.jsx";
 import AppShell from "../components/AppShell.jsx";
 import Card from "../components/Card.jsx";
 import NotificationSettings from "../components/NotificationSettings.jsx";
@@ -63,6 +66,9 @@ export default function SettingsPage() {
   // React-Query-cached, so these are the same figures the rest of the app
   // already fetched; default to 0 while loading / on error.
   const stats = useMyStats();
+  // Owned items power the client-side inventory/insurance export (per-piece
+  // table). Same React-Query cache the collection page already populated.
+  const owned = useOwnedItems();
   const insights = useInsights();
   const currencies = useCurrencies();
   const [bgModel, setBgModel] = useState(() => getPref("bgModel"));
@@ -475,6 +481,46 @@ export default function SettingsPage() {
                 >
                   ↓ {t("archives.backup.download")}
                 </a>
+              </div>
+
+              {/* Inventory / insurance — generated client-side (jsPDF / CSV)
+                * from the owned collection: a dated per-piece table with paid +
+                * estimated value and per-currency / EUR totals. */}
+              <div className="exp-backup">
+                <p>
+                  <b>{t("export.inv.section", { default: "Inventaire / Assurance" })}</b> —{" "}
+                  {t("export.inv.desc", {
+                    default:
+                      "Un état daté de ta collection (pièce, état, valeur estimée), en PDF ou CSV — pratique pour l'assurance.",
+                  })}
+                </p>
+                <div className="exp-card-dls">
+                  <button
+                    type="button"
+                    disabled={!owned.data?.length}
+                    onClick={() =>
+                      exportInventoryPdf(owned.data, stats.data, t, {
+                        ownerName: me.data?.user?.display_name,
+                      })
+                    }
+                    className="dl-btn dl-btn--json disabled:opacity-40"
+                  >
+                    ↓ PDF
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!owned.data?.length}
+                    onClick={() => exportInventoryCsv(owned.data, t)}
+                    className="dl-btn dl-btn--csv disabled:opacity-40"
+                  >
+                    ↓ CSV
+                  </button>
+                </div>
+                <DossierExportButton
+                  owned={owned.data}
+                  stats={stats.data}
+                  ownerName={me.data?.user?.display_name}
+                />
               </div>
             </Panel>
           </div>

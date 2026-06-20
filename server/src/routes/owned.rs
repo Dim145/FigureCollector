@@ -2,7 +2,7 @@
 
 use crate::auth;
 use crate::domain::owned::{CoverPatch, NewOwnedItem, OwnedPatch};
-use crate::domain::{achievement, activity, owned, preorder};
+use crate::domain::{achievement, activity, owned, preorder, shelf_layout};
 use crate::error::AppResult;
 use crate::events::Event;
 use crate::state::AppState;
@@ -296,9 +296,35 @@ async fn arrange_mine(
     Ok(StatusCode::NO_CONTENT)
 }
 
+// ── Free-form planner layout (Vitrines "atelier" view) ───────────────────────
+// One opaque JSON document per user — absolute placements on the planner's
+// shelves. Stored/returned verbatim; never feeds stats, so no cache invalidation.
+
+async fn get_shelf_layout(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<serde_json::Value>> {
+    let user_id = auth::require_user(&session).await?;
+    Ok(Json(shelf_layout::get(&state.pool, user_id).await?))
+}
+
+async fn put_shelf_layout(
+    State(state): State<AppState>,
+    session: Session,
+    Json(body): Json<serde_json::Value>,
+) -> AppResult<StatusCode> {
+    let user_id = auth::require_user(&session).await?;
+    shelf_layout::put(&state.pool, user_id, body).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/me/owned", get(list_mine).post(add_mine))
+        .route(
+            "/me/shelf-layout",
+            get(get_shelf_layout).put(put_shelf_layout),
+        )
         .route(
             "/me/owned/{id}",
             patch_method(patch_mine).delete(delete_mine),

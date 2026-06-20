@@ -132,6 +132,13 @@ pub fn build_router(state: AppState) -> Router {
         .layer(DefaultBodyLimit::disable())
         .layer(RequestBodyLimitLayer::new(12 * 1024 * 1024));
 
+    // Insurance dossier POST carries the inventory cover PDF + a manifest — it's
+    // multipart, so it needs DefaultBodyLimit::disable() + a real cap above the
+    // 2 MB default. 8 MB is ample for even a large inventory-table cover.
+    let dossier_routes = export::dossier_router()
+        .layer(DefaultBodyLimit::disable())
+        .layer(RequestBodyLimitLayer::new(8 * 1024 * 1024));
+
     // Admin uploads (entity logos / cover / portrait) — 5 MB cap, single
     // file, gated by `require_admin` inside the handler.
     let admin_photo_routes = admin::photo_upload_router()
@@ -180,6 +187,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(profile::router())
         .merge(follow::router())
         .merge(export::router())
+        .merge(dossier_routes)
         .merge(external::router())
         .merge(activity::router())
         .merge(achievements::router())

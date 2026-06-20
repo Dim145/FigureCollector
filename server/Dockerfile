@@ -34,6 +34,9 @@ WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 COPY migrations ./migrations
+# Bundled fonts for the insurance-dossier separator pages (include_bytes! in
+# services/dossier.rs reads these at compile time).
+COPY assets ./assets
 
 # BuildKit cache mounts persist the cargo registry and the target directory
 # across rebuilds without bloating the final image.

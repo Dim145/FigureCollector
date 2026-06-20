@@ -13,6 +13,7 @@ import { useCurrencies } from "../hooks/useCurrencies.js";
 import Button from "./Button.jsx";
 import CancellationDialog from "./CancellationDialog.jsx";
 import FormField from "./FormField.jsx";
+import Money from "./Money.jsx";
 import PriceWithBreakdown from "./PriceWithBreakdown.jsx";
 import Select from "./Select.jsx";
 import StoreAutocomplete from "./StoreAutocomplete.jsx";
@@ -208,6 +209,35 @@ function ReadMode({ owned, preorder, catalogMsrp, catalogCurrency, t }) {
           "—"
         )}
       </Row>
+      {owned.for_sale || owned.for_trade ? (
+        <Row label={t("owned.editor.sale.title")}>
+          <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1.5">
+            {owned.for_sale ? (
+              <span className="inline-flex items-center px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] border border-[var(--color-laque-bright)]/60 text-[var(--color-laque-bright)] bg-[var(--color-laque)]/10">
+                {t("owned.editor.sale.for_sale")}
+              </span>
+            ) : null}
+            {owned.for_trade ? (
+              <span className="inline-flex items-center px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] border border-[var(--color-or)]/50 text-[var(--color-or-pale)]">
+                {t("owned.editor.sale.for_trade")}
+              </span>
+            ) : null}
+            {owned.for_sale && owned.asking_price_amount ? (
+              <span className="text-[var(--color-or)] font-medium">
+                <Money
+                  amount={owned.asking_price_amount}
+                  currency={owned.asking_price_currency || owned.price_currency}
+                />
+              </span>
+            ) : null}
+            {owned.sale_note ? (
+              <span className="block w-full whitespace-pre-wrap text-[13px] italic text-[var(--color-ivoire-soft)]">
+                {owned.sale_note}
+              </span>
+            ) : null}
+          </span>
+        </Row>
+      ) : null}
     </dl>
   );
 }
@@ -295,6 +325,14 @@ function EditMode({ owned, preorder, catalogMsrp, catalogCurrency, onClose, t })
       purchase_date: form.purchase_date || null,
       location: nz(form.location),
       notes: nz(form.notes),
+      // Booleans are always sent so toggling OFF persists (server COALESCEs
+      // nulls, not falses). Asking price only when actually selling.
+      for_sale: !!form.for_sale,
+      for_trade: !!form.for_trade,
+      asking_price_amount: form.for_sale ? num(form.asking_price_amount) : null,
+      asking_price_currency:
+        form.for_sale && form.asking_price_amount ? form.asking_price_currency : null,
+      sale_note: form.for_sale || form.for_trade ? nz(form.sale_note) : null,
     };
     await update.mutateAsync({ id: owned.id, patch: payload });
     // Patch the preorder's deposit too, when the field is editable
@@ -473,6 +511,65 @@ function EditMode({ owned, preorder, catalogMsrp, catalogCurrency, onClose, t })
         />
       </label>
 
+      {/* À vendre / à échanger — marketplace flags surfaced on the public
+          showcase. Asking price + a public note appear once "à vendre" is on. */}
+      <div className="border-t border-[var(--color-or)]/15 pt-5">
+        <p className="micro mb-1">{t("owned.editor.sale.title")}</p>
+        <p className="micro-tight mb-3 text-[var(--color-ivoire-soft)]/60">
+          {t("owned.editor.sale.hint")}
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {[
+            { key: "for_sale", label: t("owned.editor.sale.for_sale") },
+            { key: "for_trade", label: t("owned.editor.sale.for_trade") },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={!!form[key]}
+              onClick={() => set(key)(!form[key])}
+              className={`px-3 py-1.5 text-[10px] uppercase tracking-[0.22em] border transition-colors ${
+                form[key]
+                  ? "bg-[var(--color-laque)]/15 border-[var(--color-laque-bright)] text-[var(--color-laque-bright)]"
+                  : "border-[var(--color-or)]/30 text-[var(--color-ivoire-soft)] hover:border-[var(--color-or)]/70 hover:text-[var(--color-or-pale)]"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {form.for_sale ? (
+          <div className="mt-4 grid sm:grid-cols-[2fr_1fr] gap-4">
+            <FormField
+              label={t("owned.editor.sale.asking_price")}
+              type="number"
+              value={form.asking_price_amount}
+              onChange={set("asking_price_amount")}
+              placeholder={t("owned.editor.sale.asking_price_ph")}
+            />
+            <Select
+              label={t("owned.editor.field.currency")}
+              value={form.asking_price_currency}
+              onChange={set("asking_price_currency")}
+              options={currencyOptions.map((c) => ({ value: c, label: c }))}
+            />
+          </div>
+        ) : null}
+        {form.for_sale || form.for_trade ? (
+          <label className="block mt-4">
+            <span className="micro block mb-2">{t("owned.editor.sale.note")}</span>
+            <textarea
+              value={form.sale_note}
+              onChange={(e) => set("sale_note")(e.target.value)}
+              rows={2}
+              placeholder={t("owned.editor.sale.note_ph")}
+              className="w-full bg-[var(--color-noir)] border border-[var(--color-or)]/30 px-4 py-3 text-[var(--color-ivoire)] outline-none focus:border-[var(--color-or)] transition-colors leading-relaxed"
+              style={{ fontFamily: "var(--font-sans)" }}
+            />
+          </label>
+        ) : null}
+      </div>
+
       {update.isError ? (
         <p
           role="alert"
@@ -519,6 +616,13 @@ function seedFromOwned(owned, preorder, defaultCurrency = "JPY") {
       (owned.created_at ? String(owned.created_at).slice(0, 10) : ""),
     location: owned.location ?? "",
     notes: owned.notes ?? "",
+    for_sale: !!owned.for_sale,
+    for_trade: !!owned.for_trade,
+    asking_price_amount:
+      owned.asking_price_amount != null ? String(owned.asking_price_amount) : "",
+    asking_price_currency:
+      owned.asking_price_currency ?? owned.price_currency ?? defaultCurrency,
+    sale_note: owned.sale_note ?? "",
   };
 }
 

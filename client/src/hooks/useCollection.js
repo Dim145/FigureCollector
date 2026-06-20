@@ -218,6 +218,27 @@ export function useDeleteLocation() {
   });
 }
 
+// ----- Free-form planner layout (Vitrines "atelier" view) -------------------
+
+/** The user's free-form planner layout — absolute placements of pieces on the
+ *  planner's drawn shelves. Opaque JSON owned by the planner; `{}` by default. */
+export function useShelfLayout({ enabled = true } = {}) {
+  return useQuery({
+    queryKey: ["shelf-layout"],
+    queryFn: () => api.get("/me/shelf-layout"),
+    staleTime: 60_000,
+    enabled,
+  });
+}
+
+/** Persist the whole planner layout (upserted wholesale). The planner holds the
+ *  authoritative copy in local state and saves debounced — no cache to drop. */
+export function useSaveShelfLayout() {
+  return useMutation({
+    mutationFn: (data) => api.put("/me/shelf-layout", data),
+  });
+}
+
 // ----- Pre-orders ------------------------------------------------------------
 
 export function usePreorders() {

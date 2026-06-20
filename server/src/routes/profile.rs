@@ -15,6 +15,7 @@ use axum::{
     routing::{get, patch as patch_method},
 };
 use chrono::{DateTime, Utc};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
 use tower_sessions::Session;
@@ -111,6 +112,14 @@ struct PublicCollectionEntry {
     height_mm: Option<i32>,
     version_name: Option<String>,
     condition: String,
+    // Marketplace flags — feed the public "À vendre" section. Asking price is a
+    // deliberately-published sale price, so it's NOT gated behind show_value
+    // (which governs the private collection valuation).
+    for_sale: bool,
+    for_trade: bool,
+    asking_price_amount: Option<Decimal>,
+    asking_price_currency: Option<String>,
+    sale_note: Option<String>,
     created_at: DateTime<Utc>,
 }
 
@@ -139,7 +148,9 @@ async fn get_public_profile(
             o.id AS owned_id, o.figure_id, f.name AS figure_name, f.slug AS figure_slug,
             f.figure_type, f.official_image_url AS figure_image,
             m.name AS manufacturer_name, f.scale, f.height_mm, f.version_name,
-            o.condition, o.created_at
+            o.condition,
+            o.for_sale, o.for_trade, o.asking_price_amount, o.asking_price_currency, o.sale_note,
+            o.created_at
          FROM owned_items o
          JOIN figures f         ON f.id = o.figure_id
          LEFT JOIN manufacturers m ON m.id = f.manufacturer_id

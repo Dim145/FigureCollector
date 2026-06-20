@@ -23,6 +23,15 @@ pub struct OwnedItem {
     /// to the figure's catalog MSRP. Currency held in `value_currency`.
     pub value_amount: Option<Decimal>,
     pub value_currency: Option<String>,
+    /// Marketplace flags — the owner can list a piece "for sale" and/or "for
+    /// trade", with an optional asking price (its own currency) and a public
+    /// sale note. Drive the collection filter + the public showcase "À vendre"
+    /// section; both default false until opted in per item.
+    pub for_sale: bool,
+    pub for_trade: bool,
+    pub asking_price_amount: Option<Decimal>,
+    pub asking_price_currency: Option<String>,
+    pub sale_note: Option<String>,
     /// Manual sort order within a Vitrines cabinet (drag-and-drop). Null sinks
     /// to the end, ordered by `created_at`.
     pub sort_order: Option<i32>,
@@ -54,6 +63,13 @@ pub struct OwnedItemWithFigure {
     /// Manual valuation (the "cote") + its currency. Null → fall back to MSRP.
     pub value_amount: Option<Decimal>,
     pub value_currency: Option<String>,
+    /// Marketplace flags (see `OwnedItem`) — surfaced in the collection filter
+    /// and the public showcase "À vendre" section.
+    pub for_sale: bool,
+    pub for_trade: bool,
+    pub asking_price_amount: Option<Decimal>,
+    pub asking_price_currency: Option<String>,
+    pub sale_note: Option<String>,
     /// Manual sort order within a Vitrines cabinet (drag-and-drop).
     pub sort_order: Option<i32>,
     /// Joined from `stores` — `None` when the user never picked a store or
@@ -139,6 +155,13 @@ pub struct OwnedPatch {
     pub purchase_date: Option<NaiveDate>,
     pub location: Option<String>,
     pub notes: Option<String>,
+    // Marketplace flags. Omitted fields (None) leave the column untouched
+    // (COALESCE), so toggling "for sale" never disturbs the price/condition.
+    pub for_sale: Option<bool>,
+    pub for_trade: Option<bool>,
+    pub asking_price_amount: Option<Decimal>,
+    pub asking_price_currency: Option<String>,
+    pub sale_note: Option<String>,
 }
 
 fn default_condition() -> String {
@@ -149,7 +172,9 @@ const ALLOWED_CONDITIONS: &[&str] = &["mib_sealed", "opened_box", "displayed", "
 
 const OWNED_RETURNING: &str =
     "id, user_id, figure_id, condition, price_amount, price_currency, shipping_amount, \
-     value_amount, value_currency, sort_order, \
+     value_amount, value_currency, \
+     for_sale, for_trade, asking_price_amount, asking_price_currency, sale_note, \
+     sort_order, \
      store_id, purchase_date, location, notes, cover_photo_id, cover_scan_id, \
      archived_at, created_at, updated_at";
 
@@ -255,6 +280,15 @@ pub async fn patch(
             ));
         }
     }
+    // Asking-price currency has the same supported-currency floor as the paid
+    // price — it's a separate, user-facing amount on the public showcase.
+    if let Some(c) = &input.asking_price_currency {
+        if !crate::domain::currency::is_supported(c) {
+            return Err(AppError::BadRequest(
+                "asking_price_currency must be a supported currency code",
+            ));
+        }
+    }
 
     // Same find-or-create as in `create()`. Patch with `store: ""` is a
     // no-op (find_or_create returns None for empty input, and COALESCE
@@ -274,16 +308,21 @@ pub async fn patch(
             purchase_date    = COALESCE($6, purchase_date),
             location         = COALESCE($7, location),
             notes            = COALESCE($8, notes),
+            for_sale              = COALESCE($9, for_sale),
+            for_trade             = COALESCE($10, for_trade),
+            asking_price_amount   = COALESCE($11, asking_price_amount),
+            asking_price_currency = COALESCE($12, asking_price_currency),
+            sale_note             = COALESCE($13, sale_note),
             -- Re-freeze the cost→EUR rate only when the currency actually
             -- changes (or was never captured); editing any other field leaves
             -- the purchase-time rate untouched, even if the SPA resends the
             -- unchanged currency in a full-payload patch.
             price_fx_rate    = CASE
                 WHEN $3 IS NOT NULL AND ($3 <> price_currency OR price_fx_rate IS NULL)
-                    THEN COALESCE($9, price_fx_rate)
+                    THEN COALESCE($14, price_fx_rate)
                 ELSE price_fx_rate
               END
-         WHERE id = $10 AND user_id = $11
+         WHERE id = $15 AND user_id = $16
          RETURNING {OWNED_RETURNING}"
     );
 
@@ -296,6 +335,11 @@ pub async fn patch(
         .bind(input.purchase_date)
         .bind(&input.location)
         .bind(&input.notes)
+        .bind(input.for_sale)
+        .bind(input.for_trade)
+        .bind(input.asking_price_amount)
+        .bind(&input.asking_price_currency)
+        .bind(&input.sale_note)
         .bind(price_fx_rate)
         .bind(id)
         .bind(user_id)
@@ -397,7 +441,9 @@ pub async fn list_for_user(
         "SELECT
             o.id, o.figure_id, o.condition, o.price_amount, o.price_currency,
             o.shipping_amount,
-            o.value_amount, o.value_currency, o.sort_order,
+            o.value_amount, o.value_currency,
+            o.for_sale, o.for_trade, o.asking_price_amount, o.asking_price_currency, o.sale_note,
+            o.sort_order,
             o.store_id,
             st.name AS store_name,
             st.slug AS store_slug,

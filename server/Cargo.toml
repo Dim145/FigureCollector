@@ -119,6 +119,18 @@ scraper = { version = "0.27", default-features = false }
 pdf-extract = "0.10"
 regex = "1"
 
+# --- Insurance dossier: merge each item's invoices into ONE PDF ---
+# `lopdf` merges the existing invoice PDFs and decrypts empty-password store
+# invoices (pure-Rust RustCrypto — no OpenSSL); `printpdf` builds the per-figure
+# separator pages and wraps image receipts (jpg/png/webp) as PDF pages. printpdf
+# 0.9 pins lopdf ^0.39, so there's a single lopdf in our code path. Everything is
+# in-memory (no temp files → fine under the read-only FROM-scratch container).
+lopdf = "0.39"
+# text_layout pulls azul-layout → ParsedFont (TTF embedding) so the separator
+# pages can render real UTF-8 (accents é · …) and we can measure glyph widths to
+# wrap long titles. Bundled font lives in assets/fonts/ (Go fonts, BSD-3).
+printpdf = { version = "0.9", default-features = false, features = ["jpeg", "png", "webp", "text_layout"] }
+
 # --- TLS provider (installed as rustls default at startup) ---
 rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs", "tls12"] }
 

@@ -64,6 +64,9 @@ export default function CollectionPage() {
   const archive = useArchiveOwnedItem();
   const locations = useLocations();
   const [conditionFilter, setConditionFilter] = useState("all");
+  // Optional "à vendre / à échanger" lens — narrows the grid to pieces the
+  // owner has listed on their trade shelf.
+  const [saleOnly, setSaleOnly] = useState(false);
   // "À la une" — one piece pinned to the top of the collection. Stored
   // client-side (a per-device display choice, no backend field); when nothing
   // is pinned the featured block simply doesn't render.
@@ -138,11 +141,19 @@ export default function CollectionPage() {
     return m;
   }, [owned.data]);
 
+  const saleCount = useMemo(
+    () => (owned.data ?? []).filter((o) => o.for_sale || o.for_trade).length,
+    [owned.data],
+  );
+
   const filtered = useMemo(() => {
-    if (!owned.data) return [];
-    if (conditionFilter === "all") return owned.data;
-    return owned.data.filter((o) => o.condition === conditionFilter);
-  }, [owned.data, conditionFilter]);
+    let list = owned.data ?? [];
+    if (saleOnly) list = list.filter((o) => o.for_sale || o.for_trade);
+    if (conditionFilter !== "all") {
+      list = list.filter((o) => o.condition === conditionFilter);
+    }
+    return list;
+  }, [owned.data, conditionFilter, saleOnly]);
 
   // The pinned piece, resolved against the live collection (ignored if it was
   // since removed/archived).
@@ -251,6 +262,21 @@ export default function CollectionPage() {
             >
               {t("cote.title")}
             </Link>
+            {saleCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => setSaleOnly((v) => !v)}
+                aria-pressed={saleOnly}
+                className={`chip inline-flex items-center gap-1.5 transition-colors ${
+                  saleOnly
+                    ? "!border-[var(--color-laque-bright)] !text-[var(--color-laque-bright)]"
+                    : "hover:border-[var(--color-laque-bright)] hover:text-[var(--color-laque-bright)]"
+                }`}
+              >
+                {t("collection.lens.for_sale", { default: "À vendre" })}
+                <span className="font-mono text-[10px] opacity-70">{saleCount}</span>
+              </button>
+            ) : null}
             {owned.data?.length ? (
               <>
                 {/* Action, not a lens — set it apart from Vitrines / La Cote so

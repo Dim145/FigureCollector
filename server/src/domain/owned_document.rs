@@ -6,6 +6,7 @@ use crate::error::{AppError, AppResult};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::{FromRow, PgPool};
+use std::collections::HashSet;
 use uuid::Uuid;
 
 /// Row shape returned to the SPA (the `storage_key` stays server-side).
@@ -191,6 +192,37 @@ pub async fn list_parsed_metadata(
          ORDER BY created_at ASC",
     )
     .bind(owned_item_id)
+    .fetch_all(pool)
+    .await?;
+    Ok(rows.into_iter().map(|r| r.0).collect())
+}
+
+/// Server-side `(storage_key, mime, filename)` for every document on an item,
+/// oldest first — the input to the insurance-dossier merge. `storage_key` never
+/// leaves the server otherwise (it's omitted from [`OwnedDocument`]).
+pub async fn list_for_merge(
+    pool: &PgPool,
+    owned_item_id: Uuid,
+) -> AppResult<Vec<(String, String, String)>> {
+    Ok(sqlx::query_as::<_, (String, String, String)>(
+        "SELECT storage_key, mime, filename
+         FROM owned_item_documents
+         WHERE owned_item_id = $1
+         ORDER BY created_at ASC",
+    )
+    .bind(owned_item_id)
+    .fetch_all(pool)
+    .await?)
+}
+
+/// The set of the user's owned-item ids that have at least one document. Lets
+/// the dossier export skip items with nothing to attach (and gate ownership) in
+/// a single query rather than one lookup per item.
+pub async fn item_ids_with_documents(pool: &PgPool, user_id: Uuid) -> AppResult<HashSet<Uuid>> {
+    let rows: Vec<(Uuid,)> = sqlx::query_as(
+        "SELECT DISTINCT owned_item_id FROM owned_item_documents WHERE user_id = $1",
+    )
+    .bind(user_id)
     .fetch_all(pool)
     .await?;
     Ok(rows.into_iter().map(|r| r.0).collect())

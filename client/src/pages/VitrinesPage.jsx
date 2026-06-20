@@ -22,7 +22,9 @@ import Card from "../components/Card.jsx";
 import StatCard from "../components/StatCard.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
+import ShelfPlanner from "../components/ShelfPlanner.jsx";
 import { typeHue, typeKanji } from "../lib/typeHue.js";
+import { standeeWidthPx } from "../lib/standee.js";
 import { effectiveValue } from "../lib/money.js";
 import Money from "../components/Money.jsx";
 import { resolveOwnedCover } from "../lib/coverUrl.js";
@@ -414,6 +416,9 @@ export default function VitrinesPage() {
               <button type="button" className={view === "diorama" ? "is-on" : ""} aria-pressed={view === "diorama"} onClick={() => setView("diorama")}>
                 {t("vitrines.view.diorama", { default: "Diorama" })}
               </button>
+              <button type="button" className={view === "plan" ? "is-on" : ""} aria-pressed={view === "plan"} onClick={() => setView("plan")}>
+                {t("vitrines.view.plan", { default: "Atelier" })}
+              </button>
             </div>
           </div>
         ) : null}
@@ -422,6 +427,13 @@ export default function VitrinesPage() {
           <SectionSkeleton />
         ) : total === 0 && cabinetKeys.length === 0 ? (
           <EmptyState t={t} />
+        ) : view === "plan" ? (
+          <ShelfPlanner
+            items={owned.data ?? []}
+            nsfwBlur={nsfwBlur}
+            standeeWidthPx={standeeWidthPx}
+            t={t}
+          />
         ) : view === "diorama" ? (
           <div className="mt-8 space-y-12">
             {cabinetKeys.map((key) => (
@@ -787,7 +799,10 @@ function DioramaShelf({ name, marker, items, nsfwBlur, openItem, t }) {
 function DioramaStandee({ o, blur, onOpen }) {
   const cover = resolveOwnedCover(o);
   return (
-    <li className="diorama-standee" style={{ "--hue": typeHue(o.figure_type) }}>
+    <li
+      className="diorama-standee"
+      style={{ "--hue": typeHue(o.figure_type), "--standee-w": `${standeeWidthPx(o)}px` }}
+    >
       <button type="button" className="diorama-standee-btn" onClick={onOpen} title={o.figure_name}>
         <span className="diorama-standee-card">
           {cover ? (

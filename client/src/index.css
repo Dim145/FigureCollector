@@ -340,7 +340,7 @@
 }
 .diorama-standee-contact { /* zero-height marker pinned to the feet line (card bottom) */
   display: block; position: relative; z-index: 1;
-  width: clamp(106px, 12vw, 150px); height: 0;
+  width: var(--standee-w, clamp(106px, 12vw, 150px)); height: 0;
 }
 .diorama-standee-contact::before { /* soft contact shadow where the piece meets the shelf — the key "resting on the surface" cue */
   content: ""; position: absolute; left: 50%; top: 0;
@@ -365,7 +365,7 @@
 .diorama-standee-btn:hover .diorama-standee-reflect { transform: translateY(8px) scaleY(-1); opacity: 0.09; }
 .diorama-standee-card {
   position: relative; display: block;
-  width: clamp(106px, 12vw, 150px); aspect-ratio: 3 / 4; overflow: hidden;
+  width: var(--standee-w, clamp(106px, 12vw, 150px)); aspect-ratio: 3 / 4; overflow: hidden;
   border: 1px solid color-mix(in oklab, var(--hue, var(--color-or)) 42%, transparent);
   /* No fill — a transparent (cutout) webp then shows the lit shelf behind it
      instead of a black box. Opaque photos still cover the card edge-to-edge,
@@ -381,14 +381,18 @@
   content: ""; position: absolute; inset: 0 0 auto 0; height: 2px;
   background: linear-gradient(90deg, transparent, var(--hue, var(--color-or)) 30%, var(--hue, var(--color-or)) 70%, transparent);
 }
-.diorama-standee-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* contain + bottom-anchored so the full figure stays visible standing on the
+   shelf — cover would crop the head/feet of a tall portrait shot (figure photos
+   run ~0.56 ratio, the card is 3:4). Cutouts show no side margins; opaque shots
+   just centre. */
+.diorama-standee-card img { width: 100%; height: 100%; object-fit: contain; object-position: center bottom; display: block; }
 .diorama-standee-ph {
   display: grid; place-items: center; width: 100%; height: 100%;
   font-family: var(--font-ja); font-size: 2.7rem;
   color: color-mix(in oklab, var(--hue, var(--color-or)) 50%, transparent);
 }
 .diorama-standee-reflect {
-  display: block; width: clamp(106px, 12vw, 150px); height: 62px;
+  display: block; width: var(--standee-w, clamp(106px, 12vw, 150px)); height: 62px;
   overflow: hidden; transform: scaleY(-1); opacity: 0.22;
   -webkit-mask-image: linear-gradient(#000, transparent 86%);
   mask-image: linear-gradient(#000, transparent 86%);
@@ -397,7 +401,7 @@
 }
 .diorama-standee-reflect img { width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; }
 .diorama-standee-name {
-  display: block; max-width: clamp(106px, 12vw, 150px);
+  display: block; max-width: var(--standee-w, clamp(106px, 12vw, 150px));
   margin-top: 0.55rem; text-align: center;
   font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.08em;
   color: var(--color-ivoire-soft);
@@ -9229,6 +9233,64 @@ a.notif-page-row-title:hover {
 .dl-btn--json:hover {
   color: var(--color-ivoire);
   border-color: var(--color-or);
+}
+
+/* Insurance dossier — the "complete" merged export (cover + every invoice).
+ * Its own full-width line under the quick PDF/CSV chips, with a sub-note and a
+ * busy spinner since the server has to fetch + merge the documents. */
+.dossier-export {
+  flex: 1 1 100%;
+  margin-top: 0.15rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 16%, transparent);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+}
+.dl-btn--dossier {
+  align-self: stretch;
+  padding: 0.72rem 1rem;
+  background: var(--color-or);
+  border-color: var(--color-or);
+  color: var(--color-noir);
+  font-weight: 600;
+}
+.dl-btn--dossier:hover:not(:disabled) {
+  background: var(--color-or-pale);
+  border-color: var(--color-or-pale);
+}
+.dl-btn--dossier[aria-busy="true"] {
+  cursor: progress;
+}
+.dossier-note {
+  margin: 0;
+  color: var(--color-ivoire-soft);
+  opacity: 0.8;
+}
+.dossier-err {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-laque-bright);
+}
+.dossier-spin {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  border: 2px solid color-mix(in oklab, var(--color-noir) 35%, transparent);
+  border-top-color: var(--color-noir);
+  border-radius: 50%;
+  animation: dossier-spin 0.7s linear infinite;
+}
+@keyframes dossier-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dossier-spin {
+    animation: none;
+  }
 }
 
 /* ───────────────────────────────────────────────────────────────────────

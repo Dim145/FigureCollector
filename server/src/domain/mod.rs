@@ -26,6 +26,7 @@ pub mod preorder;
 pub mod scan;
 pub mod server_job;
 pub mod settings;
+pub mod shelf_layout;
 pub mod stats;
 pub mod store;
 pub mod tags;

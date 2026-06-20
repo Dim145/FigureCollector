@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { usePublicProfile } from "../hooks/useProfile.js";
+import { typeHue, typeKanji } from "../lib/typeHue.js";
+import { standeeWidthPx } from "../lib/standee.js";
 import Money from "../components/Money.jsx";
 import AppShell from "../components/AppShell.jsx";
 import AccentTitle from "../components/AccentTitle.jsx";
@@ -38,9 +40,12 @@ export default function PublicProfilePage() {
   const me = useMe();
   const profile = usePublicProfile(slug);
   const [list, setList] = useState(null);
+  const [vitrineView, setVitrineView] = useState("grid"); // "grid" | "diorama"
 
+  // No auth gate: the public showcase is viewable by anyone. The server only
+  // returns a profile when its owner opted in (`public_profile_enabled`) — a
+  // private or unknown slug 404s and we render the "private" state below.
   if (me.isLoading) return null;
-  if (!me.data?.authenticated) return <Navigate to="/login" replace />;
 
   if (profile.isLoading) return <AppShell><Loading /></AppShell>;
   if (profile.error || !profile.data)
@@ -63,6 +68,9 @@ export default function PublicProfilePage() {
   // `value` is opt-in (empty array unless the owner published their cote) and
   // already DESC by amount → the dominant currency leads, "…" hints at more.
   const dominantValue = value && value.length ? value[0] : null;
+  // Pieces the owner listed for sale / trade — drive the showcase "À vendre"
+  // section. Asking price is a published sale price (not gated by show_value).
+  const forSale = collection.filter((e) => e.for_sale || e.for_trade);
 
   return (
     <AppShell>
@@ -144,7 +152,7 @@ export default function PublicProfilePage() {
                 y={16}
                 className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-4"
               >
-                {!isSelf ? (
+                {me.data?.authenticated && !isSelf ? (
                   <div className="flex flex-wrap items-center gap-3">
                     <FollowButton username={user.username} isFollowing={social?.is_following} />
                     <Link to={`/compare/${user.username}`}>
@@ -209,20 +217,87 @@ export default function PublicProfilePage() {
           </Reveal>
         </header>
 
+        {/* ─── À vendre / à échanger — only when the owner listed pieces ─── */}
+        {forSale.length > 0 ? (
+          <section aria-labelledby="profile-sale-head" className="mb-14">
+            <Reveal as="div" className="mb-7">
+              <p id="profile-sale-head" className="micro flex items-center gap-2">
+                <span aria-hidden className="ja not-italic text-base text-[var(--color-laque-bright)] leading-none">
+                  売
+                </span>
+                {t("profile.for_sale_kicker", { default: "À VENDRE / À ÉCHANGER" })}
+              </p>
+              <div className="gold-rule w-16 mt-3" />
+            </Reveal>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {forSale.map((e, i) => (
+                <Reveal as="li" key={e.owned_id} delay={Math.min(i, 7) * 0.05} y={24}>
+                  <FigureCard
+                    figureId={e.figure_id}
+                    href={`/figures/${e.figure_id}`}
+                    name={e.figure_name}
+                    type={e.figure_type}
+                    manufacturer={e.manufacturer_name}
+                    imageUrl={e.figure_image}
+                    scale={e.scale}
+                    versionName={e.version_name}
+                  />
+                  <div className="mt-3 px-1 flex flex-wrap items-baseline gap-x-2 gap-y-1.5">
+                    {e.for_sale ? (
+                      <span className="inline-flex items-center px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] border border-[var(--color-laque-bright)]/60 text-[var(--color-laque-bright)] bg-[var(--color-laque)]/10">
+                        {t("owned.editor.sale.for_sale", { default: "À vendre" })}
+                      </span>
+                    ) : null}
+                    {e.for_trade ? (
+                      <span className="inline-flex items-center px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] border border-[var(--color-or)]/50 text-[var(--color-or-pale)]">
+                        {t("owned.editor.sale.for_trade", { default: "À échanger" })}
+                      </span>
+                    ) : null}
+                    {e.for_sale && e.asking_price_amount ? (
+                      <span className="text-[var(--color-or)] font-medium">
+                        <Money amount={e.asking_price_amount} currency={e.asking_price_currency} />
+                      </span>
+                    ) : null}
+                  </div>
+                  {e.sale_note ? (
+                    <p className="mt-1 px-1 text-[13px] italic text-[var(--color-ivoire-soft)] whitespace-pre-wrap">
+                      {e.sale_note}
+                    </p>
+                  ) : null}
+                </Reveal>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
         {/* ─── Their vitrine ─── */}
         <section aria-labelledby="profile-vitrine-head">
-          <Reveal as="div" className="mb-7">
-            <p id="profile-vitrine-head" className="micro flex items-center gap-2">
-              <span aria-hidden className="ja not-italic text-base text-[var(--color-or)] leading-none">
-                棚
-              </span>
-              {t("profile.vitrine_kicker", { default: "LA VITRINE" })}
-            </p>
-            <div className="gold-rule w-16 mt-3" />
+          <Reveal as="div" className="mb-7 flex items-end justify-between gap-4">
+            <div>
+              <p id="profile-vitrine-head" className="micro flex items-center gap-2">
+                <span aria-hidden className="ja not-italic text-base text-[var(--color-or)] leading-none">
+                  棚
+                </span>
+                {t("profile.vitrine_kicker", { default: "LA VITRINE" })}
+              </p>
+              <div className="gold-rule w-16 mt-3" />
+            </div>
+            {collection.length > 0 ? (
+              <div className="view-toggle" role="group" aria-label={t("vitrines.view", { default: "Vue" })}>
+                <button type="button" className={vitrineView === "grid" ? "is-on" : ""} aria-pressed={vitrineView === "grid"} onClick={() => setVitrineView("grid")}>
+                  {t("vitrines.view.grid", { default: "Grille" })}
+                </button>
+                <button type="button" className={vitrineView === "diorama" ? "is-on" : ""} aria-pressed={vitrineView === "diorama"} onClick={() => setVitrineView("diorama")}>
+                  {t("vitrines.view.diorama", { default: "Diorama" })}
+                </button>
+              </div>
+            ) : null}
           </Reveal>
 
           {collection.length === 0 ? (
             <EmptyVitrine name={user.display_name} t={t} />
+          ) : vitrineView === "diorama" ? (
+            <ShowcaseDiorama items={collection} />
           ) : (
             <ul className="relative grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {collection.map((entry, i) => (
@@ -341,6 +416,49 @@ function Loading() {
       className="max-w-md mx-auto px-6 py-16 text-center text-[var(--color-ivoire-soft)]"
     >
       …
+    </div>
+  );
+}
+
+/**
+ * To-scale diorama of the public collection — pieces stand on a lit shelf sized
+ * by their real height (`height_mm`), so a 1/4 statue towers over a Nendoroid.
+ * Reuses the global `.diorama-*` styling + the shared `standeeWidthPx`; each
+ * standee links to the figure. Covers are the catalogue images (`figure_image`).
+ */
+function ShowcaseDiorama({ items }) {
+  return (
+    <div className="diorama-shelf">
+      <span aria-hidden className="diorama-spot" />
+      <ul className="diorama-row">
+        {items.map((e) => (
+          <li
+            key={e.owned_id}
+            className="diorama-standee"
+            style={{ "--hue": typeHue(e.figure_type), "--standee-w": `${standeeWidthPx(e)}px` }}
+          >
+            <Link to={`/figures/${e.figure_id}`} className="diorama-standee-btn" title={e.figure_name}>
+              <span className="diorama-standee-card">
+                {e.figure_image ? (
+                  <img src={e.figure_image} alt="" loading="lazy" draggable={false} />
+                ) : (
+                  <span className="diorama-standee-ph ja" aria-hidden>
+                    {typeKanji(e.figure_type)}
+                  </span>
+                )}
+              </span>
+              <span aria-hidden className="diorama-standee-contact" />
+              {e.figure_image ? (
+                <span aria-hidden className="diorama-standee-reflect">
+                  <img src={e.figure_image} alt="" loading="lazy" draggable={false} />
+                </span>
+              ) : null}
+              <span className="diorama-standee-name">{e.figure_name}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <span aria-hidden className="diorama-floor" />
     </div>
   );
 }
