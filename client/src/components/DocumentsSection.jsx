@@ -28,6 +28,7 @@ function noteKey(note) {
     return "doc.parse.note.ocr_pending";
   if (note === "ocr_unavailable") return "doc.parse.note.ocr_unavailable";
   if (note === "ocr_failed") return "doc.parse.note.ocr_failed";
+  if (note === "ocr_pdf_only") return "doc.parse.note.ocr_pdf_only";
   return "doc.parse.note.failed";
 }
 
@@ -209,16 +210,18 @@ export default function DocumentsSection({ ownedId }) {
                       {[fmtSize(d.size_bytes), when].filter(Boolean).join(" · ")}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => onParse(d.id)}
-                    disabled={busyId === d.id || pendingDocId === d.id}
-                    className="text-[10px] uppercase tracking-[0.14em] text-[var(--color-indigo)] hover:text-[var(--color-ivoire)] disabled:opacity-50"
-                  >
-                    {busyId === d.id || pendingDocId === d.id
-                      ? t("doc.parsing")
-                      : `✦ ${t("doc.parse")}`}
-                  </button>
+                  {isPdf ? (
+                    <button
+                      type="button"
+                      onClick={() => onParse(d.id)}
+                      disabled={busyId === d.id || pendingDocId === d.id}
+                      className="text-[10px] uppercase tracking-[0.14em] text-[var(--color-indigo)] hover:text-[var(--color-ivoire)] disabled:opacity-50"
+                    >
+                      {busyId === d.id || pendingDocId === d.id
+                        ? t("doc.parsing")
+                        : `✦ ${t("doc.parse")}`}
+                    </button>
+                  ) : null}
                   <a
                     href={`/api/documents/${d.id}`}
                     target="_blank"

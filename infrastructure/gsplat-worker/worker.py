@@ -440,9 +440,11 @@ async def _register_worker(pool: asyncpg.Pool) -> WorkerState:
             info["gpu_memory_mb"],
             info["runtime_version"],
             WORKER_VERSION,
-            # This worker also builds the visual-search index (embed loop below),
-            # so it advertises the `embed` capability the server gates on.
-            [embed_index.EMBED_CAPABILITY],
+            # This worker builds the visual-search index (embed loop) AND OCRs
+            # justificatifs (ocr loop), so it advertises both capabilities the
+            # server gates on. The `ocr` capability is what makes the SPA reveal
+            # + the parse route enable OCR for image-only PDFs.
+            [embed_index.EMBED_CAPABILITY, "ocr"],
             max(1, HEARTBEAT_INTERVAL),
         )
     return WorkerState(id=row["id"], enabled=row["enabled"])

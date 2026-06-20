@@ -244,8 +244,12 @@ async fn parse_document(
         doc::set_parsed_metadata(&state.pool, user_id, doc_id, &meta).await?;
         extracted = Some(parsed);
     } else if note.is_none() {
-        // 2. No text layer (image / scanned PDF) → Palier 2 OCR via the worker.
-        if let Some(meta) = parsed_metadata {
+        // No text layer. OCR (Palier 2) is reserved for a PDF that turned out to
+        // be an image (a scanned invoice). Plain image uploads (JPG/PNG/WebP) are
+        // NOT OCR'd — the parse feature is hidden for them client-side.
+        if mime != "application/pdf" {
+            note = Some("ocr_pdf_only");
+        } else if let Some(meta) = parsed_metadata {
             // OCR already ran; the listener stored the suggestion.
             extracted = serde_json::from_value(meta).ok();
         } else {
@@ -254,11 +258,16 @@ async fn parse_document(
                 .as_deref()
             {
                 // In flight (or just-ready, metadata about to land): keep waiting.
-                Some("pending") | Some("processing") | Some("ready") => note = Some("ocr_pending"),
-                // Never queued, or a prior job failed → (re)queue if a GPU
-                // worker is alive; otherwise the feature is unavailable.
+                Some("pending") | Some("processing") | Some("ready") => {
+                    note = Some("ocr_pending")
+                }
+                // A prior job failed — surface it, don't silently re-queue (the
+                // SPA's auto-refresh would otherwise loop).
+                Some("failed") => note = Some("ocr_failed"),
+                // Never queued → queue only if an OCR-capable worker is live;
+                // otherwise the OCR feature is unavailable (disabled).
                 _ => {
-                    if worker::any_live(&state.pool).await? {
+                    if worker::any_live_with_capability(&state.pool, "ocr").await? {
                         ocr_job::enqueue(
                             &state.pool,
                             doc_id,

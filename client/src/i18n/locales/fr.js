@@ -1969,6 +1969,7 @@ export default {
   "doc.parse.note.ocr_unavailable":
     "OCR indisponible : aucun worker GPU actif. Réessaie quand le worker tourne.",
   "doc.parse.note.ocr_failed": "Échec de l'OCR de ce document.",
+  "doc.parse.note.ocr_pdf_only": "L'extraction n'est disponible que pour les PDF.",
   "doc.role.deposit": "Acompte",
   "doc.role.balance": "Solde",
   "doc.role.shipping": "Port / livraison",

@@ -1938,6 +1938,7 @@ export default {
   "doc.parse.note.ocr_unavailable":
     "OCR unavailable: no GPU worker is running. Try again once it's up.",
   "doc.parse.note.ocr_failed": "OCR failed for this document.",
+  "doc.parse.note.ocr_pdf_only": "Extraction is only available for PDFs.",
   "doc.role.deposit": "Deposit",
   "doc.role.balance": "Balance",
   "doc.role.shipping": "Shipping",
