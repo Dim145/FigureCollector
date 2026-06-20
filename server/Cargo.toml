@@ -110,6 +110,15 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png",
 # --- HTML scraping (MFC parser; the live fetcher is gated behind Cloudflare) ---
 scraper = { version = "0.27", default-features = false }
 
+# --- Justificatif (invoice) parsing — Palier 1: pure-Rust, in-binary, offline ---
+# pdf-extract pulls the PDF text layer (built on lopdf): no native deps, links
+# into the FROM-scratch static binary, memory-safe (no libpoppler CVE surface).
+# regex drives the label-anchored heuristic field extraction. Both pure Rust,
+# zero OpenSSL. NB: image/scanned receipts have no text layer → manual entry
+# (OCR is a deferred, opt-in palier).
+pdf-extract = "0.10"
+regex = "1"
+
 # --- TLS provider (installed as rustls default at startup) ---
 rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs", "tls12"] }
 

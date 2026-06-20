@@ -10,6 +10,7 @@
 use crate::auth;
 use crate::domain::owned_document as doc;
 use crate::error::{AppError, AppResult};
+use crate::services::invoice;
 use crate::state::AppState;
 use axum::{
     Json, Router,
@@ -19,6 +20,7 @@ use axum::{
     response::{IntoResponse, Response},
     routing::get,
 };
+use serde::Serialize;
 use tower_sessions::Session;
 use uuid::Uuid;
 
@@ -184,6 +186,74 @@ async fn fetch_document(
     Ok((headers, Body::from(bytes)).into_response())
 }
 
+/// Response for the parse endpoint: the just-parsed document's fields (when a
+/// PDF text layer was found), an optional `note` explaining why nothing was
+/// extracted, and the running cumulative rollup across every parsed document
+/// on the item.
+#[derive(Serialize)]
+struct ParseResponse {
+    extracted: Option<invoice::ParsedInvoice>,
+    /// "image_no_text_layer" | "no_text_found" | "extract_failed", else absent.
+    note: Option<&'static str>,
+    rollup: invoice::Rollup,
+}
+
+/// `POST /me/owned/{owned_id}/documents/{doc_id}/parse` — owner-gated.
+///
+/// Palier 1: pull the PDF text layer (pure-Rust, offline, no OCR) and mine it
+/// for purchase fields. Stores the result as the document's `parsed_metadata`
+/// and returns it plus the cumulative rollup. NEVER writes `owned_items` — the
+/// SPA decides what (if anything) the user applies.
+async fn parse_document(
+    State(state): State<AppState>,
+    session: Session,
+    Path((owned_id, doc_id)): Path<(Uuid, Uuid)>,
+) -> AppResult<Json<ParseResponse>> {
+    let user_id = auth::require_user(&session).await?;
+    doc::assert_owned_by(&state.pool, user_id, owned_id).await?;
+    let (storage_key, mime) =
+        doc::find_blob_in_item_for_owner(&state.pool, user_id, owned_id, doc_id).await?;
+
+    let mut extracted = None;
+    let mut note: Option<&'static str> = None;
+
+    if mime == "application/pdf" {
+        let (bytes, _) = state.storage.get(&storage_key).await?;
+        // pdf-extract is synchronous + CPU-bound → run it off the async runtime.
+        let text = tokio::task::spawn_blocking(move || invoice::extract_pdf_text(&bytes))
+            .await
+            .map_err(|e| AppError::Internal(anyhow::anyhow!("parse task panicked: {e}")))?;
+        match text {
+            Ok(t) if !t.trim().is_empty() => {
+                let parsed = invoice::parse_invoice(&t);
+                let meta = serde_json::to_value(&parsed).map_err(|e| AppError::Internal(e.into()))?;
+                doc::set_parsed_metadata(&state.pool, user_id, doc_id, &meta).await?;
+                extracted = Some(parsed);
+            }
+            Ok(_) => note = Some("no_text_found"),
+            Err(_) => note = Some("extract_failed"),
+        }
+    } else {
+        // Palier 1 is text-layer only; OCR for images is a deferred palier.
+        note = Some("image_no_text_layer");
+    }
+
+    // Rollup across every parsed document on this item (incl. the one just
+    // parsed). Malformed/legacy blobs are skipped, never fail the request.
+    let metas = doc::list_parsed_metadata(&state.pool, owned_id).await?;
+    let items: Vec<invoice::ParsedInvoice> = metas
+        .into_iter()
+        .filter_map(|v| serde_json::from_value(v).ok())
+        .collect();
+    let rollup = invoice::compute_rollup(&items);
+
+    Ok(Json(ParseResponse {
+        extracted,
+        note,
+        rollup,
+    }))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(
@@ -195,4 +265,8 @@ pub fn router() -> Router<AppState> {
             axum::routing::delete(delete_document),
         )
         .route("/documents/{id}", get(fetch_document))
+        .route(
+            "/me/owned/{owned_id}/documents/{doc_id}/parse",
+            axum::routing::post(parse_document),
+        )
 }

@@ -45,3 +45,16 @@ export function useDeleteDocument(ownedId) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["documents", ownedId] }),
   });
 }
+
+/** Parse a justificatif (Palier 1: PDF text-layer extraction + heuristics, no
+ *  OCR/cloud). Resolves to `{ extracted, note, rollup }`. Stores the per-doc
+ *  metadata server-side; it never writes the owned item — applying the
+ *  suggestions is a separate, explicit patch. */
+export function useParseDocument(ownedId) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (docId) =>
+      api.post(`/me/owned/${ownedId}/documents/${docId}/parse`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["documents", ownedId] }),
+  });
+}
