@@ -1933,6 +1933,11 @@ export default {
     "No text layer (image) — OCR isn't available yet. Enter manually.",
   "doc.parse.note.no_text": "No text found in this PDF.",
   "doc.parse.note.failed": "Text extraction failed.",
+  "doc.parse.note.ocr_pending":
+    "OCR running on the GPU worker… suggestions will appear automatically.",
+  "doc.parse.note.ocr_unavailable":
+    "OCR unavailable: no GPU worker is running. Try again once it's up.",
+  "doc.parse.note.ocr_failed": "OCR failed for this document.",
   "doc.role.deposit": "Deposit",
   "doc.role.balance": "Balance",
   "doc.role.shipping": "Shipping",

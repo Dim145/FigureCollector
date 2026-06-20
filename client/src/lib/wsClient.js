@@ -96,6 +96,13 @@ function handleEvent(msg, qc) {
         qc.invalidateQueries({ queryKey: ["scans", msg.owned_id] });
       }
       return;
+    case "document_parsed":
+      // A justificatif's OCR job finished (worker → Postgres NOTIFY bridge) —
+      // refresh that item's documents so the parsed suggestion shows up.
+      if (msg.owned_id) {
+        qc.invalidateQueries({ queryKey: ["documents", msg.owned_id] });
+      }
+      return;
     case "preorder_created":
     case "preorder_updated":
     case "preorder_deleted":

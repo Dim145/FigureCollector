@@ -167,6 +167,9 @@ async fn main() -> anyhow::Result<()> {
     // Bridges Postgres NOTIFY (scan rows written directly by the gsplat
     // worker) to per-user WebSocket events so scans refresh live.
     services::scan_listener::spawn(state.clone());
+    // Bridges Postgres NOTIFY for OCR jobs (image/scanned justificatifs the GPU
+    // worker OCRs) → parse_invoice + per-user WebSocket event.
+    services::ocr_listener::spawn(state.clone());
     // Hourly purge of stale completed gsplat scans (keep N per figurine).
     services::scan_cleanup::spawn(state.clone());
     // Daily backfill of series.manga_mal_id (the MangaCollector crossings key).

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 import {
   useOwnedDocuments,
@@ -24,8 +24,10 @@ function fmtAmount(v, currency) {
 }
 
 function noteKey(note) {
-  if (note === "image_no_text_layer") return "doc.parse.note.image";
-  if (note === "no_text_found") return "doc.parse.note.no_text";
+  if (note === "ocr_queued" || note === "ocr_pending")
+    return "doc.parse.note.ocr_pending";
+  if (note === "ocr_unavailable") return "doc.parse.note.ocr_unavailable";
+  if (note === "ocr_failed") return "doc.parse.note.ocr_failed";
   return "doc.parse.note.failed";
 }
 
@@ -52,6 +54,7 @@ export default function DocumentsSection({ ownedId }) {
   const [busyId, setBusyId] = useState(null);
   const [result, setResult] = useState(null); // { docId, extracted, note, rollup }
   const [applied, setApplied] = useState(false);
+  const [pendingDocId, setPendingDocId] = useState(null); // doc awaiting async OCR
 
   const onPick = async (e) => {
     const file = e.target.files?.[0];
@@ -72,12 +75,45 @@ export default function DocumentsSection({ ownedId }) {
     try {
       const res = await parse.mutateAsync(docId);
       setResult({ docId, ...res });
+      // ocr_queued / ocr_pending → OCR is running on the GPU worker; keep
+      // waiting. The DocumentParsed WS event invalidates this query, the effect
+      // below re-pulls, and the suggestion (or an error note) lands.
+      setPendingDocId(
+        res.note === "ocr_queued" || res.note === "ocr_pending" ? docId : null,
+      );
     } catch (err) {
       setError(err?.message ?? t("doc.parse.note.failed"));
+      setPendingDocId(null);
     } finally {
       setBusyId(null);
     }
   };
+
+  // Re-pull a pending OCR result whenever the documents query actually refetches
+  // (the OCR-done WS event triggers that). Keyed on dataUpdatedAt so it fires on
+  // a real refresh; the state updates live in the async callback (not the effect
+  // body) so they don't cascade synchronously.
+  const docsUpdatedAt = docs.dataUpdatedAt;
+  useEffect(() => {
+    if (!pendingDocId) return undefined;
+    let alive = true;
+    parse
+      .mutateAsync(pendingDocId)
+      .then((res) => {
+        if (!alive) return;
+        setResult({ docId: pendingDocId, ...res });
+        const stillPending =
+          res.note === "ocr_queued" || res.note === "ocr_pending";
+        setPendingDocId(stillPending ? pendingDocId : null);
+      })
+      .catch(() => {
+        if (alive) setPendingDocId(null);
+      });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docsUpdatedAt]);
 
   const buildPatch = (r) => {
     const patch = {};
@@ -173,16 +209,16 @@ export default function DocumentsSection({ ownedId }) {
                       {[fmtSize(d.size_bytes), when].filter(Boolean).join(" · ")}
                     </p>
                   </div>
-                  {isPdf ? (
-                    <button
-                      type="button"
-                      onClick={() => onParse(d.id)}
-                      disabled={busyId === d.id}
-                      className="text-[10px] uppercase tracking-[0.14em] text-[var(--color-indigo)] hover:text-[var(--color-ivoire)] disabled:opacity-50"
-                    >
-                      {busyId === d.id ? t("doc.parsing") : `✦ ${t("doc.parse")}`}
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => onParse(d.id)}
+                    disabled={busyId === d.id || pendingDocId === d.id}
+                    className="text-[10px] uppercase tracking-[0.14em] text-[var(--color-indigo)] hover:text-[var(--color-ivoire)] disabled:opacity-50"
+                  >
+                    {busyId === d.id || pendingDocId === d.id
+                      ? t("doc.parsing")
+                      : `✦ ${t("doc.parse")}`}
+                  </button>
                   <a
                     href={`/api/documents/${d.id}`}
                     target="_blank"

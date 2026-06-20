@@ -62,6 +62,18 @@ RUN --mount=type=cache,target=/root/.cache/pip \
       asyncpg==0.30.0 "boto3==1.35.*" "structlog==24.4.*" \
       "rembg==2.0.*" onnxruntime-gpu "tokenizers==0.23.1"
 
+# RapidOCR (PP-OCR ONNX) + PyMuPDF for the OCR loop (Palier 2 — image / scanned
+# justificatif OCR). RapidOCR is installed with --no-deps so it CANNOT pull the
+# CPU `onnxruntime` wheel, which would shadow the onnxruntime-gpu above that the
+# embed + OCR CUDA execution providers rely on. Its remaining runtime deps
+# (numpy / opencv / Pillow come from rembg already) are added explicitly.
+# RapidOCR bakes its PP-OCR ONNX models inside the wheel → no runtime download,
+# so it works in the read-only container (uid 65532, no network).
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python3 -m pip install pymupdf pyclipper shapely pyyaml six && \
+    python3 -m pip install --no-deps rapidocr-onnxruntime && \
+    python3 -c "import fitz; from rapidocr_onnxruntime import RapidOCR; print('rapidocr + pymupdf import ok')"
+
 # onnxruntime's CUDA EP dlopens the BARE soname `libnvrtc.so`; torch ships NVRTC
 # only as the versioned libnvrtc.so.12, so drop an unversioned symlink on the
 # loader path (the cu12 flavour of the old fix). Best-effort — if NVRTC isn't

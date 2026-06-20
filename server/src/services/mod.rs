@@ -9,6 +9,7 @@ pub mod invoice;
 pub mod job_runner;
 pub mod manga_sync;
 pub mod notify;
+pub mod ocr_listener;
 pub mod price_cron;
 pub mod release_cron;
 pub mod scan_cleanup;

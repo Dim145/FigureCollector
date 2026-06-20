@@ -113,16 +113,17 @@ pub async fn delete_and_return_key(
     row.map(|r| r.0).ok_or(AppError::NotFound)
 }
 
-/// Blob lookup scoped to a specific item + owner — used by the parse route to
-/// fetch the document bytes for text extraction.
-pub async fn find_blob_in_item_for_owner(
+/// Doc lookup scoped to a specific item + owner — returns the bytes pointer
+/// (`storage_key`, `mime`) plus any already-stored `parsed_metadata`, so the
+/// parse route can decide between "parse now", "already parsed", and "queue OCR".
+pub async fn find_doc_for_parse(
     pool: &PgPool,
     user_id: Uuid,
     owned_item_id: Uuid,
     doc_id: Uuid,
-) -> AppResult<(String, String)> {
-    sqlx::query_as::<_, (String, String)>(
-        "SELECT storage_key, mime
+) -> AppResult<(String, String, Option<serde_json::Value>)> {
+    sqlx::query_as::<_, (String, String, Option<serde_json::Value>)>(
+        "SELECT storage_key, mime, parsed_metadata
          FROM owned_item_documents
          WHERE id = $1 AND owned_item_id = $2 AND user_id = $3",
     )
@@ -154,6 +155,26 @@ pub async fn set_parsed_metadata(
     if res.rows_affected() == 0 {
         return Err(AppError::NotFound);
     }
+    Ok(())
+}
+
+/// System-context metadata write (no user gate) — used by the `ocr_listener`
+/// after the worker OCRs a document. The `doc_id` comes from a trusted
+/// `document_ocr_jobs` row, so ownership was already enforced at enqueue time.
+pub async fn set_parsed_metadata_by_doc(
+    pool: &PgPool,
+    doc_id: Uuid,
+    meta: &serde_json::Value,
+) -> AppResult<()> {
+    sqlx::query(
+        "UPDATE owned_item_documents
+         SET parsed_metadata = $1::jsonb, parsed_at = now()
+         WHERE id = $2",
+    )
+    .bind(meta)
+    .bind(doc_id)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 

@@ -34,6 +34,10 @@ pub enum Event {
     /// A scan changed state / progress (pushed from the Postgres NOTIFY
     /// bridge, since the gsplat worker writes the scans row directly).
     ScanUpdated { scan_id: Uuid, owned_id: Uuid },
+    /// An OCR job for a justificatif finished (ready or failed) — pushed from
+    /// the Postgres NOTIFY bridge (the worker writes `document_ocr_jobs`
+    /// directly). The SPA refetches the document's parse suggestion.
+    DocumentParsed { owned_id: Uuid, document_id: Uuid },
 }
 
 #[derive(Clone, Default)]

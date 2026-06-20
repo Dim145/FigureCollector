@@ -284,6 +284,12 @@ async def main() -> None:
                 log.info("recovered abandoned scans → re-queued", count=n, worker_id=str(state.id))
         except Exception as e:  # noqa: BLE001
             log.warning("recover_abandoned failed", error=str(e))
+        try:
+            m = await recover_abandoned_ocr(pool, state.id)
+            if m:
+                log.info("recovered abandoned ocr jobs → re-queued", count=m, worker_id=str(state.id))
+        except Exception as e:  # noqa: BLE001
+            log.warning("recover_abandoned_ocr failed", error=str(e))
     heartbeat_task = asyncio.create_task(_heartbeat_loop(pool, state))
     # Search index builders, concurrent with the gsplat loop below. Both are
     # CPU-only (won't touch the trainer's VRAM) and self-disable if their model
@@ -293,6 +299,9 @@ async def main() -> None:
     text_embed_task = asyncio.create_task(embed_index.run_text_embed_loop(pool, state))
     clip_embed_task = asyncio.create_task(embed_index.run_clip_embed_loop(pool, state))
     tagger_task = asyncio.create_task(embed_index.run_tagger_loop(pool, state))
+    # OCR loop for justificatifs (Palier 2) — concurrent with gsplat + embeds.
+    # Self-disables if RapidOCR/PyMuPDF aren't baked into this image.
+    ocr_task = asyncio.create_task(run_ocr_loop(pool, state))
     try:
         while True:
             # Admin can flip `enabled` off at any moment; the heartbeat
@@ -330,7 +339,7 @@ async def main() -> None:
                 )
                 await mark_failed(pool, scan_id, f"{type(e).__name__}: {e}\n{trace}")
     finally:
-        for task in (heartbeat_task, embed_task, text_embed_task, clip_embed_task, tagger_task):
+        for task in (heartbeat_task, embed_task, text_embed_task, clip_embed_task, tagger_task, ocr_task):
             task.cancel()
             try:
                 await task
@@ -531,6 +540,175 @@ async def set_progress(pool: asyncpg.Pool, scan_id: Any, pct: int) -> None:
             int(pct),
             scan_id,
         )
+
+
+# -----------------------------------------------------------------------------
+# OCR for justificatifs (Palier 2) — drains `document_ocr_jobs`.
+#
+# Image / scanned-PDF receipts (no text layer) are OCR'd here with RapidOCR
+# (PP-OCR ONNX on onnxruntime — the SAME runtime the embed loops use). The
+# server then runs the text through its `parse_invoice` heuristics. Runs as a
+# concurrent asyncio loop beside gsplat + the embed loops; self-disables if
+# RapidOCR / PyMuPDF aren't baked into the image (an image-only worker simply
+# skips OCR). On a small (≤8 GB) GPU shared with gsplat training, set
+# OCR_DEVICE=cpu to keep OCR off the trainer's VRAM (RapidOCR is fast on CPU).
+# -----------------------------------------------------------------------------
+
+OCR_DEVICE = os.environ.get("OCR_DEVICE", "cuda").strip().lower()  # "cuda" | "cpu"
+OCR_PDF_MAX_PAGES = int(os.environ.get("OCR_PDF_MAX_PAGES", "8"))
+OCR_RASTER_DPI = int(os.environ.get("OCR_RASTER_DPI", "200"))
+
+
+def _build_ocr_engine():
+    """Build the RapidOCR engine (PP-OCR ONNX). Uses the CUDA EP when
+    OCR_DEVICE=cuda and onnxruntime-gpu can bind it, else CPU. Raises if RapidOCR
+    isn't installed (caller disables the loop)."""
+    from rapidocr_onnxruntime import RapidOCR
+
+    use_cuda = OCR_DEVICE == "cuda"
+    # RapidOCR exposes per-stage CUDA toggles; older builds don't take them, so
+    # fall back to defaults (CPU) if the kwargs aren't accepted.
+    try:
+        return RapidOCR(det_use_cuda=use_cuda, cls_use_cuda=use_cuda, rec_use_cuda=use_cuda)
+    except TypeError:
+        return RapidOCR()
+
+
+def _reading_order_text(result) -> str:
+    """Join detected boxes in reading order (group into rows by top-y, then sort
+    by x), so the server's label-anchored heuristics see adjacent label/value."""
+    if not result:
+        return ""
+
+    def key(item):
+        box = item[0]
+        return (round(min(p[1] for p in box) / 12.0), min(p[0] for p in box))
+
+    return "\n".join(t for (_box, t, _score) in sorted(result, key=key))
+
+
+def _ocr_images_to_paths(blob: bytes, mime: str, tmpdir: str) -> list[str]:
+    """Rasterise a PDF (PyMuPDF) to one PNG per page, or drop the image bytes to
+    a file. We pass file PATHS to RapidOCR (the exact, validated spike path)."""
+    paths: list[str] = []
+    if mime == "application/pdf":
+        import fitz  # PyMuPDF
+
+        doc = fitz.open(stream=blob, filetype="pdf")
+        try:
+            for i, page in enumerate(doc):
+                if i >= OCR_PDF_MAX_PAGES:
+                    break
+                p = os.path.join(tmpdir, f"page_{i}.png")
+                page.get_pixmap(dpi=OCR_RASTER_DPI).save(p)
+                paths.append(p)
+        finally:
+            doc.close()
+    else:
+        p = os.path.join(tmpdir, "image.bin")
+        with open(p, "wb") as f:
+            f.write(blob)
+        paths.append(p)
+    return paths
+
+
+def _run_ocr(engine, blob: bytes, mime: str) -> str:
+    """Blocking OCR of one document → reading-ordered text. Via asyncio.to_thread."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        chunks = []
+        for path in _ocr_images_to_paths(blob, mime, td):
+            result, _elapse = engine(path)
+            chunks.append(_reading_order_text(result))
+    return "\n".join(c for c in chunks if c)
+
+
+async def claim_next_ocr(pool: asyncpg.Pool, worker_id: Any) -> asyncpg.Record | None:
+    async with pool.acquire() as conn:
+        return await conn.fetchrow(
+            """
+            UPDATE document_ocr_jobs
+               SET state = 'processing', worker_id = $1, claimed_at = now(),
+                   finished_at = NULL, attempts = attempts + 1, updated_at = now()
+             WHERE id = (
+                 SELECT id FROM document_ocr_jobs
+                  WHERE state = 'pending'
+                  ORDER BY created_at ASC
+                  FOR UPDATE SKIP LOCKED
+                  LIMIT 1
+             )
+         RETURNING id, document_id, storage_key, mime
+            """,
+            worker_id,
+        )
+
+
+async def recover_abandoned_ocr(pool: asyncpg.Pool, worker_id: Any) -> int:
+    """Re-queue OCR jobs this worker left 'processing' on a previous restart."""
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "UPDATE document_ocr_jobs SET state='pending', worker_id=NULL, "
+            "claimed_at=NULL, updated_at=now() "
+            "WHERE worker_id=$1 AND state='processing' RETURNING id",
+            worker_id,
+        )
+    return len(rows)
+
+
+async def mark_ocr_ready(pool: asyncpg.Pool, job_id: Any, text: str) -> None:
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE document_ocr_jobs SET state='ready', result_text=$1, "
+            "error_message=NULL, finished_at=now(), updated_at=now() WHERE id=$2",
+            text,
+            job_id,
+        )
+
+
+async def mark_ocr_failed(pool: asyncpg.Pool, job_id: Any, error: str) -> None:
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE document_ocr_jobs SET state='failed', error_message=$1, "
+            "finished_at=now(), updated_at=now() WHERE id=$2",
+            error[:8000],
+            job_id,
+        )
+
+
+async def run_ocr_loop(pool: asyncpg.Pool, state: "WorkerState") -> None:
+    """Drain document_ocr_jobs until cancelled. Best-effort load (mirrors the
+    embed loops): if RapidOCR/PyMuPDF isn't baked in, log and exit WITHOUT
+    taking the host worker down."""
+    try:
+        engine = await asyncio.to_thread(_build_ocr_engine)
+    except Exception as e:  # noqa: BLE001
+        log.error("ocr loop disabled — RapidOCR/PyMuPDF unavailable", error=str(e))
+        return
+    log.info("ocr loop started", device=OCR_DEVICE, pdf_max_pages=OCR_PDF_MAX_PAGES)
+    while True:
+        if not getattr(state, "enabled", True):
+            await asyncio.sleep(POLL_INTERVAL)
+            continue
+        job = await claim_next_ocr(pool, state.id)
+        if job is None:
+            await asyncio.sleep(POLL_INTERVAL)
+            continue
+        job_id = job["id"]
+        log.info("ocr job claimed", job_id=str(job_id), mime=job["mime"])
+        try:
+            blob = await asyncio.to_thread(
+                lambda key=job["storage_key"]: s3.get_object(Bucket=S3_BUCKET, Key=key)[
+                    "Body"
+                ].read()
+            )
+            text = await asyncio.to_thread(_run_ocr, engine, blob, job["mime"])
+            await mark_ocr_ready(pool, job_id, text)
+            log.info("ocr ready", job_id=str(job_id), chars=len(text))
+        except Exception as e:  # noqa: BLE001
+            trace = traceback.format_exc()[-2000:]
+            log.error("ocr failed", job_id=str(job_id), error=str(e), trace=trace)
+            await mark_ocr_failed(pool, job_id, f"{type(e).__name__}: {e}\n{trace}")
 
 
 # -----------------------------------------------------------------------------

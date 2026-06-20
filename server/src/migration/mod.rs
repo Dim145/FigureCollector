@@ -65,6 +65,7 @@ mod m20260617_000001_calendar_token;
 mod m20260618_000001_clip_search;
 mod m20260618_000002_visual_tags;
 mod m20260620_000001_owned_documents_parsed;
+mod m20260620_000003_document_ocr_jobs;
 
 pub struct Migrator;
 
@@ -125,6 +126,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260618_000001_clip_search::Migration),
             Box::new(m20260618_000002_visual_tags::Migration),
             Box::new(m20260620_000001_owned_documents_parsed::Migration),
+            Box::new(m20260620_000003_document_ocr_jobs::Migration),
         ]
     }
 }

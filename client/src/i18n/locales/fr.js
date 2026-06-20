@@ -1964,6 +1964,11 @@ export default {
     "Pas de couche texte (image) — l'OCR n'est pas encore disponible. Saisie manuelle.",
   "doc.parse.note.no_text": "Aucun texte détecté dans ce PDF.",
   "doc.parse.note.failed": "Échec de l'extraction du texte.",
+  "doc.parse.note.ocr_pending":
+    "OCR en cours sur le worker GPU… les suggestions s'afficheront automatiquement.",
+  "doc.parse.note.ocr_unavailable":
+    "OCR indisponible : aucun worker GPU actif. Réessaie quand le worker tourne.",
+  "doc.parse.note.ocr_failed": "Échec de l'OCR de ce document.",
   "doc.role.deposit": "Acompte",
   "doc.role.balance": "Solde",
   "doc.role.shipping": "Port / livraison",

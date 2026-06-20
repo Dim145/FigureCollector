@@ -9,6 +9,7 @@
 
 use crate::auth;
 use crate::domain::owned_document as doc;
+use crate::domain::{ocr_job, worker};
 use crate::error::{AppError, AppResult};
 use crate::services::invoice;
 use crate::state::AppState;
@@ -186,24 +187,29 @@ async fn fetch_document(
     Ok((headers, Body::from(bytes)).into_response())
 }
 
-/// Response for the parse endpoint: the just-parsed document's fields (when a
-/// PDF text layer was found), an optional `note` explaining why nothing was
-/// extracted, and the running cumulative rollup across every parsed document
-/// on the item.
+/// Response for the parse endpoint: the document's extracted fields (when a
+/// suggestion is available now), an optional `note` describing an async/blocked
+/// state, and the running cumulative rollup across every parsed document.
 #[derive(Serialize)]
 struct ParseResponse {
     extracted: Option<invoice::ParsedInvoice>,
-    /// "image_no_text_layer" | "no_text_found" | "extract_failed", else absent.
+    /// "ocr_queued" | "ocr_pending" | "ocr_unavailable" | "extract_failed",
+    /// else absent (a suggestion is in `extracted`).
     note: Option<&'static str>,
     rollup: invoice::Rollup,
 }
 
 /// `POST /me/owned/{owned_id}/documents/{doc_id}/parse` — owner-gated.
 ///
-/// Palier 1: pull the PDF text layer (pure-Rust, offline, no OCR) and mine it
-/// for purchase fields. Stores the result as the document's `parsed_metadata`
-/// and returns it plus the cumulative rollup. NEVER writes `owned_items` — the
-/// SPA decides what (if anything) the user applies.
+/// Two tiers, transparent to the caller:
+///   - **Palier 1** (PDF text layer): parsed in-process, synchronously, here.
+///   - **Palier 2** (image / scanned PDF, no text layer): queued for the GPU
+///     worker (RapidOCR). The first call returns `note = "ocr_queued"`; the
+///     `ocr_listener` later OCRs + parses + stores `parsed_metadata` and pushes
+///     a `DocumentParsed` WS event, after which a repeat call returns the
+///     suggestion in `extracted`.
+///
+/// NEVER writes `owned_items` — the SPA decides what (if anything) to apply.
 async fn parse_document(
     State(state): State<AppState>,
     session: Session,
@@ -211,35 +217,68 @@ async fn parse_document(
 ) -> AppResult<Json<ParseResponse>> {
     let user_id = auth::require_user(&session).await?;
     doc::assert_owned_by(&state.pool, user_id, owned_id).await?;
-    let (storage_key, mime) =
-        doc::find_blob_in_item_for_owner(&state.pool, user_id, owned_id, doc_id).await?;
+    let (storage_key, mime, parsed_metadata) =
+        doc::find_doc_for_parse(&state.pool, user_id, owned_id, doc_id).await?;
 
-    let mut extracted = None;
+    let mut extracted: Option<invoice::ParsedInvoice> = None;
     let mut note: Option<&'static str> = None;
 
+    // 1. In-process text layer (Palier 1): a PDF with real text parses now.
+    let mut text: Option<String> = None;
     if mime == "application/pdf" {
         let (bytes, _) = state.storage.get(&storage_key).await?;
         // pdf-extract is synchronous + CPU-bound → run it off the async runtime.
-        let text = tokio::task::spawn_blocking(move || invoice::extract_pdf_text(&bytes))
+        let extracted_text = tokio::task::spawn_blocking(move || invoice::extract_pdf_text(&bytes))
             .await
             .map_err(|e| AppError::Internal(anyhow::anyhow!("parse task panicked: {e}")))?;
-        match text {
-            Ok(t) if !t.trim().is_empty() => {
-                let parsed = invoice::parse_invoice(&t);
-                let meta = serde_json::to_value(&parsed).map_err(|e| AppError::Internal(e.into()))?;
-                doc::set_parsed_metadata(&state.pool, user_id, doc_id, &meta).await?;
-                extracted = Some(parsed);
-            }
-            Ok(_) => note = Some("no_text_found"),
+        match extracted_text {
+            Ok(t) if !t.trim().is_empty() => text = Some(t),
+            Ok(_) => {} // image-only PDF → fall through to OCR
             Err(_) => note = Some("extract_failed"),
         }
-    } else {
-        // Palier 1 is text-layer only; OCR for images is a deferred palier.
-        note = Some("image_no_text_layer");
     }
 
-    // Rollup across every parsed document on this item (incl. the one just
-    // parsed). Malformed/legacy blobs are skipped, never fail the request.
+    if let Some(t) = text {
+        let parsed = invoice::parse_invoice(&t);
+        let meta = serde_json::to_value(&parsed).map_err(|e| AppError::Internal(e.into()))?;
+        doc::set_parsed_metadata(&state.pool, user_id, doc_id, &meta).await?;
+        extracted = Some(parsed);
+    } else if note.is_none() {
+        // 2. No text layer (image / scanned PDF) → Palier 2 OCR via the worker.
+        if let Some(meta) = parsed_metadata {
+            // OCR already ran; the listener stored the suggestion.
+            extracted = serde_json::from_value(meta).ok();
+        } else {
+            match ocr_job::latest_state_for_document(&state.pool, doc_id)
+                .await?
+                .as_deref()
+            {
+                // In flight (or just-ready, metadata about to land): keep waiting.
+                Some("pending") | Some("processing") | Some("ready") => note = Some("ocr_pending"),
+                // Never queued, or a prior job failed → (re)queue if a GPU
+                // worker is alive; otherwise the feature is unavailable.
+                _ => {
+                    if worker::any_live(&state.pool).await? {
+                        ocr_job::enqueue(
+                            &state.pool,
+                            doc_id,
+                            owned_id,
+                            user_id,
+                            &storage_key,
+                            &mime,
+                        )
+                        .await?;
+                        note = Some("ocr_queued");
+                    } else {
+                        note = Some("ocr_unavailable");
+                    }
+                }
+            }
+        }
+    }
+
+    // Rollup across every parsed document on this item. Malformed/legacy blobs
+    // are skipped, never fail the request.
     let metas = doc::list_parsed_metadata(&state.pool, owned_id).await?;
     let items: Vec<invoice::ParsedInvoice> = metas
         .into_iter()

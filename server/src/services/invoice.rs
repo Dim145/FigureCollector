@@ -36,6 +36,11 @@ pub fn extract_pdf_text(bytes: &[u8]) -> Result<String, String> {
 static RE_INVOICE_NO: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?i)invoice\s+number\s+([A-Za-z0-9][A-Za-z0-9._/\-]*)").unwrap()
 });
+/// Fallback when OCR reordering splits the "Invoice Number" label from its
+/// value (common on rasterised receipts): a bare invoice token anywhere, e.g.
+/// "#INV-67736593", "INV-1234", "FAC-2401".
+static RE_INVOICE_NO_BARE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)#?\s*(INV[-_]?\d{4,}|[A-Z]{2,5}-\d{4,})").unwrap());
 static RE_ORDER_NO: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)order\s*[:#]?\s*(\d{4,})").unwrap());
 static RE_TXN: LazyLock<Regex> =
@@ -129,7 +134,12 @@ pub fn parse_invoice(raw_text: &str) -> ParsedInvoice {
     let mut inv = ParsedInvoice {
         invoice_number: RE_INVOICE_NO
             .captures(&flat)
-            .map(|c| c[1].trim().to_string()),
+            .map(|c| c[1].trim().to_string())
+            .or_else(|| {
+                RE_INVOICE_NO_BARE
+                    .captures(&flat)
+                    .map(|c| c[1].trim().to_string())
+            }),
         order_number: RE_ORDER_NO.captures(&flat).map(|c| c[1].to_string()),
         transaction_id: RE_TXN.captures(&flat).map(|c| c[1].to_string()),
         payment_method: RE_PAY_METHOD
@@ -174,10 +184,12 @@ pub fn parse_invoice(raw_text: &str) -> ParsedInvoice {
 
     // Item label: the first line carrying a 【…】 tag (common on GK / proxy
     // invoices), for the user to recognise which line was read.
+    // Either bracket — OCR sometimes misreads the opening 【 as "[" but keeps
+    // the closing 】, so match on either half of the tag.
     inv.item_label = text
         .lines()
         .map(str::trim)
-        .find(|l| l.contains('【'))
+        .find(|l| l.contains('【') || l.contains('】'))
         .map(|l| l.chars().take(140).collect());
 
     inv
@@ -432,5 +444,23 @@ mod tests {
         assert_eq!(parse_amount("1.234,56"), Some(dec("1234.56")));
         assert_eq!(parse_amount("50"), Some(dec("50")));
         assert_eq!(parse_amount("€53.28"), Some(dec("53.28")));
+    }
+
+    #[test]
+    fn ocr_reordering_fallbacks() {
+        // Simulates OCR output: the "Invoice Number" label is split from its
+        // value, the grand total floats around, and 【 was misread as "[".
+        let t = "ORZGK Invoice From: ORZGK\n\
+                 Invoice INV-67736593 Number\n\
+                 [Freight】 Shipping: By Sea.1\n\
+                 Order: 67419180\n\
+                 Total $50.00";
+        let p = parse_invoice(t);
+        assert_eq!(p.invoice_number.as_deref(), Some("INV-67736593")); // bare fallback
+        assert_eq!(p.amount, Some(dec("50.00")));
+        assert_eq!(p.currency.as_deref(), Some("USD"));
+        assert_eq!(p.role, "shipping");
+        assert_eq!(p.order_number.as_deref(), Some("67419180"));
+        assert!(p.item_label.as_deref().unwrap_or("").contains("Freight")); // 】 tolerance
     }
 }

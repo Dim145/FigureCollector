@@ -90,6 +90,13 @@ services:
       # feeds COLMAP's mask_path (SfM tracks the figure) and the trainer's loss
       # (background pixels contribute zero loss → no haze).
       ENABLE_MASKING: ${ENABLE_MASKING:-true}
+      # OCR for justificatifs (Palier 2 — RapidOCR / PP-OCR ONNX, reusing the
+      # onnxruntime-gpu already here). Runs on the GPU by default; on a small
+      # (≤8 GB) card shared with gsplat training, set OCR_DEVICE=cpu to keep OCR
+      # off the trainer's VRAM — RapidOCR is fast on CPU. OCR_PDF_MAX_PAGES caps
+      # rasterised pages per scanned PDF.
+      OCR_DEVICE: ${OCR_DEVICE:-cuda}
+      OCR_PDF_MAX_PAGES: ${OCR_PDF_MAX_PAGES:-8}
     deploy:
       resources:
         reservations:
