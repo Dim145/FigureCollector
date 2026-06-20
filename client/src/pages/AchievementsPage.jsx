@@ -89,9 +89,7 @@ export default function AchievementsPage() {
   // for what exists; mine just adds unlock metadata.
   const merged = useMemo(() => {
     if (!catalog.data) return [];
-    const unlockedByCode = new Map(
-      (mine.data ?? []).map((a) => [a.code, a]),
-    );
+    const unlockedByCode = new Map((mine.data ?? []).map((a) => [a.code, a]));
     return [...catalog.data]
       .sort((a, b) => a.sort_order - b.sort_order)
       .map((a) => ({
@@ -134,10 +132,7 @@ export default function AchievementsPage() {
   if (catalog.isError || mine.isError) {
     return (
       <AppShell>
-        <div
-          role="alert"
-          className="text-center py-32 text-[var(--color-ivoire-soft)] italic"
-        >
+        <div role="alert" className="text-center py-32 text-[var(--color-ivoire-soft)] italic">
           {t("error.unknown")}
         </div>
       </AppShell>
@@ -146,8 +141,7 @@ export default function AchievementsPage() {
 
   const unlockedCount = mine.data?.length ?? 0;
   const totalCount = catalog.data?.length ?? 0;
-  const pct =
-    totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0;
+  const pct = totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0;
 
   // No achievements defined at all → a polished empty cabinet rather than a
   // bare page (Lot 6).
@@ -168,24 +162,14 @@ export default function AchievementsPage() {
   return (
     <AppShell>
       <main className="ach-page max-w-6xl mx-auto px-6 pt-8 pb-20">
-        <Hero
-          unlocked={unlockedCount}
-          total={totalCount}
-          percent={pct}
-          t={t}
-        />
+        <Hero unlocked={unlockedCount} total={totalCount} percent={pct} t={t} />
 
         {recent.length > 0 ? <RecentStrip recent={recent} t={t} /> : null}
 
         {(next.data?.length ?? 0) > 0 ? <NextPalier milestones={next.data} t={t} /> : null}
 
         {Object.entries(grouped).map(([category, items]) => (
-          <CategorySection
-            key={category}
-            category={category}
-            items={items}
-            t={t}
-          />
+          <CategorySection key={category} category={category} items={items} t={t} />
         ))}
       </main>
     </AppShell>
@@ -254,6 +238,13 @@ function Hero({ unlocked, total, percent, t }) {
         aria-hidden
         className="pointer-events-none absolute -inset-x-8 -top-10 bottom-0 z-0"
         style={{
+          // Inline position/z-index: the unlayered `.ach-hero > *` rule forces
+          // position:relative (beating Tailwind's `absolute`/`z-0` utilities,
+          // which live in a cascade layer), which would drop this decorative
+          // wash INTO the 2-col grid flow and break the ring/title layout.
+          // Inline styles win over both, keeping it an out-of-flow backdrop.
+          position: "absolute",
+          zIndex: 0,
           background:
             "radial-gradient(60% 80% at 18% 30%, color-mix(in oklab, var(--color-or) 16%, transparent), transparent 70%), radial-gradient(55% 75% at 82% 60%, color-mix(in oklab, var(--color-indigo) 14%, transparent), transparent 72%), radial-gradient(50% 60% at 60% 0%, color-mix(in oklab, var(--color-jade) 10%, transparent), transparent 70%)",
         }}
@@ -279,7 +270,9 @@ function Hero({ unlocked, total, percent, t }) {
 
       <div className="ach-hero-text">
         <p className="ach-hero-eyebrow">{t("achievements.subtitle")}</p>
-        <h1 className="ach-hero-title"><AccentTitle text={t("achievements.page_title")} /></h1>
+        <h1 className="ach-hero-title">
+          <AccentTitle text={t("achievements.page_title")} />
+        </h1>
         <p className="ach-hero-percent">
           {percent === 100
             ? t("achievements.progress.complete")
@@ -360,9 +353,7 @@ function CategorySection({ category, items, t }) {
           {meta.kanji}
         </span>
         <div className="ach-category-text">
-          <h2 className="ach-category-title">
-            {t(`achievements.category.${category}`)}
-          </h2>
+          <h2 className="ach-category-title">{t(`achievements.category.${category}`)}</h2>
           <p className="ach-category-desc">
             {t(`achievements.category.${category}.desc`, {
               default: "",
@@ -399,14 +390,8 @@ function AchCard({ achievement: a, index, t }) {
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    el.style.setProperty(
-      "--spotlight-x",
-      `${((e.clientX - r.left) / r.width) * 100}%`,
-    );
-    el.style.setProperty(
-      "--spotlight-y",
-      `${((e.clientY - r.top) / r.height) * 100}%`,
-    );
+    el.style.setProperty("--spotlight-x", `${((e.clientX - r.left) / r.width) * 100}%`);
+    el.style.setProperty("--spotlight-y", `${((e.clientY - r.top) / r.height) * 100}%`);
   };
 
   const inner = (
@@ -414,11 +399,7 @@ function AchCard({ achievement: a, index, t }) {
       <div className="ach-card-photo">
         <span className="ach-card-foil" aria-hidden />
         {unlocked && u.trigger_image_url ? (
-          <img
-            src={u.trigger_image_url}
-            alt={u.trigger_figure_name ?? a.code}
-            loading="lazy"
-          />
+          <img src={u.trigger_image_url} alt={u.trigger_figure_name ?? a.code} loading="lazy" />
         ) : (
           <span className="ach-card-photo-kanji" aria-hidden>
             {TIER_KANJI[a.tier]}
@@ -451,10 +432,7 @@ function AchCard({ achievement: a, index, t }) {
               })}
             </span>
             {u.trigger_figure_name ? (
-              <span
-                className="ach-card-trigger"
-                title={u.trigger_figure_name}
-              >
+              <span className="ach-card-trigger" title={u.trigger_figure_name}>
                 ↳ {u.trigger_figure_name}
               </span>
             ) : null}
@@ -469,9 +447,7 @@ function AchCard({ achievement: a, index, t }) {
     </>
   );
 
-  const className = `ach-card tier-${a.tier} ${
-    unlocked ? "is-unlocked" : "is-locked"
-  }`;
+  const className = `ach-card tier-${a.tier} ${unlocked ? "is-unlocked" : "is-locked"}`;
   // Unlocked → paint the rhythm accent into the vars the stylesheet already
   // consumes (border / shadow / spotlight). Locked → pin a single dim gold so
   // they stay muted and uniform. Always pure CSS vars: theme-correct.
@@ -512,12 +488,7 @@ function AchCard({ achievement: a, index, t }) {
         {inner}
       </Link>
     ) : (
-      <div
-        ref={ref}
-        onMouseMove={onMove}
-        className={className}
-        style={style}
-      >
+      <div ref={ref} onMouseMove={onMove} className={className} style={style}>
         {inner}
       </div>
     );

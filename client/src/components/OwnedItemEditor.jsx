@@ -19,13 +19,7 @@ import Select from "./Select.jsx";
 import StoreAutocomplete from "./StoreAutocomplete.jsx";
 
 /** Allowed condition values, mirrored from the server's allow-list. */
-const CONDITION_OPTIONS = [
-  "mib_sealed",
-  "opened_box",
-  "displayed",
-  "loose",
-  "damaged",
-];
+const CONDITION_OPTIONS = ["mib_sealed", "opened_box", "displayed", "loose", "damaged"];
 
 /**
  * Inline editor for the per-user metadata on a figure that's already in the
@@ -62,8 +56,7 @@ export default function OwnedItemEditor({ owned, catalogMsrp, catalogCurrency })
 
   const po = preorder.data ?? null;
   const isArchived = !!owned.archived_at;
-  const canCancel =
-    !isArchived && po && po.status !== "cancelled" && po.status !== "received";
+  const canCancel = !isArchived && po && po.status !== "cancelled" && po.status !== "received";
 
   return (
     <section>
@@ -137,11 +130,7 @@ export default function OwnedItemEditor({ owned, catalogMsrp, catalogCurrency })
       )}
 
       {cancelOpen && po ? (
-        <CancellationDialog
-          preorder={po}
-          ownedId={owned.id}
-          onClose={() => setCancelOpen(false)}
-        />
+        <CancellationDialog preorder={po} ownedId={owned.id} onClose={() => setCancelOpen(false)} />
       ) : null}
     </section>
   );
@@ -160,15 +149,13 @@ function ReadMode({ owned, preorder, catalogMsrp, catalogCurrency, t }) {
         <ConditionChip code={owned.condition} t={t} />
       </Row>
       <Row label={t("owned.editor.field.purchase_date")}>
-        {owned.purchase_date
-          ? new Date(owned.purchase_date).toLocaleDateString(appLocale())
-          : "—"}
+        {owned.purchase_date ? new Date(owned.purchase_date).toLocaleDateString(appLocale()) : "—"}
       </Row>
       <Row label={t("owned.editor.field.store")}>
         {owned.store_name ? (
           owned.store_slug ? (
             <Link
-              to={`/stores/${owned.store_slug}`}
+              to={`/catalogue/stores/${owned.store_slug}`}
               className="text-[var(--color-or-pale)] underline decoration-[var(--color-or)]/30 hover:decoration-[var(--color-or)] underline-offset-4"
             >
               {owned.store_name}
@@ -197,14 +184,10 @@ function ReadMode({ owned, preorder, catalogMsrp, catalogCurrency, t }) {
           "—"
         )}
       </Row>
-      <Row label={t("owned.editor.field.location")}>
-        {owned.location ?? "—"}
-      </Row>
+      <Row label={t("owned.editor.field.location")}>{owned.location ?? "—"}</Row>
       <Row label={t("owned.editor.field.notes")}>
         {owned.notes ? (
-          <span className="whitespace-pre-wrap text-[var(--color-ivoire)]">
-            {owned.notes}
-          </span>
+          <span className="whitespace-pre-wrap text-[var(--color-ivoire)]">{owned.notes}</span>
         ) : (
           "—"
         )}
@@ -309,8 +292,7 @@ function EditMode({ owned, preorder, catalogMsrp, catalogCurrency, onClose, t })
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    const nz = (s) =>
-      typeof s === "string" && s.trim() !== "" ? s.trim() : null;
+    const nz = (s) => (typeof s === "string" && s.trim() !== "" ? s.trim() : null);
     const num = (s) => {
       if (!s || s === "") return null;
       const n = Number.parseFloat(s);
@@ -339,8 +321,7 @@ function EditMode({ owned, preorder, catalogMsrp, catalogCurrency, onClose, t })
     // (only meaningful if a preorder exists for this owned item).
     if (preorder?.id) {
       const nextDeposit = num(form.deposit_amount);
-      const prevDeposit =
-        preorder.deposit_amount != null ? Number(preorder.deposit_amount) : null;
+      const prevDeposit = preorder.deposit_amount != null ? Number(preorder.deposit_amount) : null;
       // Skip the call when nothing changed — saves a roundtrip on the
       // common case "the user only edited the price".
       if (nextDeposit !== prevDeposit) {
@@ -498,9 +479,7 @@ function EditMode({ owned, preorder, catalogMsrp, catalogCurrency, onClose, t })
       ) : null}
 
       <label className="block">
-        <span className="micro block mb-2">
-          {t("owned.editor.field.notes")}
-        </span>
+        <span className="micro block mb-2">{t("owned.editor.field.notes")}</span>
         <textarea
           value={form.notes}
           onChange={(e) => set("notes")(e.target.value)}
@@ -580,12 +559,7 @@ function EditMode({ owned, preorder, catalogMsrp, catalogCurrency, onClose, t })
       ) : null}
 
       <div className="flex items-center justify-end gap-3 pt-2 border-t border-[var(--color-or)]/15">
-        <Button
-          variant="ghost"
-          type="button"
-          onClick={onClose}
-          disabled={update.isPending}
-        >
+        <Button variant="ghost" type="button" onClick={onClose} disabled={update.isPending}>
           {t("editor.cancel")}
         </Button>
         <Button type="submit" variant="primary" loading={update.isPending}>
@@ -601,10 +575,8 @@ function seedFromOwned(owned, preorder, defaultCurrency = "JPY") {
     condition: owned.condition ?? "mib_sealed",
     price_amount: owned.price_amount != null ? String(owned.price_amount) : "",
     price_currency: owned.price_currency ?? defaultCurrency,
-    shipping_amount:
-      owned.shipping_amount != null ? String(owned.shipping_amount) : "",
-    deposit_amount:
-      preorder?.deposit_amount != null ? String(preorder.deposit_amount) : "",
+    shipping_amount: owned.shipping_amount != null ? String(owned.shipping_amount) : "",
+    deposit_amount: preorder?.deposit_amount != null ? String(preorder.deposit_amount) : "",
     // Seed from the joined store_name when the server resolved one; we still
     // round-trip it as a free-text `store` field so the upsert can rebind
     // by slug on save.
@@ -612,16 +584,13 @@ function seedFromOwned(owned, preorder, defaultCurrency = "JPY") {
     // Fall back to the date the row was added when no explicit purchase
     // date was ever set — for most collectors those are the same day.
     purchase_date:
-      owned.purchase_date ??
-      (owned.created_at ? String(owned.created_at).slice(0, 10) : ""),
+      owned.purchase_date ?? (owned.created_at ? String(owned.created_at).slice(0, 10) : ""),
     location: owned.location ?? "",
     notes: owned.notes ?? "",
     for_sale: !!owned.for_sale,
     for_trade: !!owned.for_trade,
-    asking_price_amount:
-      owned.asking_price_amount != null ? String(owned.asking_price_amount) : "",
-    asking_price_currency:
-      owned.asking_price_currency ?? owned.price_currency ?? defaultCurrency,
+    asking_price_amount: owned.asking_price_amount != null ? String(owned.asking_price_amount) : "",
+    asking_price_currency: owned.asking_price_currency ?? owned.price_currency ?? defaultCurrency,
     sale_note: owned.sale_note ?? "",
   };
 }

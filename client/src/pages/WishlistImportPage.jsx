@@ -64,11 +64,7 @@ function detectSource(raw, stores) {
   if (!text) return null;
   if (looksLikeHtml(text)) return { kind: "html" };
   const tokens = text.split(/\s+/).filter(Boolean);
-  if (
-    tokens.some(
-      (u) => /orzgk\.com\/.*(wishlist|wlfmc)/i.test(u) || ORZGK_URL_RE.test(u),
-    )
-  ) {
+  if (tokens.some((u) => /orzgk\.com\/.*(wishlist|wlfmc)/i.test(u) || ORZGK_URL_RE.test(u))) {
     return { kind: "orzgk" };
   }
   for (const u of tokens) {
@@ -97,10 +93,7 @@ export default function WishlistImportPage() {
   const [progress, setProgress] = useState({ done: 0, total: 0, label: "" });
   const [summary, setSummary] = useState(null);
 
-  const ownedIds = useMemo(
-    () => new Set((owned.data ?? []).map((o) => o.figure_id)),
-    [owned.data],
-  );
+  const ownedIds = useMemo(() => new Set((owned.data ?? []).map((o) => o.figure_id)), [owned.data]);
   const wishedIds = useMemo(
     () => new Set((wishlist.data ?? []).map((w) => w.figure_id)),
     [wishlist.data],
@@ -218,7 +211,10 @@ export default function WishlistImportPage() {
     const cands = items.map((it, i) => {
       const matches = lists[i] ?? [];
       const best = matches[0];
-      let status, action, chosenFigureId = null, selected = false;
+      let status,
+        action,
+        chosenFigureId = null,
+        selected = false;
       if (best && best.score >= AUTO_THRESHOLD && ownedIds.has(best.figure_id)) {
         status = "owned";
         action = "skip";
@@ -279,14 +275,14 @@ export default function WishlistImportPage() {
 
   // ── ③ commit ───────────────────────────────────────────────────────────────
   const commit = async () => {
-    const chosen = candidates
-      .filter((c) => c.selected && c.action !== "skip")
-      .slice(0, BATCH_MAX);
+    const chosen = candidates.filter((c) => c.selected && c.action !== "skip").slice(0, BATCH_MAX);
     if (chosen.length === 0) return;
 
     setPhase("importing");
     setProgress({ done: 0, total: chosen.length, label: "" });
-    let created = 0, linked = 0, errors = 0;
+    let created = 0,
+      linked = 0,
+      errors = 0;
 
     for (const c of chosen) {
       setProgress((p) => ({ ...p, label: c.title }));
@@ -299,9 +295,7 @@ export default function WishlistImportPage() {
           // map it with the shared proxy→NewFigure mapping (the wished
           // variant, when known, pre-selects the version like orzgk does).
           const product = await fetchProxyProduct(c.detail_url);
-          const fig = await createFigure.mutateAsync(
-            proxyProductToNewFigure(product, c.version),
-          );
+          const fig = await createFigure.mutateAsync(proxyProductToNewFigure(product, c.version));
           await addWish.mutateAsync({ figure_id: fig.id });
           created++;
         } else if (c.source === "mfc") {
@@ -311,9 +305,7 @@ export default function WishlistImportPage() {
           const fig = await createFigure.mutateAsync({
             name: c.title,
             jan: c.jan || undefined,
-            description: c.detail_url.startsWith("http")
-              ? `Source: ${c.detail_url}`
-              : undefined,
+            description: c.detail_url.startsWith("http") ? `Source: ${c.detail_url}` : undefined,
           });
           await addWish.mutateAsync({ figure_id: fig.id });
           created++;
@@ -359,7 +351,9 @@ export default function WishlistImportPage() {
           <p className="micro flex items-center gap-2.5" style={{ "--i": 0 }}>
             <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
             {t("import.eyebrow")}
-            <span aria-hidden className="ja not-italic text-[var(--color-or)]">輸</span>
+            <span aria-hidden className="ja not-italic text-[var(--color-or)]">
+              輸
+            </span>
             {t("import.kicker_label", { default: "SOUHAITS" })}
           </p>
           <h1 className="display text-5xl md:text-6xl text-[var(--color-ivoire)] mt-3 leading-[0.95]">
@@ -402,9 +396,7 @@ export default function WishlistImportPage() {
 
         {phase === "importing" ? <ImportingPhase progress={progress} t={t} /> : null}
 
-        {phase === "done" ? (
-          <DonePhase summary={summary} onReset={reset} t={t} />
-        ) : null}
+        {phase === "done" ? <DonePhase summary={summary} onReset={reset} t={t} /> : null}
       </main>
     </AppShell>
   );
@@ -465,10 +457,7 @@ function Steps({ phase, t }) {
               {label}
             </span>
             {i < labels.length - 1 ? (
-              <span
-                aria-hidden
-                className="ja text-[var(--color-or)]/40 leading-none"
-              >
+              <span aria-hidden className="ja text-[var(--color-or)]/40 leading-none">
                 →
               </span>
             ) : null}
@@ -492,16 +481,16 @@ function InputPhase({ raw, setRaw, onAnalyse, onCsvFile, detected, proxy, busy, 
   return (
     <Reveal as="div">
       <Card className="relative overflow-hidden p-6 md:p-8">
-        <span
-          aria-hidden
-          className="kanji-mark text-[10rem] -top-8 -right-2 select-none"
-        >
+        <span aria-hidden className="kanji-mark text-[10rem] -top-8 -right-2 select-none">
           蒐
         </span>
 
         <div className="relative">
           <p className="micro flex items-center gap-2">
-            <span className="ja not-italic text-base text-[var(--color-or)] leading-none" aria-hidden>
+            <span
+              className="ja not-italic text-base text-[var(--color-or)] leading-none"
+              aria-hidden
+            >
               蒐
             </span>
             {t("import.phase.source")}
@@ -623,7 +612,8 @@ function InputPhase({ raw, setRaw, onAnalyse, onCsvFile, detected, proxy, busy, 
                 {t("import.csv.hint")}
               </p>
             </div>
-            <label className="shrink-0 tap-target cursor-pointer inline-flex items-center px-4 py-2 rounded-full border text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors"
+            <label
+              className="shrink-0 tap-target cursor-pointer inline-flex items-center px-4 py-2 rounded-full border text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors"
               style={{ borderColor: "color-mix(in oklab, var(--color-or) 40%, transparent)" }}
             >
               {t("import.csv.browse")}
@@ -646,7 +636,16 @@ function InputPhase({ raw, setRaw, onAnalyse, onCsvFile, detected, proxy, busy, 
 }
 
 /** ② Choisir — selection bar + the FigureCard preview grid + the confirm CTA. */
-function ReviewPhase({ candidates, selectedCount, onToggle, onSelectAll, onAssoc, onCommit, onBack, t }) {
+function ReviewPhase({
+  candidates,
+  selectedCount,
+  onToggle,
+  onSelectAll,
+  onAssoc,
+  onCommit,
+  onBack,
+  t,
+}) {
   const full = selectedCount >= BATCH_MAX;
   return (
     <div>
@@ -697,11 +696,7 @@ function ReviewPhase({ candidates, selectedCount, onToggle, onSelectAll, onAssoc
         <Button variant="ghost" onClick={onBack}>
           <span aria-hidden>←</span> {t("import.back")}
         </Button>
-        <Button
-          variant="primary"
-          onClick={onCommit}
-          disabled={selectedCount === 0}
-        >
+        <Button variant="primary" onClick={onCommit} disabled={selectedCount === 0}>
           {t("import.commit", { n: selectedCount })} <span aria-hidden>→</span>
         </Button>
       </div>
@@ -730,10 +725,7 @@ function CandidateCard({ c, onToggle, onAssoc, t }) {
   const sub = [c.studio, c.version, c.price].filter(Boolean).join(" · ");
 
   return (
-    <div
-      className="relative h-full transition-opacity"
-      style={{ opacity: skip ? 0.55 : 1 }}
-    >
+    <div className="relative h-full transition-opacity" style={{ opacity: skip ? 0.55 : 1 }}>
       {/* Include / exclude seal — gold when in, hollow when out. Locked items
           (owned/wished) render an inert hanko-red ✕ instead. */}
       {/* The seal sits BELOW FigureCard's brass type plaque (absolute top-3
@@ -781,7 +773,9 @@ function CandidateCard({ c, onToggle, onAssoc, t }) {
       <div className="mt-3 px-1 space-y-2">
         {score != null && (c.status === "match" || c.status === "low") ? (
           <div className="flex items-center justify-between gap-3">
-            <span className="micro-tight">{t("import.match_label", { default: "CORRESPONDANCE" })}</span>
+            <span className="micro-tight">
+              {t("import.match_label", { default: "CORRESPONDANCE" })}
+            </span>
             <span
               className="figural text-lg leading-none"
               style={{
@@ -841,10 +835,17 @@ function ImportingPhase({ progress, t }) {
   return (
     <Reveal as="div">
       <Card className="relative overflow-hidden p-6 md:p-8">
-        <span aria-hidden className="kanji-mark text-[10rem] -top-8 -right-2 select-none">輸</span>
+        <span aria-hidden className="kanji-mark text-[10rem] -top-8 -right-2 select-none">
+          輸
+        </span>
         <div className="relative">
           <p className="micro flex items-center gap-2">
-            <span className="ja not-italic text-base text-[var(--color-or)] leading-none" aria-hidden>輸</span>
+            <span
+              className="ja not-italic text-base text-[var(--color-or)] leading-none"
+              aria-hidden
+            >
+              輸
+            </span>
             {t("import.phase.importing")}
           </p>
           <div className="gold-rule w-16 mt-4 mb-6" />
@@ -862,7 +863,10 @@ function ImportingPhase({ progress, t }) {
             />
           </div>
           <div className="mt-3 flex items-baseline justify-between gap-3">
-            <span className="text-sm text-[var(--color-ivoire-soft)] truncate" title={progress.label}>
+            <span
+              className="text-sm text-[var(--color-ivoire-soft)] truncate"
+              title={progress.label}
+            >
               {progress.label}
             </span>
             <span className="figural text-lg text-[var(--color-or-pale)] shrink-0">
@@ -882,7 +886,9 @@ function DonePhase({ summary, onReset, t }) {
   return (
     <Reveal as="div">
       <Card className="relative overflow-hidden p-6 md:p-8 text-center">
-        <span aria-hidden className="kanji-mark text-[12rem] -top-10 -right-4 select-none">蒐</span>
+        <span aria-hidden className="kanji-mark text-[12rem] -top-10 -right-4 select-none">
+          蒐
+        </span>
         <div className="relative">
           <p className="micro">{t("import.phase.done")}</p>
           <div className="gold-rule mx-auto w-20 mt-4 mb-8" />
@@ -899,7 +905,7 @@ function DonePhase({ summary, onReset, t }) {
             <Button variant="ghost" onClick={onReset}>
               {t("import.again")}
             </Button>
-            <Link to="/souhaits">
+            <Link to="/collection/souhaits">
               <Button variant="primary">
                 {t("import.to_wishlist")} <span aria-hidden>→</span>
               </Button>

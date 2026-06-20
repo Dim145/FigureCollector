@@ -1,0 +1,501 @@
+/* ============================================================================
+ * Notification settings — channel cards + routing matrix
+ *
+ * Lives inside the L'Atelier settings page's "鈴 Notifications" drawer.
+ * The matrix is a small custom grid (events × channels) with click-toggle
+ * cells.
+ * ============================================================================ */
+
+.notif-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* Channel cards */
+.notif-channel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-top: 1.2rem;
+}
+.notif-channel-disabled-heading {
+  margin-top: 1rem;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.6;
+}
+.notif-channel {
+  border: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
+  background: color-mix(in oklab, var(--color-noir-deep) 60%, transparent);
+  padding: 1rem 1.25rem 1.1rem;
+  transition:
+    border-color 220ms var(--ease-quick),
+    background 220ms var(--ease-quick);
+}
+.notif-channel.is-user-enabled {
+  border-color: color-mix(in oklab, var(--color-or) 40%, transparent);
+}
+.notif-channel.is-admin-disabled {
+  opacity: 0.55;
+}
+.notif-channel-head {
+  display: grid;
+  grid-template-columns: 2rem 1fr auto auto;
+  align-items: center;
+  gap: 0.85rem;
+}
+.notif-channel-kanji {
+  font-family: var(--font-ja);
+  font-size: 22px;
+  line-height: 1;
+  color: var(--color-or);
+  text-align: center;
+}
+.notif-channel-title-block {
+  min-width: 0;
+}
+.notif-channel-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  letter-spacing: 0.005em;
+  color: var(--color-ivoire);
+  margin: 0;
+  line-height: 1.2;
+}
+.notif-channel-desc {
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--color-ivoire-soft);
+  opacity: 0.8;
+  margin: 0.25rem 0 0;
+}
+.notif-channel-state {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  border: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
+  padding: 0.2rem 0.5rem;
+  white-space: nowrap;
+}
+.notif-channel.is-user-enabled .notif-channel-state {
+  color: var(--color-or);
+  border-color: var(--color-or);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+}
+.notif-channel.is-admin-disabled .notif-channel-state {
+  color: color-mix(in oklab, var(--color-ivoire) 40%, transparent);
+  border-color: color-mix(in oklab, var(--color-ivoire) 18%, transparent);
+}
+.notif-channel-body {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed color-mix(in oklab, var(--color-or) 15%, transparent);
+}
+
+/* Destination summary + edit */
+.notif-channel-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.notif-channel-summary-value {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--color-or-pale);
+  word-break: break-all;
+}
+.notif-channel-summary-empty {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.85rem;
+  color: color-mix(in oklab, var(--color-ivoire) 50%, transparent);
+}
+.notif-channel-summary-edit {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  background: transparent;
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+  transition: all 220ms var(--ease-quick);
+}
+.notif-channel-summary-edit:hover {
+  color: var(--color-or);
+  border-color: var(--color-or);
+}
+
+/* Destination form */
+.notif-channel-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+.notif-channel-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.notif-channel-field-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+}
+.notif-channel-field-hint {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  color: var(--color-ivoire-soft);
+  opacity: 0.7;
+  margin-bottom: 0.2rem;
+}
+.notif-channel-field-input {
+  width: 100%;
+  background: var(--color-noir);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  padding: 0.55rem 0.7rem;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--color-ivoire);
+  outline: none;
+  transition: border-color 220ms var(--ease-quick);
+}
+.notif-channel-field-input:focus {
+  border-color: var(--color-or);
+}
+.notif-channel-form-actions {
+  display: flex;
+  gap: 0.55rem;
+  justify-content: flex-end;
+}
+.notif-channel-form-btn {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  padding: 0.45rem 0.95rem;
+  border: 1px solid;
+  background: transparent;
+  cursor: pointer;
+  transition: all 220ms var(--ease-quick);
+}
+.notif-channel-form-btn.is-cancel {
+  color: color-mix(in oklab, var(--color-ivoire) 55%, transparent);
+  border-color: color-mix(in oklab, var(--color-ivoire) 25%, transparent);
+}
+.notif-channel-form-btn.is-cancel:hover {
+  color: var(--color-ivoire);
+  border-color: color-mix(in oklab, var(--color-ivoire) 50%, transparent);
+}
+.notif-channel-form-btn.is-save {
+  color: var(--color-or);
+  border-color: var(--color-or);
+}
+.notif-channel-form-btn.is-save:hover {
+  background: var(--color-or);
+  color: var(--color-noir);
+}
+.notif-channel-form-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+/* Routing matrix */
+.notif-routes-matrix {
+  margin-top: 1.2rem;
+  border: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
+}
+.notif-routes-head,
+.notif-routes-row {
+  display: grid;
+  grid-template-columns: minmax(11rem, 1.4fr) repeat(5, minmax(0, 1fr));
+  align-items: stretch;
+}
+.notif-routes-head {
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 20%, transparent);
+}
+.notif-routes-col-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.75rem 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  text-align: center;
+}
+.notif-routes-col-kanji {
+  font-family: var(--font-ja);
+  font-size: 18px;
+  line-height: 1;
+  color: var(--color-or);
+}
+.notif-routes-col-label {
+  display: block;
+  font-size: 8.5px;
+  letter-spacing: 0.18em;
+  opacity: 0.7;
+}
+.notif-routes-row {
+  border-top: 1px dashed color-mix(in oklab, var(--color-or) 12%, transparent);
+}
+.notif-routes-row:first-child {
+  border-top: 0;
+}
+.notif-routes-row-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  border-right: 1px solid color-mix(in oklab, var(--color-or) 15%, transparent);
+}
+.notif-routes-row-kanji {
+  font-family: var(--font-ja);
+  font-size: 18px;
+  line-height: 1;
+  color: var(--color-or);
+}
+.notif-routes-row-label {
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  color: var(--color-ivoire);
+  line-height: 1.15;
+}
+.notif-routes-cell {
+  display: grid;
+  place-items: center;
+  padding: 0.85rem 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  color: color-mix(in oklab, var(--color-ivoire) 35%, transparent);
+  background: transparent;
+  border: 0;
+  border-right: 1px solid color-mix(in oklab, var(--color-or) 10%, transparent);
+  cursor: pointer;
+  transition:
+    background 200ms var(--ease-quick),
+    color 200ms var(--ease-quick);
+}
+.notif-routes-cell:last-child {
+  border-right: 0;
+}
+.notif-routes-cell:hover {
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+  color: var(--color-or-pale);
+}
+.notif-routes-cell.is-on {
+  color: var(--color-or);
+  background: color-mix(in oklab, var(--color-or) 12%, transparent);
+}
+
+/* Per-channel "send test" row — appears under each enabled channel
+ * card in the user settings, fires a synthetic test event through that
+ * channel's adapter so the user can verify their destination. */
+.notif-channel-test {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.85rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed color-mix(in oklab, var(--color-or) 15%, transparent);
+}
+.notif-channel-test-btn {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  background: transparent;
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+  transition: all 220ms var(--ease-quick);
+}
+.notif-channel-test-btn:hover {
+  color: var(--color-or);
+  border-color: var(--color-or);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+}
+.notif-channel-test-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.notif-channel-test-notice {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
+.notif-channel-test-notice.is-ok {
+  color: var(--color-or);
+}
+.notif-channel-test-notice.is-err {
+  color: var(--color-laque-bright);
+}
+
+/* VAPID generator toolbar — sits at the top of the browser_push admin
+ * card. The button mints a keypair server-side and drops the values
+ * into the form fields below. */
+.notif-vapid-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px dashed color-mix(in oklab, var(--color-or) 18%, transparent);
+}
+.notif-vapid-toolbar .notif-channel-form-btn {
+  align-self: flex-start;
+}
+.notif-vapid-hint {
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--color-ivoire-soft);
+  opacity: 0.7;
+  margin: 0;
+}
+.notif-vapid-notice {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-or);
+  margin: 0;
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+ * Lot 6 — notification preferences (quiet hours + DnD presets).
+ * Ported from docs/design/lot6-quality-settings.html.
+ * ─────────────────────────────────────────────────────────────────────── */
+.notif-section {
+  margin-top: 1.75rem;
+}
+.notif-section:first-child {
+  margin-top: 0;
+}
+
+.notif-qh {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+.notif-qh-label {
+  font-size: 12px;
+  color: var(--color-ivoire-soft);
+}
+.notif-qh-arrow {
+  color: var(--color-or-pale);
+}
+.notif-qh-time {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  color: var(--color-ivoire);
+  background: var(--color-noir);
+  border: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
+  padding: 0.4rem 0.7rem;
+  outline: none;
+  transition: border-color 200ms var(--ease-quick);
+}
+.notif-qh-time:focus {
+  border-color: var(--color-or);
+}
+.notif-qh-time:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.notif-qh-note {
+  margin-top: 1rem;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-ivoire-soft);
+  border-left: 2px solid color-mix(in oklab, var(--color-indigo) 50%, transparent);
+  padding-left: 0.8rem;
+}
+
+.notif-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+.notif-preset {
+  position: relative;
+  text-align: left;
+  display: block;
+  border: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
+  background: var(--color-noir-soft);
+  padding: 1.1rem 1.2rem;
+  cursor: pointer;
+  transition:
+    border-color 220ms var(--ease-quick),
+    background 220ms var(--ease-quick),
+    box-shadow 220ms var(--ease-quick);
+}
+.notif-preset:hover:not(.is-on) {
+  border-color: color-mix(in oklab, var(--color-or) 38%, transparent);
+}
+.notif-preset.is-on {
+  border-color: var(--color-or);
+  background: color-mix(in oklab, var(--color-or) 7%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-or) 30%, transparent);
+}
+.notif-preset:disabled {
+  cursor: wait;
+}
+.notif-preset-tick {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.9rem;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklab, var(--color-or) 40%, transparent);
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  color: var(--color-noir);
+}
+.notif-preset.is-on .notif-preset-tick {
+  background: var(--color-or);
+  border-color: var(--color-or);
+}
+.notif-preset-k {
+  display: block;
+  font-size: 1.3rem;
+  color: var(--color-or-pale);
+}
+.notif-preset-title {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  color: var(--color-ivoire);
+  margin-top: 0.2rem;
+}
+.notif-preset-desc {
+  display: block;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-ivoire-soft);
+  margin-top: 0.35rem;
+}

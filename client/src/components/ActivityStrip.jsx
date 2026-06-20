@@ -17,7 +17,7 @@ export default function ActivityStrip({ limit = 5 }) {
       <header className="flex items-baseline justify-between mb-3">
         <h3 className="micro">{t("activity.title")}</h3>
         <Link
-          to="/activity"
+          to="/community/activity"
           className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-or)] hover:text-[var(--color-or-pale)]"
         >
           {t("activity.see_all")}
@@ -26,9 +26,7 @@ export default function ActivityStrip({ limit = 5 }) {
       <ol className="space-y-2 text-sm">
         {activity.data.map((ev) => (
           <li key={ev.id} className="grid grid-cols-[1fr_auto] items-baseline gap-3">
-            <span className="text-[var(--color-ivoire)] leading-snug">
-              {formatEvent(ev, t)}
-            </span>
+            <span className="text-[var(--color-ivoire)] leading-snug">{formatEvent(ev, t)}</span>
             <span className="micro shrink-0">{relativeTime(ev.created_at)}</span>
           </li>
         ))}

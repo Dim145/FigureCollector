@@ -1,0 +1,304 @@
+/* ============================================================================
+ * Diorama — the "shelf" view of a vitrine. Specimens stand as framed standees
+ * on a lit glass shelf that recedes in perspective, each glowing in its type
+ * hue, casting a weighted shadow and a soft mirror reflection. A single warm
+ * lamp washes the shelf from above. Static (one perspective transform, no
+ * animation) → GPU-cheap. Read-only display; the grid view keeps drag-to-arrange.
+ * ============================================================================ */
+.diorama-shelf {
+  position: relative;
+  padding: 4.25rem 1.5rem 0;
+  isolation: isolate;
+  border-radius: 3px;
+  /* A lit display case: a warm glow pools up from behind the pieces, fading to
+     deep noir at the crown and edges, with an interior vignette so the shelf
+     reads as an enclosed vitrine rather than figures floating on the page.
+     Static gradients only — GPU-cheap. */
+  background:
+    radial-gradient(
+      125% 78% at 50% 122%,
+      color-mix(in oklab, var(--color-or) 15%, transparent),
+      transparent 58%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--color-noir-deep) 92%, #000) 0%,
+      color-mix(in oklab, var(--color-noir) 82%, #000) 52%,
+      var(--color-noir-deep) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, var(--color-ivoire) 7%, transparent),
+    inset 0 0 110px 26px rgba(0, 0, 0, 0.5);
+}
+.diorama-spot {
+  position: absolute;
+  top: -1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 84%;
+  height: 230px;
+  background: radial-gradient(
+    52% 100% at 50% 0,
+    color-mix(in oklab, var(--color-or) 32%, transparent),
+    color-mix(in oklab, var(--color-or) 9%, transparent) 46%,
+    transparent 76%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+.diorama-row {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 1.5rem 3rem;
+  padding-bottom: 0.75rem;
+}
+.diorama-standee {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.diorama-standee::before {
+  /* warm pool of light spilling onto the floor at the piece's base */
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  width: 160%;
+  height: 100px;
+  background: radial-gradient(
+    50% 50% at 50% 50%,
+    color-mix(in oklab, var(--hue, var(--color-or)) 12%, transparent) 0%,
+    color-mix(in oklab, var(--color-or) 20%, transparent) 30%,
+    transparent 72%
+  );
+  pointer-events: none;
+}
+.diorama-standee-contact {
+  /* zero-height marker pinned to the feet line (card bottom) */
+  display: block;
+  position: relative;
+  z-index: 1;
+  width: var(--standee-w, clamp(106px, 12vw, 150px));
+  height: 0;
+}
+.diorama-standee-contact::before {
+  /* soft contact shadow where the piece meets the shelf — the key "resting on the surface" cue */
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -22%);
+  width: 84%;
+  height: 22px;
+  background: radial-gradient(
+    closest-side,
+    rgba(0, 0, 0, 0.6),
+    rgba(0, 0, 0, 0.28) 48%,
+    transparent 78%
+  );
+  pointer-events: none;
+  transition:
+    transform 0.45s var(--ease-curtain),
+    opacity 0.45s var(--ease-curtain);
+}
+.diorama-standee-btn:hover .diorama-standee-contact::before {
+  /* piece lifts → contact shadow shrinks + fades */
+  transform: translate(-50%, -22%) scale(0.8);
+  opacity: 0.6;
+}
+.diorama-standee-btn {
+  display: block;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 0;
+}
+.diorama-standee-btn:focus-visible {
+  outline: 2px solid var(--color-or);
+  outline-offset: 3px;
+}
+/* On hover the piece lifts off the shelf — so its reflection must recede and
+   dim, not ride up with it: an object rising off a mirror floor casts a
+   reflection that mirrors downward and fades. The card and the reflect animate
+   in opposite directions; the nameplate and floor light-pool stay put. */
+.diorama-standee-btn:hover .diorama-standee-card {
+  transform: translateY(-7px);
+}
+.diorama-standee-btn:hover .diorama-standee-reflect {
+  transform: translateY(8px) scaleY(-1);
+  opacity: 0.09;
+}
+.diorama-standee-card {
+  position: relative;
+  display: block;
+  width: var(--standee-w, clamp(106px, 12vw, 150px));
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--hue, var(--color-or)) 42%, transparent);
+  /* No fill — a transparent (cutout) webp then shows the lit shelf behind it
+     instead of a black box. Opaque photos still cover the card edge-to-edge,
+     so they're unaffected. */
+  background: transparent;
+  box-shadow:
+    0 30px 30px -16px rgba(0, 0, 0, 0.82),
+    0 0 34px -4px color-mix(in oklab, var(--hue, var(--color-or)) 42%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--color-ivoire) 10%, transparent);
+  transition: transform 0.45s var(--ease-curtain);
+}
+.diorama-standee-card::after {
+  /* type-hue light bar at the crown */
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--hue, var(--color-or)) 30%,
+    var(--hue, var(--color-or)) 70%,
+    transparent
+  );
+}
+/* contain + bottom-anchored so the full figure stays visible standing on the
+   shelf — cover would crop the head/feet of a tall portrait shot (figure photos
+   run ~0.56 ratio, the card is 3:4). Cutouts show no side margins; opaque shots
+   just centre. */
+.diorama-standee-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+  display: block;
+}
+.diorama-standee-ph {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-ja);
+  font-size: 2.7rem;
+  color: color-mix(in oklab, var(--hue, var(--color-or)) 50%, transparent);
+}
+.diorama-standee-reflect {
+  display: block;
+  width: var(--standee-w, clamp(106px, 12vw, 150px));
+  height: 62px;
+  overflow: hidden;
+  transform: scaleY(-1);
+  opacity: 0.22;
+  -webkit-mask-image: linear-gradient(#000, transparent 86%);
+  mask-image: linear-gradient(#000, transparent 86%);
+  pointer-events: none;
+  transition:
+    transform 0.45s var(--ease-curtain),
+    opacity 0.45s var(--ease-curtain);
+}
+.diorama-standee-reflect img {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  display: block;
+}
+.diorama-standee-name {
+  display: block;
+  max-width: var(--standee-w, clamp(106px, 12vw, 150px));
+  margin-top: 0.55rem;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--color-ivoire-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.diorama-floor {
+  position: absolute;
+  left: -8%;
+  right: -8%;
+  bottom: 0;
+  height: 185px;
+  transform: perspective(600px) rotateX(52deg);
+  transform-origin: bottom center;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-or) 24%, transparent),
+    color-mix(in oklab, var(--color-noir-deep) 86%, transparent) 52%,
+    transparent
+  );
+  border-top: 1.5px solid color-mix(in oklab, var(--color-or) 72%, transparent);
+  box-shadow:
+    0 -2px 26px color-mix(in oklab, var(--color-or) 40%, transparent),
+    inset 0 3px 22px color-mix(in oklab, var(--color-or) 14%, transparent);
+  z-index: 1;
+  pointer-events: none;
+}
+.diorama-empty {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 0.5rem 0 2rem;
+  color: var(--color-ivoire-soft);
+  font-style: italic;
+}
+/* Light theme — the case becomes a bright museum vitrine: a soft ivory panel
+   with gentle warm uplight and a polished pale shelf. The dark-theme black
+   interior vignette would muddy it, so it's swapped for a faint warm edge
+   shadow (--color-ivoire is the dark ink in light mode). */
+[data-theme="light"] .diorama-shelf {
+  background:
+    radial-gradient(
+      125% 80% at 50% 122%,
+      color-mix(in oklab, var(--color-or) 18%, transparent),
+      transparent 58%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--color-noir) 94%, #fff) 0%,
+      var(--color-noir-deep) 56%,
+      color-mix(in oklab, var(--color-noir) 94%, #fff) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 0 72px 14px color-mix(in oklab, var(--color-ivoire) 9%, transparent);
+}
+[data-theme="light"] .diorama-floor {
+  border-top-color: color-mix(in oklab, var(--color-or) 70%, transparent);
+  box-shadow:
+    0 -2px 22px color-mix(in oklab, var(--color-or) 32%, transparent),
+    inset 0 3px 20px color-mix(in oklab, var(--color-or) 18%, transparent);
+}
+[data-theme="light"] .diorama-standee-reflect {
+  opacity: 0.3;
+}
+.view-toggle {
+  display: inline-flex;
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+}
+.view-toggle button {
+  padding: 0.5rem 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-ivoire-soft);
+  background: none;
+  cursor: pointer;
+  transition:
+    color 0.2s,
+    background-color 0.2s;
+}
+.view-toggle button.is-on {
+  background: color-mix(in oklab, var(--color-or) 14%, transparent);
+  color: var(--color-or);
+}
+.view-toggle button:not(.is-on):hover {
+  color: var(--color-ivoire);
+}

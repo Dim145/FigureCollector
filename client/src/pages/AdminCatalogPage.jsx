@@ -1,43 +1,53 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
-import AccentTitle from "../components/AccentTitle.jsx";
-import Button from "../components/Button.jsx";
-import Card from "../components/Card.jsx";
-import EmptyState from "../components/EmptyState.jsx";
+import { ExternalLink, Pencil, RotateCw, Search, Trash2 } from "lucide-react";
+import {
+  Badge,
+  Button,
+  DataTable,
+  Drawer,
+  EmptyState,
+  IconButton,
+  Input,
+  Modal,
+  Pagination,
+  SegmentedControl,
+  Select,
+  StatCard,
+  Textarea,
+} from "../components/ui/index.js";
 import FormField from "../components/FormField.jsx";
-import StatCard from "../components/StatCard.jsx";
 import { useT } from "../i18n/index.jsx";
 import { api } from "../lib/api.js";
 import { useDeleteSeries, useDeleteCharacter } from "../hooks/useAdmin.js";
+import AdminSectionHeader from "./admin/AdminSectionHeader.jsx";
+import { useClientSort } from "./admin/useClientSort.js";
+import { useClientPagination } from "./admin/useClientPagination.js";
 
 /**
  * /admin/catalog — editor for the entity tables behind manufacturer / series /
- * character names. Redrawn to Direction A ("Shōjo-Noir").
+ * character names, on the shared foundation.
  *
- * Renders inside AdminLayout's <Outlet/>, so the global "Administration" h1 +
- * sub-nav already sit above it — this is therefore an editorial *section* of
- * the admin surface (kicker · 目 · CATALOGUE → AccentTitle h2 → gold-rule →
- * italic gloss over a faint kanji-mark), not a second page header. Below it:
- *   - a Direction-A StatCard strip over the active tab (entities · figures ·
- *     linked, gold on the headline figure count);
- *   - kanji-marked segmented tabs (目 manufacturers / series / characters);
- *   - the entity list as an A-table inside a `Card` (hairline thead, mono ids,
- *     hover rows, ✎ edit / × laque-destructive), with the shared `EmptyState`.
+ * Renders inside AdminLayout's <Outlet/>, below the global "Administration" h1.
+ * Anatomy: AdminSectionHeader (kicker · 目 · CATALOGUE) → a shared
+ * <SegmentedControl> of kanji-marked tabs (工 manufacturers / 番 series /
+ * 名 characters) → per-tab StatCard strip → the entity list as the shared
+ * <DataTable> (sortable, shared EmptyState, client Pagination, row-click opens
+ * the editor).
  *
- * Each tab is a searchable list; clicking a row opens an edit drawer with every
- * metadata field (description, image, ids, links) and an optional Garage upload
- * widget for the cover image.
+ * Each tab is a searchable list; clicking a row (or its ✎ IconButton) opens the
+ * shared <Drawer> edit form with every metadata field + an optional Garage
+ * upload widget. Series + characters also get a delete dialog (shared <Modal>
+ * with an optional merge target).
  *
- * Data + behaviour are unchanged from the prior layout: the same per-tab list
- * query, PATCH/upload mutations, refetch-from-source flow and delete dialog
- * drive everything. The PATCH endpoints use COALESCE, so blanking a field
- * means "leave alone" — null instead. GPU-light throughout: flat fills,
- * hairlines, no meshes / blur / continuous animation.
+ * Data + behaviour are unchanged: the same per-tab list query, PATCH/upload
+ * mutations, refetch-from-source flow and delete dialog drive everything. The
+ * PATCH endpoints use COALESCE, so blanking a field means "leave alone" — null
+ * instead. GPU-light throughout.
  *
  * Per-tab kanji marker (the surface accent glyph):
- *   工 manufacturers (maker) · 番 series (catalogue/number) · 名 characters (name).
+ *   工 manufacturers · 番 series · 名 characters.
  */
 const TABS = ["manufacturers", "series", "characters"];
 
@@ -54,87 +64,36 @@ export default function AdminCatalogPage() {
 
   return (
     <div className="relative">
-      {/* ─── Editorial section header ─── */}
-      <header className="relative mb-10">
-        <span
-          aria-hidden
-          className="kanji-mark text-[18rem] -top-24 -right-6 hidden md:block select-none"
-        >
-          目
-        </span>
-
-        <p className="micro reveal flex items-center gap-2.5" style={{ "--i": 0 }}>
-          <span
-            aria-hidden
-            className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45"
-          />
-          {t("admin.subtitle")}
-          <span aria-hidden className="ja not-italic text-[var(--color-or)]">
-            目
-          </span>
-          {t("admin.catalog.kicker_label", { default: "CATALOGUE" })}
-        </p>
-        <h2
-          className="display text-4xl md:text-5xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
-          style={{ "--i": 1 }}
-        >
-          <AccentTitle text={t("admin.catalog.title")} />
-        </h2>
-        <div className="gold-rule w-24 mt-5 reveal" style={{ "--i": 2 }} />
-        <p
-          className="display-italic text-[var(--color-or)] text-base md:text-lg mt-4 max-w-xl reveal"
-          style={{ "--i": 3 }}
-        >
-          {t("admin.catalog.intro")}
-        </p>
-      </header>
+      <AdminSectionHeader
+        kanji="目"
+        kicker={t("admin.subtitle")}
+        label={t("admin.catalog.kicker_label", { default: "CATALOGUE" })}
+        title={t("admin.catalog.title")}
+        subtitle={t("admin.catalog.intro")}
+      />
 
       {/* ─── Kanji-marked segmented tabs ─── */}
-      <nav
-        className="flex flex-wrap items-stretch gap-2 mb-6 reveal"
-        style={{ "--i": 4 }}
-        aria-label={t("admin.catalog.tabs", { default: "Tables du catalogue" })}
-      >
-        {TABS.map((k) => {
-          const isActive = tab === k;
-          return (
-            <button
-              key={k}
-              type="button"
-              onClick={() => setTab(k)}
-              aria-current={isActive ? "true" : undefined}
-              className="tap-target group flex items-center gap-2 px-4 py-2 border transition-colors"
-              style={{
-                borderColor: isActive
-                  ? "var(--color-laque-bright)"
-                  : "color-mix(in oklab, var(--color-or) 20%, transparent)",
-                background: isActive
-                  ? "color-mix(in oklab, var(--color-laque) 12%, transparent)"
-                  : "transparent",
-                color: isActive
-                  ? "var(--color-ivoire)"
-                  : "var(--color-ivoire-soft)",
-              }}
-            >
-              <span
-                aria-hidden
-                className="ja text-base leading-none transition-colors"
-                style={{
-                  color: isActive
-                    ? "var(--color-laque-bright)"
-                    : "var(--color-or)",
-                  opacity: isActive ? 1 : 0.6,
-                }}
-              >
-                {TAB_KANJI[k]}
+      <div className="mb-6 reveal" style={{ "--i": 4 }}>
+        <SegmentedControl
+          aria-label={t("admin.catalog.tabs", { default: "Tables du catalogue" })}
+          value={tab}
+          onChange={setTab}
+          className="flex-wrap max-w-full"
+          options={TABS.map((k) => ({
+            value: k,
+            label: (
+              <span className="inline-flex items-center gap-1.5">
+                <span aria-hidden className="ja not-italic text-sm leading-none">
+                  {TAB_KANJI[k]}
+                </span>
+                <span className="uppercase tracking-[0.16em] text-[11px]">
+                  {t(`admin.catalog.tab.${k}`)}
+                </span>
               </span>
-              <span className="text-[11px] uppercase tracking-[0.2em] group-hover:text-[var(--color-ivoire)]">
-                {t(`admin.catalog.tab.${k}`)}
-              </span>
-            </button>
-          );
-        })}
-      </nav>
+            ),
+          }))}
+        />
+      </div>
 
       <EntityList
         kind={tab}
@@ -175,9 +134,7 @@ function EntityList({ kind, onPick, onDelete }) {
   const list = useQuery({
     queryKey: ["admin", "catalog", kind, debounced],
     queryFn: () =>
-      api.get(
-        `/admin/${kind}?${debounced ? `q=${encodeURIComponent(debounced)}&` : ""}limit=200`,
-      ),
+      api.get(`/admin/${kind}?${debounced ? `q=${encodeURIComponent(debounced)}&` : ""}limit=200`),
   });
 
   const rows = useMemo(() => list.data ?? [], [list.data]);
@@ -194,6 +151,106 @@ function EntityList({ kind, onPick, onDelete }) {
   // Whether the linked-sources column / stat is meaningful for this table.
   // Manufacturers carry no AniList / MAL id, so we drop it there.
   const hasSources = kind !== "manufacturers";
+
+  const { sort, onSort, sortedRows } = useClientSort(
+    rows,
+    {
+      name: (r) => r.name?.toLowerCase(),
+      figure_count: (r) => r.figure_count ?? 0,
+    },
+    { key: "figure_count", dir: "desc" },
+  );
+  // New query/tab → reset to page 1 (kind switches remount via key implicitly,
+  // but the debounced term is a safe signature regardless).
+  const { page, setPage, pageCount, pageRows } = useClientPagination(
+    sortedRows,
+    20,
+    `${kind}|${debounced}`,
+  );
+
+  const columns = [
+    {
+      key: "image",
+      header: (
+        <span className="sr-only">{t("admin.catalog.col.image", { default: "Visuel" })}</span>
+      ),
+      width: "52px",
+      render: (row) => <Thumb row={row} kind={kind} />,
+    },
+    {
+      key: "name",
+      header: t("admin.catalog.col.name", { default: "Nom" }),
+      sortable: true,
+      render: (row) => (
+        <>
+          <span className="text-[var(--on-surface)] leading-tight">{row.name}</span>
+          {row.slug ? (
+            <span className="block text-[10px] font-mono tracking-wider text-[var(--on-surface-subtle)] mt-0.5 truncate">
+              {row.slug}
+            </span>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      key: "figure_count",
+      header: t("admin.catalog.col.figures", { default: "Figurines" }),
+      sortable: true,
+      align: "right",
+      render: (row) => (
+        <span className="font-mono text-[var(--accent)]">{row.figure_count ?? 0}</span>
+      ),
+    },
+    ...(hasSources
+      ? [
+          {
+            key: "sources",
+            header: t("admin.catalog.col.sources", { default: "Sources" }),
+            render: (row) => (
+              <div className="flex flex-wrap gap-1.5">
+                {row.anilist_id ? <Badge tone="gold">AniList</Badge> : null}
+                {row.mal_id ? <Badge tone="gold">MAL</Badge> : null}
+                {!row.anilist_id && !row.mal_id ? (
+                  <span className="text-[var(--on-surface-subtle)] text-xs">—</span>
+                ) : null}
+              </div>
+            ),
+          },
+        ]
+      : []),
+    {
+      key: "actions",
+      header: t("admin.users.col.actions"),
+      align: "right",
+      render: (row) => (
+        <div className="flex items-center gap-0.5 justify-end" onClick={(e) => e.stopPropagation()}>
+          <IconButton
+            as={Link}
+            to={`/${kind}/${row.slug}`}
+            icon={ExternalLink}
+            variant="ghost"
+            label={t("admin.catalog.view")}
+            className="hover:!text-[var(--accent)]"
+          />
+          <IconButton
+            icon={Pencil}
+            variant="ghost"
+            label={t("admin.catalog.edit")}
+            onClick={() => onPick(row)}
+          />
+          {deletable ? (
+            <IconButton
+              icon={Trash2}
+              variant="ghost"
+              label={t("admin.catalog.delete")}
+              onClick={() => onDelete(row)}
+              className="hover:!text-[var(--danger)]"
+            />
+          ) : null}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div>
@@ -219,156 +276,72 @@ function EntityList({ kind, onPick, onDelete }) {
         ) : null}
       </div>
 
-      <div className="mb-4">
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder={t("admin.catalog.search_placeholder")}
-          aria-label={t("admin.catalog.search")}
-          className="w-full max-w-md bg-[var(--color-noir)] border border-[var(--color-or)]/30 px-3 py-2 text-sm text-[var(--color-ivoire)] outline-none focus:border-[var(--color-or)] transition-colors"
-        />
-      </div>
+      <label className="block mb-4 max-w-md">
+        <span className="micro flex items-center gap-2 mb-2">
+          <span aria-hidden className="ja not-italic text-[var(--accent)] leading-none">
+            探
+          </span>
+          {t("admin.catalog.search")}
+        </span>
+        <div className="relative">
+          <Search
+            size={15}
+            aria-hidden
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--on-surface-subtle)] pointer-events-none"
+          />
+          <Input
+            type="search"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={t("admin.catalog.search_placeholder")}
+            aria-label={t("admin.catalog.search")}
+            className="!pl-9"
+          />
+        </div>
+      </label>
 
-      {list.isLoading ? (
-        <p
-          role="status"
-          aria-live="polite"
-          className="text-center text-[var(--color-ivoire-soft)] py-8"
-        >
-          …
-        </p>
-      ) : rows.length === 0 ? (
-        <EmptyState
-          compact
-          kanji={TAB_KANJI[kind]}
-          title={t("admin.catalog.empty")}
-          body={t("admin.catalog.empty.body", {
-            default: "Aucune entité ne correspond. Les entités apparaissent dès qu’une figurine les référence ou qu’une source externe est importée.",
-          })}
-        />
-      ) : (
-        <Card className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)] border-b border-[var(--color-or)]/15">
-                <th className="px-4 py-3 font-normal w-[52px]">
-                  <span className="sr-only">{t("admin.catalog.col.image", { default: "Visuel" })}</span>
-                </th>
-                <th className="px-4 py-3 font-normal">
-                  {t("admin.catalog.col.name", { default: "Nom" })}
-                </th>
-                <th className="px-4 py-3 font-normal text-right">
-                  {t("admin.catalog.col.figures", { default: "Figurines" })}
-                </th>
-                {hasSources ? (
-                  <th className="px-4 py-3 font-normal">
-                    {t("admin.catalog.col.sources", { default: "Sources" })}
-                  </th>
-                ) : null}
-                <th className="px-4 py-3 font-normal text-right">
-                  {t("admin.users.col.actions")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr
-                  key={row.id}
-                  className="border-b border-[var(--color-or)]/10 hover:bg-[var(--color-or)]/5 transition-colors"
-                >
-                  <td className="px-4 py-3 align-middle">
-                    <Thumb row={row} kind={kind} />
-                  </td>
-                  <td className="px-4 py-3 align-middle">
-                    <span className="text-[var(--color-ivoire)] leading-tight">
-                      {row.name}
-                    </span>
-                    {row.slug ? (
-                      <span className="block text-[10px] font-mono tracking-wider text-[var(--color-ivoire-soft)]/60 mt-0.5 truncate">
-                        {row.slug}
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className="px-4 py-3 align-middle text-right">
-                    <span className="font-mono text-[var(--color-or-pale)]">
-                      {row.figure_count ?? 0}
-                    </span>
-                  </td>
-                  {hasSources ? (
-                    <td className="px-4 py-3 align-middle">
-                      <div className="flex flex-wrap gap-1.5">
-                        {row.anilist_id ? <SourceTag>AniList</SourceTag> : null}
-                        {row.mal_id ? <SourceTag>MAL</SourceTag> : null}
-                        {!row.anilist_id && !row.mal_id ? (
-                          <span className="text-[var(--color-ivoire-soft)]/50 text-xs">
-                            —
-                          </span>
-                        ) : null}
-                      </div>
-                    </td>
-                  ) : null}
-                  <td className="px-4 py-3 align-middle text-right">
-                    <div className="flex items-center gap-2 justify-end">
-                      <Link
-                        to={`/${kind}/${row.slug}`}
-                        title={t("admin.catalog.view")}
-                        className="tap-target text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] text-xs px-2 py-1 transition-colors"
-                      >
-                        ↗<span className="sr-only">{t("admin.catalog.view")}</span>
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => onPick(row)}
-                        title={t("admin.catalog.edit")}
-                        className="tap-target text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] text-xs px-2 py-1 transition-colors"
-                      >
-                        ✎<span className="sr-only">{t("admin.catalog.edit")}</span>
-                      </button>
-                      {deletable ? (
-                        <button
-                          type="button"
-                          onClick={() => onDelete(row)}
-                          title={t("admin.catalog.delete")}
-                          className="tap-target text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] text-xs px-2 py-1 transition-colors"
-                        >
-                          ×<span className="sr-only">{t("admin.catalog.delete")}</span>
-                        </button>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Card>
-      )}
+      <DataTable
+        columns={columns}
+        rows={pageRows}
+        getRowId={(r) => r.id}
+        sort={sort}
+        onSort={onSort}
+        onRowClick={onPick}
+        loading={list.isLoading}
+        empty={
+          <EmptyState
+            compact
+            kanji={TAB_KANJI[kind]}
+            title={t("admin.catalog.empty")}
+            body={t("admin.catalog.empty.body", {
+              default:
+                "Aucune entité ne correspond. Les entités apparaissent dès qu’une figurine les référence ou qu’une source externe est importée.",
+            })}
+          />
+        }
+      />
+
+      {pageCount > 1 ? (
+        <div className="mt-5 flex justify-center">
+          <Pagination page={page} pageCount={pageCount} onChange={setPage} />
+        </div>
+      ) : null}
     </div>
-  );
-}
-
-// A small gold-outline pill marking an external metadata source on a row.
-function SourceTag({ children }) {
-  return (
-    <span className="px-1.5 py-0.5 text-[9px] uppercase tracking-[0.18em] border border-[var(--color-or)]/40 text-[var(--color-or-pale)]">
-      {children}
-    </span>
   );
 }
 
 function Thumb({ row, kind }) {
   // Pick a representative URL the same way the entity-page helper does, but
   // inline so the list doesn't have to round-trip through the server.
-  const url =
-    row.image_key
-      ? `/api/entity-image/${kind}/${row.id}`
-      : (kind === "manufacturers"
-          ? row.logo_url
-          : kind === "series"
-            ? row.cover_url
-            : row.portrait_url);
+  const url = row.image_key
+    ? `/api/entity-image/${kind}/${row.id}`
+    : kind === "manufacturers"
+      ? row.logo_url
+      : kind === "series"
+        ? row.cover_url
+        : row.portrait_url;
   return (
-    <span className="shrink-0 grid place-items-center w-10 h-10 bg-[var(--color-noir-deep)] border border-[var(--color-or)]/15 overflow-hidden">
+    <span className="shrink-0 grid place-items-center w-10 h-10 bg-[var(--surface-sunken)] border border-[var(--border-subtle)] overflow-hidden">
       {url ? (
         <img
           src={url}
@@ -378,10 +351,7 @@ function Thumb({ row, kind }) {
           className="w-full h-full object-cover"
         />
       ) : (
-        <span
-          aria-hidden
-          className="ja text-base leading-none text-[var(--color-or)]/35 select-none"
-        >
+        <span aria-hidden className="ja text-base leading-none text-[var(--accent)]/35 select-none">
           {TAB_KANJI[kind]}
         </span>
       )}
@@ -428,8 +398,7 @@ function EntityEditDrawer({ kind, entity, onClose }) {
   };
 
   const patch = useMutation({
-    mutationFn: (payload) =>
-      api.patch(`/admin/${kind}/${entity.id}`, payload),
+    mutationFn: (payload) => api.patch(`/admin/${kind}/${entity.id}`, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["admin", "catalog", kind] });
       qc.invalidateQueries({ queryKey: ["entity", kindSingular(kind), entity.slug] });
@@ -469,228 +438,192 @@ function EntityEditDrawer({ kind, entity, onClose }) {
     }
   };
 
-  return createPortal(
-    <div
-      role="dialog"
-      aria-modal
-      aria-labelledby="entity-edit-drawer-title"
-      onClick={onClose}
-      className="fixed inset-0 z-50 grid place-items-center bg-[var(--color-noir)]/85 backdrop-blur-sm p-4"
-    >
-      <form
-        onSubmit={submit}
-        onClick={(e) => e.stopPropagation()}
-        className="bg-[var(--color-noir-soft)] border border-[var(--color-or)]/40 w-[95vw] max-w-2xl max-h-[92vh] flex flex-col frame-corners"
-        style={{
-          boxShadow:
-            "0 60px 120px -50px color-mix(in oklab, var(--color-noir-deep) 85%, transparent), inset 0 1px 0 color-mix(in oklab, var(--color-ivoire) 6%, transparent)",
-        }}
-      >
-        <header className="flex items-start justify-between gap-3 px-6 py-4 border-b border-[var(--color-or)]/20">
-          <div className="min-w-0">
-            <p className="micro-tight flex items-center gap-2">
-              <span
-                aria-hidden
-                className="ja not-italic text-base leading-none text-[var(--color-or)]"
-              >
-                {TAB_KANJI[kind]}
-              </span>
-              {t(`admin.catalog.tab.${kind}`)}
-            </p>
-            <h3 id="entity-edit-drawer-title" className="display text-xl text-[var(--color-ivoire)] mt-1 truncate">
-              {entity.name}
-            </h3>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t("editor.cancel")}
-            className="text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] text-xl -mt-1 px-2"
+  return (
+    <Drawer
+      open
+      onClose={onClose}
+      side="right"
+      className="max-w-2xl"
+      title={
+        <span className="flex flex-col min-w-0">
+          <span className="micro-tight flex items-center gap-2">
+            <span aria-hidden className="ja not-italic text-base leading-none text-[var(--accent)]">
+              {TAB_KANJI[kind]}
+            </span>
+            {t(`admin.catalog.tab.${kind}`)}
+          </span>
+          <span className="display text-xl text-[var(--on-surface)] mt-1 truncate">
+            {entity.name}
+          </span>
+        </span>
+      }
+      footer={
+        <div className="flex items-center justify-end gap-3">
+          <Button variant="ghost" type="button" onClick={onClose} disabled={patch.isPending}>
+            {t("editor.cancel")}
+          </Button>
+          <Button
+            type="submit"
+            form="admin-entity-edit"
+            variant="primary"
+            loading={patch.isPending}
           >
-            ✕
-          </button>
-        </header>
+            {t("admin.catalog.save")}
+          </Button>
+        </div>
+      }
+    >
+      <form id="admin-entity-edit" onSubmit={submit} className="space-y-5">
+        <FormField label={t("admin.catalog.field.name")} value={form.name} onChange={set("name")} />
 
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-          <FormField
-            label={t("admin.catalog.field.name")}
-            value={form.name}
-            onChange={set("name")}
-          />
-
-          {kind === "manufacturers" ? (
-            <>
-              <FormField
-                label={t("admin.catalog.field.country")}
-                value={form.country}
-                onChange={set("country")}
-              />
-              <FormField
-                label={t("admin.catalog.field.website_url")}
-                type="url"
-                value={form.website_url}
-                onChange={set("website_url")}
-                placeholder="https://"
-              />
-            </>
-          ) : null}
-
-          {kind === "series" ? (
-            <>
-              <FormField
-                label={t("admin.catalog.field.origin")}
-                value={form.origin}
-                onChange={set("origin")}
-                hint={t("admin.catalog.field.origin_hint")}
-                placeholder="anime"
-              />
-              <div className="grid sm:grid-cols-2 gap-4">
-                <IdWithRefetch
-                  label="AniList ID"
-                  value={form.anilist_id}
-                  onChange={set("anilist_id")}
-                  onRefetch={() => refetchFromSource("anilist")}
-                  busy={refetching === "anilist"}
-                  refetchLabel={t("admin.catalog.refetch")}
-                />
-                <IdWithRefetch
-                  label="MAL ID"
-                  value={form.mal_id}
-                  onChange={set("mal_id")}
-                  onRefetch={() => refetchFromSource("mal")}
-                  busy={refetching === "mal"}
-                  refetchLabel={t("admin.catalog.refetch")}
-                />
-              </div>
-              {refetchError ? (
-                <p
-                  role="alert"
-                  className="text-xs text-[var(--color-laque-bright)]"
-                >
-                  {refetchError}
-                </p>
-              ) : null}
-            </>
-          ) : null}
-
-          {kind === "characters" ? (
-            <>
-              <div className="grid sm:grid-cols-2 gap-4">
-                <IdWithRefetch
-                  label="AniList ID"
-                  value={form.anilist_id}
-                  onChange={set("anilist_id")}
-                  onRefetch={() => refetchFromSource("anilist")}
-                  busy={refetching === "anilist"}
-                  refetchLabel={t("admin.catalog.refetch")}
-                />
-                <IdWithRefetch
-                  label="MAL ID"
-                  value={form.mal_id}
-                  onChange={set("mal_id")}
-                  onRefetch={() => refetchFromSource("mal")}
-                  busy={refetching === "mal"}
-                  refetchLabel={t("admin.catalog.refetch")}
-                />
-              </div>
-              {refetchError ? (
-                <p
-                  role="alert"
-                  className="text-xs text-[var(--color-laque-bright)]"
-                >
-                  {refetchError}
-                </p>
-              ) : null}
-            </>
-          ) : null}
-
-          {(kind === "series" || kind === "characters") ? (
+        {kind === "manufacturers" ? (
+          <>
             <FormField
-              label={t("admin.catalog.field.external_url")}
+              label={t("admin.catalog.field.country")}
+              value={form.country}
+              onChange={set("country")}
+            />
+            <FormField
+              label={t("admin.catalog.field.website_url")}
               type="url"
-              value={form.external_url}
-              onChange={set("external_url")}
+              value={form.website_url}
+              onChange={set("website_url")}
               placeholder="https://"
             />
-          ) : null}
+          </>
+        ) : null}
 
-          <FormField
-            label={t(`admin.catalog.field.image_url.${kind}`)}
-            type="url"
-            value={form.image_external_url}
-            onChange={set("image_external_url")}
-            placeholder="https://"
-            hint={t("admin.catalog.field.image_url_hint")}
-          />
-
-          {/* Garage upload */}
-          <div>
-            <p className="micro block mb-2">
-              {t("admin.catalog.field.upload")}
-            </p>
-            <div className="flex items-center gap-3 flex-wrap">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(e) => uploadPhoto(e.target.files?.[0])}
-                className="text-xs text-[var(--color-ivoire-soft)] file:bg-[var(--color-or)]/10 file:border file:border-[var(--color-or)]/30 file:text-[var(--color-or-pale)] file:px-3 file:py-1.5 file:text-[10px] file:uppercase file:tracking-[0.18em] file:mr-3 hover:file:bg-[var(--color-or)]/20"
-                disabled={uploading}
+        {kind === "series" ? (
+          <>
+            <FormField
+              label={t("admin.catalog.field.origin")}
+              value={form.origin}
+              onChange={set("origin")}
+              hint={t("admin.catalog.field.origin_hint")}
+              placeholder="anime"
+            />
+            <div className="grid sm:grid-cols-2 gap-4">
+              <IdWithRefetch
+                label="AniList ID"
+                value={form.anilist_id}
+                onChange={set("anilist_id")}
+                onRefetch={() => refetchFromSource("anilist")}
+                busy={refetching === "anilist"}
+                refetchLabel={t("admin.catalog.refetch")}
               />
-              {uploading ? (
-                <span className="text-xs italic text-[var(--color-ivoire-soft)]">
-                  {t("admin.catalog.uploading")}…
-                </span>
-              ) : null}
-              {entity.image_key ? (
-                <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)]/70">
-                  {t("admin.catalog.has_upload")}
-                </span>
-              ) : null}
+              <IdWithRefetch
+                label="MAL ID"
+                value={form.mal_id}
+                onChange={set("mal_id")}
+                onRefetch={() => refetchFromSource("mal")}
+                busy={refetching === "mal"}
+                refetchLabel={t("admin.catalog.refetch")}
+              />
             </div>
-            {uploadError ? (
-              <p
-                role="alert"
-                className="mt-2 text-xs text-[var(--color-laque-bright)]"
-              >
-                {uploadError}
+            {refetchError ? (
+              <p role="alert" className="text-xs text-[var(--danger)]">
+                {refetchError}
               </p>
             ) : null}
-          </div>
+          </>
+        ) : null}
 
-          <label className="block">
-            <span className="micro block mb-2">
-              {t("admin.catalog.field.description")}
-            </span>
-            <textarea
-              value={form.description}
-              onChange={(e) => set("description")(e.target.value)}
-              rows={6}
-              className="w-full bg-[var(--color-noir)] border border-[var(--color-or)]/30 px-4 py-3 text-[var(--color-ivoire)] outline-none focus:border-[var(--color-or)] transition-colors leading-relaxed"
+        {kind === "characters" ? (
+          <>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <IdWithRefetch
+                label="AniList ID"
+                value={form.anilist_id}
+                onChange={set("anilist_id")}
+                onRefetch={() => refetchFromSource("anilist")}
+                busy={refetching === "anilist"}
+                refetchLabel={t("admin.catalog.refetch")}
+              />
+              <IdWithRefetch
+                label="MAL ID"
+                value={form.mal_id}
+                onChange={set("mal_id")}
+                onRefetch={() => refetchFromSource("mal")}
+                busy={refetching === "mal"}
+                refetchLabel={t("admin.catalog.refetch")}
+              />
+            </div>
+            {refetchError ? (
+              <p role="alert" className="text-xs text-[var(--danger)]">
+                {refetchError}
+              </p>
+            ) : null}
+          </>
+        ) : null}
+
+        {kind === "series" || kind === "characters" ? (
+          <FormField
+            label={t("admin.catalog.field.external_url")}
+            type="url"
+            value={form.external_url}
+            onChange={set("external_url")}
+            placeholder="https://"
+          />
+        ) : null}
+
+        <FormField
+          label={t(`admin.catalog.field.image_url.${kind}`)}
+          type="url"
+          value={form.image_external_url}
+          onChange={set("image_external_url")}
+          placeholder="https://"
+          hint={t("admin.catalog.field.image_url_hint")}
+        />
+
+        {/* Garage upload */}
+        <div>
+          <p className="micro block mb-2">{t("admin.catalog.field.upload")}</p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(e) => uploadPhoto(e.target.files?.[0])}
+              className="text-xs text-[var(--on-surface-muted)] file:bg-[color-mix(in_oklab,var(--accent)_10%,transparent)] file:border file:border-[var(--border-strong)] file:text-[var(--accent)] file:px-3 file:py-1.5 file:text-[10px] file:uppercase file:tracking-[0.18em] file:mr-3 hover:file:bg-[color-mix(in_oklab,var(--accent)_20%,transparent)]"
+              disabled={uploading}
             />
-          </label>
-
-          {patch.isError ? (
-            <p
-              role="alert"
-              className="text-sm text-[var(--color-laque-bright)] border-l-2 border-[var(--color-laque-bright)] pl-3 py-1"
-            >
-              {patch.error?.message}
+            {uploading ? (
+              <span className="text-xs italic text-[var(--on-surface-muted)]">
+                {t("admin.catalog.uploading")}…
+              </span>
+            ) : null}
+            {entity.image_key ? (
+              <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--accent)]/70">
+                {t("admin.catalog.has_upload")}
+              </span>
+            ) : null}
+          </div>
+          {uploadError ? (
+            <p role="alert" className="mt-2 text-xs text-[var(--danger)]">
+              {uploadError}
             </p>
           ) : null}
         </div>
 
-        <footer className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[var(--color-or)]/20">
-          <Button variant="ghost" type="button" onClick={onClose} disabled={patch.isPending}>
-            {t("editor.cancel")}
-          </Button>
-          <Button type="submit" variant="primary" loading={patch.isPending}>
-            {t("admin.catalog.save")}
-          </Button>
-        </footer>
+        <FormField label={t("admin.catalog.field.description")}>
+          <Textarea
+            value={form.description}
+            onChange={(e) => set("description")(e.target.value)}
+            rows={6}
+            className="leading-relaxed"
+          />
+        </FormField>
+
+        {patch.isError ? (
+          <p
+            role="alert"
+            className="text-sm text-[var(--danger)] border-l-2 border-[var(--danger)] pl-3 py-1"
+          >
+            {patch.error?.message}
+          </p>
+        ) : null}
       </form>
-    </div>,
-    document.body,
+    </Drawer>
   );
 }
 
@@ -707,10 +640,10 @@ function seedFromEntity(kind, e) {
     description: e.description ?? "",
     image_external_url:
       kind === "manufacturers"
-        ? e.logo_url ?? ""
+        ? (e.logo_url ?? "")
         : kind === "series"
-          ? e.cover_url ?? ""
-          : e.portrait_url ?? "",
+          ? (e.cover_url ?? "")
+          : (e.portrait_url ?? ""),
   };
   if (kind === "manufacturers") {
     return { ...base, country: e.country ?? "", website_url: e.website_url ?? "" };
@@ -747,9 +680,10 @@ function IdWithRefetch({ label, value, onChange, onRefetch, busy, refetchLabel }
         type="button"
         onClick={onRefetch}
         disabled={!hasId || busy}
-        className="mt-1.5 text-[10px] uppercase tracking-[0.22em] text-[var(--color-or)] hover:text-[var(--color-or-pale)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="mt-1.5 inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.22em] text-[var(--accent)] hover:text-[var(--on-surface)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
       >
-        {busy ? "…" : "↻"} {refetchLabel}
+        <RotateCw size={12} aria-hidden />
+        {refetchLabel}
       </button>
     </div>
   );
@@ -780,11 +714,9 @@ function mergeFromExternal(kind, source, prev, fresh) {
     if (!m) return prev;
     return {
       ...prev,
-      name:
-        m.title?.romaji ?? m.title?.english ?? m.title?.native ?? prev.name,
+      name: m.title?.romaji ?? m.title?.english ?? m.title?.native ?? prev.name,
       description: stripHtml(m.description) ?? prev.description,
-      image_external_url:
-        m.coverImage?.large ?? m.coverImage?.medium ?? prev.image_external_url,
+      image_external_url: m.coverImage?.large ?? m.coverImage?.medium ?? prev.image_external_url,
       external_url: m.siteUrl ?? prev.external_url,
       origin: anilistTypeToOrigin(m.type) ?? prev.origin,
       // Cross-populate the other id when AniList knows it.
@@ -805,8 +737,7 @@ function mergeFromExternal(kind, source, prev, fresh) {
       ...prev,
       name: fresh.name?.full ?? fresh.name?.native ?? prev.name,
       description: stripHtml(fresh.description) ?? prev.description,
-      image_external_url:
-        fresh.image?.large ?? fresh.image?.medium ?? prev.image_external_url,
+      image_external_url: fresh.image?.large ?? fresh.image?.medium ?? prev.image_external_url,
       external_url: fresh.siteUrl ?? prev.external_url,
     };
   }
@@ -932,97 +863,73 @@ function DeleteEntityDialog({ kind, entity, onClose }) {
   const figureCount = entity.figure_count ?? 0;
   const candidates = (targets.data ?? []).filter((row) => row.id !== entity.id);
 
-  return createPortal(
-    <div
-      role="dialog"
-      aria-modal
-      onClick={onClose}
-      className="fixed inset-0 z-50 grid place-items-center bg-[var(--color-noir)]/85 backdrop-blur-sm p-4"
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-[var(--color-noir-soft)] border border-[var(--color-or)]/40 p-6"
-      >
-        <p className="micro flex items-center gap-2">
-          <span
-            aria-hidden
-            className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45"
-          />
-          {t("admin.catalog.delete")}
-        </p>
-        <h3 className="display text-xl text-[var(--color-ivoire)] mt-1 truncate">
-          {entity.name}
-        </h3>
-        <div className="gold-rule w-12 mt-3 mb-4 opacity-70" />
+  const replacementOptions = [
+    { value: "", label: t("admin.catalog.delete_replacement_none") },
+    ...candidates.map((row) => ({
+      value: String(row.id),
+      label: `${row.name}${row.figure_count ? ` (${row.figure_count})` : ""}`,
+    })),
+  ];
 
-        <p className="text-sm text-[var(--color-ivoire-soft)] leading-relaxed">
-          {figureCount > 0
-            ? t(`admin.catalog.delete_body.${singular}_with_figures`, {
-                n: figureCount,
-              })
-            : t(`admin.catalog.delete_body.${singular}_empty`)}
-        </p>
-
-        {figureCount > 0 ? (
-          <label className="block mt-5">
-            <span className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-or-pale)]">
-              {t("admin.catalog.delete_replacement_label")}
-            </span>
-            <select
-              value={replacementId}
-              onChange={(e) => setReplacementId(e.target.value)}
-              disabled={targets.isLoading || mut.isPending}
-              className="mt-2 w-full bg-[var(--color-noir)] border border-[var(--color-or)]/30 px-3 py-2 text-sm text-[var(--color-ivoire)] outline-none focus:border-[var(--color-or)] transition-colors"
-            >
-              <option value="">
-                {t("admin.catalog.delete_replacement_none")}
-              </option>
-              {candidates.map((row) => (
-                <option key={row.id} value={row.id}>
-                  {row.name}
-                  {row.figure_count ? ` (${row.figure_count})` : ""}
-                </option>
-              ))}
-            </select>
-            <span className="block mt-1.5 text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)]/60">
-              {replacementId
-                ? t(`admin.catalog.delete_hint.${singular}_merge`)
-                : t(`admin.catalog.delete_hint.${singular}_orphan`)}
-            </span>
-          </label>
-        ) : null}
-
-        {mut.isError ? (
-          <p
-            role="alert"
-            className="mt-4 text-xs text-[var(--color-laque-bright)] border-l-2 border-[var(--color-laque-bright)] pl-3 py-1"
-          >
-            {mut.error?.message}
-          </p>
-        ) : null}
-
-        <div className="flex justify-end items-center gap-3 mt-6">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onClose}
-            disabled={mut.isPending}
-          >
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      size="sm"
+      title={entity.name}
+      footer={
+        <>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={mut.isPending}>
             {t("editor.cancel")}
           </Button>
           <Button
             type="button"
-            variant="primary"
+            variant="danger"
             onClick={onConfirm}
             loading={mut.isPending}
-            className="!bg-[var(--color-laque-bright)] hover:!bg-[var(--color-laque)] !text-[var(--color-ivoire)]"
+            data-autofocus
           >
             {t("admin.catalog.delete_confirm")}
           </Button>
+        </>
+      }
+    >
+      <p className="micro flex items-center gap-2 -mt-2 mb-3">
+        <span aria-hidden className="w-1 h-1 bg-[var(--primary)] rotate-45" />
+        {t("admin.catalog.delete")}
+      </p>
+
+      <p className="text-sm text-[var(--on-surface-muted)] leading-relaxed">
+        {figureCount > 0
+          ? t(`admin.catalog.delete_body.${singular}_with_figures`, { n: figureCount })
+          : t(`admin.catalog.delete_body.${singular}_empty`)}
+      </p>
+
+      {figureCount > 0 ? (
+        <div className="mt-5">
+          <Select
+            label={t("admin.catalog.delete_replacement_label")}
+            value={replacementId}
+            onChange={setReplacementId}
+            disabled={targets.isLoading || mut.isPending}
+            options={replacementOptions}
+            hint={
+              replacementId
+                ? t(`admin.catalog.delete_hint.${singular}_merge`)
+                : t(`admin.catalog.delete_hint.${singular}_orphan`)
+            }
+          />
         </div>
-      </div>
-    </div>,
-    document.body,
+      ) : null}
+
+      {mut.isError ? (
+        <p
+          role="alert"
+          className="mt-4 text-xs text-[var(--danger)] border-l-2 border-[var(--danger)] pl-3 py-1"
+        >
+          {mut.error?.message}
+        </p>
+      ) : null}
+    </Modal>
   );
 }
-

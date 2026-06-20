@@ -1,63 +1,84 @@
-import { useId } from "react";
+import { useId, isValidElement, cloneElement } from "react";
+import Input from "./ui/Input.jsx";
 
+/**
+ * Label + control + hint/error wrapper. Wires aria-describedby + aria-invalid.
+ *
+ * Two ways to use it:
+ *   1. Composition (preferred): <FormField label error><Select .../></FormField>
+ *      — the single child control is cloned to receive id + aria-describedby +
+ *      aria-invalid automatically.
+ *   2. Legacy single-input (backward-compatible): pass type/value/onChange/etc.
+ *      and it renders an <Input> for you (the old API still works unchanged).
+ */
 export default function FormField({
   label,
   hint,
+  error,
+  required = false,
+  children,
+  className = "",
+  // legacy single-input props (used only when no children are provided):
   type = "text",
   value,
   onChange,
-  error,
   autoComplete,
-  required = false,
   disabled = false,
   placeholder,
   name,
+  id: idProp,
 }) {
-  const id = useId();
-  // Stable IDs for the hint + error nodes so we can wire them up via
-  // `aria-describedby` (screen readers announce the description right
-  // after the label) and flip `aria-invalid` when validation fails.
-  // Previously these existed only visually — SR users entering the
-  // field never heard the error message.
+  const autoId = useId();
+  const id = idProp || autoId;
   const messageId = useId();
+  const describedBy = error || hint ? messageId : undefined;
+
+  let control;
+  if (children != null) {
+    control = isValidElement(children)
+      ? cloneElement(children, {
+          id: children.props.id ?? id,
+          "aria-invalid": error ? true : children.props["aria-invalid"],
+          "aria-describedby": children.props["aria-describedby"] ?? describedBy,
+        })
+      : children;
+  } else {
+    control = (
+      <Input
+        id={id}
+        name={name}
+        type={type}
+        value={value}
+        onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+        autoComplete={autoComplete}
+        required={required}
+        disabled={disabled}
+        placeholder={placeholder}
+        invalid={!!error}
+        aria-describedby={describedBy}
+      />
+    );
+  }
 
   return (
-    <div>
-      <label htmlFor={id} className="block">
-        <span className="micro block mb-2">{label}</span>
-        <input
-          id={id}
-          name={name}
-          type={type}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          autoComplete={autoComplete}
-          required={required}
-          disabled={disabled}
-          placeholder={placeholder}
-          aria-invalid={error ? true : undefined}
-          aria-describedby={error || hint ? messageId : undefined}
-          className={`w-full bg-[var(--color-noir)] border px-4 py-3 text-[var(--color-ivoire)] outline-none transition-colors duration-200 ${
-            error
-              ? "border-[var(--color-laque-bright)] focus:border-[var(--color-laque-bright)]"
-              : "border-[var(--color-or)]/30 focus:border-[var(--color-or)]"
-          }`}
-          style={{ fontFamily: "var(--font-sans)", letterSpacing: "0.01em" }}
-        />
-      </label>
+    <div className={className}>
+      {label != null ? (
+        <label htmlFor={id} className="micro block mb-2">
+          {label}
+          {required ? <span className="text-[var(--danger)]"> *</span> : null}
+        </label>
+      ) : null}
+      {control}
       {error ? (
         <p
           id={messageId}
           role="alert"
-          className="mt-1.5 text-xs text-[var(--color-laque-bright)] tracking-wide"
+          className="mt-1.5 text-xs text-[var(--danger)] tracking-wide"
         >
           {error}
         </p>
       ) : hint ? (
-        <p
-          id={messageId}
-          className="mt-1.5 text-xs text-[var(--color-ivoire-soft)] tracking-wide"
-        >
+        <p id={messageId} className="mt-1.5 text-xs text-[var(--on-surface-muted)] tracking-wide">
           {hint}
         </p>
       ) : null}

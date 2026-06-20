@@ -5,12 +5,17 @@ import { useT } from "../i18n/index.jsx";
 import { useFigures, useOwnedItems } from "../hooks/useCollection.js";
 import { useVisualSearchStatus } from "../hooks/useVisualSearch.js";
 import { useFocusTrap } from "../hooks/useFocusTrap.js";
+import { SECTIONS, ACCOUNT_NAV, PALETTE_ACTIONS } from "../lib/navConfig.js";
 
 /**
- * Direction B — command palette opened with ⌘K / Ctrl+K.
+ * Command palette opened with ⌘K / Ctrl+K.
  *
- * Lightweight fuzzy match (subsequence + token-prefix) over three groups:
- *   - Navigation (static routes)
+ * Lightweight fuzzy match (subsequence + token-prefix) over four groups:
+ *   - Navigation — every section + its sub-pages + the account destinations,
+ *     sourced from navConfig so the palette never drifts from the chrome.
+ *   - Actions — long-tail tasks from navConfig.PALETTE_ACTIONS (scan a
+ *     barcode, photo search, export the insurance dossier, …). Selecting one
+ *     navigates to its `to`.
  *   - My collection (owned items)
  *   - Catalog (all figures)
  *
@@ -67,8 +72,7 @@ export default function CommandPalette() {
   useEffect(() => {
     const onOpenEvent = () => setOpen((x) => !x);
     window.addEventListener("figurecollector:toggle-palette", onOpenEvent);
-    return () =>
-      window.removeEventListener("figurecollector:toggle-palette", onOpenEvent);
+    return () => window.removeEventListener("figurecollector:toggle-palette", onOpenEvent);
   }, []);
 
   // Auto-focus on open + reset selection
@@ -80,19 +84,50 @@ export default function CommandPalette() {
     }
   }, [open]);
 
+  const flagEnabled = useMemo(
+    () => ({ visualSearch: !!visualSearch.data?.enabled }),
+    [visualSearch.data?.enabled],
+  );
+
   const items = useMemo(() => {
-    const navigation = [
-      { id: "nav-home", group: "navigation", label: t("nav.home"), to: "/" },
-      { id: "nav-collection", group: "navigation", label: t("nav.collection"), to: "/collection" },
-      { id: "nav-preorders", group: "navigation", label: t("nav.preorders"), to: "/preorders" },
-      { id: "nav-browse", group: "navigation", label: t("nav.browse"), to: "/browse" },
-      { id: "nav-stats", group: "navigation", label: t("nav.stats"), to: "/stats" },
-      { id: "nav-add", group: "navigation", label: t("nav.add_figure"), to: "/figures/new" },
-      ...(visualSearch.data?.enabled
-        ? [{ id: "nav-recognize", group: "navigation", label: t("nav.recognize"), to: "/recognize" }]
-        : []),
-      { id: "nav-settings", group: "navigation", label: t("nav.settings"), to: "/settings" },
-    ];
+    // Navigation — every section + its sub-pages + account destinations, from
+    // navConfig. A child whose `flag` isn't enabled (e.g. photo search on an
+    // instance without it) is dropped so the palette never offers a dead page.
+    const navigation = [{ id: "nav-home", group: "navigation", label: t("nav.home"), to: "/" }];
+    for (const section of SECTIONS) {
+      navigation.push({
+        id: `nav-${section.id}`,
+        group: "navigation",
+        label: t(section.labelKey, { default: section.labelDefault }),
+        to: section.to,
+      });
+      for (const child of section.children ?? []) {
+        if (child.to === section.to) continue; // the index child == the section root
+        if (child.flag && !flagEnabled[child.flag]) continue;
+        navigation.push({
+          id: `nav-${section.id}-${child.to}`,
+          group: "navigation",
+          label: t(child.labelKey, { default: child.labelDefault }),
+          to: child.to,
+        });
+      }
+    }
+    for (const acc of ACCOUNT_NAV) {
+      navigation.push({
+        id: `nav-account-${acc.to}`,
+        group: "navigation",
+        label: t(acc.labelKey, { default: acc.labelDefault }),
+        to: acc.to,
+      });
+    }
+
+    // Actions — long-tail tasks. Same flag gate (none today, but cheap to keep).
+    const actions = PALETTE_ACTIONS.filter((a) => !a.flag || flagEnabled[a.flag]).map((a) => ({
+      id: `action-${a.id}`,
+      group: "actions",
+      label: t(a.labelKey, { default: a.labelDefault }),
+      to: a.to,
+    }));
 
     const collectionItems =
       owned.data?.map((o) => ({
@@ -112,8 +147,8 @@ export default function CommandPalette() {
         to: `/figures/${f.id}`,
       })) ?? [];
 
-    return [...navigation, ...collectionItems, ...catalogItems];
-  }, [t, owned.data, figures.data, visualSearch.data?.enabled]);
+    return [...navigation, ...actions, ...collectionItems, ...catalogItems];
+  }, [t, owned.data, figures.data, flagEnabled]);
 
   const filtered = useMemo(() => {
     if (!query) return items;
@@ -126,7 +161,7 @@ export default function CommandPalette() {
   }, [items, query]);
 
   const groups = useMemo(() => {
-    const out = { navigation: [], collection: [], catalog: [] };
+    const out = { navigation: [], actions: [], collection: [], catalog: [] };
     filtered.forEach((it) => out[it.group]?.push(it));
     return out;
   }, [filtered]);
@@ -155,6 +190,11 @@ export default function CommandPalette() {
 
   if (!open) return null;
 
+  const onSelect = (it) => {
+    navigate(it.to);
+    setOpen(false);
+  };
+
   return createPortal(
     <div
       role="dialog"
@@ -162,10 +202,7 @@ export default function CommandPalette() {
       className="fixed inset-0 z-50 grid grid-cols-1 place-items-start pt-[12vh] px-4"
       onClick={() => setOpen(false)}
     >
-      <div
-        className="absolute inset-0 bg-[var(--color-noir)]/85 backdrop-blur-sm"
-        aria-hidden
-      />
+      <div className="absolute inset-0 bg-[var(--color-noir)]/85 backdrop-blur-sm" aria-hidden />
 
       <div
         ref={dialogRef}
@@ -205,30 +242,28 @@ export default function CommandPalette() {
                   items={groups.navigation}
                   filtered={filtered}
                   selected={selected}
-                  onSelect={(it) => {
-                    navigate(it.to);
-                    setOpen(false);
-                  }}
+                  onSelect={onSelect}
+                />
+                <Group
+                  title={t("palette.group.actions", { default: "Actions" })}
+                  items={groups.actions}
+                  filtered={filtered}
+                  selected={selected}
+                  onSelect={onSelect}
                 />
                 <Group
                   title={t("palette.group.collection")}
                   items={groups.collection}
                   filtered={filtered}
                   selected={selected}
-                  onSelect={(it) => {
-                    navigate(it.to);
-                    setOpen(false);
-                  }}
+                  onSelect={onSelect}
                 />
                 <Group
                   title={t("palette.group.catalog")}
                   items={groups.catalog}
                   filtered={filtered}
                   selected={selected}
-                  onSelect={(it) => {
-                    navigate(it.to);
-                    setOpen(false);
-                  }}
+                  onSelect={onSelect}
                 />
               </>
             )}
@@ -269,9 +304,7 @@ function Group({ title, items, filtered, selected, onSelect }) {
                   </span>
                   {it.label}
                 </span>
-                {it.meta ? (
-                  <span className="micro shrink-0 opacity-70">{it.meta}</span>
-                ) : null}
+                {it.meta ? <span className="micro shrink-0 opacity-70">{it.meta}</span> : null}
               </button>
             </li>
           );

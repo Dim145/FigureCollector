@@ -1,0 +1,100 @@
+/* ============================================================================
+ * THEMING — dark is the default (emitted by @theme above on :root). The
+ * light theme overrides the same custom properties so every `var(--color-*)`
+ * consumer (utilities + arbitrary values + JSX) flips with no code change.
+ *
+ * `data-theme` is set on <html> at boot by main.jsx (localStorage →
+ * prefers-color-scheme) and toggled by the useTheme hook. We avoid an inline
+ * <script> (the prod CSP forbids inline JS) — the very first paint is the
+ * empty #root, so there's no flash of mis-themed *content*.
+ * ============================================================================ */
+
+:root {
+  color-scheme: dark;
+  /* Atmosphere accents that differ subtly per theme. */
+  --glow-strength: 0.5;
+  --grain-opacity: 0.04;
+
+  /* ── Per-type signature hues (dark default). Kept in a PLAIN :root, NOT in
+   *    @theme — they're consumed via runtime `var(--type-<slug>)` (lib/typeHue
+   *    .js), which Tailwind's scanner can't see, so @theme would tree-shake the
+   *    "unused" ones and they'd silently fall back to gold. Plain custom
+   *    properties are always emitted. Admin overrides land on the SEPARATE
+   *    `--type-accent-<slug>` (see TypeAccentVars), so these base values stay
+   *    pristine — the admin colour picker reads them to reset to the true
+   *    default. The `[data-theme="light"]` block below deepens them for light. */
+  --type-nendoroid: oklch(0.74 0.16 350); /* sakura */
+  --type-scale: oklch(0.72 0.13 175); /* jade */
+  --type-figma: oklch(0.72 0.15 230); /* azure */
+  --type-prize: oklch(0.8 0.15 75); /* amber */
+  --type-trading: oklch(0.64 0.19 300); /* violet */
+  --type-statue: oklch(0.68 0.13 50); /* bronze */
+  --type-plamo: oklch(0.72 0.18 45); /* orange */
+  --type-bishoujo: oklch(0.68 0.21 360); /* rose */
+  --type-dakimakura: oklch(0.62 0.16 275); /* indigo */
+  --type-other: oklch(0.78 0.1 80); /* gold */
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* Surfaces → warm porcelain / washi paper, layered light→lighter. */
+  --color-noir: oklch(0.965 0.008 85); /* page bg */
+  --color-noir-soft: oklch(0.995 0.004 85); /* cards (elevated, near-white) */
+  --color-noir-deep: oklch(0.93 0.012 80); /* wells / hero recesses */
+
+  /* Ink → warm near-black, soft for secondary copy. */
+  --color-ivoire: oklch(0.26 0.02 55);
+  --color-ivoire-soft: oklch(0.4 0.02 55 / 0.86);
+
+  /* Gold must deepen to stay legible on light surfaces. */
+  --color-or: oklch(0.58 0.12 72);
+  --color-or-pale: oklch(0.5 0.12 70);
+  --color-or-deep: oklch(0.42 0.1 68);
+  --color-ember: oklch(0.58 0.13 50);
+
+  /* Lacquer reads a touch deeper on light. */
+  --color-laque: oklch(0.5 0.19 25);
+  --color-laque-bright: oklch(0.56 0.21 25);
+
+  /* Accents deepen slightly for contrast on light. */
+  --color-jade: oklch(0.55 0.13 175);
+  --color-indigo: oklch(0.5 0.16 275);
+  --color-neon-cyan: oklch(0.62 0.15 210);
+  --color-neon-magenta: oklch(0.58 0.24 350);
+  --color-neon-amber: oklch(0.66 0.16 70);
+
+  /* Type hues deepen for legibility on light surfaces. */
+  --type-nendoroid: oklch(0.58 0.18 350);
+  --type-scale: oklch(0.52 0.13 175);
+  --type-figma: oklch(0.55 0.16 230);
+  --type-prize: oklch(0.62 0.15 70);
+  --type-trading: oklch(0.52 0.19 300);
+  --type-statue: oklch(0.52 0.13 50);
+  --type-plamo: oklch(0.58 0.18 45);
+  --type-bishoujo: oklch(0.56 0.21 360);
+  --type-dakimakura: oklch(0.5 0.16 275);
+  --type-other: oklch(0.56 0.11 78);
+
+  --glow-strength: 0.32;
+  --grain-opacity: 0.02;
+}
+
+/* Light-theme atmosphere — the dark body halos are tuned for OLED black; on
+   porcelain we swap to faint coloured washes (gold + jade + indigo) and a
+   dark grain instead of the ivory one (which vanishes on light). Higher
+   specificity (`[data-theme] body`) wins over the base `body` rule below
+   regardless of source order. */
+[data-theme="light"] body {
+  background-image:
+    radial-gradient(70% 60% at 28% 22%, oklch(0.58 0.12 72 / 0.1), transparent 62%),
+    radial-gradient(55% 55% at 82% 85%, oklch(0.55 0.13 175 / 0.08), transparent 68%),
+    radial-gradient(48% 45% at 60% 55%, oklch(0.5 0.16 275 / 0.05), transparent 70%);
+}
+[data-theme="light"] body::before {
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    oklch(0.3 0.02 60 / 0.05) 1px,
+    transparent 0
+  );
+}

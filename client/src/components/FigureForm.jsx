@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { TriangleAlert } from "lucide-react";
 import { useI18n, useT } from "../i18n/index.jsx";
 import { useFigureTypes } from "../hooks/useAdmin.js";
 import { useDefaultCurrency } from "../hooks/useMe.js";
@@ -10,47 +11,55 @@ import {
   useSculptorsLookup,
   useSeriesLookup,
 } from "../hooks/useEntities.js";
-import { useIsAdmin, useMe } from "../hooks/useMe.js";
-import { useFigureDuplicates } from "../hooks/useCollection.js";
-import { typeHue, typeKanji } from "../lib/typeHue.js";
+import { useIsAdmin } from "../hooks/useMe.js";
 import { nsfwTags } from "../lib/tags.js";
 import AniListLookup from "./AniListLookup.jsx";
 import AniListCharacterLookup from "./AniListCharacterLookup.jsx";
-import Button from "./Button.jsx";
+import { Button, FormField, Select, Textarea, Checkbox } from "./ui/index.js";
 import EntityAutocomplete from "./EntityAutocomplete.jsx";
 import FigureLookup from "./FigureLookup.jsx";
 import FigureStoresEditor from "./FigureStoresEditor.jsx";
-import FormField from "./FormField.jsx";
-import Select from "./Select.jsx";
+import DuplicateWarning from "./figure-form/DuplicateWarning.jsx";
+import TagsEditor from "./figure-form/TagsEditor.jsx";
 
 // Hard-coded fallback list — used only when /figure-types hasn't responded
 // yet (page first-paint, offline). The live dropdown is driven from the
 // admin-curated registry so custom types added at /admin/figure-types
 // surface here automatically.
 const TYPE_OPTIONS_FALLBACK = [
-  "nendoroid", "scale", "figma", "prize", "trading",
-  "statue", "plamo", "bishoujo", "dakimakura", "other",
+  "nendoroid",
+  "scale",
+  "figma",
+  "prize",
+  "trading",
+  "statue",
+  "plamo",
+  "bishoujo",
+  "dakimakura",
+  "other",
 ];
 
 /**
  * Shared form for both creating (AddFigurePage) and editing (FigureEditDialog)
  * a catalog figure. Same primitives, same input types, same AniList lookup.
  *
- * Sections are visually grouped (Identity / Typology / Production / Pricing /
- * Catalogue) so the form reads like an exhibition object label rather than a
- * single 12-field dump.
+ * Sections are visually grouped (Identity / Series / Typology / Production /
+ * Catalogue / Flags) so the form reads like an exhibition object label rather
+ * than a single field dump. The external lookup (orzgk / proxy / MFC / barcode)
+ * is reached through the prominent <FigureLookup> entry under the name field,
+ * which opens it in a modal; AniList series/character enrichers stay inline next
+ * to their fields. Manual entry of every field is always possible.
  *
+ * Public API is unchanged (AddFigurePage + FigureEditDialog depend on it):
  * @param {object} props
  * @param {"create"|"edit"} props.mode
  * @param {object} [props.initial]    Starting values (from existing figure or empty).
  * @param {(payload: object) => Promise<void>} props.onSubmit
- *        Receives the cleaned + trimmed payload. Throw to surface an error.
  * @param {() => void} [props.onCancel]
  * @param {boolean} [props.busy]
  * @param {string} [props.errorMessage]
- * @param {object} [props.extras]     Optional render slot below the form
- *        (e.g. the "also add to my collection" checkbox on the create page).
- * @param {React.ReactNode} [props.footerExtras] Optional extra buttons.
+ * @param {React.ReactNode} [props.extras]      Render slot below the form.
+ * @param {React.ReactNode} [props.footerExtras] Extra footer buttons.
  */
 export default function FigureForm({
   mode = "create",
@@ -81,9 +90,7 @@ export default function FigureForm({
     return TYPE_OPTIONS_FALLBACK.map((v) => ({ value: v, label: t(`type.${v}`) }));
   }, [figureTypes.data, locale, t]);
   // Autocomplete sources — cached 5 min, prefetched eagerly so the dropdown
-  // is responsive on the first keystroke. The endpoints return only
-  // {id, name, slug} (+ joined series_name for characters), so the
-  // payload stays small even with hundreds of entities.
+  // is responsive on the first keystroke.
   const seriesLookup = useSeriesLookup();
   const charactersLookup = useCharactersLookup();
   const manufacturersLookup = useManufacturersLookup();
@@ -99,28 +106,20 @@ export default function FigureForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial?.id]);
 
-  // `useDefaultCurrency()` is backed by `useMe()` and starts as JPY (the
-  // built-in fallback) until /api/me resolves and the user's stored
-  // preference lands. Without the effect below, a user whose preference is
-  // EUR would see a JPY-defaulted form on every cold page load.
-  //
-  // We track the last-applied default in a ref: while the field still holds
-  // *that exact value*, we treat it as untouched and swap to the new
-  // default. Once the user picks anything else (or the form is in Edit
-  // mode where `initial.msrp_currency` is already set), the swap stops.
+  // `useDefaultCurrency()` starts as JPY (fallback) until /api/me resolves.
+  // Track the last-applied default in a ref: while the field still holds that
+  // exact value we treat it as untouched and swap to the new default; once the
+  // user picks anything else (or we're editing), the swap stops.
   const lastAppliedDefaultRef = useRef(defaultCurrency);
   useEffect(() => {
     if (!defaultCurrency) return;
     if (initial?.msrp_currency) return; // edit mode — never override
     setForm((s) => {
-      // Field is the previous default → user hasn't touched it → re-seed.
       if (s.msrp_currency === lastAppliedDefaultRef.current) {
         lastAppliedDefaultRef.current = defaultCurrency;
         if (s.msrp_currency === defaultCurrency) return s;
         return { ...s, msrp_currency: defaultCurrency };
       }
-      // User-modified — leave it alone but update the tracked default so
-      // any future change to `defaultCurrency` is correctly bypassed.
       lastAppliedDefaultRef.current = defaultCurrency;
       return s;
     });
@@ -130,8 +129,7 @@ export default function FigureForm({
   const set = (k) => (v) => setForm((s) => ({ ...s, [k]: v }));
 
   // Explicit appearance tags found by the WD-Tagger. When present and the
-  // figure isn't already flagged adult, we nudge the user to mark it NSFW —
-  // a suggestion only (never auto-set), so a false positive stays harmless.
+  // figure isn't already flagged adult, nudge the user to mark it NSFW.
   const nsfwHints = useMemo(() => nsfwTags(form.visual_tags), [form.visual_tags]);
   const suggestNsfw = nsfwHints.length > 0 && !form.is_nsfw;
 
@@ -146,10 +144,30 @@ export default function FigureForm({
     await onSubmit(payload);
   };
 
+  // Merge a lookup pick into form state: only overwrite fields the lookup
+  // actually returned, leave the user's existing input otherwise.
+  // `coercePickFields` first maps a pick's dual-typed fields (numeric height_mm,
+  // array materials) back to the form's string representation. `*_meta` objects
+  // are merged so AniList enrichment accumulates across picks.
+  const applyPick = (pick) =>
+    setForm((s) => {
+      const coerced = coercePickFields(pick);
+      const next = { ...s };
+      for (const [k, v] of Object.entries(coerced)) {
+        if (v === undefined || v === "") continue;
+        if (k.endsWith("_meta") && v && typeof v === "object") {
+          next[k] = { ...s[k], ...v };
+        } else {
+          next[k] = v;
+        }
+      }
+      return next;
+    });
+
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       {/* ──────────── Identity ──────────── */}
-      <Section
+      <FormSection
         eyebrow={t("figure.form.section.identity.eyebrow")}
         title={t("figure.form.section.identity.title")}
       >
@@ -160,29 +178,11 @@ export default function FigureForm({
           required
           disabled={busy}
         />
-        {/* External lookup — searches orzgk + proxy boutiques (MFC is paste-only)
-            and pre-fills the form on pick. */}
-        <FigureLookup
-          initial={form.name}
-          onPick={(pick) =>
-            setForm((s) => ({
-              ...s,
-              // Only overwrite fields the lookup actually returned; leave
-              // anything the user has already typed alone if the lookup
-              // didn't fill that slot. `coercePickFields` first maps the
-              // dual-typed fields a pick may carry (numeric height_mm, array
-              // materials) back to the form's string representation.
-              ...Object.fromEntries(
-                Object.entries(coercePickFields(pick)).filter(
-                  ([_, v]) => v !== undefined && v !== "",
-                ),
-              ),
-            }))
-          }
-        />
-        {mode === "create" ? (
-          <DuplicateWarning name={form.name} jan={form.jan} t={t} />
-        ) : null}
+        {/* External lookup — opens a tabbed modal (search orzgk + proxy
+            boutiques, paste a link, scan a barcode, AniList). Manual entry of
+            every field above/below stays fully available. */}
+        <FigureLookup initial={form.name} onPick={applyPick} />
+        {mode === "create" ? <DuplicateWarning name={form.name} jan={form.jan} t={t} /> : null}
         <div className="grid sm:grid-cols-2 gap-5">
           <FormField
             label={t("addfig.field.version_name")}
@@ -199,10 +199,10 @@ export default function FigureForm({
             disabled={busy}
           />
         </div>
-      </Section>
+      </FormSection>
 
       {/* ──────────── Series & character ──────────── */}
-      <Section
+      <FormSection
         eyebrow={t("figure.form.section.series.eyebrow")}
         title={t("figure.form.section.series.title")}
       >
@@ -220,24 +220,15 @@ export default function FigureForm({
               onPick={(pick) =>
                 setForm((s) => ({
                   ...s,
-                  series_name:
-                    pick.romaji ?? pick.english ?? pick.native ?? s.series_name,
-                  // Carry the AniList enrichment through to the server so it
-                  // lands in `series.{anilist_id, mal_id, description, cover_url, …}`
-                  // on first insert. Existing fields are never overwritten —
-                  // the upsert uses COALESCE so admin edits stick.
+                  series_name: pick.romaji ?? pick.english ?? pick.native ?? s.series_name,
                   series_meta: {
                     ...s.series_meta,
                     anilist_id: pick.anilistId ?? s.series_meta?.anilist_id,
                     mal_id: pick.malId ?? s.series_meta?.mal_id,
-                    description:
-                      stripHtmlSafe(pick.description) ??
-                      s.series_meta?.description,
+                    description: stripHtmlSafe(pick.description) ?? s.series_meta?.description,
                     cover_url: pick.coverUrl ?? s.series_meta?.cover_url,
                     external_url: pick.siteUrl ?? s.series_meta?.external_url,
-                    origin:
-                      anilistTypeToOrigin(pick.mediaType) ??
-                      s.series_meta?.origin,
+                    origin: anilistTypeToOrigin(pick.mediaType) ?? s.series_meta?.origin,
                   },
                 }))
               }
@@ -249,30 +240,21 @@ export default function FigureForm({
               value={form.character_name}
               onChange={set("character_name")}
               data={charactersLookup.data}
-              // Show the linked series next to the character name so
-              // duplicates (e.g. multiple "Saber") are easy to tell apart.
               getMeta={(c) => c.series_name}
               disabled={busy}
             />
             <AniListCharacterLookup
-              // Scope to the picked series when we know its AniList id —
-              // the search then lists that series' roster and filters it.
               mediaId={form.series_meta?.anilist_id ?? null}
               seriesLabel={form.series_name}
               onPick={(pick) =>
                 setForm((s) => ({
                   ...s,
                   character_name: pick.full ?? pick.native ?? s.character_name,
-                  // Same COALESCE-on-the-server contract as the series meta:
-                  // enrichment lands on first insert, never clobbers edits.
                   character_meta: {
                     ...s.character_meta,
                     anilist_id: pick.anilistId ?? s.character_meta?.anilist_id,
-                    description:
-                      stripHtmlSafe(pick.description) ??
-                      s.character_meta?.description,
-                    portrait_url:
-                      pick.portraitUrl ?? s.character_meta?.portrait_url,
+                    description: stripHtmlSafe(pick.description) ?? s.character_meta?.description,
+                    portrait_url: pick.portraitUrl ?? s.character_meta?.portrait_url,
                     external_url: pick.siteUrl ?? s.character_meta?.external_url,
                   },
                 }))
@@ -280,10 +262,10 @@ export default function FigureForm({
             />
           </div>
         </div>
-      </Section>
+      </FormSection>
 
       {/* ──────────── Typology & dimensions ──────────── */}
-      <Section
+      <FormSection
         eyebrow={t("figure.form.section.typology.eyebrow")}
         title={t("figure.form.section.typology.title")}
       >
@@ -315,17 +297,15 @@ export default function FigureForm({
           value={form.materials}
           onChange={set("materials")}
           data={materialsLookup.data}
-          // Comma-separated multi-value mode: each pick replaces only the
-          // token after the last comma, lets the user keep adding more.
           multiValueSeparator=","
           placeholder={t("figure.form.ph.materials")}
           hint={t("figure.form.ph.materials_hint")}
           disabled={busy}
         />
-      </Section>
+      </FormSection>
 
       {/* ──────────── Production & pricing ──────────── */}
-      <Section
+      <FormSection
         eyebrow={t("figure.form.section.production.eyebrow")}
         title={t("figure.form.section.production.title")}
       >
@@ -386,10 +366,10 @@ export default function FigureForm({
           hint={t("figure.form.ph.jan_hint")}
           disabled={busy}
         />
-      </Section>
+      </FormSection>
 
       {/* ──────────── Imagery / catalog ──────────── */}
-      <Section
+      <FormSection
         eyebrow={t("figure.form.section.catalog.eyebrow")}
         title={t("figure.form.section.catalog.title")}
       >
@@ -402,62 +382,43 @@ export default function FigureForm({
           hint={t("figure.form.ph.image_url_hint")}
           disabled={busy}
         />
-        <label className="block">
-          <span className="micro block mb-2">
-            {t("figure.form.field.description")}
-          </span>
-          <textarea
+        <FormField label={t("figure.form.field.description")}>
+          <Textarea
             value={form.description}
             onChange={(e) => set("description")(e.target.value)}
             disabled={busy}
             rows={4}
             placeholder={t("figure.form.ph.description")}
-            className="w-full bg-[var(--color-noir)] border border-[var(--color-or)]/30 px-4 py-3 text-[var(--color-ivoire)] outline-none focus:border-[var(--color-or)] transition-colors leading-relaxed"
-            style={{
-              fontFamily: "var(--font-sans)",
-              letterSpacing: "0.005em",
-            }}
+            className="leading-relaxed"
           />
-        </label>
-      </Section>
+        </FormField>
+      </FormSection>
 
       {/* ──────────── Content classification ──────────── */}
       <section className="relative">
-        <header className="mb-4">
-          <p className="micro-tight">{t("figure.form.section.flags.eyebrow")}</p>
-          <h3 className="display text-xl text-[var(--color-ivoire)] mt-1">
-            {t("figure.form.section.flags.title")}
-          </h3>
-          <div className="gold-rule w-12 mt-3 opacity-70" />
-        </header>
-        <label className="flex items-start gap-3 cursor-pointer select-none p-3 border border-[var(--color-or)]/15 bg-[var(--color-noir)]/40 hover:border-[var(--color-or)]/40 transition-colors">
-          <input
-            type="checkbox"
+        <SectionHeader
+          eyebrow={t("figure.form.section.flags.eyebrow")}
+          title={t("figure.form.section.flags.title")}
+        />
+        <div className="p-3 border border-[var(--border-subtle)] bg-[var(--surface-sunken)] hover:border-[var(--border)] transition-colors">
+          <Checkbox
             checked={!!form.is_nsfw}
-            onChange={(e) => set("is_nsfw")(e.target.checked)}
+            onChange={set("is_nsfw")}
             disabled={busy}
-            className="accent-[var(--color-or)] w-4 h-4 mt-0.5"
+            label={t("figure.form.field.is_nsfw")}
+            hint={t("figure.form.field.is_nsfw_hint")}
           />
-          <span className="flex-1 text-sm text-[var(--color-ivoire)]">
-            <span className="block">{t("figure.form.field.is_nsfw")}</span>
-            <span className="block micro-tight mt-1 opacity-80">
-              {t("figure.form.field.is_nsfw_hint")}
-            </span>
-          </span>
-        </label>
-        {/* Tag-driven NSFW nudge — surfaces only when the WD-Tagger found
-            explicit tags and the flag is still off. Sibling of the label (not
-            inside it) so the action button doesn't toggle the checkbox. */}
+        </div>
+        {/* Tag-driven NSFW nudge — sibling of the label so the action button
+            doesn't toggle the checkbox. */}
         {suggestNsfw ? (
-          <div className="mt-3 flex items-start gap-3 border border-[var(--color-laque-bright)]/40 bg-[var(--color-laque-bright)]/8 px-3 py-2.5">
-            <span aria-hidden className="text-[var(--color-laque-bright)] mt-0.5 leading-none">
-              ⚠
-            </span>
+          <div className="mt-3 flex items-start gap-3 border border-[var(--danger)]/40 bg-[var(--danger-surface)] px-3 py-2.5">
+            <TriangleAlert size={16} className="text-[var(--danger)] mt-0.5 shrink-0" aria-hidden />
             <div className="flex-1 min-w-0 text-sm">
-              <p className="text-[var(--color-ivoire)]">{t("figure.form.nsfw_suggest.text")}</p>
+              <p className="text-[var(--on-surface)]">{t("figure.form.nsfw_suggest.text")}</p>
               <p className="micro-tight mt-1 opacity-80">
                 {t("figure.form.nsfw_suggest.based_on")}{" "}
-                <span className="font-mono capitalize text-[var(--color-laque-bright)]/90">
+                <span className="font-mono capitalize text-[var(--danger)]">
                   {nsfwHints.slice(0, 5).join(", ")}
                   {nsfwHints.length > 5 ? "…" : ""}
                 </span>
@@ -467,7 +428,7 @@ export default function FigureForm({
               type="button"
               disabled={busy}
               onClick={() => set("is_nsfw")(true)}
-              className="shrink-0 text-[10px] uppercase tracking-[0.14em] border border-[var(--color-laque-bright)]/50 text-[var(--color-laque-bright)] px-2.5 py-1.5 hover:bg-[var(--color-laque-bright)]/10 transition-colors disabled:opacity-50"
+              className="shrink-0 text-[10px] uppercase tracking-[0.14em] border border-[var(--danger)]/50 text-[var(--danger)] px-2.5 py-1.5 hover:bg-[var(--danger)]/10 transition-colors disabled:opacity-50"
             >
               {t("figure.form.nsfw_suggest.action")}
             </button>
@@ -475,33 +436,31 @@ export default function FigureForm({
         ) : null}
       </section>
 
-      {/* ──────────── Appearance tags ────────────
-       *  Edit-only — there's no figure (nor images to tag) before creation.
-       *  Visibility/edit follow the route gate (admin OR the figure's owner),
-       *  same as every other field here. */}
+      {/* ──────────── Appearance tags (edit-only) ──────────── */}
       {mode === "edit" && initial?.id ? (
         <section className="relative">
-          <header className="mb-4">
-            <p className="micro-tight">
-              {t("figure.form.section.tags.eyebrow", { default: "Recherche par description" })}
-            </p>
-            <h3 className="display text-xl text-[var(--color-ivoire)] mt-1">
-              {t("figure.form.section.tags.title", { default: "Tags d'apparence" })}
-            </h3>
-            <div className="gold-rule w-12 mt-3 opacity-70" />
-          </header>
+          <SectionHeader
+            eyebrow={t("figure.form.section.tags.eyebrow", {
+              default: "Recherche par description",
+            })}
+            title={t("figure.form.section.tags.title", { default: "Tags d'apparence" })}
+          />
           <p className="micro-tight mb-3 opacity-80 max-w-xl">
             {t("figure.form.tags.hint", {
               default:
                 "Générés par l'indexation (personnage, cheveux, tenue…). Modifie-les pour affiner la recherche par description ; tes changements ne seront pas écrasés.",
             })}
           </p>
-          <TagsEditor value={form.visual_tags} onChange={set("visual_tags")} disabled={busy} t={t} />
+          <TagsEditor
+            value={form.visual_tags}
+            onChange={set("visual_tags")}
+            disabled={busy}
+            t={t}
+          />
         </section>
       ) : null}
 
-      {/* Admin-only section for editing the figure↔store M2M. Only shown
-       *  when editing an existing figure (we need a stable id to mutate). */}
+      {/* Admin-only figure↔store M2M editor (needs a stable id to mutate). */}
       {mode === "edit" && isAdmin && initial?.id ? (
         <section className="pt-2">
           <FigureStoresEditor figureId={initial.id} />
@@ -513,13 +472,13 @@ export default function FigureForm({
       {errorMessage ? (
         <p
           role="alert"
-          className="text-sm text-[var(--color-laque-bright)] tracking-wide border-l-2 border-[var(--color-laque-bright)] pl-3 py-1"
+          className="text-sm text-[var(--danger)] tracking-wide border-l-2 border-[var(--danger)] pl-3 py-1"
         >
           {errorMessage}
         </p>
       ) : null}
 
-      <div className="flex flex-wrap items-center justify-end gap-3 pt-3 border-t border-[var(--color-or)]/15">
+      <div className="flex flex-wrap items-center justify-end gap-3 pt-3 border-t border-[var(--border-subtle)]">
         {footerExtras}
         {onCancel ? (
           <Button variant="ghost" type="button" onClick={onCancel} disabled={busy}>
@@ -531,164 +490,6 @@ export default function FigureForm({
         </Button>
       </div>
     </form>
-  );
-}
-
-/** Live "about to create a duplicate?" panel (create mode only). Debounces the
- *  name/JAN, queries the catalogue, and surfaces strong (same JAN) and soft
- *  (same name) matches with a link to the existing figure (opened in a new tab
- *  so the in-progress form is preserved). */
-function DuplicateWarning({ name, jan, t }) {
-  const [dq, setDq] = useState({ name: "", jan: "" });
-  const [dismissed, setDismissed] = useState(false);
-  useEffect(() => {
-    const id = setTimeout(() => setDq({ name: name ?? "", jan: jan ?? "" }), 400);
-    return () => clearTimeout(id);
-  }, [name, jan]);
-  useEffect(() => {
-    setDismissed(false);
-  }, [dq.name, dq.jan]);
-
-  const me = useMe();
-  const nsfwBlur = (me.data?.user?.nsfw_visibility ?? "hide") === "blur";
-  const { data } = useFigureDuplicates(dq.name, dq.jan);
-  const matches = data ?? [];
-  const enteredJan = dq.jan.trim();
-  if (dismissed || matches.length === 0) return null;
-
-  return (
-    <div className="border border-[var(--color-or)]/35 bg-[var(--color-or)]/5">
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[var(--color-or)]/20">
-        <span aria-hidden className="text-[var(--color-or)]">⚠</span>
-        <span className="display text-base text-[var(--color-ivoire)]">
-          {t("figdup.title", { n: matches.length })}
-        </span>
-      </div>
-      <ul>
-        {matches.map((m) => {
-          const strong = !!enteredJan && m.jan === enteredJan;
-          const hue = typeHue(m.figure_type);
-          return (
-            <li
-              key={m.id}
-              className="grid grid-cols-[40px_1fr_auto] gap-3 items-center px-4 py-2.5 border-b border-[var(--color-or)]/10 last:border-0"
-            >
-              <span
-                className="relative w-10 h-[50px] border overflow-hidden grid place-items-center"
-                style={{ borderColor: `color-mix(in oklab, ${hue} 30%, transparent)` }}
-              >
-                {m.official_image_url ? (
-                  <img src={m.official_image_url} alt="" loading="lazy" className={`absolute inset-0 w-full h-full object-cover ${m.is_nsfw && nsfwBlur ? "nsfw-blur" : ""}`} />
-                ) : (
-                  <span aria-hidden className="ja text-lg" style={{ color: `color-mix(in oklab, ${hue} 55%, transparent)` }}>
-                    {typeKanji(m.figure_type)}
-                  </span>
-                )}
-              </span>
-              <span className="min-w-0">
-                <span className="block display text-base text-[var(--color-ivoire)] leading-tight truncate">{m.name}</span>
-                <span className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--color-ivoire-soft)]">
-                  <span className={strong ? "chip chip--laque" : "chip"} style={{ padding: "0.1em 0.45em", fontSize: "8.5px" }}>
-                    {strong ? t("figdup.badge_jan") : t("figdup.badge_name")}
-                  </span>
-                  {m.manufacturer_name ? <span className="font-mono truncate">{m.manufacturer_name}</span> : null}
-                </span>
-              </span>
-              <a
-                href={`/figures/${m.id}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-[10px] uppercase tracking-[0.14em] border border-[var(--color-or)]/35 text-[var(--color-or-pale)] px-2.5 py-1.5 whitespace-nowrap hover:border-[var(--color-or)] transition-colors"
-              >
-                {t("figdup.open")} →
-              </a>
-            </li>
-          );
-        })}
-      </ul>
-      <div className="flex justify-end px-4 py-2.5">
-        <button
-          type="button"
-          onClick={() => setDismissed(true)}
-          className="text-[10px] uppercase tracking-[0.14em] text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] transition-colors"
-        >
-          {t("figdup.proceed")}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/** Chip editor for a figure's appearance tags. In/out is the comma-separated
- *  string the form + server use; the UI shows removable chips and an input where
- *  Enter or comma adds (Backspace on an empty input removes the last). */
-function TagsEditor({ value, onChange, disabled, t }) {
-  const [draft, setDraft] = useState("");
-  const tags = (value || "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const commit = (raw) => {
-    const add = raw
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (!add.length) return;
-    const next = tags.slice();
-    for (const tag of add) {
-      if (!next.some((x) => x.toLowerCase() === tag.toLowerCase())) next.push(tag);
-    }
-    onChange(next.join(", "));
-    setDraft("");
-  };
-  const remove = (tag) => onChange(tags.filter((x) => x !== tag).join(", "));
-  return (
-    <div>
-      <div className="flex flex-wrap gap-2 min-h-[1.75rem]">
-        {tags.length === 0 ? (
-          <span className="text-sm italic text-[var(--color-ivoire-soft)]/55">
-            {t("figure.form.tags.empty", { default: "Aucun tag pour l'instant." })}
-          </span>
-        ) : (
-          tags.map((tag) => (
-            <span
-              key={tag}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[12px] border border-[var(--color-or)]/30 bg-[var(--color-or)]/5 text-[var(--color-ivoire)]"
-            >
-              {tag}
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => remove(tag)}
-                aria-label={t("figure.form.tags.remove", { tag, default: `Retirer ${tag}` })}
-                className="text-[var(--color-laque-bright)]/70 hover:text-[var(--color-laque-bright)] leading-none text-base disabled:opacity-50"
-              >
-                ×
-              </button>
-            </span>
-          ))
-        )}
-      </div>
-      <input
-        type="text"
-        value={draft}
-        disabled={disabled}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === ",") {
-            e.preventDefault();
-            commit(draft);
-          } else if (e.key === "Backspace" && !draft && tags.length) {
-            remove(tags[tags.length - 1]);
-          }
-        }}
-        onBlur={() => draft.trim() && commit(draft)}
-        placeholder={t("figure.form.tags.add", {
-          default: "Ajouter un tag — Entrée ou virgule pour valider…",
-        })}
-        className="mt-3 w-full px-3 py-2 bg-[var(--color-noir)] border border-[var(--color-or)]/25 text-[var(--color-ivoire)] placeholder:text-[var(--color-ivoire-soft)]/40 text-sm outline-none focus:border-[var(--color-or)] transition-colors"
-      />
-    </div>
   );
 }
 
@@ -713,22 +514,21 @@ const EMPTY = {
   description: "",
   is_nsfw: false,
   visual_tags: "",
-  // Captured from FigureLookup.buildPick when the user imports a figure
-  // by pasting a store product URL. Sent alongside the create payload so
-  // the backend can auto-link the new figure to the matching store. Not
-  // persisted on the figures table — purely a creation-time signal.
+  // Captured from a lookup pick (pasted store product URL). Sent alongside the
+  // create payload so the backend can auto-link the new figure to the matching
+  // store. Not persisted on the figures table — a creation-time signal.
   source_url: "",
-  // Related-entity enrichment carried alongside the *_name strings.
-  // Lookups (AniList, MAL, orzgk) populate these; the upsert on the server
-  // only persists them when the matching column is currently NULL.
+  // Related-entity enrichment carried alongside the *_name strings. Lookups
+  // (AniList, MAL, orzgk) populate these; the server upsert only persists them
+  // when the matching column is currently NULL.
   manufacturer_meta: {},
   series_meta: {},
   character_meta: {},
 };
 
-/** Seed the form's local state from `initial`, which can be a fresh figure
- *  (Edit) or undefined (Create). Lists become comma-separated strings; null
- *  fields become empty strings so React inputs stay controlled. */
+/** Seed the form's local state from `initial` (a fresh figure on Edit, or
+ *  undefined on Create). Lists become comma-separated strings; null fields
+ *  become empty strings so React inputs stay controlled. */
 function normalise(initial, defaultCurrency = "JPY") {
   if (!initial) {
     return { ...EMPTY, msrp_currency: defaultCurrency };
@@ -756,8 +556,7 @@ function normalise(initial, defaultCurrency = "JPY") {
     description: initial.description ?? "",
     is_nsfw: !!initial.is_nsfw,
     visual_tags: initial.visual_tags ?? "",
-    // Source URL is transient (only set when freshly imported via lookup);
-    // editing an existing figure restarts blank.
+    // Source URL is transient (only set on a fresh import); editing restarts blank.
     source_url: "",
     manufacturer_meta: initial.manufacturer_meta ?? {},
     series_meta: initial.series_meta ?? {},
@@ -766,11 +565,10 @@ function normalise(initial, defaultCurrency = "JPY") {
 }
 
 /** A lookup pick may carry fields in their raw API types: orzgk's `buildPick`
- *  emits a numeric `height_mm` and an array `materials` (it doubles as the
- *  bulk importer's payload, which POSTs straight to /figures). The form stores
- *  every field as a string, so coerce those two before merging a pick into
- *  form state — otherwise the array reaches EntityAutocomplete and its
- *  `value.trim()` throws. Mirrors the same conversions `normalise()` applies. */
+ *  emits a numeric `height_mm` and an array `materials`. The form stores every
+ *  field as a string, so coerce those two before merging a pick into form state
+ *  (otherwise the array reaches EntityAutocomplete and its `value.trim()`
+ *  throws). Mirrors the conversions `normalise()` applies. */
 function coercePickFields(pick) {
   const out = { ...pick };
   if (out.height_mm != null && typeof out.height_mm !== "string") {
@@ -782,9 +580,9 @@ function coercePickFields(pick) {
   return out;
 }
 
-/** Produce the payload that goes to the backend. Empty strings → undefined
- *  so the COALESCE-style PATCH on the server side doesn't overwrite real
- *  values with empties. Numbers are parsed. Materials are split on comma. */
+/** Produce the backend payload. Empty strings → undefined so the COALESCE-style
+ *  PATCH doesn't overwrite real values with empties. Numbers parsed, materials
+ *  split on comma. */
 function serialise(form, mode) {
   const trim = (s) => (typeof s === "string" ? s.trim() : s);
   const nz = (s) => {
@@ -792,9 +590,7 @@ function serialise(form, mode) {
     return v ? v : undefined;
   };
   const parsedHeight = form.height_mm ? Number.parseInt(form.height_mm, 10) : undefined;
-  const materials = form.materials
-    ? form.materials.split(",").map(trim).filter(Boolean)
-    : [];
+  const materials = form.materials ? form.materials.split(",").map(trim).filter(Boolean) : [];
 
   return {
     name: nz(form.name),
@@ -816,27 +612,24 @@ function serialise(form, mode) {
     official_image_url: nz(form.official_image_url),
     description: nz(form.description),
     is_nsfw: !!form.is_nsfw,
-    // Appearance tags only on edit (the section is edit-only). Sent as a raw
-    // string — incl. "" so clearing all tags reaches the server (vs `nz()`,
-    // which would drop it and the COALESCE would keep the old tags).
+    // Appearance tags only on edit (edit-only section). Sent as a raw string —
+    // incl. "" so clearing all tags reaches the server (vs `nz()`, which would
+    // drop it and the COALESCE would keep the old tags).
     visual_tags: mode === "edit" ? (form.visual_tags ?? "") : undefined,
-    // Source URL only forwarded on create — the backend matches its
-    // hostname against `stores.url` and INSERTs into figure_stores for
-    // every matching store before committing the figure.
+    // Source URL only forwarded on create — the backend matches its hostname
+    // against `stores.url` and INSERTs into figure_stores.
     source_url: nz(form.source_url),
-    // Related-entity metadata — only included when there's at least one
-    // populated field so we don't waste bytes on the wire.
     manufacturer_meta: nonEmptyMeta(form.manufacturer_meta),
     series_meta: nonEmptyMeta(form.series_meta),
     character_meta: nonEmptyMeta(form.character_meta),
   };
 }
 
-/** Strip undefined / empty-string keys; return undefined when nothing's
- *  left so JSON.stringify drops the whole property. */
+/** Strip undefined / empty-string keys; undefined when nothing's left so
+ *  JSON.stringify drops the whole property. */
 function nonEmptyMeta(meta) {
   if (!meta || typeof meta !== "object") return undefined;
-  const entries = Object.entries(meta).filter(([_, v]) => {
+  const entries = Object.entries(meta).filter(([, v]) => {
     if (v === undefined || v === null) return false;
     if (typeof v === "string" && v.trim() === "") return false;
     return true;
@@ -853,27 +646,33 @@ function anilistTypeToOrigin(mediaType) {
   return undefined;
 }
 
-/** AniList descriptions sometimes contain `<br>` / `<i>`. Pretty-print
- *  cheaply for the description column (no DOMPurify dependency). Uses a
- *  single-character bracket strip — the multi-character pattern
- *  `/<[^>]+>/g` is smuggleable (`<scr<script>ipt>` → `<script>` after one
- *  pass) per CodeQL's `js/incomplete-multi-character-sanitization` rule. */
+/** Cheap HTML strip for AniList descriptions. Single-char bracket strip avoids
+ *  CodeQL's smuggleable multi-char-sanitization pattern. */
 function stripHtmlSafe(s) {
   if (!s) return undefined;
-  return String(s)
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/[<>]/g, "")
-    .trim() || undefined;
+  return (
+    String(s)
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/[<>]/g, "")
+      .trim() || undefined
+  );
 }
 
-function Section({ eyebrow, title, children }) {
+/** Reusable section header: kicker + display title + gold rule. */
+function SectionHeader({ eyebrow, title }) {
+  return (
+    <header className="mb-5">
+      <p className="micro-tight">{eyebrow}</p>
+      <h3 className="display text-xl text-[var(--on-surface)] mt-1">{title}</h3>
+      <div className="gold-rule w-12 mt-3 opacity-70" />
+    </header>
+  );
+}
+
+function FormSection({ eyebrow, title, children }) {
   return (
     <section className="relative">
-      <header className="mb-5">
-        <p className="micro-tight">{eyebrow}</p>
-        <h3 className="display text-xl text-[var(--color-ivoire)] mt-1">{title}</h3>
-        <div className="gold-rule w-12 mt-3 opacity-70" />
-      </header>
+      <SectionHeader eyebrow={eyebrow} title={title} />
       <div className="space-y-5">{children}</div>
     </section>
   );

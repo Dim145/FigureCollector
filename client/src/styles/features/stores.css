@@ -1,0 +1,926 @@
+/* =============================================================================
+ * Store autocomplete — input + dropdown overlay
+ * ============================================================================ */
+.store-ac-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  margin-bottom: 0.4rem;
+}
+.store-ac-input {
+  width: 100%;
+  background: var(--color-noir);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  color: var(--color-ivoire);
+  padding: 0.65rem 0.85rem;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 220ms var(--ease-quick);
+}
+.store-ac-input:focus {
+  border-color: var(--color-or);
+}
+.store-ac-hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--color-ivoire) 45%, transparent);
+}
+.store-ac-drop {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin-top: 4px;
+  background: var(--color-noir-soft);
+  border: 1px solid color-mix(in oklab, var(--color-or) 45%, transparent);
+  max-height: 16rem;
+  overflow-y: auto;
+  box-shadow:
+    0 18px 30px -16px rgba(0, 0, 0, 0.8),
+    inset 0 1px 0 oklch(0.92 0.08 80 / 0.12);
+}
+.store-ac-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding: 0.55rem 0.85rem;
+  cursor: pointer;
+  border-bottom: 1px dashed color-mix(in oklab, var(--color-or) 15%, transparent);
+}
+.store-ac-row:last-child {
+  border-bottom: 0;
+}
+.store-ac-row.is-active {
+  background: color-mix(in oklab, var(--color-or) 12%, transparent);
+}
+.store-ac-row-name {
+  color: var(--color-ivoire);
+  font-size: 0.92rem;
+}
+.store-ac-row-url {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: color-mix(in oklab, var(--color-or) 70%, transparent);
+}
+
+/* =============================================================================
+ * Store page (/stores/:slug)
+ * ============================================================================ */
+.store-hero {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) 1fr;
+  gap: 2.5rem;
+  align-items: start;
+  margin-bottom: 3rem;
+}
+@media (max-width: 640px) {
+  .store-hero {
+    grid-template-columns: 1fr;
+  }
+}
+.store-hero-frame {
+  position: relative;
+  aspect-ratio: 1;
+  background: var(--color-noir-deep);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  overflow: hidden;
+}
+.store-hero-frame::after {
+  /* gold corner notches */
+  content: "";
+  position: absolute;
+  inset: 6px;
+  pointer-events: none;
+  background:
+    linear-gradient(to right, var(--color-or) 0 18px, transparent 18px) top left / 100% 1px
+      no-repeat,
+    linear-gradient(to right, var(--color-or) 0 18px, transparent 18px) top right / 100% 1px
+      no-repeat,
+    linear-gradient(to right, var(--color-or) 0 18px, transparent 18px) bottom left / 100% 1px
+      no-repeat,
+    linear-gradient(to right, var(--color-or) 0 18px, transparent 18px) bottom right / 100% 1px
+      no-repeat,
+    linear-gradient(to bottom, var(--color-or) 0 18px, transparent 18px) top left / 1px 100%
+      no-repeat,
+    linear-gradient(to bottom, var(--color-or) 0 18px, transparent 18px) top right / 1px 100%
+      no-repeat,
+    linear-gradient(to bottom, var(--color-or) 0 18px, transparent 18px) bottom left / 1px 100%
+      no-repeat,
+    linear-gradient(to bottom, var(--color-or) 0 18px, transparent 18px) bottom right / 1px 100%
+      no-repeat;
+  opacity: 0.55;
+}
+.store-hero-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 540ms var(--ease-quick);
+}
+.store-hero-zoom-btn {
+  /* Button reset so the image fills the frame the same way the bare
+   * <img> used to. The button itself is purely a hit-target wrapper. */
+  position: absolute;
+  inset: 0;
+  display: block;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: 0;
+  cursor: zoom-in;
+  overflow: hidden;
+}
+.store-hero-zoom-btn:focus-visible {
+  outline: 2px solid var(--color-or);
+  outline-offset: 2px;
+}
+.store-hero-zoom-btn:hover .store-hero-image,
+.store-hero-zoom-btn:focus-visible .store-hero-image {
+  transform: scale(1.04);
+}
+.store-hero-zoom-hint {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  background: oklch(0.15 0.01 60 / 0.8);
+  border: 1px solid color-mix(in oklab, var(--color-or) 45%, transparent);
+  color: var(--color-or-pale);
+  font-size: 15px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity 220ms var(--ease-quick),
+    transform 220ms var(--ease-quick),
+    color 220ms var(--ease-quick),
+    border-color 220ms var(--ease-quick);
+}
+.store-hero-zoom-btn:hover .store-hero-zoom-hint,
+.store-hero-zoom-btn:focus-visible .store-hero-zoom-hint {
+  opacity: 1;
+  transform: translateY(0);
+  color: var(--color-or);
+  border-color: var(--color-or);
+}
+/* Touch devices can't hover — surface the hint at a low opacity so users
+ * still see that the image is tappable. */
+@media (hover: none) {
+  .store-hero-zoom-hint {
+    opacity: 0.75;
+    transform: translateY(0);
+  }
+}
+.store-hero-placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: color-mix(in oklab, var(--color-or) 30%, transparent);
+  font-family: "Noto Serif JP", serif;
+  font-size: 6rem;
+  line-height: 1;
+}
+.store-hero-url {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  border: 1px solid color-mix(in oklab, var(--color-or) 40%, transparent);
+  padding: 0.4rem 0.75rem;
+  margin-top: 0.85rem;
+  transition: all 220ms var(--ease-quick);
+}
+.store-hero-url:hover {
+  color: var(--color-or);
+  border-color: var(--color-or);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+}
+
+/* StorePage hero · "visiter la boutique" — the storefront's own buy shortcut.
+ * Gold (the app's commerce/CTA accent) over the page's indigo identity, with a
+ * 購 (purchase) glyph and the host as a mono sub-label. */
+.store-visit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-top: 1.1rem;
+  padding: 0.7rem 1.15rem;
+  border: 1px solid color-mix(in oklab, var(--color-or) 48%, transparent);
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--color-or) 14%, transparent),
+    color-mix(in oklab, var(--color-or) 3%, transparent)
+  );
+  color: var(--color-or-pale);
+  text-decoration: none;
+  transition:
+    border-color 240ms var(--ease-quick),
+    color 240ms var(--ease-quick),
+    transform 240ms var(--ease-quick),
+    box-shadow 240ms var(--ease-quick),
+    background 240ms var(--ease-quick);
+}
+.store-visit-btn:hover,
+.store-visit-btn:focus-visible {
+  border-color: var(--color-or);
+  color: var(--color-ivoire);
+  transform: translateY(-2px);
+  box-shadow: 0 18px 42px -26px color-mix(in oklab, var(--color-or) 75%, transparent);
+  background: linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--color-or) 22%, transparent),
+    color-mix(in oklab, var(--color-or) 7%, transparent)
+  );
+  outline: none;
+}
+.store-visit-btn-kanji {
+  font-family: "Noto Serif JP", serif;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--color-or);
+}
+.store-visit-btn-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+.store-visit-btn-label {
+  font-family: "Cormorant Garamond", "Noto Serif JP", serif;
+  font-size: 1.15rem;
+  line-height: 1.05;
+}
+.store-visit-btn-host {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--color-or) 58%, transparent);
+}
+
+/* Per-figure "buy" seal overlaid on store-catalogue cards. A sibling of the
+ * FigureCard <Link> (never nested), pinned top-right where catalogue cards
+ * carry no status stamp. */
+.fc-buy {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.34rem 0.62rem;
+  border: 1px solid color-mix(in oklab, var(--color-or) 52%, transparent);
+  background: color-mix(in oklab, var(--color-noir-deep) 78%, transparent);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: var(--color-or);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.8);
+  transition:
+    background 200ms var(--ease-quick),
+    border-color 200ms var(--ease-quick),
+    color 200ms var(--ease-quick),
+    transform 200ms var(--ease-quick);
+}
+.fc-buy .ja {
+  font-size: 0.85rem;
+  line-height: 1;
+  color: color-mix(in oklab, var(--color-or) 82%, var(--color-or-pale));
+}
+.fc-buy-arrow {
+  transition: transform 200ms var(--ease-quick);
+}
+.group\/scard:hover .fc-buy {
+  border-color: var(--color-or);
+  background: color-mix(in oklab, var(--color-or) 14%, var(--color-noir-deep));
+}
+.fc-buy:hover,
+.fc-buy:focus-visible {
+  border-color: var(--color-or);
+  color: var(--color-or-pale);
+  background: color-mix(in oklab, var(--color-or) 22%, var(--color-noir-deep));
+  transform: translateY(-1px);
+  outline: none;
+}
+.fc-buy:hover .fc-buy-arrow {
+  transform: translate(2px, -2px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .store-visit-btn,
+  .fc-buy,
+  .fc-buy-arrow {
+    transition:
+      border-color 200ms var(--ease-quick),
+      color 200ms var(--ease-quick);
+  }
+  .store-visit-btn:hover,
+  .fc-buy:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* =============================================================================
+ * Admin · stores registry (similar shape to figure-types)
+ * ============================================================================ */
+.store-admin-row {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  gap: 1.1rem;
+  align-items: center;
+  padding: 0.9rem 1.1rem;
+  background: var(--color-noir-deep);
+  border: 1px solid color-mix(in oklab, var(--color-or) 15%, transparent);
+}
+.store-admin-thumb {
+  width: 64px;
+  height: 64px;
+  background: var(--color-noir-deep);
+  border: 1px solid color-mix(in oklab, var(--color-or) 20%, transparent);
+  overflow: hidden;
+}
+.store-admin-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.store-admin-thumb-placeholder {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: color-mix(in oklab, var(--color-or) 40%, transparent);
+  font-family: "Noto Serif JP", serif;
+  font-size: 1.6rem;
+}
+
+/* =============================================================================
+ * Figure detail · linked-stores button + modal
+ * ============================================================================= */
+.fig-cartouche-stores {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  padding: 1.25rem 0;
+  border-top: 1px dashed color-mix(in oklab, var(--color-or) 20%, transparent);
+  border-bottom: 1px dashed color-mix(in oklab, var(--color-or) 20%, transparent);
+  margin-bottom: 1rem;
+}
+.fig-cartouche-stores-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 1.15rem;
+  background: transparent;
+  border: 1px solid color-mix(in oklab, var(--color-or) 40%, transparent);
+  color: var(--color-or-pale);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 220ms var(--ease-quick);
+}
+.fig-cartouche-stores-btn:hover,
+.fig-cartouche-stores-btn:focus-visible {
+  color: var(--color-or);
+  border-color: var(--color-or);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+}
+.fig-cartouche-stores-btn .ja {
+  font-family: "Noto Serif JP", serif;
+  font-size: 1.3rem;
+  line-height: 1;
+}
+.fig-cartouche-stores-count {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 0 0.4em;
+  background: var(--color-or);
+  color: var(--color-noir);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+}
+.linked-stores-modal {
+  position: relative;
+  max-width: min(540px, 92vw);
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-noir-soft);
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
+  box-shadow: 0 60px 120px -40px rgba(0, 0, 0, 0.85);
+}
+.linked-stores-modal-header {
+  padding: 1.75rem 2rem 1.25rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 15%, transparent);
+}
+.linked-stores-modal-header .ja {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+.linked-stores-modal-header h2 {
+  font-family: "Cormorant Garamond", "Noto Serif JP", serif;
+  font-size: 1.6rem;
+  color: var(--color-ivoire);
+  margin: 0 0 0.35rem;
+  line-height: 1.1;
+}
+.linked-stores-modal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 0;
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+.linked-stores-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 6%, transparent);
+}
+.linked-stores-row {
+  display: grid;
+  grid-template-columns: 56px 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9rem 2rem;
+  color: var(--color-ivoire-soft);
+  text-decoration: none;
+  transition:
+    background 180ms var(--ease-quick),
+    color 180ms var(--ease-quick);
+}
+.linked-stores-row:hover,
+.linked-stores-row:focus-visible {
+  background: color-mix(in oklab, var(--color-or) 6%, transparent);
+  color: var(--color-ivoire);
+  outline: none;
+}
+.linked-stores-thumb {
+  width: 56px;
+  height: 56px;
+  background: var(--color-noir-deep);
+  border: 1px solid color-mix(in oklab, var(--color-or) 22%, transparent);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+.linked-stores-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.linked-stores-thumb-fallback {
+  color: color-mix(in oklab, var(--color-or) 45%, transparent);
+  font-family: "Noto Serif JP", serif;
+  font-size: 1.6rem;
+}
+.linked-stores-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.linked-stores-name {
+  font-family: "Cormorant Garamond", "Noto Serif JP", serif;
+  font-size: 1.1rem;
+  color: var(--color-ivoire);
+  line-height: 1.15;
+}
+.linked-stores-slug {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--color-or) 55%, transparent);
+}
+.linked-stores-url {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  margin-top: 0.2rem;
+}
+.linked-stores-arrow {
+  font-size: 1.3rem;
+  color: color-mix(in oklab, var(--color-or) 40%, transparent);
+  transition:
+    transform 220ms var(--ease-quick),
+    color 220ms var(--ease-quick);
+}
+.linked-stores-row:hover .linked-stores-arrow,
+.linked-stores-row:focus-visible .linked-stores-arrow {
+  color: var(--color-or);
+  transform: translateX(4px);
+}
+.linked-stores-modal-close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.85rem;
+  background: transparent;
+  border: 0;
+  color: var(--color-ivoire-soft);
+  font-size: 1.8rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  transition: color 180ms var(--ease-quick);
+}
+.linked-stores-modal-close:hover {
+  color: var(--color-or);
+}
+
+/* Per-row "Acheter" action — appears beside a store row when that figure has a
+ * product link there. Distinct from the row hover so navigating to the
+ * storefront and buying stay two separate, obvious intents. */
+.linked-stores-buy {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-right: 1.5rem;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid color-mix(in oklab, var(--color-or) 42%, transparent);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+  color: var(--color-or);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background 180ms var(--ease-quick),
+    border-color 180ms var(--ease-quick),
+    color 180ms var(--ease-quick),
+    transform 180ms var(--ease-quick);
+}
+.linked-stores-buy:hover,
+.linked-stores-buy:focus-visible {
+  background: color-mix(in oklab, var(--color-or) 18%, transparent);
+  border-color: var(--color-or);
+  color: var(--color-or-pale);
+  transform: translateY(-1px);
+  outline: none;
+}
+.linked-stores-buy .ja {
+  font-size: 0.95rem;
+  line-height: 1;
+  color: color-mix(in oklab, var(--color-or) 80%, var(--color-or-pale));
+}
+.linked-stores-buy-arrow {
+  font-size: 0.9rem;
+  transition: transform 180ms var(--ease-quick);
+}
+.linked-stores-buy:hover .linked-stores-buy-arrow {
+  transform: translate(2px, -2px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .linked-stores-buy,
+  .linked-stores-buy-arrow {
+    transition: none;
+  }
+  .linked-stores-buy:hover {
+    transform: none;
+  }
+}
+
+/* =============================================================================
+ * FigureForm · admin "Boutiques liées" section
+ * ============================================================================= */
+.figure-stores-editor {
+  border: 1px dashed color-mix(in oklab, var(--color-or) 25%, transparent);
+  padding: 1.1rem 1.25rem 1.25rem;
+  background: oklch(0.15 0.01 60 / 0.25);
+}
+.figure-stores-editor-hint {
+  font-size: 11px;
+  color: var(--color-ivoire-soft);
+  margin: 0.35rem 0 0.9rem;
+  line-height: 1.45;
+  opacity: 0.8;
+}
+.figure-stores-chips {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.figure-stores-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.55rem 0.3rem 0.75rem;
+  background: color-mix(in oklab, var(--color-or) 10%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
+  color: var(--color-or-pale);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+.figure-stores-chip-name {
+  white-space: nowrap;
+}
+.figure-stores-chip-x {
+  background: transparent;
+  border: 0;
+  color: color-mix(in oklab, var(--color-or) 55%, transparent);
+  cursor: pointer;
+  font-size: 1.05rem;
+  line-height: 1;
+  padding: 0 0.15rem;
+  transition: color 180ms var(--ease-quick);
+}
+.figure-stores-chip-x:hover {
+  color: var(--color-laque-bright);
+}
+.figure-stores-empty {
+  font-size: 12px;
+  font-style: italic;
+  color: color-mix(in oklab, var(--color-or) 40%, transparent);
+  margin: 0 0 1rem;
+}
+.figure-stores-add {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.65rem;
+  align-items: end;
+}
+.figure-stores-add-btn {
+  /* Match the input's intrinsic height precisely. The store-ac-input above
+   * is sized by `padding: 0.65rem 0.85rem` + `font-size: 0.95rem` (default
+   * line-height 1.5) + 1px border ≈ 45.6px. Mirror that with a tighter font
+   * but wider vertical padding so the button bottom-aligns with the input
+   * bottom (the `.figure-stores-add` grid has `align-items: end`). */
+  padding: 0.97rem 1rem;
+  line-height: 1.2;
+  background: transparent;
+  border: 1px solid color-mix(in oklab, var(--color-or) 45%, transparent);
+  color: var(--color-or);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 220ms var(--ease-quick);
+  white-space: nowrap;
+}
+.figure-stores-add-btn:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--color-or) 10%, transparent);
+  border-color: var(--color-or);
+}
+.figure-stores-add-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.figure-stores-error {
+  margin-top: 0.75rem;
+  font-size: 12px;
+  color: var(--color-laque-bright);
+  border-left: 2px solid var(--color-laque-bright);
+  padding: 0.25rem 0 0.25rem 0.7rem;
+}
+/* A linked store that carries a buy link reads a touch warmer + shows ↗. */
+.figure-stores-chip.has-link {
+  border-color: color-mix(in oklab, var(--color-or) 55%, transparent);
+}
+.figure-stores-chip-link {
+  color: var(--color-or);
+  text-decoration: none;
+  font-size: 0.95rem;
+  line-height: 1;
+  transition: color 160ms var(--ease-quick);
+}
+.figure-stores-chip-link:hover {
+  color: var(--color-or-pale);
+}
+.figure-stores-chip-edit {
+  background: transparent;
+  border: 0;
+  color: color-mix(in oklab, var(--color-or) 55%, transparent);
+  cursor: pointer;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 0 0.1rem;
+  transition: color 160ms var(--ease-quick);
+}
+.figure-stores-chip-edit:hover {
+  color: var(--color-or);
+}
+/* Inline buy-link editor (set / clear the path+query for one store). */
+.figure-stores-link-editor {
+  margin: 0 0 1rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  background: color-mix(in oklab, var(--color-or) 5%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.figure-stores-link-editor-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+}
+.figure-stores-link-editor-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.figure-stores-link-input {
+  width: 100%;
+  background: var(--color-noir-deep);
+  border: 1px solid color-mix(in oklab, var(--color-or) 28%, transparent);
+  color: var(--color-ivoire);
+  padding: 0.6rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  transition: border-color 180ms var(--ease-quick);
+}
+.figure-stores-link-input:focus {
+  outline: none;
+  border-color: var(--color-or);
+}
+.figure-stores-link-input::placeholder {
+  color: color-mix(in oklab, var(--color-ivoire) 35%, transparent);
+}
+.figure-stores-add-link {
+  margin-top: 0.65rem;
+}
+.figure-stores-link-clear {
+  background: transparent;
+  border: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
+  color: var(--color-ivoire-soft);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 0.55rem 0.85rem;
+  cursor: pointer;
+  transition:
+    border-color 180ms var(--ease-quick),
+    color 180ms var(--ease-quick);
+}
+.figure-stores-link-clear:hover {
+  border-color: color-mix(in oklab, var(--color-laque-bright) 60%, transparent);
+  color: var(--color-laque-bright);
+}
+
+/* =============================================================================
+ * StorePage · admin bulk-edit catalog (checkboxes)
+ * ============================================================================= */
+.store-bulk-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 1.25rem;
+  padding: 0.8rem 1rem;
+  border: 1px dashed color-mix(in oklab, var(--color-or) 25%, transparent);
+  background: oklch(0.15 0.01 60 / 0.3);
+}
+.store-bulk-toolbar-label {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+}
+.store-bulk-search {
+  background: transparent;
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  color: var(--color-ivoire);
+  padding: 0.4rem 0.7rem;
+  font-size: 12px;
+  outline: none;
+  min-width: 220px;
+  transition: border-color 220ms var(--ease-quick);
+}
+.store-bulk-search:focus {
+  border-color: var(--color-or);
+}
+.store-bulk-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.store-bulk-action {
+  background: transparent;
+  border: 1px solid color-mix(in oklab, var(--color-or) 40%, transparent);
+  color: var(--color-or-pale);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.85rem;
+  cursor: pointer;
+  transition: all 220ms var(--ease-quick);
+}
+.store-bulk-action:hover:not(:disabled) {
+  color: var(--color-or);
+  border-color: var(--color-or);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+}
+.store-bulk-action--primary {
+  color: var(--color-noir);
+  background: var(--color-or);
+  border-color: var(--color-or);
+}
+.store-bulk-action--primary:hover:not(:disabled) {
+  color: var(--color-noir);
+  background: var(--color-or-pale);
+  border-color: var(--color-or-pale);
+}
+.store-bulk-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.store-bulk-grid {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.5rem;
+  margin: 0 0 1.5rem;
+  padding: 0;
+}
+.store-bulk-grid li {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
+  background: var(--color-noir-deep);
+  font-size: 12.5px;
+  color: var(--color-ivoire);
+  transition:
+    border-color 180ms var(--ease-quick),
+    background 180ms var(--ease-quick);
+}
+.store-bulk-grid li:hover {
+  border-color: color-mix(in oklab, var(--color-or) 40%, transparent);
+}
+.store-bulk-grid li.is-linked {
+  border-color: color-mix(in oklab, var(--color-or) 55%, transparent);
+  background: color-mix(in oklab, var(--color-or) 6%, transparent);
+}
+.store-bulk-grid input[type="checkbox"] {
+  accent-color: var(--color-or);
+  width: 1rem;
+  height: 1rem;
+}
+.store-bulk-grid label {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  cursor: pointer;
+  width: 100%;
+  min-width: 0;
+}
+.store-bulk-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.store-bulk-row-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.store-bulk-row-meta {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--color-or) 50%, transparent);
+}

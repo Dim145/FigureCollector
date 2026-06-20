@@ -1,0 +1,495 @@
+/* ============================================================================
+ * Notifications — bell + popover + /notifications page
+ *
+ * Bell: a 32px square in the navbar with a tiny laque-bright count chip
+ * top-right. Popover: a 22rem-wide tray that drops below the bell with a
+ * gold border + arrow tab, listing the most recent 8 events as rows
+ * (kanji glyph + title + sub + relative time). The dedicated page reuses
+ * the row styling at a more generous scale.
+ * ============================================================================ */
+
+/* ─── Bell ─── */
+.notif-bell {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  background: transparent;
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  color: var(--color-or-pale);
+  cursor: pointer;
+  transition:
+    color 220ms var(--ease-quick),
+    border-color 220ms var(--ease-quick);
+}
+.notif-bell:hover {
+  color: var(--color-or);
+  border-color: var(--color-or);
+}
+.notif-bell-icon {
+  /* SVG bell — width drives the size, height matches automatically via
+   * the viewBox. 16px reads well at the 32-square button. */
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+.notif-bell-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.25rem;
+  border-radius: 1rem;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  color: var(--color-ivoire);
+  background: var(--color-laque-bright);
+  border: 1px solid var(--color-noir);
+  line-height: 1;
+}
+
+/* ─── Popover ─── */
+.notif-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.85rem);
+  z-index: 40;
+  width: 22rem;
+  max-width: calc(100vw - 1.5rem);
+  padding: 1rem 0 0.5rem;
+  background: var(--color-noir-soft);
+  border: 1px solid color-mix(in oklab, var(--color-or) 50%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-noir-deep) 60%, transparent),
+    0 24px 50px -16px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 oklch(0.92 0.08 80 / 0.18);
+  animation: notif-pop-in 240ms var(--ease-curtain);
+}
+@keyframes notif-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+.notif-popover::before {
+  /* upward arrow tab */
+  content: "";
+  position: absolute;
+  top: -7px;
+  right: 1rem;
+  width: 12px;
+  height: 7px;
+  background: var(--color-noir-soft);
+  clip-path: polygon(50% 0, 0 100%, 100% 100%);
+  box-shadow: 0 -1px 0 color-mix(in oklab, var(--color-or) 50%, transparent);
+}
+.notif-popover-head {
+  padding: 0 1.25rem 0.75rem;
+}
+.notif-popover-eyebrow {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.7;
+  margin-bottom: 0.3rem;
+}
+.notif-popover-title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.4rem;
+  letter-spacing: -0.005em;
+  color: var(--color-ivoire);
+  margin: 0;
+  line-height: 1;
+}
+.notif-popover-tabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 1.25rem 0.75rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
+}
+.notif-popover-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.65rem;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
+}
+.notif-popover-tab em {
+  font-style: normal;
+  font-weight: 700;
+  margin-left: 0.2rem;
+  color: var(--color-or);
+}
+.notif-popover-tab.is-dim {
+  opacity: 0.55;
+}
+.notif-popover-tab.is-dim em {
+  color: color-mix(in oklab, var(--color-ivoire) 40%, transparent);
+}
+.notif-popover-tab-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--color-laque-bright);
+  border-radius: 50%;
+}
+.notif-popover-tab.is-all {
+  background: transparent;
+  border-color: color-mix(in oklab, var(--color-or) 15%, transparent);
+}
+.notif-popover-empty {
+  padding: 2rem 1.25rem;
+  text-align: center;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.9rem;
+  color: var(--color-ivoire-soft);
+  opacity: 0.7;
+}
+.notif-popover-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.25rem 0;
+  max-height: 24rem;
+  overflow-y: auto;
+}
+.notif-popover-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.2rem 1fr auto;
+  align-items: start;
+  gap: 0.85rem;
+  width: 100%;
+  padding: 0.7rem 1.25rem 0.7rem 1.25rem;
+  background: transparent;
+  border: 0;
+  text-align: left;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: background 220ms var(--ease-quick);
+}
+.notif-popover-row:hover {
+  background: color-mix(in oklab, var(--color-or) 6%, transparent);
+}
+.notif-popover-row + .notif-popover-row {
+  border-top: 1px dashed color-mix(in oklab, var(--color-or) 10%, transparent);
+}
+.notif-popover-row-glyph {
+  font-family: var(--font-ja);
+  font-size: 22px;
+  line-height: 1.1;
+  color: var(--color-or);
+  opacity: 0.85;
+  text-align: center;
+}
+.notif-popover-row.is-unread .notif-popover-row-glyph {
+  opacity: 1;
+}
+.notif-popover-row-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.notif-popover-row-title {
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  color: var(--color-ivoire);
+  line-height: 1.25;
+  letter-spacing: 0.005em;
+}
+.notif-popover-row.is-read .notif-popover-row-title {
+  color: var(--color-ivoire-soft);
+  opacity: 0.8;
+}
+.notif-popover-row-sub {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.75;
+}
+.notif-popover-row-time {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--color-or-pale);
+  opacity: 0.55;
+  margin-top: 0.1rem;
+}
+.notif-popover-row-unread {
+  width: 7px;
+  height: 7px;
+  background: var(--color-laque-bright);
+  border-radius: 50%;
+  margin-top: 0.55rem;
+  flex-shrink: 0;
+}
+.notif-popover-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding: 0.75rem 1.25rem 0.5rem;
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
+}
+.notif-popover-foot-btn {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: color 220ms var(--ease-quick);
+}
+.notif-popover-foot-btn:hover {
+  color: var(--color-or);
+}
+.notif-popover-foot-link {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-or);
+  text-decoration: none;
+  transition: color 220ms var(--ease-quick);
+}
+.notif-popover-foot-link:hover {
+  color: var(--color-or-pale);
+}
+
+/* ─── /notifications page ─── */
+.notif-page {
+  position: relative;
+}
+.notif-page-hero {
+  padding: 1rem 0 2rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
+  margin-bottom: 1.5rem;
+}
+.notif-page-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.75;
+  margin-bottom: 0.5rem;
+}
+.notif-page-title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: clamp(2.4rem, 5vw, 3.6rem);
+  letter-spacing: -0.015em;
+  line-height: 0.95;
+  color: var(--color-ivoire);
+  margin: 0 0 0.6rem;
+}
+.notif-page-sub {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.95rem;
+  color: var(--color-ivoire-soft);
+  opacity: 0.75;
+}
+
+.notif-page-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+.notif-page-tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+.notif-page-tab {
+  padding: 0.45rem 0.85rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-ivoire-soft);
+  background: transparent;
+  border: 1px solid color-mix(in oklab, var(--color-or) 20%, transparent);
+  cursor: pointer;
+  transition: all 220ms var(--ease-quick);
+}
+.notif-page-tab em {
+  font-style: normal;
+  margin-left: 0.4rem;
+  color: var(--color-or-pale);
+  font-weight: 600;
+}
+.notif-page-tab:hover {
+  color: var(--color-or-pale);
+  border-color: color-mix(in oklab, var(--color-or) 40%, transparent);
+}
+.notif-page-tab.is-active {
+  color: var(--color-or);
+  border-color: var(--color-or);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+}
+.notif-page-tab.is-active em {
+  color: var(--color-or);
+}
+.notif-page-mark-all {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  background: transparent;
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
+  padding: 0.45rem 0.85rem;
+  cursor: pointer;
+  transition: all 220ms var(--ease-quick);
+}
+.notif-page-mark-all:hover {
+  color: var(--color-or);
+  border-color: var(--color-or);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+}
+
+.notif-page-empty {
+  text-align: center;
+  padding: 4rem 0;
+  color: var(--color-ivoire-soft);
+}
+.notif-page-empty-card {
+  text-align: center;
+  padding: 4rem 1rem;
+  border: 1px dashed color-mix(in oklab, var(--color-or) 25%, transparent);
+}
+.notif-page-empty-kanji {
+  font-family: var(--font-ja);
+  font-size: 5rem;
+  line-height: 1;
+  color: var(--color-or);
+  opacity: 0.35;
+  margin: 0 0 1rem;
+}
+.notif-page-empty-line {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.1rem;
+  color: var(--color-ivoire-soft);
+}
+
+.notif-page-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.notif-page-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 3rem 1fr auto;
+  align-items: start;
+  gap: 1.25rem;
+  padding: 1.25rem 0;
+  border-bottom: 1px dashed color-mix(in oklab, var(--color-or) 15%, transparent);
+}
+.notif-page-row.is-unread {
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--color-or) 6%, transparent) 0%,
+    transparent 20%
+  );
+}
+.notif-page-row-glyph {
+  font-family: var(--font-ja);
+  font-size: 30px;
+  line-height: 1;
+  color: var(--color-or);
+  opacity: 0.85;
+  text-align: center;
+  align-self: center;
+}
+.notif-page-row.is-read .notif-page-row-glyph {
+  opacity: 0.55;
+}
+.notif-page-row-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.notif-page-row-title {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  letter-spacing: 0.005em;
+  color: var(--color-ivoire);
+  line-height: 1.3;
+  text-decoration: none;
+}
+a.notif-page-row-title:hover {
+  color: var(--color-or-pale);
+}
+.notif-page-row.is-read .notif-page-row-title {
+  color: var(--color-ivoire-soft);
+}
+.notif-page-row-sub {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.85;
+}
+.notif-page-row-time {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--color-or-pale);
+  opacity: 0.5;
+}
+.notif-page-row-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-self: center;
+}
+.notif-page-row-action {
+  width: 1.8rem;
+  height: 1.8rem;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--color-or-pale);
+  background: transparent;
+  border: 1px solid color-mix(in oklab, var(--color-or) 20%, transparent);
+  cursor: pointer;
+  transition: all 220ms var(--ease-quick);
+}
+.notif-page-row-action:hover {
+  color: var(--color-or);
+  border-color: var(--color-or);
+}
+.notif-page-row-action.is-danger:hover {
+  color: var(--color-laque-bright);
+  border-color: var(--color-laque-bright);
+}

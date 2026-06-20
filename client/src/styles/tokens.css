@@ -1,0 +1,170 @@
+/* ============================================================================
+ * FigureCollector — Direction A "Shōjo-Noir" (aligned with MangaCollector)
+ *
+ *   Noir chaud encre + rouge hanko (accent vif unique) + or antique (valeur) + ivoire
+ *   Fraunces (display) · Instrument Sans (body) · Noto Serif JP (kanji accents)
+ *
+ * The vocabulary is gallery-exhibition, not pure auction-catalogue.
+ *  - Dramatic ambient lighting (radial halos, light leaks on hover).
+ *  - Editorial typography (display weights 200–400, italic accents).
+ *  - Ornate gold dividers with center ornaments.
+ *  - Museum labels for figurine metadata.
+ *  - Kanji watermarks as decorative atmosphere.
+ *  - Stagger-reveal page loads.
+ *
+ * Dark-first; no light theme. Motion respects prefers-reduced-motion.
+ * ============================================================================ */
+
+@theme {
+  /* Type families — Direction A "Shōjo-Noir" (aligned with MangaCollector).
+   * Display is Fraunces: a high-contrast variable serif with optical sizing
+   * (opsz) — confident at hero sizes, gorgeous in italic (the red-accent word).
+   * Body is Instrument Sans, a clean humanist grotesque; Hanken Grotesk stays
+   * in the fallback stack. */
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-sans:
+    "Instrument Sans", "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-ja: "Noto Serif JP", "Yu Mincho", "MS PMincho", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
+
+  /* ── Core palette (dark default). These are OVERRIDDEN per-theme below by
+   *    `[data-theme="light"]`; everything that reads `var(--color-*)` flips
+   *    automatically. OKLCH for predictable hue rotations & alpha mixing. */
+  --color-noir: oklch(0.14 0.005 50); /* body bg */
+  --color-noir-soft: oklch(0.19 0.008 50); /* cards */
+  --color-noir-deep: oklch(0.1 0.004 50); /* wells, hero bg */
+  --color-laque: oklch(0.42 0.16 25); /* accent red */
+  --color-laque-bright: oklch(0.62 0.19 25); /* hover / error / loss text — AA on noir (5.0:1) */
+  --color-or: oklch(0.78 0.1 80); /* gold lines */
+  --color-or-pale: oklch(0.88 0.06 80); /* gold text */
+  --color-or-deep: oklch(0.6 0.1 80); /* gold shadow */
+  --color-ember: oklch(0.66 0.14 52); /* warm amber — aurora + washes */
+  --color-ivoire: oklch(0.92 0.03 75); /* primary text */
+  --color-ivoire-soft: oklch(0.92 0.03 75 / 0.8); /* secondary text */
+
+  /* ── Expanded accents (the "plus de couleurs"). Jade + indigo join the
+   *    gold/laque pair; the néon trio is for electric energy (active
+   *    states, glows, focus, progress). Tuned to read on both themes. */
+  --color-jade: oklch(0.72 0.13 175); /* céladon / teal */
+  --color-jade-deep: oklch(0.55 0.12 175);
+  --color-indigo: oklch(0.6 0.15 275); /* nuit / periwinkle — AA on noir (4.85:1) */
+  --color-indigo-bright: oklch(0.66 0.17 272);
+  --color-neon-cyan: oklch(0.82 0.16 195);
+  --color-neon-magenta: oklch(0.72 0.25 350);
+  --color-neon-amber: oklch(0.83 0.17 78);
+
+  /* Motion tokens — easings biased towards quietly-confident */
+  --ease-curtain: cubic-bezier(0.22, 1, 0.36, 1); /* expo-out, theatrical */
+  --ease-quick: cubic-bezier(0.4, 0, 0.2, 1); /* material */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* overshoot, playful */
+}
+
+/* ============================================================================
+ * DESIGN-SYSTEM FOUNDATION — semantic tokens & scales  (redesign 2026)
+ *
+ * Layered on top of the Direction-A palette above WITHOUT renaming anything.
+ * Kept in a plain :root (NOT @theme) so Tailwind's usage scanner never
+ * tree-shakes them — same rationale as the per-type hues. The colour aliases
+ * point AT the core palette, so they flip automatically with [data-theme];
+ * only the few whose light value can't be derived from the palette flip are
+ * re-declared in the light block below.
+ *
+ * Rule going forward: the new ui/ primitives reference THESE semantic tokens
+ * (--surface, --border, --danger, --radius-*, --elevation-*, …), never the
+ * raw --color-laque / --color-or palette. Consume via var() — inline style,
+ * color-mix(), or Tailwind arbitrary values `[var(--token)]`.
+ * ============================================================================ */
+:root {
+  /* ── Surfaces */
+  --surface: var(--color-noir-soft); /* default card / panel       */
+  --surface-raised: var(--color-noir); /* page canvas behind cards   */
+  --surface-sunken: var(--color-noir-deep); /* inputs, wells, hero recess */
+  --surface-overlay: oklch(0.1 0.004 50 / 0.72); /* modal / drawer scrim       */
+
+  /* ── Text on surfaces */
+  --on-surface: var(--color-ivoire);
+  --on-surface-muted: var(--color-ivoire-soft);
+  --on-surface-subtle: color-mix(in oklab, var(--color-ivoire) 58%, transparent);
+
+  /* ── Hairlines / borders (replaces hundreds of open-coded gold color-mixes) */
+  --border: color-mix(in oklab, var(--color-or) 22%, transparent);
+  --border-strong: color-mix(in oklab, var(--color-or) 42%, transparent);
+  --border-subtle: color-mix(in oklab, var(--color-or) 12%, transparent);
+
+  /* ── Interactive / brand */
+  --primary: var(--color-laque);
+  --primary-hover: var(--color-laque-bright);
+  --accent: var(--color-or); /* value / gold               */
+  --ring: var(--color-or);
+
+  /* ── Status (dark values verified on noir; light re-mapped below) */
+  --danger: var(--color-laque-bright);
+  --success: var(--color-jade);
+  --warning: var(--color-neon-amber);
+  --info: var(--color-indigo-bright);
+  --danger-surface: color-mix(in oklab, var(--color-laque) 14%, transparent);
+  --success-surface: color-mix(in oklab, var(--color-jade) 14%, transparent);
+  --warning-surface: color-mix(in oklab, var(--color-neon-amber) 14%, transparent);
+  --info-surface: color-mix(in oklab, var(--color-indigo) 14%, transparent);
+
+  /* ── Spacing — semantic rhythm (component-internal padding stays Tailwind) */
+  --space-page-x: clamp(1rem, 4vw, 2rem);
+  --space-section: clamp(2.5rem, 6vw, 4.5rem);
+  --space-stack: 1rem;
+  --space-inline: 0.75rem;
+
+  /* ── Radius — the identity is mostly sharp; pills for buttons/chips/avatars */
+  --radius-none: 0px;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-xl: 14px;
+  --radius-pill: 9999px;
+
+  /* ── Elevation — one shadow ramp (softened on light below) */
+  --elevation-1: inset 0 1px 0 var(--border-subtle);
+  --elevation-2:
+    0 12px 32px -20px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 color-mix(in oklab, var(--color-ivoire) 5%, transparent);
+  --elevation-3:
+    0 25px 60px -34px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 color-mix(in oklab, var(--color-ivoire) 6%, transparent);
+  --elevation-4: 0 40px 80px -32px rgba(0, 0, 0, 0.85);
+  --glow-accent: 0 0 36px -8px color-mix(in oklab, var(--color-or) 30%, transparent);
+
+  /* ── Z-index scale (ends the magic-number war) */
+  --z-base: 0;
+  --z-raised: 1;
+  --z-sticky: 30;
+  --z-header: 40;
+  --z-drawer: 50;
+  --z-overlay: 60;
+  --z-modal: 70;
+  --z-popover: 80;
+  --z-toast: 90;
+  --z-max: 100;
+
+  /* ── Motion durations (pair with the existing --ease-* easings) */
+  --dur-instant: 80ms;
+  --dur-fast: 160ms;
+  --dur-base: 240ms;
+  --dur-slow: 420ms;
+  --dur-curtain: 560ms;
+
+  /* ── Focus ring */
+  --ring-width: 2px;
+  --ring-offset: 2px;
+}
+
+[data-theme="light"] {
+  /* Scrim, shadows and status colours that can't simply inherit the palette
+     flip — re-mapped for porcelain (AA-legible on near-white surfaces). */
+  --surface-overlay: oklch(0.26 0.02 55 / 0.4);
+  --danger: var(--color-laque);
+  --success: oklch(0.48 0.13 165);
+  --warning: oklch(0.52 0.14 62);
+  --info: oklch(0.48 0.16 275);
+  --elevation-2: 0 10px 26px -20px rgba(40, 28, 12, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  --elevation-3: 0 20px 46px -30px rgba(40, 28, 12, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  --elevation-4: 0 30px 64px -30px rgba(40, 28, 12, 0.34);
+}

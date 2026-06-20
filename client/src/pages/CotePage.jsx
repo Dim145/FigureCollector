@@ -1,44 +1,41 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useOwnedItems, useSetOwnedValue } from "../hooks/useCollection.js";
 import { useMyPriceHistory, useMyStats } from "../hooks/useStats.js";
-import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
-import Money from "../components/Money.jsx";
+import { PageLayout } from "../components/layout/index.js";
 import { useDisplayCurrency } from "../components/DisplayCurrencyProvider.jsx";
-import { SectionSkeleton } from "../components/Skeleton.jsx";
-import Reveal from "../components/motion/Reveal.jsx";
-import {
-  PriceLedger,
-  StepChart,
-  StepSparkline,
-  seriesDelta,
-  toSeries,
-} from "../components/PriceHistory.jsx";
-import { typeHue, typeKanji } from "../lib/typeHue.js";
-import { fmtMoney, effectiveValue, figurePaid } from "../lib/money.js";
+import PriceHistoryDialog, { toSeries } from "../components/PriceHistory.jsx";
+import { effectiveValue, figurePaid } from "../lib/money.js";
+import CoteHeader from "./cote/CoteHeader.jsx";
+import CoteEvolution from "./cote/CoteEvolution.jsx";
+import CoteRanking from "./cote/CoteRanking.jsx";
+import { CoteEmpty, CoteLoading, coteRow } from "./cote/coteShared.jsx";
 
 // Range chips for the evolution chart (days of look-back; "all" = full history).
-const RANGES = ["3m", "6m", "1y", "all"];
 const RANGE_DAYS = { "3m": 91, "6m": 183, "1y": 365 };
 
-/** `/cote#figure-<uuid>` (the figure-page dialog's deep link) → figure id. */
+/** `/insights/cote#figure-<uuid>` (the figure-page dialog's deep link). */
 function hashFigureId() {
   const m = window.location.hash.match(/^#figure-([0-9a-f-]{36})$/i);
   return m ? m[1] : null;
 }
 
 /**
- * « La Cote » — collection-value dashboard.
+ * « La Cote » — collection-value dashboard (thin orchestrator).
  *
- * Hero: estimated total value (per dominant currency) + paid + latent
- * plus-value. Below: every owned piece ranked by value, each with an inline
- * editor for the manual valuation (the "cote"), falling back to the catalog
- * MSRP when none is set. Amounts convert to the user's display currency at
- * today's rate (DisplayCurrencyProvider); the per-currency originals stay
- * available as the hero footnote and on hover.
+ * Owns the data hooks + the display-currency math, then composes the
+ * page-local sections on the shared editorial foundation:
+ *   CoteHeader     — the headline StatCard strip (total value · plus-value ·
+ *                    pièces cotées · coût d'acquisition) + the FX footnote.
+ *   CoteEvolution  — the reconstructed collection-value curve (dominant cur).
+ *   CoteRanking    — every priced piece, sortable table → mobile cards, each
+ *                    with the inline cote editor + a relevés trend.
+ *
+ * Amounts convert to the user's display currency at today's rate
+ * (DisplayCurrencyProvider); the per-currency originals stay the footnote.
  */
 export default function CotePage() {
   const t = useT();
@@ -63,7 +60,7 @@ export default function CotePage() {
   );
   const primary = valueBuckets[0] ?? null;
   const primaryPaid = primary
-    ? spendBuckets.find((s) => s.currency === primary.currency) ?? null
+    ? (spendBuckets.find((s) => s.currency === primary.currency) ?? null)
     : null;
   // Plus-value compares value against the figure PRICE only (bucket `total`),
   // not `grand_total` (price + shipping) — shipping is a sunk cost the resale
@@ -86,9 +83,6 @@ export default function CotePage() {
   const dc = useDisplayCurrency();
   const fxActive = dc.active && dc.ready;
   const serverEur = stats.data?.eur ?? null;
-  // Done in a memo so the per-bucket reduce + EUR math stay OUT of render scope:
-  // there they sat beside `primary = valueBuckets[0]` (the `evo` memo's dep) and
-  // the React Compiler refused to preserve evo's memoization.
   const { convValue, convPaid } = useMemo(() => {
     if (!fxActive) return { convValue: null, convPaid: null };
     const eurRate = (cur) => {
@@ -117,25 +111,15 @@ export default function CotePage() {
       convPaid: sum(spendBuckets, "total"),
     };
   }, [fxActive, serverEur, dc.rates, dc.display, valueBuckets, spendBuckets]);
-  const convPlus =
-    convValue != null && convPaid != null ? convValue - convPaid : null;
-  const convPlusPct =
-    convPlus != null && convPaid > 0 ? (convPlus / convPaid) * 100 : null;
+  const convPlus = convValue != null && convPaid != null ? convValue - convPaid : null;
+  const convPlusPct = convPlus != null && convPaid > 0 ? (convPlus / convPaid) * 100 : null;
 
-  // What the hero/KPIs show — converted total (conversion on) or the dominant
+  // What the headline shows — converted total (conversion on) or the dominant
   // per-currency bucket (off / no preferred currency).
   const showFx = fxActive && valueBuckets.length > 0;
   const dispCur = showFx ? dc.display : primary?.currency;
-  const dispValue = showFx
-    ? convValue
-    : primary
-      ? Number(primary.estimated_total)
-      : null;
-  const dispPaid = showFx
-    ? convPaid
-    : primaryPaid
-      ? Number(primaryPaid.total)
-      : null;
+  const dispValue = showFx ? convValue : primary ? Number(primary.estimated_total) : null;
+  const dispPaid = showFx ? convPaid : primaryPaid ? Number(primaryPaid.total) : null;
   const dispPlus = showFx ? convPlus : plusValue;
   const dispPlusPct = showFx ? convPlusPct : plusPct;
 
@@ -144,11 +128,12 @@ export default function CotePage() {
   const msrpCount = valueBuckets.reduce((a, b) => a + b.pieces_msrp, 0);
   const totalCount = owned.data?.length ?? stats.data?.total_pieces ?? 0;
 
-  // Every owned piece with a resolvable value, ranked high → low. Doubles as
-  // the bulk-valuation surface (each row is inline-editable).
+  // Every owned piece with a resolvable value, shaped for the ranking
+  // (value + price + same-currency plus-value). Initial order is value desc;
+  // the table re-sorts in place.
   const ranked = useMemo(() => {
     return (owned.data ?? [])
-      .map((o) => ({ o, ev: effectiveValue(o), paid: figurePaid(o) }))
+      .map((o) => coteRow(o, effectiveValue(o), figurePaid(o)))
       .filter((r) => r.ev)
       .sort((a, b) => b.ev.amount - a.ev.amount);
   }, [owned.data]);
@@ -159,11 +144,11 @@ export default function CotePage() {
   // ----- Market-price history (the price cron's relevés) --------------------
   const history = useMyPriceHistory();
   const [range, setRange] = useState("all");
-  // Expanded registre, keyed by FIGURE id — seeded from the deep-link hash so
-  // arriving from the figure-page dialog lands with the row already open.
-  const [openHist, setOpenHist] = useState(() => hashFigureId());
+  // The relevés dialog, keyed by FIGURE id — seeded from the deep-link hash so
+  // arriving from the figure-page dialog opens straight onto that piece.
+  const [histFigureId, setHistFigureId] = useState(() => hashFigureId());
 
-  // figure_id → sorted chart points; feeds sparklines, registres and the curve.
+  // figure_id → sorted chart points; feeds sparklines, the dialog and the curve.
   const historyByFigure = useMemo(() => {
     const byFig = new Map();
     for (const row of history.data ?? []) {
@@ -176,11 +161,11 @@ export default function CotePage() {
     return out;
   }, [history.data]);
 
-  // Collection evolution — "what the hero figure would have read at date T",
+  // Collection evolution — "what the headline figure would have read at date T",
   // reconstructed per the cote chain (manual > auto > MSRP): manual values and
   // MSRP aren't historized so they contribute constants; provider prices
   // contribute their step series (MSRP fallback before a piece's 1st relevé).
-  // Dominant currency only, mirroring the hero.
+  // Dominant currency only, mirroring the headline.
   const evo = useMemo(() => {
     const cur = primary?.currency;
     const items = owned.data ?? [];
@@ -194,8 +179,7 @@ export default function CotePage() {
         continue;
       }
       const series = (historyByFigure.get(o.figure_id) ?? []).filter((p) => eq(p.currency));
-      const msrp =
-        o.msrp_amount != null && eq(o.msrp_currency) ? Number(o.msrp_amount) : null;
+      const msrp = o.msrp_amount != null && eq(o.msrp_currency) ? Number(o.msrp_amount) : null;
       if (series.length) stepped.push({ series, msrp });
       else if (msrp != null) constant += msrp;
     }
@@ -229,10 +213,9 @@ export default function CotePage() {
     };
     return ts.map((T) => ({ t: T, v: valAt(T), currency: cur }));
   }, [owned.data, historyByFigure, primary?.currency, range]);
-  const evoDelta = seriesDelta(evo);
 
   // Deep link from the figure-page dialog: once the rows exist in the DOM,
-  // bring the (already-expanded) hash-targeted row into view.
+  // bring the hash-targeted card into view (the dialog opens via initial state).
   useEffect(() => {
     const fid = hashFigureId();
     if (!fid || !owned.data?.length) return;
@@ -263,472 +246,94 @@ export default function CotePage() {
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
 
   const loading = owned.isLoading || stats.isLoading;
+  const histRow = histFigureId
+    ? (owned.data ?? []).find((o) => o.figure_id === histFigureId)
+    : null;
+  const histPoints = histFigureId ? (historyByFigure.get(histFigureId) ?? []) : [];
 
   return (
     <AppShell>
-      <main className="relative max-w-6xl mx-auto px-6 py-16">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 left-0 right-0 h-[380px] -z-0"
-          style={{
-            background:
-              "radial-gradient(46% 62% at 18% 0%, color-mix(in oklab, var(--color-or) 20%, transparent), transparent 70%), radial-gradient(44% 58% at 86% 6%, color-mix(in oklab, var(--color-jade) 14%, transparent), transparent 72%)",
-            WebkitMaskImage:
-              "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
-            maskImage:
-              "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
-          }}
-        />
-
-        <Reveal as="header" className="relative mb-10">
-          <span aria-hidden className="kanji-mark text-[24rem] -top-28 -right-6 hidden md:block">
-            価
-          </span>
-          <p className="micro">{t("cote.eyebrow")}</p>
-          <h1 className="display text-4xl md:text-5xl text-[var(--color-ivoire)] mt-2">
-            <AccentTitle text={t("cote.title")} />
-          </h1>
-          <div className="gold-rule w-16 mt-4" />
-          <p className="mt-5 text-[var(--color-ivoire-soft)] leading-relaxed max-w-2xl">
-            {t("cote.body")}
-          </p>
-        </Reveal>
+      <PageLayout
+        kicker={t("cote.kicker", { default: "ANALYSES · 価 · LA COTE" })}
+        title={t("cote.title", { default: "La Cote" })}
+        kanji="価"
+        width="standard"
+      >
+        <p className="-mt-3 mb-8 max-w-2xl text-[var(--on-surface-muted)] leading-relaxed">
+          {t("cote.body", {
+            default:
+              "Ce que vaut la vitrine, pièce par pièce. La plus-value se lit d'un coup d'œil.",
+          })}
+        </p>
 
         {loading ? (
-          <SectionSkeleton />
+          <CoteLoading t={t} />
         ) : totalCount === 0 ? (
-          <EmptyState t={t} />
+          <CoteEmpty t={t} />
         ) : (
-          <>
-            {/* ─── Value hero + KPI ─── */}
-            <Reveal as="section" delay={0.05} className="grid md:grid-cols-[1.2fr_1fr] gap-8 md:gap-12 items-end mb-12">
-              <div className="@container min-w-0">
-                <span className="micro-tight block mb-2">{t("cote.estimated_total")}</span>
-                <span className="flex items-baseline gap-2 min-w-0">
-                  {/* Rounded to whole units in the hero: keeps the giant figure
-                      free of a comma whose descender bled into the panel below.
-                      Exact amounts (cents) stay in the KPIs and the rows. */}
-                  {showFx ? (
-                    // Converted: ≈ stays on the same line as the amount (a
-                    // subordinate, smaller glyph). `figural-massive` lives on the
-                    // *number* — its gold gradient is clipped to text, so putting
-                    // it on the wrapper would stretch the gradient across "≈ 536 €"
-                    // and leave the € on the dark end. Sized in `cqi` against the
-                    // hero column so it scales to fit and never spills right.
-                    <span className="inline-flex items-baseline whitespace-nowrap max-w-full leading-[0.9] pb-[0.06em]">
-                      <span className="figural text-[clamp(1.5rem,6cqi,3.5rem)] text-[var(--color-or-pale)] mr-3">≈</span>
-                      <span className="figural-massive text-[clamp(2.25rem,15cqi,6rem)]">
-                        {fmtMoney(Math.round(dispValue), dispCur, locale)}
-                      </span>
-                    </span>
-                  ) : (
-                    <span className="figural-massive text-[clamp(4rem,11vw,8rem)] leading-[0.9] pb-[0.06em] inline-block">
-                      {dispValue != null
-                        ? fmtMoney(Math.round(dispValue), dispCur, locale)
-                        : "—"}
-                    </span>
-                  )}
-                </span>
-                {showFx ? (
-                  <p className="mt-3 text-[12px] text-[var(--color-ivoire-soft)]">
-                    <span className="uppercase tracking-[0.18em] text-[10px] text-[var(--color-or-pale)]">
-                      {t("fx.approx")}
-                    </span>
-                    {dc.date ? <span className="font-mono"> · {dc.date}</span> : null}
-                    {serverEur?.partial ? (
-                      <span className="text-[var(--color-laque-bright)]">
-                        {" "}
-                        · {t("fx.partial")}
-                      </span>
-                    ) : null}
-                    {valueBuckets.length ? (
-                      <span className="block font-mono mt-1">
-                        {valueBuckets
-                          .map((b) => fmtMoney(b.estimated_total, b.currency, locale))
-                          .join(" · ")}
-                      </span>
-                    ) : null}
-                  </p>
-                ) : valueBuckets.length > 1 ? (
-                  <p className="mt-3 text-[12px] text-[var(--color-ivoire-soft)] font-mono">
-                    {valueBuckets.slice(1).map((b) => fmtMoney(b.estimated_total, b.currency, locale)).join(" · ")}
-                  </p>
-                ) : null}
-              </div>
+          <div className="space-y-[var(--space-section)]">
+            <CoteHeader
+              t={t}
+              locale={locale}
+              dispCur={dispCur}
+              dispValue={dispValue}
+              dispPaid={dispPaid}
+              dispPlus={dispPlus}
+              dispPlusPct={dispPlusPct}
+              showFx={showFx}
+              valuedCount={valuedCount}
+              autoCount={autoCount}
+              msrpCount={msrpCount}
+              totalCount={totalCount}
+              fx={{ date: dc.date, partial: serverEur?.partial }}
+              valueBuckets={valueBuckets}
+            />
 
-              <div className="grid gap-px bg-[color-mix(in_oklab,var(--color-or)_14%,transparent)] border border-[color-mix(in_oklab,var(--color-or)_14%,transparent)]">
-                <Kpi label={t("cote.total_paid")}>
-                  <span className="figural text-3xl">
-                    {dispPaid != null ? (
-                      <Money
-                        amount={dispPaid}
-                        currency={dispCur}
-                        approx={showFx ? true : undefined}
-                        round={showFx}
-                      />
-                    ) : (
-                      "—"
-                    )}
-                  </span>
-                </Kpi>
-                <Kpi label={t("cote.plus_value")}>
-                  {dispPlus != null && dispCur ? (
-                    <span className={`figural text-3xl ${dispPlus >= 0 ? "text-[var(--color-jade)]" : "text-[var(--color-laque-bright)]"}`}>
-                      {dispPlus >= 0 ? "+" : "−"}
-                      <Money
-                        amount={Math.abs(dispPlus)}
-                        currency={dispCur}
-                        approx={showFx ? true : undefined}
-                        round={showFx}
-                      />
-                      {dispPlusPct != null ? (
-                        <span className={`chip ml-2 align-middle ${dispPlus >= 0 ? "chip--jade" : "chip--laque"}`}>
-                          {dispPlus >= 0 ? "+" : ""}{dispPlusPct.toFixed(1)} %
-                        </span>
-                      ) : null}
-                    </span>
-                  ) : (
-                    <span className="text-[var(--color-ivoire-soft)] text-sm">{t("cote.no_paid")}</span>
-                  )}
-                </Kpi>
-                <Kpi label={t("cote.pieces_valued")}>
-                  <span className="figural text-3xl">{valuedCount}</span>
-                  <span className="text-[var(--color-ivoire-soft)] text-base"> / {totalCount}</span>
-                  {autoCount > 0 || msrpCount > 0 ? (
-                    <span className="block mt-2 text-[11px] text-[var(--color-ivoire-soft)]">
-                      {autoCount > 0 ? t("cote.auto_count", { n: autoCount }) : null}
-                      {autoCount > 0 && msrpCount > 0 ? " · " : null}
-                      {msrpCount > 0 ? t("cote.msrp_count", { n: msrpCount }) : null}
-                    </span>
-                  ) : null}
-                </Kpi>
-              </div>
-            </Reveal>
+            <CoteEvolution
+              t={t}
+              locale={locale}
+              evo={evo}
+              range={range}
+              onRange={setRange}
+              currency={primary?.currency}
+            />
 
-            {/* ─── Market evolution (price-cron relevés) ─── */}
-            {evo ? (
-              <Reveal as="section" delay={0.08} className="mb-12" aria-label={t("cote.evo.title")}>
-                <header className="mb-4">
-                  <p className="micro flex items-center gap-2.5">
-                    <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
-                    {t("cote.evo.kicker")}
-                    <span aria-hidden className="ja not-italic text-[var(--color-or)]">推</span>
-                    {t("cote.evo.kicker_label")}
-                  </p>
-                  <h2 className="display text-2xl md:text-3xl text-[var(--color-ivoire)] mt-2">
-                    <AccentTitle text={t("cote.evo.title")} />
-                  </h2>
-                  <div className="gold-rule w-16 mt-3" />
-                </header>
-
-                <div className="flex items-center gap-1.5 flex-wrap mb-3">
-                  {RANGES.map((r) => {
-                    const on = range === r;
-                    return (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => setRange(r)}
-                        aria-pressed={on}
-                        className="tap-target text-[10px] uppercase tracking-[0.18em] px-3 py-1.5 border transition-colors"
-                        style={
-                          on
-                            ? {
-                                color: "var(--color-or)",
-                                borderColor: "color-mix(in oklab, var(--color-or) 60%, transparent)",
-                                background: "color-mix(in oklab, var(--color-or) 10%, transparent)",
-                              }
-                            : {
-                                color: "var(--color-ivoire-soft)",
-                                borderColor: "color-mix(in oklab, var(--color-or) 22%, transparent)",
-                              }
-                        }
-                      >
-                        {t(`cote.evo.range.${r}`)}
-                      </button>
-                    );
-                  })}
-                  <span className="flex-1" />
-                  {evoDelta ? (
-                    <span className="font-mono text-sm text-[var(--color-ivoire)]">
-                      {fmtMoney(evo[evo.length - 1].v, primary.currency, locale)}{" "}
-                      <span
-                        className="text-[12px]"
-                        style={{
-                          color:
-                            evoDelta.abs >= 0 ? "var(--color-jade)" : "var(--color-laque-bright)",
-                        }}
-                      >
-                        {evoDelta.abs >= 0 ? "▲ +" : "▼ −"}
-                        {fmtMoney(Math.abs(evoDelta.abs), primary.currency, locale)} ·{" "}
-                        {evoDelta.abs >= 0 ? "+" : "−"}
-                        {Math.abs(evoDelta.pct).toFixed(1)} %
-                      </span>
-                    </span>
-                  ) : null}
-                </div>
-
-                <StepChart
-                  points={evo}
-                  currency={primary.currency}
-                  locale={locale}
-                  height={210}
-                  t={t}
-                />
-                <p className="mt-2 font-mono text-[9.5px] text-[var(--color-ivoire-soft)]/70">
-                  {t("cote.evo.legend", { cur: primary.currency })}
-                </p>
-              </Reveal>
+            {ranked.length > 0 ? (
+              <CoteRanking
+                rows={ranked}
+                historyByFigure={historyByFigure}
+                editId={editId}
+                draft={draft}
+                onDraft={setDraft}
+                onStartEdit={startEdit}
+                onSave={saveEdit}
+                onCancel={() => setEditId(null)}
+                onResetMsrp={resetMsrp}
+                saving={setValue.isPending}
+                onOpenHistory={(o) => setHistFigureId(o.figure_id)}
+              />
             ) : null}
 
-            {/* ─── Ranked pieces (inline-editable) ─── */}
-            <Reveal as="section" delay={0.1} className="bg-[color-mix(in_oklab,var(--color-noir-soft)_80%,transparent)] border border-[color-mix(in_oklab,var(--color-or)_16%,transparent)]">
-              <div className="px-5 py-4 border-b border-[color-mix(in_oklab,var(--color-or)_14%,transparent)]">
-                <div className="flex items-baseline justify-between">
-                  <span className="micro-tight">{t("cote.ranked_title")}</span>
-                  <span className="micro-tight text-[var(--color-ivoire-soft)]">{t("cote.ranked_cols")}</span>
-                </div>
-                <p className="mt-1.5 text-[11px] text-[var(--color-ivoire-soft)] flex items-center gap-1.5">
-                  <span aria-hidden className="text-[var(--color-or-pale)]">✎</span>
-                  {t("cote.edit_hint")}
-                </p>
-              </div>
-              <ul>
-                {ranked.map(({ o, ev, paid }) => {
-                  const hue = typeHue(o.figure_type);
-                  const delta =
-                    ev && paid && ev.currency === paid.currency ? ev.amount - paid.amount : null;
-                  const editing = editId === o.id;
-                  const series = historyByFigure.get(o.figure_id) ?? [];
-                  const sdelta = seriesDelta(series);
-                  const expanded = openHist === o.figure_id && series.length >= 2;
-                  return (
-                    <li
-                      key={o.id}
-                      id={`figure-${o.figure_id}`}
-                      className={`border-b border-[color-mix(in_oklab,var(--color-or)_8%,transparent)] last:border-0 ${editing ? "bg-[color-mix(in_oklab,var(--color-or)_5%,transparent)]" : ""}`}
-                    >
-                    <div className="grid grid-cols-[48px_1fr_auto] md:grid-cols-[48px_1fr_auto_auto] gap-4 items-center px-5 py-3">
-                      <div
-                        className="relative w-12 h-[60px] overflow-hidden border"
-                        style={{ borderColor: `color-mix(in oklab, ${hue} 30%, transparent)` }}
-                      >
-                        <span
-                          aria-hidden
-                          className="absolute top-0 left-0 right-0 h-[2px]"
-                          style={{ background: `linear-gradient(90deg, transparent, ${hue} 30%, ${hue} 70%, transparent)` }}
-                        />
-                        <span
-                          aria-hidden
-                          className="ja absolute inset-0 grid place-items-center text-2xl"
-                          style={{ color: `color-mix(in oklab, ${hue} 55%, transparent)` }}
-                        >
-                          {typeKanji(o.figure_type)}
-                        </span>
-                      </div>
-
-                      <div className="min-w-0">
-                        <Link
-                          to={`/figures/${o.figure_id}`}
-                          className="display text-lg text-[var(--color-ivoire)] hover:text-[var(--color-or-pale)] transition-colors line-clamp-1"
-                        >
-                          {o.figure_name}
-                        </Link>
-                        <div className="mt-1 flex items-center gap-2 text-[11px] text-[var(--color-ivoire-soft)]">
-                          <span className="chip">{t(`type.${o.figure_type}`)}</span>
-                          {o.manufacturer_name ? <span className="font-mono truncate">{o.manufacturer_name}</span> : null}
-                        </div>
-                      </div>
-
-                      {/* market trend — the sparkline toggles the registre */}
-                      {series.length >= 2 ? (
-                        <button
-                          type="button"
-                          onClick={() => setOpenHist(expanded ? null : o.figure_id)}
-                          aria-expanded={expanded}
-                          title={t("cote.history.evolution")}
-                          className="hidden md:flex flex-col items-end gap-0.5"
-                        >
-                          <StepSparkline points={series} />
-                          {sdelta ? (
-                            <span
-                              className="font-mono text-[9.5px]"
-                              style={{
-                                color:
-                                  sdelta.abs >= 0
-                                    ? "var(--color-jade)"
-                                    : "var(--color-laque-bright)",
-                              }}
-                            >
-                              {sdelta.abs >= 0 ? "▲ +" : "▼ −"}
-                              {Math.abs(sdelta.pct).toFixed(1)} %
-                            </span>
-                          ) : null}
-                        </button>
-                      ) : (
-                        <span aria-hidden className="hidden md:block w-[96px]" />
-                      )}
-
-                      {/* money / editor */}
-                      {editing ? (
-                        <div className="flex flex-col items-end gap-1.5">
-                          <span className="inline-flex items-center border border-[var(--color-or)] bg-[var(--color-noir)]">
-                            <span className="px-2 text-[var(--color-or-deep)] font-mono text-xs">
-                              {o.value_currency || o.price_currency || prefCurrency}
-                            </span>
-                            <input
-                              autoFocus
-                              inputMode="decimal"
-                              value={draft}
-                              onChange={(e) => setDraft(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") saveEdit(o);
-                                if (e.key === "Escape") setEditId(null);
-                              }}
-                              placeholder={o.msrp_amount != null ? String(o.msrp_amount) : "—"}
-                              className="w-24 bg-transparent text-right text-[var(--color-ivoire)] font-mono text-sm py-1.5 pr-2 outline-none"
-                            />
-                          </span>
-                          <div className="flex gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => saveEdit(o)}
-                              disabled={setValue.isPending}
-                              className="text-[10px] uppercase tracking-[0.12em] px-2.5 py-1 bg-[var(--color-laque)] text-[var(--color-ivoire)] hover:bg-[var(--color-laque-bright)] transition-colors"
-                            >
-                              {t("editor.save")}
-                            </button>
-                            {o.value_amount != null ? (
-                              <button
-                                type="button"
-                                onClick={() => resetMsrp(o)}
-                                disabled={setValue.isPending}
-                                className="text-[10px] uppercase tracking-[0.12em] px-2.5 py-1 border border-[color-mix(in_oklab,var(--color-or)_30%,transparent)] text-[var(--color-ivoire-soft)]"
-                              >
-                                ↺ MSRP
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => setEditId(null)}
-                                className="text-[10px] uppercase tracking-[0.12em] px-2.5 py-1 border border-[color-mix(in_oklab,var(--color-or)_30%,transparent)] text-[var(--color-ivoire-soft)]"
-                              >
-                                {t("editor.cancel")}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => startEdit(o)}
-                          title={t("cote.edit_value")}
-                          className="flex items-center gap-2.5 group/val"
-                        >
-                          <span
-                            aria-hidden
-                            className="text-[13px] text-[color-mix(in_oklab,var(--color-or)_45%,transparent)] group-hover/val:text-[var(--color-or)] transition-colors"
-                          >
-                            ✎
-                          </span>
-                          <span className="text-right font-mono">
-                            {paid ? (
-                              <span className="block text-[11px] text-[var(--color-ivoire-soft)]">
-                                {t("cote.paid_abbr")}{" "}
-                                <Money amount={paid.amount} currency={paid.currency} />
-                              </span>
-                            ) : null}
-                            <span className="block text-sm text-[var(--color-ivoire)] group-hover/val:text-[var(--color-or-pale)] transition-colors">
-                              <Money amount={ev.amount} currency={ev.currency} />
-                              {ev.source === "auto" ? (
-                                <span className="ml-1.5 text-[9px] uppercase tracking-[0.14em] text-[var(--color-jade)] align-middle">
-                                  {t("cote.market_badge")}
-                                </span>
-                              ) : ev.source === "msrp" ? (
-                                <span className="ml-1.5 text-[9px] uppercase tracking-[0.14em] text-[var(--color-or-pale)] align-middle">
-                                  MSRP
-                                </span>
-                              ) : null}
-                            </span>
-                            {delta != null ? (
-                              <span className={`block text-[11px] ${delta >= 0 ? "text-[var(--color-jade)]" : "text-[var(--color-laque-bright)]"}`}>
-                                {delta >= 0 ? "▲ +" : "▼ "}
-                                <Money amount={Math.abs(delta)} currency={ev.currency} />
-                              </span>
-                            ) : null}
-                          </span>
-                        </button>
-                      )}
-                    </div>
-                      {/* expanded registre — per-figure step chart + relevés */}
-                      {expanded ? (
-                        <div className="px-5 pb-4 md:pl-[84px]">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="micro-tight text-[var(--color-or-pale)]">
-                              {t("cote.history.registre")}
-                            </span>
-                            <span
-                              aria-hidden
-                              className="flex-1 h-px"
-                              style={{
-                                background:
-                                  "color-mix(in oklab, var(--color-or) 20%, transparent)",
-                              }}
-                            />
-                          </div>
-                          <StepChart
-                            points={series}
-                            currency={ev?.currency}
-                            locale={locale}
-                            height={140}
-                            t={t}
-                          />
-                          <div className="mt-2 max-h-40 overflow-y-auto">
-                            <PriceLedger
-                              points={series}
-                              currency={ev?.currency}
-                              locale={locale}
-                              t={t}
-                            />
-                          </div>
-                        </div>
-                      ) : null}
-                    </li>
-                  );
-                })}
-              </ul>
-            </Reveal>
-
-            <p className="mt-5 text-[11.5px] leading-relaxed text-[var(--color-ivoire-soft)] border-l-2 border-[color-mix(in_oklab,var(--color-or)_35%,transparent)] pl-3 max-w-3xl">
-              {t("cote.footnote")}
+            <p className="text-[11.5px] leading-relaxed text-[var(--on-surface-muted)] border-l-2 border-[var(--accent)]/35 pl-3 max-w-3xl">
+              {t("cote.footnote", {
+                default:
+                  "La valeur d'une pièce est saisie manuellement ; sans valeur saisie, on affiche le MSRP catalogue dans sa devise (badge « MSRP »).",
+              })}
             </p>
-          </>
+          </div>
         )}
-      </main>
+      </PageLayout>
+
+      {/* Relevés dialog — shared domain component; deep-link opens it directly. */}
+      <PriceHistoryDialog
+        open={!!histRow && histPoints.length >= 2}
+        onClose={() => setHistFigureId(null)}
+        figureId={histFigureId}
+        figureName={histRow?.figure_name}
+        points={histPoints}
+        currency={histPoints[0]?.currency || primary?.currency}
+        locale={locale}
+      />
     </AppShell>
-  );
-}
-
-function Kpi({ label, children }) {
-  return (
-    <div className="bg-[var(--color-noir)] px-5 py-4">
-      <div className="micro-tight mb-2">{label}</div>
-      <div className="leading-none">{children}</div>
-    </div>
-  );
-}
-
-function EmptyState({ t }) {
-  return (
-    <div className="text-center py-20">
-      <p className="ja text-[6rem] text-[var(--color-or)]/30 leading-none">価</p>
-      <p className="mt-3 text-[var(--color-ivoire-soft)] italic">{t("cote.empty")}</p>
-      <Link
-        to="/browse"
-        className="inline-block mt-5 px-5 py-3 bg-[var(--color-laque)] text-[var(--color-ivoire)] text-[11px] uppercase tracking-[0.2em] hover:bg-[var(--color-laque-bright)] transition-colors"
-      >
-        {t("cote.empty_cta")}
-      </Link>
-    </div>
   );
 }

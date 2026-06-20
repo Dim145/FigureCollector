@@ -1,50 +1,48 @@
 import { useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
+import { LayoutGrid, Pencil, Search, Table2, Trash2 } from "lucide-react";
 import { useT } from "../i18n/index.jsx";
 import { appLocale } from "../lib/locale.js";
-import {
-  useAdminFigures,
-  useBulkDeleteFigures,
-  useDeleteFigure,
-} from "../hooks/useAdmin.js";
+import { useAdminFigures, useBulkDeleteFigures, useDeleteFigure } from "../hooks/useAdmin.js";
 import { useRowSelection } from "../hooks/useRowSelection.js";
 import { resolveFigureCover } from "../lib/coverUrl.js";
-import AccentTitle from "../components/AccentTitle.jsx";
-import Button from "../components/Button.jsx";
+import { typeKanji } from "../lib/typeHue.js";
+import {
+  Badge,
+  DataTable,
+  EmptyState,
+  IconButton,
+  Input,
+  Pagination,
+  SegmentedControl,
+  StatCard,
+} from "../components/ui/index.js";
 import BulkActionBar, { SelectCheckbox } from "../components/BulkActionBar.jsx";
-import Card from "../components/Card.jsx";
-import EmptyState from "../components/EmptyState.jsx";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import FigureCard from "../components/FigureCard.jsx";
-import StatCard from "../components/StatCard.jsx";
 import FigureEditDialog from "../components/FigureEditDialog.jsx";
+import AdminSectionHeader from "./admin/AdminSectionHeader.jsx";
+import { selectionBridge } from "./admin/selectionBridge.js";
+import { useClientSort } from "./admin/useClientSort.js";
+import { useClientPagination } from "./admin/useClientPagination.js";
 
 /**
- * /admin/figures — moderation of the whole catalogue, redrawn to Direction A
- * ("Shōjo-Noir").
+ * /admin/figures — moderation of the whole catalogue, on the shared foundation.
  *
- * Renders inside AdminLayout's <Outlet/>, so the global "Administration" h1 +
- * sub-nav already sit above this page. This view is therefore an editorial
- * *section* of the admin surface (kicker · 像 · CATALOGUE → AccentTitle h2 →
- * gold-rule over a faint kanji-mark) rather than a second page header — the
- * same shape as AdminOverviewPage.
+ * Renders inside AdminLayout's <Outlet/>, below the global "Administration" h1.
+ * Anatomy: AdminSectionHeader (kicker · 像 · CATALOGUE) → StatCard strip derived
+ * purely from the loaded rows → a filter / view bar (shared <Input> search + a
+ * <SegmentedControl> table↔grid toggle) → the catalogue itself.
  *
- * Layout, top-to-bottom:
- *   - the editorial section header;
- *   - a StatCard strip of figurine counts derived *purely* from the rows the
- *     `useAdminFigures` query already returned (no extra fetch) — pièces, types
- *     distincts, fabricants, NSFW; gold marks the headline catalogue count;
- *   - a filter / view bar (the search box + a hairline table↔grid toggle);
- *   - the catalogue itself, either a hairline A table or a FigureCard grid.
- *     Both share the SAME row-selection + bulk-delete machinery, so the floating
- *     BulkActionBar works identically in either view; mono lot ids, kanji-marked
- *     type chips, hanko-red edit / laque destructive affordances.
+ *   - Table view = the shared <DataTable> (sortable, row-selection wired to the
+ *     existing `useRowSelection`, shared EmptyState, client-side Pagination).
+ *   - Grid view = the FigureCard vitrine with an overlaid selection box + admin
+ *     action rail per specimen.
  *
- * Every data hook, mutation, the multi-select, the bulk-delete, the search
- * filter, the edit dialog and the destructive guard are untouched from the
- * prior layout — only the JSX is restyled / restructured. GPU-light throughout:
- * flat fills + hairlines, the shared `.reveal` stagger, no meshes / blur /
- * continuous animation.
+ * Both views share the SAME `useRowSelection` store + bulk-delete, so the
+ * floating BulkActionBar works identically and multi-select survives a flip.
+ * Every data hook, mutation, the search filter, and the edit dialog are
+ * untouched; delete now routes through the shared ConfirmDialog. GPU-light.
  */
 export default function AdminFiguresPage() {
   const t = useT();
@@ -61,9 +59,8 @@ export default function AdminFiguresPage() {
   const sel = useRowSelection(ids);
 
   // Glanceable catalogue counts — derived from the rows already in hand so the
-  // strip costs nothing extra. Counts only, so tones stay quiet; gold marks the
-  // headline catalogue figure, hanko-red flags the NSFW pieces that moderation
-  // most cares about, per the playbook.
+  // strip costs nothing extra. Gold marks the headline catalogue figure,
+  // --primary flags the NSFW pieces moderation most cares about.
   const counts = useMemo(() => {
     const types = new Set();
     const makers = new Set();
@@ -76,48 +73,151 @@ export default function AdminFiguresPage() {
     return { total: rows.length, types: types.size, makers: makers.size, nsfw };
   }, [rows]);
 
+  const { sort, onSort, sortedRows } = useClientSort(
+    rows,
+    {
+      name: (f) => f.name?.toLowerCase(),
+      type: (f) => f.figure_type,
+      scale: (f) => f.scale,
+      created_at: (f) => new Date(f.created_at).getTime(),
+    },
+    { key: "created_at", dir: "desc" },
+  );
+  // Paginate once; feed the active view the same slice so selection +
+  // pagination stay coherent across the table↔grid flip. Reset to page 1 when
+  // the search query or view changes.
+  const { page, setPage, pageCount, pageRows } = useClientPagination(
+    sortedRows,
+    view === "grid" ? 24 : 20,
+    `${q}|${view}`,
+  );
+
   const onDelete = async () => {
     if (!deleting) return;
     await del.mutateAsync(deleting.id);
     setDeleting(null);
   };
 
+  const columns = [
+    {
+      key: "cover",
+      header: <span className="sr-only">{t("figure.spec.cover", { default: "Visuel" })}</span>,
+      width: "64px",
+      render: (f) => {
+        const cover = resolveFigureCover(f);
+        return (
+          <span className="block w-10 h-12 bg-[var(--surface-sunken)] border border-[var(--border-subtle)] overflow-hidden">
+            {cover ? (
+              <img
+                src={cover}
+                alt=""
+                aria-hidden
+                loading="lazy"
+                decoding="async"
+                className={`w-full h-full object-cover ${f.is_nsfw ? "nsfw-blur" : ""}`}
+              />
+            ) : null}
+          </span>
+        );
+      },
+    },
+    {
+      key: "name",
+      header: t("admin.figures.col.name"),
+      sortable: true,
+      render: (f) => (
+        <>
+          <Link
+            to={`/figures/${f.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="display text-[var(--on-surface)] hover:text-[var(--accent)] transition-colors leading-tight"
+          >
+            {f.name}
+          </Link>
+          <span className="flex items-center gap-2 mt-0.5">
+            {f.manufacturer_name ? (
+              <span className="text-[11px] text-[var(--on-surface-subtle)] truncate">
+                {f.manufacturer_name}
+              </span>
+            ) : null}
+            {f.version_name ? (
+              <span className="text-[10px] text-[var(--accent)]/70">{f.version_name}</span>
+            ) : null}
+            {f.is_nsfw ? (
+              <Badge tone="danger" className="!text-[9px] !px-1 !py-0">
+                18
+              </Badge>
+            ) : null}
+          </span>
+        </>
+      ),
+    },
+    {
+      key: "type",
+      header: t("admin.figures.col.type"),
+      sortable: true,
+      render: (f) => <TypeChip type={f.figure_type} t={t} />,
+    },
+    {
+      key: "scale",
+      header: t("admin.figures.col.scale"),
+      sortable: true,
+      render: (f) => (
+        <span className="text-[var(--on-surface-muted)] text-xs">{f.scale ?? "—"}</span>
+      ),
+    },
+    {
+      key: "lot",
+      header: t("admin.figures.col.lot", { default: "Lot" }),
+      render: (f) => (
+        <span className="font-mono text-[11px] tracking-wider text-[var(--accent)]/80">
+          {String(f.id).slice(0, 8)}
+        </span>
+      ),
+    },
+    {
+      key: "created_at",
+      header: t("admin.figures.col.created"),
+      sortable: true,
+      render: (f) => (
+        <span className="font-mono text-[10px] tracking-wider text-[var(--on-surface-subtle)]">
+          {new Date(f.created_at).toLocaleDateString(appLocale())}
+        </span>
+      ),
+    },
+    {
+      key: "actions",
+      header: t("admin.users.col.actions"),
+      align: "right",
+      render: (f) => (
+        <div className="flex items-center gap-0.5 justify-end">
+          <IconButton
+            variant="ghost"
+            icon={Pencil}
+            label={t("admin.figures.action.edit")}
+            onClick={() => setEditing(f)}
+          />
+          <IconButton
+            variant="ghost"
+            icon={Trash2}
+            label={t("admin.figures.action.delete")}
+            onClick={() => setDeleting(f)}
+            className="hover:!text-[var(--danger)]"
+          />
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className="relative">
-      {/* ─── Editorial section header ─── */}
-      <header className="relative mb-10">
-        <span
-          aria-hidden
-          className="kanji-mark text-[18rem] -top-24 -right-6 hidden md:block select-none"
-        >
-          像
-        </span>
-
-        <p className="micro reveal flex items-center gap-2.5" style={{ "--i": 0 }}>
-          <span
-            aria-hidden
-            className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45"
-          />
-          {t("admin.kicker", { default: "ADMINISTRATION" })}
-          <span aria-hidden className="ja not-italic text-[var(--color-or)]">
-            像
-          </span>
-          {t("admin.figures.kicker_label", { default: "CATALOGUE" })}
-        </p>
-        <h2
-          className="display text-4xl md:text-5xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
-          style={{ "--i": 1 }}
-        >
-          <AccentTitle text={t("admin.tab.figures")} />
-        </h2>
-        <div className="gold-rule w-24 mt-5 reveal" style={{ "--i": 2 }} />
-        <p
-          className="display-italic text-[var(--color-or)] text-base md:text-lg mt-4 max-w-xl reveal"
-          style={{ "--i": 3 }}
-        >
-          {t("admin.figures.subtitle")}
-        </p>
-      </header>
+      <AdminSectionHeader
+        kanji="像"
+        kicker={t("admin.kicker", { default: "ADMINISTRATION" })}
+        label={t("admin.figures.kicker_label", { default: "CATALOGUE" })}
+        title={t("admin.tab.figures")}
+        subtitle={t("admin.figures.subtitle")}
+      />
 
       {/* ─── Catalogue counts strip ─── */}
       <section
@@ -150,191 +250,119 @@ export default function AdminFiguresPage() {
       >
         <label className="flex-1 min-w-0 block">
           <span className="micro flex items-center gap-2 mb-2">
-            <span aria-hidden className="ja not-italic text-[var(--color-or)] leading-none">
+            <span aria-hidden className="ja not-italic text-[var(--accent)] leading-none">
               探
             </span>
             {t("admin.figures.search")}
           </span>
-          <input
-            type="search"
-            value={q}
-            placeholder={t("admin.figures.search")}
-            aria-label={t("admin.figures.search")}
-            onChange={(e) => setQ(e.target.value)}
-            className="w-full md:max-w-md bg-[var(--color-noir)] border border-[var(--color-or)]/30 px-4 py-2.5 text-[var(--color-ivoire)] outline-none focus:border-[var(--color-or)] transition-colors"
-          />
+          <div className="relative md:max-w-md">
+            <Search
+              size={15}
+              aria-hidden
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--on-surface-subtle)] pointer-events-none"
+            />
+            <Input
+              type="search"
+              value={q}
+              placeholder={t("admin.figures.search")}
+              aria-label={t("admin.figures.search")}
+              onChange={(e) => setQ(e.target.value)}
+              className="!pl-9"
+            />
+          </div>
         </label>
 
-        <ViewToggle view={view} setView={setView} t={t} />
+        <SegmentedControl
+          aria-label={t("admin.figures.view.label", { default: "Affichage" })}
+          value={view}
+          onChange={setView}
+          className="self-start sm:self-end"
+          options={[
+            {
+              value: "table",
+              label: t("admin.figures.view.table", { default: "Table" }),
+              icon: Table2,
+            },
+            {
+              value: "grid",
+              label: t("admin.figures.view.grid", { default: "Vitrine" }),
+              icon: LayoutGrid,
+            },
+          ]}
+        />
       </div>
 
-      {figures.isLoading ? (
-        <p
-          role="status"
-          aria-live="polite"
-          className="text-center text-[var(--color-ivoire-soft)] py-12"
-        >
-          …
-        </p>
-      ) : rows.length ? (
-        <div className="reveal" style={{ "--i": 6 }}>
-          {/* The bulk bar is shared by both views — it keys off the same
-              selection state, so multi-select survives a table↔grid flip. */}
-          <BulkActionBar
+      {/* The bulk bar is shared by both views — keyed off the same selection
+          state, so multi-select survives a table↔grid flip. */}
+      <BulkActionBar
+        selectedIds={sel.selectedIds}
+        onClear={sel.clear}
+        onDelete={(idList) => bulkDel.mutateAsync(idList)}
+        busy={bulkDel.isPending}
+        confirmBody={t("admin.bulk.confirm.body.figures", { n: sel.selectedIds.length })}
+      />
+
+      <div className="reveal" style={{ "--i": 6 }}>
+        {view === "table" ? (
+          <DataTable
+            columns={columns}
+            rows={pageRows}
+            getRowId={(f) => f.id}
+            sort={sort}
+            onSort={onSort}
+            selectable
             selectedIds={sel.selectedIds}
-            onClear={sel.clear}
-            onDelete={(idList) => bulkDel.mutateAsync(idList)}
-            busy={bulkDel.isPending}
-            confirmBody={t("admin.bulk.confirm.body.figures", {
-              n: sel.selectedIds.length,
-            })}
+            onSelectionChange={selectionBridge(sel)}
+            loading={figures.isLoading}
+            empty={
+              <EmptyState
+                compact
+                kanji="像"
+                hue="var(--color-jade)"
+                title={t("admin.empty.figures.title")}
+                body={t("admin.empty.figures.body")}
+              />
+            }
           />
-
-          {view === "table" ? (
-            <FiguresTable
-              rows={rows}
-              sel={sel}
-              t={t}
-              onEdit={setEditing}
-              onDelete={setDeleting}
-            />
-          ) : (
-            <FiguresGrid
-              rows={rows}
-              sel={sel}
-              t={t}
-              onEdit={setEditing}
-              onDelete={setDeleting}
-            />
-          )}
-        </div>
-      ) : (
-        <EmptyState
-          compact
-          kanji="像"
-          hue="var(--color-jade)"
-          title={t("admin.empty.figures.title")}
-          body={t("admin.empty.figures.body")}
-        />
-      )}
-
-      {editing ? (
-        <FigureEditDialog
-          figure={editing}
-          onClose={() => setEditing(null)}
-        />
-      ) : null}
-
-      {deleting ? (
-        createPortal(
-          <div
-            role="dialog"
-            aria-modal
-            aria-labelledby="figures-delete-dialog-title"
-            onClick={() => setDeleting(null)}
-            className="fixed inset-0 z-50 grid place-items-center bg-[var(--color-noir)]/85 backdrop-blur-sm p-4"
+        ) : figures.isLoading ? (
+          <p
+            role="status"
+            aria-live="polite"
+            className="text-center text-[var(--on-surface-muted)] py-12"
           >
-          {/* `Card` doesn't forward arbitrary DOM props, so the
-              stop-propagation that keeps an inside click from closing the
-              dialog lives on this wrapper (load-bearing — preserves the prior
-              behaviour). Card supplies only the Direction-A surface. */}
-          <div onClick={(e) => e.stopPropagation()} className="w-[92vw] max-w-md">
-            <Card className="relative overflow-hidden p-8 !border-[var(--color-or)]/40">
-              <span
-                aria-hidden
-                className="kanji-mark text-[10rem] -top-10 -right-4 select-none"
-              >
-                削
-              </span>
-              <div className="relative">
-                <p className="micro flex items-center gap-2">
-                  <span
-                    aria-hidden
-                    className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45"
-                  />
-                  {t("admin.figures.action.delete")}
-                </p>
-                <h2
-                  id="figures-delete-dialog-title"
-                  className="display text-2xl text-[var(--color-ivoire)] mt-2 leading-tight"
-                >
-                  {t("admin.figures.confirm_delete.title", { name: deleting.name })}
-                </h2>
-                <div className="gold-rule w-16 mt-4" />
-                <p className="mt-4 text-sm text-[var(--color-ivoire-soft)] leading-relaxed">
-                  {t("admin.figures.confirm_delete.body")}
-                </p>
-                <div className="flex items-center gap-3 justify-end mt-7">
-                  <Button variant="ghost" onClick={() => setDeleting(null)}>
-                    {t("editor.cancel")}
-                  </Button>
-                  <Button
-                    variant="primary"
-                    onClick={onDelete}
-                    loading={del.isPending}
-                    className="!bg-[var(--color-laque-bright)] hover:!bg-[var(--color-laque)] !text-[var(--color-ivoire)]"
-                  >
-                    {t("admin.users.confirm_delete.confirm")}
-                  </Button>
-                </div>
-              </div>
-            </Card>
+            …
+          </p>
+        ) : rows.length ? (
+          <FiguresGrid rows={pageRows} sel={sel} t={t} onEdit={setEditing} onDelete={setDeleting} />
+        ) : (
+          <EmptyState
+            compact
+            kanji="像"
+            hue="var(--color-jade)"
+            title={t("admin.empty.figures.title")}
+            body={t("admin.empty.figures.body")}
+          />
+        )}
+
+        {pageCount > 1 ? (
+          <div className="mt-6 flex justify-center">
+            <Pagination page={page} pageCount={pageCount} onChange={setPage} />
           </div>
-          </div>,
-          document.body,
-        )
-      ) : null}
-    </div>
-  );
-}
+        ) : null}
+      </div>
 
-// =============================================================================
-// View toggle — a hairline segmented control flipping the catalogue between the
-// dense moderation table and the visual FigureCard grid. Presentation only:
-// real <button>s with aria-pressed, the active one in hanko-red.
-// =============================================================================
+      {editing ? <FigureEditDialog figure={editing} onClose={() => setEditing(null)} /> : null}
 
-function ViewToggle({ view, setView, t }) {
-  const opts = [
-    { id: "table", kanji: "表", label: t("admin.figures.view.table", { default: "Table" }) },
-    { id: "grid", kanji: "陳", label: t("admin.figures.view.grid", { default: "Vitrine" }) },
-  ];
-  return (
-    <div
-      role="group"
-      aria-label={t("admin.figures.view.label", { default: "Affichage" })}
-      className="flex shrink-0 border border-[var(--color-or)]/25 bg-[var(--color-noir)]/40 self-start sm:self-end"
-    >
-      {opts.map((o) => {
-        const isActive = view === o.id;
-        return (
-          <button
-            key={o.id}
-            type="button"
-            onClick={() => setView(o.id)}
-            aria-pressed={isActive}
-            className="tap-target flex items-center gap-2 px-4 py-2 text-[11px] uppercase tracking-[0.18em] transition-colors"
-            style={{
-              color: isActive ? "var(--color-ivoire)" : "var(--color-ivoire-soft)",
-              background: isActive
-                ? "color-mix(in oklab, var(--color-laque) 14%, transparent)"
-                : "transparent",
-            }}
-          >
-            <span
-              aria-hidden
-              className="ja text-sm leading-none"
-              style={{
-                color: isActive ? "var(--color-laque-bright)" : "var(--color-or)",
-                opacity: isActive ? 1 : 0.6,
-              }}
-            >
-              {o.kanji}
-            </span>
-            {o.label}
-          </button>
-        );
-      })}
+      <ConfirmDialog
+        open={!!deleting}
+        title={t("admin.figures.confirm_delete.title", { name: deleting?.name })}
+        body={t("admin.figures.confirm_delete.body")}
+        confirmLabel={t("admin.users.confirm_delete.confirm")}
+        onConfirm={onDelete}
+        onCancel={() => setDeleting(null)}
+        busy={del.isPending}
+        destructive
+      />
     </div>
   );
 }
@@ -347,13 +375,10 @@ function ViewToggle({ view, setView, t }) {
 function TypeChip({ type, t }) {
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span
-        aria-hidden
-        className="ja text-sm leading-none text-[var(--color-or)]/70"
-      >
+      <span aria-hidden className="ja text-sm leading-none text-[var(--accent)]/70">
         {typeKanji(type)}
       </span>
-      <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)]">
+      <span className="text-[10px] uppercase tracking-[0.18em] text-[var(--accent)]">
         {t(`type.${type}`)}
       </span>
     </span>
@@ -361,146 +386,9 @@ function TypeChip({ type, t }) {
 }
 
 // =============================================================================
-// Table view — the hairline A table, restyled. Same selection + actions.
-// =============================================================================
-
-function FiguresTable({ rows, sel, t, onEdit, onDelete }) {
-  return (
-    <Card className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-left text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)] border-b border-[var(--color-or)]/15">
-            <th className="px-4 py-3 font-normal w-[34px]">
-              <SelectCheckbox
-                checked={sel.allSelected}
-                indeterminate={sel.someSelected && !sel.allSelected}
-                onChange={sel.toggleAll}
-                label={t("admin.bulk.select_all")}
-              />
-            </th>
-            <th className="px-4 py-3 font-normal w-[64px]">
-              <span className="sr-only">{t("figure.spec.cover", { default: "Visuel" })}</span>
-            </th>
-            <th className="px-4 py-3 font-normal">{t("admin.figures.col.name")}</th>
-            <th className="px-4 py-3 font-normal">{t("admin.figures.col.type")}</th>
-            <th className="px-4 py-3 font-normal">{t("admin.figures.col.scale")}</th>
-            <th className="px-4 py-3 font-normal">
-              {t("admin.figures.col.lot", { default: "Lot" })}
-            </th>
-            <th className="px-4 py-3 font-normal">{t("admin.figures.col.created")}</th>
-            <th className="px-4 py-3 font-normal text-right">
-              {t("admin.users.col.actions")}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((f) => {
-            const cover = resolveFigureCover(f);
-            return (
-              <tr
-                key={f.id}
-                className={`border-b border-[var(--color-or)]/10 hover:bg-[var(--color-or)]/5 transition-colors ${
-                  sel.isSelected(f.id) ? "adm-row-selected" : ""
-                }`}
-              >
-                <td className="px-4 py-3 align-middle">
-                  <SelectCheckbox
-                    checked={sel.isSelected(f.id)}
-                    onChange={() => sel.toggle(f.id)}
-                    label={t("admin.bulk.select_row")}
-                  />
-                </td>
-                <td className="px-4 py-3 align-middle">
-                  <span className="block w-10 h-12 bg-[var(--color-noir-deep)] border border-[var(--color-or)]/15 overflow-hidden">
-                    {cover ? (
-                      <img
-                        src={cover}
-                        alt=""
-                        aria-hidden
-                        loading="lazy"
-                        decoding="async"
-                        className={`w-full h-full object-cover ${f.is_nsfw ? "nsfw-blur" : ""}`}
-                      />
-                    ) : null}
-                  </span>
-                </td>
-                <td className="px-4 py-3 align-middle">
-                  <Link
-                    to={`/figures/${f.id}`}
-                    className="display text-[var(--color-ivoire)] hover:text-[var(--color-or)] transition-colors leading-tight"
-                  >
-                    {f.name}
-                  </Link>
-                  <span className="flex items-center gap-2 mt-0.5">
-                    {f.manufacturer_name ? (
-                      <span className="text-[11px] text-[var(--color-ivoire-soft)]/70 truncate">
-                        {f.manufacturer_name}
-                      </span>
-                    ) : null}
-                    {f.version_name ? (
-                      <span className="text-[10px] text-[var(--color-or-pale)]/70">
-                        {f.version_name}
-                      </span>
-                    ) : null}
-                    {f.is_nsfw ? (
-                      <span
-                        className="text-[9px] uppercase tracking-[0.18em] text-[var(--color-laque-bright)] border border-[var(--color-laque-bright)]/40 px-1 leading-tight"
-                        title={t("admin.figures.metric.nsfw", { default: "Sensible" })}
-                      >
-                        18
-                      </span>
-                    ) : null}
-                  </span>
-                </td>
-                <td className="px-4 py-3 align-middle">
-                  <TypeChip type={f.figure_type} t={t} />
-                </td>
-                <td className="px-4 py-3 align-middle text-[var(--color-ivoire-soft)] text-xs">
-                  {f.scale ?? "—"}
-                </td>
-                <td className="px-4 py-3 align-middle">
-                  <span className="font-mono text-[11px] tracking-wider text-[var(--color-or-pale)]/80">
-                    {String(f.id).slice(0, 8)}
-                  </span>
-                </td>
-                <td className="px-4 py-3 align-middle">
-                  <span className="font-mono text-[10px] tracking-wider text-[var(--color-ivoire-soft)]/70">
-                    {new Date(f.created_at).toLocaleDateString(appLocale())}
-                  </span>
-                </td>
-                <td className="px-4 py-3 align-middle text-right">
-                  <div className="flex items-center gap-2 justify-end">
-                    <button
-                      type="button"
-                      onClick={() => onEdit(f)}
-                      title={t("admin.figures.action.edit")}
-                      className="tap-target text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] text-xs px-2 py-1 transition-colors"
-                    >
-                      ✎<span className="sr-only">{t("admin.figures.action.edit")}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(f)}
-                      title={t("admin.figures.action.delete")}
-                      className="tap-target text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] text-xs px-2 py-1 transition-colors"
-                    >
-                      ×<span className="sr-only">{t("admin.figures.action.delete")}</span>
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </Card>
-  );
-}
-
-// =============================================================================
 // Grid view — the FigureCard vitrine, with a selection checkbox + admin action
-// rail overlaid per specimen. Selection feeds the same `sel` store, so the
-// bulk bar works identically here.
+// rail overlaid per specimen. Selection feeds the same `sel` store, so the bulk
+// bar works identically here.
 // =============================================================================
 
 function FiguresGrid({ rows, sel, t, onEdit, onDelete }) {
@@ -513,7 +401,7 @@ function FiguresGrid({ rows, sel, t, onEdit, onDelete }) {
             <div
               className="relative block"
               style={{
-                outline: selected ? "2px solid var(--color-or)" : "none",
+                outline: selected ? "2px solid var(--accent)" : "none",
                 outlineOffset: "0",
               }}
             >
@@ -544,17 +432,19 @@ function FiguresGrid({ rows, sel, t, onEdit, onDelete }) {
                   type="button"
                   onClick={() => onEdit(f)}
                   title={t("admin.figures.action.edit")}
-                  className="tap-target grid place-items-center w-8 h-8 text-xs bg-[color-mix(in_oklab,var(--color-noir-deep)_78%,transparent)] border border-[var(--color-or)]/40 text-[var(--color-or-pale)] hover:text-[var(--color-or)] hover:border-[var(--color-or)] transition-colors"
+                  className="tap-target grid place-items-center w-8 h-8 text-xs bg-[color-mix(in_oklab,var(--surface-sunken)_88%,transparent)] border border-[var(--border-strong)] text-[var(--accent)] hover:text-[var(--on-surface)] hover:border-[var(--accent)] transition-colors"
                 >
-                  ✎<span className="sr-only">{t("admin.figures.action.edit")}</span>
+                  <Pencil size={14} />
+                  <span className="sr-only">{t("admin.figures.action.edit")}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => onDelete(f)}
                   title={t("admin.figures.action.delete")}
-                  className="tap-target grid place-items-center w-8 h-8 text-sm bg-[color-mix(in_oklab,var(--color-noir-deep)_78%,transparent)] border border-[var(--color-or)]/40 text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] hover:border-[var(--color-laque-bright)] transition-colors"
+                  className="tap-target grid place-items-center w-8 h-8 text-sm bg-[color-mix(in_oklab,var(--surface-sunken)_88%,transparent)] border border-[var(--border-strong)] text-[var(--on-surface-muted)] hover:text-[var(--danger)] hover:border-[var(--danger)] transition-colors"
                 >
-                  ×<span className="sr-only">{t("admin.figures.action.delete")}</span>
+                  <Trash2 size={14} />
+                  <span className="sr-only">{t("admin.figures.action.delete")}</span>
                 </button>
               </span>
             </div>
@@ -563,22 +453,4 @@ function FiguresGrid({ rows, sel, t, onEdit, onDelete }) {
       })}
     </ul>
   );
-}
-
-// Local kanji fallback for the table type chip — mirrors FigureCard's mapping
-// so the table reads in the same visual language without re-fetching the
-// admin-curated type registry for a tiny inline glyph.
-function typeKanji(type) {
-  switch (type) {
-    case "nendoroid":  return "童";
-    case "scale":      return "像";
-    case "figma":      return "動";
-    case "prize":      return "賞";
-    case "trading":    return "交";
-    case "statue":     return "彫";
-    case "plamo":      return "組";
-    case "bishoujo":   return "美";
-    case "dakimakura": return "枕";
-    default:           return "玩";
-  }
 }

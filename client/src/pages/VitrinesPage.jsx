@@ -1,67 +1,54 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Plus } from "lucide-react";
 import {
-  DndContext, DragOverlay, MouseSensor, TouchSensor, KeyboardSensor,
-  useSensor, useSensors, useDroppable, closestCorners,
+  DndContext,
+  DragOverlay,
+  MouseSensor,
+  TouchSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  closestCorners,
 } from "@dnd-kit/core";
-import {
-  SortableContext, useSortable, arrayMove, rectSortingStrategy,
-  sortableKeyboardCoordinates,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
+import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import {
-  useOwnedItems, useLocations, useCreateLocation, useDeleteLocation, useArrangeOwned,
+  useOwnedItems,
+  useLocations,
+  useCreateLocation,
+  useDeleteLocation,
+  useArrangeOwned,
 } from "../hooks/useCollection.js";
-import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
+import { PageLayout, Section } from "../components/layout/index.js";
+import { Button, EmptyState } from "../components/ui/index.js";
 import { SectionSkeleton } from "../components/Skeleton.jsx";
-import Button from "../components/Button.jsx";
-import Card from "../components/Card.jsx";
-import StatCard from "../components/StatCard.jsx";
-import Reveal from "../components/motion/Reveal.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import ShelfPlanner from "../components/ShelfPlanner.jsx";
-import { typeHue, typeKanji } from "../lib/typeHue.js";
+import { typeHue } from "../lib/typeHue.js";
 import { standeeWidthPx } from "../lib/standee.js";
-import { effectiveValue } from "../lib/money.js";
-import Money from "../components/Money.jsx";
-import { resolveOwnedCover } from "../lib/coverUrl.js";
+import VitrinesKpiStrip from "./vitrines/VitrinesKpiStrip.jsx";
+import VitrineLookup from "./vitrines/VitrineLookup.jsx";
+import Cabinet, { cabinetValue } from "./vitrines/Cabinet.jsx";
+import DioramaShelf from "./vitrines/DioramaShelf.jsx";
+import { TileVisual } from "./vitrines/VitrineTile.jsx";
 
 const LOOSE = "__loose__";
 
-function cabinetValue(items) {
-  const byCur = new Map();
-  for (const it of items) {
-    const ev = effectiveValue(it);
-    if (!ev) continue;
-    const cur = ev.currency || "EUR";
-    byCur.set(cur, (byCur.get(cur) || 0) + ev.amount);
-  }
-  if (byCur.size === 0) return null;
-  let best = null;
-  for (const [currency, amount] of byCur) if (!best || amount > best.amount) best = { currency, amount };
-  return { ...best, multi: byCur.size > 1 };
-}
-
 /**
- * « Les Vitrines » — drag-and-drop shelf organiser (@dnd-kit), redrawn to
- * Direction A ("Shōjo-Noir").
+ * « Les Vitrines » — drag-and-drop shelf organiser (@dnd-kit), on the shared
+ * foundation, Direction A ("Shōjo-Noir").
  *
- * Each cabinet reads like a lit glass display case: a Card surface with a
- * brass-plaque header, a kanji marker (棚 registered / 飾 free-text), gold-rule
- * shelf edges framing the specimens, and a quiet diagonal sheen. A figurine-
- * metric strip (vitrines · rangées · non rangées · valeur) sits under the
- * editorial header; the « où est… ? » lookup is a refined Card-bordered
- * control with a 探 marker.
- *
- * Pieces live in persistent display cabinets (`collection_locations`) plus any
- * free-text location typed before it was registered, plus a dashed "unshelved"
- * group. Cabinets can be created/deleted; pieces are reordered WITHIN a shelf
- * and moved BETWEEN shelves by dragging the card (pointer, touch, keyboard),
- * persisted via the `arrange` endpoint. Covers show the figure photo (kanji
- * glyph fallback), NSFW-blurred per the viewer's preference.
+ * Thin orchestrator: owns the data hooks, the dnd state machine, and the
+ * view/query/create state, and composes the page-local cabinet / lookup /
+ * diorama sub-components inside PageLayout. Pieces live in persistent display
+ * cabinets (`collection_locations`) plus any free-text location typed before it
+ * was registered, plus a dashed "unshelved" group. Cabinets can be
+ * created/deleted; pieces are reordered WITHIN a shelf and moved BETWEEN
+ * shelves by dragging the card (pointer, touch, keyboard), persisted via the
+ * `arrange` endpoint. ALL drag-and-drop logic is preserved verbatim.
  *
  * GPU-light: flat fills + static gradients + hairlines, the shared `.reveal`
  * stagger, the one diagonal glass sheen. No animated meshes / blur / glows.
@@ -75,7 +62,6 @@ export default function VitrinesPage() {
   const delLoc = useDeleteLocation();
   const arrange = useArrangeOwned();
 
-  const locale = document.documentElement.lang || undefined;
   const nsfwBlur = (me.data?.user?.nsfw_visibility ?? "hide") === "blur";
 
   const itemMap = useMemo(() => {
@@ -128,10 +114,16 @@ export default function VitrinesPage() {
     const seen = new Set();
     for (const r of registry) {
       const key = r.name.trim().toLowerCase();
-      if (!seen.has(key)) { seen.add(key); orderedKeys.push(key); }
+      if (!seen.has(key)) {
+        seen.add(key);
+        orderedKeys.push(key);
+      }
     }
     for (const key of byKey.keys()) {
-      if (!seen.has(key)) { seen.add(key); orderedKeys.push(key); }
+      if (!seen.has(key)) {
+        seen.add(key);
+        orderedKeys.push(key);
+      }
     }
     const board = {};
     const order = [];
@@ -155,7 +147,7 @@ export default function VitrinesPage() {
   }, [canonical]);
 
   const [query, setQuery] = useState("");
-  const [view, setView] = useState("grid"); // "grid" (drag-arrange) | "diorama" (display)
+  const [view, setView] = useState("grid"); // "grid" (drag-arrange) | "diorama" (display) | "plan"
   const q = query.trim().toLowerCase();
   const matched = useMemo(
     () => (q ? (owned.data ?? []).filter((o) => o.figure_name.toLowerCase().includes(q)) : null),
@@ -168,8 +160,16 @@ export default function VitrinesPage() {
   const [newName, setNewName] = useState("");
   const submitCreate = () => {
     const n = newName.trim();
-    if (!n) { setCreating(false); return; }
-    createLoc.mutate(n, { onSuccess: () => { setNewName(""); setCreating(false); } });
+    if (!n) {
+      setCreating(false);
+      return;
+    }
+    createLoc.mutate(n, {
+      onSuccess: () => {
+        setNewName("");
+        setCreating(false);
+      },
+    });
   };
   const [confirmDel, setConfirmDel] = useState(null);
 
@@ -226,16 +226,20 @@ export default function VitrinesPage() {
     draggingRef.current = false;
     setActiveId(null);
     // Keep the click guard up past the trailing click that follows a drag.
-    setTimeout(() => { clickGuardRef.current = false; }, 0);
-    if (!over) { setBoard(canonical.board); return; }
+    setTimeout(() => {
+      clickGuardRef.current = false;
+    }, 0);
+    if (!over) {
+      setBoard(canonical.board);
+      return;
+    }
     const container = findContainer(active.id);
-    if (!container) { setBoard(canonical.board); return; }
+    if (!container) {
+      setBoard(canonical.board);
+      return;
+    }
     let finalIds = board[container];
-    if (
-      findContainer(over.id) === container &&
-      active.id !== over.id &&
-      !(over.id in board)
-    ) {
+    if (findContainer(over.id) === container && active.id !== over.id && !(over.id in board)) {
       finalIds = arrayMove(
         board[container],
         board[container].indexOf(active.id),
@@ -248,7 +252,9 @@ export default function VitrinesPage() {
   const onDragCancel = () => {
     draggingRef.current = false;
     setActiveId(null);
-    setTimeout(() => { clickGuardRef.current = false; }, 0);
+    setTimeout(() => {
+      clickGuardRef.current = false;
+    }, 0);
     setBoard(canonical.board);
   };
 
@@ -259,245 +265,210 @@ export default function VitrinesPage() {
   const cabinetKeys = order.filter((k) => k !== LOOSE);
   const activeItem = activeId ? itemMap.get(activeId) : null;
   const tileShared = { nsfwBlur, matchedIds, openItem, t };
+  const hasBoard = total > 0 || cabinetKeys.length > 0;
 
-  // Header metric strip (figurine metrics only — counts stay ivoire/red, gold
-  // is reserved for the aggregate value). Derived from the live board so the
-  // figures track drags optimistically.
+  // Header metric strip (figurine metrics only — counts neutral, gold reserved
+  // for the aggregate value). Derived from the live board so the figures track
+  // drags optimistically.
   const looseCount = (board[LOOSE] ?? []).length;
   const shelvedCount = total - looseCount;
   const totalValue = cabinetValue(owned.data ?? []);
 
+  // Single primary CTA → opens the inline create-cabinet field in the lookup.
+  const startCreate = () => setCreating(true);
+
   return (
     <AppShell>
-      <main className="relative max-w-6xl mx-auto px-6 pt-8 pb-16">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 left-0 right-0 h-[380px] -z-0"
-          style={{
-            background:
-              "radial-gradient(46% 62% at 18% 0%, color-mix(in oklab, var(--color-indigo) 16%, transparent), transparent 70%), radial-gradient(44% 58% at 86% 6%, color-mix(in oklab, var(--color-or) 16%, transparent), transparent 72%)",
-            WebkitMaskImage: "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
-            maskImage: "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
-          }}
-        />
-
-        {/* ─── Editorial header ─── */}
-        <header className="relative mb-8">
-          <span aria-hidden className="kanji-mark text-[24rem] -top-28 -right-6 hidden md:block">棚</span>
-
-          <p className="micro reveal flex items-center gap-2.5" style={{ "--i": 0 }}>
-            <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
-            {t("vitrines.eyebrow")}
-            <span aria-hidden className="ja not-italic text-[var(--color-or)]">棚</span>
-          </p>
-          <h1
-            className="display text-5xl md:text-6xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
-            style={{ "--i": 1 }}
-          >
-            <AccentTitle text={t("vitrines.title")} />
-          </h1>
-          <div className="gold-rule w-32 mt-6 reveal" style={{ "--i": 2 }} />
-          <p
-            className="mt-5 text-[var(--color-ivoire-soft)] leading-relaxed max-w-2xl reveal"
-            style={{ "--i": 3 }}
-          >
-            {t("vitrines.body")}
-          </p>
-
-          {total > 0 || cabinetKeys.length > 0 ? (
-            <div
-              className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-3 reveal"
-              style={{ "--i": 3 }}
+      <PageLayout
+        kicker={t("vitrines.kicker", { default: "COLLECTION · 棚 · VITRINES" })}
+        title={t("vitrines.title")}
+        kanji="棚"
+        width="wide"
+        toolbar={
+          hasBoard ? (
+            <Button
+              variant="primary"
+              size="sm"
+              iconStart={<Plus size={16} />}
+              className="uppercase"
+              onClick={startCreate}
             >
-              <StatCard
-                label={t("nav.vitrines")}
-                value={cabinetKeys.length}
-                sub={t("vitrines.stat.cabinets_sub", { default: "Meubles" })}
-              />
-              <StatCard
-                label={t("vitrines.stat.shelved", { default: "Pièces rangées" })}
-                value={shelvedCount}
-              />
-              <StatCard
-                label={t("vitrines.stat.loose", { default: "Non rangées" })}
-                value={looseCount}
-                tone={looseCount > 0 ? "red" : undefined}
-              />
-              <StatCard
-                label={t("vitrines.stat.value", { default: "Valeur en vitrine" })}
-                value={totalValue ? <Money amount={totalValue.amount} currency={totalValue.currency} /> : "—"}
-                tone="gold"
-              />
-            </div>
-          ) : null}
-        </header>
-
-        {/* ─── « Où est… ? » lookup + cabinet creation — a refined A control ─── */}
-        <Reveal as="div" delay={0.05}>
-          <Card className="relative overflow-hidden p-4 md:p-5">
-            <span aria-hidden className="kanji-mark text-[8rem] -top-6 -right-2 select-none">探</span>
-            <div className="relative flex flex-wrap items-center gap-3">
-              <label className="flex items-center gap-3 flex-1 min-w-[16rem] border border-[color-mix(in_oklab,var(--color-or)_45%,transparent)] focus-within:border-[var(--color-or)] bg-[var(--color-noir-deep)] px-4 py-2.5 transition-colors">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" className="w-4 h-4 text-[var(--color-or)] shrink-0" aria-hidden>
-                  <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
-                </svg>
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t("vitrines.search_ph")}
-                  aria-label={t("vitrines.search_ph")}
-                  className="flex-1 bg-transparent outline-none text-[var(--color-ivoire)] display text-xl placeholder:text-[color-mix(in_oklab,var(--color-ivoire)_45%,transparent)]"
-                />
-                {query ? (
-                  <button
-                    type="button"
-                    onClick={() => setQuery("")}
-                    aria-label={t("vitrines.search_clear", { default: "Effacer" })}
-                    className="tap-target shrink-0 -mr-2 text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] transition-colors leading-none text-lg"
-                  >
-                    ×
-                  </button>
-                ) : null}
-              </label>
-              {creating ? (
-                <span className="inline-flex items-center border border-[var(--color-or)] bg-[var(--color-noir-deep)]">
-                  <input
-                    autoFocus
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") submitCreate(); if (e.key === "Escape") setCreating(false); }}
-                    placeholder={t("vitrines.new_cabinet_ph")}
-                    aria-label={t("vitrines.new_cabinet_ph")}
-                    className="bg-transparent outline-none text-[var(--color-ivoire)] px-3 py-2.5 w-44"
-                  />
-                  <button type="button" onClick={submitCreate} disabled={createLoc.isPending} className="tap-target px-3 self-stretch bg-[var(--color-laque)] text-[var(--color-ivoire)] text-[11px] uppercase tracking-[0.16em] hover:bg-[var(--color-laque-bright)] transition-colors disabled:opacity-60">
-                    {t("vitrines.create")}
-                  </button>
-                </span>
-              ) : (
-                <Button variant="ghost" onClick={() => setCreating(true)} className="!px-5 !py-2.5 text-[11px] uppercase tracking-[0.18em] whitespace-nowrap">
-                  <span aria-hidden className="ja text-[var(--color-or)] text-base leading-none">飾</span>
-                  {t("vitrines.new_cabinet")}
-                </Button>
-              )}
-            </div>
-
-            {matched ? (
-              <p className="relative mt-3 pt-3 border-t border-[color-mix(in_oklab,var(--color-or)_18%,transparent)] text-[13px] text-[var(--color-ivoire-soft)]">
-                {matched.length === 0 ? (
-                  <span className="italic">{t("vitrines.search_none", { q: query.trim() })}</span>
-                ) : (
-                  <>
-                    <span className="micro-tight mr-1.5 text-[var(--color-or-pale)]">{t("vitrines.search_found", { n: matched.length })}</span>
-                    {matched.slice(0, 4).map((o, i) => (
-                      <span key={o.id} className="whitespace-nowrap">
-                        {i > 0 ? <span aria-hidden className="text-[color-mix(in_oklab,var(--color-or)_45%,transparent)]"> · </span> : ""}
-                        <b className="text-[var(--color-jade)] font-medium">{o.figure_name}</b>
-                        <span className="text-[var(--color-or-pale)]"> 「{(o.location || "").trim() || t("vitrines.loose")}」</span>
-                      </span>
-                    ))}
-                    {matched.length > 4 ? <span aria-hidden className="text-[var(--color-ivoire-soft)]"> …</span> : ""}
-                  </>
-                )}
-              </p>
-            ) : null}
-          </Card>
-        </Reveal>
-
-        {cabinetKeys.length > 0 || total > 0 ? (
-          <div className="mt-7 flex items-center justify-end gap-2.5 reveal">
-            <span className="micro-tight text-[var(--color-ivoire-soft)]/70">
-              {t("vitrines.view", { default: "Vue" })}
-            </span>
-            <div className="view-toggle" role="group" aria-label={t("vitrines.view", { default: "Vue" })}>
-              <button type="button" className={view === "grid" ? "is-on" : ""} aria-pressed={view === "grid"} onClick={() => setView("grid")}>
-                {t("vitrines.view.grid", { default: "Grille" })}
-              </button>
-              <button type="button" className={view === "diorama" ? "is-on" : ""} aria-pressed={view === "diorama"} onClick={() => setView("diorama")}>
-                {t("vitrines.view.diorama", { default: "Diorama" })}
-              </button>
-              <button type="button" className={view === "plan" ? "is-on" : ""} aria-pressed={view === "plan"} onClick={() => setView("plan")}>
-                {t("vitrines.view.plan", { default: "Atelier" })}
-              </button>
-            </div>
-          </div>
-        ) : null}
+              {t("vitrines.new_cabinet")}
+            </Button>
+          ) : null
+        }
+      >
+        <p className="text-[var(--on-surface-muted)] leading-relaxed max-w-2xl -mt-2 mb-2">
+          {t("vitrines.body")}
+        </p>
 
         {owned.isLoading ? (
           <SectionSkeleton />
         ) : total === 0 && cabinetKeys.length === 0 ? (
-          <EmptyState t={t} />
-        ) : view === "plan" ? (
-          <ShelfPlanner
-            items={owned.data ?? []}
-            nsfwBlur={nsfwBlur}
-            standeeWidthPx={standeeWidthPx}
-            t={t}
-          />
-        ) : view === "diorama" ? (
-          <div className="mt-8 space-y-12">
-            {cabinetKeys.map((key) => (
-              <DioramaShelf
-                key={key}
-                name={key}
-                marker={canonical.registeredIds.has(key) ? "棚" : "飾"}
-                items={(board[key] ?? []).map((i) => itemMap.get(i)).filter(Boolean)}
-                {...tileShared}
-              />
-            ))}
-            {(board[LOOSE] ?? []).length ? (
-              <DioramaShelf
-                name={t("vitrines.loose")}
-                marker="箱"
-                items={(board[LOOSE] ?? []).map((i) => itemMap.get(i)).filter(Boolean)}
-                {...tileShared}
-              />
-            ) : null}
-          </div>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCorners}
-            onDragStart={onDragStart}
-            onDragOver={onDragOver}
-            onDragEnd={onDragEnd}
-            onDragCancel={onDragCancel}
+          <EmptyState
+            kanji="棚"
+            eyebrow={t("vitrines.empty_eyebrow", { default: "Aucune vitrine" })}
+            title={t("vitrines.empty")}
+            body={t("vitrines.empty_body", {
+              default:
+                "Ajoute des pièces à ta collection, puis range-les dans des vitrines en les glissant à leur place.",
+            })}
           >
-            <div className="mt-8 grid gap-7 [grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))]">
-              {cabinetKeys.map((key) => (
-                <Cabinet
-                  key={key}
-                  id={key}
-                  name={key}
-                  ids={board[key] ?? []}
-                  itemMap={itemMap}
-                  locale={locale}
-                  registered={canonical.registeredIds.has(key)}
-                  onDelete={
-                    canonical.registeredIds.has(key)
-                      ? () => setConfirmDel({ id: canonical.registeredIds.get(key), name: key })
-                      : null
-                  }
-                  {...tileShared}
-                />
-              ))}
-              {total > 0 ? (
-                <Cabinet id={LOOSE} loose ids={board[LOOSE] ?? []} itemMap={itemMap} locale={locale} {...tileShared} />
-              ) : null}
+            <Button as={Link} to="/collection" variant="primary">
+              {t("vitrines.empty_cta")}
+            </Button>
+          </EmptyState>
+        ) : (
+          <>
+            <VitrinesKpiStrip
+              t={t}
+              cabinets={cabinetKeys.length}
+              shelved={shelvedCount}
+              loose={looseCount}
+              totalValue={totalValue}
+            />
+
+            <div className="mt-8">
+              <VitrineLookup
+                t={t}
+                query={query}
+                onQuery={setQuery}
+                matched={matched}
+                creating={creating}
+                newName={newName}
+                onNewName={setNewName}
+                onStartCreate={startCreate}
+                onSubmitCreate={submitCreate}
+                onCancelCreate={() => setCreating(false)}
+                createPending={createLoc.isPending}
+              />
             </div>
-            <DragOverlay>
-              {activeItem ? (
-                <div
-                  className="relative aspect-[3/4] w-[var(--ov-w,120px)] overflow-hidden border shadow-2xl rotate-2"
-                  style={{ borderColor: `color-mix(in oklab, ${typeHue(activeItem.figure_type)} 50%, transparent)`, background: "var(--color-noir-deep)" }}
-                >
-                  <TileVisual o={activeItem} nsfwBlur={nsfwBlur} />
+
+            <Section
+              className="mt-8"
+              kicker={t("vitrines.section.organise", { default: "Organiser les meubles" })}
+              actions={
+                <div className="flex items-center gap-2.5">
+                  <span className="micro-tight text-[var(--on-surface-muted)]">
+                    {t("vitrines.view", { default: "Vue" })}
+                  </span>
+                  <div
+                    className="view-toggle"
+                    role="group"
+                    aria-label={t("vitrines.view", { default: "Vue" })}
+                  >
+                    <button
+                      type="button"
+                      className={view === "grid" ? "is-on" : ""}
+                      aria-pressed={view === "grid"}
+                      onClick={() => setView("grid")}
+                    >
+                      {t("vitrines.view.grid", { default: "Grille" })}
+                    </button>
+                    <button
+                      type="button"
+                      className={view === "diorama" ? "is-on" : ""}
+                      aria-pressed={view === "diorama"}
+                      onClick={() => setView("diorama")}
+                    >
+                      {t("vitrines.view.diorama", { default: "Diorama" })}
+                    </button>
+                    <button
+                      type="button"
+                      className={view === "plan" ? "is-on" : ""}
+                      aria-pressed={view === "plan"}
+                      onClick={() => setView("plan")}
+                    >
+                      {t("vitrines.view.plan", { default: "Atelier" })}
+                    </button>
+                  </div>
                 </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
+              }
+              divider
+            >
+              {view === "plan" ? (
+                <ShelfPlanner
+                  items={owned.data ?? []}
+                  nsfwBlur={nsfwBlur}
+                  standeeWidthPx={standeeWidthPx}
+                  t={t}
+                />
+              ) : view === "diorama" ? (
+                <div className="space-y-12">
+                  {cabinetKeys.map((key) => (
+                    <DioramaShelf
+                      key={key}
+                      name={key}
+                      marker={canonical.registeredIds.has(key) ? "棚" : "飾"}
+                      items={(board[key] ?? []).map((i) => itemMap.get(i)).filter(Boolean)}
+                      {...tileShared}
+                    />
+                  ))}
+                  {(board[LOOSE] ?? []).length ? (
+                    <DioramaShelf
+                      name={t("vitrines.loose")}
+                      marker="箱"
+                      items={(board[LOOSE] ?? []).map((i) => itemMap.get(i)).filter(Boolean)}
+                      {...tileShared}
+                    />
+                  ) : null}
+                </div>
+              ) : (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCorners}
+                  onDragStart={onDragStart}
+                  onDragOver={onDragOver}
+                  onDragEnd={onDragEnd}
+                  onDragCancel={onDragCancel}
+                >
+                  <div className="grid gap-7 [grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))]">
+                    {cabinetKeys.map((key) => (
+                      <Cabinet
+                        key={key}
+                        id={key}
+                        name={key}
+                        ids={board[key] ?? []}
+                        itemMap={itemMap}
+                        registered={canonical.registeredIds.has(key)}
+                        onDelete={
+                          canonical.registeredIds.has(key)
+                            ? () =>
+                                setConfirmDel({ id: canonical.registeredIds.get(key), name: key })
+                            : null
+                        }
+                        {...tileShared}
+                      />
+                    ))}
+                    {total > 0 ? (
+                      <Cabinet
+                        id={LOOSE}
+                        loose
+                        ids={board[LOOSE] ?? []}
+                        itemMap={itemMap}
+                        {...tileShared}
+                      />
+                    ) : null}
+                  </div>
+                  <DragOverlay>
+                    {activeItem ? (
+                      <div
+                        className="relative aspect-[3/4] w-[var(--ov-w,120px)] overflow-hidden border shadow-2xl rotate-2"
+                        style={{
+                          borderColor: `color-mix(in oklab, ${typeHue(activeItem.figure_type)} 50%, transparent)`,
+                          background: "var(--color-noir-deep)",
+                        }}
+                      >
+                        <TileVisual o={activeItem} nsfwBlur={nsfwBlur} />
+                      </div>
+                    ) : null}
+                  </DragOverlay>
+                </DndContext>
+              )}
+            </Section>
+          </>
         )}
-      </main>
+      </PageLayout>
 
       {confirmDel ? (
         <ConfirmDialog
@@ -507,320 +478,13 @@ export default function VitrinesPage() {
           confirmLabel={t("vitrines.delete_cabinet")}
           destructive
           busy={delLoc.isPending}
-          onConfirm={() => { delLoc.mutate(confirmDel.id); setConfirmDel(null); }}
+          onConfirm={() => {
+            delLoc.mutate(confirmDel.id);
+            setConfirmDel(null);
+          }}
           onCancel={() => setConfirmDel(null)}
         />
       ) : null}
     </AppShell>
-  );
-}
-
-/**
- * One display case. Registered + free-text cabinets read as a lit glass
- * vitrine (Card surface, brass-plaque header, kanji marker, gold-rule shelf
- * edges, glass sheen); the "unshelved" group is a dashed reserve crate.
- *
- * The droppable + SortableContext wiring is unchanged — only the chrome around
- * the specimen grid was restyled.
- */
-function Cabinet({ id, name, loose, ids, itemMap, locale, registered, onDelete, nsfwBlur, matchedIds, openItem, t }) {
-  const { setNodeRef, isOver } = useDroppable({ id });
-  const items = ids.map((i) => itemMap.get(i)).filter(Boolean);
-  // 棚 (shelf) for a registered cabinet, 飾 (display) for a free-text one.
-  const marker = loose ? "" : registered ? "棚" : "飾";
-
-  if (loose) {
-    return (
-      <article
-        className={`relative overflow-hidden border border-dashed transition-colors ${
-          isOver
-            ? "border-[var(--color-or)] ring-1 ring-[var(--color-or)]"
-            : "border-[color-mix(in_oklab,var(--color-or)_28%,transparent)]"
-        }`}
-        style={{ background: "color-mix(in oklab, var(--color-noir-deep) 55%, transparent)" }}
-      >
-        <header className="flex items-start justify-between gap-3 px-4 pt-4 pb-3 border-b border-dashed border-[color-mix(in_oklab,var(--color-or)_28%,transparent)]">
-          <div className="min-w-0">
-            <h2 className="display text-xl leading-tight truncate italic text-[var(--color-ivoire-soft)]">
-              {t("vitrines.loose")}
-            </h2>
-            <p className="micro-tight mt-1">{t("vitrines.loose_count", { n: items.length })}</p>
-          </div>
-        </header>
-        <SortableContext items={ids} strategy={rectSortingStrategy}>
-          <div ref={setNodeRef} className="relative grid grid-cols-3 gap-2.5 p-4 min-h-[96px]">
-            {items.length === 0 ? (
-              <DropHint t={t} />
-            ) : (
-              items.map((o) => <SortableTile key={o.id} o={o} nsfwBlur={nsfwBlur} matchedIds={matchedIds} openItem={openItem} />)
-            )}
-          </div>
-        </SortableContext>
-      </article>
-    );
-  }
-
-  return (
-    <Card
-      as="article"
-      className={`overflow-hidden transition-colors ${
-        isOver ? "!border-[var(--color-or)] ring-1 ring-[var(--color-or)]" : ""
-      }`}
-    >
-      {/* Lit-glass atmosphere: a faint kanji marker behind the shelf + the
-          shared diagonal sheen catching the room's single light. Both static
-          and pointer-inert — GPU-free. */}
-      <span aria-hidden className="kanji-mark text-[7rem] -top-5 -right-1 select-none">{marker}</span>
-      <GlassSheen />
-      {/* Display-case spotlight — a single warm lamp washing the shelf from
-          above, so the specimens read as lit on a stage (diorama feel). Static,
-          pointer-inert → GPU-free. */}
-      <span
-        aria-hidden
-        className="pointer-events-none absolute -top-1 left-1/2 -translate-x-1/2 w-[78%] h-44 z-[1]"
-        style={{ background: "radial-gradient(58% 100% at 50% 0, color-mix(in oklab, var(--color-or) 15%, transparent), transparent 72%)" }}
-      />
-
-      {/* Brass plaque — the cabinet's name + a kanji tag, over the front
-          gold-rule shelf edge. */}
-      <header className="relative z-[2] flex items-start justify-between gap-3 px-4 pt-4 pb-3">
-        <div className="min-w-0">
-          <p className="micro-tight flex items-center gap-1.5">
-            <span aria-hidden className="ja not-italic text-sm leading-none text-[var(--color-or)]">{marker}</span>
-            {registered ? t("vitrines.cabinet_kicker", { default: "Meuble" }) : t("vitrines.cabinet_kicker_freetext", { default: "Emplacement" })}
-          </p>
-          <h2 className="display text-xl leading-tight truncate text-[var(--color-ivoire)] mt-1">
-            {name}
-          </h2>
-          <p className="micro-tight mt-1 text-[var(--color-ivoire-soft)]/70">{t("vitrines.piece_count", { n: items.length })}</p>
-        </div>
-        <div className="flex items-start gap-2 shrink-0">
-          <CabinetValue items={items} locale={locale} t={t} />
-          {onDelete ? (
-            <button
-              type="button"
-              onClick={onDelete}
-              title={t("vitrines.delete_cabinet")}
-              className="tap-target -mr-1.5 -mt-1 grid place-items-center text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] transition-colors leading-none text-lg"
-            >
-              ×<span className="sr-only">{t("vitrines.delete_cabinet")}</span>
-            </button>
-          ) : null}
-        </div>
-      </header>
-      {/* Front shelf edge — a gold hairline under the plaque. */}
-      <div aria-hidden className="relative z-[2] gold-rule mx-4" />
-
-      <SortableContext items={ids} strategy={rectSortingStrategy}>
-        <div ref={setNodeRef} className="relative z-[1] grid grid-cols-3 gap-2.5 px-4 pt-4 pb-3 min-h-[96px]">
-          {items.length === 0 ? (
-            <DropHint t={t} />
-          ) : (
-            items.map((o) => <SortableTile key={o.id} o={o} nsfwBlur={nsfwBlur} matchedIds={matchedIds} openItem={openItem} />)
-          )}
-        </div>
-      </SortableContext>
-      {/* Base shelf edge — a fainter gold rule grounding the case. */}
-      <div aria-hidden className="relative z-[2] mx-4 mb-3 h-px" style={{ background: "linear-gradient(to right, transparent, color-mix(in oklab, var(--color-or) 45%, transparent) 30%, color-mix(in oklab, var(--color-or) 45%, transparent) 70%, transparent)" }} />
-    </Card>
-  );
-}
-
-// Empty-shelf affordance — a centred, dashed-feeling cue inviting a drop. The
-// kanji whispers "place" (置). Spans the 3-column specimen grid.
-function DropHint({ t }) {
-  return (
-    <div className="col-span-3 grid place-items-center text-center py-7 gap-1.5">
-      <span aria-hidden className="ja text-2xl leading-none text-[color-mix(in_oklab,var(--color-or)_35%,transparent)]">置</span>
-      <p className="text-[12px] text-[var(--color-ivoire-soft)] italic">{t("vitrines.drop_hint")}</p>
-    </div>
-  );
-}
-
-function SortableTile({ o, nsfwBlur, matchedIds, openItem }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: o.id });
-  const hue = typeHue(o.figure_type);
-  const isMatch = matchedIds.has(o.id);
-  // The whole card carries the drag listeners. Keep @dnd-kit's keyboard handler
-  // (Space lifts/drops) but compose our own so Enter opens the figure.
-  const { onKeyDown: dndKeyDown, ...dragListeners } = listeners ?? {};
-  return (
-    <div
-      ref={setNodeRef}
-      {...attributes}
-      {...dragListeners}
-      onClick={() => openItem(o)}
-      onKeyDown={(e) => {
-        dndKeyDown?.(e);
-        if (!e.defaultPrevented && e.key === "Enter") {
-          e.preventDefault();
-          openItem(o);
-        }
-      }}
-      title={o.figure_name}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.35 : 1,
-        borderColor: `color-mix(in oklab, ${hue} 26%, transparent)`,
-        background: "radial-gradient(circle at 30% 18%, var(--color-noir-soft) 0%, var(--color-noir-deep) 60%)",
-        // Casts a soft shadow at its foot — the specimen "rests" on the glass
-        // shelf rather than floating in the grid.
-        boxShadow: "0 7px 11px -8px color-mix(in oklab, var(--color-noir-deep) 95%, transparent), inset 0 1px 0 color-mix(in oklab, var(--color-ivoire) 5%, transparent)",
-      }}
-      className={`group/spec relative aspect-[3/4] overflow-hidden border cursor-grab active:cursor-grabbing select-none ${isMatch ? "ring-2 ring-[var(--color-jade)] ring-offset-1 ring-offset-[var(--color-noir-deep)]" : ""}`}
-    >
-      <TileVisual o={o} nsfwBlur={nsfwBlur} />
-      {/* Grab affordance — a faint ⠿ handle cue that surfaces on hover/focus.
-          Purely decorative; the whole tile is draggable. */}
-      <span
-        aria-hidden
-        className="absolute top-1 right-1 z-[3] leading-none text-[10px] text-[var(--color-ivoire)] opacity-0 group-hover/spec:opacity-70 group-focus/spec:opacity-70 transition-opacity"
-        style={{ textShadow: "0 1px 2px rgba(0,0,0,0.8)" }}
-      >
-        ⠿
-      </span>
-    </div>
-  );
-}
-
-function TileVisual({ o, nsfwBlur }) {
-  const hue = typeHue(o.figure_type);
-  const cover = resolveOwnedCover(o);
-  const blur = o.is_nsfw && nsfwBlur;
-  return (
-    <>
-      <span aria-hidden className="absolute top-0 left-0 right-0 h-[2px] z-[2]" style={{ background: `linear-gradient(90deg, transparent, ${hue} 30%, ${hue} 70%, transparent)` }} />
-      {cover ? (
-        <img src={cover} alt="" loading="lazy" draggable={false} className={`absolute inset-0 w-full h-full object-cover ${blur ? "nsfw-blur" : ""}`} />
-      ) : (
-        <span aria-hidden className="ja absolute inset-0 grid place-items-center text-[2.2rem]" style={{ color: `color-mix(in oklab, ${hue} 50%, transparent)` }}>
-          {typeKanji(o.figure_type)}
-        </span>
-      )}
-      <span className="absolute left-0 right-0 bottom-0 z-[2] px-1.5 py-1 text-[8.5px] text-center text-[var(--color-ivoire)] [background:linear-gradient(to_top,color-mix(in_oklab,var(--color-noir-deep)_92%,transparent),transparent)] truncate">
-        {o.figure_name}
-      </span>
-    </>
-  );
-}
-
-function CabinetValue({ items, t }) {
-  const v = cabinetValue(items);
-  if (!v) return null;
-  return (
-    <div className="text-right">
-      <div className="display text-lg text-[var(--color-or-pale)] whitespace-nowrap"><Money amount={v.amount} currency={v.currency} /></div>
-      <div className="text-[9px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)] mt-0.5">{t("vitrines.cabinet_value")}</div>
-    </div>
-  );
-}
-
-function GlassSheen() {
-  return (
-    <span aria-hidden className="absolute inset-0 z-[3] pointer-events-none" style={{ background: "linear-gradient(118deg, transparent 38%, oklch(1 0 0 / 0.05) 49%, transparent 60%)" }} />
-  );
-}
-
-function EmptyState({ t }) {
-  return (
-    <Card className="max-w-xl mx-auto mt-8 p-12 text-center relative overflow-hidden frame-corners">
-      <span
-        aria-hidden
-        className="ja absolute -top-6 -right-6 text-[14rem] text-[var(--color-or)]/10 leading-none select-none"
-      >
-        棚
-      </span>
-      <p className="micro relative">{t("vitrines.empty_eyebrow", { default: "Aucune vitrine" })}</p>
-      <h2 className="display text-3xl mt-3 text-[var(--color-ivoire)] relative">
-        {t("vitrines.empty")}
-      </h2>
-      <p className="mt-4 text-[var(--color-ivoire-soft)] leading-relaxed relative">
-        {t("vitrines.empty_body", { default: "Ajoute des pièces à ta collection, puis range-les dans des vitrines en les glissant à leur place." })}
-      </p>
-      <div className="gold-rule mx-auto w-20 my-8" />
-      <Link to="/collection" className="relative inline-block">
-        <Button variant="primary">{t("vitrines.empty_cta")}</Button>
-      </Link>
-    </Card>
-  );
-}
-
-/**
- * Diorama view — read-only display mode. Each vitrine becomes a lit perspective
- * shelf: its specimens stand as framed standees on a warm-spotlit stage, each
- * casting a faint reflection on the polished floor (see `.diorama-*` in
- * index.css). Arranging stays in the grid view; this is the "show it off" mode.
- */
-function DioramaShelf({ name, marker, items, nsfwBlur, openItem, t }) {
-  return (
-    <section className="reveal" aria-label={name}>
-      <header className="flex items-baseline justify-between gap-3 px-1 mb-2">
-        <h2 className="display text-2xl leading-tight text-[var(--color-ivoire)] truncate">
-          {marker ? (
-            <span aria-hidden className="ja text-base text-[var(--color-or)] mr-2 align-middle">
-              {marker}
-            </span>
-          ) : null}
-          {name}
-        </h2>
-        <span className="label-mono shrink-0 text-[var(--color-ivoire-soft)]/60">
-          {items.length}
-          <span aria-hidden className="ja ml-0.5 text-[var(--color-or)]/70">点</span>
-        </span>
-      </header>
-      <div className="diorama-shelf">
-        <span aria-hidden className="diorama-spot" />
-        {items.length === 0 ? (
-          <p className="diorama-empty">
-            <span aria-hidden className="ja block text-2xl mb-1 text-[color-mix(in_oklab,var(--color-or)_40%,transparent)]">
-              空
-            </span>
-            {t("vitrines.diorama_empty", { default: "Étagère vide — range des pièces ici depuis la vue Grille." })}
-          </p>
-        ) : (
-          <ul className="diorama-row">
-            {items.map((o) => (
-              <DioramaStandee
-                key={o.id}
-                o={o}
-                blur={Boolean(o.is_nsfw && nsfwBlur)}
-                onOpen={() => openItem(o)}
-              />
-            ))}
-          </ul>
-        )}
-        <span aria-hidden className="diorama-floor" />
-      </div>
-    </section>
-  );
-}
-
-function DioramaStandee({ o, blur, onOpen }) {
-  const cover = resolveOwnedCover(o);
-  return (
-    <li
-      className="diorama-standee"
-      style={{ "--hue": typeHue(o.figure_type), "--standee-w": `${standeeWidthPx(o)}px` }}
-    >
-      <button type="button" className="diorama-standee-btn" onClick={onOpen} title={o.figure_name}>
-        <span className="diorama-standee-card">
-          {cover ? (
-            <img src={cover} alt="" loading="lazy" draggable={false} className={blur ? "nsfw-blur" : ""} />
-          ) : (
-            <span className="diorama-standee-ph ja" aria-hidden>
-              {typeKanji(o.figure_type)}
-            </span>
-          )}
-        </span>
-        <span aria-hidden className="diorama-standee-contact" />
-        {cover ? (
-          <span aria-hidden className="diorama-standee-reflect">
-            <img src={cover} alt="" loading="lazy" draggable={false} className={blur ? "nsfw-blur" : ""} />
-          </span>
-        ) : null}
-        <span className="diorama-standee-name">{o.figure_name}</span>
-      </button>
-    </li>
   );
 }

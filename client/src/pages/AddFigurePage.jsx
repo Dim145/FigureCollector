@@ -1,46 +1,38 @@
 import { useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Brush, ScanSearch, ScanLine } from "lucide-react";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useAddOwnedItem, useCreateFigure } from "../hooks/useCollection.js";
-import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
-import Card from "../components/Card.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import FigureForm from "../components/FigureForm.jsx";
+import { Card, Checkbox } from "../components/ui/index.js";
+import { PageLayout } from "../components/layout/index.js";
 import { mapApiError } from "../lib/errorMap.js";
 
 /**
- * /figures/new — "Le bordereau d'entrée", redrawn to Direction A ("Shōjo-Noir").
+ * /figures/new — add a piece to the catalogue, redrawn on the shared
+ * foundation (Direction A "Shōjo-Noir").
  *
- * Adding a piece to the catalogue, reframed as an editorial accession slip
- * rather than a bare form-in-a-box:
- *   - an editorial header (kicker · 像 · CATALOGUE → AccentTitle h1 → gold-rule
- *     → italic gloss) over a faint kanji-mark watermark;
- *   - a "two ways in" band that makes the hard product rule visible — manual
- *     entry is *always* available, side-by-side with the external lookup
- *     (orzgk + the proxy's boutiques, plus MFC paste-import) and barcode-scan
- *     entry points that live inside the form itself;
- *   - the form wrapped in a clearly-sectioned Card panel (kicker sub-label +
- *     kanji + gold-rule divider, like SettingsPage), with the "also add to my
- *     collection" choice promoted into a refined gold-accent control;
- *   - a quiet seigaiha wave veil closing the page.
+ * Thin orchestrator: data hooks + create/add-to-collection/NSFW-confirm logic,
+ * then composition —
+ *   <PageLayout> editorial header (kicker · 像 · CATALOGUE → AccentTitle)
+ *   → a "Deux façons d'entrer" band (two WayCards) that keeps the hard product
+ *     rule visible: manual entry is ALWAYS available, beside the external lookup
+ *   → the <FigureForm> spine (the lookup + barcode entry points live inside it)
+ *   → the "also add to my collection" choice as the form's footer extra.
  *
- * Behaviour is unchanged: a barcode scan that found no catalogue match still
- * lands here with `?jan=…` so the form opens pre-filled with the scanned code;
- * all create / add-to-collection / NSFW-confirm logic lives below untouched.
- * GPU-light throughout — flat fills + hairlines + the shared `.reveal` stagger.
+ * Behaviour unchanged: a no-match barcode scan lands here with ?jan=… (form
+ * opens pre-filled with the scanned code); a no-match photo search lands with
+ * ?name=….
  */
 export default function AddFigurePage() {
   const t = useT();
   const me = useMe();
   const navigate = useNavigate();
-  // A barcode scan that found no catalogue match lands here with ?jan=… so the
-  // form opens pre-filled with the scanned barcode.
   const [searchParams] = useSearchParams();
   const scannedJan = searchParams.get("jan");
-  // Photo search (/recognize) that found no catalogue match can hand off the
-  // best external guess as ?name=… so the form opens with the name pre-filled.
   const prefillName = searchParams.get("name");
   const formInitial =
     scannedJan || prefillName
@@ -52,9 +44,8 @@ export default function AddFigurePage() {
   const createFigure = useCreateFigure();
   const addOwned = useAddOwnedItem();
   const [alsoAddToCollection, setAlsoAddToCollection] = useState(true);
-  // Payload waiting for an NSFW-warning acknowledgement. Stays null in the
-  // happy path. Replaces a `window.confirm()` whose UX clashed with the
-  // rest of the site's modal style.
+  // Payload waiting for an NSFW-warning acknowledgement (stays null in the happy
+  // path). Replaces a window.confirm() whose UX clashed with the site's modals.
   const [pendingNsfwPayload, setPendingNsfwPayload] = useState(null);
 
   if (me.isLoading) return null;
@@ -64,11 +55,8 @@ export default function AddFigurePage() {
     try {
       const figure = await createFigure.mutateAsync(payload);
       if (alsoAddToCollection) {
-        // When the user is also adding the freshly-created figure to their
-        // collection, seed the owned-item's purchase price + currency from
-        // the catalog MSRP they just typed. They can override later via the
-        // owned-item editor on the figure detail page. Empty MSRP =
-        // payload.msrp_amount undefined → owned row created with NULL price.
+        // Seed the owned-item's purchase price/currency from the catalog MSRP
+        // just typed (overridable later). Empty MSRP → NULL price row.
         await addOwned.mutateAsync({
           figure_id: figure.id,
           price_amount: payload.msrp_amount,
@@ -83,10 +71,7 @@ export default function AddFigurePage() {
   };
 
   const onSubmit = async (payload) => {
-    // If the user tags a figure as NSFW while their own pref hides them,
-    // warn (but don't block) — they may want to set the pref to "blur" or
-    // "show" before they continue, or they might be content uploading for
-    // others without seeing it themselves.
+    // If the user tags NSFW while their own pref hides them, warn (don't block).
     const pref = me.data?.user?.nsfw_visibility ?? "hide";
     if (payload.is_nsfw && pref === "hide") {
       setPendingNsfwPayload(payload);
@@ -104,51 +89,34 @@ export default function AddFigurePage() {
 
   return (
     <AppShell>
-      <main className="relative max-w-3xl mx-auto px-6 py-16">
-        {/* ─── Editorial header ─── */}
-        <header className="relative mb-10">
-          <span
-            aria-hidden
-            className="kanji-mark text-[20rem] md:text-[24rem] -top-24 -right-6 hidden sm:block select-none"
-          >
-            像
-          </span>
-
-          <p className="micro reveal flex items-center gap-2.5" style={{ "--i": 0 }}>
-            <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
+      <PageLayout
+        width="prose"
+        kanji="像"
+        kicker={
+          <span className="inline-flex items-center gap-2.5">
+            <span aria-hidden className="w-1 h-1 bg-[var(--primary)] rotate-45" />
             {t("addfig.kicker", { default: "AJOUTER" })}
-            <span aria-hidden className="ja not-italic text-[var(--color-or)]">像</span>
+            <span aria-hidden className="ja not-italic text-[var(--accent)]">
+              像
+            </span>
             {t("addfig.kicker_label", { default: "CATALOGUE" })}
-          </p>
-          <h1
-            className="display text-5xl md:text-6xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
-            style={{ "--i": 1 }}
-          >
-            <AccentTitle text={t("addfig.title")} />
-          </h1>
-          <div className="gold-rule w-24 mt-6 reveal" style={{ "--i": 2 }} />
-          <p
-            className="display-italic text-[var(--color-or)] text-lg mt-5 max-w-xl reveal"
-            style={{ "--i": 3 }}
-          >
-            {t("addfig.gloss", {
-              default:
-                "Une nouvelle pièce au catalogue — décrite à la main, ou pré-remplie depuis une source externe.",
-            })}
-          </p>
-        </header>
+          </span>
+        }
+        title={t("addfig.title")}
+      >
+        <p className="display-italic text-[var(--accent)] text-lg -mt-2 mb-8 max-w-xl">
+          {t("addfig.gloss")}
+        </p>
 
-        {/* ─── "Deux façons d'entrer" — the hard product rule, made visible.
-            The actual lookup / scan controls live inside the form below; this
-            band just orients the user so manual entry never feels like the
-            lesser path. ─── */}
+        {/* "Deux façons d'entrer" — the hard product rule, made visible. The
+            actual lookup / scan controls live inside the form below; this band
+            just orients the user so manual entry never reads as the lesser path. */}
         <section
-          className="reveal grid sm:grid-cols-2 gap-px mb-10 border border-[var(--color-or)]/20 bg-[var(--color-or)]/10"
-          style={{ "--i": 4 }}
+          className="grid sm:grid-cols-2 gap-4 mb-8"
           aria-label={t("addfig.ways.heading", { default: "Deux façons d'ajouter" })}
         >
           <WayCard
-            kanji="筆"
+            icon={Brush}
             title={t("addfig.ways.manual.title", { default: "Saisie manuelle" })}
             body={t("addfig.ways.manual.body", {
               default:
@@ -156,29 +124,24 @@ export default function AddFigurePage() {
             })}
           />
           <WayCard
-            kanji="検"
+            icon={ScanSearch}
             accent
             title={t("addfig.ways.lookup.title", { default: "Recherche & scan" })}
             body={t("addfig.ways.lookup.body", {
               default:
-                "Cherchez sur MFC / AniList / orzgk, collez un lien, ou scannez un code-barres — les champs trouvés se pré-remplissent. À retoucher ensuite.",
+                "Cherchez sur orzgk / les boutiques du proxy / AniList, collez un lien, ou scannez un code-barres — les champs trouvés se pré-remplissent. À retoucher ensuite.",
             })}
           />
         </section>
 
-        {/* Scanned-barcode notice — only when arriving from a no-match scan
-            (BrowsePage → /figures/new?jan=…). Confirms the JAN is already in
-            the form so the user knows where the scan landed. */}
+        {/* Scanned-barcode notice (only when arriving from a no-match scan). */}
         {scannedJan ? (
           <div
-            className="reveal mb-8 flex items-start gap-3 border-l-2 border-[var(--color-or)] bg-[var(--color-or)]/5 px-4 py-3"
-            style={{ "--i": 5 }}
+            className="mb-8 flex items-start gap-3 border-l-2 border-[var(--accent)] bg-[var(--accent)]/5 px-4 py-3"
             role="status"
           >
-            <span aria-hidden className="ja text-xl text-[var(--color-or)] leading-none mt-0.5">
-              印
-            </span>
-            <p className="text-sm text-[var(--color-ivoire-soft)] leading-relaxed">
+            <ScanLine size={20} className="text-[var(--accent)] shrink-0 mt-0.5" aria-hidden />
+            <p className="text-sm text-[var(--on-surface-muted)] leading-relaxed">
               <span className="micro-tight block mb-1 text-[var(--color-or-pale)]">
                 {t("scan.eyebrow")}
               </span>
@@ -191,29 +154,22 @@ export default function AddFigurePage() {
           </div>
         ) : null}
 
-        {/* ─── Form panel ─── */}
-        {/* `Card` doesn't forward `style`, so the reveal stagger index rides on
-            a wrapper rather than the Card itself. */}
-        <div className="reveal" style={{ "--i": 6 }}>
+        {/* Form panel. */}
         <Card className="relative overflow-hidden p-6 md:p-8">
-          <span
-            aria-hidden
-            className="kanji-mark text-[11rem] -top-10 -right-4 select-none"
-          >
+          <span aria-hidden className="kanji-mark text-[11rem] -top-10 -right-4 select-none">
             像
           </span>
-
           <header className="relative mb-6">
             <p className="micro flex items-center gap-2">
               <span
-                className="ja not-italic text-base text-[var(--color-or)] leading-none"
+                className="ja not-italic text-base text-[var(--accent)] leading-none"
                 aria-hidden
               >
                 像
               </span>
               {t("addfig.form.eyebrow", { default: "Fiche catalogue" })}
             </p>
-            <h2 className="display text-2xl md:text-3xl mt-2 text-[var(--color-ivoire)] leading-tight">
+            <h2 className="display text-2xl md:text-3xl mt-2 text-[var(--on-surface)] leading-tight">
               {t("addfig.form.title", { default: "La fiche" })}
             </h2>
             <div className="gold-rule w-16 mt-4" />
@@ -237,9 +193,8 @@ export default function AddFigurePage() {
             />
           </div>
         </Card>
-        </div>
+      </PageLayout>
 
-      </main>
       <ConfirmDialog
         open={!!pendingNsfwPayload}
         title={t("nsfw.warn_on_create.title", { default: t("nsfw.warn_on_create") })}
@@ -257,65 +212,50 @@ export default function AddFigurePage() {
 }
 
 /** One half of the "two ways in" band. The lookup side gets the hanko-red
- *  accent (it's the showier path); the manual side stays gold/quiet so it
- *  reads as the dependable default, never the afterthought. */
-function WayCard({ kanji, title, body, accent = false }) {
+ *  accent (the showier path); the manual side stays gold/quiet so it reads as
+ *  the dependable default, never the afterthought. */
+function WayCard({ icon: Icon, title, body, accent = false }) {
   return (
-    <div className="bg-[var(--color-noir-soft)] p-5 flex items-start gap-3.5">
-      <span
+    <Card
+      elevation={1}
+      className="p-5 flex items-start gap-3.5"
+      style={accent ? { borderColor: "var(--border-strong)" } : undefined}
+    >
+      <Icon
+        size={22}
+        strokeWidth={1.75}
+        className="mt-0.5 shrink-0"
+        style={{ color: accent ? "var(--primary)" : "var(--accent)" }}
         aria-hidden
-        className="ja text-2xl leading-none mt-0.5 shrink-0"
-        style={{
-          color: accent ? "var(--color-laque-bright)" : "var(--color-or)",
-          opacity: accent ? 1 : 0.85,
-        }}
-      >
-        {kanji}
-      </span>
+      />
       <div className="min-w-0">
-        <h3 className="display text-lg text-[var(--color-ivoire)] leading-tight">
-          {title}
-        </h3>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--color-ivoire-soft)]">
-          {body}
-        </p>
+        <h3 className="display text-lg text-[var(--on-surface)] leading-tight">{title}</h3>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--on-surface-muted)]">{body}</p>
       </div>
-    </div>
+    </Card>
   );
 }
 
-/** "Also add the freshly-created figure to my collection" — promoted from a
- *  bare checkbox to a bordered gold-accent control with a hint, so the
- *  catalogue-vs-collection distinction is legible at submit time. Keeps the
- *  same controlled-checkbox contract the page wires up. */
+/** "Also add the freshly-created figure to my collection" — a bordered
+ *  gold-accent control so the catalogue-vs-collection distinction is legible at
+ *  submit time. Keeps the controlled-checkbox contract the page wires up. */
 function AlsoAddToggle({ checked, onChange, disabled, t }) {
   return (
-    <label
-      className="flex items-start gap-3 cursor-pointer select-none p-4 border bg-[var(--color-noir)]/40 transition-colors"
+    <div
+      className="p-4 border bg-[var(--surface-sunken)] transition-colors"
       style={{
-        borderColor: checked
-          ? "color-mix(in oklab, var(--color-or) 45%, transparent)"
-          : "color-mix(in oklab, var(--color-or) 18%, transparent)",
+        borderColor: checked ? "var(--border-strong)" : "var(--border-subtle)",
       }}
     >
-      <input
-        type="checkbox"
+      <Checkbox
         checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
+        onChange={onChange}
         disabled={disabled}
-        className="accent-[var(--color-or)] w-4 h-4 mt-0.5"
+        label={t("addfig.also_add")}
+        hint={t("addfig.also_add_hint", {
+          default: "Décoché : la fiche rejoint le catalogue sans entrer dans votre vitrine.",
+        })}
       />
-      <span className="flex-1">
-        <span className="block text-sm text-[var(--color-ivoire)]">
-          {t("addfig.also_add")}
-        </span>
-        <span className="block micro-tight mt-1 opacity-80">
-          {t("addfig.also_add_hint", {
-            default:
-              "Décoché : la fiche rejoint le catalogue sans entrer dans votre vitrine.",
-          })}
-        </span>
-      </span>
-    </label>
+    </div>
   );
 }

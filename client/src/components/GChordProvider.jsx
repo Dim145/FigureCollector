@@ -6,12 +6,12 @@ import { useNavigate } from "react-router-dom";
  * `g`-chord navigation, MangaCollector-style. Press `g` then within ~1.2s:
  *   g d → /                  (dashboard)
  *   g l → /collection        (library)
- *   g c → /browse            (catalog)
- *   g p → /preorders         (pre-orders)
- *   g a → /activity          (activity)
- *   g y → /year-in-review    (year-in-review)
+ *   g c → /catalogue         (catalog)
+ *   g p → /collection/preorders   (pre-orders)
+ *   g a → /community/activity     (activity)
+ *   g y → /insights/year     (year-in-review)
  *   g x → /achievements      (sceaux)
- *   g k → /stats             (statistiques / KPI)
+ *   g k → /insights          (statistiques / KPI)
  *   g s → /settings          (settings)
  *   g ? → toggles a help overlay listing every chord
  *
@@ -21,12 +21,12 @@ import { useNavigate } from "react-router-dom";
 const CHORDS = {
   d: { to: "/", label: "Accueil" },
   l: { to: "/collection", label: "Ma collection" },
-  c: { to: "/browse", label: "Catalogue" },
-  p: { to: "/preorders", label: "Pré-commandes" },
-  a: { to: "/activity", label: "Activité" },
-  y: { to: () => `/year-in-review/${new Date().getFullYear()}`, label: "Bilan de l'année" },
+  c: { to: "/catalogue", label: "Catalogue" },
+  p: { to: "/collection/preorders", label: "Pré-commandes" },
+  a: { to: "/community/activity", label: "Activité" },
+  y: { to: () => `/insights/year/${new Date().getFullYear()}`, label: "Bilan de l'année" },
   x: { to: "/achievements", label: "Sceaux" },
-  k: { to: "/stats", label: "Statistiques" },
+  k: { to: "/insights", label: "Statistiques" },
   s: { to: "/settings", label: "Paramètres" },
   n: { to: "/figures/new", label: "Nouvelle figurine" },
 };
@@ -100,10 +100,7 @@ export default function GChordProvider() {
 
 function PendingPill() {
   return (
-    <div
-      aria-hidden
-      className="fixed bottom-6 left-6 z-50 pointer-events-none"
-    >
+    <div aria-hidden className="fixed bottom-6 left-6 z-50 pointer-events-none">
       <span className="px-3 py-1 bg-[var(--color-noir-soft)] border border-[var(--color-or)] text-[var(--color-or)] text-[10px] uppercase tracking-[0.25em] font-mono">
         g _
       </span>
@@ -126,9 +123,7 @@ function HelpOverlay({ onClose }) {
       >
         <header className="mb-5">
           <p className="micro">Navigation clavier</p>
-          <h2 className="display text-2xl text-[var(--color-ivoire)] mt-1">
-            g-chord
-          </h2>
+          <h2 className="display text-2xl text-[var(--color-ivoire)] mt-1">g-chord</h2>
           <div className="gold-rule w-24 mt-4" />
         </header>
 

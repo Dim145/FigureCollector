@@ -1,31 +1,40 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "motion/react";
-import { useT } from "../i18n/index.jsx";
+import { Check, LogOut, Shield } from "lucide-react";
+import { useT, useI18n } from "../i18n/index.jsx";
 import { useIsAdmin, useLogout, useMe } from "../hooks/useMe.js";
 import { useVisualSearchStatus } from "../hooks/useVisualSearch.js";
-import LocaleSwitcher from "./LocaleSwitcher.jsx";
 import ThemeToggle from "./ThemeToggle.jsx";
 import NotificationBell from "./NotificationBell.jsx";
 import AuroraBackground from "./AuroraBackground.jsx";
 import TypeAccentVars from "./TypeAccentVars.jsx";
 import MobileTabBar from "./MobileTabBar.jsx";
 import MobileNavSheet from "./MobileNavSheet.jsx";
+import Avatar from "./ui/Avatar.jsx";
+import DropdownMenu from "./ui/DropdownMenu.jsx";
+import { SECTIONS, ADD_ACTION, ACCOUNT_NAV, sectionForPath } from "../lib/navConfig.js";
 
 /**
- * Compact exhibition-style header.
+ * Compact exhibition-style header — the redesigned chrome (Direction A).
  *
- * Architecture is the redesign here: only 4 destinations are surfaced in the
- * primary bar (Collection · Catalogue · Pré-commandes · Statistiques). The
- * "+ Ajouter" pill is the only call-to-action. Everything secondary (Activité,
- * Sceaux, Admin, Paramètres, Déconnexion) lives in an avatar popover, which
- * keeps the chrome tight while remaining one click away.
+ * The whole nav model lives in navConfig.js; this surface just renders it:
+ *   - Desktop primary bar = the 4 sections (蒐 Collection · 目 Catalogue ·
+ *     析 Insights · 縁 Communauté) + the single ＋ Ajouter CTA pill. The active
+ *     section is sectionForPath(pathname), so a tab stays lit anywhere inside
+ *     its sub-tree.
+ *   - A contextual sub-nav rail appears under the masthead whenever the active
+ *     section has more than one sub-page (e.g. Collection → Pièces · Vitrines ·
+ *     Souhaits · Pré-commandes). Horizontal scroll on phones, an inline rail on
+ *     desktop — mirroring the AdminLayout pattern.
+ *   - Everything secondary (Récompenses, Notifications, Réglages, language,
+ *     Admin, Déconnexion) lives in an avatar DropdownMenu, keeping the chrome
+ *     tight while one click away.
  *
- * On scroll the header gains a backdrop-blur + tighter padding so the page
- * content reads underneath. On phones the header stays minimal (logo · +
- * Ajouter · bell · theme · avatar, no hamburger) — navigation lives in the
- * bottom tab bar and its "⋯ Plus" sheet (MobileNavSheet), while the avatar
- * menu holds account + preferences, so the three never overlap.
+ * On scroll the header gains a backdrop-blur (the ONLY allowed blur) + tighter
+ * padding so the page reads underneath. On phones the header stays minimal
+ * (logo · ＋ · bell · theme · avatar, no hamburger) — primary navigation lives
+ * in the bottom tab bar + its "⋯ Plus" sheet (MobileNavSheet).
  */
 export default function AppShell({ children }) {
   const t = useT();
@@ -60,43 +69,16 @@ export default function AppShell({ children }) {
     navigate("/login");
   };
 
-  const primary = [
-    { to: "/collection", label: t("nav.collection.short") },
-    { to: "/vitrines", label: t("nav.vitrines") },
-    { to: "/browse", label: t("nav.browse") },
-    { to: "/preorders", label: t("nav.preorders.short") },
-    { to: "/stats", label: t("nav.stats") },
-  ];
-
-  // Desktop avatar "secondary nav" — destinations not surfaced in the primary
-  // bar. Paramètres is intentionally NOT here: it's account, surfaced in the
-  // avatar menu's own account section (alongside logout, and — on mobile —
-  // language), so it never reads as just another nav row.
-  const secondary = [
-    { to: "/souhaits", label: t("wishlist.title") },
-    // Photo search — only when the instance has it enabled (admin flag); the
-    // entry otherwise leads to a dead "indisponible" page. Shared cached status.
-    ...(visualSearch.data?.enabled
-      ? [{ to: "/recognize", label: t("nav.recognize") }]
-      : []),
-    { to: "/cote", label: t("cote.title") },
-    { to: "/collectionneurs", label: t("nav.discover") },
-    { to: "/croisements", label: t("nav.croisements") },
-    { to: "/activity", label: t("activity.title") },
-    { to: "/achievements", label: t("achievements.title") },
-    ...(isAdmin
-      ? [{ to: "/admin", label: t("nav.admin"), accent: true }]
-      : []),
-  ];
-
-  // Mobile "Plus" sheet — every destination NOT already on the bottom tab bar
-  // (which carries Collection · Catalogue · La Cote). Strictly navigation;
-  // account + preferences live in the avatar menu, so the two never overlap.
-  const barRoutes = new Set(["/collection", "/browse", "/cote"]);
-  const moreNav = [...primary, ...secondary].filter((it) => !barRoutes.has(it.to));
-
   const authed = me.data?.authenticated;
   const user = me.data?.user;
+
+  // The section that owns the current route → primary active state + the
+  // contextual sub-nav rail. A child is dropped from the rail when its feature
+  // flag is off (e.g. photo search on an instance without it).
+  const activeSection = sectionForPath(location.pathname);
+  const flagOn = { visualSearch: !!visualSearch.data?.enabled };
+  const subItems = activeSection?.children?.filter((c) => !c.flag || flagOn[c.flag]) ?? [];
+  const showSubNav = subItems.length > 1;
 
   return (
     // The bottom tab bar (fixed, < lg) needs breathing room under the page so
@@ -143,17 +125,22 @@ export default function AppShell({ children }) {
             </span>
           </Link>
 
-          {/* Primary nav */}
-          <nav
-            aria-label="navigation principale"
-            className="hidden lg:flex items-center gap-0.5 text-[10.5px] uppercase tracking-[0.22em]"
-          >
-            {primary.map((it) => (
-              <NavItem key={it.to} to={it.to}>
-                {it.label}
-              </NavItem>
-            ))}
-          </nav>
+          {/* Primary nav — the 4 sections (desktop). */}
+          {authed ? (
+            <nav
+              aria-label={t("nav.primary", { default: "Navigation principale" })}
+              className="hidden lg:flex items-center gap-0.5 text-[10.5px] uppercase tracking-[0.22em]"
+            >
+              {SECTIONS.map((section) => (
+                <NavItem
+                  key={section.id}
+                  section={section}
+                  active={activeSection?.id === section.id}
+                  label={t(section.labelKey, { default: section.labelDefault })}
+                />
+              ))}
+            </nav>
+          ) : null}
 
           {/* Right cluster */}
           <div className="ml-auto flex items-center gap-2 shrink-0">
@@ -162,25 +149,25 @@ export default function AppShell({ children }) {
               title={t("palette.aria_open")}
               aria-label={t("palette.aria_open")}
               onClick={() =>
-                window.dispatchEvent(
-                  new CustomEvent("figurecollector:toggle-palette"),
-                )
+                window.dispatchEvent(new CustomEvent("figurecollector:toggle-palette"))
               }
               className="hidden md:inline-flex items-center px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] border border-[var(--color-or)]/30 text-[var(--color-or-pale)] hover:border-[var(--color-or)] hover:text-[var(--color-or)] transition-colors cursor-pointer leading-none focus:outline-none focus-visible:border-[var(--color-or)] focus-visible:text-[var(--color-or)]"
             >
-              <kbd className="bg-transparent font-mono">
-                {t("palette.hint_open")}
-              </kbd>
+              <kbd className="bg-transparent font-mono">{t("palette.hint_open")}</kbd>
             </button>
 
-            {/* Primary CTA */}
+            {/* Primary CTA — the single + Ajouter pill. */}
             {authed ? (
               <Link
-                to="/figures/new"
-                className="group flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[var(--color-laque)] text-[var(--color-ivoire)] text-[10.5px] uppercase tracking-[0.2em] hover:bg-[var(--color-laque-bright)] transition-colors leading-none whitespace-nowrap"
+                to={ADD_ACTION.to}
+                className="group flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[var(--color-laque)] text-[var(--color-ivoire)] text-[10.5px] uppercase tracking-[0.2em] hover:bg-[var(--color-laque-bright)] transition-colors leading-none whitespace-nowrap focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-or)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-noir)]"
               >
-                <span aria-hidden className="text-base leading-none -mt-0.5">＋</span>
-                <span className="hidden md:inline">{t("nav.add_figure.short")}</span>
+                <span aria-hidden className="text-base leading-none -mt-0.5">
+                  {ADD_ACTION.kanji}
+                </span>
+                <span className="hidden md:inline">
+                  {t(ADD_ACTION.labelKey, { default: ADD_ACTION.labelDefault })}
+                </span>
               </Link>
             ) : null}
 
@@ -188,24 +175,15 @@ export default function AppShell({ children }) {
 
             <ThemeToggle />
 
-            {/* Locale lives inline only at lg+; below that it folds into the
-             *  hamburger drawer to keep the mobile bar uncluttered. */}
-            <span className="hidden lg:inline-flex">
-              <LocaleSwitcher />
-            </span>
-
-            {authed ? (
-              <UserMenu
-                user={user}
-                navItems={secondary}
-                onSignOut={onSignOut}
-                t={t}
-              />
-            ) : null}
+            {authed ? <UserMenu user={user} isAdmin={isAdmin} onSignOut={onSignOut} t={t} /> : null}
             {/* No mobile hamburger: the bottom tab bar's "⋯ Plus" opens the
                 MobileNavSheet, and the avatar holds account/preferences. */}
           </div>
         </div>
+
+        {/* Contextual sub-nav — the active section's sub-pages. Horizontal
+            scroll on phones, inline rail on desktop (mirrors AdminLayout). */}
+        {authed && showSubNav ? <SubNav items={subItems} t={t} scrolled={scrolled} /> : null}
 
         <div
           aria-hidden
@@ -213,10 +191,6 @@ export default function AppShell({ children }) {
             scrolled ? "opacity-40" : "opacity-15"
           }`}
         />
-
-        {/* The mobile drawer that used to live here is gone — its navigation
-            moved to the bottom bar + MobileNavSheet ("⋯ Plus"), and its
-            account/language rows to the avatar menu. */}
       </header>
 
       {/* Page-enter transition: each route fades + rises in. Keyed by path so
@@ -252,10 +226,8 @@ export default function AppShell({ children }) {
         <MobileNavSheet
           open={mobileOpen}
           onClose={() => setMobileOpen(false)}
-          items={moreNav}
-          onSearch={() =>
-            window.dispatchEvent(new CustomEvent("figurecollector:toggle-palette"))
-          }
+          isAdmin={isAdmin}
+          onSearch={() => window.dispatchEvent(new CustomEvent("figurecollector:toggle-palette"))}
         />
       ) : null}
 
@@ -303,13 +275,7 @@ export default function AppShell({ children }) {
               aria-label="GitHub"
               className="grid place-items-center p-2 hover:text-[var(--color-or)] focus-visible:text-[var(--color-or)] transition-colors"
             >
-              <svg
-                viewBox="0 0 16 16"
-                width="18"
-                height="18"
-                fill="currentColor"
-                aria-hidden
-              >
+              <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden>
                 <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
               </svg>
             </a>
@@ -325,12 +291,70 @@ export default function AppShell({ children }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function NavItem({ to, children }) {
+// A primary-nav entry — lucide icon + label, with the signature Direction-A
+// active treatment (laque text + a glowing rotated diamond underneath). `active`
+// is computed from sectionForPath() so a sub-page keeps its parent section lit;
+// aria-current marks it for assistive tech.
+function NavItem({ section, active, label }) {
+  const Icon = section.icon;
+  return (
+    <NavLink
+      to={section.to}
+      aria-current={active ? "page" : undefined}
+      className={`relative flex items-center gap-1.5 px-3 py-1.5 whitespace-nowrap transition-colors focus:outline-none focus-visible:text-[var(--color-or)] ${
+        active
+          ? "text-[var(--color-laque-bright)]"
+          : "text-[var(--color-ivoire-soft)] hover:text-[var(--color-or-pale)]"
+      }`}
+    >
+      <Icon aria-hidden size={14} strokeWidth={1.75} className="shrink-0" />
+      {label}
+      {active ? (
+        <span
+          aria-hidden
+          className="absolute left-1/2 -translate-x-1/2 -bottom-0.5 w-1 h-1 bg-[var(--color-laque-bright)] rotate-45"
+          style={{ boxShadow: "0 0 10px var(--color-laque-bright)" }}
+        />
+      ) : null}
+    </NavLink>
+  );
+}
+
+// Contextual sub-nav rail — the active section's sub-pages. On phones it's a
+// horizontal-scroll rail (so it never crowds the masthead); on desktop it
+// settles into an inline row. Each entry is a NavLink with a kanji marker and
+// the hanko-red active treatment; `end` children match exactly.
+function SubNav({ items, t, scrolled }) {
+  return (
+    <nav
+      aria-label={t("nav.secondary", { default: "Sous-navigation" })}
+      className={`max-w-7xl mx-auto px-5 transition-[padding] duration-300 ${
+        scrolled ? "pb-1.5" : "pb-2"
+      }`}
+    >
+      <ul className="flex gap-1 overflow-x-auto lg:overflow-visible -mx-1 px-1 lg:mx-0 lg:px-0">
+        {items.map((child) => (
+          <li key={child.to} className="shrink-0">
+            <SubNavItem
+              to={child.to}
+              end={child.end}
+              kanji={child.kanji}
+              label={t(child.labelKey, { default: child.labelDefault })}
+            />
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
+function SubNavItem({ to, end, kanji, label }) {
   return (
     <NavLink
       to={to}
+      end={end}
       className={({ isActive }) =>
-        `relative px-3 py-1.5 whitespace-nowrap transition-colors ${
+        `tap-target group relative flex items-center gap-2 whitespace-nowrap px-3 py-1.5 text-[10.5px] uppercase tracking-[0.18em] transition-colors focus:outline-none focus-visible:text-[var(--color-or)] ${
           isActive
             ? "text-[var(--color-laque-bright)]"
             : "text-[var(--color-ivoire-soft)] hover:text-[var(--color-or-pale)]"
@@ -339,7 +363,17 @@ function NavItem({ to, children }) {
     >
       {({ isActive }) => (
         <>
-          {children}
+          <span
+            aria-hidden
+            className="ja not-italic text-sm leading-none transition-colors"
+            style={{
+              color: isActive ? "var(--color-laque-bright)" : "var(--color-or)",
+              opacity: isActive ? 1 : 0.55,
+            }}
+          >
+            {kanji}
+          </span>
+          {label}
           {isActive ? (
             <span
               aria-hidden
@@ -353,140 +387,68 @@ function NavItem({ to, children }) {
   );
 }
 
-function UserMenu({ user, navItems, onSignOut, t }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+// Account menu — the avatar DropdownMenu. Holds the account destinations (with
+// their icons), the language toggle (one item per locale, active one checked),
+// an Admin entry when the user is admin, and Logout as a destructive item set
+// apart by a separator. Navigation items route via onSelect.
+function UserMenu({ user, isAdmin, onSignOut, t }) {
+  const navigate = useNavigate();
+  const { locale, setLocale, supported } = useI18n();
+  const name = user?.display_name ?? user?.username ?? "?";
 
-  useEffect(() => {
-    if (!open) return;
-    const onClick = (e) => {
-      if (!ref.current?.contains(e.target)) setOpen(false);
-    };
-    const onKey = (e) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  const initial = (user?.display_name ?? user?.username ?? "?")
-    .charAt(0)
-    .toUpperCase();
+  const items = [
+    ...ACCOUNT_NAV.map((it) => ({
+      key: it.to,
+      label: t(it.labelKey, { default: it.labelDefault }),
+      icon: it.icon,
+      onSelect: () => navigate(it.to),
+    })),
+    ...(isAdmin
+      ? [
+          { separator: true },
+          {
+            key: "admin",
+            label: t("nav.admin"),
+            icon: Shield,
+            onSelect: () => navigate("/admin"),
+          },
+        ]
+      : []),
+    { separator: true },
+    // Language — one item per supported locale; the active one carries a check
+    // and is a no-op when re-selected. Keeps the switcher keyboard-reachable.
+    ...supported.map((code) => ({
+      key: `locale-${code}`,
+      label: t(`nav.language.${code}`, {
+        default: code === "fr" ? "Français" : code === "en" ? "English" : code.toUpperCase(),
+      }),
+      icon: locale === code ? Check : undefined,
+      onSelect: () => setLocale(code),
+    })),
+    { separator: true },
+    {
+      key: "signout",
+      label: t("nav.signout"),
+      icon: LogOut,
+      danger: true,
+      onSelect: onSignOut,
+    },
+  ];
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((x) => !x)}
-        aria-expanded={open}
-        aria-haspopup="menu"
-        aria-label={user?.display_name ?? user?.username ?? "Menu"}
-        title={user?.display_name ?? user?.username ?? ""}
-        className={`w-8 h-8 grid place-items-center border transition-colors leading-none ${
-          open
-            ? "border-[var(--color-or)] bg-[var(--color-or)]/15 text-[var(--color-or)]"
-            : "border-[var(--color-or)]/35 text-[var(--color-or-pale)] hover:border-[var(--color-or)] hover:text-[var(--color-or)]"
-        }`}
-      >
-        <span className="display text-sm">{initial}</span>
-      </button>
-
-      {open ? (
-        <div
-          role="menu"
-          className="absolute right-0 top-full mt-2 w-60 bg-[var(--color-noir-soft)] border border-[var(--color-or)]/35 reveal"
-          style={{
-            "--i": 0,
-            "--delay": "0ms",
-            boxShadow:
-              "0 30px 80px -30px rgba(0,0,0,0.85), inset 0 1px 0 color-mix(in oklab, var(--color-ivoire) 6%, transparent)",
-          }}
+    <DropdownMenu
+      aria-label={t("nav.account", { default: "Mon compte" })}
+      trigger={
+        <button
+          type="button"
+          aria-label={name}
+          title={name}
+          className="rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-or)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-noir)]"
         >
-          <header className="px-4 py-3 border-b border-[var(--color-or)]/15">
-            <p className="display text-base text-[var(--color-ivoire)] leading-tight truncate">
-              {user?.display_name ?? user?.username}
-            </p>
-            <p className="font-mono text-[10px] tracking-wider text-[var(--color-or-pale)]/70 mt-0.5 truncate">
-              @{user?.username}
-            </p>
-          </header>
-
-          {/* Secondary navigation — desktop only. On a phone the bottom bar +
-              the "⋯ Plus" sheet carry navigation, so this menu is account-only
-              there and never duplicates the sheet. */}
-          <nav className="hidden lg:block py-1" aria-label="navigation secondaire">
-            {navItems.map((it) => (
-              <NavLink
-                key={it.to}
-                to={it.to}
-                end={it.to === "/admin" ? false : undefined}
-                onClick={() => setOpen(false)}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-4 py-2 text-[11px] uppercase tracking-[0.22em] transition-colors ${
-                    isActive
-                      ? "text-[var(--color-or)] bg-[var(--color-or)]/8"
-                      : it.accent
-                        ? "text-[var(--color-or-pale)] hover:bg-[var(--color-or)]/8"
-                        : "text-[var(--color-ivoire-soft)] hover:text-[var(--color-or-pale)] hover:bg-[var(--color-or)]/5"
-                  }`
-                }
-              >
-                <span
-                  aria-hidden
-                  className="w-1 h-1 bg-current opacity-50 rotate-45 shrink-0"
-                />
-                {it.label}
-              </NavLink>
-            ))}
-          </nav>
-
-          {/* Account + preferences. Settings is always here; on mobile the
-              language switch folds in too (desktop keeps it in the header).
-              A divider sits above only on desktop, where nav precedes it. */}
-          <div className="py-1 lg:border-t lg:border-[var(--color-or)]/15">
-            <NavLink
-              to="/settings"
-              onClick={() => setOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-2 text-[11px] uppercase tracking-[0.22em] transition-colors ${
-                  isActive
-                    ? "text-[var(--color-or)] bg-[var(--color-or)]/8"
-                    : "text-[var(--color-ivoire-soft)] hover:text-[var(--color-or-pale)] hover:bg-[var(--color-or)]/5"
-                }`
-              }
-            >
-              <span aria-hidden className="w-1 h-1 bg-current opacity-50 rotate-45 shrink-0" />
-              {t("nav.settings")}
-            </NavLink>
-            <div className="lg:hidden flex items-center justify-between gap-3 px-4 py-2">
-              <span className="flex items-center gap-3 text-[11px] uppercase tracking-[0.22em] text-[var(--color-ivoire-soft)]">
-                <span aria-hidden className="w-1 h-1 bg-current opacity-50 rotate-45 shrink-0" />
-                {t("nav.language", { default: "Langue" })}
-              </span>
-              <LocaleSwitcher />
-            </div>
-          </div>
-
-          <div className="border-t border-[var(--color-or)]/15">
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                onSignOut();
-              }}
-              className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-[11px] uppercase tracking-[0.22em] text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] hover:bg-[var(--color-laque)]/10 transition-colors"
-            >
-              <span aria-hidden className="text-base leading-none -mt-0.5">↗</span>
-              {t("nav.signout")}
-            </button>
-          </div>
-        </div>
-      ) : null}
-    </div>
+          <Avatar name={name} size="sm" />
+        </button>
+      }
+      items={items}
+    />
   );
 }
-

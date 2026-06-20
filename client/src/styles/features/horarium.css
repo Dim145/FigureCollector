@@ -1,0 +1,849 @@
+/* ============================================================================
+ * Horarium — /preorders page
+ *
+ * Conceit: a hand-kept museum register of acquisitions to come. The page
+ * reads like a chronological ledger — entries grouped by month, connected
+ * by a single gold thread running down the timeline, each entry stamped
+ * with a circular kanji seal indicating its lifecycle state.
+ *
+ * Distinct visual vocabulary from the rest of the app:
+ *   - Status seals are circular kanji stamps (not the elsewhere-used
+ *     rectangular text pills)
+ *   - The vertical gold thread is unique to this page
+ *   - Month dividers use an italic display-serif kanji eyebrow ("月")
+ *     for a calendrical feel
+ *   - Cards lean slightly off-axis on hover (1-degree tilt) for tactile
+ *     "register page" feel
+ * ============================================================================ */
+.horarium {
+  position: relative;
+}
+
+/* ─── Hero — page title + subtitle + kanji watermark behind ─── */
+.horarium-hero {
+  position: relative;
+  text-align: left;
+  padding: 1rem 0 2rem;
+  margin-bottom: 2rem;
+}
+.horarium-hero::before {
+  /* faint kanji watermark — 予 (yo, beforehand / pre-) — behind the title */
+  content: "予";
+  position: absolute;
+  top: -3rem;
+  right: -1rem;
+  transform: none;
+  font-family: var(--font-ja);
+  font-size: clamp(14rem, 22vw, 22rem);
+  line-height: 1;
+  color: color-mix(in oklab, var(--color-or) 4.5%, transparent);
+  pointer-events: none;
+  user-select: none;
+  letter-spacing: 0;
+}
+.horarium-hero-eyebrow {
+  position: relative;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.7;
+  margin-bottom: 0.5rem;
+}
+.horarium-hero-title {
+  position: relative;
+  font-family: var(--font-display);
+  font-style: normal;
+  font-weight: 300;
+  font-size: clamp(2.6rem, 5.5vw, 3.75rem);
+  letter-spacing: -0.02em;
+  line-height: 0.95;
+  color: var(--color-ivoire);
+  margin: 0;
+}
+.horarium-hero-rule {
+  display: block;
+  margin: 1.4rem 0 0;
+  width: 6rem;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-or), transparent);
+}
+
+/* ─── Stat ribbon — 3 lozenges, "Total · Next · In transit" ─── */
+.horarium-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  /* The 1px gap is filled by the parent's dark color showing through, so
+   * the three lozenges read as a single continuous frieze with hairline
+   * dividers. */
+  background: color-mix(in oklab, var(--color-or) 18%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
+  margin-bottom: 3rem;
+}
+.horarium-stat {
+  padding: 1.4rem 1.2rem 1.3rem;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-noir-soft) 85%, transparent) 0%,
+    color-mix(in oklab, var(--color-noir-deep) 95%, transparent) 100%
+  );
+  text-align: center;
+}
+.horarium-stat-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.75;
+  margin-bottom: 0.7rem;
+}
+.horarium-stat-value {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: clamp(1.6rem, 3.2vw, 2.4rem);
+  line-height: 1;
+  color: var(--color-or);
+  letter-spacing: -0.01em;
+}
+.horarium-stat-value.is-muted {
+  color: color-mix(in oklab, var(--color-ivoire) 40%, transparent);
+  font-style: italic;
+  font-size: clamp(0.85rem, 1.6vw, 1rem);
+  letter-spacing: 0.05em;
+}
+.horarium-stat-sub {
+  display: block;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.85rem;
+  color: var(--color-ivoire-soft);
+  margin-top: 0.4rem;
+  opacity: 0.75;
+}
+
+/* ─── Filter rail — reuses the .tile-rail pattern but with circular
+ *     stamps instead of square tiles. */
+.horarium-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 2.5rem;
+}
+.horarium-filter-chip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 0.9rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-ivoire-soft);
+  background: color-mix(in oklab, var(--color-noir) 60%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
+  cursor: pointer;
+  transition:
+    color 220ms var(--ease-quick),
+    background 220ms var(--ease-quick);
+}
+.horarium-filter-chip-kanji {
+  font-family: var(--font-ja);
+  font-size: 15px;
+  line-height: 1;
+  color: var(--color-or);
+  opacity: 0.65;
+  letter-spacing: 0;
+  transition: opacity 220ms var(--ease-quick);
+}
+.horarium-filter-chip-count {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--color-or-pale);
+  opacity: 0.6;
+  letter-spacing: 0.1em;
+  margin-left: 0.25rem;
+}
+@media (hover: hover) {
+  .horarium-filter-chip:hover {
+    color: var(--color-or-pale);
+    background: color-mix(in oklab, var(--color-noir-soft) 70%, transparent);
+  }
+  .horarium-filter-chip:hover .horarium-filter-chip-kanji {
+    opacity: 1;
+  }
+}
+.horarium-filter-chip.is-active {
+  color: var(--color-or);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-or) 14%, transparent) 0%,
+    color-mix(in oklab, var(--color-or) 5%, transparent) 100%
+  );
+  border-color: var(--color-or);
+}
+.horarium-filter-chip.is-active .horarium-filter-chip-kanji {
+  opacity: 1;
+}
+.horarium-filter-chip.is-active .horarium-filter-chip-count {
+  color: var(--color-or);
+  opacity: 1;
+}
+
+/* ─── Timeline — vertical gold thread + grouped entries ─── */
+.horarium-timeline {
+  position: relative;
+  padding-left: 3.5rem; /* room for the thread + seal */
+}
+.horarium-timeline::before {
+  /* The thread itself — a continuous gold gradient line tracing the
+   * spine of the page. Fades into the page top and bottom. */
+  content: "";
+  position: absolute;
+  left: 1.3rem;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in oklab, var(--color-or) 45%, transparent) 8%,
+    color-mix(in oklab, var(--color-or) 35%, transparent) 50%,
+    color-mix(in oklab, var(--color-or) 45%, transparent) 92%,
+    transparent 100%
+  );
+}
+@media (max-width: 640px) {
+  .horarium-timeline {
+    padding-left: 2.5rem;
+  }
+  .horarium-timeline::before {
+    left: 0.85rem;
+  }
+}
+
+.horarium-month {
+  position: relative;
+  margin: 3rem 0 1.25rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.85rem;
+}
+.horarium-month:first-of-type {
+  margin-top: 0.5rem;
+}
+.horarium-month-kanji {
+  /* the calendar-month kanji "月" rendered on the gold thread */
+  position: absolute;
+  left: -3.5rem;
+  top: -0.2rem;
+  width: 2.6rem;
+  height: 2.6rem;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-ja);
+  font-size: 18px;
+  color: var(--color-or);
+  background: var(--color-noir);
+  border: 1px solid color-mix(in oklab, var(--color-or) 45%, transparent);
+  border-radius: 50%;
+  line-height: 1;
+}
+@media (max-width: 640px) {
+  .horarium-month-kanji {
+    left: -2.5rem;
+    width: 2rem;
+    height: 2rem;
+    font-size: 14px;
+  }
+}
+.horarium-month-label {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: clamp(1.5rem, 3vw, 2rem);
+  letter-spacing: 0.01em;
+  color: var(--color-ivoire);
+  line-height: 1;
+}
+.horarium-month-year {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.65;
+}
+
+/* ─── Entry — single preorder card ─── */
+.horarium-entry {
+  position: relative;
+  margin-bottom: 1.1rem;
+  padding: 1.5rem 1.5rem 1.25rem 1.5rem;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-noir-soft) 70%, transparent) 0%,
+    color-mix(in oklab, var(--color-noir-deep) 85%, transparent) 100%
+  );
+  border: 1px solid color-mix(in oklab, var(--color-or) 16%, transparent);
+  transition:
+    border-color 250ms var(--ease-quick),
+    transform 280ms var(--ease-curtain);
+}
+@media (hover: hover) {
+  .horarium-entry:hover {
+    border-color: color-mix(in oklab, var(--color-or) 35%, transparent);
+    transform: translateX(2px);
+  }
+}
+.horarium-entry::before {
+  /* Connector — a hairline that bridges from the gold thread to the
+   * entry's left edge, at the height of the status seal. */
+  content: "";
+  position: absolute;
+  left: -2.2rem;
+  top: 1.55rem;
+  width: 2.2rem;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--color-or) 45%, transparent) 30%
+  );
+  pointer-events: none;
+}
+@media (max-width: 640px) {
+  .horarium-entry::before {
+    left: -1.65rem;
+    width: 1.65rem;
+  }
+}
+
+/* Variant — cancelled entries get a laque-tinted border + a diagonal
+ * strikethrough on the title. */
+.horarium-entry.is-cancelled {
+  border-color: oklch(0.55 0.18 25 / 0.35);
+  opacity: 0.78;
+}
+.horarium-entry.is-cancelled .horarium-entry-title {
+  text-decoration: line-through;
+  text-decoration-color: oklch(0.55 0.18 25 / 0.5);
+  text-decoration-thickness: 1px;
+}
+
+/* Variant — received entries get a quiet gold-wash background, since the
+ * piece is now "in hand". */
+.horarium-entry.is-received {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-or) 10%, transparent) 0%,
+    color-mix(in oklab, var(--color-or) 3%, transparent) 100%
+  );
+  border-color: color-mix(in oklab, var(--color-or) 45%, transparent);
+}
+
+/* Variant — imminent (releasing within 14 days) gets a brighter glow */
+.horarium-entry.is-imminent {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-or) 15%, transparent),
+    0 12px 30px -16px color-mix(in oklab, var(--color-or) 55%, transparent);
+}
+
+.horarium-entry-head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  gap: 1rem;
+}
+@media (max-width: 640px) {
+  .horarium-entry-head {
+    grid-template-columns: auto 1fr;
+    gap: 0.85rem;
+  }
+}
+
+/* ─── Status seal — circular kanji stamp ─── */
+.horarium-seal {
+  width: 3.2rem;
+  height: 3.2rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in oklab, var(--color-or) 35%, transparent);
+  background: color-mix(in oklab, var(--color-noir) 85%, transparent);
+  font-family: var(--font-ja);
+  font-size: 22px;
+  line-height: 1;
+  color: var(--color-or-pale);
+  letter-spacing: 0;
+  flex-shrink: 0;
+  position: relative;
+  transform: rotate(-3deg);
+}
+.horarium-seal::after {
+  /* tiny inscribed ring inside the seal — gives it the "wax stamp"
+   * concentric depth */
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  border: 1px dashed color-mix(in oklab, var(--color-or) 18%, transparent);
+  pointer-events: none;
+}
+.horarium-seal.is-received {
+  /* Solid gold seal — delivered, done. */
+  background: var(--color-or);
+  color: var(--color-noir);
+  border-color: var(--color-or);
+  box-shadow:
+    0 0 14px color-mix(in oklab, var(--color-or) 55%, transparent),
+    inset 0 1px 0 oklch(0.92 0.08 80 / 0.5);
+}
+.horarium-seal.is-received::after {
+  border-color: oklch(0.2 0.02 80 / 0.45);
+}
+.horarium-seal.is-shipped {
+  /* warm gold ring, kanji bright gold — in transit */
+  border-color: var(--color-or);
+  color: var(--color-or);
+}
+.horarium-seal.is-cancelled {
+  border-color: oklch(0.55 0.18 25 / 0.55);
+  color: oklch(0.85 0.1 25 / 0.75);
+  background: color-mix(in oklab, var(--color-noir) 85%, transparent);
+}
+.horarium-seal.is-cancelled::after {
+  border-color: oklch(0.55 0.18 25 / 0.25);
+}
+.horarium-seal.is-imminent::before {
+  /* Pulsing glow for items releasing within 14 days. A pseudo with a STATIC
+   * box-shadow whose OPACITY animates (compositor-only) — the old version
+   * animated box-shadow itself, repainting every frame. */
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  box-shadow: 0 0 18px 2px color-mix(in oklab, var(--color-or) 35%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  animation: horarium-seal-pulse 2.4s ease-in-out infinite;
+}
+@keyframes horarium-seal-pulse {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ─── Entry body ─── */
+.horarium-entry-body {
+  min-width: 0;
+}
+.horarium-entry-kicker {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.65;
+  margin-bottom: 0.25rem;
+}
+.horarium-entry-title {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.05rem, 2vw, 1.35rem);
+  letter-spacing: 0.005em;
+  line-height: 1.2;
+  color: var(--color-ivoire);
+  margin: 0 0 0.2rem;
+  text-decoration: none;
+  transition: color 220ms var(--ease-quick);
+}
+a.horarium-entry-title:hover {
+  color: var(--color-or-pale);
+}
+.horarium-entry-maker {
+  display: block;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.9rem;
+  color: var(--color-or-pale);
+  opacity: 0.85;
+  margin-bottom: 0.55rem;
+}
+
+/* The countdown + status-label block, right-aligned on desktop, below
+ * title on mobile */
+.horarium-entry-aside {
+  text-align: right;
+  flex-shrink: 0;
+  min-width: 8rem;
+}
+@media (max-width: 640px) {
+  .horarium-entry-aside {
+    grid-column: 2;
+    grid-row: 2;
+    text-align: left;
+    margin-top: 0.35rem;
+    min-width: 0;
+  }
+}
+.horarium-countdown {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-or);
+  padding: 0.25rem 0.55rem;
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  border-radius: 1px;
+}
+.horarium-countdown.is-imminent {
+  color: var(--color-or);
+  background: color-mix(in oklab, var(--color-or) 18%, transparent);
+  border-color: var(--color-or);
+}
+.horarium-countdown.is-past {
+  color: var(--color-or-pale);
+  background: transparent;
+  border-color: color-mix(in oklab, var(--color-or) 20%, transparent);
+  opacity: 0.75;
+}
+.horarium-countdown.is-tbc {
+  color: color-mix(in oklab, var(--color-ivoire) 55%, transparent);
+  border-color: color-mix(in oklab, var(--color-ivoire) 18%, transparent);
+  background: transparent;
+  font-style: italic;
+  letter-spacing: 0.15em;
+  text-transform: none;
+}
+.horarium-entry-date {
+  display: block;
+  margin-top: 0.4rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  color: var(--color-ivoire);
+  letter-spacing: 0.02em;
+}
+.horarium-entry-slip {
+  display: block;
+  margin-top: 0.2rem;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: oklch(0.85 0.1 25 / 0.85);
+}
+.horarium-entry-slip.is-zero {
+  color: color-mix(in oklab, var(--color-or) 60%, transparent);
+}
+
+/* ─── Entry footer — meta line, tracking chip, edit action ─── */
+.horarium-entry-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  align-items: baseline;
+  margin-top: 1.15rem;
+  padding-top: 1rem;
+  border-top: 1px dashed color-mix(in oklab, var(--color-or) 18%, transparent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.85;
+}
+.horarium-entry-meta-key {
+  color: color-mix(in oklab, var(--color-ivoire) 50%, transparent);
+  margin-right: 0.45rem;
+}
+.horarium-entry-meta-value {
+  color: var(--color-ivoire);
+  text-transform: none;
+  letter-spacing: 0.04em;
+}
+.horarium-entry-meta-value.is-mono {
+  font-family: var(--font-mono);
+  letter-spacing: 0.1em;
+}
+.horarium-entry-tracking {
+  margin-top: 1rem;
+}
+
+.horarium-entry-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+.horarium-entry-action {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  background: transparent;
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+  transition:
+    color 220ms var(--ease-quick),
+    border-color 220ms var(--ease-quick);
+}
+.horarium-entry-action:hover {
+  color: var(--color-or);
+  border-color: var(--color-or);
+}
+
+/* ─── Empty state ─── */
+.horarium-empty {
+  position: relative;
+  max-width: 32rem;
+  margin: 4rem auto;
+  text-align: center;
+  padding: 3.5rem 2rem;
+  border: 1px dashed color-mix(in oklab, var(--color-or) 30%, transparent);
+}
+.horarium-empty::before {
+  content: "予";
+  display: block;
+  font-family: var(--font-ja);
+  font-size: 5rem;
+  line-height: 1;
+  color: var(--color-or);
+  opacity: 0.35;
+  margin-bottom: 1.2rem;
+}
+.horarium-empty-title {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.5rem;
+  color: var(--color-ivoire);
+  margin: 0 0 0.6rem;
+}
+.horarium-empty-hint {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  color: var(--color-ivoire-soft);
+  line-height: 1.5;
+  opacity: 0.8;
+}
+
+/* ─── Edit form — inline, attached to the entry ─── */
+.horarium-entry-form {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 20%, transparent);
+}
+
+/* ─── Status label — sits under the seal, names the status in plain
+ *     letters so the kanji isn't the only signal. Inherits the seal's
+ *     variant tone via the parent. */
+.horarium-status-label {
+  margin-top: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  text-align: center;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+.horarium-status-label.is-received {
+  color: var(--color-or);
+  opacity: 1;
+}
+.horarium-status-label.is-shipped {
+  color: var(--color-or);
+  opacity: 1;
+}
+.horarium-status-label.is-cancelled {
+  color: oklch(0.85 0.1 25 / 0.85);
+  opacity: 1;
+}
+.horarium-status-label.is-imminent {
+  color: var(--color-or);
+}
+
+/* The seal + label wrap as a vertical stack so the label sits centered
+ * under the circle. */
+.horarium-seal-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* ─── Slip-history — redesigned to make the reason the focal point ─── */
+.horarium-history {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 20%, transparent);
+}
+.horarium-history-heading {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  margin-bottom: 1rem;
+}
+.horarium-history-heading-kanji {
+  font-family: var(--font-ja);
+  font-size: 16px;
+  line-height: 1;
+  color: var(--color-or);
+  opacity: 0.85;
+}
+.horarium-history-heading-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+}
+.horarium-history-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.horarium-history-item {
+  position: relative;
+  padding: 0.85rem 0 0.85rem 1.7rem;
+  border-bottom: 1px dashed color-mix(in oklab, var(--color-or) 14%, transparent);
+}
+.horarium-history-item:last-child {
+  border-bottom: 0;
+  padding-bottom: 0.2rem;
+}
+.horarium-history-item::before {
+  /* small diamond marker on the inner thread */
+  content: "";
+  position: absolute;
+  left: 0.55rem;
+  top: 1.2rem;
+  width: 6px;
+  height: 6px;
+  background: var(--color-or);
+  transform: rotate(45deg);
+  opacity: 0.65;
+}
+.horarium-history-dates {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--color-ivoire);
+}
+.horarium-history-arrow {
+  color: var(--color-or-pale);
+  opacity: 0.6;
+  font-size: 10px;
+}
+.horarium-history-note {
+  display: block;
+  margin-top: 0.45rem;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: var(--color-ivoire-soft);
+}
+.horarium-history-note.is-empty {
+  color: color-mix(in oklab, var(--color-ivoire) 40%, transparent);
+  font-size: 0.82rem;
+}
+.horarium-history-note-actions {
+  margin-top: 0.55rem;
+}
+.horarium-history-edit-btn {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px dotted color-mix(in oklab, var(--color-or) 40%, transparent);
+  padding: 0.15rem 0;
+  cursor: pointer;
+  transition:
+    color 220ms var(--ease-quick),
+    border-color 220ms var(--ease-quick);
+}
+.horarium-history-edit-btn:hover {
+  color: var(--color-or);
+  border-bottom-color: var(--color-or);
+}
+.horarium-history-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.55rem;
+}
+.horarium-history-input {
+  width: 100%;
+  background: var(--color-noir);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  padding: 0.55rem 0.7rem;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  color: var(--color-ivoire);
+  outline: none;
+  transition: border-color 220ms var(--ease-quick);
+}
+.horarium-history-input:focus {
+  border-color: var(--color-or);
+}
+.horarium-history-form-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+.horarium-history-form-btn {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.85rem;
+  border: 1px solid;
+  background: transparent;
+  cursor: pointer;
+  transition: all 220ms var(--ease-quick);
+}
+.horarium-history-form-btn.is-cancel {
+  color: color-mix(in oklab, var(--color-ivoire) 55%, transparent);
+  border-color: color-mix(in oklab, var(--color-ivoire) 25%, transparent);
+}
+.horarium-history-form-btn.is-cancel:hover {
+  color: var(--color-ivoire);
+  border-color: color-mix(in oklab, var(--color-ivoire) 50%, transparent);
+}
+.horarium-history-form-btn.is-save {
+  color: var(--color-or);
+  border-color: var(--color-or);
+}
+.horarium-history-form-btn.is-save:hover {
+  background: var(--color-or);
+  color: var(--color-noir);
+}
+.horarium-history-form-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}

@@ -1,63 +1,61 @@
+import Spinner from "./ui/Spinner.jsx";
+
 /**
- * Direction A buttons.
- *   primary : hanko-red pill, ivoire text, hover lifts to laque-bright
- *   ghost   : transparent, gold border, hover fills with a faint gold wash
+ * Direction A button (refined).
+ *   primary : hanko-red pill (--primary), ivoire text, hover → --primary-hover
+ *   danger  : solid --danger pill (replaces the old ConfirmDialog `!bg` hack)
+ *   ghost   : transparent, gold border, faint gold wash on hover
+ *   subtle  : quiet text button, surface tint on hover (tertiary actions)
+ *
+ * Backward-compatible with the previous API (primary|ghost, size md|sm,
+ * loading, per-call className wins). Adds: danger|subtle variants, lg size,
+ * polymorphic `as` (e.g. react-router Link), iconStart/iconEnd (pass a node),
+ * and aria-busy while loading.
  */
+const SIZES = {
+  sm: "px-4 py-2 text-[11px] tracking-[0.16em] min-h-[36px]",
+  md: "px-6 py-3 min-h-[44px]",
+  lg: "px-8 py-4 text-[15px] min-h-[52px]",
+};
+
+const VARIANTS = {
+  primary:
+    "text-[var(--color-ivoire)] bg-[var(--primary)] hover:bg-[var(--primary-hover)] active:bg-[var(--primary)] shadow-[0_10px_28px_-12px_oklch(0.62_0.19_25_/_0.5)]",
+  danger:
+    "text-[var(--color-ivoire)] bg-[var(--danger)] hover:brightness-110 active:brightness-100",
+  ghost:
+    "text-[var(--on-surface)] border border-[var(--border-strong)] hover:border-[var(--accent)] hover:bg-[var(--accent)]/5",
+  subtle: "text-[var(--on-surface-muted)] hover:text-[var(--on-surface)] hover:bg-[var(--surface)]",
+};
+
 export default function Button({
   variant = "primary",
   size = "md",
   type = "button",
+  as: Tag = "button",
   disabled = false,
   loading = false,
+  iconStart = null,
+  iconEnd = null,
   children,
   className = "",
   ...props
 }) {
   const base =
-    "relative overflow-hidden inline-flex items-center justify-center gap-2 rounded-full font-medium tracking-wide magnetic shimmer disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none";
-
-  // `sm` is the compact form for inline editors / per-card action rows; `md`
-  // is the default page-level CTA. Per-call `className` still wins (it's last),
-  // so existing `!px-…` overrides keep working.
-  const sizes = {
-    md: "px-6 py-3",
-    sm: "px-4 py-2 text-[11px] tracking-[0.16em]",
-  };
-
-  const variants = {
-    primary:
-      "bg-[var(--color-laque)] text-[var(--color-ivoire)] hover:bg-[var(--color-laque-bright)] active:bg-[var(--color-laque)] shadow-[0_10px_28px_-12px_oklch(0.62_0.19_25_/_0.55)]",
-    ghost:
-      "border border-[var(--color-or)]/40 text-[var(--color-ivoire)] hover:border-[var(--color-or)] hover:bg-[var(--color-or)]/5",
-  };
-
+    "relative overflow-hidden inline-flex items-center justify-center gap-2 rounded-full font-medium tracking-wide magnetic shimmer transition-colors duration-[var(--dur-fast)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-raised)] disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none";
+  const isNativeButton = Tag === "button";
   return (
-    <button
-      type={type}
-      disabled={disabled || loading}
-      className={`${base} ${sizes[size] ?? sizes.md} ${variants[variant]} ${className}`}
+    <Tag
+      type={isNativeButton ? type : undefined}
+      disabled={isNativeButton ? disabled || loading : undefined}
+      aria-disabled={!isNativeButton && (disabled || loading) ? true : undefined}
+      aria-busy={loading || undefined}
+      className={`${base} ${SIZES[size] ?? SIZES.md} ${VARIANTS[variant] ?? VARIANTS.primary} ${className}`}
       {...props}
     >
-      {loading ? <Spinner /> : null}
+      {loading ? <Spinner size={16} /> : iconStart}
       {children}
-    </button>
-  );
-}
-
-function Spinner() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      aria-hidden
-      className="animate-spin"
-    >
-      <circle cx="12" cy="12" r="9" opacity="0.25" />
-      <path d="M21 12a9 9 0 0 0-9-9" />
-    </svg>
+      {!loading ? iconEnd : null}
+    </Tag>
   );
 }

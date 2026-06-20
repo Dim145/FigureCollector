@@ -1,0 +1,420 @@
+/* =============================================================================
+ * Admin · Figure types page (registry-style ledger)
+ *
+ * Each row is a horizontal strip with the kanji seal hanging into the
+ * gutter (overlapping the gold spine of the ordered list), bilingual
+ * labels paired with a tiny FR/EN locale tag, and inline actions.
+ * Inline create + edit forms reuse the same grid so the page never
+ * navigates away.
+ * ============================================================================ */
+.ftype-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1.25rem;
+  align-items: start;
+  padding: 1rem 1.25rem;
+  background: var(--color-noir-deep);
+  border: 1px solid color-mix(in oklab, var(--color-or) 15%, transparent);
+}
+.ftype-row-seal {
+  position: absolute;
+  left: -1.6rem;
+  top: 0.85rem;
+  font-family: "Noto Serif JP", "Yu Mincho", serif;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--color-or);
+  background: var(--color-noir);
+  padding: 0.15rem 0.3rem;
+}
+.ftype-row-body {
+  display: grid;
+  gap: 0.65rem;
+}
+.ftype-row-headline {
+  display: flex;
+  align-items: baseline;
+  gap: 0.8rem;
+}
+.ftype-row-slug {
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  color: var(--color-or-pale);
+  letter-spacing: 0.05em;
+}
+.ftype-row-position {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--color-ivoire) 45%, transparent);
+}
+.ftype-row-labels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.6rem;
+}
+.ftype-row-labels > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.55rem;
+}
+.ftype-row-locale {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--color-or) 55%, transparent);
+}
+.ftype-row-label {
+  color: var(--color-ivoire);
+  font-size: 0.95rem;
+}
+.ftype-row-meta {
+  display: flex;
+  gap: 1rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.ftype-row-usage {
+  color: var(--color-or-pale);
+}
+.ftype-row-usage.is-empty {
+  color: color-mix(in oklab, var(--color-ivoire) 40%, transparent);
+}
+.ftype-row-actions {
+  display: flex;
+  gap: 0.45rem;
+  align-items: start;
+}
+.ftype-row-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  background: transparent;
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
+  color: var(--color-or-pale);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition:
+    border-color 220ms var(--ease-quick),
+    color 220ms var(--ease-quick);
+}
+.ftype-row-btn:hover {
+  border-color: var(--color-or);
+  color: var(--color-or);
+}
+.ftype-row-btn.is-disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+.ftype-row-btn--danger:hover {
+  border-color: var(--color-laque-bright);
+  color: var(--color-laque-bright);
+}
+
+/* Inline confirm — two chips replace the × button. */
+.ftype-confirm {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+.ftype-confirm-yes,
+.ftype-confirm-no {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 0.5rem 0.8rem;
+  background: transparent;
+  border: 1px solid;
+  cursor: pointer;
+  transition: background 220ms var(--ease-quick);
+}
+.ftype-confirm-yes {
+  border-color: var(--color-laque-bright);
+  color: var(--color-laque-bright);
+}
+.ftype-confirm-yes:hover {
+  background: color-mix(in oklab, var(--color-laque-bright) 15%, transparent);
+}
+.ftype-confirm-no {
+  border-color: color-mix(in oklab, var(--color-or) 40%, transparent);
+  color: var(--color-ivoire-soft);
+}
+.ftype-confirm-no:hover {
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+}
+
+/* Inline create + edit form */
+.ftype-form {
+  background: var(--color-noir-deep);
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
+  padding: 1.25rem 1.5rem;
+}
+.ftype-form--create {
+  border-left-width: 3px;
+  border-left-color: var(--color-or);
+}
+.ftype-form--edit {
+  background: var(--color-noir-soft);
+}
+.ftype-form-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-or);
+  margin-bottom: 1rem;
+}
+.ftype-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem 1.25rem;
+}
+.ftype-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 15%, transparent);
+}
+
+/* Field — block label + input + optional hint */
+.ftype-field-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  margin-bottom: 0.4rem;
+}
+.ftype-field-input {
+  width: 100%;
+  background: var(--color-noir);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  color: var(--color-ivoire);
+  padding: 0.6rem 0.85rem;
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 220ms var(--ease-quick);
+}
+.ftype-field-input:focus {
+  border-color: var(--color-or);
+}
+.ftype-field-hint {
+  display: block;
+  margin-top: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--color-ivoire) 45%, transparent);
+}
+.ftype-field--short {
+  max-width: 9rem;
+}
+
+/* =============================================================================
+ * Workers ledger — shares the figure-types row aesthetic. One row per worker;
+ * status pill on the left, hardware specs grid in the middle, actions on the
+ * right. The kanji seal in the gutter is 機 ("machine") instead of 類.
+ * ============================================================================ */
+.worker-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1.25rem;
+  align-items: start;
+  padding: 1rem 1.25rem;
+  background: var(--color-noir-deep);
+  border: 1px solid color-mix(in oklab, var(--color-or) 15%, transparent);
+}
+.worker-row-seal {
+  position: absolute;
+  left: -1.6rem;
+  top: 0.85rem;
+  font-family: "Noto Serif JP", "Yu Mincho", serif;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: var(--color-or);
+  background: var(--color-noir);
+  padding: 0.15rem 0.3rem;
+}
+.worker-row-body {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.worker-row-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  align-items: stretch;
+}
+.worker-row-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.75rem;
+  background: transparent;
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
+  color: var(--color-or-pale);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    border-color 220ms var(--ease-quick),
+    color 220ms var(--ease-quick),
+    background 220ms var(--ease-quick);
+}
+.worker-row-btn:hover:not(:disabled) {
+  border-color: var(--color-or);
+  color: var(--color-or);
+}
+.worker-row-btn.is-on {
+  color: var(--color-or);
+  border-color: var(--color-or);
+}
+.worker-row-btn.is-off {
+  color: color-mix(in oklab, var(--color-ivoire) 55%, transparent);
+  border-color: color-mix(in oklab, var(--color-ivoire) 30%, transparent);
+}
+.worker-row-btn.is-danger:hover:not(:disabled) {
+  border-color: var(--color-laque-bright);
+  color: var(--color-laque-bright);
+  background: color-mix(in oklab, var(--color-laque-bright) 8%, transparent);
+}
+.worker-row-btn.is-disabled,
+.worker-row-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.worker-row-confirm {
+  display: inline-flex;
+  gap: 0.3rem;
+}
+.worker-row-confirm-yes,
+.worker-row-confirm-no {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  padding: 0.45rem 0.7rem;
+  background: transparent;
+  border: 1px solid;
+  cursor: pointer;
+  transition: background 220ms var(--ease-quick);
+}
+.worker-row-confirm-yes {
+  border-color: var(--color-laque-bright);
+  color: var(--color-laque-bright);
+}
+.worker-row-confirm-yes:hover {
+  background: color-mix(in oklab, var(--color-laque-bright) 15%, transparent);
+}
+.worker-row-confirm-no {
+  border-color: color-mix(in oklab, var(--color-or) 40%, transparent);
+  color: var(--color-or-pale);
+}
+.worker-row-confirm-no:hover {
+  background: color-mix(in oklab, var(--color-or) 5%, transparent);
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+ * Lot 6 — admin bulk-action toolbar (multi-select + bulk delete).
+ * Gold-tinted bar that floats above the table head; red danger delete.
+ * ─────────────────────────────────────────────────────────────────────── */
+.adm-bulk-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.7rem 1rem;
+  background: color-mix(in oklab, var(--color-or) 12%, var(--color-noir-soft));
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  flex-wrap: wrap;
+  backdrop-filter: blur(6px);
+}
+.adm-bulk-count {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: var(--color-or-pale);
+}
+.adm-bulk-count b {
+  color: var(--color-ivoire);
+}
+.adm-bulk-spacer {
+  flex: 1;
+}
+.adm-bulk-act {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  color: var(--color-or-pale);
+  background: none;
+  cursor: pointer;
+  transition:
+    border-color 200ms var(--ease-quick),
+    color 200ms var(--ease-quick);
+}
+.adm-bulk-act:hover {
+  border-color: var(--color-or);
+  color: var(--color-or);
+}
+.adm-bulk-act.is-danger {
+  border-color: color-mix(in oklab, var(--color-laque-bright) 55%, transparent);
+  color: var(--color-laque-bright);
+}
+.adm-bulk-act.is-danger:hover {
+  border-color: var(--color-laque-bright);
+  background: color-mix(in oklab, var(--color-laque) 14%, transparent);
+  color: var(--color-laque-bright);
+}
+.adm-bulk-act:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Row checkbox — square, gold tick when on. Reused across every admin
+ * table + the figure-types / stores registry rows. */
+.adm-cbx {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in oklab, var(--color-or) 40%, transparent);
+  background: var(--color-noir);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--color-noir);
+  cursor: pointer;
+  transition:
+    background 160ms var(--ease-quick),
+    border-color 160ms var(--ease-quick);
+}
+.adm-cbx:hover {
+  border-color: var(--color-or);
+}
+.adm-cbx.is-on {
+  background: var(--color-or);
+  border-color: var(--color-or);
+}
+.adm-row-selected {
+  background: color-mix(in oklab, var(--color-or) 6%, transparent);
+}
+
+/* tail marker — append-only
+ * keep this block last to anchor tail-append patches */

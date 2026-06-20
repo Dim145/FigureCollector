@@ -1,0 +1,373 @@
+/* ─── Wishlist bulk-import page (/souhaits/import) — paste → review → import. */
+.imp-steps {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 2rem 0 1.3rem;
+  flex-wrap: wrap;
+}
+.imp-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-ivoire-soft);
+  opacity: 0.5;
+}
+.imp-step.is-on {
+  opacity: 1;
+  color: var(--color-ivoire);
+}
+.imp-step-n {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-or-pale);
+}
+.imp-step.is-on .imp-step-n {
+  background: var(--color-or);
+  border-color: var(--color-or);
+  color: var(--color-noir);
+}
+.imp-step-arr {
+  color: color-mix(in oklab, var(--color-or) 35%, transparent);
+}
+
+.imp-panel {
+  border: 1px solid color-mix(in oklab, var(--color-or) 16%, transparent);
+  background: color-mix(in oklab, var(--color-noir-soft) 60%, transparent);
+  padding: 1.5rem;
+}
+.imp-phase-tag {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--color-jade);
+  margin-bottom: 1rem;
+}
+.imp-paste {
+  width: 100%;
+  min-height: 110px;
+  resize: vertical;
+  background: var(--color-noir);
+  border: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
+  color: var(--color-ivoire);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 0.8rem 1rem;
+  outline: none;
+}
+.imp-paste:focus {
+  border-color: var(--color-or);
+}
+.imp-error {
+  margin-top: 0.8rem;
+  font-size: 13px;
+  color: var(--color-laque-bright);
+  border-left: 2px solid var(--color-laque-bright);
+  padding-left: 0.7rem;
+}
+.imp-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.9rem;
+  flex-wrap: wrap;
+}
+.imp-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  margin-top: 1.2rem;
+}
+.imp-hint {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-ivoire-soft);
+  max-width: 32rem;
+}
+
+.imp-btn {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 0.7rem 1.3rem;
+  border: 1px solid;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.imp-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.imp-btn--primary {
+  background: var(--color-or);
+  border-color: var(--color-or);
+  color: var(--color-noir);
+}
+.imp-btn--ghost {
+  background: none;
+  border-color: color-mix(in oklab, var(--color-or) 30%, transparent);
+  color: var(--color-or-pale);
+}
+
+.imp-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.7rem 1rem;
+  background: color-mix(in oklab, var(--color-or) 9%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 22%, transparent);
+  border-bottom: 0;
+  flex-wrap: wrap;
+}
+.imp-count {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  color: var(--color-or-pale);
+}
+.imp-count b {
+  color: var(--color-ivoire);
+}
+.imp-count.is-full b {
+  color: var(--color-laque-bright);
+}
+.imp-bar-spacer {
+  flex: 1;
+}
+.imp-lnk {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.imp-lnk:hover {
+  color: var(--color-or);
+}
+
+.imp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid color-mix(in oklab, var(--color-or) 22%, transparent);
+}
+.imp-item {
+  display: grid;
+  grid-template-columns: 30px 56px 1fr auto;
+  gap: 0.9rem;
+  align-items: center;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 9%, transparent);
+}
+.imp-item:last-child {
+  border-bottom: 0;
+}
+.imp-item.is-sel {
+  background: color-mix(in oklab, var(--color-or) 5%, transparent);
+}
+.imp-item.is-off {
+  opacity: 0.55;
+}
+.imp-cbx {
+  width: 19px;
+  height: 19px;
+  border: 1px solid color-mix(in oklab, var(--color-or) 40%, transparent);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  color: var(--color-noir);
+  cursor: pointer;
+  background: var(--color-noir);
+}
+.imp-cbx.on {
+  background: var(--color-or);
+  border-color: var(--color-or);
+}
+.imp-cbx.dis {
+  border-style: dashed;
+  cursor: not-allowed;
+  background: transparent;
+}
+.imp-thumb {
+  width: 56px;
+  height: 70px;
+  overflow: hidden;
+  background: var(--color-noir-deep);
+  border: 1px solid color-mix(in oklab, var(--color-or) 15%, transparent);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-ja);
+  font-size: 1.4rem;
+  color: color-mix(in oklab, var(--color-or) 40%, transparent);
+}
+.imp-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.imp-meta {
+  min-width: 0;
+}
+.imp-name {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: var(--color-ivoire);
+  line-height: 1.1;
+}
+.imp-sub {
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--color-ivoire-soft);
+  margin-top: 0.2rem;
+}
+.imp-assoc {
+  margin-top: 0.4rem;
+  font-size: 11px;
+  color: var(--color-ivoire-soft);
+}
+.imp-assoc-skip {
+  color: color-mix(in oklab, var(--color-laque-bright) 80%, var(--color-ivoire-soft));
+}
+.imp-assoc-new {
+  color: var(--color-or-pale);
+}
+.imp-pick {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--color-noir);
+  color: var(--color-ivoire);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  padding: 0.25rem 0.5rem;
+  max-width: 100%;
+}
+.imp-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.imp-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25em 0.6em;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border: 1px solid;
+  white-space: nowrap;
+}
+.imp-chip--new {
+  color: var(--color-or);
+  border-color: color-mix(in oklab, var(--color-or) 45%, transparent);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+}
+.imp-chip--match {
+  color: var(--color-jade);
+  border-color: color-mix(in oklab, var(--color-jade) 50%, transparent);
+  background: color-mix(in oklab, var(--color-jade) 10%, transparent);
+}
+.imp-chip--low {
+  color: var(--color-indigo);
+  border-color: color-mix(in oklab, var(--color-indigo) 50%, transparent);
+  background: color-mix(in oklab, var(--color-indigo) 10%, transparent);
+}
+.imp-chip--owned {
+  color: var(--color-laque-bright);
+  border-color: color-mix(in oklab, var(--color-laque-bright) 45%, transparent);
+  background: color-mix(in oklab, var(--color-laque) 8%, transparent);
+}
+.imp-chip--wished {
+  color: var(--color-ivoire-soft);
+  border-color: color-mix(in oklab, var(--color-or) 20%, transparent);
+}
+.imp-pct {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+}
+.imp-pct.is-hi {
+  color: var(--color-jade);
+}
+.imp-pct.is-lo {
+  color: var(--color-indigo);
+}
+
+.imp-prog {
+  height: 8px;
+  background: var(--color-noir-deep);
+  border: 1px solid color-mix(in oklab, var(--color-or) 20%, transparent);
+  overflow: hidden;
+}
+.imp-prog > i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-or-deep), var(--color-or));
+  transition: width 280ms var(--ease-quick);
+}
+.imp-prog-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 11px;
+  color: var(--color-ivoire-soft);
+  margin-top: 0.6rem;
+}
+.imp-summary {
+  display: flex;
+  gap: 1.8rem;
+  flex-wrap: wrap;
+}
+.imp-stat {
+  text-align: center;
+}
+.imp-stat b {
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  display: block;
+  line-height: 1;
+}
+.imp-stat span {
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-ivoire-soft);
+}
+.imp-stat.cr b {
+  color: var(--color-or);
+}
+.imp-stat.li b {
+  color: var(--color-jade);
+}
+.imp-stat.er b {
+  color: var(--color-laque-bright);
+}
+
+@media (max-width: 640px) {
+  .imp-item {
+    grid-template-columns: 26px 44px 1fr;
+  }
+  .imp-right {
+    grid-column: 2 / -1;
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+}

@@ -5,22 +5,24 @@ import AppShell from "../components/AppShell.jsx";
 import AccentTitle from "../components/AccentTitle.jsx";
 
 /**
- * Shell for every /admin/* page — redrawn to Direction A ("Shōjo-Noir").
+ * Shell for every /admin/* page — redrawn to Direction A ("Shōjo-Noir") on the
+ * shared foundation's *semantic* tokens (--surface / --border / --on-surface,
+ * active = --primary) so the chrome follows the dark/light theme for free.
  *
  * The admin console is data-dense, so the chrome stays efficient: an editorial
  * header (kicker · 管 · label → AccentTitle h1 → gold-rule, over a faint
  * kanji-mark watermark) introduces the surface, and a kanji-marked admin nav
- * pivots between the ten sub-surfaces. On lg+ the nav is a sticky left rail
- * with a hanko-red active marker (left border + diamond, echoing AppShell's
+ * pivots between the eleven sub-surfaces. On lg+ the nav is a sticky left rail
+ * with a --primary active marker (left border + diamond, echoing AppShell's
  * NavItem + SettingsPage's section index); below that it folds into a
  * horizontal scroll rail so the bar never crowds the content.
  *
- * The <Outlet/> sits in a quiet noir well to the right (or below on mobile) —
- * each of the ten admin pages renders its own per-page sub-header inside it, so
- * the layout deliberately does NOT repeat a title there.
+ * The <Outlet/> sits in a quiet well to the right (or below on mobile) — each
+ * admin page renders its own per-page sub-header inside it, so the layout
+ * deliberately does NOT repeat a title there.
  *
  * Direction A keeps the chrome calm: flat fills + hairlines, the shared
- * `.reveal` stagger, gold for rules and hanko-red for the single hot accent.
+ * `.reveal` stagger, gold for rules and --primary for the single hot accent.
  * Auth/admin guards, routes, labels and the <Outlet/> are unchanged.
  */
 
@@ -30,17 +32,17 @@ import AccentTitle from "../components/AccentTitle.jsx";
 //   概 overview · 衆 users · 像 figures · 目 entities · 類 types · 店 stores ·
 //   漫 manga servers · 鈴 notifications · 工 workers · 務 tasks · 設 settings.
 const NAV = [
-  { to: "/admin",                kanji: "概", key: "admin.tab.overview",       end: true },
-  { to: "/admin/users",          kanji: "衆", key: "admin.tab.users" },
-  { to: "/admin/figures",        kanji: "像", key: "admin.tab.figures" },
-  { to: "/admin/catalog",        kanji: "目", key: "admin.tab.catalog" },
-  { to: "/admin/figure-types",   kanji: "類", key: "admin.tab.figure_types" },
-  { to: "/admin/stores",         kanji: "店", key: "admin.tab.stores" },
-  { to: "/admin/manga-servers",  kanji: "漫", key: "admin.tab.manga_servers" },
-  { to: "/admin/notifications",  kanji: "鈴", key: "admin.tab.notifications" },
-  { to: "/admin/workers",        kanji: "工", key: "admin.tab.workers" },
-  { to: "/admin/tasks",          kanji: "務", key: "admin.tab.tasks" },
-  { to: "/admin/settings",       kanji: "設", key: "admin.tab.settings" },
+  { to: "/admin", kanji: "概", key: "admin.tab.overview", end: true },
+  { to: "/admin/users", kanji: "衆", key: "admin.tab.users" },
+  { to: "/admin/figures", kanji: "像", key: "admin.tab.figures" },
+  { to: "/admin/catalog", kanji: "目", key: "admin.tab.catalog" },
+  { to: "/admin/figure-types", kanji: "類", key: "admin.tab.figure_types" },
+  { to: "/admin/stores", kanji: "店", key: "admin.tab.stores" },
+  { to: "/admin/manga-servers", kanji: "漫", key: "admin.tab.manga_servers" },
+  { to: "/admin/notifications", kanji: "鈴", key: "admin.tab.notifications" },
+  { to: "/admin/workers", kanji: "工", key: "admin.tab.workers" },
+  { to: "/admin/tasks", kanji: "務", key: "admin.tab.tasks" },
+  { to: "/admin/settings", kanji: "設", key: "admin.tab.settings" },
 ];
 
 export default function AdminLayout() {
@@ -65,20 +67,22 @@ export default function AdminLayout() {
           </span>
 
           <p className="micro reveal flex items-center gap-2.5" style={{ "--i": 0 }}>
-            <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
+            <span aria-hidden className="w-1 h-1 bg-[var(--primary)] rotate-45" />
             {t("admin.kicker", { default: "ADMINISTRATION" })}
-            <span aria-hidden className="ja not-italic text-[var(--color-or)]">管</span>
+            <span aria-hidden className="ja not-italic text-[var(--accent)]">
+              管
+            </span>
             {t("admin.kicker_label", { default: "CONSOLE" })}
           </p>
           <h1
-            className="display text-5xl md:text-6xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
+            className="display text-5xl md:text-6xl mt-3 text-[var(--on-surface)] leading-[0.95] reveal"
             style={{ "--i": 1 }}
           >
             <AccentTitle text={t("admin.title")} />
           </h1>
           <div className="gold-rule w-32 mt-5 reveal" style={{ "--i": 2 }} />
           <p
-            className="display-italic text-[var(--color-or)] text-base md:text-lg mt-4 max-w-xl reveal"
+            className="display-italic text-[var(--accent)] text-base md:text-lg mt-4 max-w-xl reveal"
             style={{ "--i": 3 }}
           >
             {t("admin.subtitle")}
@@ -90,17 +94,16 @@ export default function AdminLayout() {
           <AdminNav t={t} />
 
           {/* The shared content well. Sub-pages bring their own sub-headers,
-              so this is just a calm noir surface that frames them. `min-w-0`
-              lets dense tables/grids inside scroll instead of blowing out the
-              grid track. */}
+              so this is just a calm surface that frames them. `min-w-0` lets
+              dense tables/grids inside scroll instead of blowing out the grid
+              track. */}
           <section
-            className="min-w-0 relative border-t border-[var(--color-or)]/15 pt-8 lg:border-t-0 lg:pt-0"
+            className="min-w-0 relative border-t border-[var(--border-subtle)] pt-8 lg:border-t-0 lg:pt-0"
             aria-label={t("admin.console.region", { default: "Console d’administration" })}
           >
             <Outlet />
           </section>
         </div>
-
       </main>
     </AppShell>
   );
@@ -116,7 +119,7 @@ function AdminNav({ t }) {
       className="lg:sticky lg:top-24 mb-8 lg:mb-0"
       aria-label={t("admin.nav.heading", { default: "Sections d’administration" })}
     >
-      <p className="micro pb-3 mb-2 border-b border-[var(--color-or)]/20 hidden lg:block">
+      <p className="micro pb-3 mb-2 border-b border-[var(--border)] hidden lg:block">
         {t("admin.nav.heading", { default: "Sections d’administration" })}
       </p>
       <ul className="flex gap-2 overflow-x-auto lg:flex-col lg:gap-0 lg:overflow-visible">
@@ -134,22 +137,22 @@ function AdminNav({ t }) {
 
 // One rail entry. Renders as a real NavLink (keyboard-navigable, focusable),
 // sets aria-current on the active route, and marks the active state in
-// hanko-red: a left border + a small rotated diamond (echoing AppShell's
-// NavItem). The kanji glyph shifts gold → laque when active.
+// --primary: a left border + a small rotated diamond (echoing AppShell's
+// NavItem). The kanji glyph shifts gold → --primary when active.
 function NavItem({ to, end, kanji, children }) {
   return (
     <NavLink
       to={to}
       end={end}
       className={({ isActive }) =>
-        `tap-target group relative flex items-center gap-2.5 whitespace-nowrap px-3 lg:px-3 lg:py-2.5 lg:border-l-2 transition-colors focus:outline-none focus-visible:text-[var(--color-or)] ${
+        `tap-target group relative flex items-center gap-2.5 whitespace-nowrap px-3 lg:px-3 lg:py-2.5 lg:border-l-2 transition-colors focus:outline-none focus-visible:text-[var(--accent)] ${
           isActive
-            ? "text-[var(--color-ivoire)]"
-            : "text-[var(--color-ivoire-soft)] hover:text-[var(--color-ivoire)]"
+            ? "text-[var(--on-surface)]"
+            : "text-[var(--on-surface-muted)] hover:text-[var(--on-surface)]"
         }`
       }
       style={({ isActive }) => ({
-        borderLeftColor: isActive ? "var(--color-laque-bright)" : "transparent",
+        borderLeftColor: isActive ? "var(--primary)" : "transparent",
       })}
     >
       {({ isActive }) => (
@@ -158,9 +161,7 @@ function NavItem({ to, end, kanji, children }) {
             aria-hidden
             className="ja text-base leading-none transition-colors"
             style={{
-              color: isActive
-                ? "var(--color-laque-bright)"
-                : "var(--color-or)",
+              color: isActive ? "var(--primary)" : "var(--accent)",
               opacity: isActive ? 1 : 0.55,
             }}
           >
@@ -172,8 +173,7 @@ function NavItem({ to, end, kanji, children }) {
           {isActive ? (
             <span
               aria-hidden
-              className="ml-auto hidden lg:block w-1 h-1 bg-[var(--color-laque-bright)] rotate-45 shrink-0"
-              style={{ boxShadow: "0 0 10px var(--color-laque-bright)" }}
+              className="ml-auto hidden lg:block w-1 h-1 bg-[var(--primary)] rotate-45 shrink-0"
             />
           ) : null}
         </>

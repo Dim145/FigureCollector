@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
+import { Plus } from "lucide-react";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import {
@@ -10,53 +11,40 @@ import {
   useLocations,
 } from "../hooks/useCollection.js";
 import { useRowSelection } from "../hooks/useRowSelection.js";
-import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
+import { PageLayout } from "../components/layout/index.js";
+import { Button, EmptyState } from "../components/ui/index.js";
 import { SectionSkeleton } from "../components/Skeleton.jsx";
-import Button from "../components/Button.jsx";
-import Card from "../components/Card.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
-import StatCard from "../components/StatCard.jsx";
-import FigureCard from "../components/FigureCard.jsx";
-import Reveal from "../components/motion/Reveal.jsx";
-import { motion, AnimatePresence, useReducedMotion } from "motion/react";
-import { resolveOwnedCover, resolveFigureCover } from "../lib/coverUrl.js";
-import { useVisualSearchStatus, useRecommendations } from "../hooks/useVisualSearch.js";
-import { typeHue, typeKanji } from "../lib/typeHue.js";
-import { preorderBadgeLabel, preorderPhase } from "../lib/preorderStatus.js";
-import { effectiveValue, figurePaid, fmtMoney } from "../lib/money.js";
-import Money from "../components/Money.jsx";
-
-const CONDITION_FILTERS = [
-  "all", "mib_sealed", "opened_box", "displayed", "loose", "damaged",
-];
-
-/** One kanji per condition, picked for resonance: 全 (all), 封 (sealed),
- *  開 (opened), 飾 (displayed), 裸 (loose / bare), 痍 (damaged). */
-const CONDITION_KANJI = {
-  all: "全",
-  mib_sealed: "封",
-  opened_box: "開",
-  displayed: "飾",
-  loose: "裸",
-  damaged: "痍",
-};
+import { preorderPhase } from "../lib/preorderStatus.js";
+import { effectiveValue, figurePaid } from "../lib/money.js";
+import CollectionHeader from "./collection/CollectionHeader.jsx";
+import ConditionFilterRail from "./collection/ConditionFilterRail.jsx";
+import FeaturedPiece from "./collection/FeaturedPiece.jsx";
+import CollectionGrid from "./collection/CollectionGrid.jsx";
+import RecommendedShelf from "./collection/RecommendedShelf.jsx";
 
 /**
- * Personal gallery — your collected pieces, with rotating KPI counters,
- * a kanji-tile condition filter, and the redesigned FigureCard.
+ * Personal gallery — the collector's owned pieces. Thin orchestrator: it owns
+ * the data hooks, the view state (filters, pin, select mode), and the
+ * mutations, and composes the page-local sub-components on the shared
+ * foundation (PageLayout editorial frame).
  *
- * Pairs intentionally with `/browse`:
- *   - Same artifact badges on cards (brass plaque + status stamp)
- *   - Same kanji-tile filter rail (different vocabulary)
- *   - Different hero accent kanji: 蒐 (gather) vs 目 (eye)
+ *   CollectionHeader     — KPI strip + lens chips (Vitrines / La Cote / sale)
+ *   FeaturedPiece        — the optional "à la une" spread
+ *   ConditionFilterRail  — kanji-faced condition tiles + the "annulées" facet
+ *   CollectionGrid       — cards, per-card actions, select mode + bulk bar
+ *   RecommendedShelf     — DINOv2 "recommandé pour toi" suggestions
+ *
+ * Pairs intentionally with /catalogue (same artifact cards + kanji rail);
+ * hero accent kanji 蒐 (gather) vs the catalogue's 目 (eye).
  */
 export default function CollectionPage() {
   const t = useT();
   const me = useMe();
-  // `showArchived` toggles the optional "Voir aussi annulées" pass that
-  // surfaces preorder cancellations with a partial / no refund. Hidden by
-  // default so the active collection stays the focus.
+  // `showArchived` surfaces the optional "annulées" pass (preorder
+  // cancellations kept with a partial / no refund). Off by default so the
+  // active collection stays the focus; promoted into the filter rail as a facet.
   const [showArchived, setShowArchived] = useState(false);
   const owned = useOwnedItems({ includeArchived: showArchived });
   const remove = useRemoveOwnedItem();
@@ -67,28 +55,32 @@ export default function CollectionPage() {
   // Optional "à vendre / à échanger" lens — narrows the grid to pieces the
   // owner has listed on their trade shelf.
   const [saleOnly, setSaleOnly] = useState(false);
-  // "À la une" — one piece pinned to the top of the collection. Stored
-  // client-side (a per-device display choice, no backend field); when nothing
-  // is pinned the featured block simply doesn't render.
+  // "À la une" — one piece pinned to the top. Stored client-side (a per-device
+  // display choice, no backend field); when nothing is pinned the featured
+  // block simply doesn't render.
   const [pinnedId, setPinnedId] = useState(() => {
-    try { return localStorage.getItem("fc:pinned-owned"); } catch { return null; }
+    try {
+      return localStorage.getItem("fc:pinned-owned");
+    } catch {
+      return null;
+    }
   });
   const pin = (id) => {
     try {
       if (id) localStorage.setItem("fc:pinned-owned", id);
       else localStorage.removeItem("fc:pinned-owned");
-    } catch { /* private mode — keep in-memory only */ }
+    } catch {
+      /* private mode — keep in-memory only */
+    }
     setPinnedId(id);
   };
-  // Bulk-edit mode: turn the grid into a multi-select surface with a sticky
-  // action bar (set vitrine / condition, archive, delete).
+  // Bulk-edit mode: turn the grid into a multi-select surface with an action bar.
   const [selectMode, setSelectMode] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [pendingBulkDelete, setPendingBulkDelete] = useState(false);
-  // Owned-item id queued for deletion confirmation; null when the dialog
-  // is closed. Drives a styled ConfirmDialog rather than the unstylable
-  // native `window.confirm()` we used to call.
+  // Owned-item queued for deletion confirmation; null when the dialog is closed.
   const [pendingRemove, setPendingRemove] = useState(null);
+
   const archivedCount = useMemo(
     () => (owned.data ?? []).filter((o) => o.archived_at).length,
     [owned.data],
@@ -96,10 +88,6 @@ export default function CollectionPage() {
 
   const stats = useMemo(() => {
     const data = owned.data ?? [];
-    const manufacturers = new Set(
-      data.map((o) => o.manufacturer_name).filter(Boolean),
-    );
-    const types = new Set(data.map((o) => o.figure_type));
     const vitrines = new Set(data.map((o) => o.location).filter(Boolean));
     const preorders = data.filter((o) => {
       const ph = preorderPhase(o);
@@ -124,8 +112,6 @@ export default function CollectionPage() {
     };
     return {
       pieces: data.length,
-      manufacturers: manufacturers.size,
-      types: types.size,
       vitrines: vitrines.size,
       preorders,
       value: dominant(effectiveValue),
@@ -158,10 +144,7 @@ export default function CollectionPage() {
   // The pinned piece, resolved against the live collection (ignored if it was
   // since removed/archived).
   const pinnedItem = useMemo(
-    () =>
-      pinnedId
-        ? (owned.data ?? []).find((o) => o.id === pinnedId && !o.archived_at)
-        : null,
+    () => (pinnedId ? (owned.data ?? []).find((o) => o.id === pinnedId && !o.archived_at) : null),
     [owned.data, pinnedId],
   );
 
@@ -206,381 +189,109 @@ export default function CollectionPage() {
     ...(locations.data ?? []).map((l) => ({ value: l.name, label: l.name })),
   ];
 
+  const nsfwPref = me.data?.user?.nsfw_visibility ?? "hide";
+  const nsfwBlur = (item) => item.is_nsfw && nsfwPref === "blur";
+  const hasPieces = !!owned.data?.length;
+
   return (
     <AppShell>
-      <main className="relative max-w-7xl mx-auto px-6 pt-8 pb-16">
-        {/* Hero colour-wash — jade-leaning (the "gathered" gallery) over the
-            global aurora. Theme-aware via the accent vars. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -top-24 left-0 right-0 h-[420px] -z-0"
-          style={{
-            background:
-              "radial-gradient(48% 65% at 16% 0%, color-mix(in oklab, var(--color-ember) 18%, transparent), transparent 70%), radial-gradient(46% 60% at 88% 8%, color-mix(in oklab, var(--color-or) 20%, transparent), transparent 72%), radial-gradient(40% 55% at 60% 30%, color-mix(in oklab, var(--color-laque) 9%, transparent), transparent 75%)",
-            // Feather the edges so the gradient fades instead of hard-cutting
-            // at the content column (the vertical seam).
-            WebkitMaskImage:
-              "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
-            maskImage:
-              "linear-gradient(to right, transparent 0, #000 8%, #000 92%, transparent 100%)",
-          }}
-        />
-        <header className="relative mb-8">
-          <span
-            aria-hidden
-            className="kanji-mark text-[26rem] -top-32 -right-10 hidden md:block"
-          >
-            蒐
-          </span>
-
-          <p className="micro reveal" style={{ "--i": 0 }}>
-            {t("collection.subtitle")}
-          </p>
-          <h1
-            className="display text-5xl md:text-6xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
-            style={{ "--i": 1 }}
-          >
-            <AccentTitle text={t("collection.title")} />
-          </h1>
-          <div className="gold-rule w-32 mt-6 reveal" style={{ "--i": 2 }} />
-
-          {/* Collection lenses — sibling views of the same pieces. */}
-          <nav
-            className="mt-6 flex flex-wrap gap-2 reveal"
-            style={{ "--i": 3 }}
-            aria-label={t("collection.lenses")}
-          >
-            <Link
-              to="/vitrines"
-              className="chip hover:border-[var(--color-or)] hover:text-[var(--color-or)] transition-colors"
+      <PageLayout
+        kicker={t("collection.kicker", { default: "COLLECTION · 蒐 · MES PIÈCES" })}
+        title={t("collection.title")}
+        kanji="蒐"
+        width="wide"
+        toolbar={
+          hasPieces ? (
+            <Button
+              as={Link}
+              to="/figures/new"
+              variant="primary"
+              size="sm"
+              iconStart={<Plus size={16} />}
+              className="uppercase"
             >
-              {t("nav.vitrines")}
-            </Link>
-            <Link
-              to="/cote"
-              className="chip hover:border-[var(--color-or)] hover:text-[var(--color-or)] transition-colors"
-            >
-              {t("cote.title")}
-            </Link>
-            {saleCount > 0 ? (
-              <button
-                type="button"
-                onClick={() => setSaleOnly((v) => !v)}
-                aria-pressed={saleOnly}
-                className={`chip inline-flex items-center gap-1.5 transition-colors ${
-                  saleOnly
-                    ? "!border-[var(--color-laque-bright)] !text-[var(--color-laque-bright)]"
-                    : "hover:border-[var(--color-laque-bright)] hover:text-[var(--color-laque-bright)]"
-                }`}
-              >
-                {t("collection.lens.for_sale", { default: "À vendre" })}
-                <span className="font-mono text-[10px] opacity-70">{saleCount}</span>
-              </button>
-            ) : null}
-            {owned.data?.length ? (
-              <>
-                {/* Action, not a lens — set it apart from Vitrines / La Cote so
-                    it reads as "start editing several pieces at once". */}
-                <span
-                  aria-hidden
-                  className="self-center mx-1 w-px h-4 bg-[color-mix(in_oklab,var(--color-or)_25%,transparent)]"
-                />
-                <button
-                  type="button"
-                  onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
-                  aria-pressed={selectMode}
-                  className={`chip inline-flex items-center gap-1.5 transition-colors ${
-                    selectMode
-                      ? "!border-[var(--color-or)] !text-[var(--color-or)]"
-                      : "hover:border-[var(--color-or)] hover:text-[var(--color-or)]"
-                  }`}
-                >
-                  <span aria-hidden>{selectMode ? "✓" : "☑"}</span>
-                  {selectMode ? t("bulk.done") : t("bulk.select")}
-                </button>
-              </>
-            ) : null}
-          </nav>
-
-          {owned.data?.length ? (
-            <div
-              className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-3 reveal"
-              style={{ "--i": 3 }}
-            >
-              <StatCard label={t("collection.kpi.pieces")} value={stats.pieces} />
-              <StatCard
-                label={t("collection.kpi.value")}
-                value={
-                  stats.value ? (
-                    <Money amount={stats.value.sum} currency={stats.value.cur} />
-                  ) : (
-                    "—"
-                  )
-                }
-                sub={
-                  stats.paid
-                    ? `${t("collection.kpi.paid")} · ${fmtMoney(stats.paid.sum, stats.paid.cur)}`
-                    : null
-                }
-                tone="gold"
-              />
-              <StatCard
-                label={t("collection.kpi.preorders")}
-                value={stats.preorders}
-                tone="red"
-              />
-              <StatCard label={t("nav.vitrines")} value={stats.vitrines} />
-            </div>
-          ) : null}
-        </header>
-
-        {/* ─── Empty / loading / grid ─── */}
+              {t("collection.add", { default: "Ajouter une pièce" })}
+            </Button>
+          ) : null
+        }
+      >
+        {/* ── Loading / empty / gallery ── */}
         {owned.isLoading ? (
           <SectionSkeleton />
-        ) : owned.data?.length === 0 ? (
-          <EmptyState t={t} />
+        ) : !hasPieces ? (
+          <EmptyState
+            kanji="空"
+            eyebrow={t("collection.empty.eyebrow")}
+            title={t("collection.empty.title")}
+            body={t("collection.empty.body")}
+          >
+            <Button as={Link} to="/catalogue" variant="primary">
+              {t("collection.empty.cta_browse")}
+            </Button>
+            <Button as={Link} to="/figures/new" variant="ghost">
+              {t("collection.empty.cta")}
+            </Button>
+          </EmptyState>
         ) : (
           <>
+            <CollectionHeader
+              t={t}
+              stats={stats}
+              saleCount={saleCount}
+              saleOnly={saleOnly}
+              onToggleSale={() => setSaleOnly((v) => !v)}
+              selectMode={selectMode}
+              onToggleSelect={() => (selectMode ? exitSelect() : setSelectMode(true))}
+              canSelect={hasPieces}
+            />
+
             {pinnedItem ? (
-              <FeaturedPiece
-                item={pinnedItem}
-                t={t}
-                onUnpin={() => pin(null)}
-              />
-            ) : null}
-            <nav
-              aria-label="filter by condition"
-              className="tile-rail mb-8 reveal"
-              style={{ "--i": 4 }}
-            >
-              {CONDITION_FILTERS.map((c) => {
-                const active = conditionFilter === c;
-                const count =
-                  c === "all"
-                    ? owned.data.length
-                    : countsByCondition.get(c) ?? 0;
-                if (c !== "all" && count === 0) return null;
-                return (
-                  <button
-                    key={c}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => setConditionFilter(c)}
-                    className={`tile ${active ? "is-active" : ""}`}
-                  >
-                    <span className="tile-count" aria-hidden>
-                      {count}
-                    </span>
-                    <span className="tile-kanji" aria-hidden>
-                      {CONDITION_KANJI[c] ?? "・"}
-                    </span>
-                    <span className="tile-romaji">
-                      {c === "all"
-                        ? t("collection.filter.all")
-                        : t(`condition.${c}`)}
-                    </span>
-                  </button>
-                );
-              })}
-            </nav>
-
-            {/* Archived toggle — when the user has any cancelled-and-kept
-             *  preorders, surface them on demand with a separate switch
-             *  so the active collection stays uncluttered. */}
-            {showArchived && archivedCount > 0 ? (
-              <p
-                className="mb-4 text-[10px] uppercase tracking-[0.22em] text-[var(--color-laque-bright)]"
-              >
-                {t("collection.archived_shown", { n: archivedCount })}
-                <button
-                  type="button"
-                  onClick={() => setShowArchived(false)}
-                  className="ml-2 underline decoration-dotted hover:no-underline"
-                >
-                  {t("collection.archived_hide")}
-                </button>
-              </p>
-            ) : !showArchived ? (
-              <p
-                className="mb-4 text-[10px] uppercase tracking-[0.22em] text-[var(--color-ivoire-soft)]/80"
-              >
-                <button
-                  type="button"
-                  onClick={() => setShowArchived(true)}
-                  className="underline decoration-dotted hover:no-underline hover:text-[var(--color-laque-bright)] transition-colors"
-                >
-                  {t("collection.archived_show")}
-                </button>
-              </p>
-            ) : null}
-
-            {selectMode ? (
-              <div className="sticky top-2 z-30 mb-5 flex flex-wrap items-center gap-2 p-3 border border-[color-mix(in_oklab,var(--color-or)_28%,transparent)] bg-[color-mix(in_oklab,var(--color-or)_10%,transparent)] backdrop-blur-md">
-                <span className="display text-xl text-[var(--color-or-pale)]">
-                  <b className="text-[var(--color-ivoire)]">{sel.selectedIds.length}</b>{" "}
-                  {t("bulk.selected_label")}
-                </span>
-                <button type="button" onClick={sel.toggleAll} className="bulk-act">
-                  {sel.allSelected ? t("bulk.none") : t("bulk.all")}
-                </button>
-                <span className="flex-1" />
-                <select
-                  aria-label={t("bulk.set_vitrine")}
-                  disabled={bulkBusy || !sel.someSelected}
-                  value="__"
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v !== "__") bulkSetLocation(v);
-                  }}
-                  className="bulk-act bg-[var(--color-noir)] disabled:opacity-40"
-                >
-                  <option value="__" disabled>{t("bulk.set_vitrine")}</option>
-                  {locationOptions.map((o) => (
-                    <option key={o.value || "__none"} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  aria-label={t("bulk.set_condition")}
-                  disabled={bulkBusy || !sel.someSelected}
-                  value="__"
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v !== "__") bulkSetCondition(v);
-                  }}
-                  className="bulk-act bg-[var(--color-noir)] disabled:opacity-40"
-                >
-                  <option value="__" disabled>{t("bulk.set_condition")}</option>
-                  {CONDITION_FILTERS.filter((c) => c !== "all").map((c) => (
-                    <option key={c} value={c}>
-                      {t(`condition.${c}`)}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  disabled={bulkBusy || !sel.someSelected}
-                  onClick={bulkArchive}
-                  className="bulk-act disabled:opacity-40"
-                >
-                  {t("bulk.archive")}
-                </button>
-                <button
-                  type="button"
-                  disabled={bulkBusy || !sel.someSelected}
-                  onClick={() => setPendingBulkDelete(true)}
-                  className="bulk-act-danger disabled:opacity-40"
-                >
-                  {t("bulk.delete")}
-                </button>
-                <button type="button" onClick={exitSelect} className="bulk-act" aria-label={t("bulk.done")}>
-                  ✕
-                </button>
+              <div className="mt-10">
+                <FeaturedPiece item={pinnedItem} t={t} onUnpin={() => pin(null)} />
               </div>
             ) : null}
 
-            <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {filtered.map((item, i) => {
-                const blur =
-                  item.is_nsfw &&
-                  (me.data?.user?.nsfw_visibility ?? "hide") === "blur";
-                const selected = sel.isSelected(item.id);
-                const card = (
-                  <FigureCard
-                    figureId={item.figure_id}
-                    href={selectMode ? undefined : `/figures/${item.figure_id}`}
-                    name={item.figure_name}
-                    type={item.figure_type}
-                    manufacturer={item.manufacturer_name}
-                    imageUrl={resolveOwnedCover(item)}
-                    scale={item.scale}
-                    versionName={item.version_name}
-                    blurImage={blur}
-                    badge={ownedBadge(item, t)}
-                  />
-                );
-                return (
-                  <Reveal
-                    as="li"
-                    key={item.id}
-                    delay={Math.min(i, 7) * 0.05}
-                    y={24}
-                  >
-                    {selectMode ? (
-                      <button
-                        type="button"
-                        onClick={() => sel.toggle(item.id)}
-                        aria-pressed={selected}
-                        className="relative block w-full text-left"
-                      >
-                        <span
-                          aria-hidden
-                          className={`absolute top-2 left-2 z-[6] w-6 h-6 grid place-items-center text-[12px] ${
-                            selected
-                              ? "bg-[var(--color-or)] border border-[var(--color-or)] text-[var(--color-noir)]"
-                              : "bg-[color-mix(in_oklab,var(--color-noir-deep)_72%,transparent)] border border-[color-mix(in_oklab,var(--color-or)_45%,transparent)] text-transparent"
-                          }`}
-                        >
-                          ✓
-                        </span>
-                        <span
-                          className={`block ${selected ? "outline outline-2 outline-[var(--color-or)]" : ""}`}
-                        >
-                          {card}
-                        </span>
-                      </button>
-                    ) : (
-                      card
-                    )}
-                    <div className="mt-3 flex items-center justify-between gap-3 px-1">
-                      <span className="micro-tight">
-                        {t(`condition.${item.condition}`)}
-                      </span>
-                      {!selectMode ? (
-                        <div className="flex items-center gap-3">
-                          {item.id !== pinnedId ? (
-                            <button
-                              type="button"
-                              onClick={() => pin(item.id)}
-                              title={t("collection.pin", { default: "Épingler à la une" })}
-                              className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] transition-colors"
-                            >
-                              ★ {t("collection.pin.short", { default: "À la une" })}
-                            </button>
-                          ) : null}
-                          <button
-                            type="button"
-                            onClick={() => setPendingRemove(item)}
-                            disabled={remove.isPending}
-                            className="text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] transition-colors disabled:opacity-50"
-                          >
-                            {t("collection.remove")}
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
-                  </Reveal>
-                );
-              })}
-            </ul>
+            <div className="mt-8">
+              <ConditionFilterRail
+                t={t}
+                conditionFilter={conditionFilter}
+                onSelect={setConditionFilter}
+                countsByCondition={countsByCondition}
+                totalCount={owned.data.length}
+                showArchived={showArchived}
+                onToggleArchived={() => setShowArchived((v) => !v)}
+                archivedCount={archivedCount}
+              />
+            </div>
 
-            {filtered.length === 0 ? (
-              <p className="text-center text-[var(--color-ivoire-soft)] italic mt-12">
-                {t("collection.filter.empty")}
-              </p>
-            ) : null}
+            <div className="mt-8">
+              <CollectionGrid
+                t={t}
+                items={filtered}
+                nsfwBlur={nsfwBlur}
+                pinnedId={pinnedId}
+                onPin={pin}
+                onRequestRemove={setPendingRemove}
+                removePending={remove.isPending}
+                selectMode={selectMode}
+                sel={sel}
+                bulkBusy={bulkBusy}
+                locationOptions={locationOptions}
+                onBulkSetLocation={bulkSetLocation}
+                onBulkSetCondition={bulkSetCondition}
+                onBulkArchive={bulkArchive}
+                onBulkDelete={() => setPendingBulkDelete(true)}
+                onExitSelect={exitSelect}
+              />
+            </div>
           </>
         )}
 
-        {/* Recommandé pour toi — catalogue figures nearest to what you own
-         *  (DINOv2). Self-hides when photo search is off or you own nothing
-         *  on the index. */}
-        <RecommendedSection
-          t={t}
-          nsfwPref={me.data?.user?.nsfw_visibility ?? "hide"}
-        />
-      </main>
+        {/* Recommandé pour toi — self-hides when photo search is off or there's
+            nothing to suggest. */}
+        <RecommendedShelf t={t} nsfwPref={nsfwPref} />
+      </PageLayout>
+
       <ConfirmDialog
         open={!!pendingRemove}
         title={t("collection.remove")}
@@ -617,251 +328,5 @@ export default function CollectionPage() {
         onConfirm={bulkDelete}
       />
     </AppShell>
-  );
-}
-
-/** Badge for an owned-item card: archived (cancelled-and-kept) wins, then the
- *  pre-order phase, then a pinned-cover marker. Extracted so both the normal
- *  and the bulk-select renders share it. */
-function ownedBadge(item, t) {
-  if (item.archived_at) {
-    return { label: t("collection.archived_badge"), tone: "cancelled" };
-  }
-  const phase = preorderPhase(item);
-  const label = preorderBadgeLabel(phase, t);
-  if (label) {
-    return { label, tone: phase === "imminent" ? "imminent" : "preorder" };
-  }
-  if (item.cover_photo_id || item.cover_scan_id) {
-    return { label: t("collection.cover.pinned"), tone: "neutral" };
-  }
-  return null;
-}
-
-// StatCard lives in components/StatCard.jsx (shared with the Catalogue strip).
-
-/**
- * "Recommandé pour toi" — catalogue figures whose look is nearest to what the
- * user owns (DINOv2 reco, already gated to ≥ the admin similarity threshold &
- * excluding owned/wishlisted server-side). Shows 4 at a time out of a deeper
- * pool; each can be "skipped" to reveal the next. When the whole pool is
- * skipped (or there's nothing to suggest) the section retires with a small
- * collapse. NSFW: server excludes for hide-viewers, we blur for blur.
- */
-function RecommendedSection({ t, nsfwPref }) {
-  const status = useVisualSearchStatus();
-  const enabled = !!status.data?.enabled;
-  const reco = useRecommendations({ enabled });
-  const reduce = useReducedMotion();
-  const [dismissed, setDismissed] = useState(() => new Set());
-
-  const pool = reco.data ?? [];
-  const visible = pool.filter((p) => !dismissed.has(p.figure.id)).slice(0, 4);
-  // Every recommendation skipped → retire the section (with a collapse).
-  const exhausted = pool.length > 0 && visible.length === 0;
-
-  if (!enabled || reco.isPending || reco.isError) return null;
-  if (pool.length === 0) return null;
-
-  const skip = (id) => setDismissed((prev) => new Set(prev).add(id));
-
-  return (
-    <AnimatePresence>
-      {!exhausted && (
-        <motion.section
-          key="reco"
-          className="mt-16"
-          exit={
-            reduce
-              ? {}
-              : {
-                  opacity: 0,
-                  y: -12,
-                  transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] },
-                }
-          }
-        >
-          <header className="text-center mb-8">
-            <p className="micro inline-flex items-center gap-2.5">
-              <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
-              {t("collection.reco.eyebrow", { default: "D'après ta collection" })}
-              <span aria-hidden className="ja not-italic text-[var(--color-or)]">薦</span>
-            </p>
-            <h2 className="display text-3xl md:text-4xl text-[var(--color-ivoire)] mt-1.5">
-              <AccentTitle text={t("collection.reco.title", { default: "Recommandé pour toi" })} />
-            </h2>
-            <div className="gold-rule w-20 mx-auto mt-4" />
-          </header>
-          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            <AnimatePresence mode="popLayout" initial={false}>
-              {visible.map(({ figure: g, distance }) => (
-                <motion.li
-                  key={g.id}
-                  layout
-                  initial={reduce ? false : { opacity: 0, scale: 0.94 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={
-                    reduce
-                      ? { opacity: 0 }
-                      : { opacity: 0, scale: 0.9, transition: { duration: 0.28 } }
-                  }
-                  transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <FigureCard
-                    figureId={g.id}
-                    href={`/figures/${g.id}`}
-                    name={g.name}
-                    type={g.figure_type}
-                    manufacturer={g.manufacturer_name ?? null}
-                    imageUrl={resolveFigureCover(g)}
-                    scale={g.scale}
-                    versionName={g.version_name}
-                    blurImage={g.is_nsfw && nsfwPref === "blur"}
-                    badge={{ label: `${Math.round((1 - distance) * 100)}%`, tone: "match" }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => skip(g.id)}
-                    className="mt-3 w-full inline-flex items-center justify-center gap-2 py-2 border border-[var(--color-or)]/35 bg-[var(--color-noir)]/50 text-[11px] uppercase tracking-[0.22em] text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] hover:border-[var(--color-laque-bright)]/60 hover:bg-[var(--color-laque)]/10 transition-colors"
-                  >
-                    <span aria-hidden className="text-[var(--color-or)]">✕</span>
-                    {t("collection.reco.skip", { default: "Passer" })}
-                  </button>
-                </motion.li>
-              ))}
-            </AnimatePresence>
-          </ul>
-        </motion.section>
-      )}
-    </AnimatePresence>
-  );
-}
-
-function EmptyState({ t }) {
-  return (
-    <Card className="max-w-xl mx-auto p-12 text-center relative overflow-hidden frame-corners">
-      <span
-        aria-hidden
-        className="ja absolute -top-6 -right-6 text-[14rem] text-[var(--color-or)]/10 leading-none select-none"
-      >
-        空
-      </span>
-      <p className="micro relative">{t("collection.empty.eyebrow")}</p>
-      <h2 className="display text-3xl mt-3 text-[var(--color-ivoire)] relative">
-        {t("collection.empty.title")}
-      </h2>
-      <p className="mt-4 text-[var(--color-ivoire-soft)] leading-relaxed relative">
-        {t("collection.empty.body")}
-      </p>
-      <div className="gold-rule mx-auto w-20 my-8" />
-      <div className="flex flex-wrap gap-3 justify-center relative">
-        <Link to="/browse">
-          <Button variant="primary">{t("collection.empty.cta_browse")}</Button>
-        </Link>
-        <Link to="/figures/new">
-          <Button variant="ghost">{t("collection.empty.cta")}</Button>
-        </Link>
-      </div>
-    </Card>
-  );
-}
-
-// "À la une" — the pinned piece, featured atop the collection as an asymmetric
-// editorial spread: a stage-lit photo (in the figure's type hue) beside a
-// cartouche — name, maker, the user's own note as a pull-quote, glanceable
-// specs, and the actions. Only rendered when a piece is pinned.
-function FeaturedPiece({ item, t, onUnpin }) {
-  const cover = resolveOwnedCover(item);
-  const kanji = typeKanji(item.figure_type);
-  const note = item.notes || item.note;
-  const paid =
-    item.price_amount != null ? (
-      <Money amount={item.price_amount} currency={item.price_currency || "EUR"} />
-    ) : null;
-  return (
-    <section
-      className="reveal mb-10 relative overflow-hidden border border-[var(--color-or)]/18 bg-[color-mix(in_oklab,var(--color-noir-soft)_70%,transparent)]"
-      style={{ "--hue": typeHue(item.figure_type) }}
-      aria-label={t("collection.featured.kicker", { default: "À la une" })}
-    >
-      <span
-        aria-hidden
-        className="absolute top-0 left-0 right-0 h-[2px] z-10"
-        style={{ background: "linear-gradient(90deg, transparent, var(--hue) 30%, var(--hue) 70%, transparent)" }}
-      />
-      <div className="grid md:grid-cols-[1.1fr_1fr]">
-        <Link
-          to={`/figures/${item.figure_id}`}
-          className="group/feat relative block aspect-[5/4] md:aspect-auto md:min-h-[340px] overflow-hidden bg-[var(--color-noir-deep)]"
-        >
-          <span aria-hidden className="absolute inset-0" style={{ background: "radial-gradient(60% 55% at 32% 24%, color-mix(in oklab, var(--hue) 24%, transparent), transparent 70%)" }} />
-          <span aria-hidden className="ja absolute -right-3 -bottom-8 text-[13rem] leading-none select-none" style={{ color: "color-mix(in oklab, var(--hue) 12%, transparent)" }}>{kanji}</span>
-          {cover ? (
-            <img
-              src={cover}
-              alt={item.figure_name ?? ""}
-              loading="lazy"
-              className="absolute inset-0 w-full h-full object-contain p-5 z-[1] transition-transform duration-700 ease-[var(--ease-curtain)] group-hover/feat:scale-[1.03]"
-            />
-          ) : (
-            <span className="absolute inset-0 grid place-items-center ja text-[8rem] text-[var(--color-or)]/25 z-[1]">{kanji}</span>
-          )}
-          <span className="label-plaque absolute top-3 left-3 z-[2]">
-            <span className="label-plaque-kanji" aria-hidden>{kanji}</span>
-            <span>{t(`type.${item.figure_type ?? "other"}`)}</span>
-          </span>
-          <span aria-hidden className="absolute inset-x-0 bottom-0 h-16 z-[1]" style={{ background: "linear-gradient(transparent, var(--color-noir-deep))" }} />
-        </Link>
-
-        <div className="relative p-7 md:p-9 flex flex-col justify-center">
-          <span aria-hidden className="ja absolute top-5 right-6 text-5xl select-none" style={{ color: "color-mix(in oklab, var(--color-or) 15%, transparent)" }}>推</span>
-          <p className="micro flex items-center gap-2.5">
-            <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
-            {t("collection.featured.kicker", { default: "À la une · épinglé" })}
-          </p>
-          <h2 className="display text-3xl md:text-4xl mt-2.5 leading-[1.02] text-[var(--color-ivoire)]">
-            <AccentTitle text={item.figure_name ?? ""} />
-          </h2>
-          {item.manufacturer_name ? (
-            <p className="micro mt-2.5 text-[var(--color-or-pale)]">{item.manufacturer_name}</p>
-          ) : null}
-          {note ? (
-            <p className="display-italic text-[var(--color-ivoire-soft)] text-base md:text-lg my-5 border-l-2 border-[var(--color-or)]/35 pl-3.5 line-clamp-3">
-              « {note} »
-            </p>
-          ) : (
-            <div className="gold-rule w-16 my-6" />
-          )}
-          <dl className="flex flex-wrap gap-x-9 gap-y-3 mb-7">
-            {paid ? (
-              <div>
-                <dt className="micro-tight text-[var(--color-ivoire-soft)]/70">{t("collection.kpi.paid")}</dt>
-                <dd className="figural text-lg text-[var(--color-or)] mt-1">{paid}</dd>
-              </div>
-            ) : null}
-            {item.scale ? (
-              <div>
-                <dt className="micro-tight text-[var(--color-ivoire-soft)]/70">{t("figure.spec.scale")}</dt>
-                <dd className="figural text-lg text-[var(--color-ivoire)] mt-1">{item.scale}</dd>
-              </div>
-            ) : null}
-            <div>
-              <dt className="micro-tight text-[var(--color-ivoire-soft)]/70">{t("collection.featured.state", { default: "État" })}</dt>
-              <dd className="figural text-lg text-[var(--color-ivoire)] mt-1">{t(`condition.${item.condition}`)}</dd>
-            </div>
-          </dl>
-          <div className="flex items-center gap-3">
-            <Link to={`/figures/${item.figure_id}`}>
-              <Button variant="primary" size="sm" className="uppercase">
-                {t("collection.featured.view", { default: "Voir la fiche" })}
-              </Button>
-            </Link>
-            <Button variant="ghost" size="sm" className="uppercase" onClick={onUnpin}>
-              {t("collection.unpin", { default: "Désépingler" })}
-            </Button>
-          </div>
-        </div>
-      </div>
-    </section>
   );
 }

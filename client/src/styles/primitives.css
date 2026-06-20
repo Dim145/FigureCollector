@@ -1,0 +1,1268 @@
+/* ============================================================================
+ * Type-hue card — each figure card carries its type's signature colour in a
+ * `--hue` custom property (set inline from lib/typeHue.js). At rest the chrome
+ * stays restrained; on hover/focus the card lifts and bathes in its own
+ * coloured light (border + outer glow + ring). This is the "néo-vitrine"
+ * core idea: every specimen lit by its own spotlight. color-mix keeps one
+ * hue driving every layer; GPU-only transform/opacity for mobile smoothness.
+ * ============================================================================ */
+.fc-card {
+  --hue: var(--color-or);
+  border: 1px solid color-mix(in oklab, var(--hue) 22%, transparent);
+  box-shadow:
+    0 25px 60px -34px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 color-mix(in oklab, var(--color-ivoire) 5%, transparent);
+  transition:
+    border-color 420ms var(--ease-quick),
+    box-shadow 420ms var(--ease-quick),
+    transform 520ms var(--ease-curtain);
+}
+.group\/card:hover .fc-card,
+.fc-card:focus-visible {
+  transform: translateY(-5px);
+  border-color: color-mix(in oklab, var(--hue) 60%, transparent);
+  box-shadow:
+    0 38px 80px -32px color-mix(in oklab, var(--hue) 42%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--hue) 34%, transparent),
+    0 0 36px -8px color-mix(in oklab, var(--hue) 30%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--color-ivoire) 8%, transparent);
+}
+/* The kanji watermark warms to the type hue on hover (was gold). */
+.group\/card:hover .fc-card .fc-kanji {
+  color: color-mix(in oklab, var(--hue) 18%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+  .fc-card,
+  .group\/card:hover .fc-card {
+    transform: none;
+    transition:
+      border-color 200ms linear,
+      box-shadow 200ms linear;
+  }
+}
+/* Bolder: a faint type-hue wash on the card at rest (colour reads without
+   hover) layered over the noir-soft surface. */
+.fc-card {
+  background-image: radial-gradient(
+    130% 80% at 50% -12%,
+    color-mix(in oklab, var(--hue) 13%, transparent),
+    transparent 58%
+  );
+}
+
+/* Landing feature cards — accent bloom on hover, in each card's own --accent
+   (set inline). Layers over the existing .glass/.magnetic hover. */
+.feature-card {
+  --accent: var(--color-or);
+  transition:
+    box-shadow 420ms var(--ease-quick),
+    transform 520ms var(--ease-curtain);
+}
+.feature-card:hover {
+  box-shadow:
+    0 34px 74px -34px color-mix(in oklab, var(--accent) 36%, transparent),
+    0 0 0 1px color-mix(in oklab, var(--accent) 30%, transparent),
+    0 0 28px -10px color-mix(in oklab, var(--accent) 26%, transparent);
+}
+
+/* ============================================================================
+ * Gold dividers
+ * ============================================================================ */
+
+.gold-rule {
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--color-or) 30%,
+    var(--color-or) 70%,
+    transparent
+  );
+}
+
+.gold-rule-vertical {
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--color-or) 30%,
+    var(--color-or) 70%,
+    transparent
+  );
+}
+
+/* Ornate divider: a hairline with a diamond ornament in the middle. Place
+   inside a `flex items-center` to get the orchestrated line breaks. */
+.ornate-rule {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--color-or);
+}
+.ornate-rule::before,
+.ornate-rule::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--color-or) 50%, transparent);
+}
+.ornate-rule::before {
+  background: linear-gradient(to left, var(--color-or), transparent);
+}
+.ornate-rule::after {
+  background: linear-gradient(to right, var(--color-or), transparent);
+}
+.ornate-rule__diamond {
+  width: 6px;
+  height: 6px;
+  background: var(--color-or);
+  transform: rotate(45deg);
+  flex-shrink: 0;
+  box-shadow: 0 0 12px color-mix(in oklab, var(--color-or) 60%, transparent);
+}
+
+/* ============================================================================
+ * Frames & ornamentation
+ * ============================================================================ */
+
+/* Decorative corner brackets — gold L-shapes at each corner of the parent.
+   The parent needs `position: relative`. */
+.frame-corners {
+  position: relative;
+}
+.frame-corners::before,
+.frame-corners::after,
+.frame-corners > .frame-tl,
+.frame-corners > .frame-br {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-color: var(--color-or);
+  border-style: solid;
+  opacity: 0.8;
+  pointer-events: none;
+}
+.frame-corners::before {
+  top: 6px;
+  left: 6px;
+  border-width: 1px 0 0 1px;
+}
+.frame-corners::after {
+  bottom: 6px;
+  right: 6px;
+  border-width: 0 1px 1px 0;
+}
+
+/* Chip / pill for type / condition / status. Inline-flex so the label and
+   leading dot align cleanly. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.25em 0.7em;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  border: 1px solid color-mix(in oklab, var(--color-or) 35%, transparent);
+  color: var(--color-or-pale);
+  background: color-mix(in oklab, var(--color-or) 4%, transparent);
+  white-space: nowrap;
+}
+.chip--solid {
+  background: var(--color-or);
+  color: var(--color-noir);
+  border-color: var(--color-or);
+}
+.chip--laque {
+  border-color: color-mix(in oklab, var(--color-laque-bright) 50%, transparent);
+  color: var(--color-laque-bright);
+  background: color-mix(in oklab, var(--color-laque) 8%, transparent);
+}
+
+/* ============================================================================
+ * Artifact badges — Cabinet de curiosités
+ *
+ * The old ghost-border chips disappear on busy/iridescent figure photos.
+ * Replace them on cards with two opaque, weighty artifacts:
+ *
+ *   .label-plaque — brass nameplate with engraved feel + kanji glyph
+ *   .label-stamp  — black auction-lot stamp with a red sash + ivoire text
+ *
+ * Both are deliberately *heavy* so they stay readable against ANY background
+ * (holographic packaging, ivory backdrops, action-scene art, etc).
+ * ============================================================================ */
+
+/* Brass plaque — the gold gradient + inset shadows fake the look of a
+   pressed metal nameplate. Two tiny corner divots add the "screwed-on"
+   detail without needing extra DOM. */
+.label-plaque {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.42em 0.85em 0.42em 0.7em;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 10.5px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: oklch(0.16 0.01 60);
+  background: linear-gradient(
+    155deg,
+    oklch(0.88 0.1 80) 0%,
+    var(--color-or) 38%,
+    oklch(0.68 0.09 80) 100%
+  );
+  border: 1px solid oklch(0.5 0.07 75);
+  box-shadow:
+    inset 0 1px 0 oklch(0.96 0.06 85 / 0.8),
+    inset 0 -1px 0 oklch(0.45 0.06 75 / 0.55),
+    inset 0 0 0 1px oklch(0.96 0.06 85 / 0.15),
+    0 8px 14px -6px rgba(0, 0, 0, 0.75),
+    0 1px 0 oklch(0.4 0.05 75);
+  position: relative;
+  white-space: nowrap;
+}
+/* Tiny "screw" divots top-left + bottom-right */
+.label-plaque::before,
+.label-plaque::after {
+  content: "";
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, oklch(0.4 0.05 75), oklch(0.2 0.02 60));
+  box-shadow: 0 0 0 0.5px oklch(0.92 0.08 80 / 0.4);
+}
+.label-plaque::before {
+  top: 3px;
+  left: 4px;
+}
+.label-plaque::after {
+  bottom: 3px;
+  right: 4px;
+}
+
+/* The kanji glyph sits before the romaji label, separated by a hairline. */
+.label-plaque-kanji {
+  font-family: var(--font-ja);
+  font-size: 13px;
+  letter-spacing: 0;
+  line-height: 1;
+  padding-right: 0.45em;
+  margin-right: 0.3em;
+  border-right: 1px solid oklch(0.4 0.06 75 / 0.5);
+  color: oklch(0.2 0.02 60);
+}
+
+/* Stamp — solid black slab with a vertical red sash on the left edge and
+   crisp ivoire text. Reads as "auction lot tag" / "RÉSERVÉ" stamp without
+   any spinning, gradients or glow getting in the way. */
+.label-stamp {
+  display: inline-flex;
+  align-items: stretch;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 10.5px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--color-ivoire);
+  background: var(--color-noir-deep);
+  border: 1px solid oklch(0.3 0.04 60);
+  box-shadow:
+    0 8px 14px -6px rgba(0, 0, 0, 0.75),
+    inset 0 1px 0 oklch(0.3 0.04 60 / 0.5);
+  white-space: nowrap;
+}
+.label-stamp::before {
+  content: "";
+  width: 5px;
+  background: linear-gradient(
+    to bottom,
+    var(--color-laque-bright) 0%,
+    var(--color-laque) 60%,
+    oklch(0.3 0.13 25) 100%
+  );
+  box-shadow: inset -1px 0 0 oklch(0.2 0.1 25 / 0.5);
+}
+.label-stamp > span {
+  padding: 0.42em 0.85em 0.42em 0.7em;
+}
+/* Variants — same shape, different sash colour for non-preorder signals. */
+.label-stamp--gold::before {
+  background: linear-gradient(
+    to bottom,
+    oklch(0.88 0.1 80) 0%,
+    var(--color-or) 60%,
+    oklch(0.62 0.09 80) 100%
+  );
+}
+.label-stamp--ivory::before {
+  background: linear-gradient(to bottom, var(--color-ivoire) 0%, oklch(0.78 0.03 75) 100%);
+}
+/* Cancelled — laque-red sash with a deeper centre so the chip reads as
+ * a "stamped void" rather than a fresh preorder. */
+.label-stamp--cancelled::before {
+  background: linear-gradient(
+    to bottom,
+    var(--color-laque-bright) 0%,
+    oklch(0.4 0.18 25) 60%,
+    oklch(0.28 0.14 25) 100%
+  );
+}
+.label-stamp--cancelled > span {
+  color: oklch(0.94 0.04 35);
+  text-decoration: line-through;
+  text-decoration-color: oklch(0.94 0.04 35 / 0.5);
+  text-decoration-thickness: 1px;
+}
+
+/* ─── Catalogue user-status markers (wished / owned). A single chip in the
+ *  card's top-right corner. Priority there is pre-order stamp > owned seal >
+ *  wished heart, so at most one element ever shows (see FigureCard). ─── */
+.fc-mark {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  line-height: 1;
+  background: color-mix(in oklab, var(--color-noir-deep) 78%, transparent);
+  backdrop-filter: blur(2px);
+  border: 1px solid;
+  box-shadow:
+    0 8px 14px -6px rgba(0, 0, 0, 0.75),
+    inset 0 1px 0 oklch(0.4 0.05 80 / 0.25);
+}
+.fc-mark--wished {
+  border-color: color-mix(in oklab, var(--color-laque-bright) 75%, transparent);
+  color: var(--color-laque-bright);
+}
+.fc-mark--owned {
+  border-color: color-mix(in oklab, var(--color-or) 70%, transparent);
+  color: var(--color-or);
+}
+
+/* ─── Prominent "add to wishlist" toggle on the figure detail page. Mirrors
+ *  the weight of the add-to-collection CTA; shown only when the piece isn't
+ *  already owned (the old buried action-cluster heart is gone). ─── */
+.wish-cta {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+  padding: 0.85rem 1rem;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  border: 1px solid;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+.wish-cta:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.wish-cta-heart {
+  font-size: 15px;
+  line-height: 1;
+}
+.wish-cta--off {
+  border-color: color-mix(in oklab, var(--color-laque-bright) 45%, transparent);
+  color: var(--color-laque-bright);
+  background: color-mix(in oklab, var(--color-laque) 6%, transparent);
+}
+.wish-cta--off:hover {
+  background: color-mix(in oklab, var(--color-laque) 14%, transparent);
+  border-color: var(--color-laque-bright);
+}
+.wish-cta--on {
+  border-color: var(--color-laque-bright);
+  color: var(--color-ivoire);
+  background: color-mix(in oklab, var(--color-laque) 24%, transparent);
+}
+.wish-or {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 1.1rem 0;
+  font-size: 9px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--color-ivoire-soft);
+  opacity: 0.6;
+}
+.wish-or::before,
+.wish-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: color-mix(in oklab, var(--color-or) 18%, transparent);
+}
+
+/* ─── Collection bulk-edit toolbar (buttons + the <select> menus) ─── */
+.bulk-act {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  color: var(--color-or-pale);
+  background: none;
+  cursor: pointer;
+  transition:
+    color 150ms,
+    border-color 150ms;
+}
+.bulk-act:hover:not(:disabled) {
+  color: var(--color-or);
+  border-color: var(--color-or);
+}
+.bulk-act-danger {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid color-mix(in oklab, var(--color-laque-bright) 55%, transparent);
+  color: var(--color-laque-bright);
+  background: none;
+  cursor: pointer;
+}
+.bulk-act-danger:hover:not(:disabled) {
+  background: color-mix(in oklab, var(--color-laque) 12%, transparent);
+}
+
+/* ============================================================================
+ * Filter tiles — kanji-faced rail used on /browse + /collection
+ *
+ * Each tile is a tiny "specimen card": kanji big at the top, romaji caption
+ * underneath. Active state gets the warm gold wash. Designed to scroll
+ * horizontally on narrow viewports.
+ * ============================================================================ */
+.tile-rail {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* Padding on BOTH vertical edges so neither the active tile's foil
+   * underline nor the hover lift (translateY(-2px)) gets clipped. The
+   * implicit `overflow-y: auto` (forced by overflow-x: auto per spec)
+   * would otherwise shear off the top 2px of any hovered tile — visibly
+   * removing its top border. */
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  scroll-snap-type: x mandatory;
+}
+.tile-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.tile {
+  position: relative;
+  flex-shrink: 0;
+  min-width: 88px;
+  padding: 0.7rem 0.5rem 0.55rem;
+  border: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-noir-soft) 60%, transparent) 0%,
+    color-mix(in oklab, var(--color-noir-deep) 40%, transparent) 100%
+  );
+  color: var(--color-ivoire-soft);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    transform 250ms var(--ease-curtain),
+    border-color 250ms var(--ease-quick),
+    background 250ms var(--ease-quick),
+    color 250ms var(--ease-quick);
+  scroll-snap-align: start;
+}
+/* Hover ≠ active. On these small dark tiles the gold border is the dominant
+ * visual cue, so *any* brightening of it reads as "selected". The fix:
+ * leave the border completely alone on hover. The active state owns the
+ * gold-border treatment exclusively. Hover signals interactivity through
+ * non-border cues only:
+ *   - kanji shifts from /0.85 to full opacity + a small warm glow
+ *   - tile lifts 2px with a dark depth-drop shadow (no gold, no glow)
+ *   - label color warms to or-pale
+ * No background change either — a brighter bg on hover started to look like
+ * a faint version of active's gold wash. Pure motion + color, no surface
+ * change.
+ *
+ * `@media (hover: hover)` so touch devices never latch into hover from a
+ * sticky :focus and look "selected" when they aren't. */
+@media (hover: hover) {
+  .tile:hover {
+    color: var(--color-or-pale);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 22px -10px oklch(0.05 0.003 50 / 0.75);
+  }
+  .tile:hover .tile-kanji {
+    opacity: 1;
+    text-shadow: 0 0 14px color-mix(in oklab, var(--color-or) 28%, transparent);
+  }
+}
+.tile:focus-visible {
+  outline: 1px dashed color-mix(in oklab, var(--color-or) 70%, transparent);
+  outline-offset: 3px;
+}
+.tile-kanji {
+  display: block;
+  font-family: var(--font-ja);
+  font-size: 22px;
+  line-height: 1;
+  color: var(--color-or);
+  opacity: 0.85;
+}
+.tile-romaji {
+  display: block;
+  margin-top: 0.45rem;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-family: var(--font-sans);
+}
+.tile-count {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  min-width: 14px;
+  padding: 1px 4px 0;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  line-height: 1.2;
+  letter-spacing: 0.05em;
+  text-align: center;
+  color: var(--color-or-pale);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 22%, transparent);
+  border-radius: 1px;
+  /* Quiet by default so it doesn't compete with the kanji glyph below. */
+  opacity: 0.7;
+  transition:
+    opacity 220ms var(--ease-quick),
+    background 220ms var(--ease-quick),
+    border-color 220ms var(--ease-quick),
+    color 220ms var(--ease-quick);
+}
+.tile:hover .tile-count {
+  opacity: 1;
+}
+.tile.is-active .tile-count {
+  /* Active tile: brighter pill so the count reads as part of the
+   * selected state. */
+  opacity: 1;
+  color: var(--color-or);
+  background: color-mix(in oklab, var(--color-or) 20%, transparent);
+  border-color: color-mix(in oklab, var(--color-or) 60%, transparent);
+}
+.tile.is-active {
+  color: var(--color-or);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-or) 14%, transparent) 0%,
+    color-mix(in oklab, var(--color-or) 5%, transparent) 100%
+  );
+  border-color: var(--color-or);
+  box-shadow:
+    0 12px 24px -10px color-mix(in oklab, var(--color-or) 35%, transparent),
+    inset 0 1px 0 oklch(0.92 0.08 80 / 0.2);
+}
+.tile.is-active .tile-kanji {
+  opacity: 1;
+  text-shadow: 0 0 18px color-mix(in oklab, var(--color-or) 50%, transparent);
+}
+.tile.is-active::after {
+  /* thin foil underline */
+  content: "";
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  bottom: -4px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--color-or), transparent);
+}
+
+/* ============================================================================
+ * Specimen well — refined card photo surface
+ *
+ * Stage-lit spotlight from upper-left, a subtle vertical light leak on
+ * hover, and a faint paper-grain noise so the well doesn't look like flat
+ * pixels.
+ * ============================================================================ */
+.specimen-well {
+  position: relative;
+  background: radial-gradient(
+    circle at 30% 18%,
+    var(--color-noir-soft) 0%,
+    var(--color-noir-deep) 50%,
+    var(--color-noir-deep) 100%
+  );
+  overflow: hidden;
+  isolation: isolate;
+}
+/* Soft directional light from upper-left */
+.specimen-well::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 80% 60% at 25% 20%,
+    oklch(0.92 0.05 80 / 0.1) 0%,
+    transparent 60%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+/* Paper-noise grain — pure SVG to avoid an extra asset */
+.specimen-well::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 0.9  0 0 0 0 0.7  0 0 0 0.45 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
+}
+
+/* Bottom inscription strip — the catalogue number + scale that sit at the
+   foot of the photo well. Subtle gold rule above, mono lettering. */
+.specimen-inscription {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0.55rem 0.85rem 0.65rem;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--color-or-pale) 65%, transparent);
+  background: linear-gradient(
+    to top,
+    color-mix(in oklab, var(--color-noir-deep) 85%, transparent) 0%,
+    color-mix(in oklab, var(--color-noir-deep) 50%, transparent) 60%,
+    transparent 100%
+  );
+  z-index: 2;
+}
+.specimen-inscription::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 12%;
+  right: 12%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--color-or) 40%, transparent),
+    transparent
+  );
+}
+
+/* Sort + view toolbar — tiny pill of icons / labels used in the header */
+.toolbar-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.7rem;
+  border: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
+  background: color-mix(in oklab, var(--color-noir-deep) 60%, transparent);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  cursor: pointer;
+  transition:
+    border-color 200ms var(--ease-quick),
+    color 200ms var(--ease-quick);
+}
+.toolbar-pill:hover {
+  border-color: var(--color-or);
+  color: var(--color-or);
+}
+.toolbar-pill select {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  outline: none;
+  cursor: pointer;
+  padding-right: 0.4rem;
+}
+.toolbar-pill select option {
+  background: var(--color-noir-soft);
+  color: var(--color-ivoire);
+}
+
+/* Museum label — semantic key/value pair used in spec lists. Tight, all-caps
+   key in gold-pale; serif italic value. The HTML pattern is:
+     <div class="museum-row">
+       <span class="museum-key">Fabricant</span>
+       <span class="museum-value">Good Smile Company</span>
+     </div>
+*/
+.museum-row {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  align-items: baseline;
+  gap: 1.5rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 12%, transparent);
+}
+.museum-key {
+  font-family: var(--font-sans);
+  font-size: 9.5px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.75;
+}
+.museum-value {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 1.15rem;
+  color: var(--color-ivoire);
+}
+
+/* ============================================================================
+ * Atmosphere — kanji watermarks, light leaks, spotlight hovers
+ * ============================================================================ */
+
+/* Big decorative kanji floating in the background. Set the character via the
+   element's content and let it bleed. Use sparingly — one per section. */
+.kanji-mark {
+  position: absolute;
+  font-family: var(--font-ja);
+  color: var(--color-or);
+  opacity: 0.07;
+  user-select: none;
+  pointer-events: none;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  z-index: 0;
+}
+
+/* Hover spotlight: tracks a soft gold glow that follows the cursor across the
+   element. Use JS to set --x / --y from a mousemove handler, or default to a
+   centered glow when the JS isn't wired (still looks fine). */
+.spotlight {
+  position: relative;
+  overflow: hidden;
+}
+.spotlight::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 300ms var(--ease-quick);
+  background: radial-gradient(
+    360px circle at var(--x, 50%) var(--y, 50%),
+    color-mix(in oklab, var(--color-or) 10%, transparent),
+    transparent 60%
+  );
+}
+.spotlight:hover::before {
+  opacity: 1;
+}
+
+/* Lift card — subtle vertical drift + gold edge bloom on hover. */
+.card-lift {
+  transition:
+    transform 400ms var(--ease-curtain),
+    border-color 250ms var(--ease-quick),
+    box-shadow 400ms var(--ease-curtain);
+  will-change: transform;
+}
+.card-lift:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in oklab, var(--color-or) 60%, transparent);
+  box-shadow:
+    0 30px 80px -30px rgba(0, 0, 0, 0.85),
+    0 0 0 1px color-mix(in oklab, var(--color-or) 20%, transparent),
+    inset 0 1px 0 color-mix(in oklab, var(--color-ivoire) 8%, transparent);
+}
+
+/* Photographic vignette — apply on hero photo containers so the figurine
+   reads against a darker frame. */
+.vignette {
+  position: relative;
+}
+.vignette::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    100% 75% at 50% 60%,
+    transparent 55%,
+    color-mix(in oklab, var(--color-noir-deep) 55%, transparent) 100%
+  );
+}
+
+/* ============================================================================
+ * Forms — tightened inputs that match the gallery vocabulary.
+ * Used opportunistically; FormField/Select already style their inputs.
+ * ============================================================================ */
+
+/* ============================================================================
+ * NSFW blur — apply to <img>, <video> or any image-bearing element when
+ * `figure.is_nsfw` AND the viewer's pref is `blur`. The hover undims a
+ * little so a user can still moderate without changing their preference.
+ * ============================================================================ */
+
+.nsfw-blur {
+  filter: blur(18px) saturate(0.8);
+  transition: filter 350ms var(--ease-quick);
+}
+.nsfw-blur:hover,
+.nsfw-blur:focus-visible {
+  filter: blur(8px) saturate(0.9);
+}
+
+select.vitrine-select,
+input.vitrine-input,
+textarea.vitrine-textarea {
+  background: var(--color-noir);
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  color: var(--color-ivoire);
+  padding: 0.75rem 1rem;
+  transition: border-color 200ms var(--ease-quick);
+}
+select.vitrine-select:focus,
+input.vitrine-input:focus,
+textarea.vitrine-textarea:focus {
+  border-color: var(--color-or);
+  outline: none;
+}
+
+/* ============================================================================
+ * Édition 2026 — modernization layer
+ *
+ * Glass surfaces, light sweeps, magnetic interactions, animated counters,
+ * marquee atmospherics, headline contrast. Layered ON TOP of the existing
+ * Direction B vocabulary — old `.card-lift`, `.spotlight`, `.gold-rule`,
+ * etc. still work and are still used. These primitives just give every
+ * page a sharper, more contemporary edge.
+ * ============================================================================ */
+
+/* ---- Glass surfaces ------------------------------------------------------ */
+
+/* Frosted glass card — modern alternative to the matte noir-soft Card.
+   The pseudo-element layers an interior gold-tinted highlight so the
+   surface still reads as luxe-dark, not generic Apple-glass. */
+.glass {
+  position: relative;
+  background: linear-gradient(
+    160deg,
+    color-mix(in oklab, var(--color-noir-soft) 60%, transparent),
+    color-mix(in oklab, var(--color-noir) 40%, transparent)
+  );
+  backdrop-filter: blur(14px) saturate(1.1);
+  -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  border: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
+  box-shadow:
+    0 20px 60px -30px rgba(0, 0, 0, 0.85),
+    inset 0 1px 0 color-mix(in oklab, var(--color-ivoire) 8%, transparent);
+  isolation: isolate;
+}
+.glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-or) 5%, transparent) 0%,
+    transparent 30%
+  );
+  z-index: -1;
+}
+
+/* Even glassier surface for floating UI (popovers, drawers). */
+.glass-strong {
+  background: color-mix(in oklab, var(--color-noir) 72%, transparent);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  border: 1px solid color-mix(in oklab, var(--color-or) 22%, transparent);
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.95);
+}
+
+/* ---- Headline display tweaks --------------------------------------------- */
+
+/* Slightly tighter, bolder Cormorant for hero numbers / KPIs — looks more
+   like a 2026 luxury product than a museum docent. Uses the variable-axis
+   wght available on the loaded family. */
+.display-tight {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 0.92;
+  font-feature-settings: "ss01", "ss02";
+}
+
+/* Hero-scale numerals with oldstyle figures. Used by <CountUp>. */
+.figural-xl {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-variant-numeric: oldstyle-nums tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 0.9;
+}
+
+/* Modern uppercase label, denser than .micro. Use for KPI captions and the
+   eyebrow row of hero sections. */
+.label-mono {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+}
+
+/* ---- Light sweep across gold elements (hover only) ----------------------- */
+
+/* Apply on a parent that contains a gold border/text element. On hover the
+   gold catches a diagonal sweep of light — subtle, but anchors the luxury
+   feel and signals interactivity. */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    color-mix(in oklab, var(--color-ivoire) 12%, transparent) 50%,
+    transparent 70%
+  );
+  transform: translateX(-130%);
+  transition: transform 700ms var(--ease-curtain);
+  z-index: 1;
+}
+.shimmer:hover::after {
+  transform: translateX(130%);
+}
+
+/* ---- Magnetic-feel buttons / tappable surfaces --------------------------- */
+
+/* CSS-only pseudo-magnetism: hover scales the element up subtly, the inside
+   border glows a tad brighter. Combine with `.shimmer` for the full feel. */
+.magnetic {
+  transition:
+    transform 260ms var(--ease-curtain),
+    box-shadow 300ms var(--ease-quick),
+    border-color 200ms var(--ease-quick),
+    background-color 200ms var(--ease-quick);
+  will-change: transform;
+}
+.magnetic:hover {
+  transform: translateY(-2px) scale(1.012);
+}
+.magnetic:active {
+  transform: translateY(0) scale(0.995);
+}
+
+/* ---- Bento grids --------------------------------------------------------- */
+
+/* Modern dashboard layout — mix of tile sizes that reads more like a 2026
+   product page than a uniform grid. Use grid-area names from the parent. */
+.bento {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-auto-rows: minmax(120px, auto);
+}
+@media (max-width: 768px) {
+  .bento {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+/* ---- Marquee — ambient infinite scroll ---------------------------------- */
+
+@keyframes marquee-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.marquee {
+  position: relative;
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent 0, black 8%, black 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 8%,
+    black 92%,
+    transparent 100%
+  );
+}
+.marquee__track {
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll var(--marquee-duration, 60s) linear infinite;
+}
+.marquee:hover .marquee__track,
+.marquee:focus-within .marquee__track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee__track {
+    animation: none;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ---- Cross-fade hero stack (used by CountUp + image rotators) ----------- */
+
+@keyframes count-flicker {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) rotateX(-30deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotateX(0);
+  }
+}
+.count-digit {
+  display: inline-block;
+  animation: count-flicker 480ms var(--ease-curtain) backwards;
+}
+
+/* ---- Refined gold link (used in nav + inline links) --------------------- */
+
+.gold-link {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4em;
+  color: var(--color-or-pale);
+  transition: color 180ms var(--ease-quick);
+}
+.gold-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  height: 1px;
+  width: 100%;
+  background: var(--color-or);
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 380ms var(--ease-curtain);
+}
+.gold-link:hover {
+  color: var(--color-or);
+}
+.gold-link:hover::after {
+  transform: scaleX(1);
+  transform-origin: left;
+}
+
+/* ---- 2026 ribbon divider (alt to gold-rule, with kanji slot) ------------- */
+
+.ribbon-rule {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  color: var(--color-or);
+}
+.ribbon-rule::before,
+.ribbon-rule::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    color-mix(in oklab, var(--color-or) 50%, transparent) 30%,
+    color-mix(in oklab, var(--color-or) 50%, transparent) 70%,
+    transparent
+  );
+}
+.ribbon-rule__glyph {
+  font-family: var(--font-ja);
+  font-size: 1.4rem;
+  letter-spacing: 0.5em;
+  color: var(--color-or);
+  opacity: 0.6;
+}
+
+/* ---- Tasteful selection (slightly warmer than the default ::selection) -- */
+
+::selection {
+  background: color-mix(in oklab, var(--color-or) 85%, transparent);
+  color: var(--color-noir);
+}
+
+/* ---- Smooth scroll on hash links ---------------------------------------- */
+
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* ---- Hover-glow for inline interactive icons (the avatar, the +CTA, ⌘K) - */
+
+.glow-on-hover {
+  transition:
+    filter 250ms var(--ease-quick),
+    color 200ms var(--ease-quick);
+}
+.glow-on-hover:hover {
+  filter: drop-shadow(0 0 12px color-mix(in oklab, var(--color-or) 50%, transparent));
+}
+
+/* ───────────────────────────────────────────────────────────────────────
+ * Lot 6 · EmptyState — one reusable empty/zero-data block (page + compact),
+ * ported from the validated lot6 maquette. `--hue` tints the wash + glyph.
+ * ─────────────────────────────────────────────────────────────────────── */
+.fc-empty {
+  position: relative;
+  text-align: center;
+  padding: 3.5rem 1.5rem;
+  overflow: hidden;
+  border: 1px solid color-mix(in oklab, var(--color-or) 14%, transparent);
+  background:
+    radial-gradient(
+      60% 80% at 50% 0%,
+      color-mix(in oklab, var(--hue, var(--color-or)) 7%, transparent),
+      transparent 70%
+    ),
+    var(--color-noir-soft);
+}
+.fc-empty-k {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-ja);
+  font-size: 11rem;
+  line-height: 1;
+  color: color-mix(in oklab, var(--hue, var(--color-or)) 8%, transparent);
+  pointer-events: none;
+  user-select: none;
+}
+.fc-empty-rel {
+  position: relative;
+}
+.fc-empty-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--hue, var(--color-or)) 80%, var(--color-or-pale));
+}
+.fc-empty-title {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: 1.9rem;
+  line-height: 1.1;
+  color: var(--color-ivoire);
+  margin: 0.5rem 0 0;
+}
+.fc-empty-body {
+  margin: 0.7rem auto 0;
+  max-width: 26rem;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--color-ivoire-soft);
+}
+.fc-empty-cta {
+  margin-top: 1.4rem;
+  display: flex;
+  gap: 0.7rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.fc-empty--compact {
+  padding: 2.2rem 1.5rem;
+}
+.fc-empty--compact .fc-empty-k {
+  font-size: 7rem;
+}
+.fc-empty--compact .fc-empty-title {
+  font-size: 1.4rem;
+}
+
+/* ─── Skeleton loaders (components/Skeleton.jsx) ─────────────────────────────
+ * Noir-soft blocks with a slow gold sweep — the loading counterpart of the
+ * Card surface. The sweep is transform-only (GPU-cheap) and disabled under
+ * prefers-reduced-motion (the block stays as a static placeholder). */
+.fc-skel {
+  position: relative;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--color-noir-soft) 85%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 8%, transparent);
+}
+.fc-skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--color-or) 7%, transparent),
+    transparent
+  );
+  animation: fc-skel-sweep 1.7s ease-in-out infinite;
+}
+@keyframes fc-skel-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fc-skel::after {
+    animation: none;
+  }
+}
+
+/* ─── Converted money token (<Money>) ───
+ * Marks a price shown in the user's display currency rather than its own.
+ * Whisper-quiet: the figure keeps the page's weight; only the leading "≈" is
+ * tinted, and a hairline dotted gold underline signals the original sits on
+ * hover (title). Never shouts. */
+.fc-money-approx {
+  text-decoration: underline dotted color-mix(in oklab, var(--color-or) 38%, transparent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.22em;
+  cursor: help;
+}
+.fc-money-approx-mark {
+  color: var(--color-or-pale);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}

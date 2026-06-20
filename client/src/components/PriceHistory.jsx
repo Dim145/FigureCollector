@@ -126,9 +126,7 @@ export function StepChart({ points, currency, locale, height = 190, t }) {
 
   const gridVals = [vMax, (vMin + vMax) / 2, vMin];
   const fmtTick = (ms) =>
-    new Date(ms)
-      .toLocaleDateString(locale, { month: "short", year: "2-digit" })
-      .toUpperCase();
+    new Date(ms).toLocaleDateString(locale, { month: "short", year: "2-digit" }).toUpperCase();
   // 4 evenly-spread time ticks, deduped (short ranges collapse to fewer).
   const tickTs = [...new Set([0, 1 / 3, 2 / 3, 1].map((f) => Math.round(t0 + span * f)))];
   const tickLabels = [...new Set(tickTs.map((ms) => fmtTick(ms)))];
@@ -205,12 +203,7 @@ export function StepChart({ points, currency, locale, height = 190, t }) {
           </text>
         ))}
 
-        <path
-          d={stepPath(points, x, y, W - PAD_R)}
-          fill="none"
-          stroke={OR}
-          strokeWidth="1.6"
-        />
+        <path d={stepPath(points, x, y, W - PAD_R)} fill="none" stroke={OR} strokeWidth="1.6" />
         {points.map((p, i) => {
           if (i === 0) return null;
           const tone = p.v >= points[i - 1].v ? JADE : LAQUE;
@@ -361,7 +354,9 @@ export default function PriceHistoryDialog({
         <p className="micro flex items-center gap-2.5">
           <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
           {t("cote.history.kicker")}
-          <span aria-hidden className="ja not-italic text-[var(--color-or)]">推</span>
+          <span aria-hidden className="ja not-italic text-[var(--color-or)]">
+            推
+          </span>
           {t("cote.history.kicker_label")}
           <span className="flex-1" />
           {source ? (
@@ -386,7 +381,7 @@ export default function PriceHistoryDialog({
 
         <div className="flex items-center justify-between gap-3 mt-5 pt-4 border-t border-[var(--color-or)]/12">
           <Link
-            to={`/cote#figure-${figureId}`}
+            to={`/insights/cote#figure-${figureId}`}
             onClick={onClose}
             className="micro text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors"
           >

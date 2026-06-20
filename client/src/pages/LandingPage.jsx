@@ -82,10 +82,7 @@ export default function LandingPage() {
             {t("app.tagline_jp")}
           </p>
 
-          <div
-            className="ornate-rule mx-auto w-72 my-12 reveal"
-            style={{ "--i": 4 }}
-          >
+          <div className="ornate-rule mx-auto w-72 my-12 reveal" style={{ "--i": 4 }}>
             <span aria-hidden className="ornate-rule__diamond" />
           </div>
 
@@ -96,10 +93,7 @@ export default function LandingPage() {
             {t("app.tagline_en")}
           </p>
 
-          <div
-            className="mt-12 flex flex-wrap gap-3 justify-center reveal"
-            style={{ "--i": 6 }}
-          >
+          <div className="mt-12 flex flex-wrap gap-3 justify-center reveal" style={{ "--i": 6 }}>
             {authed ? (
               <AuthedActions t={t} userName={user?.display_name} />
             ) : (
@@ -174,7 +168,7 @@ export default function LandingPage() {
           <header className="flex items-baseline justify-between mb-6">
             <p className="micro">{t("landing.recent_activity")}</p>
             <Link
-              to="/activity"
+              to="/community/activity"
               className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors"
             >
               {t("landing.see_all")} →
@@ -268,10 +262,10 @@ function AuthedActions({ t, userName }) {
         <Link to="/collection">
           <Button variant="primary">{t("nav.collection")}</Button>
         </Link>
-        <Link to="/preorders">
+        <Link to="/collection/preorders">
           <Button variant="ghost">{t("nav.preorders")}</Button>
         </Link>
-        <Link to={`/year-in-review/${new Date().getFullYear()}`}>
+        <Link to={`/insights/year/${new Date().getFullYear()}`}>
           <Button variant="ghost">{t("nav.year_in_review")}</Button>
         </Link>
       </div>
@@ -305,9 +299,7 @@ function Feature({ kanji, label, title, body, accent = "var(--color-or)" }) {
       <p className="label-mono relative" style={{ color: "var(--accent)" }}>
         {label}
       </p>
-      <h3 className="display-tight text-3xl mt-3 text-[var(--color-ivoire)] relative">
-        {title}
-      </h3>
+      <h3 className="display-tight text-3xl mt-3 text-[var(--color-ivoire)] relative">{title}</h3>
       <div
         className="w-12 my-5 h-px"
         style={{
@@ -315,9 +307,7 @@ function Feature({ kanji, label, title, body, accent = "var(--color-or)" }) {
             "linear-gradient(90deg, var(--accent), color-mix(in oklab, var(--accent) 15%, transparent))",
         }}
       />
-      <p className="text-sm text-[var(--color-ivoire-soft)] leading-relaxed relative">
-        {body}
-      </p>
+      <p className="text-sm text-[var(--color-ivoire-soft)] leading-relaxed relative">{body}</p>
     </li>
   );
 }
@@ -326,12 +316,7 @@ function Shelves() {
   // Three stacked stylised "display shelves" with figurine silhouettes —
   // pure SVG so it stays crisp at any size and costs zero network.
   return (
-    <svg
-      viewBox="0 0 320 420"
-      className="w-full h-full"
-      role="img"
-      aria-hidden
-    >
+    <svg viewBox="0 0 320 420" className="w-full h-full" role="img" aria-hidden>
       <defs>
         <linearGradient id="shelfShadow" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="var(--color-or)" stopOpacity="0.5" />
@@ -340,12 +325,18 @@ function Shelves() {
       </defs>
 
       <rect
-        x="6" y="6" width="308" height="408"
-        fill="none" stroke="var(--color-or)" strokeOpacity="0.25"
+        x="6"
+        y="6"
+        width="308"
+        height="408"
+        fill="none"
+        stroke="var(--color-or)"
+        strokeOpacity="0.25"
       />
 
       <text
-        x="160" y="50"
+        x="160"
+        y="50"
         textAnchor="middle"
         fontFamily="Noto Serif JP, serif"
         fontSize="34"
@@ -374,16 +365,36 @@ function Figurine({ cx, baseY, variant }) {
   if (variant === "a") {
     return (
       <g stroke="var(--color-ivoire)" strokeOpacity="0.6" strokeWidth="1.2" fill="none">
-        <ellipse cx={cx} cy={baseY - 2} rx="22" ry="3" fill="var(--color-or)" fillOpacity="0.2" stroke="none" />
+        <ellipse
+          cx={cx}
+          cy={baseY - 2}
+          rx="22"
+          ry="3"
+          fill="var(--color-or)"
+          fillOpacity="0.2"
+          stroke="none"
+        />
         <circle cx={cx} cy={baseY - 38} r="11" />
-        <path d={`M ${cx - 14} ${baseY - 8} Q ${cx} ${baseY - 30} ${cx + 14} ${baseY - 8} Z`} fillOpacity="0.05" fill="var(--color-or)" />
+        <path
+          d={`M ${cx - 14} ${baseY - 8} Q ${cx} ${baseY - 30} ${cx + 14} ${baseY - 8} Z`}
+          fillOpacity="0.05"
+          fill="var(--color-or)"
+        />
       </g>
     );
   }
   if (variant === "b") {
     return (
       <g stroke="var(--color-ivoire)" strokeOpacity="0.55" strokeWidth="1.2" fill="none">
-        <ellipse cx={cx} cy={baseY - 2} rx="26" ry="3" fill="var(--color-or)" fillOpacity="0.2" stroke="none" />
+        <ellipse
+          cx={cx}
+          cy={baseY - 2}
+          rx="26"
+          ry="3"
+          fill="var(--color-or)"
+          fillOpacity="0.2"
+          stroke="none"
+        />
         <circle cx={cx} cy={baseY - 44} r="9" />
         <path
           d={`M ${cx - 18} ${baseY - 4} L ${cx - 8} ${baseY - 34} L ${cx + 8} ${baseY - 34} L ${cx + 18} ${baseY - 4} Z`}
@@ -395,7 +406,15 @@ function Figurine({ cx, baseY, variant }) {
   }
   return (
     <g stroke="var(--color-or)" strokeOpacity="0.7" strokeWidth="1.2" fill="none">
-      <ellipse cx={cx} cy={baseY - 2} rx="24" ry="3" fill="var(--color-or)" fillOpacity="0.25" stroke="none" />
+      <ellipse
+        cx={cx}
+        cy={baseY - 2}
+        rx="24"
+        ry="3"
+        fill="var(--color-or)"
+        fillOpacity="0.25"
+        stroke="none"
+      />
       <circle cx={cx} cy={baseY - 52} r="10" />
       <path d={`M ${cx} ${baseY - 42} L ${cx} ${baseY - 4}`} />
       <path d={`M ${cx - 14} ${baseY - 18} L ${cx + 14} ${baseY - 18}`} />

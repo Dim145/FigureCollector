@@ -1,0 +1,1081 @@
+/* ============================================================================
+ * Le Grand Livre — /stats inventory ledger
+ *
+ * Aesthetic: a private collector's bound annual stocktake. Chapters numbered
+ * in Roman + kanji, figures set in massive letterpress display, brass-tabbed
+ * ledger rows, donut + polar dials drawn in gold leaf, a "Pièce de la
+ * couronne" feature card. Everything below is scoped — `.ledger-*` /
+ * `.chapter-*` namespaces — so this can't bleed into other pages.
+ * ============================================================================ */
+
+/* ─── Chapter divider — Roman numeral on the left, kanji on the right,
+ *     a gold rule + French label in between. Used between every section. */
+.chapter-rule {
+  display: grid;
+  grid-template-columns: auto 1fr auto 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  margin: 4.5rem 0 2.5rem;
+}
+.chapter-rule-roman {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 24px;
+  font-style: italic;
+  color: var(--color-or);
+  letter-spacing: 0.02em;
+}
+.chapter-rule-label {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 14px;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  white-space: nowrap;
+  padding: 0 0.5rem;
+}
+.chapter-rule-kanji {
+  font-family: var(--font-ja);
+  font-size: 22px;
+  color: var(--color-or);
+  line-height: 1;
+}
+.chapter-rule-line {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--color-or) 50%, transparent),
+    transparent
+  );
+}
+/* Phones: the 5-track rule (roman · line · label · line · kanji) with a wide
+   0.42em nowrap label overflows ~360px. Tighten spacing + glyphs so it fits. */
+@media (max-width: 640px) {
+  .chapter-rule {
+    gap: 0.5rem;
+    margin: 3rem 0 1.75rem;
+  }
+  .chapter-rule-roman {
+    font-size: 18px;
+  }
+  .chapter-rule-label {
+    letter-spacing: 0.16em;
+    font-size: 11px;
+    padding: 0;
+  }
+  .chapter-rule-kanji {
+    font-size: 18px;
+  }
+}
+
+/* ─── Massive figural numerals — used for the hero count and the "weight"
+ *     of the inventory book. Bigger than .figural-xl, with embossed gold
+ *     gradient + faint inset shadow ("letterpress impression"). */
+.figural-massive {
+  font-family: var(--font-display);
+  font-weight: 200;
+  /* Lining figures (not oldstyle) for the hero KPI: it changes value, and
+     oldstyle digits 3/4/5/7/9 carry a descender that overflowed the tight
+     line-height and collided with the satellites grid below ("3" looked
+     broken, "22" didn't — the 2 has no descender). Lining = uniform height,
+     baseline-sitting, no descender → contained for every value. */
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.045em;
+  line-height: 0.82;
+  font-size: clamp(7rem, 16vw, 14rem);
+  /* The fill is a gradient clipped to the glyphs (background-clip: text), and
+     the background only covers the box. A trailing currency glyph like € has
+     ink that overhangs its advance width (compounded by the negative trailing
+     letter-spacing above), so that sliver fell outside the box → unpainted /
+     transparent on the right, "out of frame". A hair of right padding extends
+     the (padding-box) background past the glyph so it's fully gilded. */
+  padding-right: 0.12em;
+  /* Two clipped layers on the SAME element: a diagonal highlight (top) that
+   * sweeps across, over the static embossed gold gradient (bottom). Folding
+   * the shine in here — rather than a duplicate ::after content:attr() — means
+   * there's only ever one set of glyphs, so a live <CountUp> never ghosts
+   * against a stale overlay mid-animation. */
+  background:
+    linear-gradient(105deg, transparent 30%, oklch(1 0 0 / 0.22) 47%, transparent 64%),
+    linear-gradient(180deg, oklch(0.96 0.07 80) 0%, oklch(0.82 0.1 80) 40%, oklch(0.58 0.09 80) 95%);
+  background-size:
+    300% 100%,
+    100% 100%;
+  background-position:
+    -100% 0,
+    0 0;
+  background-repeat: no-repeat;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow:
+    0 1px 0 oklch(0.4 0.05 75 / 0.4),
+    0 0 30px color-mix(in oklab, var(--color-or) 18%, transparent);
+  /* PERF: a SINGLE sweep on mount (greets the count-up) rather than an
+   * infinite loop. Animating background-position on a background-clip:text
+   * element repaints the glyphs every frame, so looping it forever kept the
+   * hero number perpetually repainting. One sweep, then it rests on the
+   * static embossed gradient with the highlight parked off-screen. */
+  animation: figural-sweep 2.4s var(--ease-quick) 0.2s 1 both;
+}
+/* Only the highlight layer travels; the base gold gradient stays put. The
+   highlight starts and ends off-screen, so the resting state is the clean
+   gradient (no repaint once the single sweep completes). */
+@keyframes figural-sweep {
+  0% {
+    background-position:
+      -100% 0,
+      0 0;
+  }
+  100% {
+    background-position:
+      200% 0,
+      0 0;
+  }
+}
+
+/* ─── Vertical chapter tag — Tracking-out caps running down the side of the
+ *     ledger title page. Used for "INVENTAIRE", "GRAND LIVRE", etc. */
+.vertical-tag {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 12px;
+  letter-spacing: 0.7em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--color-or) 70%, transparent);
+  white-space: nowrap;
+}
+
+/* ─── Brass tab — small currency / unit pill placed at the left of ledger
+ *     rows. Same brass-plaque treatment as the figure-card type badge but
+ *     square and chunkier. */
+.brass-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5em 0.85em;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: oklch(0.16 0.01 60);
+  background: linear-gradient(
+    155deg,
+    oklch(0.88 0.1 80) 0%,
+    var(--color-or) 38%,
+    oklch(0.68 0.09 80) 100%
+  );
+  border: 1px solid oklch(0.5 0.07 75);
+  box-shadow:
+    inset 0 1px 0 oklch(0.96 0.06 85 / 0.8),
+    inset 0 -1px 0 oklch(0.45 0.06 75 / 0.55),
+    0 4px 8px -3px rgba(0, 0, 0, 0.6);
+  min-width: 64px;
+}
+
+/* ─── Ledger row — used by the spend section. The brass tab is on the left,
+ *     the tabular figure runs right-aligned, a hairline rule underneath. */
+.ledger-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 1.5rem;
+  padding: 1.25rem 0;
+  border-bottom: 1px dashed color-mix(in oklab, var(--color-or) 18%, transparent);
+}
+.ledger-row:last-child {
+  border-bottom: 0;
+}
+.ledger-figure {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-variant-numeric: oldstyle-nums tabular-nums;
+  font-size: 2.6rem;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--color-or-pale);
+}
+.ledger-caption {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: color-mix(in oklab, var(--color-ivoire) 55%, transparent);
+}
+
+/* ─── Sparkline — tiny SVG inline trend line below the ledger figure. Pure
+ *     CSS just configures the stroke; the path is drawn in JSX. */
+.sparkline {
+  width: 100%;
+  height: 28px;
+  overflow: visible;
+}
+.sparkline-line {
+  fill: none;
+  stroke: var(--color-or);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 1px 2px color-mix(in oklab, var(--color-or) 40%, transparent));
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: sparkline-draw 1.8s var(--ease-curtain) forwards;
+  transition: stroke 0.25s var(--ease-quick);
+}
+/* Filled area below the line — hidden until the ledger row is hovered, so
+   the resting state stays a clean trend line and the hover adds depth. */
+.sparkline-area {
+  fill: color-mix(in oklab, var(--color-or) 16%, transparent);
+  stroke: none;
+  opacity: 0;
+  transition: opacity 0.3s var(--ease-quick);
+}
+.spark-pt {
+  fill: var(--color-or-pale);
+  opacity: 0;
+  transition: opacity 0.25s var(--ease-quick);
+}
+.spark-end {
+  fill: var(--color-or);
+  opacity: 0;
+  animation: sparkline-dot 0.4s ease-out 1.4s forwards;
+}
+.ledger-row:hover .sparkline-area {
+  opacity: 1;
+}
+.ledger-row:hover .spark-pt {
+  opacity: 0.9;
+}
+.ledger-row:hover .sparkline-line {
+  stroke: var(--color-or-pale);
+}
+@keyframes sparkline-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes sparkline-dot {
+  to {
+    opacity: 1;
+  }
+}
+
+/* ─── Polar / radial donut chart — used for type + condition breakdowns.
+ *     The bars project from a centre point; longer = larger share. We
+ *     render each segment as an inline SVG path; CSS handles the entry
+ *     animation. */
+.polar-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.polar-svg .seg {
+  transform-origin: center;
+  fill: var(--color-or);
+  opacity: 0;
+  animation: polar-in 800ms var(--ease-curtain) forwards;
+}
+.polar-svg .seg:nth-child(1) {
+  animation-delay: 100ms;
+}
+.polar-svg .seg:nth-child(2) {
+  animation-delay: 180ms;
+}
+.polar-svg .seg:nth-child(3) {
+  animation-delay: 260ms;
+}
+.polar-svg .seg:nth-child(4) {
+  animation-delay: 340ms;
+}
+.polar-svg .seg:nth-child(5) {
+  animation-delay: 420ms;
+}
+.polar-svg .seg:nth-child(6) {
+  animation-delay: 500ms;
+}
+.polar-svg .seg:nth-child(7) {
+  animation-delay: 580ms;
+}
+.polar-svg .seg:nth-child(8) {
+  animation-delay: 660ms;
+}
+.polar-svg .seg:nth-child(n + 9) {
+  animation-delay: 740ms;
+}
+@keyframes polar-in {
+  from {
+    opacity: 0;
+    transform: scale(0.55);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ─── Podium — used to rank-elevate the top 3 manufacturers/series/sculptors.
+ *     #1 sits tallest with a gold leaf; #2 + #3 are stepped down. */
+.podium-tier {
+  position: relative;
+  padding: 1.25rem 1rem 1.1rem;
+  border: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
+  background: linear-gradient(180deg, var(--color-noir-soft) 0%, var(--color-noir) 100%);
+  text-align: center;
+}
+.podium-tier--gold {
+  border-color: var(--color-or);
+  background: linear-gradient(180deg, oklch(0.22 0.012 60) 0%, var(--color-noir) 100%);
+  box-shadow:
+    0 18px 40px -20px color-mix(in oklab, var(--color-or) 50%, transparent),
+    inset 0 1px 0 oklch(0.92 0.08 80 / 0.18);
+}
+.podium-tier--gold::before {
+  /* gold leaf crown */
+  content: "❦";
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-noir);
+  padding: 0 6px;
+  color: var(--color-or);
+  font-size: 14px;
+}
+.podium-rank {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 2.4rem;
+  line-height: 1;
+  color: var(--color-or);
+  letter-spacing: -0.02em;
+}
+.podium-name {
+  display: block;
+  margin-top: 0.5rem;
+  font-family: var(--font-display);
+  font-size: 14px;
+  letter-spacing: 0.03em;
+  color: var(--color-ivoire);
+  line-height: 1.2;
+  min-height: 2.4em;
+}
+.podium-count {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  color: var(--color-or-pale);
+}
+
+/* ─── Press strip — horizontal year timeline. Each year cell has a
+ *     letterpress count above the year, a gold bar rising up from baseline,
+ *     and a hairline rule across all cells. */
+.press-strip {
+  position: relative;
+  padding: 2rem 0 0.5rem;
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
+}
+.press-strip::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--color-noir-deep) 80%, transparent),
+    color-mix(in oklab, var(--color-noir-deep) 40%, transparent),
+    color-mix(in oklab, var(--color-noir-deep) 80%, transparent)
+  );
+  z-index: 0;
+}
+.press-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  align-items: end;
+  gap: 0.5rem;
+  height: 200px;
+}
+.press-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  position: relative;
+}
+.press-bar {
+  width: 80%;
+  background: linear-gradient(
+    to top,
+    color-mix(in oklab, var(--color-or) 85%, transparent),
+    oklch(0.92 0.08 80 / 0.55) 70%,
+    color-mix(in oklab, var(--color-or) 25%, transparent) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 oklch(0.96 0.06 85 / 0.4),
+    0 -2px 10px color-mix(in oklab, var(--color-or) 15%, transparent);
+  transform-origin: bottom;
+  animation: press-rise 900ms var(--ease-curtain) forwards;
+  transform: scaleY(0);
+}
+@keyframes press-rise {
+  to {
+    transform: scaleY(1);
+  }
+}
+.press-count {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 16px;
+  color: var(--color-or-pale);
+  letter-spacing: -0.01em;
+  opacity: 0;
+  animation: press-count-in 400ms ease-out 800ms forwards;
+}
+.press-year {
+  position: absolute;
+  top: calc(100% + 8px);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  color: var(--color-or-pale);
+  opacity: 0.75;
+}
+@keyframes press-count-in {
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* ─── Thermomètre — price-distribution diagram. min — median — avg — max
+ *     drawn as a horizontal rule with four indented marks. */
+/* ─── Price scale (stats §VII) ───────────────────────────────────────────────
+ * Decoupled from the numbers: the track is pure visual context (min→max
+ * with a médiane tick + moyenne diamond, no text), and the readable
+ * figures sit in an even 4-column grid below. This is what kills the old
+ * label-collision when médiane ≈ moyenne. */
+.price-scale {
+  position: relative;
+  height: 24px;
+  margin: 0.25rem 0.5rem 1.4rem;
+}
+.price-scale-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--color-or) 25%, transparent),
+    color-mix(in oklab, var(--color-or) 70%, transparent),
+    color-mix(in oklab, var(--color-or) 25%, transparent)
+  );
+  box-shadow: 0 0 8px color-mix(in oklab, var(--color-or) 30%, transparent);
+}
+/* min / max endpoints */
+.price-scale-end {
+  position: absolute;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--color-or-pale);
+  box-shadow: 0 0 0 2px var(--color-noir);
+}
+/* médiane — a vertical tick */
+.price-scale-median {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  background: var(--color-or);
+  box-shadow: 0 0 8px color-mix(in oklab, var(--color-or) 70%, transparent);
+}
+/* moyenne — a hollow diamond so it stays distinct from the médiane tick
+ * even when the two sit on top of each other */
+.price-scale-mean {
+  position: absolute;
+  top: 50%;
+  width: 11px;
+  height: 11px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  border: 1.5px solid var(--color-or);
+  background: var(--color-noir);
+}
+.price-scale-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin: 0;
+}
+.price-scale-stat {
+  text-align: center;
+  min-width: 0;
+}
+.price-scale-stat dt {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+}
+.price-scale-stat-glyph {
+  color: var(--color-or);
+  font-size: 10px;
+  line-height: 1;
+}
+.price-scale-stat dd {
+  margin: 0.3rem 0 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: clamp(13px, 2.6vw, 17px);
+  color: var(--color-ivoire);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ─── Crown piece — the "Pièce de la couronne" feature card */
+.crown-card {
+  position: relative;
+  padding: 2rem;
+  border: 1px solid var(--color-or);
+  background: linear-gradient(
+    155deg,
+    oklch(0.22 0.013 60) 0%,
+    var(--color-noir) 70%,
+    var(--color-noir-deep) 100%
+  );
+  box-shadow:
+    0 25px 50px -25px color-mix(in oklab, var(--color-or) 35%, transparent),
+    inset 0 1px 0 oklch(0.92 0.08 80 / 0.18);
+  overflow: hidden;
+}
+.crown-card::before {
+  /* Backdrop kanji 王 (king / crown) */
+  content: "王";
+  position: absolute;
+  font-family: var(--font-ja);
+  font-size: 22rem;
+  font-weight: 200;
+  line-height: 0.85;
+  color: color-mix(in oklab, var(--color-or) 5%, transparent);
+  top: -2rem;
+  right: -3rem;
+  pointer-events: none;
+  user-select: none;
+}
+.crown-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--color-or);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.crown-eyebrow::before {
+  content: "❦";
+  color: var(--color-or);
+  font-size: 12px;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+ * Le Grand Livre — interaction layer
+ *
+ * Hover / focus affordances layered onto the static ledger so the page
+ * answers the reader's attention: gold catches light, ink deepens,
+ * marginalia surfaces. Built to never fight the entry animations — where a
+ * `forwards` keyframe already owns transform/opacity (press bars + counts),
+ * the hover effect rides a different property (filter, colour, an inner
+ * span). All autoplay is neutralised under prefers-reduced-motion below.
+ * ════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Floating tooltip. Namespaced `.ledger-tip` so the generic data-tip
+ *     pattern never leaks onto other pages. */
+.ledger-tip {
+  position: relative;
+}
+.ledger-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 9px);
+  left: 50%;
+  transform: translate(-50%, 4px);
+  padding: 5px 9px;
+  background: color-mix(in oklab, var(--color-noir-deep) 97%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-or) 50%, transparent);
+  color: var(--color-ivoire);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.18s var(--ease-quick),
+    transform 0.18s var(--ease-quick);
+  box-shadow: 0 10px 26px -12px rgba(0, 0, 0, 0.85);
+  z-index: 40;
+}
+.ledger-tip:hover::after,
+.ledger-tip:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ─── Hero satellites */
+.satellite {
+  transition: border-color 0.3s var(--ease-quick);
+}
+.satellite:hover {
+  border-color: var(--color-or);
+}
+.satellite .sat-kanji {
+  transition:
+    transform 0.35s var(--ease-curtain),
+    color 0.35s;
+}
+.satellite:hover .sat-kanji {
+  transform: scale(1.16);
+  color: color-mix(in oklab, var(--color-or) 30%, transparent);
+}
+.satellite .sat-value {
+  display: inline-block;
+  transition: transform 0.3s var(--ease-curtain);
+}
+.satellite:hover .sat-value {
+  transform: translateY(-2px);
+}
+
+/* ─── Chapter dividers — kanji pivots, roman warms */
+.chapter-rule-roman,
+.chapter-rule-kanji {
+  transition:
+    transform 0.4s var(--ease-curtain),
+    color 0.4s;
+}
+.chapter-rule:hover .chapter-rule-kanji {
+  transform: rotate(7deg) scale(1.1);
+  color: var(--color-or-pale);
+}
+.chapter-rule:hover .chapter-rule-roman {
+  color: var(--color-or-pale);
+}
+
+/* ─── Ledger rows (spend) — warm wash, brass press, figure + sparkline lift */
+.ledger-row {
+  padding-inline: 0.75rem;
+  margin-inline: -0.75rem;
+  border-radius: 2px;
+  transition: background-color 0.25s var(--ease-quick);
+}
+.ledger-row:hover {
+  background: color-mix(in oklab, var(--color-or) 4.5%, transparent);
+}
+.ledger-row .brass-tab {
+  transition:
+    transform 0.15s var(--ease-quick),
+    box-shadow 0.15s;
+}
+.ledger-row:hover .brass-tab {
+  transform: translateY(1px);
+  box-shadow:
+    inset 0 1px 0 oklch(0.96 0.06 85 / 0.8),
+    inset 0 -1px 0 oklch(0.45 0.06 75 / 0.55),
+    0 2px 4px -2px rgba(0, 0, 0, 0.6);
+}
+.ledger-figure {
+  transition: color 0.25s;
+}
+.ledger-row:hover .ledger-figure {
+  color: var(--color-or);
+}
+
+/* ─── Pre-order rows — kanji blooms, count swells */
+.preorder-row {
+  padding-inline: 0.6rem;
+  margin-inline: -0.6rem;
+  border-radius: 2px;
+  transition: background-color 0.25s var(--ease-quick);
+}
+.preorder-row:hover {
+  background: color-mix(in oklab, var(--color-or) 5%, transparent);
+}
+.preorder-row .pre-kanji {
+  transition:
+    transform 0.3s var(--ease-curtain),
+    color 0.3s;
+}
+.preorder-row:hover .pre-kanji {
+  transform: scale(1.2);
+  color: var(--color-or);
+}
+.preorder-row .pre-count {
+  display: inline-block;
+  transform-origin: left center;
+  transition: transform 0.3s var(--ease-curtain);
+}
+.preorder-row:hover .pre-count {
+  transform: scale(1.08);
+}
+
+/* ─── Donut breakdown — controlled active wedge + linked legend */
+.donut-wrap {
+  animation: donut-in 850ms var(--ease-curtain) both;
+}
+.donut-wrap svg {
+  transition: transform 0.3s var(--ease-curtain);
+}
+.donut-wrap[data-active="true"] svg {
+  transform: scale(1.03);
+}
+.donut-wrap .recharts-sector {
+  transition:
+    fill-opacity 0.22s var(--ease-quick),
+    stroke 0.22s;
+  cursor: pointer;
+}
+@keyframes donut-in {
+  from {
+    opacity: 0;
+    transform: scale(0.86) rotate(-6deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.donut-center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.donut-kanji {
+  grid-area: 1 / 1;
+  font-size: 22px;
+  color: var(--color-or);
+  opacity: 0.85;
+  transition: opacity 0.25s var(--ease-quick);
+}
+.donut-pct {
+  grid-area: 1 / 1;
+  font-style: italic;
+  font-size: 26px;
+  line-height: 1;
+  color: var(--color-or-pale);
+  opacity: 0;
+  transition: opacity 0.25s var(--ease-quick);
+}
+.donut-center[data-active="true"] .donut-kanji {
+  opacity: 0;
+}
+.donut-center[data-active="true"] .donut-pct {
+  opacity: 1;
+}
+.legend-row {
+  cursor: pointer;
+  transition: opacity 0.2s var(--ease-quick);
+}
+.legend-row[data-dim="true"] {
+  opacity: 0.42;
+}
+.legend-swatch {
+  transform-origin: center;
+  transition:
+    transform 0.2s var(--ease-curtain),
+    box-shadow 0.2s;
+}
+.legend-row[data-active="true"] .legend-swatch {
+  transform: scale(1.8);
+  box-shadow: 0 0 9px color-mix(in oklab, var(--color-or) 65%, transparent);
+}
+.legend-label {
+  color: var(--color-ivoire);
+  transition: color 0.2s;
+}
+.legend-row[data-active="true"] .legend-label {
+  color: var(--color-or-pale);
+}
+.legend-count {
+  color: var(--color-or-pale);
+}
+.legend-share {
+  color: color-mix(in oklab, var(--color-ivoire) 60%, transparent);
+  transition: color 0.2s;
+}
+.legend-row[data-active="true"] .legend-share {
+  color: var(--color-or);
+}
+.legend-hint {
+  opacity: 0.5;
+  transition: opacity 0.3s;
+}
+.legend-hint::before {
+  content: "↳ ";
+}
+.legend-hint[data-quiet="true"] {
+  opacity: 0;
+}
+
+/* ─── Podium */
+.podium-tier {
+  cursor: default;
+  transform: translateY(var(--lift, 0px));
+  transition:
+    transform 0.3s var(--ease-curtain),
+    box-shadow 0.3s,
+    border-color 0.3s;
+}
+.podium-tier:hover {
+  transform: translateY(calc(var(--lift, 0px) - 6px));
+  border-color: var(--color-or);
+  box-shadow:
+    0 22px 46px -22px color-mix(in oklab, var(--color-or) 55%, transparent),
+    inset 0 1px 0 oklch(0.92 0.08 80 / 0.2);
+}
+.podium-rank {
+  transition:
+    color 0.3s,
+    text-shadow 0.3s;
+}
+.podium-tier:hover .podium-rank {
+  color: var(--color-or-pale);
+  text-shadow: 0 0 14px color-mix(in oklab, var(--color-or) 50%, transparent);
+}
+.podium-rest {
+  cursor: default;
+  transition: transform 0.2s var(--ease-quick);
+}
+.podium-rest:hover {
+  transform: translateX(4px);
+}
+.podium-rest-rank {
+  color: color-mix(in oklab, var(--color-or) 40%, transparent);
+  transition: color 0.2s;
+}
+.podium-rest:hover .podium-rest-rank {
+  color: var(--color-or);
+}
+.podium-rest-name {
+  color: var(--color-ivoire-soft);
+  transition: color 0.2s;
+}
+.podium-rest:hover .podium-rest-name {
+  color: var(--color-ivoire);
+}
+
+/* ─── Press strip — hover isolates a year. press-bar / press-count already
+ *     own transform+opacity via their entry keyframes, so emphasis rides
+ *     filter / colour and an inner <span> rather than fighting fill-forwards. */
+.press-col {
+  cursor: pointer;
+}
+.press-bar {
+  transition:
+    filter 0.25s,
+    opacity 0.25s,
+    box-shadow 0.25s;
+}
+.press-grid[data-active="true"] .press-col:not([data-hot="true"]) .press-bar {
+  opacity: 0.3;
+}
+.press-col[data-hot="true"] .press-bar {
+  filter: brightness(1.22) saturate(1.08);
+  box-shadow:
+    inset 0 1px 0 oklch(0.96 0.06 85 / 0.6),
+    0 0 20px color-mix(in oklab, var(--color-or) 55%, transparent);
+}
+.press-count-n {
+  display: inline-block;
+  transition:
+    transform 0.25s var(--ease-curtain),
+    color 0.25s;
+}
+.press-col[data-hot="true"] .press-count-n {
+  transform: scale(1.32);
+  color: var(--color-or);
+}
+.press-grid[data-active="true"] .press-col:not([data-hot="true"]) .press-count-n {
+  color: color-mix(in oklab, var(--color-or-pale) 40%, transparent);
+}
+.press-year {
+  transition: color 0.25s;
+}
+.press-col[data-hot="true"] .press-year {
+  color: var(--color-or);
+  opacity: 1;
+}
+.press-readout {
+  margin-top: 3rem;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.32em;
+  color: color-mix(in oklab, var(--color-or-pale) 70%, transparent);
+  transition:
+    color 0.2s,
+    letter-spacing 0.2s;
+  min-height: 1.2em;
+}
+.press-readout[data-active="true"] {
+  color: var(--color-or);
+  letter-spacing: 0.28em;
+}
+
+/* ─── Crown card — lift + light-sweep, the gold rule extends */
+.crown-card {
+  transition:
+    transform 0.4s var(--ease-curtain),
+    box-shadow 0.4s;
+}
+.crown-card:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    0 34px 64px -28px color-mix(in oklab, var(--color-or) 50%, transparent),
+    inset 0 1px 0 oklch(0.92 0.08 80 / 0.25);
+}
+.crown-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 36%, oklch(1 0 0 / 0.13) 48%, transparent 60%);
+  transform: translateX(-160%);
+  transition: transform 0.9s var(--ease-curtain);
+}
+.crown-card:hover::after {
+  transform: translateX(160%);
+}
+.crown-card .gold-rule {
+  transition: width 0.45s var(--ease-curtain);
+}
+.crown-card:hover .gold-rule {
+  width: 5rem;
+}
+
+/* ─── Price scale — markers light from either the track or the grid.
+ *     Entry rides opacity only, leaving transform free for hover. */
+.price-scale-end,
+.price-scale-median,
+.price-scale-mean {
+  cursor: pointer;
+  opacity: 0;
+  animation: ps-marker-in 520ms var(--ease-curtain) forwards;
+  transition:
+    transform 0.2s var(--ease-curtain),
+    box-shadow 0.2s,
+    background-color 0.2s,
+    border-color 0.2s;
+}
+.price-scale > span:nth-child(2) {
+  animation-delay: 120ms;
+}
+.price-scale > span:nth-child(3) {
+  animation-delay: 180ms;
+}
+.price-scale > span:nth-child(4) {
+  animation-delay: 240ms;
+}
+.price-scale > span:nth-child(5) {
+  animation-delay: 300ms;
+}
+@keyframes ps-marker-in {
+  to {
+    opacity: 1;
+  }
+}
+.price-scale-track {
+  transform-origin: center;
+  animation: ps-track-in 700ms var(--ease-curtain) both;
+}
+@keyframes ps-track-in {
+  from {
+    transform: translateY(-50%) scaleX(0);
+  }
+  to {
+    transform: translateY(-50%) scaleX(1);
+  }
+}
+.price-scale-end[data-hot="true"] {
+  transform: translate(-50%, -50%) scale(1.7);
+  background: var(--color-or);
+  box-shadow:
+    0 0 0 2px var(--color-noir),
+    0 0 12px color-mix(in oklab, var(--color-or) 80%, transparent);
+}
+.price-scale-median[data-hot="true"] {
+  transform: translate(-50%, -50%) scaleX(1.6) scaleY(1.22);
+  box-shadow: 0 0 12px color-mix(in oklab, var(--color-or) 90%, transparent);
+}
+.price-scale-mean[data-hot="true"] {
+  transform: translate(-50%, -50%) rotate(45deg) scale(1.35);
+  border-color: var(--color-or-pale);
+  background: oklch(0.2 0.01 60);
+  box-shadow: 0 0 12px color-mix(in oklab, var(--color-or) 70%, transparent);
+}
+/* enlarge the hit area of the tiny markers */
+.price-scale .ledger-tip::before {
+  content: "";
+  position: absolute;
+  inset: -9px;
+}
+.price-scale-stat {
+  cursor: default;
+  padding: 0.25rem 0.15rem;
+  transition: opacity 0.2s;
+}
+.price-scale-stat[data-dim="true"] {
+  opacity: 0.42;
+}
+.price-scale-stat dd {
+  transition: color 0.2s;
+}
+.price-scale-stat[data-hot="true"] dd {
+  color: var(--color-or);
+}
+.price-scale-stat dt {
+  transition: color 0.2s;
+}
+.price-scale-stat[data-hot="true"] dt {
+  color: var(--color-or-pale);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .donut-wrap,
+  .price-scale-track,
+  .price-scale-end,
+  .price-scale-median,
+  .price-scale-mean {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+  .crown-card::after {
+    display: none;
+  }
+}

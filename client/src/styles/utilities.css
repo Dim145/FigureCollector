@@ -1,0 +1,151 @@
+/* ============================================================================
+ * Motion
+ * ============================================================================ */
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes reveal-slow {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+/* ─── Upload placeholder tiles (FigurePhotosSection batch upload)
+ *
+ * The picker can stage 5+ photos at once. While each upload's POST is in
+ * flight the placeholder tile renders with three layered effects:
+ *
+ *   - `upload-tile-pulse`  : the border breathes from /30 → /60 alpha,
+ *                            making "this tile is alive" obvious at a
+ *                            glance even across a 4×4 grid of tiles.
+ *   - `upload-stripes`     : a diagonal gold-on-noir kintsugi pattern
+ *                            that slides across the tile every 4 s,
+ *                            reading as motion without being noisy.
+ *   - `upload-spin`        : the 印 (seal/stamp) glyph centred in the
+ *                            tile makes one full rotation every 8 s.
+ *                            Slow so it doesn't fight the stripes.
+ *
+ * All three honour `prefers-reduced-motion` via the shared block below.
+ */
+.upload-tile-pulse {
+  animation: upload-tile-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes upload-tile-pulse {
+  0%,
+  100% {
+    border-color: color-mix(in oklab, var(--color-or) 30%, transparent);
+  }
+  50% {
+    border-color: color-mix(in oklab, var(--color-or) 65%, transparent);
+  }
+}
+
+.upload-stripes {
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--color-or) 6%, transparent) 0px,
+    color-mix(in oklab, var(--color-or) 6%, transparent) 12px,
+    transparent 12px,
+    transparent 28px
+  );
+  background-size: 200% 100%;
+  animation: upload-stripes-slide 4s linear infinite;
+}
+
+@keyframes upload-stripes-slide {
+  from {
+    background-position: 0% 0;
+  }
+  to {
+    background-position: 100% 0;
+  }
+}
+
+.upload-spin {
+  animation: upload-spin 8s linear infinite;
+  display: inline-block;
+}
+
+@keyframes upload-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes glow-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Stagger-reveal: drop `.reveal` on a child and `.reveal-stagger` on the
+   parent. CSS variables `--i` (1-based index) and `--delay` (ms) drive the
+   cascade. Falls back gracefully if the wrapper doesn't set --i. */
+.reveal {
+  opacity: 0;
+  animation: reveal 520ms var(--ease-curtain) forwards;
+  animation-delay: calc((var(--i, 0) * 45ms) + var(--delay, 40ms));
+}
+
+.reveal-slow {
+  opacity: 0;
+  animation: reveal-slow 720ms var(--ease-curtain) forwards;
+  animation-delay: calc((var(--i, 0) * 55ms) + var(--delay, 55ms));
+}
+
+.drift {
+  animation: drift 6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal-slow,
+  .drift,
+  .upload-tile-pulse,
+  .upload-stripes,
+  .upload-spin,
+  .ach-card-foil::before,
+  .ach-card.tier-gold.is-unlocked::before,
+  .horarium-seal.is-imminent::before {
+    animation: none !important;
+    opacity: 1;
+  }
+}

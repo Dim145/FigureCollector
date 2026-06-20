@@ -1,6 +1,6 @@
 {
   "name": "figurecollector-client",
-  "version": "0.39.0",
+  "version": "0.40.0",
   "private": true,
   "type": "module",
   "description": "FigureCollector — self-hosted PWA frontend for figurine collection tracking",
@@ -22,6 +22,7 @@
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@floating-ui/react": "^0.27.19",
     "@huggingface/transformers": "^4.2.0",
     "@imgly/background-removal": "^1.7.0",
     "@tanstack/react-query": "^5.100.0",
@@ -30,6 +31,7 @@
     "gsplat": "^1.2.9",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
+    "lucide-react": "^1.21.0",
     "motion": "^12.40.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

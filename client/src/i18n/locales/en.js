@@ -23,11 +23,13 @@ export default {
 
   "landing.manifesto.label": "Manifesto",
   "landing.manifesto.title": "A private vitrine for your figures.",
-  "landing.manifesto.body": "FigureCollector treats every piece like an exhibition object. Your photos, your pre-orders, your 360° scans all live in a single, coherent display case — self-hosted, hardened, built to last. No tracking. No resale. Just your collection, properly staged.",
+  "landing.manifesto.body":
+    "FigureCollector treats every piece like an exhibition object. Your photos, your pre-orders, your 360° scans all live in a single, coherent display case — self-hosted, hardened, built to last. No tracking. No resale. Just your collection, properly staged.",
 
   "landing.feat.collect.label": "Catalog",
   "landing.feat.collect.title": "Detailed inventory",
-  "landing.feat.collect.body": "Nendoroid, scale, figma, prize — the whole figurine taxonomy. Condition, price, location, sculptor, JAN.",
+  "landing.feat.collect.body":
+    "Nendoroid, scale, figma, prize — the whole figurine taxonomy. Condition, price, location, sculptor, JAN.",
 
   "landing.feat.track.label": "Pre-orders",
   "landing.feat.track.title": "Release-date timeline",
@@ -35,7 +37,8 @@ export default {
 
   "landing.feat.share.label": "Sharing",
   "landing.feat.share.title": "Curated public profiles",
-  "landing.feat.share.body": "Enable a public vitrine, share the URL, or compare your collection against another collector's.",
+  "landing.feat.share.body":
+    "Enable a public vitrine, share the URL, or compare your collection against another collector's.",
 
   "landing.final.label": "Entrance",
   "landing.final.title": "Open the vitrine.",
@@ -87,7 +90,8 @@ export default {
   // Collection value ("La Cote") — Lot 1
   "cote.eyebrow": "Inventory · Valuation",
   "cote.title": "Valuation",
-  "cote.body": "What your cabinet is worth, piece by piece. Estimated value is entered by hand; otherwise it falls back to the catalog price (MSRP). The latent gain reads at a glance.",
+  "cote.body":
+    "What your cabinet is worth, piece by piece. Estimated value is entered by hand; otherwise it falls back to the catalog price (MSRP). The latent gain reads at a glance.",
   "cote.estimated_total": "Estimated collection value",
   "cote.total_paid": "Total paid",
   "cote.plus_value": "Latent gain",
@@ -104,7 +108,8 @@ export default {
   "cote.evo.range.6m": "6 M",
   "cote.evo.range.1y": "1 Y",
   "cote.evo.range.all": "All",
-  "cote.evo.legend": "Rebuilt from per-piece price points · {cur} (dominant currency) · manual values and MSRP counted as constants",
+  "cote.evo.legend":
+    "Rebuilt from per-piece price points · {cur} (dominant currency) · manual values and MSRP counted as constants",
   "cote.history.kicker": "PRICE POINTS",
   "cote.history.kicker_label": "MARKET",
   "cote.history.title_suffix": "price evolution",
@@ -120,7 +125,8 @@ export default {
   "cote.edit_value": "Edit value",
   "cote.edit_hint": "Click a value to estimate it.",
   "cote.paid_abbr": "paid",
-  "cote.footnote": "A piece's value is entered by hand; with no manual value, the catalog MSRP is shown in its own currency (\"MSRP\" badge).",
+  "cote.footnote":
+    'A piece\'s value is entered by hand; with no manual value, the catalog MSRP is shown in its own currency ("MSRP" badge).',
   "cote.empty": "No pieces to value yet.",
   "cote.empty_cta": "Browse the catalogue",
 
@@ -130,7 +136,8 @@ export default {
   "fx.convertOff": "Keep original currencies",
   "fx.convertOnHint": "Prices in another currency are converted to {cur}.",
   "fx.convertOffHint": "Each price stays in its own currency.",
-  "fx.hint": "Rates from the European Central Bank, refreshed daily. The original amount stays available on hover.",
+  "fx.hint":
+    "Rates from the European Central Bank, refreshed daily. The original amount stays available on hover.",
   "fx.noPreferred": "Pick a preferred currency above first to enable conversion.",
   "fx.approx": "approx · converted",
   "fx.partial": "partial total — a non-convertible currency is excluded",
@@ -138,10 +145,11 @@ export default {
   // Display cabinets ("Les Vitrines") — Lot 1
   "vitrines.eyebrow": "Storage · Topography",
   "vitrines.title": "Display cabinets",
-  "vitrines.body": "Where each piece lives. Your figures group by location — each cabinet is a piece of furniture, from the living-room Detolf to the reserve box.",
+  "vitrines.body":
+    "Where each piece lives. Your figures group by location — each cabinet is a piece of furniture, from the living-room Detolf to the reserve box.",
   "vitrines.search_ph": "Where is… ?",
   "vitrines.search_found": "Found {n}:",
-  "vitrines.search_none": "Nothing matches \"{q}\".",
+  "vitrines.search_none": 'Nothing matches "{q}".',
   "vitrines.view": "View",
   "vitrines.view.grid": "Grid",
   "vitrines.view.diorama": "Diorama",
@@ -160,7 +168,8 @@ export default {
   "wishlist.eyebrow": "Desires · to acquire",
   "wishlist.title": "Wishlist",
   "wishlist.page_title": "My wishlist",
-  "wishlist.body": "The pieces you covet, with a target price. When you cave, \"Acquire\" moves a piece into your collection (a pre-order is created automatically when it isn't out yet).",
+  "wishlist.body":
+    'The pieces you covet, with a target price. When you cave, "Acquire" moves a piece into your collection (a pre-order is created automatically when it isn\'t out yet).',
   "wishlist.count_label": "coveted pieces",
   "wishlist.budget_label": "targets budget",
   "wishlist.target": "Target",
@@ -178,15 +187,18 @@ export default {
   "wishlist.import.cta": "Import from orzgk",
   "import.eyebrow": "Wishlist · import",
   "import.title": "Import into my wishlist",
-  "import.subtitle": "Paste your list's public link — orzgk or any boutique your proxy handles — or drop your MFC wishlist CSV export, then pick which figures to add to your wishlist — up to 25 per batch.",
+  "import.subtitle":
+    "Paste your list's public link — orzgk or any boutique your proxy handles — or drop your MFC wishlist CSV export, then pick which figures to add to your wishlist — up to 25 per batch.",
   "import.step.paste": "Paste",
   "import.step.choose": "Choose",
   "import.step.import": "Import",
   "import.phase.source": "① Source — your list's public link",
   "import.phase.importing": "③ Importing",
   "import.phase.done": "Done",
-  "import.paste_ph": "https://www.orzgk.com/wishlist-2/view/<token>/\n— or product links, one per line —\nhttps://www.orzgk.com/product/…/",
-  "import.paste_hint": "Make your list public on orzgk (Share → Public → copy link), then paste it — the server fetches it, following pagination. A public list from a boutique your proxy handles works too. Or paste product links, one per line. Fallback: paste the page HTML of a private list.",
+  "import.paste_ph":
+    "https://www.orzgk.com/wishlist-2/view/<token>/\n— or product links, one per line —\nhttps://www.orzgk.com/product/…/",
+  "import.paste_hint":
+    "Make your list public on orzgk (Share → Public → copy link), then paste it — the server fetches it, following pagination. A public list from a boutique your proxy handles works too. Or paste product links, one per line. Fallback: paste the page HTML of a private list.",
   "import.analyse": "Fetch",
   "import.analysing": "Fetching…",
   "import.selected": "selected",
@@ -210,7 +222,8 @@ export default {
   "import.sum.errors": "errors",
   "import.again": "Import more",
   "import.to_wishlist": "Back to wishlist",
-  "import.err.no_source": "Paste a list link (orzgk or a proxy-handled boutique), product links, or the page HTML — or drop an MFC CSV.",
+  "import.err.no_source":
+    "Paste a list link (orzgk or a proxy-handled boutique), product links, or the page HTML — or drop an MFC CSV.",
   "import.err.fetch": "Couldn't fetch the list. Make sure it's public, or paste the page HTML.",
   "import.err.empty": "No products found in that list.",
   "import.err.csv_empty": "No usable rows in that CSV (no Title column?).",
@@ -221,7 +234,8 @@ export default {
   "import.proxy_hosts": "boutiques handled by the proxy: {hosts}",
   "import.or": "or",
   "import.csv.title": "MFC wishlist · CSV file",
-  "import.csv.hint": "Drop your Wished list export (on MFC: Manager → CSV Export). Matched by barcode (JAN) first, then by title — no connection to MFC.",
+  "import.csv.hint":
+    "Drop your Wished list export (on MFC: Manager → CSV Export). Matched by barcode (JAN) first, then by title — no connection to MFC.",
   "import.csv.browse": "Browse…",
   "wishlist.empty": "Nothing on your wishlist yet.",
   "wishlist.empty_cta": "Browse the catalogue",
@@ -229,7 +243,8 @@ export default {
   // Shared gift list (Lot 7) — owner panel + public /g/<token> page
   "gift.eyebrow": "Gift · shared link",
   "gift.share_title": "Share my gift list",
-  "gift.share_body": "Hand friends and family a public link to your wishlist so they can coordinate gifts — no account needed on their end.",
+  "gift.share_body":
+    "Hand friends and family a public link to your wishlist so they can coordinate gifts — no account needed on their end.",
   "gift.enable": "Create the link",
   "gift.copy": "Copy",
   "gift.copied": "Copied!",
@@ -239,8 +254,10 @@ export default {
   "gift.disable_confirm": "Kill the link and clear all reservations?",
   "gift.public_eyebrow": "A gift list",
   "gift.public_title": "{name}'s wishlist",
-  "gift.public_body": "Claim a piece so other gift-givers know it's taken. Just type your name — no account required.",
-  "gift.owner_banner": "This is your own list — reservations are hidden so the surprise stays intact.",
+  "gift.public_body":
+    "Claim a piece so other gift-givers know it's taken. Just type your name — no account required.",
+  "gift.owner_banner":
+    "This is your own list — reservations are hidden so the surprise stays intact.",
   "gift.owner_item_hint": "your wish",
   "gift.claimed_count": "{n} of {total} claimed",
   "gift.empty": "This list is empty for now.",
@@ -251,7 +268,8 @@ export default {
   "gift.reserved_by": "claimed · {name}",
   "gift.reserved_mine": "claimed by you",
   "gift.release": "Release",
-  "gift.reserve_error": "Couldn't claim this piece — someone may have just taken it. Refresh and try again.",
+  "gift.reserve_error":
+    "Couldn't claim this piece — someone may have just taken it. Refresh and try again.",
   "gift.not_found": "This gift link is invalid or no longer shared.",
   "gift.nsfw_reveal": "Show sensitive content ({n})",
   "gift.nsfw_hide": "Hide sensitive content",
@@ -267,7 +285,8 @@ export default {
   // MFC import-by-paste — Lot 2
   "mfc.open": "Paste the sheet HTML",
   "mfc.title": "Import from MyFigureCollection",
-  "mfc.note": "MFC blocks direct access. Open the item on myfigurecollection.net → view page source (Ctrl+U) → select all (Ctrl+A) → copy → paste here.",
+  "mfc.note":
+    "MFC blocks direct access. Open the item on myfigurecollection.net → view page source (Ctrl+U) → select all (Ctrl+A) → copy → paste here.",
   "mfc.textarea_ph": "<!doctype html> … paste the MFC page HTML here …",
   "mfc.analyse": "Analyse",
   "mfc.parsed": "Parsed — MFC #{id}",
@@ -284,7 +303,7 @@ export default {
   "vitrines.new_cabinet_ph": "Cabinet name…",
   "vitrines.create": "Create",
   "vitrines.delete_cabinet": "Delete cabinet",
-  "vitrines.delete_confirm": "Delete \"{name}\"? Its pieces move back to Unshelved.",
+  "vitrines.delete_confirm": 'Delete "{name}"? Its pieces move back to Unshelved.',
   "vitrines.drop_hint": "Drag a piece here",
   "vitrines.empty": "Your collection is empty.",
   "vitrines.empty_cta": "Back to the collection",
@@ -309,8 +328,7 @@ export default {
   "recognize.capture": "Photograph the figure",
   "recognize.retake": "Take another photo",
   "recognize.capture_hint": "Camera or gallery — on your device only",
-  "recognize.wasm_hint":
-    "Without GPU acceleration, the first analysis may take a few seconds.",
+  "recognize.wasm_hint": "Without GPU acceleration, the first analysis may take a few seconds.",
   "recognize.preparing": "Preparing the model… {pct}%",
   "recognize.analysing": "Analysing the image…",
   "recognize.error": "Something went wrong during analysis.",
@@ -323,7 +341,8 @@ export default {
   "recognize.external.searching": "Searching the web…",
   "recognize.external.eyebrow": "External leads",
   "recognize.external.title": "Hints from the web",
-  "recognize.external.intro": "These results come from Google and aren't in your catalog — use them to identify the piece, then add it by hand.",
+  "recognize.external.intro":
+    "These results come from Google and aren't in your catalog — use them to identify the piece, then add it by hand.",
   "recognize.external.best_guess": "Best guess",
   "recognize.external.entities": "Recognised terms",
   "recognize.external.pages": "Pages where this image appears",
@@ -352,12 +371,14 @@ export default {
   "owned.editor.field.shipping": "Shipping",
   "owned.editor.cancel_preorder": "Cancel preorder",
   "owned.editor.restore": "Restore",
-  "owned.editor.archived_note": "This piece is archived — its preorder was cancelled. Restore it to bring it back into your active collection.",
+  "owned.editor.archived_note":
+    "This piece is archived — its preorder was cancelled. Restore it to bring it back into your active collection.",
   "owned.editor.field.deposit": "Deposit",
   "owned.editor.field.currency": "Currency",
   "owned.editor.ph.shipping": "0",
   "owned.editor.ph.deposit": "0",
-  "owned.editor.deposit_hint": "Upfront payment at preorder time, deducted from the balance before shipping.",
+  "owned.editor.deposit_hint":
+    "Upfront payment at preorder time, deducted from the balance before shipping.",
   "owned.editor.field.notes": "Notes",
   "owned.editor.ph.store": "AmiAmi, GSC Online, eBay…",
   "owned.editor.ph.location": "Living-room cabinet, attic box…",
@@ -408,7 +429,8 @@ export default {
   "scan.title": "Scan a barcode",
   "scan.aim": "Align the box barcode",
   "scan.starting": "Starting camera…",
-  "scan.unsupported": "This browser can't scan with the camera here — type the barcode (JAN/EAN) below instead.",
+  "scan.unsupported":
+    "This browser can't scan with the camera here — type the barcode (JAN/EAN) below instead.",
   "scan.denied": "Camera access denied. Type the barcode below, or allow the camera and reopen.",
   "scan.error": "Couldn't start the camera. Type the barcode below.",
   "scan.manual": "Barcode (JAN / EAN)",
@@ -543,7 +565,8 @@ export default {
   "figure.form.ph.msrp": "5800",
   "figure.form.ph.jan": "4580590127553",
   "figure.form.ph.jan_hint": "JAN (Japan) or EAN (Europe) barcode.",
-  "figure.form.ph.image_url_hint": "Direct link to a publicly hosted image. To host photos on this instance, use the “Official photos” section of the record.",
+  "figure.form.ph.image_url_hint":
+    "Direct link to a publicly hosted image. To host photos on this instance, use the “Official photos” section of the record.",
   "figure.form.ph.description": "Pose, sculptor, release event, trivia…",
 
   "figure.add_to_collection": "Add to my collection",
@@ -598,7 +621,8 @@ export default {
   "figure.spec.version": "Version",
   "figure.spec.exclusivity": "Exclusivity",
   "figure.missing.title": "This figure no longer exists",
-  "figure.missing.body": "It may have been removed from the catalog, or your list was showing a stale cached copy. The Catalog page has been refreshed.",
+  "figure.missing.body":
+    "It may have been removed from the catalog, or your list was showing a stale cached copy. The Catalog page has been refreshed.",
   "figure.missing.cta_browse": "Back to catalog",
   "figure.missing.cta_collection": "See my collection",
   "figure.missing.cta_retry": "Retry",
@@ -606,7 +630,8 @@ export default {
   "preorders.title": "My pre-orders",
   "preorders.subtitle": "The ledger of acquisitions to come.",
   "preorders.ical.cta": "Subscribe to calendar",
-  "preorders.ical.note": "Add your release dates to your calendar (Google, Apple, Outlook…). This link is private — don't share it.",
+  "preorders.ical.note":
+    "Add your release dates to your calendar (Google, Apple, Outlook…). This link is private — don't share it.",
   "preorders.ical.copy": "Copy",
   "preorders.ical.copied": "Copied",
   "preorders.ical.add": "Add to my calendar",
@@ -615,7 +640,8 @@ export default {
   "preorders.ical.loading": "Preparing link…",
   "preorders.ical.error": "Link unavailable — try again.",
   "preorders.empty": "No pre-orders yet.",
-  "preorders.empty.hint": "Figurines on pre-order will appear here as soon as you add them to your collection with a future release date.",
+  "preorders.empty.hint":
+    "Figurines on pre-order will appear here as soon as you add them to your collection with a future release date.",
   "preorders.stat.total": "Pieces expected",
   "preorders.stat.next": "Next release",
   "preorders.stat.next_none": "None upcoming",
@@ -660,13 +686,16 @@ export default {
   "preorders.field.order_ref_ph": "Reference or order number",
   "preorders.field.tracking_url": "Tracking link (optional)",
   "preorders.field.tracking_url_ph": "https://tracking.dhl.com/?tracking-id=…",
-  "preorders.field.tracking_url_hint": "Paste the URL as is — the carrier and tracking number are detected automatically.",
+  "preorders.field.tracking_url_hint":
+    "Paste the URL as is — the carrier and tracking number are detected automatically.",
   "preorders.field.deposit": "Deposit",
   "preorders.field.deposit_ph": "30",
-  "preorders.field.deposit_hint": "Upfront payment at order time (deducted from the balance before shipping).",
+  "preorders.field.deposit_hint":
+    "Upfront payment at order time (deducted from the balance before shipping).",
   "preorders.field.delivery_days": "Estimated delivery (days)",
   "preorders.field.delivery_days_ph": "7",
-  "preorders.field.delivery_days_hint": "ETA from the carrier. Countdown starts when status flips to \"Shipped\".",
+  "preorders.field.delivery_days_hint":
+    'ETA from the carrier. Countdown starts when status flips to "Shipped".',
   "preorders.field.delivery_chip_label": "Delivery",
   "preorder.delivery.today": "D0",
   "preorder.delivery.in": "D-{n}",
@@ -747,18 +776,22 @@ export default {
   "browse.search.keyword": "Keywords",
   "browse.search.semantic": "Description",
   "browse.search.semantic_placeholder": "By description — e.g. bride, resin statue, Re:Zero…",
-  "browse.search.semantic_prompt": "Search by description: a name, a series, a material, a word in another language.",
+  "browse.search.semantic_prompt":
+    "Search by description: a name, a series, a material, a word in another language.",
   "browse.search.semantic_busy": "Searching by description…",
   "browse.search.semantic_error": "Search failed — try again.",
   "browse.search.help_aria": "What are these modes?",
   "browse.search.help_eyebrow": "Search modes",
   "browse.search.help_title": "Three ways to search",
   "browse.search.help_keyword": "Keywords — exact match on names, series and makers.",
-  "browse.search.help_semantic": "Description — by meaning: type what you want in natural language (a name, a series, a material) or even in another language (\"mariée\" finds \"Wedding\"). If an admin enabled appearance tags, you can also describe the look (\"white-haired elf\").",
-  "browse.search.help_look": "Look — visual search: describe how a figure looks and we match it against the figures' images.",
+  "browse.search.help_semantic":
+    'Description — by meaning: type what you want in natural language (a name, a series, a material) or even in another language ("mariée" finds "Wedding"). If an admin enabled appearance tags, you can also describe the look ("white-haired elf").',
+  "browse.search.help_look":
+    "Look — visual search: describe how a figure looks and we match it against the figures' images.",
   "browse.search.look": "Look",
   "browse.search.look_placeholder": "By look — e.g. white-haired girl, mecha robot…",
-  "browse.search.look_prompt": "Describe how a figure looks to find it — pose, hair colour, outfit…",
+  "browse.search.look_prompt":
+    "Describe how a figure looks to find it — pose, hair colour, outfit…",
   "browse.search.look_busy": "Searching by look…",
   "browse.search.look_error": "Search failed — try again.",
   "browse.search.stage.model": "Downloading the AI model…",
@@ -811,7 +844,8 @@ export default {
   "discover.eyebrow": "Community · public collectors",
   "discover.title": "Discover",
   "discover.page_title": "The collectors",
-  "discover.subtitle": "Other collectors on this instance who opened their vitrine — each shown like an exhibition piece. Follow the ones whose collection inspires you.",
+  "discover.subtitle":
+    "Other collectors on this instance who opened their vitrine — each shown like an exhibition piece. Follow the ones whose collection inspires you.",
   "discover.search": "Search a collector…",
   "discover.count": "public collectors",
   "discover.empty": "No public collector yet.",
@@ -835,7 +869,8 @@ export default {
   "collector.empty_shelf": "Empty shelf",
   "archives.eyebrow": "Data · backup & portability",
   "archives.title": "The archive cabinet",
-  "archives.subtitle": "Your data is yours. Export your collection, wishlist and preorders as CSV (spreadsheet) or JSON (faithful backup, re-import, migration). Nothing leaves the server without your click.",
+  "archives.subtitle":
+    "Your data is yours. Export your collection, wishlist and preorders as CSV (spreadsheet) or JSON (faithful backup, re-import, migration). Nothing leaves the server without your click.",
   "archives.columns": "Columns",
   "archives.collection": "Collection",
   "archives.wishlist": "Wishlist",
@@ -843,23 +878,29 @@ export default {
   "archives.count.pieces": "owned pieces",
   "archives.count.wishes": "wished pieces",
   "archives.count.preorders": "in progress",
-  "archives.cols.collection": "Name · type · manufacturer · scale · condition · paid · currency · estimated value · purchase date · JAN",
+  "archives.cols.collection":
+    "Name · type · manufacturer · scale · condition · paid · currency · estimated value · purchase date · JAN",
   "archives.cols.wishlist": "Name · manufacturer · target price · current MSRP · note",
-  "archives.cols.preorders": "Name · store · status · original date · current date · slips · deposit · currency",
+  "archives.cols.preorders":
+    "Name · store · status · original date · current date · slips · deposit · currency",
   "archives.backup.title": "Full backup",
-  "archives.backup.body": "everything in one JSON file (collection + wishlist + preorders + profile), ready to re-import.",
+  "archives.backup.body":
+    "everything in one JSON file (collection + wishlist + preorders + profile), ready to re-import.",
   "archives.backup.download": "Full backup (JSON)",
   "owned.editor.sale.title": "For sale / trade",
-  "owned.editor.sale.hint": "List a piece on your trade shelf — shown in your collection and on your public profile.",
+  "owned.editor.sale.hint":
+    "List a piece on your trade shelf — shown in your collection and on your public profile.",
   "owned.editor.sale.for_sale": "For sale",
   "owned.editor.sale.for_trade": "For trade",
   "owned.editor.sale.asking_price": "Asking price",
   "owned.editor.sale.asking_price_ph": "Your price",
   "owned.editor.sale.note": "Public note",
-  "owned.editor.sale.note_ph": "Condition, open to offers, shipping included… (shown on your public profile)",
+  "owned.editor.sale.note_ph":
+    "Condition, open to offers, shipping included… (shown on your public profile)",
   "collection.lens.for_sale": "For sale",
   "vitrines.view.plan": "Atelier",
-  "vitrines.planner.hint": "Drag pieces from the tray onto the shelves — place them anywhere, to real scale.",
+  "vitrines.planner.hint":
+    "Drag pieces from the tray onto the shelves — place them anywhere, to real scale.",
   "vitrines.planner.shelves": "Shelves",
   "vitrines.planner.add_shelf": "Add a shelf",
   "vitrines.planner.remove_shelf": "Remove a shelf",
@@ -868,14 +909,16 @@ export default {
   "vitrines.planner.tray_all_placed": "Everything's on the shelves ✓",
   "profile.for_sale_kicker": "FOR SALE / TRADE",
   "export.inv.section": "Inventory / Insurance",
-  "export.inv.desc": "A dated snapshot of your collection (piece, condition, estimated value), as PDF or CSV — handy for insurance.",
+  "export.inv.desc":
+    "A dated snapshot of your collection (piece, condition, estimated value), as PDF or CSV — handy for insurance.",
   "export.inv.title": "Collection inventory",
   "export.inv.generated": "Generated {date}",
   "export.inv.pieces": "{n} pieces",
   "export.inv.pieces.one": "{n} piece",
   "export.inv.total_value": "Total estimated value",
   "export.inv.eur_total": "Total in EUR: {amount} (rate {date})",
-  "export.inv.footer": "FigureCollector — estimated values (market/MSRP), provided for guidance only.",
+  "export.inv.footer":
+    "FigureCollector — estimated values (market/MSRP), provided for guidance only.",
   "export.dossier.button": "Full dossier (with receipts)",
   "export.dossier.building": "Building dossier…",
   "export.dossier.note": "Merges each figure's receipts into a single PDF (slower to generate).",
@@ -897,8 +940,10 @@ export default {
   "insights.ch.wishlist": "Wishlist cost",
   "insights.ch.preorders": "Preorder health",
   "insights.ch.dna": "Collection DNA",
-  "insights.dna.caption": "Dominant traits across {n} tagged figures · click a trait to filter the catalogue",
-  "insights.dna.caption.one": "Dominant traits across {n} tagged figure · click a trait to filter the catalogue",
+  "insights.dna.caption":
+    "Dominant traits across {n} tagged figures · click a trait to filter the catalogue",
+  "insights.dna.caption.one":
+    "Dominant traits across {n} tagged figure · click a trait to filter the catalogue",
   "insights.dna.filter": "Filter the catalogue: {tag}",
   "insights.wishlist.total": "total target budget",
   "insights.wishlist.count": "{n} wished pieces",
@@ -921,19 +966,23 @@ export default {
   "yrcmp.spend": "Spending",
   "yrcmp.velocity": "Velocity",
   "yrcmp.per_month": "{n}/mo",
-  "notifprefs.quiet.body": "Quiet hours suspend external channels (push, e-mail, ntfy…) during the window. In-app keeps arriving; a critical alert can still pierce through.",
+  "notifprefs.quiet.body":
+    "Quiet hours suspend external channels (push, e-mail, ntfy…) during the window. In-app keeps arriving; a critical alert can still pierce through.",
   "notifprefs.quiet.toggle": "Toggle quiet hours",
   "notifprefs.quiet.from": "Suspend external notifications from",
   "notifprefs.quiet.start": "Start hour",
   "notifprefs.quiet.end": "End hour",
-  "notifprefs.quiet.note": "In-app notifications stay visible; only external channels are muted during the window.",
+  "notifprefs.quiet.note":
+    "In-app notifications stay visible; only external channels are muted during the window.",
   "notifprefs.preset.body": "Pick how much reaches you, in one tap.",
   "notifprefs.preset.all.title": "Receive everything",
   "notifprefs.preset.all.body": "Every event, on all your active channels. The default.",
   "notifprefs.preset.essential.title": "Essentials only",
-  "notifprefs.preset.essential.body": "Only the critical — preorder overdue, delivery today. The rest stays in-app.",
+  "notifprefs.preset.essential.body":
+    "Only the critical — preorder overdue, delivery today. The rest stays in-app.",
   "notifprefs.preset.in_app.title": "In-app only",
-  "notifprefs.preset.in_app.body": "Keep everything in the app; mute push, e-mail and external webhooks.",
+  "notifprefs.preset.in_app.body":
+    "Keep everything in the app; mute push, e-mail and external webhooks.",
   "notifprefs.preset.silent.title": "Total silence",
   "notifprefs.preset.silent.body": "Nothing disturbs you. Check the journal whenever you like.",
   "admin.bulk.toolbar": "Bulk actions",
@@ -941,11 +990,16 @@ export default {
   "admin.bulk.clear": "Clear",
   "admin.bulk.delete": "Delete selection",
   "admin.bulk.confirm.title": "Delete {n} item(s)?",
-  "admin.bulk.confirm.body": "This permanently deletes the {n} selected item(s). This can't be undone.",
-  "admin.bulk.confirm.body.figures": "This permanently deletes the {n} selected figure(s) from the catalogue. This can't be undone.",
-  "admin.bulk.confirm.body.users": "This permanently deletes the {n} selected account(s). Admins and your own account are skipped.",
-  "admin.bulk.confirm.body.stores": "This permanently deletes the {n} selected store(s). This can't be undone.",
-  "admin.bulk.confirm.body.types": "This permanently deletes the {n} selected type(s). Types still in use are skipped.",
+  "admin.bulk.confirm.body":
+    "This permanently deletes the {n} selected item(s). This can't be undone.",
+  "admin.bulk.confirm.body.figures":
+    "This permanently deletes the {n} selected figure(s) from the catalogue. This can't be undone.",
+  "admin.bulk.confirm.body.users":
+    "This permanently deletes the {n} selected account(s). Admins and your own account are skipped.",
+  "admin.bulk.confirm.body.stores":
+    "This permanently deletes the {n} selected store(s). This can't be undone.",
+  "admin.bulk.confirm.body.types":
+    "This permanently deletes the {n} selected type(s). Types still in use are skipped.",
   "admin.bulk.result": "{deleted} deleted · {skipped} skipped",
   "admin.bulk.select_all": "Select all",
   "admin.bulk.select_row": "Select row",
@@ -1003,16 +1057,20 @@ export default {
   "notifications.event.preorder_delivery_overdue.title": "Delivery overdue: {name}",
   "notifications.event.preorder_delivery_overdue.sub": "Estimated date was yesterday ({date})",
   "notifications.event.manga_server_approved.title": "MangaCollector server approved: {server}",
-  "notifications.event.manga_server_approved.sub": "Your manga integration is live — explore your crossings.",
+  "notifications.event.manga_server_approved.sub":
+    "Your manga integration is live — explore your crossings.",
   "notifications.event.manga_server_revoked.title": "MangaCollector server revoked: {server}",
-  "notifications.event.manga_server_revoked.sub": "The integration is disabled — pick another server in settings.",
+  "notifications.event.manga_server_revoked.sub":
+    "The integration is disabled — pick another server in settings.",
   "notifications.event.wishlist_price_below_target.title": "Below your target: {name}",
-  "notifications.event.wishlist_price_below_target.sub": "Observed price {amount} {currency} · target ≤ {target}",
+  "notifications.event.wishlist_price_below_target.sub":
+    "Observed price {amount} {currency} · target ≤ {target}",
 
   // Notification channels (settings page)
   "settings.nav.notif_chan": "Notifications",
   "notif.channels.title": "Notifications",
-  "notif.channels.body": "Pick how you want notifications delivered. Enable the channels the admin has made available and fill in your destination.",
+  "notif.channels.body":
+    "Pick how you want notifications delivered. Enable the channels the admin has made available and fill in your destination.",
   "notif.channels.disabled_by_admin": "Channels disabled by the admin",
   "notif.channel.on": "On",
   "notif.channel.off": "Off",
@@ -1022,8 +1080,10 @@ export default {
   "notif.channel.no_destination": "No destination — configure first.",
   "notif.channel.fill_destination_first": "Fill in your destination first",
   "notif.channel.browser_push": "Browser (OS Push)",
-  "notif.channel.browser_push.body": "System notifications delivered to your browser, even when the tab is closed.",
-  "notif.channel.browser_push.hint": "Click to allow this browser to receive notifications. You can subscribe from multiple devices.",
+  "notif.channel.browser_push.body":
+    "System notifications delivered to your browser, even when the tab is closed.",
+  "notif.channel.browser_push.hint":
+    "Click to allow this browser to receive notifications. You can subscribe from multiple devices.",
   "notif.channel.browser_push.subscribe": "Subscribe this browser",
   "notif.channel.browser_push.unsubscribe": "Unsubscribe",
   "notif.channel.browser_push.no_vapid": "The admin hasn't configured a VAPID key yet.",
@@ -1032,21 +1092,25 @@ export default {
   "notif.channel.email.field.to": "Email address",
   "notif.channel.email.field.to.hint": "Where you want the emails delivered.",
   "notif.channel.ntfy": "ntfy",
-  "notif.channel.ntfy.body": "HTTP push to your phone or browser via ntfy.sh or a self-hosted instance.",
+  "notif.channel.ntfy.body":
+    "HTTP push to your phone or browser via ntfy.sh or a self-hosted instance.",
   "notif.channel.ntfy.field.topic": "ntfy topic",
-  "notif.channel.ntfy.field.topic.hint": "The topic you subscribed to in the ntfy app. Keep it secret — anyone can publish to it.",
+  "notif.channel.ntfy.field.topic.hint":
+    "The topic you subscribed to in the ntfy app. Keep it secret — anyone can publish to it.",
   "notif.channel.webhook": "Webhook",
   "notif.channel.webhook.body": "Stable JSON payload POSTed to any HTTP(S) URL.",
   "notif.channel.webhook.field.url": "Webhook URL",
-  "notif.channel.webhook.field.url.hint": "e.g. https://discord.com/api/webhooks/… or your own service.",
+  "notif.channel.webhook.field.url.hint":
+    "e.g. https://discord.com/api/webhooks/… or your own service.",
   "notif.channel.webhook.field.auth": "Authorization header (optional)",
-  "notif.channel.webhook.field.auth.hint": "e.g. \"Bearer abc123\" for protected services.",
+  "notif.channel.webhook.field.auth.hint": 'e.g. "Bearer abc123" for protected services.',
   "notif.channel.apprise": "Apprise",
   "notif.channel.apprise.body": "100+ exotic services via a self-hosted Apprise sidecar.",
   "notif.channel.apprise.field.urls": "Apprise URLs (one per line)",
   "notif.channel.apprise.field.urls.hint": "e.g. tgram://… mailtos://… ntfys://… One per line.",
 
-  "notif.routes.body": "Pick which events go to which channels. The in-app bell receives everything regardless.",
+  "notif.routes.body":
+    "Pick which events go to which channels. The in-app bell receives everything regardless.",
   "notif.routes.save": "Save routing",
   "notif.channel.test.send": "Send a test",
   "notif.channel.test.sending": "Sending…",
@@ -1056,16 +1120,19 @@ export default {
   "editor.save": "Save",
 
   "settings.public_profile": "Public profile",
-  "settings.public_profile.body": "Enable to show your collection at /u/{username} and let other users compare libraries with you.",
+  "settings.public_profile.body":
+    "Enable to show your collection at /u/{username} and let other users compare libraries with you.",
   "settings.public_profile.on": "On",
   "settings.public_profile.off": "Private",
   "settings.public_profile.url": "Public URL",
   "settings.public_profile.show_nsfw": "Show NSFW publicly",
-  "settings.public_profile.show_nsfw.body": "When enabled, your NSFW figures will appear on your public profile. Off by default to keep the public showcase conservative.",
+  "settings.public_profile.show_nsfw.body":
+    "When enabled, your NSFW figures will appear on your public profile. Off by default to keep the public showcase conservative.",
   "settings.public_profile.show_nsfw.on": "NSFW visible",
   "settings.public_profile.show_nsfw.off": "NSFW hidden",
   "settings.public_profile.show_value": "Show collection value publicly",
-  "settings.public_profile.show_value.body": "When enabled, your collection's estimated value (La Cote) appears on your public profile and discovery card. Off by default.",
+  "settings.public_profile.show_value.body":
+    "When enabled, your collection's estimated value (La Cote) appears on your public profile and discovery card. Off by default.",
   "settings.public_profile.show_value.on": "Value visible",
   "settings.public_profile.show_value.off": "Value hidden",
   "settings.copy_url": "Copy",
@@ -1167,14 +1234,16 @@ export default {
   "editor.loading_editor": "Loading editor…",
 
   "settings.currency.title": "Default currency",
-  "settings.currency.body": "The currency pre-selected in every price form (catalog MSRP, price paid, shipping, pre-orders).",
+  "settings.currency.body":
+    "The currency pre-selected in every price form (catalog MSRP, price paid, shipping, pre-orders).",
   "settings.currency.field": "Currency",
   "settings.currency.none": "No preference (JPY)",
   "settings.currency.hint": "You can still pick a different currency on a per-form basis.",
 
   // ----- MangaCollector synergy (Lot 8) -----
   "settings.manga.title": "MangaCollector link",
-  "settings.manga.body": "Link your manga collection: FigureCollector reads your public MangaCollector profile (read-only) to relate the two worlds via the series' MAL id.",
+  "settings.manga.body":
+    "Link your manga collection: FigureCollector reads your public MangaCollector profile (read-only) to relate the two worlds via the series' MAL id.",
   "settings.manga.field.url": "Your MangaCollector instance URL",
   "settings.manga.field.url_ph": "https://manga.example.net",
   "settings.manga.field.slug": "Public profile slug",
@@ -1183,14 +1252,18 @@ export default {
   "settings.manga.connecting": "Connecting…",
   "settings.manga.connected": "connected",
   "settings.manga.sync.cta": "Resync",
-  "settings.manga.sync.hint": "Re-fetches your MangaCollector library and refreshes the crossings — useful right after adding manga.",
+  "settings.manga.sync.hint":
+    "Re-fetches your MangaCollector library and refreshes the crossings — useful right after adding manga.",
   "settings.manga.sync.done": "Synced",
   "settings.manga.sync.error": "Couldn't sync — try again.",
   "settings.manga.tally": "{series} series · {volumes} volumes",
   "settings.manga.unlink": "Unlink",
-  "settings.manga.readonly": "Read-only, via your public profile — no password or token. FigureCollector only reads what you expose publicly.",
-  "settings.manga.error.bad_url": "Invalid, disallowed or unavailable URL — check the instance address.",
-  "settings.manga.error.unreachable": "Couldn't connect — the instance didn't respond. Check the URL and slug.",
+  "settings.manga.readonly":
+    "Read-only, via your public profile — no password or token. FigureCollector only reads what you expose publicly.",
+  "settings.manga.error.bad_url":
+    "Invalid, disallowed or unavailable URL — check the instance address.",
+  "settings.manga.error.unreachable":
+    "Couldn't connect — the instance didn't respond. Check the URL and slug.",
   "settings.manga.error.generic": "Couldn't connect — try again.",
   "settings.manga.error.not_found": "Server not found — it may have been removed.",
   "settings.manga.field.server": "MangaCollector server",
@@ -1201,9 +1274,12 @@ export default {
   "settings.manga.status.approved": "Approved",
   "settings.manga.status.revoked": "Revoked",
   "settings.manga.cancel": "Cancel",
-  "settings.manga.pending.body": "This server is awaiting an administrator's approval. The integration (crossings, badges) activates once it's approved — nothing else to do.",
-  "settings.manga.revoked.body": "This server was revoked by an administrator. The integration is disabled — pick another server.",
-  "settings.manga.revoked.body_reason": "Revoked by an administrator: “{reason}”. The integration is disabled — pick another server.",
+  "settings.manga.pending.body":
+    "This server is awaiting an administrator's approval. The integration (crossings, badges) activates once it's approved — nothing else to do.",
+  "settings.manga.revoked.body":
+    "This server was revoked by an administrator. The integration is disabled — pick another server.",
+  "settings.manga.revoked.body_reason":
+    "Revoked by an administrator: “{reason}”. The integration is disabled — pick another server.",
   "settings.manga.revoked.change": "Change server",
 
   // Manga badge on a figure detail page
@@ -1214,63 +1290,80 @@ export default {
   // Crossings page
   "manga.croisements.eyebrow": "Synergy · two shelves, one universe",
   "manga.croisements.title": "Crossings",
-  "manga.croisements.subtitle": "Your figures and your manga speak the same language: the series' MAL id. Here's where the two worlds meet.",
+  "manga.croisements.subtitle":
+    "Your figures and your manga speak the same language: the series' MAL id. Here's where the two worlds meet.",
   "manga.croisements.reading.title": "Figures from series you read",
   "manga.croisements.reading.sub": "you own the manga, not (yet) the figure",
-  "manga.croisements.reading.cap": "A reason to add to your FigureCollector wishlist — the series is already on your manga shelf.",
-  "manga.croisements.reading.empty": "Nothing yet — no catalogue figure matches a series you're reading.",
+  "manga.croisements.reading.cap":
+    "A reason to add to your FigureCollector wishlist — the series is already on your manga shelf.",
+  "manga.croisements.reading.empty":
+    "Nothing yet — no catalogue figure matches a series you're reading.",
   "manga.croisements.dual.title": "Series in both",
   "manga.croisements.dual.sub": "manga + figure — the heart of your collection",
-  "manga.croisements.dual.cap": "A series' real \"completeness\": you read it and you display it.",
+  "manga.croisements.dual.cap": 'A series\' real "completeness": you read it and you display it.',
   "manga.croisements.dual.empty": "No shared series yet — add figures from series you're reading.",
   "manga.croisements.unlinked.title": "Link your manga collection first",
-  "manga.croisements.unlinked.body": "Crossings appear once your MangaCollector profile is linked. The link is read-only, via your public slug.",
+  "manga.croisements.unlinked.body":
+    "Crossings appear once your MangaCollector profile is linked. The link is read-only, via your public slug.",
   "manga.croisements.unlinked.cta": "Link in settings",
   "manga.croisements.pending.title": "Awaiting approval",
-  "manga.croisements.pending.body": "The MangaCollector server you chose is awaiting an administrator's approval. Crossings will appear as soon as it's approved.",
+  "manga.croisements.pending.body":
+    "The MangaCollector server you chose is awaiting an administrator's approval. Crossings will appear as soon as it's approved.",
   "manga.croisements.revoked.title": "Server revoked",
-  "manga.croisements.revoked.body": "The server you were using was revoked by an administrator. Pick another one in settings.",
-  "manga.croisements.revoked.body_reason": "The server you were using was revoked: “{reason}”. Pick another one in settings.",
+  "manga.croisements.revoked.body":
+    "The server you were using was revoked by an administrator. Pick another one in settings.",
+  "manga.croisements.revoked.body_reason":
+    "The server you were using was revoked: “{reason}”. Pick another one in settings.",
   "manga.pill.vol": "vol. {owned}/{total}",
   "manga.pill.read_full": "100% read",
   "manga.pill.percent": "{pct}%",
   "manga.pill.figures": "{n}",
 
   "settings.bg_model": "Background-removal model",
-  "settings.bg_model.body": "Pick which AI model size to load in your browser when you tap 'Remove background'. The model is cached after first download.",
-  "settings.bg_model.hint": "WebGPU is used automatically when available (recent Chrome / Edge), otherwise multi-threaded WebAssembly.",
+  "settings.bg_model.body":
+    "Pick which AI model size to load in your browser when you tap 'Remove background'. The model is cached after first download.",
+  "settings.bg_model.hint":
+    "WebGPU is used automatically when available (recent Chrome / Edge), otherwise multi-threaded WebAssembly.",
 
   // ----- NSFW -----
   "settings.nsfw.title": "Sensitive content (NSFW)",
-  "settings.nsfw.body": "NSFW-tagged figures may contain nudity or suggestive poses. Choose how you want to see them in your vitrine.",
+  "settings.nsfw.body":
+    "NSFW-tagged figures may contain nudity or suggestive poses. Choose how you want to see them in your vitrine.",
   "settings.nsfw.hide.title": "Hide",
-  "settings.nsfw.hide.body": "NSFW figures vanish from the catalog and my collection. A warning appears on direct figure URLs.",
+  "settings.nsfw.hide.body":
+    "NSFW figures vanish from the catalog and my collection. A warning appears on direct figure URLs.",
   "settings.nsfw.blur.title": "Blur",
-  "settings.nsfw.blur.body": "NSFW figure images stay visible but blurred. Uploading new photos to these figures is disabled.",
+  "settings.nsfw.blur.body":
+    "NSFW figure images stay visible but blurred. Uploading new photos to these figures is disabled.",
   "settings.nsfw.show.title": "Show",
   "settings.nsfw.show.body": "Normal display, no filter or blur.",
 
   "figure.form.section.flags.eyebrow": "Classification",
   "figure.form.section.flags.title": "Content",
   "figure.form.field.is_nsfw": "Mark this figure as NSFW",
-  "figure.form.field.is_nsfw_hint": "Catalog-wide flag: nudity, erotic or suggestive content. Visibility then depends on each user's preference.",
+  "figure.form.field.is_nsfw_hint":
+    "Catalog-wide flag: nudity, erotic or suggestive content. Visibility then depends on each user's preference.",
   "figure.form.nsfw_suggest.text": "The appearance tags suggest adult content.",
   "figure.form.nsfw_suggest.based_on": "Based on:",
   "figure.form.nsfw_suggest.action": "Mark NSFW",
   "figure.form.section.tags.eyebrow": "Search by description",
   "figure.form.section.tags.title": "Appearance tags",
-  "figure.form.tags.hint": "Generated by indexing (character, hair, outfit…). Edit them to refine description search; your changes won't be overwritten.",
+  "figure.form.tags.hint":
+    "Generated by indexing (character, hair, outfit…). Edit them to refine description search; your changes won't be overwritten.",
   "figure.form.tags.empty": "No tags yet.",
   "figure.form.tags.add": "Add a tag — Enter or comma to confirm…",
   "figure.form.tags.remove": "Remove {tag}",
 
-  "nsfw.warn_on_create": "This figure will be flagged NSFW. Your current preference is to hide them: you won't see it in your catalog or collection (but other users with permissive prefs will). Continue?",
+  "nsfw.warn_on_create":
+    "This figure will be flagged NSFW. Your current preference is to hide them: you won't see it in your catalog or collection (but other users with permissive prefs will). Continue?",
   "nsfw.upload_blocked": "✕ Photo uploads disabled (NSFW + blur)",
-  "nsfw.upload_blocked_hint": "Your NSFW preference is set to “blur”. Uploading photos to NSFW figures is disabled until you switch to “show”.",
+  "nsfw.upload_blocked_hint":
+    "Your NSFW preference is set to “blur”. Uploading photos to NSFW figures is disabled until you switch to “show”.",
 
   "nsfw.gate.eyebrow": "Sensitive content",
   "nsfw.gate.title": "This record is flagged NSFW",
-  "nsfw.gate.body": "Your current preference hides these figures. You can reveal it just for this session, or adjust your preference in settings.",
+  "nsfw.gate.body":
+    "Your current preference hides these figures. You can reveal it just for this session, or adjust your preference in settings.",
   "nsfw.gate.cta_show": "Reveal this time",
   "nsfw.gate.cta_settings": "Change my preference",
   "settings.bg_model.small": "Small · 40 MB · fast",
@@ -1278,7 +1371,8 @@ export default {
   "settings.bg_model.large": "Large · 120 MB · best quality",
 
   "turntable.section.title": "360° view",
-  "turntable.viewer.load_error": "{failed} of {total} frames failed to load (network error or too many requests).",
+  "turntable.viewer.load_error":
+    "{failed} of {total} frames failed to load (network error or too many requests).",
   "turntable.viewer.retry": "Retry",
   "turntable.viewer.fullscreen": "Fullscreen",
   "turntable.section.empty": "No 360° scan yet for this piece.",
@@ -1303,24 +1397,28 @@ export default {
   "turntable.camera_error": "Could not access the camera.",
 
   "turntable.import.cta": "+ Pick images",
-  "turntable.import.hint": "Choose 6 to 96 images shot from different angles. They'll be re-encoded as WebP.",
+  "turntable.import.hint":
+    "Choose 6 to 96 images shot from different angles. They'll be re-encoded as WebP.",
   "turntable.import.preparing": "Preparing images…",
   "turntable.import.collected": "{n} images ready",
 
   "turntable.video.cta": "+ Pick / record a video",
-  "turntable.video.hint": "Rotate around the figure while filming. We sample N evenly-spaced frames.",
+  "turntable.video.hint":
+    "Rotate around the figure while filming. We sample N evenly-spaced frames.",
   "turntable.video.picked": "Video: {name}",
   "turntable.video.extract": "Extract frames",
   "turntable.video.extracting": "Extracting… {p}%",
   "turntable.video.send": "Send video for 3D",
-  "turntable.video.send_hint": "Uploads the original video — the 3D model trains on full-resolution frames, not the downscaled previews.",
+  "turntable.video.send_hint":
+    "Uploads the original video — the 3D model trains on full-resolution frames, not the downscaled previews.",
   "turntable.video.save_with_video": "Save scan + video",
 
   "turntable.uploading": "Uploading scan…",
   "turntable.uploading_hint": "Keep the app open.",
 
   "turntable.wizard.generate_3d": "3D model (Gaussian Splatting)",
-  "turntable.wizard.gsplat_hint": "The 3D model will be trained on your GPU sidecar (~10-30 minutes after upload). The 2D scan remains usable in the meantime.",
+  "turntable.wizard.gsplat_hint":
+    "The 3D model will be trained on your GPU sidecar (~10-30 minutes after upload). The 2D scan remains usable in the meantime.",
   "gsplat.loading": "Loading 3D model…",
   "gsplat.viewer_label": "3D model — click-drag to orbit, scroll to zoom",
   "scan.view.360": "360° view",
@@ -1330,7 +1428,8 @@ export default {
   "scan.strip.3d_failed": "3D model: failed",
   "gsplat.processing": "Training the 3D model…",
   "gsplat.pending": "Queued…",
-  "gsplat.processing_hint": "The Gaussian Splatting sidecar is crunching on GPU. Allow ~10-30 minutes depending on frame count and figure complexity. Nothing to do on your side.",
+  "gsplat.processing_hint":
+    "The Gaussian Splatting sidecar is crunching on GPU. Allow ~10-30 minutes depending on frame count and figure complexity. Nothing to do on your side.",
   "gsplat.failed": "3D training failed",
   "gsplat.retry": "Start another scan",
 
@@ -1435,7 +1534,8 @@ export default {
   "cancel.refund.full": "Fully refunded",
   "cancel.refund.confirm": "Confirm cancellation",
   "cancel.fate.title": "This piece?",
-  "cancel.fate.body": "Your deposit was fully refunded. You can delete it from your collection or archive it to keep a record.",
+  "cancel.fate.body":
+    "Your deposit was fully refunded. You can delete it from your collection or archive it to keep a record.",
   "cancel.fate.archive": "Archive",
   "cancel.fate.delete": "Delete",
   "preorder.history.deposit_refund": "Refunded:",
@@ -1490,85 +1590,108 @@ export default {
   "admin.settings.body": "Instance-wide policies applied to every user.",
   "admin.settings.gsplat.kicker": "FEATURE",
   "admin.settings.gsplat.title": "3D models",
-  "admin.settings.gsplat.desc": "Who can generate a 3D model (Gaussian Splatting)? Training is very GPU-heavy — you can reserve it for administrators.",
+  "admin.settings.gsplat.desc":
+    "Who can generate a 3D model (Gaussian Splatting)? Training is very GPU-heavy — you can reserve it for administrators.",
   "admin.settings.gsplat.everyone": "Everyone",
   "admin.settings.gsplat.everyone_desc": "Any signed-in member can start a 3D model.",
   "admin.settings.gsplat.admins_only": "Administrators only",
-  "admin.settings.gsplat.admins_only_desc": "Only administrators can start a 3D model. The checkbox is hidden from everyone else.",
+  "admin.settings.gsplat.admins_only_desc":
+    "Only administrators can start a 3D model. The checkbox is hidden from everyone else.",
   "admin.settings.save": "Save",
   "admin.settings.saved": "Settings saved.",
   "admin.settings.cote.kicker": "AUTOMATION",
   "admin.settings.cote.title": "Automatic prices (cote)",
-  "admin.settings.cote.desc": "A cron periodically fetches the price of figures linked to at least one store with a buy link — via the providers (OrzGK) and the proxy — and feeds the cote, below any manually-entered value.",
+  "admin.settings.cote.desc":
+    "A cron periodically fetches the price of figures linked to at least one store with a buy link — via the providers (OrzGK) and the proxy — and feeds the cote, below any manually-entered value.",
   "admin.settings.cote.schedule_label": "Schedule (cron, UTC)",
-  "admin.settings.cote.schedule_hint": "5-field cron expression, in UTC. E.g. \"0 3 * * *\" = every day at 3am. Leaving it empty disables the feature.",
+  "admin.settings.cote.schedule_hint":
+    '5-field cron expression, in UTC. E.g. "0 3 * * *" = every day at 3am. Leaving it empty disables the feature.',
   "admin.settings.cote.enabled": "Enabled",
   "admin.settings.cote.disabled": "Disabled",
   "admin.settings.cote.invalid": "Invalid cron expression.",
   "admin.settings.visual.kicker": "RECOGNITION",
   "admin.settings.visual.title": "Photo search",
-  "admin.settings.visual.desc": "Lets members photograph a figure to find it in the catalog. The embedding is computed in the browser (DINOv2-small); only the signature travels, never the photo. The catalog index is built by a worker advertising the \"embed\" capability.",
+  "admin.settings.visual.desc":
+    'Lets members photograph a figure to find it in the catalog. The embedding is computed in the browser (DINOv2-small); only the signature travels, never the photo. The catalog index is built by a worker advertising the "embed" capability.',
   "admin.settings.visual.enable_on": "Photo search enabled",
   "admin.settings.visual.enable_off": "Photo search disabled",
-  "admin.settings.visual.enable_hint": "Surfaces the \"Recognize by photo\" entry and allows queries.",
+  "admin.settings.visual.enable_hint":
+    'Surfaces the "Recognize by photo" entry and allows queries.',
   "admin.settings.visual.index_status": "Index: {embedded} image(s) embedded, {pending} pending.",
   "admin.settings.visual.worker_on": "Indexing worker online.",
-  "admin.settings.visual.worker_off": "No \"embed\" worker online — the index can't be (re)built.",
+  "admin.settings.visual.worker_off": 'No "embed" worker online — the index can\'t be (re)built.',
   "admin.settings.visual.reindex": "Re-index the catalog",
-  "admin.settings.visual.reindex_hint": "Queues every catalog image without an embedding; the worker processes them.",
+  "admin.settings.visual.reindex_hint":
+    "Queues every catalog image without an embedding; the worker processes them.",
   "admin.settings.visual.reindex_done": "{queued} image(s) queued.",
   "admin.settings.visual.external_on": "Web fallback (Google Vision) enabled",
   "admin.settings.visual.external_off": "Web fallback (Google Vision) disabled",
-  "admin.settings.visual.external_hint": "When the catalog has no match, the user can — on an explicit tap — send their photo to Google Vision for identification leads. This is the only case where the photo leaves the device.",
+  "admin.settings.visual.external_hint":
+    "When the catalog has no match, the user can — on an explicit tap — send their photo to Google Vision for identification leads. This is the only case where the photo leaves the device.",
   "admin.settings.visual.threshold_label": "Similarity threshold",
-  "admin.settings.visual.threshold_hint": "Below this floor, a figure isn't surfaced as \"close\" or \"recommended\". Higher = fewer but more relevant suggestions.",
+  "admin.settings.visual.threshold_hint":
+    'Below this floor, a figure isn\'t surfaced as "close" or "recommended". Higher = fewer but more relevant suggestions.',
   "admin.settings.visual.ambiances_on": "Vibes enabled",
   "admin.settings.visual.ambiances_off": "Vibes disabled",
-  "admin.settings.visual.ambiances_hint": "Groups the catalogue into families of visual look (similar poses, colours, style). Worthwhile from around fifty varied figures.",
+  "admin.settings.visual.ambiances_hint":
+    "Groups the catalogue into families of visual look (similar poses, colours, style). Worthwhile from around fifty varied figures.",
   "admin.settings.visual.ambiances_count": "Current catalogue: {n}.",
   "admin.settings.visual.text_on": "Meaning search enabled",
   "admin.settings.visual.text_off": "Meaning search disabled",
-  "admin.settings.visual.text_hint": "Adds a \"Meaning\" mode to search: find a figure by a description, not just keywords. Index the texts below first.",
+  "admin.settings.visual.text_hint":
+    'Adds a "Meaning" mode to search: find a figure by a description, not just keywords. Index the texts below first.',
   "admin.settings.visual.text_reindex": "Index texts",
   "admin.settings.visual.text_indexed": "{n} indexed",
   "admin.settings.visual.text_reindex_done": "Queue filled.",
   "admin.settings.visual.text_min_match_label": "Minimum relevance",
-  "admin.settings.visual.text_min_match_hint": "Minimum score for a \"Meaning\" result to show. e5 packs scores into a high band (~80–90%): raise this to trim the weak tail. 0% shows everything.",
+  "admin.settings.visual.text_min_match_hint":
+    'Minimum score for a "Meaning" result to show. e5 packs scores into a high band (~80–90%): raise this to trim the weak tail. 0% shows everything.',
   "admin.settings.visual.clip_on": "Search by look enabled",
   "admin.settings.visual.clip_off": "Search by look disabled",
-  "admin.settings.visual.clip_hint": "Adds a \"Look\" mode: find a figure by describing how it looks (pose, hair, outfit), via SigLIP. Index the images below first; the text model (~283 MB) loads only on use.",
+  "admin.settings.visual.clip_hint":
+    'Adds a "Look" mode: find a figure by describing how it looks (pose, hair, outfit), via SigLIP. Index the images below first; the text model (~283 MB) loads only on use.',
   "admin.settings.visual.clip_reindex": "Index images (look)",
   "admin.settings.visual.clip_indexed": "{n} indexed",
   "admin.settings.visual.clip_min_match_label": "Minimum relevance",
-  "admin.settings.visual.clip_min_match_hint": "Minimum score for a \"Look\" result to show. SigLIP scores are low and tightly packed: raise this to trim the tail. 0% shows everything.",
+  "admin.settings.visual.clip_min_match_hint":
+    'Minimum score for a "Look" result to show. SigLIP scores are low and tightly packed: raise this to trim the tail. 0% shows everything.',
   "admin.settings.visual.tags_on": "Search by look (tags) enabled",
   "admin.settings.visual.tags_off": "Search by look (tags) disabled",
-  "admin.settings.visual.tags_hint": "Tags each image (character, hair, outfit, \"elf\"…) and adds those tags to the \"Meaning\" text, so semantic search also finds figures by appearance. Runs in the worker, no extra in-browser model. Index below.",
+  "admin.settings.visual.tags_hint":
+    'Tags each image (character, hair, outfit, "elf"…) and adds those tags to the "Meaning" text, so semantic search also finds figures by appearance. Runs in the worker, no extra in-browser model. Index below.',
   "admin.settings.visual.tags_reindex": "Index appearance (tags)",
   "admin.settings.visual.force": "From scratch",
   "admin.settings.visual.force_confirm": "Confirm — wipe",
   "admin.settings.visual.force_hint": "Wipes this index, then rebuilds it from scratch.",
   "admin.settings.visual.force_all": "Rebuild all from scratch",
   "admin.settings.visual.force_all_confirm": "Confirm — wipe & rebuild all",
-  "admin.settings.visual.force_all_hint": "Wipes every index (vectors + tags) and re-runs a full indexing from scratch.",
+  "admin.settings.visual.force_all_hint":
+    "Wipes every index (vectors + tags) and re-runs a full indexing from scratch.",
   "admin.settings.visual.tags_indexed": "{n} tagged",
   "admin.settings.visual.ambiances_help_aria": "What is a vibe?",
   "admin.settings.visual.ambiances_help_eyebrow": "Photo search",
   "admin.settings.visual.ambiances_help_title": "What is a vibe?",
-  "admin.settings.visual.ambiances_help_p1": "A vibe groups figures that look alike — same style, same mood (pose, colours, composition) — regardless of their type or manufacturer.",
-  "admin.settings.visual.ambiances_help_p2": "The grouping is computed from the images themselves (the same visual fingerprint as photo search), not from the records: two pieces with a similar look land in the same vibe.",
-  "admin.settings.visual.ambiances_help_p3": "It's a discovery aid: browse your collection \"by mood\" rather than by category. It only matters on a fairly large, varied collection — on a small catalogue, or one with a single kind of piece, vibes say little. That's why it's off by default.",
+  "admin.settings.visual.ambiances_help_p1":
+    "A vibe groups figures that look alike — same style, same mood (pose, colours, composition) — regardless of their type or manufacturer.",
+  "admin.settings.visual.ambiances_help_p2":
+    "The grouping is computed from the images themselves (the same visual fingerprint as photo search), not from the records: two pieces with a similar look land in the same vibe.",
+  "admin.settings.visual.ambiances_help_p3":
+    "It's a discovery aid: browse your collection \"by mood\" rather than by category. It only matters on a fairly large, varied collection — on a small catalogue, or one with a single kind of piece, vibes say little. That's why it's off by default.",
   "common.got_it": "Got it",
   "common.close": "Close",
   "admin.settings.visual.key_label": "Google Cloud Vision API key",
-  "admin.settings.visual.key_set": "A key is stored. Entering a new value replaces it; clearing the field and saving removes it.",
-  "admin.settings.visual.key_unset": "No key stored — the web fallback stays unavailable until one is provided.",
+  "admin.settings.visual.key_set":
+    "A key is stored. Entering a new value replaces it; clearing the field and saving removes it.",
+  "admin.settings.visual.key_unset":
+    "No key stored — the web fallback stays unavailable until one is provided.",
   "admin.settings.visual.key_placeholder": "AIza…",
   "admin.tasks.eyebrow": "Administration · Processing queue",
   "admin.tasks.title": "Tasks",
-  "admin.tasks.body": "Every background task of the server: 3D-compute (gsplat) jobs taken by workers and the cron tasks the server runs itself (release notifications, cleanup, manga sync, cote prices) — live state, executor, duration and result. Retry a failure, force a stuck task to failed, or purge a finished entry. 360° (turntable) videos aren't shown here.",
+  "admin.tasks.body":
+    "Every background task of the server: 3D-compute (gsplat) jobs taken by workers and the cron tasks the server runs itself (release notifications, cleanup, manga sync, cote prices) — live state, executor, duration and result. Retry a failure, force a stuck task to failed, or purge a finished entry. 360° (turntable) videos aren't shown here.",
   "admin.tasks.empty.title": "No tasks",
-  "admin.tasks.empty.body": "3D-compute (gsplat) jobs and the server's cron tasks show up here as they run.",
+  "admin.tasks.empty.body":
+    "3D-compute (gsplat) jobs and the server's cron tasks show up here as they run.",
   "admin.tasks.filter.all": "All",
   "admin.tasks.filter.active": "Active",
   "admin.tasks.filter.failed": "Failed",
@@ -1596,7 +1719,8 @@ export default {
   "admin.tasks.indexing.kind.tags.title": "Tags index",
   "admin.tasks.dupes.eyebrow": "Catalogue integrity",
   "admin.tasks.dupes.title": "Potential duplicates",
-  "admin.tasks.dupes.hint": "Visually near-identical pairs — review, then merge or delete the duplicate piece.",
+  "admin.tasks.dupes.hint":
+    "Visually near-identical pairs — review, then merge or delete the duplicate piece.",
   "admin.tasks.indexing.worker_on": "Worker online",
   "admin.tasks.indexing.worker_off": "No worker",
   "admin.tasks.indexing.progress": "{done} / {total} · {pct}%",
@@ -1656,9 +1780,11 @@ export default {
   "admin.tasks.result.k.queued": "{n} queued",
   "admin.manga_servers.eyebrow": "Administration · Allow-list",
   "admin.manga_servers.title": "MangaCollector servers",
-  "admin.manga_servers.body": "Every server a user submits lands here as pending. Approve it to activate the integration, or revoke an approved one — the linked users are notified and the integration stops.",
+  "admin.manga_servers.body":
+    "Every server a user submits lands here as pending. Approve it to activate the integration, or revoke an approved one — the linked users are notified and the integration stops.",
   "admin.manga_servers.empty.title": "No servers",
-  "admin.manga_servers.empty.body": "When a user links their manga collection, the server they enter shows up here for review.",
+  "admin.manga_servers.empty.body":
+    "When a user links their manga collection, the server they enter shows up here for review.",
   "admin.manga_servers.section.pending": "Pending",
   "admin.manga_servers.section.approved": "Approved",
   "admin.manga_servers.section.revoked": "Revoked",
@@ -1690,10 +1816,12 @@ export default {
   // Workers admin (/admin/workers)
   "admin.workers.eyebrow": "3D compute fleet",
   "admin.workers.title": "Workers — register",
-  "admin.workers.body": "Every CUDA or Metal worker self-registers here on startup and signals its presence via heartbeat. Disable one to stop it taking jobs; delete a stale row to clean up. If no worker is online AND enabled, the user-facing upload form hides its \"3D model\" checkbox.",
+  "admin.workers.body":
+    'Every CUDA or Metal worker self-registers here on startup and signals its presence via heartbeat. Disable one to stop it taking jobs; delete a stale row to clean up. If no worker is online AND enabled, the user-facing upload form hides its "3D model" checkbox.',
   "admin.workers.count": "{n} worker(s) on the register",
   "admin.workers.empty": "No workers registered.",
-  "admin.workers.empty_hint": "Start a worker (CUDA or Metal): it'll show up here on its first heartbeat.",
+  "admin.workers.empty_hint":
+    "Start a worker (CUDA or Metal): it'll show up here on its first heartbeat.",
   "admin.workers.last_seen": "last seen",
   "admin.workers.rename": "Rename",
   "admin.workers.enable": "Enable",
@@ -1756,7 +1884,8 @@ export default {
 
   "admin.types.eyebrow": "Figure categories",
   "admin.types.title": "Types — registry",
-  "admin.types.body": "Curate the catalog's figure-type taxonomy. Each type carries a kanji seal, a technical slug, and bilingual labels. Position drives the dropdown order.",
+  "admin.types.body":
+    "Curate the catalog's figure-type taxonomy. Each type carries a kanji seal, a technical slug, and bilingual labels. Position drives the dropdown order.",
   "admin.types.count": "{n} type(s) on the registry",
   "admin.types.add": "New type",
   "admin.types.confirm_add": "Add",
@@ -1779,15 +1908,20 @@ export default {
   "admin.types.field.position_hint": "Ascending order",
   "admin.notif.title": "Notification channels",
   "admin.notif.subtitle": "SYSTEM CONFIG",
-  "admin.notif.body": "Enable and configure the channels offered to users. Secrets (SMTP, VAPID, ntfy auth) live here — each user only supplies their own destination.",
+  "admin.notif.body":
+    "Enable and configure the channels offered to users. Secrets (SMTP, VAPID, ntfy auth) live here — each user only supplies their own destination.",
   "admin.notif.save": "Save secrets",
   "admin.notif.vapid.generate": "Generate a new VAPID keypair",
   "admin.notif.vapid.generating": "Generating…",
-  "admin.notif.vapid.hint": "Generates an ECDSA P-256 keypair on the server. Values are filled into the form below — don't forget to click \"Save\" after.",
-  "admin.notif.vapid.confirm_overwrite": "A VAPID keypair already exists. Regenerating will invalidate every existing subscription — users will have to re-subscribe from each of their browsers. Proceed?",
-  "admin.notif.vapid.generated_save": "✓ Keypair generated — review the values and click \"Save secrets\".",
+  "admin.notif.vapid.hint":
+    'Generates an ECDSA P-256 keypair on the server. Values are filled into the form below — don\'t forget to click "Save" after.',
+  "admin.notif.vapid.confirm_overwrite":
+    "A VAPID keypair already exists. Regenerating will invalidate every existing subscription — users will have to re-subscribe from each of their browsers. Proceed?",
+  "admin.notif.vapid.generated_save":
+    '✓ Keypair generated — review the values and click "Save secrets".',
   "admin.catalog.title": "Manufacturers, series & characters",
-  "admin.catalog.intro": "Edit description, image, and AniList / MAL ids. Blank fields are left untouched; clearing a value has to be done in the database.",
+  "admin.catalog.intro":
+    "Edit description, image, and AniList / MAL ids. Blank fields are left untouched; clearing a value has to be done in the database.",
   "admin.catalog.tab.manufacturers": "Manufacturers",
   "admin.catalog.tab.series": "Series",
   "admin.catalog.tab.characters": "Characters",
@@ -1798,14 +1932,18 @@ export default {
   "admin.catalog.edit": "Edit",
   "admin.catalog.delete": "Delete",
   "admin.catalog.delete_confirm": "Delete permanently",
-  "admin.catalog.delete_body.series_with_figures": "This series groups {n} figure(s). Pick a replacement series to inherit the figures and characters, or leave empty to orphan them (figures keep existing but lose any series link).",
-  "admin.catalog.delete_body.series_empty": "No figures or characters attached. Deletion is immediate.",
-  "admin.catalog.delete_body.character_with_figures": "This character is linked to {n} figure(s). Pick a replacement character to inherit the links, or leave empty to drop them.",
+  "admin.catalog.delete_body.series_with_figures":
+    "This series groups {n} figure(s). Pick a replacement series to inherit the figures and characters, or leave empty to orphan them (figures keep existing but lose any series link).",
+  "admin.catalog.delete_body.series_empty":
+    "No figures or characters attached. Deletion is immediate.",
+  "admin.catalog.delete_body.character_with_figures":
+    "This character is linked to {n} figure(s). Pick a replacement character to inherit the links, or leave empty to drop them.",
   "admin.catalog.delete_body.character_empty": "No figures attached. Deletion is immediate.",
   "admin.catalog.delete_replacement_label": "Replacement series / character",
   "admin.catalog.delete_replacement_none": "— none (leave the figures orphaned) —",
   "admin.catalog.delete_hint.series_merge": "Figures and characters migrate to the chosen series.",
-  "admin.catalog.delete_hint.series_orphan": "Figures lose their series; characters survive but get detached.",
+  "admin.catalog.delete_hint.series_orphan":
+    "Figures lose their series; characters survive but get detached.",
   "admin.catalog.delete_hint.character_merge": "Figures migrate to the chosen character.",
   "admin.catalog.delete_hint.character_orphan": "Figures lose this character.",
   "admin.catalog.save": "Save",
@@ -1821,7 +1959,8 @@ export default {
   "admin.catalog.field.image_url.manufacturers": "Logo URL",
   "admin.catalog.field.image_url.series": "Cover URL",
   "admin.catalog.field.image_url.characters": "Portrait URL",
-  "admin.catalog.field.image_url_hint": "An external URL (AniList, Wikipedia…). Overridden by an uploaded file below.",
+  "admin.catalog.field.image_url_hint":
+    "An external URL (AniList, Wikipedia…). Overridden by an uploaded file below.",
   "admin.catalog.field.upload": "Upload an image (≤ 5 MB, JPEG / PNG / WebP)",
   "admin.catalog.refetch": "Refetch",
 
@@ -1862,7 +2001,8 @@ export default {
   "admin.users.new.is_admin": "Grant admin rights",
   "admin.users.new.create": "Create account",
   "admin.users.confirm_delete.title": "Delete {name}?",
-  "admin.users.confirm_delete.body": "Irreversible. Removes the user's whole collection, pre-orders, photos and scans too.",
+  "admin.users.confirm_delete.body":
+    "Irreversible. Removes the user's whole collection, pre-orders, photos and scans too.",
   "admin.users.confirm_delete.confirm": "Confirm deletion",
 
   "admin.figures.subtitle": "Whole catalog — edit or remove any record.",
@@ -1874,7 +2014,8 @@ export default {
   "admin.figures.action.edit": "Edit record",
   "admin.figures.action.delete": "Remove from catalog",
   "admin.figures.confirm_delete.title": "Remove “{name}” from the catalog?",
-  "admin.figures.confirm_delete.body": "Every collection referencing this record loses its piece. Irreversible.",
+  "admin.figures.confirm_delete.body":
+    "Every collection referencing this record loses its piece. Irreversible.",
 
   "figure.edit.cta": "Edit",
 
@@ -1909,8 +2050,7 @@ export default {
   "figure.form.stores.add_label": "Store",
   "figure.form.stores.add_ph": "Existing store name…",
   "figure.form.stores.add_btn": "Link",
-  "figure.form.stores.unknown":
-    "No store under that name. Create it first from /admin/stores.",
+  "figure.form.stores.unknown": "No store under that name. Create it first from /admin/stores.",
   "figure.form.stores.already": "That store is already linked.",
   "figure.form.stores.remove": "Remove {name}",
   "figure.form.stores.link_label": "Product link (optional)",
@@ -1969,11 +2109,9 @@ export default {
   "doc.parse.count": "{n} invoice(s) parsed",
   "doc.parse.apply": "Apply to item",
   "doc.parse.applied": "Applied ✓",
-  "doc.parse.mixed_currency":
-    "Mixed currencies — total not summed. Store and date still apply.",
+  "doc.parse.mixed_currency": "Mixed currencies — total not summed. Store and date still apply.",
   "doc.parse.nothing": "No usable info detected.",
-  "doc.parse.note.image":
-    "No text layer (image) — OCR isn't available yet. Enter manually.",
+  "doc.parse.note.image": "No text layer (image) — OCR isn't available yet. Enter manually.",
   "doc.parse.note.no_text": "No text found in this PDF.",
   "doc.parse.note.failed": "Text extraction failed.",
   "doc.parse.note.ocr_pending":
@@ -2006,7 +2144,8 @@ export default {
   "figure.edit.title": "Edit catalog entry",
   "figure.edit.subtitle": "Any change is visible to other collectors.",
   "figure.edit.confirm_delete.title": "Remove “{name}”?",
-  "figure.edit.confirm_delete.body": "The record disappears from the catalog for everyone, including every piece referencing it.",
+  "figure.edit.confirm_delete.body":
+    "The record disappears from the catalog for everyone, including every piece referencing it.",
 
   "a11y.skip_to_content": "Skip to content",
   "admin.catalog.search": "Filter by name…",
@@ -2027,11 +2166,14 @@ export default {
   "admin.notif.ch.apprise.name": "Apprise",
   "admin.notif.ch.apprise.body": "Apprise sidecar that fans out to 100+ services.",
   "admin.notif.f.browser_push.vapid_public_key.label": "VAPID public key",
-  "admin.notif.f.browser_push.vapid_public_key.hint": "Base64url ECDSA P-256 public key the SPA passes to pushManager.subscribe.",
+  "admin.notif.f.browser_push.vapid_public_key.hint":
+    "Base64url ECDSA P-256 public key the SPA passes to pushManager.subscribe.",
   "admin.notif.f.browser_push.vapid_private_key.label": "VAPID private key (PEM)",
-  "admin.notif.f.browser_push.vapid_private_key.hint": "PEM-encoded EC private key. Generate with web-push-cli or any VAPID generator.",
+  "admin.notif.f.browser_push.vapid_private_key.hint":
+    "PEM-encoded EC private key. Generate with web-push-cli or any VAPID generator.",
   "admin.notif.f.browser_push.vapid_subject.label": "VAPID subject",
-  "admin.notif.f.browser_push.vapid_subject.hint": "mailto:admin@your-domain or https://your-domain — required by push services.",
+  "admin.notif.f.browser_push.vapid_subject.hint":
+    "mailto:admin@your-domain or https://your-domain — required by push services.",
   "admin.notif.f.email.host.label": "SMTP host",
   "admin.notif.f.email.port.label": "Port",
   "admin.notif.f.email.use_tls.label": "Use TLS (port 465)",
@@ -2053,7 +2195,8 @@ export default {
   "admin.types.field.color_pick": "Pick a colour",
   "admin.types.field.color_ph": "#c8a24b · oklch(0.7 0.13 80) · rebeccapurple",
   "admin.types.field.color_reset": "Reset to theme default",
-  "admin.types.field.color_hint": "Custom accent for this type, applied in both themes. Leave empty to keep the theme default.",
+  "admin.types.field.color_hint":
+    "Custom accent for this type, applied in both themes. Leave empty to keep the theme default.",
 
   // ── Redesign bespoke backfill ──
   "admin.kicker": "ADMINISTRATION",
@@ -2084,7 +2227,8 @@ export default {
   "admin.catalog.stat.figures_label": "Linked figures",
   "admin.catalog.stat.linked": "External sources",
   "admin.catalog.stat.linked_sub": "AniList / MAL",
-  "admin.catalog.empty.body": "No entity matches. Entities appear as soon as a figure references them or an external source is imported.",
+  "admin.catalog.empty.body":
+    "No entity matches. Entities appear as soon as a figure references them or an external source is imported.",
   "admin.catalog.col.image": "Visual",
   "admin.catalog.col.name": "Name",
   "admin.catalog.col.figures": "Figures",
@@ -2116,7 +2260,8 @@ export default {
   "admin.overview.metrics": "Instance counters",
   "admin.overview.manage.eyebrow": "MANAGEMENT",
   "admin.overview.manage.title": "Manage the platform",
-  "admin.overview.manage.body": "Jump straight to the administration surfaces: accounts, catalogue, entities and the compute queue.",
+  "admin.overview.manage.body":
+    "Jump straight to the administration surfaces: accounts, catalogue, entities and the compute queue.",
   "admin.overview.health.eyebrow": "STATUS",
   "admin.overview.health.title": "Instance health",
   "admin.overview.health.nominal": "System nominal",
@@ -2185,7 +2330,8 @@ export default {
   "vitrines.cabinet_kicker": "Cabinet",
   "vitrines.cabinet_kicker_freetext": "Location",
   "vitrines.empty_eyebrow": "No showcase",
-  "vitrines.empty_body": "Add pieces to your collection, then arrange them in showcases by dragging them into place.",
+  "vitrines.empty_body":
+    "Add pieces to your collection, then arrange them in showcases by dragging them into place.",
   "import.kicker_label": "WISHES",
   "import.steps_label": "Import steps",
   "import.source_label": "Link or HTML",
@@ -2243,17 +2389,166 @@ export default {
   "profile.empty.title": "Empty showcase",
   "addfig.kicker": "ADD",
   "addfig.kicker_label": "CATALOGUE",
-  "addfig.gloss": "A new piece for the catalogue — described by hand, or pre-filled from an external source.",
+  "addfig.gloss":
+    "A new piece for the catalogue — described by hand, or pre-filled from an external source.",
   "addfig.ways.heading": "Two ways to add",
   "addfig.ways.manual.title": "Manual entry",
-  "addfig.ways.manual.body": "Fill in the record yourself. It's always possible — every field can be edited by hand.",
+  "addfig.ways.manual.body":
+    "Fill in the record yourself. It's always possible — every field can be edited by hand.",
   "addfig.ways.lookup.title": "Search & scan",
-  "addfig.ways.lookup.body": "Search orzgk (and the proxy's shops), paste a product link, import an MFC sheet, or scan a barcode — the fields found are pre-filled. Tweak them afterwards.",
-  "addfig.scanned_jan": "Barcode scanned « {jan} » — pre-filled below. Complete the record then create it.",
+  "addfig.ways.lookup.body":
+    "Search orzgk (and the proxy's shops), paste a product link, import an MFC sheet, or scan a barcode — the fields found are pre-filled. Tweak them afterwards.",
+  "addfig.scanned_jan":
+    "Barcode scanned « {jan} » — pre-filled below. Complete the record then create it.",
   "addfig.form.eyebrow": "Catalogue record",
   "addfig.form.title": "The record",
-  "addfig.also_add_hint": "Unchecked: the record joins the catalogue without entering your showcase.",
+  "addfig.also_add_hint":
+    "Unchecked: the record joins the catalogue without entering your showcase.",
   "turntable.import.frame_alt": "Frame {n}",
   "figure.catalog_photos.upload_failed": "Upload failed: {name}",
   "figure.catalog_photos.upload_pending": "Uploading {name}…",
+
+  // ----- Redesign i18n backfill (keys introduced via t(key,{default}) ) -----
+  // nav
+  "nav.primary": "Primary navigation",
+  "nav.secondary": "Secondary navigation",
+  "nav.community": "Community",
+  // palette
+  "palette.group.actions": "Actions",
+  // lookup
+  "lookup.tab.search": "Search",
+  "lookup.tab.link": "Link",
+  "lookup.tab.barcode": "Barcode",
+  "lookup.tab.anilist": "AniList",
+  "lookup.figure.modal_title": "Prefill from a source",
+  "lookup.figure.modal_desc":
+    "Search, paste a link or scan a barcode. Found fields are prefilled — you stay in control of everything.",
+  "lookup.figure.link_note":
+    "Paste an orzgk product link or one from a shop your proxy supports. The listing opens so you can pick version and price.",
+  "lookup.figure.link_open": "Open the listing",
+  "lookup.figure.barcode_note":
+    "Scan the box barcode (or type it) — it fills the record's JAN/EAN field.",
+  "lookup.figure.anilist_note":
+    "Search the series on AniList to fill in its origin and enrich the record (description, artwork). The character is then refined in the form.",
+  "lookup.figure.detail.tariff_one": "tariff",
+  "lookup.figure.detail.tariff_other": "tariffs",
+  "lookup.figure.found_fields": "Fields found — prefilled",
+  // activity
+  "activity.error.body": "The journal couldn't be loaded. Try again in a moment.",
+  "activity.filtered_empty.hint": "Re-enable an event type above to see entries again.",
+  "activity.filter.label": "Filter by event type",
+  // admin
+  "admin.tasks.dupes.count": "{n} pair(s)",
+  // browse
+  "browse.filters.open": "Filters",
+  // collection
+  "collection.kicker": "COLLECTION · 蒐 · MY PIECES",
+  "collection.add": "Add a piece",
+  "collection.pin": "Pin to featured",
+  "collection.pin.short": "Featured",
+  "collection.filter.aria": "Filter by condition",
+  "collection.filter.cancelled": "Cancelled",
+  "collection.featured.kicker": "Featured",
+  "collection.featured.state": "Condition",
+  "collection.featured.view": "View the record",
+  "collection.unpin": "Unpin",
+  // common
+  "common.loading": "Loading…",
+  // compare
+  "compare.crumb": "Comparison",
+  "compare.spread_kicker": "HEAD TO HEAD",
+  "compare.lists_kicker": "THE PIECES",
+  // cote
+  "cote.kicker": "INSIGHTS · 価 · VALUATION",
+  "cote.evo.kicker_full": "EVOLUTION · 推 · ESTIMATED VALUATION",
+  "cote.evo.range_label": "Range",
+  "cote.col.piece": "Piece",
+  "cote.col.trend": "Market",
+  "cote.col.paid": "Purchase",
+  "cote.col.value": "Valuation",
+  "cote.col.delta": "+/−",
+  "cote.ranked_kicker": "INVENTORY · 価 · RANKING",
+  "cote.empty.eyebrow": "VALUATION",
+  "cote.empty.title": "Nothing to value yet",
+  // figure
+  "figure.breadcrumb.current": "Record",
+  "figure.cartouche.show_barcode": "Show the barcode",
+  "figure.edit_mine.cta": "Edit my piece",
+  // preorders
+  "preorders.add.cta": "Add a pre-order",
+  "preorders.empty.filtered": "No pre-orders for this filter.",
+  "preorders.add.title": "Add a pre-order",
+  "preorders.add.pick_hint": "Pick the relevant figure from the catalogue.",
+  "preorders.add.search_ph": "Search a figure by name…",
+  "preorders.add.search_prompt": "Type at least two letters to search.",
+  "preorders.add.searching": "Searching…",
+  "preorders.add.no_results": "No figure found.",
+  "preorders.add.create_figure": "Create the figure first",
+  "preorders.add.change_figure": "Change",
+  "preorders.add.price": "Total price",
+  "preorders.add.price_ph": "e.g. 18800",
+  "preorders.add.price_hint": "The total — used to compute the remaining balance.",
+  "preorders.add.currency": "Currency",
+  "preorders.add.submit": "Add",
+  "preorders.stat.deposits": "Deposits paid",
+  "preorders.stat.deposits_none": "—",
+  "preorders.stat.balance": "Balance due",
+  "preorders.stat.balance_none": "Nothing due",
+  // profile
+  "profile.filter.all": "All",
+  "profile.filter.empty": "No pieces of this type.",
+  "profile.filter.reset": "Show all",
+  // settings
+  "settings.notif.none.title": "No channel configured",
+  "settings.notif.none.body":
+    "No notification channel has been enabled by the administrator. Nothing to set up here for now.",
+  "settings.nav.privacy": "Privacy",
+  "settings.privacy.title": "Privacy",
+  "settings.profile.title": "Profile",
+  "settings.profile.role.admin": "Administrator",
+  "settings.profile.display_name": "Display name",
+  "settings.profile.save": "Save",
+  "settings.profile.username": "Username",
+  "settings.profile.email": "Email address",
+  "settings.profile.member_since": "Member since",
+  "settings.profile.member_since.fallback": "—",
+  // stats
+  "stats.export.cta": "Export the report",
+  "stats.empty.title": "The ledger is blank",
+  "stats.empty.cta": "Add a piece",
+  "stats.top.tip": "{name} · {count} fig.",
+  "stats.top.count": "{count} fig.",
+  // vitrines
+  "vitrines.kicker": "COLLECTION · 棚 · DISPLAY CASES",
+  "vitrines.section.organise": "Organise the cabinets",
+  // yir
+  "yir.select_year": "Pick the year",
+  "yir.kicker": "INSIGHTS · 年 · YEAR IN REVIEW {year}",
+  "yir.empty.body": "No pieces, spending or pre-orders for this year.",
+  "yir.empty.hint": "Pick another year above.",
+  "yir.edition": "{year} in review",
+  "yir.fav.count": "× {count} pieces",
+  "yir.timeline.aria":
+    "Pieces acquired per month — {total} in total, peak in {peakMonth} ({peak}).",
+  // bulk
+  "bulk.deselect_item": "Deselect",
+  "bulk.select_item": "Select",
+  "bulk.toolbar": "Bulk actions",
+  "bulk.actions": "Actions",
+  "bulk.selected_count": "{n} selected",
+  // wishlist
+  "wishlist.gift.manage": "Manage the gift link",
+  "wishlist.gift.open": "Share my gift list",
+  // plural .one siblings (base keys already present)
+  "admin.tasks.result.k.filled.one": "{n} series matched",
+  "admin.tasks.result.k.failed.one": "{n} failed",
+
+  // Insurance dossier page (/insights/dossier)
+  "insights.dossier.kicker": "INSIGHTS · 保 · DOSSIER",
+  "insights.dossier.title": "Insurance dossier",
+  "insights.dossier.nav": "Insurance dossier",
+  "insights.dossier.body":
+    "Generate a single PDF combining a dated inventory of your collection with each piece's receipts (invoices) — ready to hand to your insurer.",
+  "insights.dossier.empty": "No pieces to insure",
+  "insights.dossier.empty_body": "Add pieces to your collection to generate a dossier.",
 };

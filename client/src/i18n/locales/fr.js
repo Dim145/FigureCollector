@@ -26,19 +26,23 @@ export default {
 
   "landing.manifesto.label": "Manifeste",
   "landing.manifesto.title": "Une vitrine privée pour vos figurines.",
-  "landing.manifesto.body": "FigureCollector traite chaque pièce comme un objet d'exposition. Vos photos, vos pré-commandes, vos scans 360° vivent dans une vitrine cohérente — auto-hébergée, sécurisée, taillée pour durer. Pas de tracking. Pas de revente. Juste votre collection, mise en scène.",
+  "landing.manifesto.body":
+    "FigureCollector traite chaque pièce comme un objet d'exposition. Vos photos, vos pré-commandes, vos scans 360° vivent dans une vitrine cohérente — auto-hébergée, sécurisée, taillée pour durer. Pas de tracking. Pas de revente. Juste votre collection, mise en scène.",
 
   "landing.feat.collect.label": "Catalogage",
   "landing.feat.collect.title": "Inventaire détaillé",
-  "landing.feat.collect.body": "Nendoroid, scale, figma, prize — toute la diversité figurine couverte. État, prix, lieu, sculpteur, JAN.",
+  "landing.feat.collect.body":
+    "Nendoroid, scale, figma, prize — toute la diversité figurine couverte. État, prix, lieu, sculpteur, JAN.",
 
   "landing.feat.track.label": "Pré-commandes",
   "landing.feat.track.title": "Suivi des dates de sortie",
-  "landing.feat.track.body": "Historique des reports, alertes de glissement, comparaison MSRP / prix payé.",
+  "landing.feat.track.body":
+    "Historique des reports, alertes de glissement, comparaison MSRP / prix payé.",
 
   "landing.feat.share.label": "Partage",
   "landing.feat.share.title": "Profils publics curatés",
-  "landing.feat.share.body": "Activez votre vitrine publique, partagez l'URL, ou comparez votre collection avec celle d'un autre collectionneur.",
+  "landing.feat.share.body":
+    "Activez votre vitrine publique, partagez l'URL, ou comparez votre collection avec celle d'un autre collectionneur.",
 
   "landing.final.label": "Entrée",
   "landing.final.title": "Ouvrez la vitrine.",
@@ -95,7 +99,8 @@ export default {
   // Valeur de collection (« La Cote ») — Lot 1
   "cote.eyebrow": "Inventaire · Valorisation",
   "cote.title": "La Cote",
-  "cote.body": "Ce que vaut la vitrine, pièce par pièce. La valeur estimée se saisit à la main ; à défaut, on retombe sur le prix catalogue (MSRP). La plus-value se lit d'un coup d'œil.",
+  "cote.body":
+    "Ce que vaut la vitrine, pièce par pièce. La valeur estimée se saisit à la main ; à défaut, on retombe sur le prix catalogue (MSRP). La plus-value se lit d'un coup d'œil.",
   "cote.estimated_total": "Valeur estimée de la collection",
   "cote.total_paid": "Total payé",
   "cote.plus_value": "Plus-value latente",
@@ -112,7 +117,8 @@ export default {
   "cote.evo.range.6m": "6 M",
   "cote.evo.range.1y": "1 An",
   "cote.evo.range.all": "Tout",
-  "cote.evo.legend": "Reconstituée depuis les relevés par pièce · {cur} (devise dominante) · valeurs manuelles et MSRP comptées constantes",
+  "cote.evo.legend":
+    "Reconstituée depuis les relevés par pièce · {cur} (devise dominante) · valeurs manuelles et MSRP comptées constantes",
   "cote.history.kicker": "RELEVÉS",
   "cote.history.kicker_label": "MARCHÉ",
   "cote.history.title_suffix": "évolution du prix",
@@ -128,7 +134,8 @@ export default {
   "cote.edit_value": "Modifier la valeur",
   "cote.edit_hint": "Clique une valeur pour l'estimer.",
   "cote.paid_abbr": "payé",
-  "cote.footnote": "La valeur d'une pièce est saisie manuellement ; sans valeur saisie, on affiche le MSRP catalogue dans sa devise (badge « MSRP »).",
+  "cote.footnote":
+    "La valeur d'une pièce est saisie manuellement ; sans valeur saisie, on affiche le MSRP catalogue dans sa devise (badge « MSRP »).",
   "cote.empty": "Aucune pièce à évaluer pour l'instant.",
   "cote.empty_cta": "Parcourir le catalogue",
 
@@ -138,7 +145,8 @@ export default {
   "fx.convertOff": "Garder les devises d'origine",
   "fx.convertOnHint": "Les prix dans une autre devise sont convertis en {cur}.",
   "fx.convertOffHint": "Chaque prix reste dans sa devise d'origine.",
-  "fx.hint": "Taux de la Banque centrale européenne, rafraîchis chaque jour. Le montant d'origine reste consultable au survol.",
+  "fx.hint":
+    "Taux de la Banque centrale européenne, rafraîchis chaque jour. Le montant d'origine reste consultable au survol.",
   "fx.noPreferred": "Choisis d'abord une devise préférée ci-dessus pour activer la conversion.",
   "fx.approx": "approx · converti",
   "fx.partial": "total partiel — une devise non convertie est exclue",
@@ -146,7 +154,8 @@ export default {
   // Vitrines / étagères (« Les Vitrines ») — Lot 1
   "vitrines.eyebrow": "Rangement · Topographie",
   "vitrines.title": "Les Vitrines",
-  "vitrines.body": "Où se trouve chaque pièce. Tes figurines se regroupent par emplacement — chaque vitrine est un meuble, du Detolf du salon au carton de la réserve.",
+  "vitrines.body":
+    "Où se trouve chaque pièce. Tes figurines se regroupent par emplacement — chaque vitrine est un meuble, du Detolf du salon au carton de la réserve.",
   "vitrines.search_ph": "Où est… ?",
   "vitrines.search_found": "Trouvé {n} :",
   "vitrines.search_none": "Rien ne correspond à « {q} ».",
@@ -168,7 +177,8 @@ export default {
   "wishlist.eyebrow": "Désirs · à acquérir",
   "wishlist.title": "Souhaits",
   "wishlist.page_title": "Mes souhaits",
-  "wishlist.body": "Les pièces que tu convoites, avec un prix-cible. Quand tu craques, « Acquérir » la fait passer dans ta collection (une précommande est créée automatiquement si elle n'est pas encore sortie).",
+  "wishlist.body":
+    "Les pièces que tu convoites, avec un prix-cible. Quand tu craques, « Acquérir » la fait passer dans ta collection (une précommande est créée automatiquement si elle n'est pas encore sortie).",
   "wishlist.count_label": "pièces convoitées",
   "wishlist.budget_label": "budget des cibles",
   "wishlist.target": "Cible",
@@ -186,15 +196,18 @@ export default {
   "wishlist.import.cta": "Importer depuis orzgk",
   "import.eyebrow": "Souhaits · import",
   "import.title": "Importer dans mes souhaits",
-  "import.subtitle": "Colle le lien public de ta liste — orzgk ou toute boutique gérée par ton proxy — ou dépose l'export CSV de ta wishlist MFC, puis choisis les figurines à ajouter à tes souhaits — 25 max par lot.",
+  "import.subtitle":
+    "Colle le lien public de ta liste — orzgk ou toute boutique gérée par ton proxy — ou dépose l'export CSV de ta wishlist MFC, puis choisis les figurines à ajouter à tes souhaits — 25 max par lot.",
   "import.step.paste": "Coller",
   "import.step.choose": "Choisir",
   "import.step.import": "Importer",
   "import.phase.source": "① Source — lien public de ta liste",
   "import.phase.importing": "③ Import en cours",
   "import.phase.done": "Terminé",
-  "import.paste_ph": "https://www.orzgk.com/wishlist-2/view/<token>/\n— ou des liens de fiches, un par ligne —\nhttps://www.orzgk.com/product/…/",
-  "import.paste_hint": "Rends ta liste publique sur orzgk (Partager → Public → copier le lien), puis colle-la : le serveur la récupère, pagination suivie. Une liste publique d'une boutique gérée par ton proxy fonctionne aussi. Ou colle des liens de fiches, un par ligne. Repli : coller le HTML d'une liste privée.",
+  "import.paste_ph":
+    "https://www.orzgk.com/wishlist-2/view/<token>/\n— ou des liens de fiches, un par ligne —\nhttps://www.orzgk.com/product/…/",
+  "import.paste_hint":
+    "Rends ta liste publique sur orzgk (Partager → Public → copier le lien), puis colle-la : le serveur la récupère, pagination suivie. Une liste publique d'une boutique gérée par ton proxy fonctionne aussi. Ou colle des liens de fiches, un par ligne. Repli : coller le HTML d'une liste privée.",
   "import.analyse": "Récupérer",
   "import.analysing": "Récupération…",
   "import.selected": "sélectionnées",
@@ -218,8 +231,10 @@ export default {
   "import.sum.errors": "erreurs",
   "import.again": "Importer encore",
   "import.to_wishlist": "Retour aux souhaits",
-  "import.err.no_source": "Colle un lien de liste (orzgk ou boutique gérée par le proxy), des liens de fiches, ou le HTML de la page — ou dépose un CSV MFC.",
-  "import.err.fetch": "Impossible de récupérer la liste. Vérifie qu'elle est publique, ou colle le HTML de la page.",
+  "import.err.no_source":
+    "Colle un lien de liste (orzgk ou boutique gérée par le proxy), des liens de fiches, ou le HTML de la page — ou dépose un CSV MFC.",
+  "import.err.fetch":
+    "Impossible de récupérer la liste. Vérifie qu'elle est publique, ou colle le HTML de la page.",
   "import.err.empty": "Aucun produit trouvé dans cette liste.",
   "import.err.csv_empty": "Aucune ligne exploitable dans ce CSV (colonne Title introuvable ?).",
   "import.detected": "Source détectée",
@@ -229,7 +244,8 @@ export default {
   "import.proxy_hosts": "boutiques gérées par le proxy : {hosts}",
   "import.or": "ou",
   "import.csv.title": "Wishlist MFC · fichier CSV",
-  "import.csv.hint": "Dépose l'export de ta liste Wished (sur MFC : Manager → CSV Export). Matching par code-barres (JAN) puis par titre — aucune connexion à MFC.",
+  "import.csv.hint":
+    "Dépose l'export de ta liste Wished (sur MFC : Manager → CSV Export). Matching par code-barres (JAN) puis par titre — aucune connexion à MFC.",
   "import.csv.browse": "Parcourir…",
   "wishlist.empty": "Rien dans tes souhaits pour l'instant.",
   "wishlist.empty_cta": "Parcourir le catalogue",
@@ -237,18 +253,22 @@ export default {
   // Liste de souhaits partagée (cadeaux, Lot 7) — panneau + page /g/<token>
   "gift.eyebrow": "Cadeau · lien partagé",
   "gift.share_title": "Partager ma liste de cadeaux",
-  "gift.share_body": "Donne à tes proches un lien public vers tes souhaits pour qu'ils s'organisent — aucun compte requis de leur côté.",
+  "gift.share_body":
+    "Donne à tes proches un lien public vers tes souhaits pour qu'ils s'organisent — aucun compte requis de leur côté.",
   "gift.enable": "Créer le lien",
   "gift.copy": "Copier",
   "gift.copied": "Copié !",
   "gift.hidden_title": "Les réservations te sont cachées.",
-  "gift.hidden_body": "Tu ne vois que le lien — jamais qui a réservé quoi. La surprise reste entière.",
+  "gift.hidden_body":
+    "Tu ne vois que le lien — jamais qui a réservé quoi. La surprise reste entière.",
   "gift.disable": "Arrêter le partage",
   "gift.disable_confirm": "Désactiver le lien et effacer toutes les réservations ?",
   "gift.public_eyebrow": "Une liste de cadeaux",
   "gift.public_title": "Les souhaits de {name}",
-  "gift.public_body": "Réserve une pièce pour que les autres offreurs sachent qu'elle est prise. Saisis simplement ton prénom — aucun compte requis.",
-  "gift.owner_banner": "C'est ta propre liste — les réservations sont masquées pour garder la surprise.",
+  "gift.public_body":
+    "Réserve une pièce pour que les autres offreurs sachent qu'elle est prise. Saisis simplement ton prénom — aucun compte requis.",
+  "gift.owner_banner":
+    "C'est ta propre liste — les réservations sont masquées pour garder la surprise.",
   "gift.owner_item_hint": "ton souhait",
   "gift.claimed_count": "{n} sur {total} réservées",
   "gift.empty": "Cette liste est vide pour l'instant.",
@@ -259,7 +279,8 @@ export default {
   "gift.reserved_by": "réservé · {name}",
   "gift.reserved_mine": "réservé par toi",
   "gift.release": "Annuler",
-  "gift.reserve_error": "Impossible de réserver — quelqu'un vient peut-être de la prendre. Actualise et réessaie.",
+  "gift.reserve_error":
+    "Impossible de réserver — quelqu'un vient peut-être de la prendre. Actualise et réessaie.",
   "gift.not_found": "Ce lien cadeau est invalide ou n'est plus partagé.",
   "gift.nsfw_reveal": "Afficher le contenu sensible ({n})",
   "gift.nsfw_hide": "Masquer le contenu sensible",
@@ -275,7 +296,8 @@ export default {
   // Import MFC par collage — Lot 2
   "mfc.open": "Coller le HTML de la fiche",
   "mfc.title": "Importer depuis MyFigureCollection",
-  "mfc.note": "MFC bloque l'accès direct. Ouvre la fiche sur myfigurecollection.net → affiche le code source (Ctrl+U) → tout sélectionner (Ctrl+A) → copier → colle ici.",
+  "mfc.note":
+    "MFC bloque l'accès direct. Ouvre la fiche sur myfigurecollection.net → affiche le code source (Ctrl+U) → tout sélectionner (Ctrl+A) → copier → colle ici.",
   "mfc.textarea_ph": "<!doctype html> … colle ici le HTML de la fiche MFC …",
   "mfc.analyse": "Analyser",
   "mfc.parsed": "Fiche analysée — MFC #{id}",
@@ -331,7 +353,8 @@ export default {
   "recognize.external.searching": "Recherche sur le web…",
   "recognize.external.eyebrow": "Pistes externes",
   "recognize.external.title": "Indices du web",
-  "recognize.external.intro": "Ces résultats viennent de Google et ne sont pas dans ton catalogue — utilise-les pour identifier la pièce, puis ajoute-la à la main.",
+  "recognize.external.intro":
+    "Ces résultats viennent de Google et ne sont pas dans ton catalogue — utilise-les pour identifier la pièce, puis ajoute-la à la main.",
   "recognize.external.best_guess": "Meilleure hypothèse",
   "recognize.external.entities": "Termes reconnus",
   "recognize.external.pages": "Pages où cette image apparaît",
@@ -354,7 +377,8 @@ export default {
   "owned.editor.save": "Enregistrer",
   "owned.editor.cancel_preorder": "Annuler la pré-cmde",
   "owned.editor.restore": "Restaurer",
-  "owned.editor.archived_note": "Cette pièce est archivée — pré-commande annulée. Restaure-la pour la remettre dans ta collection active.",
+  "owned.editor.archived_note":
+    "Cette pièce est archivée — pré-commande annulée. Restaure-la pour la remettre dans ta collection active.",
   "owned.editor.quick": "État rapide :",
   "owned.editor.field.condition": "État",
   "owned.editor.field.purchase_date": "Date d'achat",
@@ -398,7 +422,8 @@ export default {
   "addowned.field.notes_ph": "Numéro de série, dédicace, défauts notés…",
   "collection.empty.eyebrow": "Vitrine vide",
   "collection.empty.title": "Aucune figurine pour l'instant",
-  "collection.empty.body": "Parcourez le catalogue ou créez votre propre fiche pour démarrer votre vitrine.",
+  "collection.empty.body":
+    "Parcourez le catalogue ou créez votre propre fiche pour démarrer votre vitrine.",
   "collection.empty.cta": "Créer une fiche",
   "collection.empty.cta_browse": "Parcourir le catalogue",
   "collection.remove": "Retirer",
@@ -417,8 +442,10 @@ export default {
   "scan.title": "Scanner un code-barres",
   "scan.aim": "Aligne le code-barres de la boîte",
   "scan.starting": "Démarrage de la caméra…",
-  "scan.unsupported": "Ce navigateur ne peut pas scanner via la caméra ici — saisis le code-barres (JAN/EAN) ci-dessous.",
-  "scan.denied": "Accès caméra refusé. Saisis le code-barres ci-dessous, ou autorise la caméra et rouvre.",
+  "scan.unsupported":
+    "Ce navigateur ne peut pas scanner via la caméra ici — saisis le code-barres (JAN/EAN) ci-dessous.",
+  "scan.denied":
+    "Accès caméra refusé. Saisis le code-barres ci-dessous, ou autorise la caméra et rouvre.",
   "scan.error": "Impossible de démarrer la caméra. Saisis le code-barres ci-dessous.",
   "scan.manual": "Code-barres (JAN / EAN)",
   "scan.manual_ph": "ex. 4571245296…",
@@ -433,7 +460,8 @@ export default {
   "browse.kpi.owned": "Possédées",
   "collection.cover.eyebrow": "Vignette de collection",
   "collection.cover.title": "Choisir la vignette",
-  "collection.cover.empty": "Ajoutez d'abord une photo ou un scan pour pouvoir choisir une vignette personnalisée.",
+  "collection.cover.empty":
+    "Ajoutez d'abord une photo ou un scan pour pouvoir choisir une vignette personnalisée.",
   "collection.cover.pinned": "★ vignette",
   "collection.cover.hint_default": "La vignette catalogue est utilisée par défaut.",
   "collection.cover.hint_active": "Vignette personnalisée active.",
@@ -495,7 +523,8 @@ export default {
   "lookup.figure.open": "Chercher cette figurine en ligne",
   "lookup.figure.placeholder": "Nendoroid Miku, Asuka 1/6, Saber Alter… ou colle un lien produit",
   "lookup.figure.sources_label": "Boutiques prises en charge",
-  "lookup.figure.sources_note": "Cherche par nom, ou colle un lien produit de l'une de ces boutiques.",
+  "lookup.figure.sources_note":
+    "Cherche par nom, ou colle un lien produit de l'une de ces boutiques.",
   "lookup.figure.mfc_paste_note": "recherche bloquée — colle le HTML de la fiche",
   "lookup.figure.url_detected": "Lien détecté — ouverture de la fiche…",
   "lookup.figure.hint_min": "Tape au moins 2 caractères pour lancer la recherche.",
@@ -555,7 +584,8 @@ export default {
   "figure.form.ph.msrp": "5800",
   "figure.form.ph.jan": "4580590127553",
   "figure.form.ph.jan_hint": "Code-barres JAN (Japon) ou EAN (Europe).",
-  "figure.form.ph.image_url_hint": "Lien direct vers une image hébergée publiquement. Pour héberger les photos sur cette instance, utilisez la section « Photos officielles » de la fiche.",
+  "figure.form.ph.image_url_hint":
+    "Lien direct vers une image hébergée publiquement. Pour héberger les photos sur cette instance, utilisez la section « Photos officielles » de la fiche.",
   "figure.form.ph.description": "Posture, sculpteur, événement de sortie, anecdotes…",
 
   // Figure detail
@@ -611,7 +641,8 @@ export default {
   "figure.spec.version": "Version",
   "figure.spec.exclusivity": "Exclusivité",
   "figure.missing.title": "Cette figurine n'existe plus",
-  "figure.missing.body": "Elle a peut-être été retirée du catalogue, ou votre liste affichait une copie en cache devenue obsolète. La page « Catalogue » a été rafraîchie.",
+  "figure.missing.body":
+    "Elle a peut-être été retirée du catalogue, ou votre liste affichait une copie en cache devenue obsolète. La page « Catalogue » a été rafraîchie.",
   "figure.missing.cta_browse": "Retour au catalogue",
   "figure.missing.cta_collection": "Voir ma collection",
   "figure.missing.cta_retry": "Réessayer",
@@ -620,7 +651,8 @@ export default {
   "preorders.title": "Mes pré-commandes",
   "preorders.subtitle": "Le carnet des acquisitions à venir.",
   "preorders.ical.cta": "S'abonner au calendrier",
-  "preorders.ical.note": "Ajoute tes dates de sortie à ton agenda (Google, Apple, Outlook…). Ce lien est privé — ne le partage pas.",
+  "preorders.ical.note":
+    "Ajoute tes dates de sortie à ton agenda (Google, Apple, Outlook…). Ce lien est privé — ne le partage pas.",
   "preorders.ical.copy": "Copier",
   "preorders.ical.copied": "Copié",
   "preorders.ical.add": "Ajouter à mon agenda",
@@ -629,7 +661,8 @@ export default {
   "preorders.ical.loading": "Préparation du lien…",
   "preorders.ical.error": "Lien indisponible — réessaie.",
   "preorders.empty": "Aucune pré-commande pour l'instant.",
-  "preorders.empty.hint": "Les figurines en pré-commande apparaitront ici dès qu'elles seront ajoutées à ta collection avec une date de sortie future.",
+  "preorders.empty.hint":
+    "Les figurines en pré-commande apparaitront ici dès qu'elles seront ajoutées à ta collection avec une date de sortie future.",
   "preorders.stat.total": "Pièces attendues",
   "preorders.stat.next": "Prochaine sortie",
   "preorders.stat.next_none": "Aucune à venir",
@@ -674,13 +707,15 @@ export default {
   "preorders.field.order_ref_ph": "Référence ou n° de commande",
   "preorders.field.tracking_url": "Lien de suivi (optionnel)",
   "preorders.field.tracking_url_ph": "https://tracking.dhl.com/?tracking-id=…",
-  "preorders.field.tracking_url_hint": "Colle l'URL telle quelle — le transporteur et le n° de suivi sont reconnus automatiquement.",
+  "preorders.field.tracking_url_hint":
+    "Colle l'URL telle quelle — le transporteur et le n° de suivi sont reconnus automatiquement.",
   "preorders.field.deposit": "Dépôt",
   "preorders.field.deposit_ph": "30",
   "preorders.field.deposit_hint": "Acompte versé à la commande (déduit du solde avant livraison).",
   "preorders.field.delivery_days": "Livraison estimée (jours)",
   "preorders.field.delivery_days_ph": "7",
-  "preorders.field.delivery_days_hint": "Délai annoncé par le transporteur. Le décompte démarre quand le statut passe à « Expédiée ».",
+  "preorders.field.delivery_days_hint":
+    "Délai annoncé par le transporteur. Le décompte démarre quand le statut passe à « Expédiée ».",
   "preorders.field.delivery_chip_label": "Livraison",
   "preorder.delivery.today": "J0",
   "preorder.delivery.in": "J-{n}",
@@ -764,18 +799,22 @@ export default {
   "browse.search.keyword": "Mots-clés",
   "browse.search.semantic": "Description",
   "browse.search.semantic_placeholder": "Par description — ex. mariée, statue en résine, Re:Zero…",
-  "browse.search.semantic_prompt": "Cherche par description : un nom, une série, une matière, un mot dans une autre langue.",
+  "browse.search.semantic_prompt":
+    "Cherche par description : un nom, une série, une matière, un mot dans une autre langue.",
   "browse.search.semantic_busy": "Recherche par description…",
   "browse.search.semantic_error": "La recherche a échoué — réessaie.",
   "browse.search.help_aria": "À quoi servent ces modes ?",
   "browse.search.help_eyebrow": "Modes de recherche",
   "browse.search.help_title": "Trois façons de chercher",
   "browse.search.help_keyword": "Mots-clés — recherche exacte dans les noms, séries et fabricants.",
-  "browse.search.help_semantic": "Description — par le sens : tape ce que tu cherches en langage naturel (un nom, une série, une matière) ou même dans une autre langue (« mariée » trouve « Wedding »). Si l'admin a activé les tags d'apparence, tu peux aussi décrire l'allure (« elfe aux cheveux blancs »).",
-  "browse.search.help_look": "Apparence — recherche visuelle : décris l'allure d'une figurine et on la compare à l'image des pièces du catalogue.",
+  "browse.search.help_semantic":
+    "Description — par le sens : tape ce que tu cherches en langage naturel (un nom, une série, une matière) ou même dans une autre langue (« mariée » trouve « Wedding »). Si l'admin a activé les tags d'apparence, tu peux aussi décrire l'allure (« elfe aux cheveux blancs »).",
+  "browse.search.help_look":
+    "Apparence — recherche visuelle : décris l'allure d'une figurine et on la compare à l'image des pièces du catalogue.",
   "browse.search.look": "Apparence",
   "browse.search.look_placeholder": "Par l'apparence — ex. fille aux cheveux blancs, robot mécha…",
-  "browse.search.look_prompt": "Décris l'apparence d'une figurine pour la retrouver — pose, couleur de cheveux, tenue…",
+  "browse.search.look_prompt":
+    "Décris l'apparence d'une figurine pour la retrouver — pose, couleur de cheveux, tenue…",
   "browse.search.look_busy": "Recherche par l'apparence…",
   "browse.search.look_error": "La recherche a échoué — réessaie.",
   "browse.search.stage.model": "Téléchargement du modèle d'IA…",
@@ -830,7 +869,8 @@ export default {
   "discover.eyebrow": "Communauté · collectionneurs publics",
   "discover.title": "Découvrir",
   "discover.page_title": "Les collectionneurs",
-  "discover.subtitle": "Les autres collectionneurs de cette instance qui ont ouvert leur vitrine — chacun présenté comme une pièce d'exposition. Suis ceux dont la collection t'inspire.",
+  "discover.subtitle":
+    "Les autres collectionneurs de cette instance qui ont ouvert leur vitrine — chacun présenté comme une pièce d'exposition. Suis ceux dont la collection t'inspire.",
   "discover.search": "Chercher un collectionneur…",
   "discover.count": "collectionneurs publics",
   "discover.empty": "Aucun collectionneur public pour l'instant.",
@@ -854,7 +894,8 @@ export default {
   "collector.empty_shelf": "Étagère vide",
   "archives.eyebrow": "Données · sauvegarde & portabilité",
   "archives.title": "Le cabinet d'archives",
-  "archives.subtitle": "Tes données t'appartiennent. Exporte ta collection, tes souhaits et tes précommandes en CSV (tableur) ou JSON (sauvegarde fidèle, ré-import, migration). Rien ne quitte le serveur sans ton geste.",
+  "archives.subtitle":
+    "Tes données t'appartiennent. Exporte ta collection, tes souhaits et tes précommandes en CSV (tableur) ou JSON (sauvegarde fidèle, ré-import, migration). Rien ne quitte le serveur sans ton geste.",
   "archives.columns": "Colonnes",
   "archives.collection": "Collection",
   "archives.wishlist": "Souhaits",
@@ -862,14 +903,18 @@ export default {
   "archives.count.pieces": "pièces possédées",
   "archives.count.wishes": "pièces convoitées",
   "archives.count.preorders": "en cours",
-  "archives.cols.collection": "Nom · type · fabricant · échelle · état · prix payé · devise · valeur estimée · date d'achat · JAN",
+  "archives.cols.collection":
+    "Nom · type · fabricant · échelle · état · prix payé · devise · valeur estimée · date d'achat · JAN",
   "archives.cols.wishlist": "Nom · fabricant · prix-cible · MSRP actuel · note",
-  "archives.cols.preorders": "Nom · boutique · statut · date initiale · date actuelle · reports · acompte · devise",
+  "archives.cols.preorders":
+    "Nom · boutique · statut · date initiale · date actuelle · reports · acompte · devise",
   "archives.backup.title": "Sauvegarde complète",
-  "archives.backup.body": "tout en un seul fichier JSON (collection + souhaits + précommandes + profil), prêt à ré-importer.",
+  "archives.backup.body":
+    "tout en un seul fichier JSON (collection + souhaits + précommandes + profil), prêt à ré-importer.",
   "archives.backup.download": "Sauvegarde complète (JSON)",
   "owned.editor.sale.title": "À vendre / à échanger",
-  "owned.editor.sale.hint": "Mets une pièce en vitrine d'échange — visible dans ta collection et sur ton profil public.",
+  "owned.editor.sale.hint":
+    "Mets une pièce en vitrine d'échange — visible dans ta collection et sur ton profil public.",
   "owned.editor.sale.for_sale": "À vendre",
   "owned.editor.sale.for_trade": "À échanger",
   "owned.editor.sale.asking_price": "Prix demandé",
@@ -878,7 +923,8 @@ export default {
   "owned.editor.sale.note_ph": "État, négociable, port inclus… (visible sur ton profil public)",
   "collection.lens.for_sale": "À vendre",
   "vitrines.view.plan": "Atelier",
-  "vitrines.planner.hint": "Glisse les pièces du plateau sur les étagères — pose-les où tu veux, à l'échelle réelle.",
+  "vitrines.planner.hint":
+    "Glisse les pièces du plateau sur les étagères — pose-les où tu veux, à l'échelle réelle.",
   "vitrines.planner.shelves": "Étagères",
   "vitrines.planner.add_shelf": "Ajouter une étagère",
   "vitrines.planner.remove_shelf": "Retirer une étagère",
@@ -887,17 +933,20 @@ export default {
   "vitrines.planner.tray_all_placed": "Tout est sur les étagères ✓",
   "profile.for_sale_kicker": "À VENDRE / À ÉCHANGER",
   "export.inv.section": "Inventaire / Assurance",
-  "export.inv.desc": "Un état daté de ta collection (pièce, état, valeur estimée), en PDF ou CSV — pratique pour l'assurance.",
+  "export.inv.desc":
+    "Un état daté de ta collection (pièce, état, valeur estimée), en PDF ou CSV — pratique pour l'assurance.",
   "export.inv.title": "Inventaire de collection",
   "export.inv.generated": "Généré le {date}",
   "export.inv.pieces": "{n} pièces",
   "export.inv.pieces.one": "{n} pièce",
   "export.inv.total_value": "Valeur estimée totale",
   "export.inv.eur_total": "Total en EUR : {amount} (taux du {date})",
-  "export.inv.footer": "FigureCollector — valeurs estimées (cote/MSRP), fournies à titre indicatif.",
+  "export.inv.footer":
+    "FigureCollector — valeurs estimées (cote/MSRP), fournies à titre indicatif.",
   "export.dossier.button": "Dossier complet (avec justificatifs)",
   "export.dossier.building": "Génération du dossier…",
-  "export.dossier.note": "Fusionne les factures de chaque figurine dans un seul PDF (plus long à générer).",
+  "export.dossier.note":
+    "Fusionne les factures de chaque figurine dans un seul PDF (plus long à générer).",
   "export.dossier.error": "Échec de la génération du dossier. Réessaie.",
   "export.dossier.kicker": "JUSTIFICATIFS",
   "export.dossier.documents": "justificatif(s)",
@@ -916,8 +965,10 @@ export default {
   "insights.ch.wishlist": "Coût des souhaits",
   "insights.ch.preorders": "Santé des précommandes",
   "insights.ch.dna": "ADN de collection",
-  "insights.dna.caption": "Traits dominants sur {n} figurines taguées · clique un trait pour filtrer le catalogue",
-  "insights.dna.caption.one": "Traits dominants sur {n} figurine taguée · clique un trait pour filtrer le catalogue",
+  "insights.dna.caption":
+    "Traits dominants sur {n} figurines taguées · clique un trait pour filtrer le catalogue",
+  "insights.dna.caption.one":
+    "Traits dominants sur {n} figurine taguée · clique un trait pour filtrer le catalogue",
   "insights.dna.filter": "Filtrer le catalogue : {tag}",
   "insights.wishlist.total": "budget total des cibles",
   "insights.wishlist.count": "{n} pièces convoitées",
@@ -940,19 +991,24 @@ export default {
   "yrcmp.spend": "Dépense",
   "yrcmp.velocity": "Vélocité",
   "yrcmp.per_month": "{n}/mois",
-  "notifprefs.quiet.body": "Les heures calmes suspendent les canaux externes (push, e-mail, ntfy…) pendant la plage. L'in-app continue d'arriver ; une alerte critique peut percer.",
+  "notifprefs.quiet.body":
+    "Les heures calmes suspendent les canaux externes (push, e-mail, ntfy…) pendant la plage. L'in-app continue d'arriver ; une alerte critique peut percer.",
   "notifprefs.quiet.toggle": "Activer les heures calmes",
   "notifprefs.quiet.from": "Suspendre les notifications externes de",
   "notifprefs.quiet.start": "Heure de début",
   "notifprefs.quiet.end": "Heure de fin",
-  "notifprefs.quiet.note": "Les notifications restent visibles dans l'app ; seuls les canaux externes sont mis en sourdine pendant la plage.",
+  "notifprefs.quiet.note":
+    "Les notifications restent visibles dans l'app ; seuls les canaux externes sont mis en sourdine pendant la plage.",
   "notifprefs.preset.body": "Choisis ce qui te parvient, d'un geste.",
   "notifprefs.preset.all.title": "Tout recevoir",
-  "notifprefs.preset.all.body": "Chaque événement, sur tous tes canaux actifs. Le réglage par défaut.",
+  "notifprefs.preset.all.body":
+    "Chaque événement, sur tous tes canaux actifs. Le réglage par défaut.",
   "notifprefs.preset.essential.title": "Essentiel",
-  "notifprefs.preset.essential.body": "Seulement le critique : précommande en retard, livraison du jour. Le reste en sourdine.",
+  "notifprefs.preset.essential.body":
+    "Seulement le critique : précommande en retard, livraison du jour. Le reste en sourdine.",
   "notifprefs.preset.in_app.title": "In-app seulement",
-  "notifprefs.preset.in_app.body": "Garde tout dans l'app ; coupe push, e-mail et webhooks externes.",
+  "notifprefs.preset.in_app.body":
+    "Garde tout dans l'app ; coupe push, e-mail et webhooks externes.",
   "notifprefs.preset.silent.title": "Silence total",
   "notifprefs.preset.silent.body": "Rien ne te dérange. Tu consultes le journal quand tu veux.",
   "admin.bulk.toolbar": "Actions groupées",
@@ -960,22 +1016,30 @@ export default {
   "admin.bulk.clear": "Désélectionner",
   "admin.bulk.delete": "Supprimer la sélection",
   "admin.bulk.confirm.title": "Supprimer {n} élément(s) ?",
-  "admin.bulk.confirm.body": "Cette action supprime définitivement les {n} élément(s) sélectionné(s). Irréversible.",
-  "admin.bulk.confirm.body.figures": "Cette action supprime définitivement les {n} figurine(s) sélectionnée(s) du catalogue. Irréversible.",
-  "admin.bulk.confirm.body.users": "Cette action supprime définitivement les {n} compte(s) sélectionné(s). Ton compte et les admins sont ignorés.",
-  "admin.bulk.confirm.body.stores": "Cette action supprime définitivement les {n} boutique(s) sélectionnée(s). Irréversible.",
-  "admin.bulk.confirm.body.types": "Cette action supprime définitivement les {n} type(s) sélectionné(s). Les types encore utilisés sont ignorés.",
+  "admin.bulk.confirm.body":
+    "Cette action supprime définitivement les {n} élément(s) sélectionné(s). Irréversible.",
+  "admin.bulk.confirm.body.figures":
+    "Cette action supprime définitivement les {n} figurine(s) sélectionnée(s) du catalogue. Irréversible.",
+  "admin.bulk.confirm.body.users":
+    "Cette action supprime définitivement les {n} compte(s) sélectionné(s). Ton compte et les admins sont ignorés.",
+  "admin.bulk.confirm.body.stores":
+    "Cette action supprime définitivement les {n} boutique(s) sélectionnée(s). Irréversible.",
+  "admin.bulk.confirm.body.types":
+    "Cette action supprime définitivement les {n} type(s) sélectionné(s). Les types encore utilisés sont ignorés.",
   "admin.bulk.result": "{deleted} supprimé(s) · {skipped} ignoré(s)",
   "admin.bulk.select_all": "Tout sélectionner",
   "admin.bulk.select_row": "Sélectionner la ligne",
   "admin.empty.figures.title": "Aucune figurine au catalogue",
-  "admin.empty.figures.body": "Aucune figurine du catalogue ne correspond. Ajoute-en une, ou ajuste ta recherche.",
+  "admin.empty.figures.body":
+    "Aucune figurine du catalogue ne correspond. Ajoute-en une, ou ajuste ta recherche.",
   "admin.empty.users.title": "Aucun utilisateur",
   "admin.empty.users.body": "Aucun compte ne correspond à ta recherche.",
   "admin.empty.stores.title": "Aucune boutique",
-  "admin.empty.stores.body": "Aucune boutique — ajoutes-en une pour suivre la provenance de tes pièces.",
+  "admin.empty.stores.body":
+    "Aucune boutique — ajoutes-en une pour suivre la provenance de tes pièces.",
   "browse.empty.filtered.title": "Aucune figurine ne correspond",
-  "browse.empty.filtered.body": "Aucune figurine du catalogue ne correspond à tes filtres. Élargis-les.",
+  "browse.empty.filtered.body":
+    "Aucune figurine du catalogue ne correspond à tes filtres. Élargis-les.",
   "achievements.empty.title": "Aucun succès pour l'instant",
   "achievements.empty.body": "Le cabinet de trophées se garnit encore. Reviens bientôt.",
 
@@ -1024,16 +1088,20 @@ export default {
   "notifications.event.preorder_delivery_overdue.title": "Livraison en retard : {name}",
   "notifications.event.preorder_delivery_overdue.sub": "Date estimée dépassée hier ({date})",
   "notifications.event.manga_server_approved.title": "Serveur MangaCollector approuvé : {server}",
-  "notifications.event.manga_server_approved.sub": "Ton intégration manga est active — découvre tes croisements.",
+  "notifications.event.manga_server_approved.sub":
+    "Ton intégration manga est active — découvre tes croisements.",
   "notifications.event.manga_server_revoked.title": "Serveur MangaCollector révoqué : {server}",
-  "notifications.event.manga_server_revoked.sub": "L'intégration est désactivée — choisis un autre serveur dans les paramètres.",
+  "notifications.event.manga_server_revoked.sub":
+    "L'intégration est désactivée — choisis un autre serveur dans les paramètres.",
   "notifications.event.wishlist_price_below_target.title": "Sous ta cible : {name}",
-  "notifications.event.wishlist_price_below_target.sub": "Prix relevé {amount} {currency} · cible ≤ {target}",
+  "notifications.event.wishlist_price_below_target.sub":
+    "Prix relevé {amount} {currency} · cible ≤ {target}",
 
   // Notification channels (settings page)
   "settings.nav.notif_chan": "Notifications",
   "notif.channels.title": "Notifications",
-  "notif.channels.body": "Choisis comment tu veux recevoir tes notifications. Active les canaux que l'administrateur a mis à disposition et renseigne ta destination.",
+  "notif.channels.body":
+    "Choisis comment tu veux recevoir tes notifications. Active les canaux que l'administrateur a mis à disposition et renseigne ta destination.",
   "notif.channels.disabled_by_admin": "Canaux désactivés par l'administrateur",
   "notif.channel.on": "Activé",
   "notif.channel.off": "Désactivé",
@@ -1043,31 +1111,42 @@ export default {
   "notif.channel.no_destination": "Aucune destination — configure d'abord.",
   "notif.channel.fill_destination_first": "Renseigne d'abord ta destination",
   "notif.channel.browser_push": "Navigateur (Push OS)",
-  "notif.channel.browser_push.body": "Notifications système livrées au navigateur, même quand l'onglet est fermé.",
-  "notif.channel.browser_push.hint": "Cliquer pour autoriser ce navigateur à recevoir les notifications. Tu peux t'abonner depuis plusieurs appareils.",
+  "notif.channel.browser_push.body":
+    "Notifications système livrées au navigateur, même quand l'onglet est fermé.",
+  "notif.channel.browser_push.hint":
+    "Cliquer pour autoriser ce navigateur à recevoir les notifications. Tu peux t'abonner depuis plusieurs appareils.",
   "notif.channel.browser_push.subscribe": "S'abonner sur ce navigateur",
   "notif.channel.browser_push.unsubscribe": "Se désabonner",
   "notif.channel.browser_push.no_vapid": "L'administrateur n'a pas encore configuré la clé VAPID.",
   "notif.channel.email": "Email",
-  "notif.channel.email.body": "Envoyer les notifications par email via le serveur SMTP configuré par l'admin.",
+  "notif.channel.email.body":
+    "Envoyer les notifications par email via le serveur SMTP configuré par l'admin.",
   "notif.channel.email.field.to": "Adresse email",
   "notif.channel.email.field.to.hint": "Là où tu veux recevoir les emails.",
   "notif.channel.ntfy": "ntfy",
-  "notif.channel.ntfy.body": "Push HTTP vers ton téléphone ou navigateur via ntfy.sh ou une instance auto-hébergée.",
+  "notif.channel.ntfy.body":
+    "Push HTTP vers ton téléphone ou navigateur via ntfy.sh ou une instance auto-hébergée.",
   "notif.channel.ntfy.field.topic": "Topic ntfy",
-  "notif.channel.ntfy.field.topic.hint": "Le topic auquel tu t'es abonné dans l'app ntfy. Garde-le secret — n'importe qui peut publier dessus.",
+  "notif.channel.ntfy.field.topic.hint":
+    "Le topic auquel tu t'es abonné dans l'app ntfy. Garde-le secret — n'importe qui peut publier dessus.",
   "notif.channel.webhook": "Webhook",
-  "notif.channel.webhook.body": "Payload JSON stable envoyé en POST sur n'importe quelle URL HTTP(S).",
+  "notif.channel.webhook.body":
+    "Payload JSON stable envoyé en POST sur n'importe quelle URL HTTP(S).",
   "notif.channel.webhook.field.url": "URL du webhook",
-  "notif.channel.webhook.field.url.hint": "Par exemple https://discord.com/api/webhooks/… ou ton service à toi.",
+  "notif.channel.webhook.field.url.hint":
+    "Par exemple https://discord.com/api/webhooks/… ou ton service à toi.",
   "notif.channel.webhook.field.auth": "Header d'autorisation (optionnel)",
-  "notif.channel.webhook.field.auth.hint": "Par exemple « Bearer abc123 » pour les services protégés.",
+  "notif.channel.webhook.field.auth.hint":
+    "Par exemple « Bearer abc123 » pour les services protégés.",
   "notif.channel.apprise": "Apprise",
-  "notif.channel.apprise.body": "Plus de 100 services exotiques via un sidecar Apprise auto-hébergé.",
+  "notif.channel.apprise.body":
+    "Plus de 100 services exotiques via un sidecar Apprise auto-hébergé.",
   "notif.channel.apprise.field.urls": "URLs Apprise (une par ligne)",
-  "notif.channel.apprise.field.urls.hint": "Par exemple tgram://… mailtos://… ntfys://… Une URL par ligne.",
+  "notif.channel.apprise.field.urls.hint":
+    "Par exemple tgram://… mailtos://… ntfys://… Une URL par ligne.",
 
-  "notif.routes.body": "Choisis quels évènements vont vers quels canaux. La cloche interne reçoit tout, indépendamment de ces réglages.",
+  "notif.routes.body":
+    "Choisis quels évènements vont vers quels canaux. La cloche interne reçoit tout, indépendamment de ces réglages.",
   "notif.routes.save": "Enregistrer le routage",
   "notif.channel.test.send": "Envoyer un test",
   "notif.channel.test.sending": "Envoi en cours…",
@@ -1077,16 +1156,19 @@ export default {
   "editor.save": "Enregistrer",
 
   "settings.public_profile": "Profil public",
-  "settings.public_profile.body": "Active pour rendre ta collection visible sur /u/{username}, et pour que d'autres utilisateurs puissent comparer leur collection à la tienne.",
+  "settings.public_profile.body":
+    "Active pour rendre ta collection visible sur /u/{username}, et pour que d'autres utilisateurs puissent comparer leur collection à la tienne.",
   "settings.public_profile.on": "Activé",
   "settings.public_profile.off": "Privé",
   "settings.public_profile.url": "URL publique",
   "settings.public_profile.show_nsfw": "Afficher le contenu NSFW publiquement",
-  "settings.public_profile.show_nsfw.body": "Si activé, tes figurines NSFW apparaitront sur ton profil public. Par défaut elles sont masquées pour garder une vitrine publique conservatrice.",
+  "settings.public_profile.show_nsfw.body":
+    "Si activé, tes figurines NSFW apparaitront sur ton profil public. Par défaut elles sont masquées pour garder une vitrine publique conservatrice.",
   "settings.public_profile.show_nsfw.on": "NSFW visible",
   "settings.public_profile.show_nsfw.off": "NSFW masqué",
   "settings.public_profile.show_value": "Afficher la valeur de la collection publiquement",
-  "settings.public_profile.show_value.body": "Si activé, la valeur estimée de ta collection (La Cote) apparaît sur ton profil public et ta carte Découvrir. Masquée par défaut.",
+  "settings.public_profile.show_value.body":
+    "Si activé, la valeur estimée de ta collection (La Cote) apparaît sur ton profil public et ta carte Découvrir. Masquée par défaut.",
   "settings.public_profile.show_value.on": "Valeur visible",
   "settings.public_profile.show_value.off": "Valeur masquée",
   "settings.copy_url": "Copier",
@@ -1102,7 +1184,8 @@ export default {
 
   // PWA — update toast + offline indicator
   "pwa.update.title": "Nouvelle version disponible",
-  "pwa.update.body": "L'application a été mise à jour. Recharge pour profiter des dernières améliorations.",
+  "pwa.update.body":
+    "L'application a été mise à jour. Recharge pour profiter des dernières améliorations.",
   "pwa.update.reload": "Recharger",
   "pwa.update.later": "Plus tard",
   "pwa.offline": "Hors-ligne — les écrans déjà visités restent accessibles.",
@@ -1115,7 +1198,8 @@ export default {
   "activity.vertical_tag": "Journal de bord · 録",
   "activity.empty": "Pas encore d'événement enregistré.",
   "activity.empty.title": "Le journal est vierge.",
-  "activity.empty.body": "Ajoutez une pièce ou ouvrez une pré-commande pour y inscrire la première entrée.",
+  "activity.empty.body":
+    "Ajoutez une pièce ou ouvrez une pré-commande pour y inscrire la première entrée.",
   "activity.filtered_empty": "Aucun événement ne correspond aux filtres actifs.",
   "activity.unknown_figure": "Figurine inconnue",
   "activity.day.events": "entrée(s)",
@@ -1194,14 +1278,17 @@ export default {
 
   // Settings — background removal model
   "settings.currency.title": "Devise par défaut",
-  "settings.currency.body": "La devise pré-sélectionnée dans tous les formulaires de prix (MSRP catalogue, prix payé, livraison, pré-commandes).",
+  "settings.currency.body":
+    "La devise pré-sélectionnée dans tous les formulaires de prix (MSRP catalogue, prix payé, livraison, pré-commandes).",
   "settings.currency.field": "Devise",
   "settings.currency.none": "Aucune préférence (JPY)",
-  "settings.currency.hint": "Tu peux toujours choisir une autre devise au cas par cas dans les formulaires.",
+  "settings.currency.hint":
+    "Tu peux toujours choisir une autre devise au cas par cas dans les formulaires.",
 
   // ----- MangaCollector synergy (Lot 8) -----
   "settings.manga.title": "Lien MangaCollector",
-  "settings.manga.body": "Relie ta collection manga : FigureCollector lit ton profil public MangaCollector (lecture seule) pour rapprocher les deux mondes via l'identifiant MAL de la série.",
+  "settings.manga.body":
+    "Relie ta collection manga : FigureCollector lit ton profil public MangaCollector (lecture seule) pour rapprocher les deux mondes via l'identifiant MAL de la série.",
   "settings.manga.field.url": "URL de ton instance MangaCollector",
   "settings.manga.field.url_ph": "https://manga.exemple.net",
   "settings.manga.field.slug": "Slug de profil public",
@@ -1210,14 +1297,18 @@ export default {
   "settings.manga.connecting": "Connexion…",
   "settings.manga.connected": "connecté",
   "settings.manga.sync.cta": "Resynchroniser",
-  "settings.manga.sync.hint": "Récupère à nouveau ta bibliothèque MangaCollector et rafraîchit les croisements — utile juste après avoir ajouté des manga.",
+  "settings.manga.sync.hint":
+    "Récupère à nouveau ta bibliothèque MangaCollector et rafraîchit les croisements — utile juste après avoir ajouté des manga.",
   "settings.manga.sync.done": "Synchronisé",
   "settings.manga.sync.error": "Synchronisation impossible — réessaie.",
   "settings.manga.tally": "{series} séries · {volumes} volumes",
   "settings.manga.unlink": "Délier",
-  "settings.manga.readonly": "Lecture seule, via ton profil public — aucun mot de passe ni jeton. FigureCollector ne lit que ce que tu exposes publiquement.",
-  "settings.manga.error.bad_url": "URL invalide, non autorisée ou indisponible — vérifie l'adresse de l'instance.",
-  "settings.manga.error.unreachable": "Connexion impossible — l'instance n'a pas répondu. Vérifie l'URL et le slug.",
+  "settings.manga.readonly":
+    "Lecture seule, via ton profil public — aucun mot de passe ni jeton. FigureCollector ne lit que ce que tu exposes publiquement.",
+  "settings.manga.error.bad_url":
+    "URL invalide, non autorisée ou indisponible — vérifie l'adresse de l'instance.",
+  "settings.manga.error.unreachable":
+    "Connexion impossible — l'instance n'a pas répondu. Vérifie l'URL et le slug.",
   "settings.manga.error.generic": "Connexion impossible — réessaie.",
   "settings.manga.error.not_found": "Serveur introuvable — il a peut-être été retiré.",
   "settings.manga.field.server": "Serveur MangaCollector",
@@ -1228,9 +1319,12 @@ export default {
   "settings.manga.status.approved": "Approuvé",
   "settings.manga.status.revoked": "Révoqué",
   "settings.manga.cancel": "Annuler",
-  "settings.manga.pending.body": "Ce serveur attend la validation d'un administrateur. L'intégration (croisements, badges) s'activera une fois approuvé — tu n'as rien d'autre à faire.",
-  "settings.manga.revoked.body": "Ce serveur a été révoqué par un administrateur. L'intégration est désactivée — choisis un autre serveur.",
-  "settings.manga.revoked.body_reason": "Révoqué par un administrateur : « {reason} ». L'intégration est désactivée — choisis un autre serveur.",
+  "settings.manga.pending.body":
+    "Ce serveur attend la validation d'un administrateur. L'intégration (croisements, badges) s'activera une fois approuvé — tu n'as rien d'autre à faire.",
+  "settings.manga.revoked.body":
+    "Ce serveur a été révoqué par un administrateur. L'intégration est désactivée — choisis un autre serveur.",
+  "settings.manga.revoked.body_reason":
+    "Révoqué par un administrateur : « {reason} ». L'intégration est désactivée — choisis un autre serveur.",
   "settings.manga.revoked.change": "Changer de serveur",
 
   // Manga badge on a figure detail page
@@ -1241,63 +1335,81 @@ export default {
   // Croisements page
   "manga.croisements.eyebrow": "Synergie · deux vitrines, un univers",
   "manga.croisements.title": "Croisements",
-  "manga.croisements.subtitle": "Tes figurines et tes mangas parlent la même langue : l'identifiant MAL de la série. Voici là où les deux mondes se rejoignent.",
+  "manga.croisements.subtitle":
+    "Tes figurines et tes mangas parlent la même langue : l'identifiant MAL de la série. Voici là où les deux mondes se rejoignent.",
   "manga.croisements.reading.title": "Figurines des séries que tu lis",
   "manga.croisements.reading.sub": "tu possèdes le manga, pas (encore) la figurine",
-  "manga.croisements.reading.cap": "Une raison d'ajouter à ta wishlist FigureCollector — la série est déjà sur ton étagère manga.",
-  "manga.croisements.reading.empty": "Rien pour l'instant — aucune figurine au catalogue ne correspond à une série que tu lis.",
+  "manga.croisements.reading.cap":
+    "Une raison d'ajouter à ta wishlist FigureCollector — la série est déjà sur ton étagère manga.",
+  "manga.croisements.reading.empty":
+    "Rien pour l'instant — aucune figurine au catalogue ne correspond à une série que tu lis.",
   "manga.croisements.dual.title": "Séries en double",
   "manga.croisements.dual.sub": "manga + figurine — le cœur de ta collection",
   "manga.croisements.dual.cap": "La vraie « complétude » d'une série : tu la lis et tu l'exposes.",
-  "manga.croisements.dual.empty": "Aucune série commune pour l'instant — ajoute des figurines de séries que tu lis.",
+  "manga.croisements.dual.empty":
+    "Aucune série commune pour l'instant — ajoute des figurines de séries que tu lis.",
   "manga.croisements.unlinked.title": "Lie d'abord ta collection manga",
-  "manga.croisements.unlinked.body": "Les croisements apparaissent une fois ton profil MangaCollector relié. Le lien est en lecture seule, via ton slug public.",
+  "manga.croisements.unlinked.body":
+    "Les croisements apparaissent une fois ton profil MangaCollector relié. Le lien est en lecture seule, via ton slug public.",
   "manga.croisements.unlinked.cta": "Lier dans les paramètres",
   "manga.croisements.pending.title": "En attente de validation",
-  "manga.croisements.pending.body": "Le serveur MangaCollector que tu as choisi attend la validation d'un administrateur. Les croisements apparaîtront dès qu'il sera approuvé.",
+  "manga.croisements.pending.body":
+    "Le serveur MangaCollector que tu as choisi attend la validation d'un administrateur. Les croisements apparaîtront dès qu'il sera approuvé.",
   "manga.croisements.revoked.title": "Serveur révoqué",
-  "manga.croisements.revoked.body": "Le serveur que tu utilisais a été révoqué par un administrateur. Choisis-en un autre dans les paramètres.",
-  "manga.croisements.revoked.body_reason": "Le serveur que tu utilisais a été révoqué : « {reason} ». Choisis-en un autre dans les paramètres.",
+  "manga.croisements.revoked.body":
+    "Le serveur que tu utilisais a été révoqué par un administrateur. Choisis-en un autre dans les paramètres.",
+  "manga.croisements.revoked.body_reason":
+    "Le serveur que tu utilisais a été révoqué : « {reason} ». Choisis-en un autre dans les paramètres.",
   "manga.pill.vol": "vol. {owned}/{total}",
   "manga.pill.read_full": "lu à 100 %",
   "manga.pill.percent": "{pct} %",
   "manga.pill.figures": "{n}",
 
   "settings.bg_model": "Modèle de détourage",
-  "settings.bg_model.body": "Choisis la taille du modèle IA chargé dans ton navigateur pour le bouton « Détourer ». Le modèle est mis en cache après le premier téléchargement.",
-  "settings.bg_model.hint": "WebGPU est utilisé automatiquement si disponible (Chrome / Edge récents), sinon WebAssembly multi-thread.",
+  "settings.bg_model.body":
+    "Choisis la taille du modèle IA chargé dans ton navigateur pour le bouton « Détourer ». Le modèle est mis en cache après le premier téléchargement.",
+  "settings.bg_model.hint":
+    "WebGPU est utilisé automatiquement si disponible (Chrome / Edge récents), sinon WebAssembly multi-thread.",
 
   // ----- NSFW -----
   "settings.nsfw.title": "Contenu sensible (NSFW)",
-  "settings.nsfw.body": "Les figurines marquées NSFW peuvent contenir de la nudité ou des poses suggestives. Choisissez comment vous souhaitez les voir dans votre vitrine.",
+  "settings.nsfw.body":
+    "Les figurines marquées NSFW peuvent contenir de la nudité ou des poses suggestives. Choisissez comment vous souhaitez les voir dans votre vitrine.",
   "settings.nsfw.hide.title": "Cacher",
-  "settings.nsfw.hide.body": "Les figurines NSFW disparaissent du catalogue et de ma collection. Un avertissement s'affiche sur leur fiche directe.",
+  "settings.nsfw.hide.body":
+    "Les figurines NSFW disparaissent du catalogue et de ma collection. Un avertissement s'affiche sur leur fiche directe.",
   "settings.nsfw.blur.title": "Flouter",
-  "settings.nsfw.blur.body": "Les images des figurines NSFW restent visibles mais floutées. L'ajout de photos sur ces figurines est désactivé.",
+  "settings.nsfw.blur.body":
+    "Les images des figurines NSFW restent visibles mais floutées. L'ajout de photos sur ces figurines est désactivé.",
   "settings.nsfw.show.title": "Afficher",
   "settings.nsfw.show.body": "Affichage normal, sans filtre ni floutage.",
 
   "figure.form.section.flags.eyebrow": "Classification",
   "figure.form.section.flags.title": "Contenu",
   "figure.form.field.is_nsfw": "Marquer cette figurine comme NSFW",
-  "figure.form.field.is_nsfw_hint": "Drapeau partagé par tous les collectionneurs : nudité, érotisme, ou poses suggestives. La visibilité dépend ensuite de la préférence de chaque utilisateur.",
+  "figure.form.field.is_nsfw_hint":
+    "Drapeau partagé par tous les collectionneurs : nudité, érotisme, ou poses suggestives. La visibilité dépend ensuite de la préférence de chaque utilisateur.",
   "figure.form.nsfw_suggest.text": "Les tags d'apparence suggèrent un contenu pour adultes.",
   "figure.form.nsfw_suggest.based_on": "D'après :",
   "figure.form.nsfw_suggest.action": "Marquer NSFW",
   "figure.form.section.tags.eyebrow": "Recherche par description",
   "figure.form.section.tags.title": "Tags d'apparence",
-  "figure.form.tags.hint": "Générés par l'indexation (personnage, cheveux, tenue…). Modifie-les pour affiner la recherche par description ; tes changements ne seront pas écrasés.",
+  "figure.form.tags.hint":
+    "Générés par l'indexation (personnage, cheveux, tenue…). Modifie-les pour affiner la recherche par description ; tes changements ne seront pas écrasés.",
   "figure.form.tags.empty": "Aucun tag pour l'instant.",
   "figure.form.tags.add": "Ajouter un tag — Entrée ou virgule pour valider…",
   "figure.form.tags.remove": "Retirer {tag}",
 
-  "nsfw.warn_on_create": "Cette figurine sera marquée NSFW. Votre préférence actuelle est de les cacher : vous ne la verrez pas dans votre catalogue ni dans votre collection (mais elle restera visible pour les autres utilisateurs qui l'autorisent). Continuer ?",
+  "nsfw.warn_on_create":
+    "Cette figurine sera marquée NSFW. Votre préférence actuelle est de les cacher : vous ne la verrez pas dans votre catalogue ni dans votre collection (mais elle restera visible pour les autres utilisateurs qui l'autorisent). Continuer ?",
   "nsfw.upload_blocked": "✕ Ajout de photo désactivé (NSFW + flouté)",
-  "nsfw.upload_blocked_hint": "Votre préférence NSFW est sur « flouter ». L'ajout de photos pour les figurines NSFW est désactivé tant que vous n'avez pas choisi « afficher ».",
+  "nsfw.upload_blocked_hint":
+    "Votre préférence NSFW est sur « flouter ». L'ajout de photos pour les figurines NSFW est désactivé tant que vous n'avez pas choisi « afficher ».",
 
   "nsfw.gate.eyebrow": "Contenu sensible",
   "nsfw.gate.title": "Cette fiche est marquée NSFW",
-  "nsfw.gate.body": "Votre préférence actuelle est de cacher ces figurines. Vous pouvez l'afficher ponctuellement pour cette session, ou ajuster votre préférence dans les paramètres.",
+  "nsfw.gate.body":
+    "Votre préférence actuelle est de cacher ces figurines. Vous pouvez l'afficher ponctuellement pour cette session, ou ajuster votre préférence dans les paramètres.",
   "nsfw.gate.cta_show": "Afficher cette fois",
   "nsfw.gate.cta_settings": "Modifier ma préférence",
   "settings.bg_model.small": "Petit · 40 MB · rapide",
@@ -1306,7 +1418,8 @@ export default {
 
   // Turntable (360° scan)
   "turntable.section.title": "Vue 360°",
-  "turntable.viewer.load_error": "{failed} image·s sur {total} n'ont pas pu se charger (erreur réseau ou trop de requêtes).",
+  "turntable.viewer.load_error":
+    "{failed} image·s sur {total} n'ont pas pu se charger (erreur réseau ou trop de requêtes).",
   "turntable.viewer.retry": "Réessayer",
   "turntable.viewer.fullscreen": "Plein écran",
   "turntable.section.empty": "Aucun scan 360° pour cette pièce.",
@@ -1331,17 +1444,20 @@ export default {
   "turntable.camera_error": "Impossible d'accéder à la caméra.",
 
   "turntable.import.cta": "+ Sélectionner des images",
-  "turntable.import.hint": "Choisis 6 à 96 images prises sous différents angles. Elles seront ré-encodées en WebP.",
+  "turntable.import.hint":
+    "Choisis 6 à 96 images prises sous différents angles. Elles seront ré-encodées en WebP.",
   "turntable.import.preparing": "Préparation des images…",
   "turntable.import.collected": "{n} images prêtes",
 
   "turntable.video.cta": "+ Choisir / enregistrer une vidéo",
-  "turntable.video.hint": "Tourne autour de la figurine en filmant. On extrait N images à intervalles réguliers.",
+  "turntable.video.hint":
+    "Tourne autour de la figurine en filmant. On extrait N images à intervalles réguliers.",
   "turntable.video.picked": "Vidéo : {name}",
   "turntable.video.extract": "Extraire les images",
   "turntable.video.extracting": "Extraction… {p}%",
   "turntable.video.send": "Envoyer la vidéo (3D)",
-  "turntable.video.send_hint": "Envoie la vidéo originale — le modèle 3D s'entraîne sur des images pleine résolution, pas sur les aperçus réduits.",
+  "turntable.video.send_hint":
+    "Envoie la vidéo originale — le modèle 3D s'entraîne sur des images pleine résolution, pas sur les aperçus réduits.",
   "turntable.video.save_with_video": "Enregistrer le scan + vidéo",
 
   "turntable.uploading": "Envoi du scan…",
@@ -1349,7 +1465,8 @@ export default {
 
   // Phase 5B — Gaussian Splatting
   "turntable.wizard.generate_3d": "Modèle 3D (Gaussian Splatting)",
-  "turntable.wizard.gsplat_hint": "Le modèle 3D sera entraîné sur ton serveur GPU (env. 10-30 minutes après upload). Le scan 2D reste utilisable en attendant.",
+  "turntable.wizard.gsplat_hint":
+    "Le modèle 3D sera entraîné sur ton serveur GPU (env. 10-30 minutes après upload). Le scan 2D reste utilisable en attendant.",
   "gsplat.loading": "Chargement du modèle 3D…",
   "gsplat.viewer_label": "Modèle 3D — clique-glisse pour orbiter, molette pour zoomer",
   "scan.view.360": "Vue 360°",
@@ -1359,7 +1476,8 @@ export default {
   "scan.strip.3d_failed": "Modèle 3D : échec",
   "gsplat.processing": "Entraînement du modèle 3D…",
   "gsplat.pending": "En file d'attente…",
-  "gsplat.processing_hint": "Le sidecar Gaussian Splatting tourne sur GPU. Compte ~10-30 minutes selon le nombre d'images et la complexité de la figurine. Aucune action de ta part.",
+  "gsplat.processing_hint":
+    "Le sidecar Gaussian Splatting tourne sur GPU. Compte ~10-30 minutes selon le nombre d'images et la complexité de la figurine. Aucune action de ta part.",
   "gsplat.failed": "Échec de l'entraînement 3D",
   "gsplat.retry": "Relancer un scan",
 
@@ -1458,14 +1576,17 @@ export default {
   // ----- Cancellation dialog -----
   "cancel.eyebrow": "Annulation de la pré-commande",
   "cancel.refund.title": "Remboursement",
-  "cancel.refund.body": "Tu avais versé un acompte de {deposit} {currency}. Combien t'a été remboursé ?",
-  "cancel.refund.no_deposit": "Aucun acompte n'a été enregistré sur cette pré-commande. Confirme l'annulation.",
+  "cancel.refund.body":
+    "Tu avais versé un acompte de {deposit} {currency}. Combien t'a été remboursé ?",
+  "cancel.refund.no_deposit":
+    "Aucun acompte n'a été enregistré sur cette pré-commande. Confirme l'annulation.",
   "cancel.refund.field": "Montant remboursé",
   "cancel.refund.lost": "Perdu",
   "cancel.refund.full": "Entièrement remboursé",
   "cancel.refund.confirm": "Confirmer l'annulation",
   "cancel.fate.title": "Cette pièce ?",
-  "cancel.fate.body": "L'acompte est intégralement remboursé. Tu peux soit la supprimer de ta collection, soit l'archiver pour garder une trace.",
+  "cancel.fate.body":
+    "L'acompte est intégralement remboursé. Tu peux soit la supprimer de ta collection, soit l'archiver pour garder une trace.",
   "cancel.fate.archive": "Archiver",
   "cancel.fate.delete": "Supprimer",
   "preorder.history.deposit_refund": "Remboursé :",
@@ -1520,85 +1641,110 @@ export default {
   "admin.settings.body": "Politiques globales appliquées à tous les utilisateurs de l'instance.",
   "admin.settings.gsplat.kicker": "FONCTIONNALITÉ",
   "admin.settings.gsplat.title": "Modèles 3D",
-  "admin.settings.gsplat.desc": "Qui peut générer un modèle 3D (Gaussian Splatting) ? L'entraînement est très gourmand en GPU — vous pouvez le réserver aux administrateurs.",
+  "admin.settings.gsplat.desc":
+    "Qui peut générer un modèle 3D (Gaussian Splatting) ? L'entraînement est très gourmand en GPU — vous pouvez le réserver aux administrateurs.",
   "admin.settings.gsplat.everyone": "Tout le monde",
   "admin.settings.gsplat.everyone_desc": "Tous les membres connectés peuvent lancer un modèle 3D.",
   "admin.settings.gsplat.admins_only": "Administrateurs uniquement",
-  "admin.settings.gsplat.admins_only_desc": "Seuls les administrateurs peuvent lancer un modèle 3D. La case est masquée pour les autres membres.",
+  "admin.settings.gsplat.admins_only_desc":
+    "Seuls les administrateurs peuvent lancer un modèle 3D. La case est masquée pour les autres membres.",
   "admin.settings.save": "Enregistrer",
   "admin.settings.saved": "Réglage enregistré.",
   "admin.settings.cote.kicker": "AUTOMATISATION",
   "admin.settings.cote.title": "Prix automatiques (cote)",
-  "admin.settings.cote.desc": "Un cron récupère périodiquement le prix des figurines liées à au moins une boutique avec un lien d'achat — via les providers (OrzGK) et le proxy — et alimente la cote, sous la valeur saisie manuellement.",
+  "admin.settings.cote.desc":
+    "Un cron récupère périodiquement le prix des figurines liées à au moins une boutique avec un lien d'achat — via les providers (OrzGK) et le proxy — et alimente la cote, sous la valeur saisie manuellement.",
   "admin.settings.cote.schedule_label": "Planification (cron, UTC)",
-  "admin.settings.cote.schedule_hint": "Expression cron à 5 champs, en UTC. Ex. « 0 3 * * * » = chaque jour à 3 h. Laisser vide désactive la fonctionnalité.",
+  "admin.settings.cote.schedule_hint":
+    "Expression cron à 5 champs, en UTC. Ex. « 0 3 * * * » = chaque jour à 3 h. Laisser vide désactive la fonctionnalité.",
   "admin.settings.cote.enabled": "Activé",
   "admin.settings.cote.disabled": "Désactivé",
   "admin.settings.cote.invalid": "Expression cron invalide.",
   "admin.settings.visual.kicker": "RECONNAISSANCE",
   "admin.settings.visual.title": "Recherche par photo",
-  "admin.settings.visual.desc": "Permet aux membres de photographier une figurine pour la retrouver au catalogue. L'empreinte est calculée dans le navigateur (DINOv2-small) ; seule la signature circule, jamais la photo. L'index du catalogue est construit par un worker doté de la capacité « embed ».",
+  "admin.settings.visual.desc":
+    "Permet aux membres de photographier une figurine pour la retrouver au catalogue. L'empreinte est calculée dans le navigateur (DINOv2-small) ; seule la signature circule, jamais la photo. L'index du catalogue est construit par un worker doté de la capacité « embed ».",
   "admin.settings.visual.enable_on": "Recherche par photo activée",
   "admin.settings.visual.enable_off": "Recherche par photo désactivée",
-  "admin.settings.visual.enable_hint": "Affiche l'entrée « Reconnaître par photo » et autorise les requêtes.",
-  "admin.settings.visual.index_status": "Index : {embedded} image(s) encodée(s), {pending} en attente.",
+  "admin.settings.visual.enable_hint":
+    "Affiche l'entrée « Reconnaître par photo » et autorise les requêtes.",
+  "admin.settings.visual.index_status":
+    "Index : {embedded} image(s) encodée(s), {pending} en attente.",
   "admin.settings.visual.worker_on": "Worker d'indexation en ligne.",
-  "admin.settings.visual.worker_off": "Aucun worker « embed » en ligne — l'index ne peut pas être (re)construit.",
+  "admin.settings.visual.worker_off":
+    "Aucun worker « embed » en ligne — l'index ne peut pas être (re)construit.",
   "admin.settings.visual.reindex": "Réindexer le catalogue",
-  "admin.settings.visual.reindex_hint": "Met en file toutes les images du catalogue sans empreinte ; le worker les traite.",
+  "admin.settings.visual.reindex_hint":
+    "Met en file toutes les images du catalogue sans empreinte ; le worker les traite.",
   "admin.settings.visual.force": "De zéro",
   "admin.settings.visual.force_confirm": "Confirmer — effacer",
   "admin.settings.visual.force_hint": "Efface cet index puis relance une indexation complète.",
   "admin.settings.visual.force_all": "Tout réindexer de zéro",
   "admin.settings.visual.force_all_confirm": "Confirmer — tout effacer & réindexer",
-  "admin.settings.visual.force_all_hint": "Efface tous les index (vecteurs + tags) et relance une indexation complète de zéro.",
+  "admin.settings.visual.force_all_hint":
+    "Efface tous les index (vecteurs + tags) et relance une indexation complète de zéro.",
   "admin.settings.visual.reindex_done": "{queued} image(s) mise(s) en file.",
   "admin.settings.visual.external_on": "Repli web (Google Vision) activé",
   "admin.settings.visual.external_off": "Repli web (Google Vision) désactivé",
-  "admin.settings.visual.external_hint": "En l'absence de correspondance au catalogue, l'utilisateur peut — sur action explicite — envoyer sa photo à Google Vision pour obtenir des pistes d'identification. C'est le seul cas où la photo quitte l'appareil.",
+  "admin.settings.visual.external_hint":
+    "En l'absence de correspondance au catalogue, l'utilisateur peut — sur action explicite — envoyer sa photo à Google Vision pour obtenir des pistes d'identification. C'est le seul cas où la photo quitte l'appareil.",
   "admin.settings.visual.threshold_label": "Seuil de similarité",
-  "admin.settings.visual.threshold_hint": "En-dessous de ce seuil, une figurine n'est proposée ni comme « proche » ni comme « recommandée ». Plus haut = moins de suggestions, mais plus pertinentes.",
+  "admin.settings.visual.threshold_hint":
+    "En-dessous de ce seuil, une figurine n'est proposée ni comme « proche » ni comme « recommandée ». Plus haut = moins de suggestions, mais plus pertinentes.",
   "admin.settings.visual.ambiances_on": "Ambiances activées",
   "admin.settings.visual.ambiances_off": "Ambiances désactivées",
-  "admin.settings.visual.ambiances_hint": "Regroupe le catalogue en familles d'allure visuelle (mêmes poses, couleurs, style). Pertinent à partir d'une cinquantaine de figurines variées.",
+  "admin.settings.visual.ambiances_hint":
+    "Regroupe le catalogue en familles d'allure visuelle (mêmes poses, couleurs, style). Pertinent à partir d'une cinquantaine de figurines variées.",
   "admin.settings.visual.ambiances_count": "Catalogue actuel : {n}.",
   "admin.settings.visual.text_on": "Recherche par le sens activée",
   "admin.settings.visual.text_off": "Recherche par le sens désactivée",
-  "admin.settings.visual.text_hint": "Ajoute un mode « Sens » à la recherche : retrouver une figurine par une description, pas seulement par mots-clés. Indexe d'abord les textes ci-dessous.",
+  "admin.settings.visual.text_hint":
+    "Ajoute un mode « Sens » à la recherche : retrouver une figurine par une description, pas seulement par mots-clés. Indexe d'abord les textes ci-dessous.",
   "admin.settings.visual.text_reindex": "Indexer les textes",
   "admin.settings.visual.text_indexed": "{n} indexées",
   "admin.settings.visual.text_reindex_done": "File alimentée.",
   "admin.settings.visual.text_min_match_label": "Pertinence minimale",
-  "admin.settings.visual.text_min_match_hint": "Score minimum pour qu'un résultat « Sens » s'affiche. e5 resserre les scores dans une bande haute (~80–90 %) : monte ce seuil pour couper la queue de résultats faibles. 0 % affiche tout.",
+  "admin.settings.visual.text_min_match_hint":
+    "Score minimum pour qu'un résultat « Sens » s'affiche. e5 resserre les scores dans une bande haute (~80–90 %) : monte ce seuil pour couper la queue de résultats faibles. 0 % affiche tout.",
   "admin.settings.visual.clip_on": "Recherche par l'apparence activée",
   "admin.settings.visual.clip_off": "Recherche par l'apparence désactivée",
-  "admin.settings.visual.clip_hint": "Ajoute un mode « Apparence » : retrouver une figurine en décrivant à quoi elle ressemble (pose, cheveux, tenue), via SigLIP. Indexe d'abord les images ci-dessous ; le modèle texte (~283 Mo) ne se charge qu'à l'usage.",
+  "admin.settings.visual.clip_hint":
+    "Ajoute un mode « Apparence » : retrouver une figurine en décrivant à quoi elle ressemble (pose, cheveux, tenue), via SigLIP. Indexe d'abord les images ci-dessous ; le modèle texte (~283 Mo) ne se charge qu'à l'usage.",
   "admin.settings.visual.clip_reindex": "Indexer les images (apparence)",
   "admin.settings.visual.clip_indexed": "{n} indexées",
   "admin.settings.visual.clip_min_match_label": "Pertinence minimale",
-  "admin.settings.visual.clip_min_match_hint": "Score minimum pour qu'un résultat « Apparence » s'affiche. SigLIP donne des scores bas et resserrés : monte ce seuil pour couper la queue. 0 % affiche tout.",
+  "admin.settings.visual.clip_min_match_hint":
+    "Score minimum pour qu'un résultat « Apparence » s'affiche. SigLIP donne des scores bas et resserrés : monte ce seuil pour couper la queue. 0 % affiche tout.",
   "admin.settings.visual.tags_on": "Recherche par apparence (tags) activée",
   "admin.settings.visual.tags_off": "Recherche par apparence (tags) désactivée",
-  "admin.settings.visual.tags_hint": "Étiquette chaque image (personnage, cheveux, tenue, « elfe »…) et ajoute ces tags au texte « Sens » : la recherche par le sens trouve alors aussi par apparence. Tourne dans le worker, aucun modèle de plus dans le navigateur. Indexe ci-dessous.",
+  "admin.settings.visual.tags_hint":
+    "Étiquette chaque image (personnage, cheveux, tenue, « elfe »…) et ajoute ces tags au texte « Sens » : la recherche par le sens trouve alors aussi par apparence. Tourne dans le worker, aucun modèle de plus dans le navigateur. Indexe ci-dessous.",
   "admin.settings.visual.tags_reindex": "Indexer l'apparence (tags)",
   "admin.settings.visual.tags_indexed": "{n} taguées",
   "admin.settings.visual.ambiances_help_aria": "Qu'est-ce qu'une ambiance ?",
   "admin.settings.visual.ambiances_help_eyebrow": "Recherche par photo",
   "admin.settings.visual.ambiances_help_title": "Qu'est-ce qu'une ambiance ?",
-  "admin.settings.visual.ambiances_help_p1": "Une ambiance regroupe des figurines qui se ressemblent à l'œil — même style, même atmosphère (pose, couleurs, composition) — indépendamment de leur type ou de leur fabricant.",
-  "admin.settings.visual.ambiances_help_p2": "Le regroupement est calculé à partir des images elles-mêmes (la même empreinte visuelle que la recherche par photo), pas à partir des fiches : deux pièces au rendu proche se retrouvent dans la même ambiance.",
-  "admin.settings.visual.ambiances_help_p3": "C'est une aide à la découverte : feuilleter sa collection « par atmosphère » plutôt que par catégorie. Ça n'a d'intérêt que sur une collection assez grande et variée — sur un petit catalogue, ou s'il ne contient qu'un seul genre de pièces, les ambiances sont peu parlantes. C'est pourquoi c'est désactivé par défaut.",
+  "admin.settings.visual.ambiances_help_p1":
+    "Une ambiance regroupe des figurines qui se ressemblent à l'œil — même style, même atmosphère (pose, couleurs, composition) — indépendamment de leur type ou de leur fabricant.",
+  "admin.settings.visual.ambiances_help_p2":
+    "Le regroupement est calculé à partir des images elles-mêmes (la même empreinte visuelle que la recherche par photo), pas à partir des fiches : deux pièces au rendu proche se retrouvent dans la même ambiance.",
+  "admin.settings.visual.ambiances_help_p3":
+    "C'est une aide à la découverte : feuilleter sa collection « par atmosphère » plutôt que par catégorie. Ça n'a d'intérêt que sur une collection assez grande et variée — sur un petit catalogue, ou s'il ne contient qu'un seul genre de pièces, les ambiances sont peu parlantes. C'est pourquoi c'est désactivé par défaut.",
   "common.got_it": "Compris",
   "common.close": "Fermer",
   "admin.settings.visual.key_label": "Clé API Google Cloud Vision",
-  "admin.settings.visual.key_set": "Une clé est enregistrée. Saisir une nouvelle valeur la remplace ; vider le champ et enregistrer l'efface.",
-  "admin.settings.visual.key_unset": "Aucune clé enregistrée — le repli web reste indisponible tant qu'aucune clé n'est fournie.",
+  "admin.settings.visual.key_set":
+    "Une clé est enregistrée. Saisir une nouvelle valeur la remplace ; vider le champ et enregistrer l'efface.",
+  "admin.settings.visual.key_unset":
+    "Aucune clé enregistrée — le repli web reste indisponible tant qu'aucune clé n'est fournie.",
   "admin.settings.visual.key_placeholder": "AIza…",
   "admin.tasks.eyebrow": "Administration · File de traitement",
   "admin.tasks.title": "Tâches",
-  "admin.tasks.body": "Toutes les tâches en arrière-plan du serveur : les jobs de calcul 3D (gsplat) pris par les workers et les tâches cron exécutées par le serveur lui-même (notifications de sortie, nettoyage, synchro manga, prix de la cote) — état en temps réel, exécutant, durée et résultat. Relance un échec, marque une tâche bloquée comme échouée, ou purge une entrée terminée. Les vidéos 360° (turntable) n'apparaissent pas ici.",
+  "admin.tasks.body":
+    "Toutes les tâches en arrière-plan du serveur : les jobs de calcul 3D (gsplat) pris par les workers et les tâches cron exécutées par le serveur lui-même (notifications de sortie, nettoyage, synchro manga, prix de la cote) — état en temps réel, exécutant, durée et résultat. Relance un échec, marque une tâche bloquée comme échouée, ou purge une entrée terminée. Les vidéos 360° (turntable) n'apparaissent pas ici.",
   "admin.tasks.empty.title": "Aucune tâche",
-  "admin.tasks.empty.body": "Les jobs de calcul 3D (gsplat) et les tâches cron du serveur apparaîtront ici dès qu'ils s'exécuteront.",
+  "admin.tasks.empty.body":
+    "Les jobs de calcul 3D (gsplat) et les tâches cron du serveur apparaîtront ici dès qu'ils s'exécuteront.",
   "admin.tasks.filter.all": "Toutes",
   "admin.tasks.filter.active": "Actives",
   "admin.tasks.filter.failed": "Échouées",
@@ -1626,7 +1772,8 @@ export default {
   "admin.tasks.indexing.kind.tags.title": "Index tags",
   "admin.tasks.dupes.eyebrow": "Intégrité du catalogue",
   "admin.tasks.dupes.title": "Doublons potentiels",
-  "admin.tasks.dupes.hint": "Paires visuellement quasi identiques — vérifie, puis fusionne ou supprime la pièce en double.",
+  "admin.tasks.dupes.hint":
+    "Paires visuellement quasi identiques — vérifie, puis fusionne ou supprime la pièce en double.",
   "admin.tasks.indexing.worker_on": "Worker en ligne",
   "admin.tasks.indexing.worker_off": "Aucun worker",
   "admin.tasks.indexing.progress": "{done} / {total} · {pct} %",
@@ -1687,9 +1834,11 @@ export default {
   "admin.tasks.result.k.queued": "{n} en file",
   "admin.manga_servers.eyebrow": "Administration · Liste blanche",
   "admin.manga_servers.title": "Serveurs MangaCollector",
-  "admin.manga_servers.body": "Tout serveur saisi par un utilisateur arrive ici en attente. Approuve-le pour activer l'intégration, ou révoque un serveur déjà validé — les utilisateurs concernés sont prévenus et l'intégration s'arrête.",
+  "admin.manga_servers.body":
+    "Tout serveur saisi par un utilisateur arrive ici en attente. Approuve-le pour activer l'intégration, ou révoque un serveur déjà validé — les utilisateurs concernés sont prévenus et l'intégration s'arrête.",
   "admin.manga_servers.empty.title": "Aucun serveur",
-  "admin.manga_servers.empty.body": "Quand un utilisateur reliera sa collection manga, le serveur qu'il saisit apparaîtra ici pour validation.",
+  "admin.manga_servers.empty.body":
+    "Quand un utilisateur reliera sa collection manga, le serveur qu'il saisit apparaîtra ici pour validation.",
   "admin.manga_servers.section.pending": "En attente",
   "admin.manga_servers.section.approved": "Approuvés",
   "admin.manga_servers.section.revoked": "Révoqués",
@@ -1708,8 +1857,10 @@ export default {
   "admin.manga_servers.action.edit": "Renommer",
   "admin.manga_servers.action.delete": "Supprimer",
   "admin.manga_servers.revoke.reason": "Motif (optionnel)",
-  "admin.manga_servers.revoke.reason_ph": "visible dans la notification envoyée aux {n} utilisateurs…",
-  "admin.manga_servers.revoke.reason_ph_one": "visible dans la notification envoyée à {n} utilisateur…",
+  "admin.manga_servers.revoke.reason_ph":
+    "visible dans la notification envoyée aux {n} utilisateurs…",
+  "admin.manga_servers.revoke.reason_ph_one":
+    "visible dans la notification envoyée à {n} utilisateur…",
   "admin.manga_servers.revoke.confirm": "Confirmer la révocation",
   "admin.manga_servers.label.title": "Libellé",
   "admin.manga_servers.label.ph": "Instance officielle",
@@ -1721,10 +1872,12 @@ export default {
   // Workers admin (/admin/workers)
   "admin.workers.eyebrow": "Flotte de calcul 3D",
   "admin.workers.title": "Workers — registre",
-  "admin.workers.body": "Chaque worker CUDA ou Metal s'enregistre ici à son démarrage et signale sa présence par heartbeat. Désactivez-en un pour qu'il cesse de prendre des jobs ; supprimez les rangées obsolètes. Tant qu'aucun worker n'est en ligne ET actif, la case « Modèle 3D » du formulaire d'upload disparaît côté utilisateur.",
+  "admin.workers.body":
+    "Chaque worker CUDA ou Metal s'enregistre ici à son démarrage et signale sa présence par heartbeat. Désactivez-en un pour qu'il cesse de prendre des jobs ; supprimez les rangées obsolètes. Tant qu'aucun worker n'est en ligne ET actif, la case « Modèle 3D » du formulaire d'upload disparaît côté utilisateur.",
   "admin.workers.count": "{n} worker(s) au registre",
   "admin.workers.empty": "Aucun worker enregistré.",
-  "admin.workers.empty_hint": "Lancez un worker (CUDA ou Metal) : il s'enregistrera automatiquement ici à son premier heartbeat.",
+  "admin.workers.empty_hint":
+    "Lancez un worker (CUDA ou Metal) : il s'enregistrera automatiquement ici à son premier heartbeat.",
   "admin.workers.last_seen": "dernier signal",
   "admin.workers.rename": "Renommer",
   "admin.workers.enable": "Activer",
@@ -1787,7 +1940,8 @@ export default {
 
   "admin.types.eyebrow": "Catégories de figurines",
   "admin.types.title": "Types — registre",
-  "admin.types.body": "Curatez les catégories du catalogue. Chaque type porte un kanji-sceau, un slug technique, et des libellés bilingues. Position détermine l'ordre dans le menu déroulant.",
+  "admin.types.body":
+    "Curatez les catégories du catalogue. Chaque type porte un kanji-sceau, un slug technique, et des libellés bilingues. Position détermine l'ordre dans le menu déroulant.",
   "admin.types.count": "{n} type(s) au registre",
   "admin.types.add": "Nouveau type",
   "admin.types.confirm_add": "Ajouter",
@@ -1796,7 +1950,8 @@ export default {
   "admin.types.delete": "Supprimer",
   "admin.types.delete_yes": "Supprimer ?",
   "admin.types.delete_no": "Annuler",
-  "admin.types.delete_blocked": "{n} figurine(s) utilisent ce type — réassigne-les avant de supprimer.",
+  "admin.types.delete_blocked":
+    "{n} figurine(s) utilisent ce type — réassigne-les avant de supprimer.",
   "admin.types.empty": "Aucun type au registre.",
   "admin.types.usage_used": "{n} figurine(s)",
   "admin.types.usage_empty": "Inutilisé",
@@ -1810,15 +1965,20 @@ export default {
   "admin.types.field.position_hint": "Tri croissant",
   "admin.notif.title": "Canaux de notifications",
   "admin.notif.subtitle": "GESTION SYSTÈME",
-  "admin.notif.body": "Active et configure les canaux qui seront proposés aux utilisateurs. Les secrets (SMTP, VAPID, ntfy auth) restent ici — chaque utilisateur ne renseigne que sa propre destination.",
+  "admin.notif.body":
+    "Active et configure les canaux qui seront proposés aux utilisateurs. Les secrets (SMTP, VAPID, ntfy auth) restent ici — chaque utilisateur ne renseigne que sa propre destination.",
   "admin.notif.save": "Enregistrer les secrets",
   "admin.notif.vapid.generate": "Générer une nouvelle paire VAPID",
   "admin.notif.vapid.generating": "Génération…",
-  "admin.notif.vapid.hint": "Génère une paire de clés ECDSA P-256 côté serveur. Les valeurs sont injectées dans les champs ci-dessous — pense à cliquer sur « Enregistrer » ensuite.",
-  "admin.notif.vapid.confirm_overwrite": "Une paire VAPID existe déjà. La régénérer invalidera toutes les souscriptions actuelles — les utilisateurs devront se ré-abonner depuis chacun de leurs navigateurs. Continuer ?",
-  "admin.notif.vapid.generated_save": "✓ Paire générée — vérifie les valeurs et clique sur « Enregistrer les secrets ».",
+  "admin.notif.vapid.hint":
+    "Génère une paire de clés ECDSA P-256 côté serveur. Les valeurs sont injectées dans les champs ci-dessous — pense à cliquer sur « Enregistrer » ensuite.",
+  "admin.notif.vapid.confirm_overwrite":
+    "Une paire VAPID existe déjà. La régénérer invalidera toutes les souscriptions actuelles — les utilisateurs devront se ré-abonner depuis chacun de leurs navigateurs. Continuer ?",
+  "admin.notif.vapid.generated_save":
+    "✓ Paire générée — vérifie les valeurs et clique sur « Enregistrer les secrets ».",
   "admin.catalog.title": "Fabricants, séries et personnages",
-  "admin.catalog.intro": "Édite la description, l'image et les identifiants AniList / MAL. Les champs laissés vides ne sont pas modifiés ; pour effacer une valeur, il faut le faire directement en base.",
+  "admin.catalog.intro":
+    "Édite la description, l'image et les identifiants AniList / MAL. Les champs laissés vides ne sont pas modifiés ; pour effacer une valeur, il faut le faire directement en base.",
   "admin.catalog.tab.manufacturers": "Fabricants",
   "admin.catalog.tab.series": "Séries",
   "admin.catalog.tab.characters": "Personnages",
@@ -1829,14 +1989,20 @@ export default {
   "admin.catalog.edit": "Éditer",
   "admin.catalog.delete": "Supprimer",
   "admin.catalog.delete_confirm": "Supprimer définitivement",
-  "admin.catalog.delete_body.series_with_figures": "Cette série regroupe {n} figurine(s). Choisis une série de remplacement pour transférer figurines et personnages, ou laisse vide pour libérer les figurines (elles ne seront plus rattachées à aucune série).",
-  "admin.catalog.delete_body.series_empty": "Aucune figurine ni personnage rattaché. La suppression est immédiate.",
-  "admin.catalog.delete_body.character_with_figures": "Ce personnage est rattaché à {n} figurine(s). Choisis un personnage de remplacement pour transférer les liens, ou laisse vide pour les délier.",
-  "admin.catalog.delete_body.character_empty": "Aucune figurine rattachée. La suppression est immédiate.",
+  "admin.catalog.delete_body.series_with_figures":
+    "Cette série regroupe {n} figurine(s). Choisis une série de remplacement pour transférer figurines et personnages, ou laisse vide pour libérer les figurines (elles ne seront plus rattachées à aucune série).",
+  "admin.catalog.delete_body.series_empty":
+    "Aucune figurine ni personnage rattaché. La suppression est immédiate.",
+  "admin.catalog.delete_body.character_with_figures":
+    "Ce personnage est rattaché à {n} figurine(s). Choisis un personnage de remplacement pour transférer les liens, ou laisse vide pour les délier.",
+  "admin.catalog.delete_body.character_empty":
+    "Aucune figurine rattachée. La suppression est immédiate.",
   "admin.catalog.delete_replacement_label": "Série / personnage de remplacement",
   "admin.catalog.delete_replacement_none": "— aucun (laisser les figurines orphelines) —",
-  "admin.catalog.delete_hint.series_merge": "Les figurines et personnages migrent vers la série choisie.",
-  "admin.catalog.delete_hint.series_orphan": "Les figurines perdent leur série ; les personnages sont conservés mais détachés.",
+  "admin.catalog.delete_hint.series_merge":
+    "Les figurines et personnages migrent vers la série choisie.",
+  "admin.catalog.delete_hint.series_orphan":
+    "Les figurines perdent leur série ; les personnages sont conservés mais détachés.",
   "admin.catalog.delete_hint.character_merge": "Les figurines migrent vers le personnage choisi.",
   "admin.catalog.delete_hint.character_orphan": "Les figurines perdent ce personnage.",
   "admin.catalog.save": "Enregistrer",
@@ -1852,7 +2018,8 @@ export default {
   "admin.catalog.field.image_url.manufacturers": "URL du logo",
   "admin.catalog.field.image_url.series": "URL de l'affiche",
   "admin.catalog.field.image_url.characters": "URL du portrait",
-  "admin.catalog.field.image_url_hint": "Une URL externe (AniList, Wikipedia…). Surchargé par un fichier uploadé ci-dessous.",
+  "admin.catalog.field.image_url_hint":
+    "Une URL externe (AniList, Wikipedia…). Surchargé par un fichier uploadé ci-dessous.",
   "admin.catalog.field.upload": "Téléverser une image (≤ 5 MB, JPEG / PNG / WebP)",
   "admin.catalog.refetch": "Resynchroniser",
 
@@ -1893,7 +2060,8 @@ export default {
   "admin.users.new.is_admin": "Donner les droits admin",
   "admin.users.new.create": "Créer le compte",
   "admin.users.confirm_delete.title": "Supprimer {name} ?",
-  "admin.users.confirm_delete.body": "Cette action est irréversible et supprime aussi toute la collection, les pré-commandes, photos et scans de l'utilisateur.",
+  "admin.users.confirm_delete.body":
+    "Cette action est irréversible et supprime aussi toute la collection, les pré-commandes, photos et scans de l'utilisateur.",
   "admin.users.confirm_delete.confirm": "Confirmer la suppression",
 
   "admin.figures.subtitle": "Catalogue complet — modifier ou retirer n'importe quelle fiche.",
@@ -1905,7 +2073,8 @@ export default {
   "admin.figures.action.edit": "Modifier la fiche",
   "admin.figures.action.delete": "Retirer du catalogue",
   "admin.figures.confirm_delete.title": "Retirer « {name} » du catalogue ?",
-  "admin.figures.confirm_delete.body": "Toutes les collections référençant cette fiche perdront leur pièce associée. Action irréversible.",
+  "admin.figures.confirm_delete.body":
+    "Toutes les collections référençant cette fiche perdront leur pièce associée. Action irréversible.",
 
   "figure.edit.cta": "Modifier",
 
@@ -2000,8 +2169,7 @@ export default {
   "doc.parse.count": "{n} facture(s) analysée(s)",
   "doc.parse.apply": "Appliquer au modèle",
   "doc.parse.applied": "Appliqué ✓",
-  "doc.parse.mixed_currency":
-    "Devises mixtes — montant non cumulé. Boutique et date applicables.",
+  "doc.parse.mixed_currency": "Devises mixtes — montant non cumulé. Boutique et date applicables.",
   "doc.parse.nothing": "Aucune info exploitable détectée.",
   "doc.parse.note.image":
     "Pas de couche texte (image) — l'OCR n'est pas encore disponible. Saisie manuelle.",
@@ -2037,7 +2205,8 @@ export default {
   "figure.edit.title": "Modifier la fiche",
   "figure.edit.subtitle": "Toute mise à jour sera visible par les autres collectionneurs.",
   "figure.edit.confirm_delete.title": "Retirer « {name} » ?",
-  "figure.edit.confirm_delete.body": "Cette fiche disparaît du catalogue pour tout le monde, ainsi que toutes les pièces qui la référencent.",
+  "figure.edit.confirm_delete.body":
+    "Cette fiche disparaît du catalogue pour tout le monde, ainsi que toutes les pièces qui la référencent.",
 
   "a11y.skip_to_content": "Aller au contenu",
   "admin.catalog.search": "Filtrer par nom…",
@@ -2048,21 +2217,26 @@ export default {
 
   "admin.notif.vapid.generate_failed": "Échec de la génération",
   "admin.notif.ch.browser_push.name": "Navigateur (Web Push)",
-  "admin.notif.ch.browser_push.body": "Web Push signé VAPID vers les navigateurs et appareils abonnés.",
+  "admin.notif.ch.browser_push.body":
+    "Web Push signé VAPID vers les navigateurs et appareils abonnés.",
   "admin.notif.ch.email.name": "E-mail (SMTP)",
   "admin.notif.ch.email.body": "E-mails sortants via les identifiants du serveur SMTP ci-dessous.",
   "admin.notif.ch.ntfy.name": "ntfy",
   "admin.notif.ch.ntfy.body": "ntfy.sh ou une instance auto-hébergée.",
   "admin.notif.ch.webhook.name": "Webhook",
-  "admin.notif.ch.webhook.body": "Aucune config système — chaque utilisateur fournit sa propre URL.",
+  "admin.notif.ch.webhook.body":
+    "Aucune config système — chaque utilisateur fournit sa propre URL.",
   "admin.notif.ch.apprise.name": "Apprise",
   "admin.notif.ch.apprise.body": "Passerelle Apprise qui diffuse vers plus de 100 services.",
   "admin.notif.f.browser_push.vapid_public_key.label": "Clé publique VAPID",
-  "admin.notif.f.browser_push.vapid_public_key.hint": "Clé publique ECDSA P-256 en base64url, transmise par la SPA à pushManager.subscribe.",
+  "admin.notif.f.browser_push.vapid_public_key.hint":
+    "Clé publique ECDSA P-256 en base64url, transmise par la SPA à pushManager.subscribe.",
   "admin.notif.f.browser_push.vapid_private_key.label": "Clé privée VAPID (PEM)",
-  "admin.notif.f.browser_push.vapid_private_key.hint": "Clé privée EC encodée en PEM. À générer avec web-push-cli ou un générateur VAPID.",
+  "admin.notif.f.browser_push.vapid_private_key.hint":
+    "Clé privée EC encodée en PEM. À générer avec web-push-cli ou un générateur VAPID.",
   "admin.notif.f.browser_push.vapid_subject.label": "Sujet VAPID",
-  "admin.notif.f.browser_push.vapid_subject.hint": "mailto:admin@votre-domaine ou https://votre-domaine — requis par les services push.",
+  "admin.notif.f.browser_push.vapid_subject.hint":
+    "mailto:admin@votre-domaine ou https://votre-domaine — requis par les services push.",
   "admin.notif.f.email.host.label": "Hôte SMTP",
   "admin.notif.f.email.port.label": "Port",
   "admin.notif.f.email.use_tls.label": "Utiliser TLS (port 465)",
@@ -2084,7 +2258,8 @@ export default {
   "admin.types.field.color_pick": "Choisir une couleur",
   "admin.types.field.color_ph": "#c8a24b · oklch(0.7 0.13 80) · rebeccapurple",
   "admin.types.field.color_reset": "Réinitialiser au défaut du thème",
-  "admin.types.field.color_hint": "Accent personnalisé du type, appliqué aux deux thèmes. Laisser vide pour garder le défaut.",
+  "admin.types.field.color_hint":
+    "Accent personnalisé du type, appliqué aux deux thèmes. Laisser vide pour garder le défaut.",
 
   // ── Redesign bespoke backfill ──
   "admin.kicker": "ADMINISTRATION",
@@ -2115,7 +2290,8 @@ export default {
   "admin.catalog.stat.figures_label": "Figurines liées",
   "admin.catalog.stat.linked": "Sources externes",
   "admin.catalog.stat.linked_sub": "AniList / MAL",
-  "admin.catalog.empty.body": "Aucune entité ne correspond. Les entités apparaissent dès qu’une figurine les référence ou qu’une source externe est importée.",
+  "admin.catalog.empty.body":
+    "Aucune entité ne correspond. Les entités apparaissent dès qu’une figurine les référence ou qu’une source externe est importée.",
   "admin.catalog.col.image": "Visuel",
   "admin.catalog.col.name": "Nom",
   "admin.catalog.col.figures": "Figurines",
@@ -2147,7 +2323,8 @@ export default {
   "admin.overview.metrics": "Compteurs de l'instance",
   "admin.overview.manage.eyebrow": "GESTION",
   "admin.overview.manage.title": "Gérer la plateforme",
-  "admin.overview.manage.body": "Accédez directement aux surfaces d’administration : comptes, catalogue, entités et file de calcul.",
+  "admin.overview.manage.body":
+    "Accédez directement aux surfaces d’administration : comptes, catalogue, entités et file de calcul.",
   "admin.overview.health.eyebrow": "ÉTAT",
   "admin.overview.health.title": "Santé de l’instance",
   "admin.overview.health.nominal": "Système nominal",
@@ -2216,7 +2393,8 @@ export default {
   "vitrines.cabinet_kicker": "Meuble",
   "vitrines.cabinet_kicker_freetext": "Emplacement",
   "vitrines.empty_eyebrow": "Aucune vitrine",
-  "vitrines.empty_body": "Ajoute des pièces à ta collection, puis range-les dans des vitrines en les glissant à leur place.",
+  "vitrines.empty_body":
+    "Ajoute des pièces à ta collection, puis range-les dans des vitrines en les glissant à leur place.",
   "import.kicker_label": "SOUHAITS",
   "import.steps_label": "Étapes de l'import",
   "import.source_label": "Lien ou HTML",
@@ -2274,17 +2452,163 @@ export default {
   "profile.empty.title": "Vitrine vide",
   "addfig.kicker": "AJOUTER",
   "addfig.kicker_label": "CATALOGUE",
-  "addfig.gloss": "Une nouvelle pièce au catalogue — décrite à la main, ou pré-remplie depuis une source externe.",
+  "addfig.gloss":
+    "Une nouvelle pièce au catalogue — décrite à la main, ou pré-remplie depuis une source externe.",
   "addfig.ways.heading": "Deux façons d'ajouter",
   "addfig.ways.manual.title": "Saisie manuelle",
-  "addfig.ways.manual.body": "Remplissez la fiche vous-même. C'est toujours possible — chaque champ s'édite à la main.",
+  "addfig.ways.manual.body":
+    "Remplissez la fiche vous-même. C'est toujours possible — chaque champ s'édite à la main.",
   "addfig.ways.lookup.title": "Recherche & scan",
-  "addfig.ways.lookup.body": "Cherchez sur orzgk (et les boutiques du proxy), collez un lien produit, importez une fiche MFC, ou scannez un code-barres — les champs trouvés se pré-remplissent. À retoucher ensuite.",
-  "addfig.scanned_jan": "Code-barres scanné « {jan} » — pré-rempli ci-dessous. Complétez la fiche puis créez-la.",
+  "addfig.ways.lookup.body":
+    "Cherchez sur orzgk (et les boutiques du proxy), collez un lien produit, importez une fiche MFC, ou scannez un code-barres — les champs trouvés se pré-remplissent. À retoucher ensuite.",
+  "addfig.scanned_jan":
+    "Code-barres scanné « {jan} » — pré-rempli ci-dessous. Complétez la fiche puis créez-la.",
   "addfig.form.eyebrow": "Fiche catalogue",
   "addfig.form.title": "La fiche",
   "addfig.also_add_hint": "Décoché : la fiche rejoint le catalogue sans entrer dans votre vitrine.",
   "turntable.import.frame_alt": "Vue {n}",
   "figure.catalog_photos.upload_failed": "Échec de l'envoi : {name}",
   "figure.catalog_photos.upload_pending": "Envoi de {name}…",
+
+  // ----- Redesign i18n backfill (keys introduced via t(key,{default}) ) -----
+  // nav
+  "nav.primary": "Navigation principale",
+  "nav.secondary": "Sous-navigation",
+  "nav.community": "Communauté",
+  // palette
+  "palette.group.actions": "Actions",
+  // lookup
+  "lookup.tab.search": "Recherche",
+  "lookup.tab.link": "Lien",
+  "lookup.tab.barcode": "Code-barres",
+  "lookup.tab.anilist": "AniList",
+  "lookup.figure.modal_title": "Pré-remplir depuis une source",
+  "lookup.figure.modal_desc":
+    "Cherchez, collez un lien ou scannez un code-barres. Les champs trouvés se pré-remplissent — vous gardez la main sur tout.",
+  "lookup.figure.link_note":
+    "Collez un lien produit orzgk ou d'une boutique prise en charge par le proxy. La fiche s'ouvre pour choisir version et prix.",
+  "lookup.figure.link_open": "Ouvrir la fiche",
+  "lookup.figure.barcode_note":
+    "Scannez le code-barres de la boîte (ou saisissez-le) — il renseigne le champ JAN/EAN de la fiche.",
+  "lookup.figure.anilist_note":
+    "Cherche la série sur AniList pour renseigner l'origine et enrichir la fiche (description, visuel). Le personnage se précise ensuite dans le formulaire.",
+  "lookup.figure.detail.tariff_one": "tarif",
+  "lookup.figure.detail.tariff_other": "tarifs",
+  "lookup.figure.found_fields": "Champs trouvés — pré-remplis",
+  // activity
+  "activity.error.body": "Le journal n'a pas pu être chargé. Réessaie dans un instant.",
+  "activity.filtered_empty.hint": "Réactive un type d'événement ci-dessus pour revoir des entrées.",
+  "activity.filter.label": "Filtrer par type d'événement",
+  // admin
+  "admin.tasks.dupes.count": "{n} paire(s)",
+  // browse
+  "browse.filters.open": "Filtres",
+  // collection
+  "collection.kicker": "COLLECTION · 蒐 · MES PIÈCES",
+  "collection.add": "Ajouter une pièce",
+  "collection.pin": "Épingler à la une",
+  "collection.pin.short": "À la une",
+  "collection.filter.aria": "Filtrer par état",
+  "collection.filter.cancelled": "Annulées",
+  "collection.featured.kicker": "À la une",
+  "collection.featured.state": "État",
+  "collection.featured.view": "Voir la fiche",
+  "collection.unpin": "Désépingler",
+  // common
+  "common.loading": "Chargement…",
+  // compare
+  "compare.crumb": "Comparaison",
+  "compare.spread_kicker": "TÊTE À TÊTE",
+  "compare.lists_kicker": "LES PIÈCES",
+  // cote
+  "cote.kicker": "ANALYSES · 価 · LA COTE",
+  "cote.evo.kicker_full": "ÉVOLUTION · 推 · COTE ESTIMÉE",
+  "cote.evo.range_label": "Période",
+  "cote.col.piece": "Pièce",
+  "cote.col.trend": "Marché",
+  "cote.col.paid": "Achat",
+  "cote.col.value": "Cote",
+  "cote.col.delta": "+/−",
+  "cote.ranked_kicker": "INVENTAIRE · 価 · CLASSEMENT",
+  "cote.empty.eyebrow": "VALORISATION",
+  "cote.empty.title": "Rien à coter pour l'instant",
+  // figure
+  "figure.breadcrumb.current": "Fiche",
+  "figure.cartouche.show_barcode": "Afficher le code-barres",
+  "figure.edit_mine.cta": "Éditer ma pièce",
+  // preorders
+  "preorders.add.cta": "Ajouter une pré-commande",
+  "preorders.empty.filtered": "Aucune pré-commande pour ce filtre.",
+  "preorders.add.title": "Ajouter une pré-commande",
+  "preorders.add.pick_hint": "Choisis la figurine concernée dans le catalogue.",
+  "preorders.add.search_ph": "Rechercher une figurine par nom…",
+  "preorders.add.search_prompt": "Tape au moins deux lettres pour rechercher.",
+  "preorders.add.searching": "Recherche…",
+  "preorders.add.no_results": "Aucune figurine trouvée.",
+  "preorders.add.create_figure": "Créer la figurine d'abord",
+  "preorders.add.change_figure": "Changer",
+  "preorders.add.price": "Prix total",
+  "preorders.add.price_ph": "ex. 18800",
+  "preorders.add.price_hint": "Le total — sert à calculer le solde restant.",
+  "preorders.add.currency": "Devise",
+  "preorders.add.submit": "Ajouter",
+  "preorders.stat.deposits": "Acomptes versés",
+  "preorders.stat.deposits_none": "—",
+  "preorders.stat.balance": "Solde à régler",
+  "preorders.stat.balance_none": "Rien à régler",
+  // profile
+  "profile.filter.all": "Tout",
+  "profile.filter.empty": "Aucune pièce de ce type.",
+  "profile.filter.reset": "Tout afficher",
+  // settings
+  "settings.notif.none.title": "Aucun canal configuré",
+  "settings.notif.none.body":
+    "Aucun canal de notification n'a été activé par l'administrateur. Rien à régler ici pour l'instant.",
+  "settings.nav.privacy": "Confidentialité",
+  "settings.privacy.title": "Confidentialité",
+  "settings.profile.title": "Profil",
+  "settings.profile.role.admin": "Administrateur",
+  "settings.profile.display_name": "Nom affiché",
+  "settings.profile.save": "Enregistrer",
+  "settings.profile.username": "Identifiant",
+  "settings.profile.email": "Adresse e-mail",
+  "settings.profile.member_since": "Membre depuis",
+  "settings.profile.member_since.fallback": "—",
+  // stats
+  "stats.export.cta": "Exporter le bilan",
+  "stats.empty.title": "Le grand livre est vierge",
+  "stats.empty.cta": "Ajouter une pièce",
+  "stats.top.tip": "{name} · {count} fig.",
+  "stats.top.count": "{count} fig.",
+  // vitrines
+  "vitrines.kicker": "COLLECTION · 棚 · VITRINES",
+  "vitrines.section.organise": "Organiser les meubles",
+  // yir
+  "yir.select_year": "Choisir l'année",
+  "yir.kicker": "ANALYSES · 年 · RÉTROSPECTIVE {year}",
+  "yir.empty.body": "Aucune pièce, dépense ou pré-commande sur cette année.",
+  "yir.empty.hint": "Choisissez une autre année ci-dessus.",
+  "yir.edition": "Rétrospective {year}",
+  "yir.fav.count": "× {count} pièces",
+  "yir.timeline.aria": "Pièces acquises par mois — {total} au total, pic en {peakMonth} ({peak}).",
+  // bulk
+  "bulk.deselect_item": "Désélectionner",
+  "bulk.select_item": "Sélectionner",
+  "bulk.toolbar": "Actions groupées",
+  "bulk.actions": "Actions",
+  "bulk.selected_count": "{n} sélectionnée(s)",
+  // wishlist
+  "wishlist.gift.manage": "Gérer le lien cadeau",
+  "wishlist.gift.open": "Partager ma liste cadeau",
+  // plural .one siblings (base keys already present)
+  "admin.tasks.result.k.updated.one": "{n} prix mis à jour",
+
+  // Insurance dossier page (/insights/dossier)
+  "insights.dossier.kicker": "ANALYSES · 保 · DOSSIER",
+  "insights.dossier.title": "Dossier d'assurance",
+  "insights.dossier.nav": "Dossier d'assurance",
+  "insights.dossier.body":
+    "Génère un PDF unique réunissant l'inventaire daté de ta collection et les justificatifs (factures) de chaque pièce — prêt à transmettre à ton assurance.",
+  "insights.dossier.empty": "Aucune pièce à assurer",
+  "insights.dossier.empty_body": "Ajoute des pièces à ta collection pour générer un dossier.",
 };

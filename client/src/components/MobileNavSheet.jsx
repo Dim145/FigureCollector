@@ -1,147 +1,165 @@
-import { useEffect } from "react";
-import { createPortal } from "react-dom";
-import { NavLink } from "react-router-dom";
-import { motion, useReducedMotion } from "motion/react";
+import { NavLink, useLocation } from "react-router-dom";
+import { ChevronRight, Search, Shield } from "lucide-react";
 import { useT } from "../i18n/index.jsx";
+import { SECTIONS, ACCOUNT_NAV, sectionForPath } from "../lib/navConfig.js";
+import Drawer from "./ui/Drawer.jsx";
 
 /**
- * "Plus" sheet — the dedicated mobile navigation menu (< lg), opened from the
- * bottom tab bar's "⋯ Plus" slot. Rises from the bottom over a dimmed page.
+ * "Plus" sheet — the mobile overflow nav (< lg), opened from the bottom tab
+ * bar's "⋯ Plus" slot. Built on the shared <Drawer side="bottom"> (focus-trap,
+ * Esc, scroll-lock, scrim, safe-area, slide-up — all for free).
  *
- * It lists every destination NOT already on the bottom bar (which carries
- * Collection · Catalogue · La Cote) plus search — strictly *navigation*.
- * Account + preferences live in the avatar menu instead, so the two menus
- * never overlap. The old top-bar hamburger (which opened a duplicate drawer)
- * is gone; this is the single way to reach the rest of the app on a phone.
+ * The bottom bar already carries Collection · Catalogue · Insights + the add
+ * seal; this sheet surfaces the rest, all from navConfig:
+ *   1. Communauté + its sub-pages.
+ *   2. The CURRENT section's sub-pages (skipped when already in Communauté).
+ *   3. Account — Récompenses · Notifications · Réglages (+ Admin when admin).
+ *   4. A search row that opens the ⌘K command palette.
  *
- * Direction A: noir-soft surface under a gold hairline crown, laque-diamond
- * row bullets, a crisp ✕ close. GPU-light — one transform/opacity rise on
- * open, nothing per row; honours reduced-motion and the home-indicator inset.
+ * Readability-first (was: cramped all-gold uppercase): full-width rows with an
+ * ivoire label at a comfortable size, a quiet gold/laque glyph, a trailing
+ * chevron affordance, ≥52px targets, hairline dividers, and a clear hanko-red
+ * active state.
  */
-export default function MobileNavSheet({ open, onClose, items, onSearch }) {
+export default function MobileNavSheet({ open, onClose, onSearch, isAdmin = false }) {
   const t = useT();
-  const reduce = useReducedMotion();
+  const { pathname } = useLocation();
 
-  // Esc closes; lock the page scroll behind the sheet while it's up.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [open, onClose]);
+  const community = SECTIONS.find((s) => s.id === "community");
+  const current = sectionForPath(pathname);
+  // The current section's own sub-pages — unless we're already in Communauté
+  // (rendered first) to avoid duplicating that block.
+  const currentSub =
+    current && current.id !== "community" && (current.children?.length ?? 0) > 1 ? current : null;
 
-  if (!open) return null;
-
-  const title = t("nav.menu_title", { default: "Naviguer" });
-
-  return createPortal(
-    <div
-      className="lg:hidden fixed inset-0 z-50"
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
+  return (
+    <Drawer
+      open={open}
+      onClose={onClose}
+      side="bottom"
+      title={t("nav.menu_title", { default: "Naviguer" })}
     >
-      {/* Dimmed page — tap to dismiss. */}
-      <motion.button
-        type="button"
-        aria-hidden
-        tabIndex={-1}
-        onClick={onClose}
-        className="absolute inset-0 bg-[var(--color-noir)]/80 backdrop-blur-sm"
-        initial={reduce ? false : { opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.2 }}
-      />
+      {/* Cancel the Drawer's content padding so rows run edge-to-edge. */}
+      <div className="-m-5">
+        {community ? <Group section={community} t={t} onClose={onClose} /> : null}
+        {currentSub ? <Group section={currentSub} t={t} onClose={onClose} /> : null}
 
-      {/* The sheet itself, anchored to the bottom. */}
-      <motion.div
-        className="absolute inset-x-0 bottom-0 max-h-[86dvh] flex flex-col bg-[var(--color-noir-soft)] border-t border-[var(--color-or)]/30"
-        style={{ boxShadow: "0 -50px 90px -45px rgba(0,0,0,0.9)" }}
-        initial={reduce ? false : { y: "14%", opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-      >
-        <span aria-hidden className="gold-rule absolute left-0 right-0 top-0 opacity-40" />
+        <GroupHeader label={t("nav.account", { default: "Mon compte" })} />
+        {ACCOUNT_NAV.map((it) => (
+          <Row
+            key={it.to}
+            to={it.to}
+            icon={it.icon}
+            label={t(it.labelKey, { default: it.labelDefault })}
+            onClose={onClose}
+          />
+        ))}
+        {isAdmin ? (
+          <Row to="/admin" icon={Shield} label={t("nav.admin")} accent onClose={onClose} />
+        ) : null}
 
-        <header className="flex items-center justify-between px-5 pt-4 pb-3 shrink-0">
-          <p className="micro flex items-center gap-2 text-[var(--color-or-pale)]">
-            <span aria-hidden className="ja not-italic text-sm text-[var(--color-or)] leading-none">
-              像
-            </span>
-            {title}
-          </p>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t("nav.close", { default: "Fermer" })}
-            className="tap-target grid place-items-center w-10 h-10 -mr-2 border border-[var(--color-or)]/30 text-[var(--color-or-pale)] hover:text-[var(--color-or)] hover:border-[var(--color-or)]/60 transition-colors"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            >
-              <line x1="4" y1="4" x2="12" y2="12" />
-              <line x1="12" y1="4" x2="4" y2="12" />
-            </svg>
-          </button>
-        </header>
-        <span aria-hidden className="gold-rule w-12 ml-5 mb-1 opacity-60" />
-
-        <nav
-          aria-label={title}
-          className="overflow-y-auto px-2"
-          style={{ paddingBottom: "max(1.5rem, calc(env(safe-area-inset-bottom) + 4.5rem))" }}
+        {/* Search opens the command palette. */}
+        <button
+          type="button"
+          onClick={() => {
+            onClose();
+            onSearch();
+          }}
+          className="w-full flex items-center gap-3.5 px-5 min-h-[52px] py-2.5 text-left text-[var(--on-surface)] hover:bg-[var(--surface-sunken)] transition-colors focus:outline-none focus-visible:bg-[var(--surface-sunken)]"
         >
-          {items.map((it) => (
-            <NavLink
-              key={it.to}
-              to={it.to}
-              end={it.to === "/admin" ? false : undefined}
-              onClick={onClose}
-              className={({ isActive }) =>
-                `flex items-center gap-3.5 px-4 py-3.5 text-[13px] uppercase tracking-[0.2em] border-b border-[var(--color-or)]/8 transition-colors ${
-                  isActive
-                    ? "text-[var(--color-or)]"
-                    : it.accent
-                      ? "text-[var(--color-or-pale)] hover:text-[var(--color-or)]"
-                      : "text-[var(--color-ivoire-soft)] hover:text-[var(--color-or-pale)]"
-                }`
-              }
-            >
-              <span aria-hidden className="w-1.5 h-1.5 rotate-45 bg-current opacity-50 shrink-0" />
-              {it.label}
-            </NavLink>
-          ))}
+          <span className="w-6 flex items-center justify-center shrink-0 text-[var(--on-surface-muted)]">
+            <Search size={18} strokeWidth={1.75} aria-hidden />
+          </span>
+          <span className="flex-1 text-[15px]">{t("nav.search", { default: "Recherche" })}</span>
+          <kbd className="font-mono text-[10px] tracking-wider text-[var(--on-surface-subtle)] border border-[var(--border)] rounded px-1.5 py-0.5">
+            {t("palette.hint_open", { default: "⌘K" })}
+          </kbd>
+        </button>
+      </div>
+    </Drawer>
+  );
+}
 
-          {/* Command palette — search lives with navigation, not the account menu. */}
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              onSearch();
-            }}
-            className="w-full flex items-center gap-3.5 px-4 py-3.5 text-[13px] uppercase tracking-[0.2em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors"
-          >
-            <span aria-hidden className="ja not-italic text-base leading-none opacity-80">
-              検
-            </span>
-            {t("nav.search", { default: "Recherche" })}
-          </button>
-        </nav>
-      </motion.div>
-    </div>,
-    document.body,
+// A section: a quiet eyebrow (kanji + label) then its sub-pages as full rows.
+function Group({ section, t, onClose }) {
+  return (
+    <>
+      <GroupHeader
+        kanji={section.kanji}
+        label={t(section.labelKey, { default: section.labelDefault })}
+      />
+      {(section.children ?? []).map((child) => (
+        <Row
+          key={child.to}
+          to={child.to}
+          end={child.end}
+          kanji={child.kanji}
+          label={t(child.labelKey, { default: child.labelDefault })}
+          onClose={onClose}
+        />
+      ))}
+    </>
+  );
+}
+
+function GroupHeader({ kanji, label }) {
+  return (
+    <p className="px-5 pt-5 pb-1.5 text-[11px] uppercase tracking-[0.2em] text-[var(--on-surface-muted)] flex items-center gap-2">
+      {kanji ? (
+        <span aria-hidden className="ja not-italic text-sm leading-none text-[var(--accent)]">
+          {kanji}
+        </span>
+      ) : null}
+      {label}
+    </p>
+  );
+}
+
+// One row — a real NavLink (focusable, aria-current on the active route). Leading
+// glyph is a kanji (section sub-pages) or a lucide icon (account rows); trailing
+// chevron signals "navigates". Active = hanko red + a faint surface tint.
+function Row({ to, end, kanji, icon: Icon, label, accent, onClose }) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      onClick={onClose}
+      className={({ isActive }) =>
+        `flex items-center gap-3.5 px-5 min-h-[52px] py-2.5 border-b border-[var(--border-subtle)] transition-colors focus:outline-none focus-visible:bg-[var(--surface-sunken)] ${
+          isActive
+            ? "bg-[color-mix(in_oklab,var(--primary)_9%,transparent)] text-[var(--primary)]"
+            : accent
+              ? "text-[var(--accent)] hover:bg-[var(--surface-sunken)]"
+              : "text-[var(--on-surface)] hover:bg-[var(--surface-sunken)]"
+        }`
+      }
+    >
+      {({ isActive }) => (
+        <>
+          <span className="w-6 flex items-center justify-center shrink-0">
+            {Icon ? (
+              <Icon size={18} strokeWidth={1.75} aria-hidden />
+            ) : kanji ? (
+              <span
+                aria-hidden
+                className="ja not-italic text-base leading-none"
+                style={{
+                  color: isActive ? "var(--primary)" : "var(--accent)",
+                  opacity: isActive ? 1 : 0.7,
+                }}
+              >
+                {kanji}
+              </span>
+            ) : null}
+          </span>
+          <span className="flex-1 text-[15px]">{label}</span>
+          <ChevronRight
+            size={16}
+            aria-hidden
+            className="shrink-0 text-[var(--on-surface-subtle)]"
+          />
+        </>
+      )}
+    </NavLink>
   );
 }

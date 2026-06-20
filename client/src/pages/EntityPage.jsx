@@ -102,15 +102,15 @@ export default function EntityPage({ kind }) {
           <p className="micro reveal flex items-center gap-2.5" style={{ "--i": 0 }}>
             <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
             {t(`entity.${kind}.eyebrow`)}
-            <span aria-hidden className="ja not-italic text-[var(--color-or)]">{glyph}</span>
+            <span aria-hidden className="ja not-italic text-[var(--color-or)]">
+              {glyph}
+            </span>
           </p>
           <h1
             className="display text-4xl md:text-5xl mt-3 text-[var(--color-ivoire)] leading-tight reveal"
             style={{ "--i": 1 }}
           >
-            <AccentTitle
-              text={notFound ? t("entity.missing.title") : t("entity.error.title")}
-            />
+            <AccentTitle text={notFound ? t("entity.missing.title") : t("entity.error.title")} />
           </h1>
           <div className="gold-rule w-24 mt-6 reveal" style={{ "--i": 2 }} />
           <p
@@ -125,10 +125,14 @@ export default function EntityPage({ kind }) {
   }
 
   const { entity, figures } = q.data ?? { entity: null, figures: [] };
-  if (!entity) return <AppShell><main /></AppShell>;
+  if (!entity)
+    return (
+      <AppShell>
+        <main />
+      </AppShell>
+    );
 
-  const blurNsfw =
-    (me.data?.user?.nsfw_visibility ?? "hide") === "blur";
+  const blurNsfw = (me.data?.user?.nsfw_visibility ?? "hide") === "blur";
   // The admin toolbar (checkboxes + unlink / move bulk ops) is only relevant
   // for the two M2M-linked entity kinds — manufacturers are 1:N via a
   // direct FK and not in scope for this issue.
@@ -149,9 +153,7 @@ export default function EntityPage({ kind }) {
       <main className="relative max-w-6xl mx-auto px-6 py-12">
         <Header entity={entity} kind={kind} t={t} mangaHref={mangaHref} figures={figures} />
 
-        {figures.length > 0 ? (
-          <StatStrip figures={figures} kind={kind} t={t} />
-        ) : null}
+        {figures.length > 0 ? <StatStrip figures={figures} kind={kind} t={t} /> : null}
 
         <section className="mt-12">
           <Reveal
@@ -162,7 +164,10 @@ export default function EntityPage({ kind }) {
           >
             <div>
               <p className="micro flex items-center gap-2">
-                <span aria-hidden className="ja not-italic text-base text-[var(--color-or)] leading-none">
+                <span
+                  aria-hidden
+                  className="ja not-italic text-base text-[var(--color-or)] leading-none"
+                >
                   {kindGlyph(kind)}
                 </span>
                 {t("entity.figures_section.eyebrow", { default: "Au catalogue" })}
@@ -206,13 +211,7 @@ export default function EntityPage({ kind }) {
               {figures.map((f, i) => {
                 const isSelected = selected.has(f.id);
                 return (
-                  <Reveal
-                    as="li"
-                    key={f.id}
-                    y={24}
-                    amount={0.15}
-                    delay={Math.min(i, 7) * 0.05}
-                  >
+                  <Reveal as="li" key={f.id} y={24} amount={0.15} delay={Math.min(i, 7) * 0.05}>
                     {/* Selection control sits ABOVE the card, not as a corner
                         overlay — both card corners are already taken (type
                         chip top-left, preorder badge top-right). A labelled
@@ -239,11 +238,7 @@ export default function EntityPage({ kind }) {
                       </label>
                     ) : null}
                     <div
-                      className={
-                        manageable && isSelected
-                          ? "ring-1 ring-[var(--color-or)]"
-                          : ""
-                      }
+                      className={manageable && isSelected ? "ring-1 ring-[var(--color-or)]" : ""}
                     >
                       <FigureCard
                         figureId={f.id}
@@ -283,9 +278,7 @@ export default function EntityPage({ kind }) {
 function StatStrip({ figures, kind, t }) {
   const stats = useMemo(() => {
     const list = figures ?? [];
-    const manufacturers = new Set(
-      list.map((f) => f.manufacturer_name).filter(Boolean),
-    );
+    const manufacturers = new Set(list.map((f) => f.manufacturer_name).filter(Boolean));
     const types = new Set(list.map((f) => f.figure_type).filter(Boolean));
     const scales = new Set(list.map((f) => f.scale).filter(Boolean));
     const preorders = list.filter((f) => {
@@ -307,7 +300,10 @@ function StatStrip({ figures, kind, t }) {
   const thirdSlot =
     kind === "manufacturer"
       ? { label: t("entity.stat.scales", { default: "Échelles" }), value: stats.scales }
-      : { label: t("entity.stat.manufacturers", { default: "Fabricants" }), value: stats.manufacturers };
+      : {
+          label: t("entity.stat.manufacturers", { default: "Fabricants" }),
+          value: stats.manufacturers,
+        };
 
   return (
     <Reveal as="div" y={16} delay={0.12} className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -381,9 +377,7 @@ function AdminBulkToolbar({ kind, entity, figures, selected, onSelectAll, onClea
 
   return (
     <div className="mb-6 p-4 border border-[var(--color-or)]/25 bg-[var(--color-noir-soft)]/40 flex flex-wrap items-center gap-3 text-[10px] uppercase tracking-[0.2em]">
-      <span className="text-[var(--color-or-pale)]">
-        {t("entity.admin.eyebrow")}
-      </span>
+      <span className="text-[var(--color-or-pale)]">{t("entity.admin.eyebrow")}</span>
       <span className="font-mono text-[var(--color-ivoire-soft)]">
         {t("entity.admin.selected_count", { n: selected.size })}
       </span>
@@ -491,13 +485,7 @@ function Header({ entity, kind, t, mangaHref, figures }) {
               background: `linear-gradient(150deg, transparent 45%, color-mix(in oklab, ${accent} 22%, transparent))`,
             }}
           />
-          <EntityHeroImage
-            entity={entity}
-            figures={figures}
-            kind={kind}
-            t={t}
-            accent={accent}
-          />
+          <EntityHeroImage entity={entity} figures={figures} kind={kind} t={t} accent={accent} />
         </Reveal>
 
         <Reveal as="div" delay={0.08} y={20}>
@@ -510,7 +498,9 @@ function Header({ entity, kind, t, mangaHref, figures }) {
             <span
               aria-hidden
               className="w-1 h-1 rotate-45"
-              style={{ background: `color-mix(in oklab, ${accent} 80%, var(--color-laque-bright))` }}
+              style={{
+                background: `color-mix(in oklab, ${accent} 80%, var(--color-laque-bright))`,
+              }}
             />
             {t(`entity.${kind}.eyebrow`)}
             <span
@@ -536,34 +526,32 @@ function Header({ entity, kind, t, mangaHref, figures }) {
             }}
           />
 
-        {/* Linked series for characters */}
-        {kind === "character" && entity.series_name ? (
-          <p className="text-sm text-[var(--color-ivoire-soft)] mb-4">
-            <span className="micro-tight mr-2">
-              {t("entity.character.from_series")}
-            </span>
-            <Link
-              to={`/series/${entity.series_slug}`}
-              className="text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors underline decoration-[var(--color-or)]/40 underline-offset-4"
-            >
-              {entity.series_name}
-            </Link>
-          </p>
-        ) : null}
+          {/* Linked series for characters */}
+          {kind === "character" && entity.series_name ? (
+            <p className="text-sm text-[var(--color-ivoire-soft)] mb-4">
+              <span className="micro-tight mr-2">{t("entity.character.from_series")}</span>
+              <Link
+                to={`/catalogue/series/${entity.series_slug}`}
+                className="text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors underline decoration-[var(--color-or)]/40 underline-offset-4"
+              >
+                {entity.series_name}
+              </Link>
+            </p>
+          ) : null}
 
-        {entity.description ? (
-          // Render as a TEXT node, never as HTML. The previous wiring used
-          // `dangerouslySetInnerHTML={{ __html: stripHtml(...) }}` which
-          // (a) had nothing to gain — `stripHtml` already removed every
-          // tag — and (b) left a residual XSS vector if `stripHtml` ever
-          // failed to neutralise a smuggled `<scr<script>ipt>` payload.
-          // React auto-escapes text content, so this is unconditionally
-          // safe. The `whitespace-pre-wrap` class preserves the `\n` that
-          // `stripHtml` produces in place of `<br>` tags.
-          <p className="text-sm text-[var(--color-ivoire)] leading-relaxed max-w-prose whitespace-pre-wrap">
-            {stripHtml(entity.description)}
-          </p>
-        ) : null}
+          {entity.description ? (
+            // Render as a TEXT node, never as HTML. The previous wiring used
+            // `dangerouslySetInnerHTML={{ __html: stripHtml(...) }}` which
+            // (a) had nothing to gain — `stripHtml` already removed every
+            // tag — and (b) left a residual XSS vector if `stripHtml` ever
+            // failed to neutralise a smuggled `<scr<script>ipt>` payload.
+            // React auto-escapes text content, so this is unconditionally
+            // safe. The `whitespace-pre-wrap` class preserves the `\n` that
+            // `stripHtml` produces in place of `<br>` tags.
+            <p className="text-sm text-[var(--color-ivoire)] leading-relaxed max-w-prose whitespace-pre-wrap">
+              {stripHtml(entity.description)}
+            </p>
+          ) : null}
 
           <MetaRows entity={entity} kind={kind} t={t} accent={accent} />
 
@@ -642,31 +630,31 @@ function ExternalLinks({ entity, kind, t, accent = "var(--color-or)", mangaHref 
         if (!href) return null;
         const linkAccent = l.accent ?? accent;
         return (
-        <li key={l.href}>
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] px-3 py-1.5 border transition-colors duration-300 ease-out hover:-translate-y-0.5 hover:text-[var(--color-ivoire)] hover:[border-color:var(--_link-border-hover)] hover:[background:var(--_link-bg-hover)] motion-reduce:hover:translate-y-0 motion-reduce:transition-none"
-            style={{
-              borderColor: `color-mix(in oklab, ${linkAccent} 42%, transparent)`,
-              background: `color-mix(in oklab, ${linkAccent} 6%, transparent)`,
-              "--_link-border-hover": `color-mix(in oklab, ${linkAccent} 80%, transparent)`,
-              "--_link-bg-hover": `color-mix(in oklab, ${linkAccent} 14%, transparent)`,
-            }}
-          >
-            {l.glyph ? (
-              <span
-                aria-hidden
-                className="ja -ml-0.5 text-[12px] leading-none"
-                style={{ color: "var(--color-indigo-bright)" }}
-              >
-                {l.glyph}
-              </span>
-            ) : null}
-            {l.label} ↗
-          </a>
-        </li>
+          <li key={l.href}>
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] px-3 py-1.5 border transition-colors duration-300 ease-out hover:-translate-y-0.5 hover:text-[var(--color-ivoire)] hover:[border-color:var(--_link-border-hover)] hover:[background:var(--_link-bg-hover)] motion-reduce:hover:translate-y-0 motion-reduce:transition-none"
+              style={{
+                borderColor: `color-mix(in oklab, ${linkAccent} 42%, transparent)`,
+                background: `color-mix(in oklab, ${linkAccent} 6%, transparent)`,
+                "--_link-border-hover": `color-mix(in oklab, ${linkAccent} 80%, transparent)`,
+                "--_link-bg-hover": `color-mix(in oklab, ${linkAccent} 14%, transparent)`,
+              }}
+            >
+              {l.glyph ? (
+                <span
+                  aria-hidden
+                  className="ja -ml-0.5 text-[12px] leading-none"
+                  style={{ color: "var(--color-indigo-bright)" }}
+                >
+                  {l.glyph}
+                </span>
+              ) : null}
+              {l.label} ↗
+            </a>
+          </li>
         );
       })}
     </ul>

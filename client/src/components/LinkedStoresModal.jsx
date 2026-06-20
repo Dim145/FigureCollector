@@ -49,11 +49,11 @@ export default function LinkedStoresModal({ open, stores, onClose }) {
         className="linked-stores-modal"
       >
         <header className="linked-stores-modal-header">
-          <span aria-hidden className="ja text-[var(--color-or)] text-2xl">店</span>
+          <span aria-hidden className="ja text-[var(--color-or)] text-2xl">
+            店
+          </span>
           <h2>{t("figure.stores.modal.title")}</h2>
-          <p className="micro-tight">
-            {t("figure.stores.modal.count", { n: stores.length })}
-          </p>
+          <p className="micro-tight">{t("figure.stores.modal.count", { n: stores.length })}</p>
         </header>
 
         <ul className="linked-stores-modal-list">
@@ -66,7 +66,7 @@ export default function LinkedStoresModal({ open, stores, onClose }) {
             return (
               <li key={s.id} className="linked-stores-item">
                 <Link
-                  to={`/stores/${s.slug}`}
+                  to={`/catalogue/stores/${s.slug}`}
                   onClick={onClose}
                   className="linked-stores-row"
                 >
@@ -81,9 +81,7 @@ export default function LinkedStoresModal({ open, stores, onClose }) {
                     <span className="linked-stores-name">{s.name}</span>
                     <span className="linked-stores-slug">/{s.slug}</span>
                     {s.url ? (
-                      <span className="linked-stores-url">
-                        ↗ {hostnameOf(s.url)}
-                      </span>
+                      <span className="linked-stores-url">↗ {hostnameOf(s.url)}</span>
                     ) : null}
                   </span>
                   {buyHref ? null : (
@@ -100,9 +98,13 @@ export default function LinkedStoresModal({ open, stores, onClose }) {
                     className="linked-stores-buy"
                     aria-label={t("figure.stores.buy_at", { name: s.name })}
                   >
-                    <span aria-hidden className="ja">購</span>
+                    <span aria-hidden className="ja">
+                      購
+                    </span>
                     <span>{t("figure.stores.buy")}</span>
-                    <span aria-hidden className="linked-stores-buy-arrow">↗</span>
+                    <span aria-hidden className="linked-stores-buy-arrow">
+                      ↗
+                    </span>
                   </a>
                 ) : null}
               </li>

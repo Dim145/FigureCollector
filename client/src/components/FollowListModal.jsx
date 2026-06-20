@@ -13,13 +13,7 @@ import FollowButton from "./FollowButton.jsx";
  * and a mutual badge; rows link to public vitrines. Reached from the
  * clickable counters on the public profile.
  */
-export default function FollowListModal({
-  open,
-  slug,
-  initialTab = "followers",
-  counts,
-  onClose,
-}) {
+export default function FollowListModal({ open, slug, initialTab = "followers", counts, onClose }) {
   const t = useT();
   const me = useMe();
   const cardRef = useRef(null);
@@ -86,12 +80,10 @@ export default function FollowListModal({
           ) : rows.length === 0 ? (
             <div className="py-10 px-6 text-center text-[var(--color-ivoire-soft)] text-[13px]">
               <p>
-                {tab === "followers"
-                  ? t("follow.empty.followers")
-                  : t("follow.empty.following")}
+                {tab === "followers" ? t("follow.empty.followers") : t("follow.empty.following")}
               </p>
               <Link
-                to="/collectionneurs"
+                to="/community"
                 onClick={onClose}
                 className="inline-block mt-3 text-[var(--color-or-pale)] border-b border-[color-mix(in_oklab,var(--color-or)_35%,transparent)]"
               >
@@ -101,13 +93,7 @@ export default function FollowListModal({
           ) : (
             <ul>
               {rows.map((r) => (
-                <Row
-                  key={r.id}
-                  r={r}
-                  isSelf={r.username === myUsername}
-                  onClose={onClose}
-                  t={t}
-                />
+                <Row key={r.id} r={r} isSelf={r.username === myUsername} onClose={onClose} t={t} />
               ))}
             </ul>
           )}

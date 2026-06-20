@@ -67,10 +67,7 @@ export default function AdminStoresPage() {
         </span>
 
         <p className="micro reveal flex items-center gap-2.5" style={{ "--i": 0 }}>
-          <span
-            aria-hidden
-            className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45"
-          />
+          <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
           {t("admin.stores.eyebrow")}
           <span aria-hidden className="ja not-italic text-[var(--color-or)]">
             店
@@ -159,9 +156,7 @@ export default function AdminStoresPage() {
           <div className="hidden sm:flex gap-3" aria-hidden>
             <span className="shrink-0 w-[18px]" />
             <div className="flex-1 grid grid-cols-[64px_1.6fr_1.4fr_auto] gap-x-4 items-center px-4 pb-1 border-b border-[var(--color-or)]/15">
-              <span className="label-mono text-[var(--color-ivoire-soft)]/55">
-                店
-              </span>
+              <span className="label-mono text-[var(--color-ivoire-soft)]/55">店</span>
               <span className="label-mono text-[var(--color-ivoire-soft)]/55">
                 {t("admin.stores.col.store", { default: "Boutique" })}
               </span>
@@ -202,7 +197,6 @@ export default function AdminStoresPage() {
           </ul>
         </div>
       )}
-
     </section>
   );
 }
@@ -240,7 +234,7 @@ function Row({ store, t }) {
         {/* Name + slug */}
         <div className="min-w-0">
           <Link
-            to={`/stores/${store.slug}`}
+            to={`/catalogue/stores/${store.slug}`}
             className="display text-lg text-[var(--color-ivoire)] hover:text-[var(--color-or-pale)] transition-colors underline decoration-[var(--color-or)]/30 hover:decoration-[var(--color-or)] underline-offset-4"
           >
             {store.name}
@@ -264,15 +258,11 @@ function Row({ store, t }) {
               ↗ {prettyHost(store.url)}
             </a>
           ) : (
-            <span className="text-[var(--color-ivoire-soft)]/35">
-              {t("admin.stores.no_url")}
-            </span>
+            <span className="text-[var(--color-ivoire-soft)]/35">{t("admin.stores.no_url")}</span>
           )}
           <span
             className={
-              total > 0
-                ? "text-[var(--color-or-pale)]"
-                : "text-[var(--color-ivoire-soft)]/35"
+              total > 0 ? "text-[var(--color-or-pale)]" : "text-[var(--color-ivoire-soft)]/35"
             }
           >
             {total > 0
@@ -343,9 +333,7 @@ function CreateRow({ t, onClose }) {
           placeholder="https://amiami.com"
         />
         <label className="block">
-          <span className="ftype-field-label">
-            {t("admin.stores.field.description")}
-          </span>
+          <span className="ftype-field-label">{t("admin.stores.field.description")}</span>
           <textarea
             value={form.description}
             onChange={(e) => set("description")(e.target.value)}
@@ -421,7 +409,9 @@ function EditRow({ store, t, onClose }) {
             {store.image_storage_key ? (
               <img src={`/api/store-image/${store.id}`} alt="" aria-hidden />
             ) : (
-              <div aria-hidden className="store-admin-thumb-placeholder">店</div>
+              <div aria-hidden className="store-admin-thumb-placeholder">
+                店
+              </div>
             )}
           </div>
           <button
@@ -455,9 +445,7 @@ function EditRow({ store, t, onClose }) {
             placeholder="https://amiami.com"
           />
           <label className="block">
-            <span className="ftype-field-label">
-              {t("admin.stores.field.description")}
-            </span>
+            <span className="ftype-field-label">{t("admin.stores.field.description")}</span>
             <textarea
               value={form.description}
               onChange={(e) => set("description")(e.target.value)}
