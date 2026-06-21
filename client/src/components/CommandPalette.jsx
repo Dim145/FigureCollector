@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
@@ -30,6 +30,13 @@ export default function CommandPalette() {
   const [selected, setSelected] = useState(0);
   const inputRef = useRef(null);
   const dialogRef = useRef(null);
+  // Stable ids for the combobox ↔ listbox ↔ option ARIA wiring. Each result's
+  // deterministic option id (derived from its unique `it.id`) lets us point
+  // aria-activedescendant at the keyboard-selected command without moving DOM
+  // focus out of the input.
+  const baseId = useId();
+  const listId = `${baseId}-listbox`;
+  const optionId = (id) => `${baseId}-option-${id}`;
   // Focus trap: Tab cycles between the input + result items + close button.
   // Esc restores focus to whatever element opened the palette (matters
   // when ⌘K was triggered from a button via aria, not the keyboard
@@ -195,6 +202,9 @@ export default function CommandPalette() {
     setOpen(false);
   };
 
+  const activeItem = filtered[selected];
+  const activeOptionId = activeItem ? optionId(activeItem.id) : undefined;
+
   return createPortal(
     <div
       role="dialog"
@@ -225,12 +235,23 @@ export default function CommandPalette() {
               onKeyDown={onKeyDown}
               placeholder={t("palette.placeholder")}
               aria-label={t("palette.placeholder")}
+              role="combobox"
+              aria-expanded={filtered.length > 0}
+              aria-controls={listId}
+              aria-activedescendant={activeOptionId}
+              aria-autocomplete="list"
+              autoComplete="off"
               className="flex-1 min-w-0 bg-transparent text-[var(--color-ivoire)] outline-none placeholder:text-[var(--color-ivoire-soft)]"
               style={{ fontFamily: "var(--font-sans)" }}
             />
           </div>
 
-          <div className="max-h-[60vh] overflow-y-auto py-2">
+          <div
+            role="listbox"
+            id={listId}
+            aria-label={t("palette.placeholder")}
+            className="max-h-[60vh] overflow-y-auto py-2"
+          >
             {filtered.length === 0 ? (
               <p className="text-center text-[var(--color-ivoire-soft)] py-8 text-sm">
                 {t("palette.no_results")}
@@ -243,6 +264,7 @@ export default function CommandPalette() {
                   filtered={filtered}
                   selected={selected}
                   onSelect={onSelect}
+                  optionId={optionId}
                 />
                 <Group
                   title={t("palette.group.actions", { default: "Actions" })}
@@ -250,6 +272,7 @@ export default function CommandPalette() {
                   filtered={filtered}
                   selected={selected}
                   onSelect={onSelect}
+                  optionId={optionId}
                 />
                 <Group
                   title={t("palette.group.collection")}
@@ -257,6 +280,7 @@ export default function CommandPalette() {
                   filtered={filtered}
                   selected={selected}
                   onSelect={onSelect}
+                  optionId={optionId}
                 />
                 <Group
                   title={t("palette.group.catalog")}
@@ -264,6 +288,7 @@ export default function CommandPalette() {
                   filtered={filtered}
                   selected={selected}
                   onSelect={onSelect}
+                  optionId={optionId}
                 />
               </>
             )}
@@ -275,19 +300,22 @@ export default function CommandPalette() {
   );
 }
 
-function Group({ title, items, filtered, selected, onSelect }) {
+function Group({ title, items, filtered, selected, onSelect, optionId }) {
   if (items.length === 0) return null;
   return (
-    <div className="pb-2">
+    <div className="pb-2" role="presentation">
       <p className="micro px-5 pt-3 pb-2">{title}</p>
-      <ul>
+      <ul role="presentation">
         {items.map((it) => {
           const idx = filtered.indexOf(it);
           const isActive = idx === selected;
           return (
-            <li key={it.id}>
+            <li key={it.id} role="presentation">
               <button
                 type="button"
+                role="option"
+                id={optionId(it.id)}
+                aria-selected={isActive}
                 onClick={() => onSelect(it)}
                 onMouseEnter={() => {
                   /* no-op; keyboard owns selection */

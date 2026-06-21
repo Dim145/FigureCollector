@@ -2611,4 +2611,14 @@ export default {
     "Génère un PDF unique réunissant l'inventaire daté de ta collection et les justificatifs (factures) de chaque pièce — prêt à transmettre à ton assurance.",
   "insights.dossier.empty": "Aucune pièce à assurer",
   "insights.dossier.empty_body": "Ajoute des pièces à ta collection pour générer un dossier.",
+
+  // Shared primitive labels + confirm (post-review a11y/i18n)
+  "editor.confirm": "Confirmer",
+  "common.remove": "Retirer",
+  "nav.breadcrumb": "Fil d'Ariane",
+  "pagination.label": "Pagination",
+  "pagination.prev": "Page précédente",
+  "pagination.next": "Page suivante",
+  "preorders.kicker": "PRÉ-COMMANDES · 予約 · HORARIUM",
+  "wishlist.remove.body": "Retirer cette pièce de tes souhaits ?",
 };

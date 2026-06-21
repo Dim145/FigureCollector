@@ -263,7 +263,7 @@
   gap: 0.18rem;
 }
 .store-visit-btn-label {
-  font-family: "Cormorant Garamond", "Noto Serif JP", serif;
+  font-family: var(--font-display), "Noto Serif JP", serif;
   font-size: 1.15rem;
   line-height: 1.05;
 }
@@ -289,8 +289,6 @@
   padding: 0.34rem 0.62rem;
   border: 1px solid color-mix(in oklab, var(--color-or) 52%, transparent);
   background: color-mix(in oklab, var(--color-noir-deep) 78%, transparent);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
   color: var(--color-or);
   font-family: var(--font-mono);
   font-size: 9px;
@@ -445,7 +443,7 @@
   margin-bottom: 0.5rem;
 }
 .linked-stores-modal-header h2 {
-  font-family: "Cormorant Garamond", "Noto Serif JP", serif;
+  font-family: var(--font-display), "Noto Serif JP", serif;
   font-size: 1.6rem;
   color: var(--color-ivoire);
   margin: 0 0 0.35rem;
@@ -508,7 +506,7 @@
   min-width: 0;
 }
 .linked-stores-name {
-  font-family: "Cormorant Garamond", "Noto Serif JP", serif;
+  font-family: var(--font-display), "Noto Serif JP", serif;
   font-size: 1.1rem;
   color: var(--color-ivoire);
   line-height: 1.15;

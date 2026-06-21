@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { useT } from "../../i18n/index.jsx";
 
 /**
  * Tag / filter chip. Three modes:
@@ -15,6 +16,7 @@ export default function Chip({
   className = "",
   ...props
 }) {
+  const t = useT();
   const interactive = !!onClick && !onRemove;
   const Comp = interactive ? "button" : "span";
   return (
@@ -46,7 +48,7 @@ export default function Chip({
             e.stopPropagation();
             onRemove();
           }}
-          aria-label="Retirer"
+          aria-label={t("common.remove", { default: "Retirer" })}
           className="ml-0.5 -mr-1 opacity-70 hover:opacity-100 transition-opacity"
         >
           <X size={12} />

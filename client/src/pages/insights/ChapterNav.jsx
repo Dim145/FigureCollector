@@ -29,7 +29,12 @@ export default function ChapterNav({ chapters }) {
   }, [chapters]);
 
   useEffect(() => {
-    function onScroll() {
+    // Coalesce scroll/resize work into one rAF so the getBoundingClientRect
+    // loop runs at most once per frame (avoids layout-thrash on this
+    // chart-heavy page) — mirrors SettingsPage's useScrollSpy.
+    let frame = 0;
+    function compute() {
+      frame = 0;
       const triggerY = window.innerHeight * 0.28;
       let candidate = null;
       for (const c of chaptersRef.current) {
@@ -39,12 +44,16 @@ export default function ChapterNav({ chapters }) {
       }
       setActive(candidate ?? chaptersRef.current[0]?.id ?? null);
     }
-    onScroll();
+    function onScroll() {
+      if (!frame) frame = requestAnimationFrame(compute);
+    }
+    compute();
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll, { passive: true });
     return () => {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
+      if (frame) cancelAnimationFrame(frame);
     };
   }, []);
 

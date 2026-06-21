@@ -2,6 +2,7 @@ import { useId, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useFocusTrap } from "../../hooks/useFocusTrap.js";
+import { useT } from "../../i18n/index.jsx";
 
 const SIZES = {
   sm: "max-w-sm",
@@ -29,6 +30,7 @@ export default function Modal({
   hideClose = false,
   className = "",
 }) {
+  const t = useT();
   const ref = useRef(null);
   const titleId = useId();
   const descId = useId();
@@ -66,7 +68,7 @@ export default function Modal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Fermer"
+            aria-label={t("common.close", { default: "Fermer" })}
             className="absolute right-3 top-3 inline-flex items-center justify-center w-9 h-9 rounded-full text-[var(--on-surface-muted)] hover:text-[var(--on-surface)] hover:bg-[var(--surface-sunken)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
           >
             <X size={18} />

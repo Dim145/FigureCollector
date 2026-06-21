@@ -27,9 +27,12 @@
   --font-ja: "Noto Serif JP", "Yu Mincho", "MS PMincho", serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", monospace;
 
-  /* ── Core palette (dark default). These are OVERRIDDEN per-theme below by
-   *    `[data-theme="light"]`; everything that reads `var(--color-*)` flips
-   *    automatically. OKLCH for predictable hue rotations & alpha mixing. */
+  /* ── Core palette (dark default). The light-theme flip of these core
+   *    `--color-*` values lives in `themes.css` (its `[data-theme="light"]`
+   *    block) — NOT in the light block further down this file, which only
+   *    re-maps status/elevation/scrim tokens. Everything that reads
+   *    `var(--color-*)` flips automatically once themes.css applies.
+   *    OKLCH for predictable hue rotations & alpha mixing. */
   --color-noir: oklch(0.14 0.005 50); /* body bg */
   --color-noir-soft: oklch(0.19 0.008 50); /* cards */
   --color-noir-deep: oklch(0.1 0.004 50); /* wells, hero bg */
@@ -65,9 +68,10 @@
  * Layered on top of the Direction-A palette above WITHOUT renaming anything.
  * Kept in a plain :root (NOT @theme) so Tailwind's usage scanner never
  * tree-shakes them — same rationale as the per-type hues. The colour aliases
- * point AT the core palette, so they flip automatically with [data-theme];
- * only the few whose light value can't be derived from the palette flip are
- * re-declared in the light block below.
+ * point AT the core palette, so they flip automatically once that palette is
+ * flipped for light mode in `themes.css` (the `[data-theme="light"]` block
+ * there). Only the few whose light value can't be derived from the palette
+ * (status/elevation/scrim) are re-declared in the light block below.
  *
  * Rule going forward: the new ui/ primitives reference THESE semantic tokens
  * (--surface, --border, --danger, --radius-*, --elevation-*, …), never the

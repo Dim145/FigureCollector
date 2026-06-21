@@ -343,7 +343,6 @@
   background: color-mix(in oklab, var(--color-or) 12%, var(--color-noir-soft));
   border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
   flex-wrap: wrap;
-  backdrop-filter: blur(6px);
 }
 .adm-bulk-count {
   font-family: var(--font-display);

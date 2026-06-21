@@ -148,7 +148,6 @@
   align-items: stretch;
   border: 1px solid color-mix(in oklab, var(--color-or) 25%, transparent);
   background: color-mix(in oklab, var(--color-noir-deep) 70%, transparent);
-  backdrop-filter: blur(8px);
 }
 .fig-actions > button,
 .fig-actions > a {

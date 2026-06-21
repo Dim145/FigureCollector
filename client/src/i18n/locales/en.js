@@ -2551,4 +2551,14 @@ export default {
     "Generate a single PDF combining a dated inventory of your collection with each piece's receipts (invoices) — ready to hand to your insurer.",
   "insights.dossier.empty": "No pieces to insure",
   "insights.dossier.empty_body": "Add pieces to your collection to generate a dossier.",
+
+  // Shared primitive labels + confirm (post-review a11y/i18n)
+  "editor.confirm": "Confirm",
+  "common.remove": "Remove",
+  "nav.breadcrumb": "Breadcrumb",
+  "pagination.label": "Pagination",
+  "pagination.prev": "Previous page",
+  "pagination.next": "Next page",
+  "preorders.kicker": "PRE-ORDERS · 予約 · HORARIUM",
+  "wishlist.remove.body": "Remove this piece from your wishlist?",
 };

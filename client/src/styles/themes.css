@@ -47,8 +47,9 @@
   --color-ivoire: oklch(0.26 0.02 55);
   --color-ivoire-soft: oklch(0.4 0.02 55 / 0.86);
 
-  /* Gold must deepen to stay legible on light surfaces. */
-  --color-or: oklch(0.58 0.12 72);
+  /* Gold must deepen to stay legible on light surfaces — small gold text
+     (chips, micro-labels) must clear WCAG AA 4.5:1 on the porcelain cards. */
+  --color-or: oklch(0.52 0.13 72);
   --color-or-pale: oklch(0.5 0.12 70);
   --color-or-deep: oklch(0.42 0.1 68);
   --color-ember: oklch(0.58 0.13 50);

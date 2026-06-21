@@ -1,10 +1,12 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useT } from "../../i18n/index.jsx";
 
 /**
  * Page navigation for tables / grids. 1-indexed. Collapses long ranges with
  * ellipses (always shows first, last, and ±1 around the current page).
  */
 export default function Pagination({ page = 1, pageCount = 1, onChange, className = "" }) {
+  const t = useT();
   if (pageCount <= 1) return null;
 
   const go = (p) => {
@@ -22,12 +24,15 @@ export default function Pagination({ page = 1, pageCount = 1, onChange, classNam
     "inline-flex items-center justify-center min-w-9 h-9 px-2 text-sm border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)] disabled:opacity-40 disabled:cursor-not-allowed";
 
   return (
-    <nav aria-label="Pagination" className={`flex items-center gap-1 ${className}`}>
+    <nav
+      aria-label={t("pagination.label", { default: "Pagination" })}
+      className={`flex items-center gap-1 ${className}`}
+    >
       <button
         type="button"
         onClick={() => go(page - 1)}
         disabled={page <= 1}
-        aria-label="Page précédente"
+        aria-label={t("pagination.prev", { default: "Page précédente" })}
         className={btn}
         style={{
           borderRadius: "var(--radius-sm)",
@@ -65,7 +70,7 @@ export default function Pagination({ page = 1, pageCount = 1, onChange, classNam
         type="button"
         onClick={() => go(page + 1)}
         disabled={page >= pageCount}
-        aria-label="Page suivante"
+        aria-label={t("pagination.next", { default: "Page suivante" })}
         className={btn}
         style={{
           borderRadius: "var(--radius-sm)",

@@ -1,6 +1,16 @@
-import { createContext, useContext, useState, useCallback, useMemo, useRef } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useMemo,
+  useRef,
+  useEffect,
+} from "react";
 import { createPortal } from "react-dom";
 import { CircleCheck, CircleAlert, TriangleAlert, Info, X } from "lucide-react";
+import { useT } from "../../i18n/index.jsx";
+import { mapApiError } from "../../lib/errorMap.js";
 
 const ToastCtx = createContext(null);
 
@@ -28,6 +38,7 @@ let idSeq = 0;
  * safe-area inset.
  */
 export function ToastProvider({ children }) {
+  const t = useT();
   const [toasts, setToasts] = useState([]);
   const timers = useRef(new Map());
 
@@ -69,6 +80,26 @@ export function ToastProvider({ children }) {
     [toast, dismiss],
   );
 
+  // Global mutation-error bridge. queryClient is a plain module (no React
+  // context) so its MutationCache dispatches a window event; we translate the
+  // ApiError to a localized string and raise an error toast. Refs keep the
+  // listener stable (subscribe once) while always reading the current `t` and
+  // error API — kept in sync from an effect so render stays pure.
+  const errorRef = useRef(value.error);
+  const tRef = useRef(t);
+  useEffect(() => {
+    errorRef.current = value.error;
+    tRef.current = t;
+  });
+  useEffect(() => {
+    const onMutationError = (e) => {
+      const message = mapApiError(e.detail?.error, tRef.current);
+      if (message) errorRef.current(message);
+    };
+    window.addEventListener("figurecollector:mutation-error", onMutationError);
+    return () => window.removeEventListener("figurecollector:mutation-error", onMutationError);
+  }, []);
+
   return (
     <ToastCtx.Provider value={value}>
       {children}
@@ -79,13 +110,13 @@ export function ToastProvider({ children }) {
           aria-live="polite"
           aria-atomic="false"
         >
-          {toasts.map((t) => {
-            const tone = TONES[t.tone] ?? TONES.default;
+          {toasts.map((item) => {
+            const tone = TONES[item.tone] ?? TONES.default;
             const Ic = tone.icon;
             return (
               <div
-                key={t.id}
-                role={t.tone === "error" ? "alert" : "status"}
+                key={item.id}
+                role={item.tone === "error" ? "alert" : "status"}
                 className="fc-anim-pop pointer-events-auto w-full sm:w-80 flex items-start gap-3 bg-[var(--surface)] border border-[var(--border)] px-4 py-3"
                 style={{ borderRadius: "var(--radius-md)", boxShadow: "var(--elevation-3)" }}
               >
@@ -95,17 +126,17 @@ export function ToastProvider({ children }) {
                   style={{ color: tone.color, flexShrink: 0, marginTop: 2 }}
                 />
                 <div className="min-w-0 flex-1">
-                  {t.title ? (
-                    <p className="text-sm font-medium text-[var(--on-surface)]">{t.title}</p>
+                  {item.title ? (
+                    <p className="text-sm font-medium text-[var(--on-surface)]">{item.title}</p>
                   ) : null}
-                  {t.message ? (
-                    <p className="text-sm text-[var(--on-surface-muted)]">{t.message}</p>
+                  {item.message ? (
+                    <p className="text-sm text-[var(--on-surface-muted)]">{item.message}</p>
                   ) : null}
                 </div>
                 <button
                   type="button"
-                  onClick={() => dismiss(t.id)}
-                  aria-label="Fermer"
+                  onClick={() => dismiss(item.id)}
+                  aria-label={t("common.close", { default: "Fermer" })}
                   className="text-[var(--on-surface-subtle)] hover:text-[var(--on-surface)] transition-colors shrink-0"
                 >
                   <X size={16} />

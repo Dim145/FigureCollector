@@ -872,8 +872,6 @@ textarea.vitrine-textarea:focus {
     color-mix(in oklab, var(--color-noir-soft) 60%, transparent),
     color-mix(in oklab, var(--color-noir) 40%, transparent)
   );
-  backdrop-filter: blur(14px) saturate(1.1);
-  -webkit-backdrop-filter: blur(14px) saturate(1.1);
   border: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
   box-shadow:
     0 20px 60px -30px rgba(0, 0, 0, 0.85),
@@ -896,8 +894,6 @@ textarea.vitrine-textarea:focus {
 /* Even glassier surface for floating UI (popovers, drawers). */
 .glass-strong {
   background: color-mix(in oklab, var(--color-noir) 72%, transparent);
-  backdrop-filter: blur(22px) saturate(1.2);
-  -webkit-backdrop-filter: blur(22px) saturate(1.2);
   border: 1px solid color-mix(in oklab, var(--color-or) 22%, transparent);
   box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.95);
 }

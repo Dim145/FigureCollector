@@ -83,7 +83,9 @@ export default function AppShell({ children }) {
   return (
     // The bottom tab bar (fixed, < lg) needs breathing room under the page so
     // it never sits on the footer's last line — hence the mobile-only pb.
-    <div className={`min-h-dvh flex flex-col ${authed ? "pb-14 lg:pb-0" : ""}`}>
+    <div
+      className={`min-h-dvh flex flex-col ${authed ? "pb-[calc(3.5rem_+_env(safe-area-inset-bottom))] lg:pb-0" : ""}`}
+    >
       <AuroraBackground />
       <TypeAccentVars />
       {/* Skip link — hidden until focused, then jumps the user past the
