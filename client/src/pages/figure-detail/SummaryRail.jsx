@@ -16,9 +16,13 @@ import { OwnerGlance, WishlistCta } from "./OwnerGlancePanel.jsx";
  * void of the old spread).
  *
  * Holds ONLY the glanceable essentials, in order:
- *   HeroKicker · lot-stamp + ActionCluster · AccentTitle + version ·
- *   VALUE block (OwnerGlance when owned, else a quiet MSRP / "non possédée"
- *   line) · owned/preorder STATE badge · the ONE primary CTA.
+ *   HeroKicker + ActionCluster · AccentTitle + version ·
+ *   VALUE teaser (OwnerGlance jump-line when owned, else a quiet MSRP /
+ *   "non possédée" line) · owned/preorder STATE badge · the ONE primary CTA.
+ *
+ * Trimmed to stay shorter than the viewport so the CTA is always pinned: the
+ * catalogue lot-stamp (Nº / type) now lives in #identite's Coup d'œil — it is
+ * reference data, not glance-critical — and the acompte bar lives only in #preco.
  *
  * No `overflow:hidden` may sit on an ancestor or the sticky breaks — the
  * orchestrator keeps the hero grid clean.
@@ -58,23 +62,9 @@ export default function SummaryRail({
         </h1>
         {f.version_name ? <div className="fig-rail-version">{f.version_name}</div> : null}
 
-        <div className="mt-4">
-          <span className="fig-lot">
-            <span className="fig-lot-label">{t("figure.lot.eyebrow")}</span>
-            <span className="fig-lot-value">
-              Nº{" "}
-              {String(f.id ?? "")
-                .slice(0, 8)
-                .toUpperCase()}
-            </span>
-            <span className="fig-lot-label">{t("figure.lot.kind")}</span>
-            <span className="fig-lot-value">{t(`type.${f.figure_type ?? "other"}`)}</span>
-          </span>
-        </div>
-
-        {/* VALUE block — owned → the read-only glance (acompte + cote +
-         *  sparkline). Not owned → a quiet MSRP / "non possédée" line so the
-         *  rail is never an empty box. */}
+        {/* VALUE teaser — owned → a single glance line (current value + ±%) that
+         *  jumps to #valeur for the full breakdown. Not owned → a quiet MSRP /
+         *  "non possédée" line so the rail is never an empty box. */}
         {ownedRecord ? (
           <OwnerGlance f={f} owned={ownedRecord} t={t} />
         ) : (
@@ -87,7 +77,9 @@ export default function SummaryRail({
         {/* MangaCollector synergy — renders only when the series is linked. */}
         <MangaLinkBadge figureId={f.id} />
 
-        {/* The ONE primary CTA. */}
+        {/* The ONE primary CTA. Owned → edit; not-owned → "Ajouter à ma
+         *  collection" is the single hanko-red primary (the form's own primary
+         *  submit), with wishlist demoted to a quiet ghost secondary below it. */}
         <div className="fig-rail-cta">
           {alreadyOwned ? (
             <button type="button" onClick={onEditMine} className="wish-cta wish-cta--on">
@@ -96,13 +88,13 @@ export default function SummaryRail({
             </button>
           ) : (
             <>
-              <WishlistCta figureId={f.id} t={t} />
-              <div className="wish-or">{t("wishlist.or")}</div>
               <AddToCollectionForm
                 figureId={f.id}
                 catalogMsrp={f.msrp_amount}
                 catalogCurrency={f.msrp_currency}
               />
+              <div className="wish-or">{t("wishlist.or")}</div>
+              <WishlistCta figureId={f.id} t={t} />
             </>
           )}
         </div>
@@ -143,7 +135,10 @@ function StateBadge({ owned, isPreorder, t }) {
     .filter(Boolean)
     .join(" · ");
   return (
-    <div className="fig-rail-state" role="status">
+    // No role="status": this is a static label, not a live region — keeping it
+    // here only risks redundant re-announcements. The cancelled-preorder state
+    // is surfaced as real text in #preco (PreorderTimeline).
+    <div className="fig-rail-state">
       <span className="seal ja" aria-hidden>
         私
       </span>

@@ -86,6 +86,10 @@ export default function FigureDetailPage() {
       if (!frame) frame = requestAnimationFrame(apply);
     };
     apply();
+    // A late web-font swap (Fraunces / Noto Serif JP) can reflow the header to a
+    // different height with NO scroll/resize event — re-measure once fonts are
+    // ready so the sticky offset isn't stuck at the pre-font value.
+    if (document.fonts?.ready) document.fonts.ready.then(apply).catch(() => {});
     window.addEventListener("scroll", onChange, { passive: true });
     window.addEventListener("resize", onChange, { passive: true });
     return () => {
@@ -216,7 +220,7 @@ export default function FigureDetailPage() {
             {typeKanji(f.figure_type)}
           </span>
 
-          <div className="relative max-w-7xl mx-auto px-6 pt-12 md:pt-16 grid lg:grid-cols-[1.38fr_minmax(0,1fr)] gap-10 lg:gap-12 items-start">
+          <div className="fig-hero-grid relative max-w-7xl mx-auto px-6 pt-12 md:pt-16 grid gap-10 lg:gap-12 items-start">
             <FigureHero
               figure={f}
               ownedItemId={ownedRecord?.id ?? null}
@@ -345,19 +349,30 @@ export default function FigureDetailPage() {
 
 /** A titled content section — kanji + gold-rule head + an `id` that matches an
  *  anchor entry. The `mapiece` variant wraps the body in the visually-distinct
- *  owner zone (border + watermark + banner). */
+ *  owner zone (border + watermark + banner).
+ *
+ *  `--fig-wm` carries the section's kanji to `.fig-section::after`, painting the
+ *  large low-opacity watermark uniformly behind every section (the mapiece zone
+ *  paints its own 私 via `.fig-mapiece::after`, so it opts out). */
 function Section({ id, kanji, title, meta, banner, variant, children }) {
+  const isMapiece = variant === "mapiece";
   return (
-    <section id={id} className={`fig-section ${variant === "mapiece" ? "fig-mapiece" : ""}`}>
-      {variant === "mapiece" ? (
+    <section
+      id={id}
+      className={`fig-section ${isMapiece ? "fig-mapiece" : ""}`}
+      style={isMapiece ? undefined : { "--fig-wm": `"${kanji}"` }}
+    >
+      {isMapiece ? (
         <div className="fig-mapiece-banner">
           <span className="seal ja" aria-hidden>
             私
           </span>
-          <span className="fig-mapiece-banner-title">
+          {/* A real <h2> so the owner zone joins the h1→h2 outline (the other
+           *  sections already emit one). margin:0 keeps the banner alignment. */}
+          <h2 className="fig-mapiece-banner-title">
             <span className="em">{title}</span>
             {banner ? <span className="fig-mapiece-banner-sub"> · {banner}</span> : null}
-          </span>
+          </h2>
         </div>
       ) : (
         <header className="fig-section-head">

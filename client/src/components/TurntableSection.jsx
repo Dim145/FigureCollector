@@ -81,7 +81,7 @@ export default function TurntableSection({ ownedId }) {
           frameCount={latestTurntable.frame_count}
         />
       </Suspense>
-      <p className="micro mt-2">
+      <p className="micro mt-2" data-tt-count>
         {t("turntable.section.frame_count", { n: latestTurntable.frame_count })}
       </p>
     </>
@@ -90,7 +90,7 @@ export default function TurntableSection({ ownedId }) {
   return (
     <section>
       <header className="flex items-baseline justify-between mb-3">
-        <h2 className="micro">{t("turntable.section.title")}</h2>
+        <h2 className="micro" data-tt-heading>{t("turntable.section.title")}</h2>
         <div className="flex items-center gap-3">
           {readyGsplat || latestTurntable ? (
             <button
@@ -124,7 +124,7 @@ export default function TurntableSection({ ownedId }) {
         </p>
       ) : null}
 
-      <div className="max-w-md">
+      <div className="max-w-md" data-tt-viewer>
         {both ? (
           <>
             <ViewToggle view={view} setView={setView} t={t} />
@@ -197,7 +197,7 @@ function ViewTogglePill({ id, kanji, label, view, setView }) {
       type="button"
       onClick={() => setView(id)}
       aria-pressed={view === id}
-      className={`flex-1 inline-flex items-center justify-center gap-1.5 min-h-[40px] text-[11px] uppercase tracking-[0.14em] transition-colors ${
+      className={`flex-1 inline-flex items-center justify-center gap-1.5 min-h-[44px] text-[11px] uppercase tracking-[0.14em] transition-colors ${
         id === "3d" ? "border-l border-[var(--color-or)]/20" : ""
       } ${
         view === id
@@ -211,8 +211,8 @@ function ViewTogglePill({ id, kanji, label, view, setView }) {
   );
 }
 
-/** Segmented control: 回 Vue 360° | 像 Modèle 3D. Equal-width, ≥40px tall so
- *  the pills are comfortable touch targets on mobile. */
+/** Segmented control: 回 Vue 360° | 像 Modèle 3D. Equal-width, ≥44px tall so
+ *  the pills clear the WCAG 2.5.5 touch-target floor on mobile. */
 function ViewToggle({ view, setView, t }) {
   return (
     <div className="flex border border-[var(--color-or)]/30 mb-2.5">

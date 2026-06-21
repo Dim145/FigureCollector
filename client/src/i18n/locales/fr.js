@@ -842,6 +842,7 @@ export default {
   "photos.view": "Voir en grand",
   "photos.prev": "Photo précédente",
   "photos.next": "Photo suivante",
+  "photos.go_to_slide": "Image {n}",
 
   // ----- Catalog photos (shared) -----
   "figure.catalog_photos.eyebrow": "Photothèque catalogue",
@@ -2638,8 +2639,10 @@ export default {
   "figure.preco.announced_short": "Annoncée",
   "figure.preco.delayed": "Retardée",
   "figure.preco.delayed_months": "Retardée · +{count} mois",
+  "figure.preco.cancelled": "Pré-commande annulée",
   "figure.preco.steps_aria": "Étapes de production",
   "figure.preco.paid_on": "payé sur",
+  "figure.preco.deposit_aria": "{paid} payé sur {total} · {pct} %",
   "figure.preco.delivery": "Livraison",
   "figure.preco.non_refundable": "Acompte non-remboursable",
   "figure.preco.step.announced": "Annoncée",
@@ -2654,4 +2657,9 @@ export default {
   "figure.identity.complementary": "Compléments",
   "figure.value.no_history": "Pas encore d'historique",
   "figure.value.see_in_cote": "Voir dans la Cote",
+  "figure.glance.detail_aria": "Voir le détail de la valeur",
+  "figure.glance.detail": "Détail",
+  "figure.value.quote_up": "depuis l'acquisition.",
+  "figure.value.quote_down": "sous le prix d'achat.",
+  "figure.value.quote_by": "Historique · {count} relevés",
 };

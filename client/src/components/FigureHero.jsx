@@ -216,7 +216,7 @@ export default function FigureHero({
                   type="button"
                   onClick={() => go(-1)}
                   aria-label={t("photos.prev")}
-                  className="tap-target absolute top-1/2 -translate-y-1/2 left-2 border border-[var(--color-or)]/40 bg-[var(--color-noir)]/70 backdrop-blur-sm text-[var(--color-or-pale)] hover:text-[var(--color-or)] hover:border-[var(--color-or)] transition-colors"
+                  className="tap-target absolute top-1/2 -translate-y-1/2 left-2 border border-[var(--color-or)]/40 bg-[var(--color-noir)]/80 text-[var(--color-or-pale)] hover:text-[var(--color-or)] hover:border-[var(--color-or)] transition-colors"
                 >
                   ‹
                 </button>
@@ -224,7 +224,7 @@ export default function FigureHero({
                   type="button"
                   onClick={() => go(1)}
                   aria-label={t("photos.next")}
-                  className="tap-target absolute top-1/2 -translate-y-1/2 right-2 border border-[var(--color-or)]/40 bg-[var(--color-noir)]/70 backdrop-blur-sm text-[var(--color-or-pale)] hover:text-[var(--color-or)] hover:border-[var(--color-or)] transition-colors"
+                  className="tap-target absolute top-1/2 -translate-y-1/2 right-2 border border-[var(--color-or)]/40 bg-[var(--color-noir)]/80 text-[var(--color-or-pale)] hover:text-[var(--color-or)] hover:border-[var(--color-or)] transition-colors"
                 >
                   ›
                 </button>
@@ -233,20 +233,27 @@ export default function FigureHero({
 
             {/* Position dots (only when ≤ 8 slides; falls back to the strip otherwise) */}
             {showArrows && slides.length <= 8 ? (
-              <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+              <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex items-center">
                 {slides.map((s, i) => (
                   <button
                     key={s.key}
                     type="button"
                     onClick={() => setActive(i)}
-                    aria-label={`Slide ${i + 1}`}
-                    aria-current={i === active}
-                    className={`w-1.5 h-1.5 rotate-45 transition-all ${
-                      i === active
-                        ? "bg-[var(--color-or)] scale-125"
-                        : "bg-[var(--color-or)]/30 hover:bg-[var(--color-or)]/60"
-                    }`}
-                  />
+                    aria-label={t("photos.go_to_slide", { n: i + 1, default: `Image ${i + 1}` })}
+                    aria-current={i === active ? "true" : undefined}
+                    /* The hit area is a comfortable 44px square; the visible
+                       diamond stays a 1.5px gold dot inside it. */
+                    className="grid place-items-center w-11 h-11 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--color-or)] focus-visible:-outline-offset-4"
+                  >
+                    <span
+                      aria-hidden
+                      className={`w-1.5 h-1.5 rotate-45 transition-[transform,background-color] duration-200 ${
+                        i === active
+                          ? "bg-[var(--color-or)] scale-125"
+                          : "bg-[var(--color-or)]/30 hover:bg-[var(--color-or)]/60"
+                      }`}
+                    />
+                  </button>
                 ))}
               </div>
             ) : null}
@@ -308,7 +315,7 @@ function Thumb({ slide, active, onClick, separatorBefore }) {
           type="button"
           onClick={onClick}
           aria-pressed={active}
-          className={`relative block w-20 h-20 bg-[var(--color-noir-deep)] border-2 transition-all ${
+          className={`relative block w-20 h-20 bg-[var(--color-noir-deep)] border-2 transition-[border-color,box-shadow] duration-200 ${
             active
               ? "border-[var(--color-or)]"
               : "border-[var(--color-or)]/15 hover:border-[var(--color-or)]/60"

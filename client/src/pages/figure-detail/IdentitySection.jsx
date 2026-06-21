@@ -47,7 +47,18 @@ export default function IdentitySection({ f, t, canEdit, nsfwPref, galleryDefaul
 
   const headlineRows = headlineSpecRows(f, t);
   const hasGlance = headlineRows.length > 0;
-  const hasSidecar = hasGlance || productionRows.length > 0 || specs.length > 0;
+
+  // Dedupe the scraped Compléments against everything already shown as a
+  // first-class field (Coup d'œil + Production): a scraper emits "Size:",
+  // "Release:", "Scale:", "Version:"… whose values we already print, so drop
+  // any spec whose label OR value maps to a structured field — Compléments
+  // should carry only residual attributes with no first-class home.
+  const dedupedSpecs = useMemo(
+    () => dedupeSpecs(specs, f, productionRows, headlineRows),
+    [specs, f, productionRows, headlineRows],
+  );
+
+  const hasSidecar = hasGlance || productionRows.length > 0 || dedupedSpecs.length > 0;
 
   // The description is clamped to the sidecar's rendered height (so the left
   // column fills as tall as the right, no taller) — measured live via this ref.
@@ -63,6 +74,21 @@ export default function IdentitySection({ f, t, canEdit, nsfwPref, galleryDefaul
             {t("figure.identity.glance", { default: "Coup d'œil" })}
           </div>
           <HeadlineSpecs f={f} t={t} />
+          {/* Catalogue lot reference — moved down from the sticky rail (it is
+           *  reference data, not glance-critical). */}
+          <div className="mt-4">
+            <span className="fig-lot">
+              <span className="fig-lot-label">{t("figure.lot.eyebrow")}</span>
+              <span className="fig-lot-value">
+                Nº{" "}
+                {String(f.id ?? "")
+                  .slice(0, 8)
+                  .toUpperCase()}
+              </span>
+              <span className="fig-lot-label">{t("figure.lot.kind")}</span>
+              <span className="fig-lot-value">{t(`type.${f.figure_type ?? "other"}`)}</span>
+            </span>
+          </div>
         </div>
       ) : null}
 
@@ -85,7 +111,7 @@ export default function IdentitySection({ f, t, canEdit, nsfwPref, galleryDefaul
         </div>
       ) : null}
 
-      {specs.length > 0 ? (
+      {dedupedSpecs.length > 0 ? (
         <div className="fig-specs-group">
           <div className="fig-specs-group-title">
             <span className="ja" aria-hidden>
@@ -94,7 +120,7 @@ export default function IdentitySection({ f, t, canEdit, nsfwPref, galleryDefaul
             {t("figure.identity.complementary", { default: "Compléments" })}
           </div>
           <dl className="fig-specs">
-            {specs.map(([k, v], i) => (
+            {dedupedSpecs.map(([k, v], i) => (
               <div key={`${k}-${i}`}>
                 <dt>{k}</dt>
                 <dd>
@@ -150,6 +176,7 @@ export default function IdentitySection({ f, t, canEdit, nsfwPref, galleryDefaul
           kanji="写"
           label={t("figure.section.gallery", { default: "Galerie catalogue" })}
           defaultOpen={galleryDefaultOpen}
+          headingLevel={3}
         >
           <FigurePhotosSection
             figureId={f.id}
@@ -183,8 +210,12 @@ function DescriptionColumn({ lede, body, t, clampRef = null }) {
   const clampable = !!clampRef;
 
   // Measure: clamp the prose to the sidecar's height, then decide whether the
-  // natural prose exceeds it (→ show "Lire la suite"). Observe the sidecar (its
-  // height drives the clamp) AND the prose (content reflow); re-run on resize.
+  // natural prose exceeds it (→ show "Lire la suite"). Observe ONLY the sidecar
+  // — its height drives the clamp. We must NOT observe `prose`: the callback
+  // mutates prose's maxHeight, and observing the node you resize is a
+  // self-triggering ResizeObserver loop. Prose-content reflow is instead picked
+  // up by the [lede, body] dep re-run + the window resize listener. `scrollHeight`
+  // is read off prose but ignores its maxHeight, so the comparison is stable.
   useLayoutEffect(() => {
     if (!clampable) {
       setOverflowing(false);
@@ -203,7 +234,6 @@ function DescriptionColumn({ lede, body, t, clampRef = null }) {
     };
     measure();
     const ro = new ResizeObserver(measure);
-    ro.observe(prose);
     ro.observe(side);
     if (typeof window !== "undefined") window.addEventListener("resize", measure);
     return () => {
@@ -325,4 +355,93 @@ function headlineSpecRows(f, t) {
     { label: t("figure.spec.character"), value: f.character_name },
     { label: t("figure.spec.scale"), value: f.scale },
   ].filter((r) => !!r.value);
+}
+
+// Normalize a label/value to a comparison key: lowercase, strip accents, collapse
+// non-alphanumerics. Lets "250 mm" match "250mm", "Échelle" match "echelle".
+function normKey(s) {
+  return String(s ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+// English/French scraper labels that map onto a first-class field already shown
+// in Coup d'œil or Production — any Complément carrying one of these is a dupe.
+const REDUNDANT_SPEC_LABELS = new Set(
+  [
+    "size",
+    "height",
+    "hauteur",
+    "taille",
+    "scale",
+    "echelle",
+    "release",
+    "releasedate",
+    "sortie",
+    "datesortie",
+    "estcompletion",
+    "completion",
+    "version",
+    "manufacturer",
+    "fabricant",
+    "company",
+    "series",
+    "serie",
+    "franchise",
+    "character",
+    "personnage",
+    "sculptor",
+    "sculpteur",
+    "materials",
+    "material",
+    "materiau",
+    "matiere",
+    "edition",
+    "exclusive",
+    "exclusivity",
+    "exclusivite",
+    "msrp",
+    "price",
+    "prix",
+    "jan",
+    "ean",
+    "barcode",
+  ].map(normKey),
+);
+
+/** Drop scraped Compléments that duplicate a structured field already on the
+ *  page (Coup d'œil + Production) — matched by normalized LABEL or VALUE — so
+ *  the same "hauteur 250 mm" / "sortie 2027" never prints twice (#20/#21). */
+function dedupeSpecs(specs, f, productionRows, headlineRows) {
+  if (!specs?.length) return specs ?? [];
+  const shownValues = new Set();
+  for (const r of [...(productionRows ?? []), ...(headlineRows ?? [])]) {
+    const k = normKey(r.value);
+    if (k) shownValues.add(k);
+  }
+  // The raw structured fields too (in case a row wasn't built, e.g. version_name
+  // shown only in the rail title, or a height with different formatting).
+  for (const v of [
+    f.height_mm != null ? `${f.height_mm}mm` : null,
+    f.height_mm,
+    f.scale,
+    f.version_name,
+    f.release_date,
+    f.edition,
+    f.exclusivity,
+    f.manufacturer_name,
+    f.series_name,
+    f.character_name,
+    f.sculptor_name,
+  ]) {
+    const k = normKey(v);
+    if (k) shownValues.add(k);
+  }
+  return specs.filter(([label, value]) => {
+    if (REDUNDANT_SPEC_LABELS.has(normKey(label))) return false;
+    if (shownValues.has(normKey(value))) return false;
+    return true;
+  });
 }

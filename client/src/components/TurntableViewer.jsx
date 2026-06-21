@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useReducedMotion } from "motion/react";
 import { useT } from "../i18n/index.jsx";
 
 const MIN_ZOOM = 1;
@@ -33,6 +34,11 @@ const WHEEL_ROTATE_THRESHOLD = 25;
  */
 export default function TurntableViewer({ scanId, frameCount, embedded = false }) {
   const t = useT();
+  // Vestibular safety: a continuously-spinning object that starts without
+  // user input is exactly the WCAG 2.2.2 trigger. When the viewer opts out of
+  // motion we start at rest — the double-click / drag / wheel controls still
+  // let them spin it manually, so nothing is lost.
+  const reduce = useReducedMotion();
   const containerRef = useRef(null);
   const [current, setCurrent] = useState(0);
   const drag = useRef(null);
@@ -171,14 +177,14 @@ export default function TurntableViewer({ scanId, frameCount, embedded = false }
   // -- Auto-spin (only when ready AND at fit) -----------------------------
   // Pausing while zoomed avoids the "spinning under a magnifier" effect;
   // if the user zooms back out, the spin picks up where it left off.
-  const [autoSpin, setAutoSpin] = useState(true);
+  const [autoSpin, setAutoSpin] = useState(!reduce);
   useEffect(() => {
-    if (!autoSpin || !ready || isZoomed || paused) return;
+    if (reduce || !autoSpin || !ready || isZoomed || paused) return;
     const id = setInterval(() => {
       setCurrent((c) => (c + 1) % frameCount);
     }, 80);
     return () => clearInterval(id);
-  }, [autoSpin, ready, frameCount, isZoomed, paused]);
+  }, [reduce, autoSpin, ready, frameCount, isZoomed, paused]);
 
   // -- Fullscreen: close on Esc --------------------------------------------
   useEffect(() => {
@@ -459,10 +465,14 @@ export default function TurntableViewer({ scanId, frameCount, embedded = false }
         // div so rotation (visibility-switching) and zoom (CSS transform)
         // compose cleanly without touching each other's math.
         <div
-          className="absolute inset-0 will-change-transform"
+          className="absolute inset-0"
           style={{
             transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
             transformOrigin: "center",
+            // Promote to its own layer only for the duration of a gesture —
+            // a standing will-change pins a compositor layer (+memory) for the
+            // whole mount even when idle, the documented anti-pattern.
+            willChange: dragging ? "transform" : "auto",
             // Smooth zoom on wheel + click; instant during an active
             // gesture so the image tracks the fingers/cursor 1:1.
             transition: dragging

@@ -645,6 +645,14 @@
   );
 }
 
+/* When Foldable is given a headingLevel, its button is wrapped in an
+ *  <h3>…<h6>. `display: contents` makes that wrapper purely semantic so the
+ *  header's own grid layout is untouched. */
+.foldable-heading {
+  display: contents;
+  margin: 0;
+  font: inherit;
+}
 .foldable-header {
   display: grid;
   /* default (minor): kanji + title + rule + toggle. Major drops the kanji
@@ -847,6 +855,20 @@
   --fig-header-h: 5rem;
 }
 
+/* ─── HERO GRID — gallery (left) + sticky rail (right). The columns + the
+ *     single-column collapse live HERE (not in Tailwind `lg:`) so ONE boundary
+ *     owns both this collapse and the rail un-stick below; previously a Tailwind
+ *     `lg:` (min-width:1024) and the CSS `max-width:1024` overlapped at exactly
+ *     1024px (iPad landscape) — 2-col gallery with a squeezed, non-sticky rail. */
+.fig-hero-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 1025px) {
+  .fig-hero-grid {
+    grid-template-columns: 1.38fr minmax(0, 1fr);
+  }
+}
+
 /* ─── STICKY SUMMARY RAIL — the hero's right column. Stays pinned while the
  *     tall gallery scrolls. No ancestor may set overflow:hidden. */
 .fig-rail {
@@ -890,6 +912,61 @@
   font-weight: 300;
   font-size: clamp(0.95rem, 1.4vw, 1.1rem);
   color: var(--color-or);
+}
+/* Owner value TEASER — a single de-boxed glance line (current value + ±%) that
+ *  jumps to #valeur. Hairline-separated, no card frame (the rail-card is the
+ *  only frame), so the rail reads as calm hairline-divided strata. */
+.fig-rail-cote {
+  display: block;
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 14%, transparent);
+  text-decoration: none;
+  color: inherit;
+}
+.fig-rail-cote-k {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  opacity: 0.8;
+}
+.fig-rail-cote-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.4rem;
+}
+.fig-rail-cote-v {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: 1.75rem;
+  line-height: 1;
+  color: var(--color-or);
+}
+.fig-rail-cote-delta {
+  font-size: 0.85rem;
+}
+.fig-rail-cote-link {
+  display: inline-block;
+  margin-top: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  transition: color 200ms var(--ease-quick);
+}
+.fig-rail-cote:hover .fig-rail-cote-link,
+.fig-rail-cote:focus-visible .fig-rail-cote-link {
+  color: var(--color-or);
+}
+.fig-rail-cote:focus-visible {
+  outline: 2px solid var(--ring, var(--color-or));
+  outline-offset: 4px;
 }
 /* Not-owned quiet value line */
 .fig-rail-value {
@@ -959,6 +1036,22 @@
 .fig-rail-cta {
   margin-top: 1.25rem;
 }
+/* One true primary for a not-owned piece: "Ajouter à ma collection" (the form's
+ *  own hanko-red primary submit). The wishlist toggle, rendered BELOW it, is
+ *  demoted to a quiet ghost secondary so the two no longer compete as equal
+ *  full-width twins (#8). Only the unwished ("--off") state is quieted; once
+ *  wished, the lit "--on" treatment from primitives stands. Scoped to the rail. */
+.fig-rail-cta .wish-cta--off {
+  border-color: color-mix(in oklab, var(--color-ivoire) 22%, transparent);
+  color: var(--color-ivoire-soft);
+  background: transparent;
+  letter-spacing: 0.16em;
+}
+.fig-rail-cta .wish-cta--off:hover {
+  border-color: color-mix(in oklab, var(--color-laque-bright) 55%, transparent);
+  color: var(--color-laque-bright);
+  background: color-mix(in oklab, var(--color-laque) 8%, transparent);
+}
 
 /* ─── STICKY ANCHOR INDEX — kanji register scroll-spy. */
 .fig-anchor-wrap {
@@ -966,7 +1059,11 @@
   top: var(--fig-header-h);
   z-index: 30;
   margin-top: 2.5rem;
-  background: color-mix(in oklab, var(--color-noir) 92%, transparent);
+  /* FULLY opaque: this is a navigation register, not a decorative overlay. A
+   *  translucent fill let cards/prose/cote numbers bleed THROUGH the pinned bar
+   *  (no backdrop-blur is allowed on this skin to mask it), eroding the chip
+   *  labels' contrast unpredictably while scrolling. Flat fill = GPU-light. */
+  background: var(--color-noir);
   border-top: 1px solid color-mix(in oklab, var(--color-or) 12%, transparent);
   border-bottom: 1px solid color-mix(in oklab, var(--color-or) 12%, transparent);
 }
@@ -1026,6 +1123,33 @@
   scroll-margin-top: calc(var(--fig-header-h) + 4rem);
   position: relative;
 }
+/* Per-section kanji watermark — the contract's per-block depth, applied
+ *  uniformly (not just behind Ma pièce). `--fig-wm` carries the section's kanji
+ *  (set per Section in the orchestrator). Static glyph, ≤0.05 opacity → never
+ *  threatens text contrast, no filter → GPU-cheap. The mapiece zone paints its
+ *  own 私 watermark, so it opts out here. */
+.fig-section:not(.fig-mapiece)::after {
+  /* Anchored to the section's right edge (right:0, not a negative offset) so
+   *  the glyph box stays inside the padded container and never triggers a
+   *  horizontal page scroll — no overflow clip needed, so section popovers
+   *  (price breakdown etc.) are free to escape. */
+  content: var(--fig-wm, "");
+  position: absolute;
+  right: 0;
+  top: 1.5rem;
+  font-family: var(--font-ja);
+  font-size: clamp(9rem, 20vw, 16rem);
+  line-height: 0.8;
+  color: var(--color-or);
+  opacity: 0.045;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+}
+.fig-section:not(.fig-mapiece) > * {
+  position: relative;
+  z-index: 1;
+}
 .fig-section + .fig-section::before {
   content: "";
   display: block;
@@ -1076,19 +1200,22 @@
   gap: 3rem;
   align-items: start;
 }
+/* Coup d'œil — a quiet summary LEDE, not a competing card. The boxed weight
+ *  used to invert the hierarchy (a heavier card sitting above thinner hairline
+ *  lists); now it's a label over a gold hairline so the grouped <dl>s below read
+ *  as the detail (#20). The rail is the only place value gets a frame. */
 .fig-keyspecs {
-  background: color-mix(in oklab, var(--color-noir-soft) 60%, transparent);
-  border: 1px solid color-mix(in oklab, var(--color-or) 12%, transparent);
-  border-radius: var(--radius-lg, 8px);
-  padding: 1.1rem 1.25rem;
-  margin-bottom: 1.25rem;
+  padding-top: 0.4rem;
+  margin-bottom: 1.5rem;
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 22%, transparent);
 }
 .fig-keyspecs-label {
-  font-size: 10.5px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--color-ivoire-soft);
-  margin-bottom: 0.5rem;
+  color: var(--color-or-pale);
+  margin: 0.6rem 0 0.5rem;
 }
 /* Override the headline rail inside the key-specs card to a tidy 2-col grid. */
 .fig-keyspecs .fig-specrail {
@@ -1188,10 +1315,51 @@ dl.fig-specs dd a {
   gap: 2.75rem;
   align-items: start;
 }
+/* Left column of #valeur — the value trio stacked over the editorial
+ *  pull-quote (the signature device of the contract). */
+.fig-value-left {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  min-width: 0;
+}
 .fig-trio-strip {
   display: flex;
   flex-wrap: wrap;
   gap: 0.9rem;
+}
+/* ─── VALEUR pull-quote — Fraunces italic, the % in the one hanko-red hot
+ *     accent. Generated from the gain data (no invented copy). Pure typography
+ *     over a quiet left gold hairline — no chrome, GPU-light. */
+.fig-pullquote {
+  margin: 0;
+  padding-left: 1.4rem;
+  border-left: 2px solid color-mix(in oklab, var(--color-or) 45%, transparent);
+}
+.fig-pullquote-q {
+  margin: 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: clamp(1.25rem, 2.4vw, 1.7rem);
+  line-height: 1.3;
+  color: var(--color-ivoire);
+  text-wrap: balance;
+}
+.fig-pullquote-q .hl {
+  /* The one hanko-red hot accent. Uses --color-laque-bright (the AA-on-noir red,
+   *  5.0:1) rather than the darker --primary base so the highlighted % stays
+   *  ≥4.5:1 against the page. */
+  font-style: normal;
+  color: var(--color-laque-bright);
+}
+.fig-pullquote-by {
+  margin-top: 0.85rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
 }
 .fig-trio-cell {
   flex: 1;
@@ -1570,6 +1738,9 @@ dl.fig-specs dd a {
   font-size: 17px;
 }
 .fig-mapiece-banner-title {
+  /* Now a real <h2> (joins the page outline) — reset the UA heading margin so
+   *  the banner stays vertically centred against the seal. */
+  margin: 0;
   font-family: var(--font-display);
   font-weight: 300;
   font-size: 1.4rem;
@@ -1597,47 +1768,58 @@ dl.fig-specs dd a {
  *     dead right gutter).
  *
  * These reach into the shared TurntableSection / TurntableViewer markup, which
- * this band owns the presentation of. */
+ * this band owns the presentation of. To stay decoupled from that component's
+ * Tailwind wrappers + DOM order, the band targets STABLE hook attributes the
+ * component exposes — `[data-tt-heading]`, `[data-tt-viewer]`, `[data-tt-count]`
+ * — instead of structural child-combinators / utility classes (#32). */
 .fig-band360 {
   position: relative;
 }
-/* Drop the inner redundant heading; keep the actions row, right-aligned. */
-.fig-band360 > section > header {
+/* Drop the inner redundant heading (the #vue360 section head already names it);
+ *  right-align the actions row that remains. Reached via the stable
+ *  `[data-tt-heading]` hook + `:has` rather than `> section > header > h2.micro`. */
+.fig-band360 [data-tt-heading] {
+  display: none;
+}
+.fig-band360 header:has([data-tt-heading]) {
   justify-content: flex-end;
   margin-bottom: 1rem;
 }
-.fig-band360 > section > header > h2.micro {
-  display: none;
-}
-/* Hide the "N images" caption under the viewer — the scrub bar conveys it.
- *  (Scoped to the direct viewer-wrapper child so unrelated .micro text under
- *  processing/failure notices is untouched.) */
-.fig-band360 > section > div.max-w-md > p.micro {
+/* Hide the "N images" caption under the viewer — the scrub bar conveys it. */
+.fig-band360 [data-tt-count] {
   display: none;
 }
 /* Let the viewer breathe: centered, appreciably larger than the old max-w-md. */
-.fig-band360 > section > div.max-w-md {
+.fig-band360 [data-tt-viewer] {
   max-width: min(640px, 100%);
   margin-inline: auto;
 }
 /* Strip the boxed-widget frame off the viewer itself → gallery turntable. */
-.fig-band360 .max-w-md [role="img"] {
+.fig-band360 [data-tt-viewer] [role="img"] {
   border: 0;
   background: transparent;
 }
-/* Hide the viewer's bottom-left running count ("20/24"); keep the right-hand
- *  drag/auto affordance. The scrub bar (the .bottom-3 overlay) already shows
- *  position. Targeting the utility class is stabler than nth-child here. */
-.fig-band360 .max-w-md [role="img"] .bottom-3 .justify-between > span:first-child {
+/* Hide the viewer's bottom-left running count; keep the right-hand drag/auto
+ *  affordance. The scrub bar already shows position. Scoped under the stable
+ *  viewer hook (the overlay itself exposes no count hook). */
+.fig-band360 [data-tt-viewer] [role="img"] .bottom-3 .justify-between > span:first-child {
   visibility: hidden;
 }
 
-/* ─── RESPONSIVE — ≤1024px single column, kill sticky, reorder priority. */
-@media (max-width: 1024px) {
+/* ─── RESPONSIVE — single column, kill sticky, reorder priority. Boundary is
+ *     1024.98px so it shares the hero-grid threshold (2-col ≥1025) exactly —
+ *     no 1px overlap where the rail un-sticks yet stays squeezed in a half
+ *     column (#12). */
+@media (max-width: 1024.98px) {
   .fig-rail {
     position: static;
     top: auto;
-    margin-top: 2rem;
+    margin-top: 0;
+    /* Lead with the editorial header + the single CTA: on a phone the rail
+     *  (kicker, title, version, value teaser, state, CTA) now sits ABOVE the
+     *  tall gallery, so the headline and the one action reach the fold first
+     *  instead of being buried under the photo stage (#3). */
+    order: -1;
   }
   .fig-anchor-wrap {
     position: static;
@@ -1686,5 +1868,40 @@ dl.fig-specs dd a {
   }
   .pc-step:first-child::before {
     display: none;
+  }
+  /* Anchor chips: ≤640 the full word labels (esp. "Pré-commande") overflow the
+   *  ~390px strip with no visible scroll cue. Collapse to kanji-only — 7 glyph
+   *  chips fit without scrolling, the JA register IS the editorial identity, and
+   *  the French word stays available to AT via the chip's aria-label (#25). */
+  .fig-anchor-link > span:not(.ja) {
+    display: none;
+  }
+  .fig-anchor-link {
+    padding: 0.5rem 0.7rem;
+    gap: 0;
+  }
+}
+
+/* ─── Reduced motion — figure-detail ships its own animations (foldable row
+ *     collapse, chevron rotate, cartouche cross-fade, anchor-chip & action
+ *     transitions). The global guard only covers the .fc-anim-* utilities, so
+ *     honour the preference here too: drop the tweening, keep the function
+ *     (the foldable still shows/hides via the 0fr/1fr grid, just instantly).
+ *     (#14) */
+@media (prefers-reduced-motion: reduce) {
+  .foldable-body,
+  .foldable-chevron,
+  .foldable-header,
+  .fig-cartouche-tab,
+  .fig-cartouche-tab-kanji,
+  .fig-pop,
+  .fig-actions > button,
+  .fig-actions > a,
+  .fig-anchor-link,
+  .fig-anchor-link .ja,
+  .fig-rail-cote,
+  .fig-rail-cote-link {
+    transition-duration: 1ms !important;
+    animation: none !important;
   }
 }

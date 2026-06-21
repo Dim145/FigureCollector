@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useFigurePriceHistory } from "../../hooks/useStats.js";
-import { effectiveValue, figurePaid } from "../../lib/money.js";
+import { useFigureValuation } from "../../hooks/useFigureValuation.js";
 import { appLocale } from "../../lib/locale.js";
 import Money from "../../components/Money.jsx";
 import { StepChart, PriceLedger, toSeries } from "../../components/PriceHistory.jsx";
@@ -21,24 +21,13 @@ export default function ValueSection({ f, owned, t }) {
   const hist = useFigurePriceHistory(f.id);
   const series = useMemo(() => toSeries(hist.data), [hist.data]);
 
-  const value = effectiveValue({
-    value_amount: owned.value_amount,
-    value_currency: owned.value_currency,
-    price_currency: owned.price_currency,
-    provider_price_amount: owned.provider_price_amount,
-    provider_price_currency: owned.provider_price_currency,
-    msrp_amount: f.msrp_amount,
-    msrp_currency: f.msrp_currency,
-  });
-  const paid = figurePaid(owned);
-  const sameCurrency = paid && value && (paid.currency || "") === (value.currency || "");
-  const gain = sameCurrency && paid.amount > 0 ? value.amount - paid.amount : null;
-  const gainPct = gain != null && paid.amount > 0 ? Math.round((gain / paid.amount) * 100) : null;
-  const up = gain != null && gain >= 0;
-  const currency = value?.currency || paid?.currency || null;
+  // Shared derivation — same source the sticky rail's glance reads, so the two
+  // can never disagree on the gain.
+  const { value, paid, gain, gainPct, up, currency } = useFigureValuation(f, owned);
 
   return (
     <div className="fig-value-grid">
+      <div className="fig-value-left">
       <div className="fig-trio-strip">
         <div className="fig-trio-cell cote">
           <div className="k">{t("figure.glance.current_value", { default: "Cote actuelle" })}</div>
@@ -83,6 +72,31 @@ export default function ValueSection({ f, owned, t }) {
             ) : null}
           </div>
         ) : null}
+      </div>
+
+      {gainPct != null && gainPct !== 0 ? (
+        <figure className="fig-pullquote">
+          <blockquote className="fig-pullquote-q">
+            «&nbsp;
+            <span className="hl tabular-nums">
+              {gainPct > 0 ? "+" : ""}
+              {gainPct}&nbsp;%
+            </span>{" "}
+            {up
+              ? t("figure.value.quote_up", { default: "depuis l'acquisition." })
+              : t("figure.value.quote_down", { default: "sous le prix d'achat." })}
+            &nbsp;»
+          </blockquote>
+          <figcaption className="fig-pullquote-by">
+            {series.length >= 2
+              ? t("figure.value.quote_by", {
+                  count: series.length,
+                  default: `Historique · ${series.length} relevés`,
+                })
+              : t("cote.title")}
+          </figcaption>
+        </figure>
+      ) : null}
       </div>
 
       <div className="fig-chart-card">

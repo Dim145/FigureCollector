@@ -108,6 +108,9 @@ export default function FigureAnchorIndex({ entries }) {
               data-anchor={e.id}
               onClick={(ev) => go(ev, e.id)}
               aria-current={isActive ? "page" : undefined}
+              // The French word can be visually hidden on ≤640 (kanji-only
+              // chips), so carry it as the accessible name regardless.
+              aria-label={e.label}
               className={`fig-anchor-link ${isActive ? "is-active" : ""}`}
             >
               <span className="ja" aria-hidden>

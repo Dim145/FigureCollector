@@ -18,7 +18,7 @@ export function FigureDetailLoading() {
   // `compact` keeps the top padding aligned with the page's `pt-8` breadcrumb
   // rather than the taller default — the header doesn't render under AppShell
   // here, so we don't want a double gap.
-  return <PageSkeleton blocks={3} />;
+  return <PageSkeleton blocks={3} compact />;
 }
 
 /** 404 — the figure id doesn't resolve. Offers the catalogue + the collection. */

@@ -818,6 +818,7 @@ export default {
   "photos.view": "View full size",
   "photos.prev": "Previous photo",
   "photos.next": "Next photo",
+  "photos.go_to_slide": "Image {n}",
 
   // ----- Catalog photos (shared) -----
   "figure.catalog_photos.eyebrow": "Catalog gallery",
@@ -2578,8 +2579,10 @@ export default {
   "figure.preco.announced_short": "Announced",
   "figure.preco.delayed": "Delayed",
   "figure.preco.delayed_months": "Delayed · +{count} mo",
+  "figure.preco.cancelled": "Pre-order cancelled",
   "figure.preco.steps_aria": "Production stages",
   "figure.preco.paid_on": "paid of",
+  "figure.preco.deposit_aria": "{paid} paid of {total} · {pct} %",
   "figure.preco.delivery": "Delivery",
   "figure.preco.non_refundable": "Non-refundable deposit",
   "figure.preco.step.announced": "Announced",
@@ -2594,4 +2597,9 @@ export default {
   "figure.identity.complementary": "Specs",
   "figure.value.no_history": "No history yet",
   "figure.value.see_in_cote": "View in Cote",
+  "figure.glance.detail_aria": "View value details",
+  "figure.glance.detail": "Details",
+  "figure.value.quote_up": "since acquisition.",
+  "figure.value.quote_down": "below purchase price.",
+  "figure.value.quote_by": "History · {count} readings",
 };

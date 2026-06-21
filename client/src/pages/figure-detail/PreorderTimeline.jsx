@@ -1,5 +1,6 @@
 import { usePreorderForOwned } from "../../hooks/useCollection.js";
 import { appLocale } from "../../lib/locale.js";
+import { fmtMoney } from "../../lib/money.js";
 import {
   deliveryCountdown,
   deliveryDateLabel,
@@ -103,6 +104,16 @@ export default function PreorderTimeline({ f, owned, t }) {
   const hasDeposit = deposit != null && deposit > 0 && total != null && total > 0;
   const pct = hasDeposit ? Math.max(0, Math.min(100, Math.round((deposit / total) * 100))) : 0;
   const balance = hasDeposit ? Math.max(0, total - deposit) : null;
+  // Human-readable announcement for the deposit progressbar — a screen reader
+  // would otherwise read only the bare "… 34 %" with no money context.
+  const depositValueText = hasDeposit
+    ? t("figure.preco.deposit_aria", {
+        paid: fmtMoney(deposit, currency, appLocale()),
+        total: fmtMoney(total, currency, appLocale()),
+        pct,
+        default: `${fmtMoney(deposit, currency, appLocale())} payé sur ${fmtMoney(total, currency, appLocale())} · ${pct} %`,
+      })
+    : undefined;
 
   // Delivery ETA — only meaningful once shipped with an estimate.
   const etaDays = deliveryCountdown(po);
@@ -137,7 +148,14 @@ export default function PreorderTimeline({ f, owned, t }) {
             </span>
           ) : null}
         </div>
-        {slipped ? (
+        {cancelled ? (
+          /* Convey the cancelled state by TEXT (reusing the hanko-red outline
+             of .pc-delay-badge) rather than by the dimmed .is-cancelled opacity
+             alone — colour/appearance is not a sufficient signal (WCAG 1.4.1). */
+          <span className="pc-delay-badge">
+            {t("figure.preco.cancelled", { default: "Pré-commande annulée" })}
+          </span>
+        ) : slipped ? (
           <span className="pc-delay-badge">
             {delayMonths != null && delayMonths > 0
               ? t("figure.preco.delayed_months", {
@@ -186,6 +204,7 @@ export default function PreorderTimeline({ f, owned, t }) {
             aria-valuenow={pct}
             aria-valuemin={0}
             aria-valuemax={100}
+            aria-valuetext={depositValueText}
             aria-label={t("figure.glance.acompte", { default: "Pré-commande · acompte" })}
           >
             <span className="pc-fill" style={{ width: `${pct}%` }} />
