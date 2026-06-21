@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Refonte · Catalogue — 5 directions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Instrument+Sans:ital,wght@0,400..600&family=Noto+Serif+JP:wght@300..500&family=JetBrains+Mono:wght@300..500&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --color-noir:#161311; --color-noir-soft:#211c19; --color-noir-deep:#100d0b;
+    --color-laque:#8f2d2a; --color-laque-bright:#c4453b;
+    --color-or:#d8b46e; --color-or-pale:#e8d4a6; --color-or-deep:#a98a4e;
+    --color-jade:#5fb39a; --color-ivoire:#ece3d2; --color-ivoire-soft:rgba(236,227,210,.8);
+    --surface:var(--color-noir-soft); --on-surface:var(--color-ivoire); --on-surface-muted:var(--color-ivoire-soft);
+    --border:rgba(216,180,110,.22); --border-subtle:rgba(216,180,110,.12); --border-strong:rgba(216,180,110,.42);
+    --primary:var(--color-laque); --accent:var(--color-or);
+    --font-display:"Fraunces",Georgia,serif; --font-sans:"Instrument Sans",system-ui,sans-serif;
+    --font-ja:"Noto Serif JP",serif; --font-mono:"JetBrains Mono",ui-monospace,monospace;
+    --ease:cubic-bezier(.22,1,.36,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--color-noir);color:var(--on-surface);font-family:var(--font-sans);line-height:1.6;
+    background-image:radial-gradient(120% 80% at 80% -10%, rgba(216,180,110,.06), transparent 60%);min-height:100vh}
+  .wrap{max-width:1080px;margin:0 auto;padding:clamp(2.5rem,6vw,5rem) clamp(1.25rem,4vw,2rem) 5rem}
+  .kicker{font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--color-or-pale);display:flex;align-items:center;gap:.6rem;margin-bottom:1.2rem}
+  .kicker .dot{width:5px;height:5px;background:var(--color-laque-bright);transform:rotate(45deg)}
+  .ja{font-family:var(--font-ja)}
+  h1{font-family:var(--font-display);font-weight:300;font-size:clamp(2.4rem,6vw,4rem);line-height:1.02;letter-spacing:-.02em;margin-bottom:1.2rem}
+  h1 .red{color:var(--color-laque-bright);font-style:italic}
+  .lede{font-family:var(--font-display);font-style:italic;font-weight:300;font-size:clamp(1.1rem,2vw,1.4rem);color:var(--on-surface-muted);max-width:62ch;margin-bottom:.5rem}
+  .rule{height:1px;background:linear-gradient(90deg,transparent,var(--color-or) 20%,var(--color-or) 80%,transparent);opacity:.5;margin:2.5rem 0}
+  .diag{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:1px;background:var(--border-subtle);border:1px solid var(--border-subtle);border-radius:8px;overflow:hidden;margin-bottom:1rem}
+  .diag div{background:var(--color-noir-soft);padding:1.1rem 1.25rem}
+  .diag h3{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--color-laque-bright);margin-bottom:.5rem;font-weight:500}
+  .diag p{font-size:.86rem;color:var(--on-surface-muted)}
+  .sec-label{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.28em;text-transform:uppercase;color:var(--color-or-pale);margin:3rem 0 1.4rem}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.1rem}
+  a.card{display:block;text-decoration:none;color:inherit;background:linear-gradient(180deg,var(--color-noir-soft),var(--color-noir));
+    border:1px solid var(--border);border-radius:12px;padding:1.5rem 1.5rem 1.4rem;transition:transform .25s var(--ease),border-color .25s var(--ease),box-shadow .25s var(--ease);position:relative;overflow:hidden}
+  a.card:hover{transform:translateY(-4px);border-color:var(--border-strong);box-shadow:0 25px 60px -34px rgba(0,0,0,.85)}
+  a.card:focus-visible{outline:2px solid var(--color-or);outline-offset:2px}
+  .num{font-family:var(--font-display);font-size:2.6rem;font-weight:300;color:var(--color-or-deep);line-height:1;opacity:.85}
+  .card.reco{border-color:var(--border-strong);background:linear-gradient(180deg,rgba(143,45,42,.10),var(--color-noir))}
+  .badge{display:inline-block;font-family:var(--font-mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;padding:.25em .6em;border:1px solid var(--border);border-radius:999px;color:var(--color-or-pale);margin-bottom:.9rem}
+  .badge.reco{border-color:var(--color-laque-bright);color:var(--color-laque-bright)}
+  .badge.uxp{color:var(--color-jade);border-color:rgba(95,179,154,.4)}
+  .badge.fd{color:var(--color-or);border-color:var(--border-strong)}
+  .card h2{font-family:var(--font-display);font-weight:400;font-size:1.5rem;margin:.5rem 0 .1rem;letter-spacing:-.01em}
+  .card h2 .red{color:var(--color-laque-bright);font-style:italic}
+  .card .sub{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--on-surface-muted);text-transform:uppercase;margin-bottom:.8rem}
+  .card p{font-size:.9rem;color:var(--on-surface-muted)}
+  .card .open{margin-top:1.1rem;font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--color-or-pale)}
+  .card .open::after{content:" →"}
+  .wm{position:absolute;right:-.2em;bottom:-.35em;font-family:var(--font-ja);font-size:7rem;color:var(--color-or);opacity:.05;pointer-events:none;line-height:1}
+  footer{margin-top:3.5rem;font-size:.8rem;color:rgba(236,227,210,.5);font-family:var(--font-mono);letter-spacing:.05em}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker"><span class="dot"></span> REFONTE · <span class="ja">目</span> · CATALOGUE</div>
+  <h1><span class="red">Cinq</span> directions pour le catalogue</h1>
+  <p class="lede">Parcourir + chercher le catalogue global pour découvrir et ajouter des pièces. Cinq re-architectures pour trancher, dans le skin Direction A.</p>
+
+  <div class="rule"></div>
+  <div class="sec-label">Le problème diagnostiqué (page actuelle)</div>
+  <div class="diag">
+    <div><h3>Résultats sous la ligne de flottaison</h3><p>Titre + bandeau de 4 stats (collection) poussent la recherche et la grille loin sous le pli.</p></div>
+    <div><h3>Facettes non scalables</h3><p>Fabricant/série/perso/échelle n'existent que via un rail de types horizontal + pastilles de tags ; pas de rail de filtres.</p></div>
+    <div><h3>Grille plate, zéro découverte</h3><p>Pas de rails curatés ni d'entrées « explorer par fabricant/série » — juste une grille.</p></div>
+    <div><h3>Ambiances cachées</h3><p>Les clusters visuels (DINOv2) — une vraie force — sont planqués derrière un onglet.</p></div>
+  </div>
+  <p style="font-size:.82rem;color:rgba(236,227,210,.55)">Méthode : duel <strong style="color:var(--color-jade)">ui-ux-pro-max</strong> (IA systématique : facettes, grille, pagination) × <strong style="color:var(--color-or)">frontend-design</strong> (composition éditoriale, découverte), recoupé par une recherche des meilleures pages catalogue/recherche (Baymard, NN/g, Algolia, Pinterest Lens, web.dev). Constat clé : <em>les moments de découverte battent une grille plate comme porte d'entrée</em>.</p>
+
+  <div class="sec-label">La recommandation</div>
+  <div class="grid">
+    <a class="card reco" href="catalogue-0-fusion.html">
+      <span class="wm ja">目</span>
+      <span class="badge reco">★ Fusion recommandée</span>
+      <div class="num">⓪</div>
+      <h2><span class="red">La</span> Salle des ventes</h2>
+      <div class="sub">deux modes · découverte ↔ facettes</div>
+      <p>Catalogue à deux temps : au repos → <strong>découverte</strong> (bento « explorer par fabricant/série », Ambiances, rails curatés) ; dès qu'on cherche/filtre → <strong>résultats à facettes</strong> (rail de filtres gauche + chips + grille matée + « Charger plus »). Station de recherche multi-mode persistante (caméra/scan) + signatures éditoriales.</p>
+      <div class="open">Ouvrir la maquette</div>
+    </a>
+  </div>
+
+  <div class="sec-label">Les quatre directions en lice</div>
+  <div class="grid">
+    <a class="card" href="catalogue-1-comptoir.html">
+      <span class="badge uxp">ui-ux-pro-max</span>
+      <div class="num">①</div>
+      <h2><span class="red">Le</span> Comptoir</h2>
+      <div class="sub">facettes gauche + console</div>
+      <p>Browse à facettes canonique : rail de filtres gauche persistant (fabricant/série/perso/échelle/tags + compteurs + chips amovibles), station de recherche, grille matée — résultats au-dessus du pli.</p>
+      <div class="open">Ouvrir</div>
+    </a>
+    <a class="card" href="catalogue-2-galerie.html">
+      <span class="badge uxp">ui-ux-pro-max</span>
+      <div class="num">②</div>
+      <h2><span class="red">La</span> Galerie</h2>
+      <div class="sub">grille + barre filtres collante</div>
+      <p>La grille est la page : grandes plaques matées portrait (3–5 col, l'objet d'abord), barre de filtres/tri collante, actions survol ♡/＋, « Charger plus ». Sobre, aéré.</p>
+      <div class="open">Ouvrir</div>
+    </a>
+    <a class="card" href="catalogue-3-cabinet.html">
+      <span class="badge fd">frontend-design</span>
+      <div class="num">③</div>
+      <h2><span class="red">Le</span> Cabinet</h2>
+      <div class="sub">découverte : rails + bento + ambiances</div>
+      <p>Porte d'entrée curatée : bento « explorer par fabricant/série », Ambiances en grandes tuiles, rails « récemment ajoutées / pré-commandes / studios favoris ». La grille plate devient l'arrière-salle.</p>
+      <div class="open">Ouvrir</div>
+    </a>
+    <a class="card" href="catalogue-4-atlas.html">
+      <span class="badge fd">frontend-design</span>
+      <div class="num">④</div>
+      <h2><span class="red">L'</span>Atlas</h2>
+      <div class="sub">carte visuelle (ambiances) + scan</div>
+      <p>Le catalogue comme carte visuelle : les Ambiances (clusters DINOv2) en surface de découverte principale, la recherche/scan photo célébrée comme wayfinder, la grille en drill-in. La plus distinctive — GPU-light, pas de WebGL.</p>
+      <div class="open">Ouvrir</div>
+    </a>
+  </div>
+
+  <footer>FigureCollector · maquettes Direction A · données fictives · à comparer puis trancher — la gagnante sera câblée en React.</footer>
+</div>
+</body>
+</html>

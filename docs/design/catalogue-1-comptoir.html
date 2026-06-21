@@ -1,0 +1,1023 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>① Le Comptoir — Catalogue · FigureCollector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Instrument+Sans:ital,wght@0,400..600&family=Noto+Serif+JP:wght@300..500&family=JetBrains+Mono:wght@300..500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --color-noir:#161311; --color-noir-soft:#211c19; --color-noir-deep:#100d0b;
+  --color-laque:#8f2d2a; --color-laque-bright:#c4453b;       /* hanko red — the ONE hot accent (CTA/first word/seal) */
+  --color-or:#d8b46e; --color-or-pale:#e8d4a6; --color-or-deep:#a98a4e;  /* gold = value/metadata/hairlines */
+  --color-jade:#5fb39a; --color-ivoire:#ece3d2; --color-ivoire-soft:rgba(236,227,210,.8);
+  --surface:var(--color-noir-soft); --surface-raised:var(--color-noir); --surface-sunken:var(--color-noir-deep);
+  --on-surface:var(--color-ivoire); --on-surface-muted:var(--color-ivoire-soft); --on-surface-subtle:rgba(236,227,210,.55);
+  --border:rgba(216,180,110,.22); --border-strong:rgba(216,180,110,.42); --border-subtle:rgba(216,180,110,.12);
+  --primary:var(--color-laque); --primary-hover:var(--color-laque-bright); --accent:var(--color-or);
+  --jade:var(--color-jade); --ring:var(--color-or);
+  --font-display:"Fraunces",Georgia,serif; --font-sans:"Instrument Sans",system-ui,sans-serif;
+  --font-ja:"Noto Serif JP","Yu Mincho",serif; --font-mono:"JetBrains Mono",ui-monospace,monospace;
+  --radius-sm:2px; --radius-md:4px; --radius-lg:8px; --radius-xl:14px; --radius-pill:9999px;
+  --ease:cubic-bezier(.22,1,.36,1); --dur:240ms;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--color-noir);color:var(--on-surface);font-family:var(--font-sans);margin:0;
+  font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(120% 80% at 80% -10%, rgba(143,45,42,.06), transparent 60%),
+    radial-gradient(90% 60% at 10% 0%, rgba(216,180,110,.04), transparent 55%);
+  background-attachment:fixed;}
+/* faint grain overlay (GPU-light: static SVG noise, no blur) */
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.035;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");}
+a{color:inherit;text-decoration:none;}
+button{font-family:inherit;color:inherit;cursor:pointer;background:none;border:none;}
+.tnum{font-variant-numeric:tabular-nums;font-feature-settings:"tnum";}
+.mono{font-family:var(--font-mono);}
+
+/* ---- direction label ---- */
+.dir-label{position:fixed;top:0;left:0;z-index:90;background:var(--color-laque);color:var(--color-ivoire);
+  font-family:var(--font-mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;
+  padding:6px 12px;border-bottom-right-radius:var(--radius-md);box-shadow:0 2px 10px rgba(0,0,0,.4);}
+
+/* ===== app chrome ===== */
+.topbar{position:relative;z-index:10;display:flex;align-items:center;gap:18px;
+  padding:14px 28px;border-bottom:1px solid var(--border-subtle);background:var(--surface-raised);}
+.brand{display:flex;align-items:baseline;gap:10px;font-family:var(--font-display);font-size:18px;}
+.brand .kj{font-family:var(--font-ja);color:var(--accent);font-size:20px;}
+.brand b{font-weight:500;letter-spacing:.01em;}
+.topbar .spacer{flex:1;}
+.topbar .seg-pg{font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;color:var(--on-surface-subtle);
+  text-transform:uppercase;display:flex;align-items:center;gap:8px;}
+.topbar .seg-pg .kj{font-family:var(--font-ja);color:var(--accent);}
+.topbar .avatar{width:30px;height:30px;border-radius:var(--radius-pill);border:1px solid var(--border-strong);
+  display:grid;place-items:center;font-family:var(--font-ja);color:var(--accent);font-size:13px;background:var(--surface-sunken);}
+.subnav{position:relative;z-index:10;display:flex;gap:26px;padding:0 28px;
+  border-bottom:1px solid var(--border-subtle);background:var(--surface);}
+.subnav a{display:flex;align-items:center;gap:8px;padding:11px 2px;font-family:var(--font-mono);font-size:11.5px;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--on-surface-subtle);border-bottom:2px solid transparent;
+  transition:color var(--dur) var(--ease);}
+.subnav a .kj{font-family:var(--font-ja);font-size:14px;}
+.subnav a.active{color:var(--on-surface);border-bottom-color:var(--primary);}
+.subnav a.active .kj{color:var(--accent);}
+.subnav a:hover{color:var(--on-surface-muted);}
+
+/* ===== shell ===== */
+.wrap{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:0 28px 80px;}
+
+/* ===== top zone: kicker + title + search station ===== */
+.head{padding:30px 0 18px;position:relative;}
+.kanji-wm{position:absolute;right:-6px;top:-26px;font-family:var(--font-ja);font-weight:500;
+  font-size:200px;line-height:1;color:var(--color-or);opacity:.05;pointer-events:none;user-select:none;z-index:0;}
+.head>*{position:relative;z-index:1;}
+.micro{font-family:var(--font-mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--color-or-pale);display:inline-flex;align-items:center;gap:9px;}
+.micro .diamond{width:6px;height:6px;background:var(--primary);transform:rotate(45deg);display:inline-block;}
+h1.accent{font-family:var(--font-display);font-weight:300;font-size:54px;line-height:1.02;margin:10px 0 0;
+  letter-spacing:-.01em;display:flex;align-items:baseline;gap:16px;}
+h1.accent em{font-style:italic;color:var(--primary-hover);font-weight:400;}
+h1.accent .h1-kj{font-family:var(--font-ja);font-size:30px;color:var(--accent);opacity:.85;font-weight:400;
+  align-self:flex-start;margin-top:6px;}
+
+/* search station */
+.search-station{margin-top:22px;position:relative;}
+.search-modes{display:flex;gap:2px;background:var(--surface-sunken);border:1px solid var(--border);
+  border-radius:var(--radius-pill);padding:3px;width:max-content;margin-bottom:-1px;position:relative;z-index:5;}
+.search-modes button{display:flex;align-items:center;gap:7px;padding:7px 16px;border-radius:var(--radius-pill);
+  font-size:12.5px;letter-spacing:.02em;color:var(--on-surface-subtle);transition:all var(--dur) var(--ease);white-space:nowrap;}
+.search-modes button .kj{font-family:var(--font-ja);font-size:13px;}
+.search-modes button.active{background:var(--surface);color:var(--on-surface);box-shadow:inset 0 0 0 1px var(--border-strong);}
+.search-modes button.active .kj{color:var(--accent);}
+.search-modes button:hover:not(.active){color:var(--on-surface-muted);}
+.search-bar{display:flex;align-items:stretch;background:var(--surface);border:1px solid var(--border-strong);
+  border-radius:var(--radius-lg);overflow:hidden;}
+.search-bar:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(216,180,110,.15);}
+.search-bar .lead{display:grid;place-items:center;padding:0 4px 0 16px;color:var(--on-surface-subtle);}
+.search-bar input{flex:1;background:transparent;border:none;outline:none;color:var(--on-surface);
+  font-family:var(--font-sans);font-size:16px;padding:15px 8px;min-width:28ch;}
+.search-bar input::placeholder{color:var(--on-surface-subtle);}
+.search-bar .tools{display:flex;align-items:center;gap:2px;padding-right:6px;}
+.icon-btn{width:42px;height:42px;display:grid;place-items:center;border-radius:var(--radius-md);
+  color:var(--on-surface-muted);transition:all var(--dur) var(--ease);}
+.icon-btn:hover{color:var(--accent);background:var(--surface-sunken);}
+.icon-btn svg{width:20px;height:20px;}
+.search-go{margin-left:4px;padding:0 22px;background:var(--primary);color:var(--color-ivoire);font-weight:600;
+  font-size:13.5px;letter-spacing:.04em;display:flex;align-items:center;gap:8px;transition:background var(--dur) var(--ease);}
+.search-go:hover{background:var(--primary-hover);}
+.divider-v{width:1px;background:var(--border);margin:9px 2px;}
+
+/* autocomplete dropdown */
+.autocomplete{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:20;background:var(--surface-raised);
+  border:1px solid var(--border-strong);border-radius:var(--radius-lg);box-shadow:0 18px 50px rgba(0,0,0,.55);
+  overflow:hidden;display:none;}
+.autocomplete.open{display:block;}
+.ac-section{padding:8px 0;border-bottom:1px solid var(--border-subtle);}
+.ac-section:last-child{border-bottom:none;}
+.ac-label{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--on-surface-subtle);padding:6px 16px 4px;}
+.ac-row{display:flex;align-items:center;gap:12px;padding:9px 16px;cursor:pointer;transition:background var(--dur) var(--ease);}
+.ac-row:hover,.ac-row.hl{background:var(--surface-sunken);}
+.ac-row .ac-ico{color:var(--on-surface-subtle);display:grid;place-items:center;width:18px;}
+.ac-row .ac-ico svg{width:16px;height:16px;}
+.ac-row .q{flex:1;font-size:14px;color:var(--on-surface-muted);}
+.ac-row .q b{color:var(--on-surface);font-weight:600;}
+.ac-row .ac-meta{font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);}
+.ac-chip-row{display:flex;flex-wrap:wrap;gap:6px;padding:4px 16px 10px;}
+.ac-chip{font-size:11.5px;padding:4px 10px;border-radius:var(--radius-pill);border:1px solid var(--border);
+  color:var(--on-surface-muted);transition:all var(--dur) var(--ease);}
+.ac-chip:hover{border-color:var(--accent);color:var(--on-surface);}
+
+/* ===== glyph type rail (slim, top) ===== */
+.glyph-rail{display:flex;gap:6px;overflow-x:auto;padding:18px 0 4px;margin-top:6px;
+  scrollbar-width:thin;scrollbar-color:var(--border-strong) transparent;}
+.glyph-rail::-webkit-scrollbar{height:6px;}
+.glyph-rail::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:var(--radius-pill);}
+.gtile{flex:0 0 auto;display:flex;align-items:center;gap:9px;padding:8px 13px;border-radius:var(--radius-md);
+  border:1px solid var(--border-subtle);background:var(--surface);transition:all var(--dur) var(--ease);white-space:nowrap;}
+.gtile .kj{font-family:var(--font-ja);font-size:17px;color:var(--accent);opacity:.8;}
+.gtile .lab{font-size:12.5px;color:var(--on-surface-muted);}
+.gtile .ct{font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);}
+.gtile.active{border-color:var(--border-strong);background:var(--surface-sunken);}
+.gtile.active .kj{opacity:1;}
+.gtile.active .lab{color:var(--on-surface);}
+.gtile.zero{opacity:.42;}
+.gtile:hover:not(.active){border-color:var(--border);}
+
+/* ===== working layout: rail + results ===== */
+.work{display:grid;grid-template-columns:268px 1fr;gap:34px;margin-top:24px;align-items:start;}
+
+/* ---- left facet rail ---- */
+.rail{position:sticky;top:14px;}
+.rail-quick{display:grid;gap:8px;margin-bottom:20px;}
+.qtoggle{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 14px;
+  border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);
+  transition:all var(--dur) var(--ease);width:100%;text-align:left;}
+.qtoggle .ql{display:flex;align-items:center;gap:10px;font-size:13.5px;}
+.qtoggle .qi{width:18px;height:18px;display:grid;place-items:center;color:var(--on-surface-subtle);}
+.qtoggle .qi svg{width:16px;height:16px;}
+.qtoggle .qct{font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);}
+.qtoggle .sw{width:34px;height:18px;border-radius:var(--radius-pill);background:var(--surface-sunken);
+  border:1px solid var(--border);position:relative;flex:0 0 auto;transition:all var(--dur) var(--ease);}
+.qtoggle .sw::after{content:"";position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;
+  background:var(--on-surface-subtle);transition:all var(--dur) var(--ease);}
+.qtoggle[aria-pressed="true"]{border-color:var(--border-strong);background:var(--surface-sunken);}
+.qtoggle[aria-pressed="true"] .qi{color:var(--accent);}
+.qtoggle[aria-pressed="true"] .sw{background:var(--color-or-deep);border-color:var(--accent);}
+.qtoggle[aria-pressed="true"] .sw::after{left:18px;background:var(--color-noir-deep);}
+.qtoggle.nsfw[aria-pressed="true"] .sw{background:var(--primary);border-color:var(--primary-hover);}
+.qtoggle.nsfw[aria-pressed="true"] .qi{color:var(--primary-hover);}
+
+.rail-rule{height:1px;background:var(--border-subtle);margin:0 0 16px;}
+.rail-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;}
+.rail-head .micro{font-size:10.5px;}
+.rail-head .reset{font-size:11.5px;color:var(--on-surface-subtle);transition:color var(--dur) var(--ease);}
+.rail-head .reset:hover{color:var(--primary-hover);}
+
+.facet{border-top:1px solid var(--border-subtle);}
+.facet:first-of-type{border-top:none;}
+.facet > summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:13px 2px;cursor:pointer;user-select:none;}
+.facet > summary::-webkit-details-marker{display:none;}
+.facet > summary .fname{font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--on-surface-muted);display:flex;align-items:center;gap:8px;}
+.facet > summary .fname .kj{font-family:var(--font-ja);font-size:13px;color:var(--accent);opacity:.7;}
+.facet > summary .fcaret{color:var(--on-surface-subtle);transition:transform var(--dur) var(--ease);}
+.facet[open] > summary .fcaret{transform:rotate(90deg);}
+.facet .fbody{padding:0 2px 14px;display:grid;gap:3px;}
+.fopt{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:var(--radius-sm);cursor:pointer;
+  transition:background var(--dur) var(--ease);}
+.fopt:hover{background:var(--surface);}
+.fopt .box{width:15px;height:15px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);
+  flex:0 0 auto;display:grid;place-items:center;transition:all var(--dur) var(--ease);}
+.fopt .box svg{width:11px;height:11px;opacity:0;color:var(--color-noir-deep);}
+.fopt .flab{flex:1;font-size:13px;color:var(--on-surface-muted);}
+.fopt .fct{font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);}
+.fopt input{position:absolute;opacity:0;width:0;height:0;}
+.fopt input:checked + .box{background:var(--accent);border-color:var(--accent);}
+.fopt input:checked + .box svg{opacity:1;}
+.fopt:has(input:checked) .flab{color:var(--on-surface);}
+.fopt input:focus-visible + .box{outline:2px solid var(--ring);outline-offset:2px;}
+.fmore{font-size:11.5px;font-family:var(--font-mono);color:var(--accent);padding:4px 8px;letter-spacing:.04em;}
+.fmore:hover{color:var(--color-or-pale);}
+.ambiance-link{margin-top:18px;display:flex;align-items:center;justify-content:space-between;
+  padding:12px 14px;border:1px dashed var(--border-strong);border-radius:var(--radius-md);
+  background:var(--surface);transition:all var(--dur) var(--ease);}
+.ambiance-link:hover{border-style:solid;background:var(--surface-sunken);}
+.ambiance-link .al-t{display:flex;align-items:center;gap:9px;font-size:12.5px;}
+.ambiance-link .al-t .kj{font-family:var(--font-ja);color:var(--accent);font-size:15px;}
+.ambiance-link .arrow{color:var(--accent);}
+
+/* ---- results area ---- */
+.results-head{display:flex;flex-direction:column;gap:14px;margin-bottom:18px;}
+.chips-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+.applied-chip{display:inline-flex;align-items:center;gap:8px;padding:5px 6px 5px 12px;border-radius:var(--radius-pill);
+  background:var(--surface);border:1px solid var(--border-strong);font-size:12.5px;color:var(--on-surface);}
+.applied-chip .ck{font-family:var(--font-mono);font-size:10px;color:var(--on-surface-subtle);letter-spacing:.1em;text-transform:uppercase;}
+.applied-chip .x{width:18px;height:18px;border-radius:50%;display:grid;place-items:center;color:var(--on-surface-subtle);
+  transition:all var(--dur) var(--ease);}
+.applied-chip .x:hover{background:var(--primary);color:var(--color-ivoire);}
+.applied-chip .x svg{width:11px;height:11px;}
+.clear-all{font-size:12px;font-family:var(--font-mono);letter-spacing:.06em;color:var(--primary-hover);padding:5px 4px;}
+.clear-all:hover{text-decoration:underline;}
+
+.results-bar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  padding-bottom:14px;border-bottom:1px solid var(--border-subtle);}
+.count-line{font-family:var(--font-mono);font-size:13px;color:var(--on-surface-muted);}
+.count-line b{color:var(--accent);font-weight:500;}
+.sort-wrap{display:flex;align-items:center;gap:10px;}
+.sort-wrap .micro{font-size:10px;}
+.sort-sel{display:inline-flex;align-items:center;gap:8px;padding:8px 13px;border:1px solid var(--border);
+  border-radius:var(--radius-md);background:var(--surface);font-size:13px;color:var(--on-surface-muted);
+  transition:border-color var(--dur) var(--ease);}
+.sort-sel:hover{border-color:var(--border-strong);}
+.sort-sel svg{width:13px;height:13px;color:var(--on-surface-subtle);}
+
+/* ---- grid ---- */
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:20px;}
+.card{position:relative;border:1px solid var(--border-subtle);border-radius:var(--radius-lg);
+  background:var(--surface);overflow:hidden;transition:transform var(--dur) var(--ease),border-color var(--dur) var(--ease);}
+.card:hover{transform:translateY(-3px);border-color:var(--border-strong);}
+.well{position:relative;aspect-ratio:3/4;background:
+    radial-gradient(78% 60% at 50% 32%, rgba(216,180,110,.07), transparent 64%),
+    var(--surface-sunken);
+  display:grid;place-items:center;overflow:hidden;}
+.well::after{content:"";position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 -40px 60px -30px rgba(0,0,0,.7), inset 0 0 70px -20px rgba(0,0,0,.5);}
+.well svg.fig{width:52%;height:auto;display:block;}
+.cap{position:absolute;left:10px;bottom:9px;right:10px;display:flex;justify-content:space-between;
+  align-items:flex-end;font-family:var(--font-mono);font-size:10.5px;color:var(--on-surface-subtle);z-index:3;}
+.cap .scale{color:var(--accent);}
+/* seals */
+.seal{position:absolute;top:9px;left:9px;z-index:4;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;
+  font-size:12px;}
+.seal.owned{background:rgba(216,180,110,.16);border:1px solid var(--accent);color:var(--accent);}
+.seal.wished{background:rgba(143,45,42,.2);border:1px solid var(--primary-hover);color:var(--primary-hover);font-size:13px;}
+/* nsfw */
+.nsfw-over{position:absolute;inset:0;z-index:5;background:var(--surface-sunken);display:grid;place-items:center;
+  text-align:center;gap:8px;}
+.nsfw-over .mosaic{position:absolute;inset:0;opacity:.5;
+  background-image:repeating-linear-gradient(45deg, rgba(216,180,110,.05) 0 8px, transparent 8px 16px);}
+.nsfw-pill{position:relative;z-index:1;font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--on-surface-muted);border:1px solid var(--border-strong);border-radius:var(--radius-pill);padding:5px 12px;}
+.nsfw-reveal{position:relative;z-index:1;font-size:11.5px;color:var(--accent);text-decoration:underline;}
+/* card body */
+.card-body{padding:11px 12px 13px;}
+.card-maker{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--color-or-pale);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.card-name{font-family:var(--font-display);font-size:16px;font-weight:400;line-height:1.2;margin:3px 0 4px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.card-name em{font-style:italic;color:var(--primary-hover);}
+.card-serie{font-size:12px;color:var(--on-surface-subtle);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* hover actions */
+.card-actions{position:absolute;top:9px;right:9px;z-index:6;display:flex;gap:6px;
+  opacity:0;transform:translateY(-4px);transition:opacity var(--dur) var(--ease),transform var(--dur) var(--ease);}
+.card:hover .card-actions,.card:focus-within .card-actions{opacity:1;transform:none;}
+.act{width:36px;height:36px;border-radius:var(--radius-md);background:rgba(16,13,11,.82);border:1px solid var(--border-strong);
+  display:grid;place-items:center;color:var(--on-surface-muted);transition:all var(--dur) var(--ease);}
+.act:hover{color:var(--color-ivoire);}
+.act.wish:hover{background:var(--primary);border-color:var(--primary-hover);}
+.act.add:hover{background:var(--color-or-deep);border-color:var(--accent);color:var(--color-noir-deep);}
+.act svg{width:17px;height:17px;}
+
+/* skeleton row */
+.skel-block{margin-top:26px;}
+.skel-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:12px;}
+.skel{border:1px solid var(--border-subtle);border-radius:var(--radius-lg);background:var(--surface);overflow:hidden;}
+.skel .sw-well{aspect-ratio:3/4;background:var(--surface-sunken);}
+.skel .sw-l{height:9px;border-radius:var(--radius-sm);background:var(--surface-sunken);margin:11px 12px 0;}
+.skel .sw-l.s2{width:60%;margin-top:8px;}
+.skel .sw-l.s3{width:40%;margin:8px 12px 13px;}
+
+/* ambiance teaser row (results-first nod) */
+.amb-strip{margin-top:34px;}
+.amb-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:14px;}
+.amb-tile{position:relative;aspect-ratio:16/10;border-radius:var(--radius-lg);border:1px solid var(--border-subtle);
+  background:radial-gradient(80% 70% at 30% 20%, rgba(143,45,42,.1), transparent 60%), var(--surface-sunken);
+  overflow:hidden;padding:14px;display:flex;flex-direction:column;justify-content:flex-end;
+  transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease);}
+.amb-tile:hover{border-color:var(--border-strong);transform:translateY(-2px);}
+.amb-tile .ghost{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;gap:-10px;opacity:.5;}
+.amb-tile .ghost svg{width:34%;height:auto;margin:0 -6px;}
+.amb-tile .badge{position:absolute;top:10px;right:11px;font-family:var(--font-ja);font-size:14px;color:var(--accent);
+  background:rgba(16,13,11,.7);border:1px solid var(--border);border-radius:var(--radius-pill);width:26px;height:26px;
+  display:grid;place-items:center;}
+.amb-tile .amb-name{position:relative;z-index:1;font-family:var(--font-display);font-size:15px;}
+.amb-tile .amb-ct{position:relative;z-index:1;font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);margin-top:2px;}
+
+/* no-results recovery inset */
+.empty-inset{margin-top:34px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);
+  padding:22px 24px;}
+.empty-inset .ei-head{display:flex;align-items:center;gap:12px;}
+.empty-inset .ei-icon{width:38px;height:38px;border-radius:var(--radius-md);border:1px solid var(--border-strong);
+  display:grid;place-items:center;color:var(--accent);background:var(--surface-sunken);}
+.empty-inset .ei-icon svg{width:20px;height:20px;}
+.empty-inset h3{font-family:var(--font-display);font-weight:400;font-size:18px;margin:0;}
+.empty-inset .ei-sub{font-size:13px;color:var(--on-surface-muted);margin:3px 0 0;}
+.empty-inset .ei-sub b{color:var(--on-surface);}
+.empty-inset .ei-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;align-items:center;}
+.ghost-btn{padding:8px 14px;border:1px solid var(--border-strong);border-radius:var(--radius-md);font-size:12.5px;
+  color:var(--on-surface-muted);transition:all var(--dur) var(--ease);}
+.ghost-btn:hover{border-color:var(--accent);color:var(--on-surface);}
+.empty-inset .ei-trend{margin-top:18px;}
+.ei-trend .micro{font-size:10px;margin-bottom:10px;}
+.trend-chips{display:flex;flex-wrap:wrap;gap:8px;}
+.trend-chip{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:var(--radius-pill);
+  border:1px solid var(--border);font-size:12.5px;color:var(--on-surface-muted);transition:all var(--dur) var(--ease);}
+.trend-chip:hover{border-color:var(--accent);color:var(--on-surface);}
+.trend-chip .tk{font-family:var(--font-ja);color:var(--accent);font-size:12px;}
+
+/* load more */
+.loadmore-zone{display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:40px;}
+.position-line{font-family:var(--font-mono);font-size:12px;color:var(--on-surface-subtle);letter-spacing:.04em;}
+.position-line b{color:var(--accent);}
+.loadmore-btn{display:inline-flex;align-items:center;gap:10px;padding:13px 30px;border:1px solid var(--border-strong);
+  border-radius:var(--radius-pill);font-family:var(--font-mono);font-size:12.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--on-surface);background:var(--surface);transition:all var(--dur) var(--ease);}
+.loadmore-btn:hover{border-color:var(--accent);background:var(--surface-sunken);}
+.loadmore-btn .kj{font-family:var(--font-ja);color:var(--accent);}
+.progress-track{width:200px;height:3px;border-radius:var(--radius-pill);background:var(--surface-sunken);overflow:hidden;}
+.progress-track .fill{height:100%;width:100%;background:var(--accent);}
+
+/* mobile filter drawer trigger + bar */
+.mobile-filterbar{display:none;}
+
+footer{position:relative;z-index:1;max-width:1440px;margin:40px auto 0;padding:24px 28px;
+  border-top:1px solid var(--border-subtle);display:flex;justify-content:space-between;align-items:center;
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;color:var(--on-surface-subtle);text-transform:uppercase;flex-wrap:wrap;gap:12px;}
+footer .kj{font-family:var(--font-ja);color:var(--accent);}
+
+/* ===== responsive ===== */
+@media (max-width:1180px){ .grid,.skel-grid,.amb-grid{grid-template-columns:repeat(3,1fr);} }
+@media (max-width:1024px){
+  .work{grid-template-columns:1fr;}
+  .rail{display:none;}
+  .mobile-filterbar{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:30;
+    margin:0 -28px 4px;padding:12px 28px;background:var(--surface-raised);border-bottom:1px solid var(--border-subtle);
+    border-top:1px solid var(--border-subtle);}
+  .mf-btn{display:inline-flex;align-items:center;gap:9px;padding:10px 16px;border:1px solid var(--border-strong);
+    border-radius:var(--radius-md);font-size:13px;color:var(--on-surface);background:var(--surface);}
+  .mf-btn svg{width:16px;height:16px;color:var(--accent);}
+  .mf-btn .fcount{font-family:var(--font-mono);font-size:11px;color:var(--color-noir-deep);background:var(--accent);
+    border-radius:var(--radius-pill);padding:1px 7px;}
+  .mf-apply{font-size:13px;color:var(--on-surface-muted);font-family:var(--font-mono);}
+  .mf-apply b{color:var(--accent);}
+  /* drawer */
+  .drawer-scrim{position:fixed;inset:0;z-index:80;background:rgba(16,13,11,.7);display:none;}
+  .drawer-scrim.open{display:block;}
+  .drawer{position:fixed;top:0;left:0;bottom:0;z-index:81;width:min(340px,86vw);background:var(--surface-raised);
+    border-right:1px solid var(--border-strong);transform:translateX(-100%);transition:transform var(--dur) var(--ease);
+    display:flex;flex-direction:column;}
+  .drawer.open{transform:none;}
+  .drawer-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border-subtle);}
+  .drawer-head .micro{font-size:11px;}
+  .drawer-close{width:34px;height:34px;display:grid;place-items:center;color:var(--on-surface-muted);border:1px solid var(--border);border-radius:var(--radius-md);}
+  .drawer-body{flex:1;overflow-y:auto;padding:16px 18px 0;}
+  .drawer-foot{padding:14px 18px;border-top:1px solid var(--border-subtle);}
+  .drawer-foot .apply-big{width:100%;padding:14px;background:var(--primary);color:var(--color-ivoire);font-weight:600;
+    border-radius:var(--radius-md);font-size:14px;}
+  .drawer .rail{display:block;position:static;}
+}
+@media (min-width:1025px){ .drawer-scrim,.drawer{display:none;} }
+@media (max-width:760px){
+  .grid,.skel-grid{grid-template-columns:repeat(2,1fr);}
+  .amb-grid{grid-template-columns:repeat(2,1fr);}
+}
+@media (max-width:640px){
+  .wrap{padding:0 18px 70px;}
+  .topbar{padding:12px 18px;gap:12px;}
+  .topbar .seg-pg{display:none;}
+  .subnav{padding:0 18px;gap:18px;}
+  h1.accent{font-size:40px;}
+  .kanji-wm{font-size:140px;top:-10px;}
+  .search-bar input{min-width:0;}
+  .search-go span{display:none;}
+  .search-go{padding:0 16px;}
+  .search-modes{width:100%;overflow-x:auto;}
+  .grid,.skel-grid{grid-template-columns:repeat(2,1fr);gap:12px;}
+  .card-actions{opacity:1;transform:none;}
+  .results-bar{align-items:flex-start;}
+  footer{flex-direction:column;align-items:flex-start;}
+}
+@media (max-width:400px){ .grid,.skel-grid,.amb-grid{grid-template-columns:1fr;} }
+
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;scroll-behavior:auto!important;}
+}
+:focus-visible{outline:2px solid var(--ring);outline-offset:2px;border-radius:var(--radius-sm);}
+</style>
+</head>
+<body>
+<div class="dir-label">① LE COMPTOIR · facettes + console de recherche</div>
+
+<!-- ===== app chrome ===== -->
+<header class="topbar">
+  <div class="brand"><span class="kj">像</span><b>Figure<span style="color:var(--accent)">Collector</span></b></div>
+  <div class="spacer"></div>
+  <div class="seg-pg"><span class="kj">目</span> Catalogue</div>
+  <div class="avatar">D</div>
+</header>
+<nav class="subnav" aria-label="Sous-navigation catalogue">
+  <a href="#" class="active"><span class="kj">探</span> Catalogue</a>
+  <a href="#"><span class="kj">写</span> Reconnaître par photo</a>
+</nav>
+
+<main class="wrap">
+
+  <!-- ===== top zone ===== -->
+  <section class="head">
+    <div class="kanji-wm" aria-hidden="true">目</div>
+    <span class="micro"><span class="diamond"></span> Toutes les figurines, qu'on les possède ou non</span>
+    <h1 class="accent"><em>Cata</em>logue <span class="h1-kj" aria-hidden="true">目</span></h1>
+
+    <!-- search station -->
+    <div class="search-station">
+      <div class="search-modes" role="tablist" aria-label="Mode de recherche">
+        <button role="tab" class="active" aria-selected="true"><span class="kj">語</span> Mots-clés</button>
+        <button role="tab" aria-selected="false"><span class="kj">意</span> Description</button>
+        <button role="tab" aria-selected="false"><span class="kj">姿</span> Apparence</button>
+      </div>
+      <div class="search-bar">
+        <span class="lead" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        </span>
+        <input id="q" type="search" autocomplete="off" aria-label="Rechercher dans le catalogue"
+               placeholder="Rechercher par nom, série, fabricant…" value="">
+        <div class="tools">
+          <button class="icon-btn" title="Recherche par photo" aria-label="Recherche par photo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.4"/></svg>
+          </button>
+          <button class="icon-btn" title="Scanner un code-barres (JAN/EAN)" aria-label="Scanner un code-barres">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5v14M6.5 5v14M10 5v14M13.5 5v10M17 5v14M20.5 5v14"/></svg>
+          </button>
+          <span class="divider-v" aria-hidden="true"></span>
+          <button class="search-go">Chercher</button>
+        </div>
+      </div>
+
+      <!-- autocomplete dropdown sketch -->
+      <div class="autocomplete" id="ac" role="listbox" aria-label="Suggestions">
+        <div class="ac-section">
+          <div class="ac-label">Suggestions</div>
+          <div class="ac-row hl"><span class="ac-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><span class="q"><b>tats</b>umaki</span><span class="ac-meta">2</span></div>
+          <div class="ac-row"><span class="ac-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><span class="q"><b>tats</b>umaki · one punch man</span><span class="ac-meta">série</span></div>
+          <div class="ac-row"><span class="ac-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><span class="q"><b>tats</b>umaki vs tentacle · crown studio</span><span class="ac-meta">figure</span></div>
+        </div>
+        <div class="ac-section">
+          <div class="ac-label">Récentes</div>
+          <div class="ac-row"><span class="ac-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="q">frieren 1/7</span></div>
+          <div class="ac-row"><span class="ac-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="q">alter re:zero</span></div>
+        </div>
+        <div class="ac-section">
+          <div class="ac-label">Populaires</div>
+          <div class="ac-chip-row">
+            <button class="ac-chip">Good Smile</button>
+            <button class="ac-chip">Nendoroid</button>
+            <button class="ac-chip">Pré-commandes</button>
+            <button class="ac-chip">1/7 Scale</button>
+            <button class="ac-chip">Genshin Impact</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- slim glyph type rail (Type facet folded in here too) -->
+    <div class="glyph-rail" role="tablist" aria-label="Filtrer par type">
+      <button class="gtile active"><span class="kj">集</span><span class="lab">Toutes</span><span class="ct tnum">23</span></button>
+      <button class="gtile"><span class="kj">童</span><span class="lab">Nendoroid</span><span class="ct tnum">3</span></button>
+      <button class="gtile"><span class="kj">像</span><span class="lab">Scale</span><span class="ct tnum">6</span></button>
+      <button class="gtile"><span class="kj">動</span><span class="lab">Figma</span><span class="ct tnum">1</span></button>
+      <button class="gtile zero"><span class="kj">賞</span><span class="lab">Prize</span><span class="ct tnum">0</span></button>
+      <button class="gtile zero"><span class="kj">交</span><span class="lab">Trading</span><span class="ct tnum">0</span></button>
+      <button class="gtile"><span class="kj">彫</span><span class="lab">Statue</span><span class="ct tnum">8</span></button>
+      <button class="gtile"><span class="kj">組</span><span class="lab">Plamo</span><span class="ct tnum">1</span></button>
+      <button class="gtile zero"><span class="kj">美</span><span class="lab">Bishoujo</span><span class="ct tnum">0</span></button>
+      <button class="gtile zero"><span class="kj">枕</span><span class="lab">Dakimakura</span><span class="ct tnum">0</span></button>
+      <button class="gtile"><span class="kj">玩</span><span class="lab">Autre</span><span class="ct tnum">4</span></button>
+    </div>
+  </section>
+
+  <!-- ===== working layout ===== -->
+  <div class="work">
+
+    <!-- ===== LEFT FACET RAIL ===== -->
+    <aside class="rail" aria-label="Filtres">
+      <div class="rail-quick">
+        <button class="qtoggle" aria-pressed="false">
+          <span class="ql"><span class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M5 13l4 4L19 7"/></svg></span> Possédées</span>
+          <span class="qct tnum">3</span><span class="sw" aria-hidden="true"></span>
+        </button>
+        <button class="qtoggle" aria-pressed="false">
+          <span class="ql"><span class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.6-7-10a3.6 3.6 0 0 1 7-1.3A3.6 3.6 0 0 1 19 10c0 5.4-7 10-7 10z"/></svg></span> Souhaits</span>
+          <span class="qct tnum">9</span><span class="sw" aria-hidden="true"></span>
+        </button>
+        <button class="qtoggle nsfw" aria-pressed="false">
+          <span class="ql"><span class="qi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/></svg></span> Afficher NSFW</span>
+          <span class="qct tnum">3</span><span class="sw" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div class="rail-rule"></div>
+
+      <div class="rail-head">
+        <span class="micro"><span class="diamond"></span> Affiner</span>
+        <button class="reset">Réinitialiser</button>
+      </div>
+
+      <details class="facet" open>
+        <summary><span class="fname"><span class="kj">製</span> Fabricant</span><span class="fcaret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="m9 6 6 6-6 6"/></svg></span></summary>
+        <div class="fbody">
+          <label class="fopt"><input type="checkbox" checked><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Good Smile</span><span class="fct tnum">5</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Alter</span><span class="fct tnum">4</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Max Factory</span><span class="fct tnum">3</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Kotobukiya</span><span class="fct tnum">3</span></label>
+          <label class="fopt"><input type="checkbox" checked><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">CROWN Studio</span><span class="fct tnum">3</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Native</span><span class="fct tnum">2</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Orca Toys</span><span class="fct tnum">2</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Fish Head</span><span class="fct tnum">2</span></label>
+          <button class="fmore">+ 4 fabricants</button>
+        </div>
+      </details>
+
+      <details class="facet" open>
+        <summary><span class="fname"><span class="kj">列</span> Série</span><span class="fcaret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="m9 6 6 6-6 6"/></svg></span></summary>
+        <div class="fbody">
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">One Punch Man</span><span class="fct tnum">2</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Re:ZERO</span><span class="fct tnum">3</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Frieren</span><span class="fct tnum">3</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Genshin Impact</span><span class="fct tnum">2</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Oshi no Ko</span><span class="fct tnum">2</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Mushoku Tensei</span><span class="fct tnum">1</span></label>
+          <button class="fmore">+ 6 séries</button>
+        </div>
+      </details>
+
+      <details class="facet">
+        <summary><span class="fname"><span class="kj">人</span> Personnage</span><span class="fcaret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="m9 6 6 6-6 6"/></svg></span></summary>
+        <div class="fbody">
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Tatsumaki</span><span class="fct tnum">2</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Frieren</span><span class="fct tnum">2</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Raiden Shogun</span><span class="fct tnum">2</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Ai Hoshino</span><span class="fct tnum">2</span></label>
+          <button class="fmore">+ 9 personnages</button>
+        </div>
+      </details>
+
+      <details class="facet">
+        <summary><span class="fname"><span class="kj">寸</span> Échelle</span><span class="fcaret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="m9 6 6 6-6 6"/></svg></span></summary>
+        <div class="fbody">
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">1/4</span><span class="fct tnum">1</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">1/6</span><span class="fct tnum">5</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">1/7</span><span class="fct tnum">5</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">1/8</span><span class="fct tnum">1</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">non-scale</span><span class="fct tnum">4</span></label>
+        </div>
+      </details>
+
+      <details class="facet">
+        <summary><span class="fname"><span class="kj">類</span> Type</span><span class="fcaret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="m9 6 6 6-6 6"/></svg></span></summary>
+        <div class="fbody">
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab"><span class="kj" style="font-family:var(--font-ja);color:var(--accent);opacity:.7">彫</span> Statue</span><span class="fct tnum">8</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab"><span class="kj" style="font-family:var(--font-ja);color:var(--accent);opacity:.7">像</span> Scale</span><span class="fct tnum">6</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab"><span class="kj" style="font-family:var(--font-ja);color:var(--accent);opacity:.7">童</span> Nendoroid</span><span class="fct tnum">3</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab"><span class="kj" style="font-family:var(--font-ja);color:var(--accent);opacity:.7">玩</span> Autre</span><span class="fct tnum">4</span></label>
+        </div>
+      </details>
+
+      <details class="facet">
+        <summary><span class="fname"><span class="kj">札</span> Tags</span><span class="fcaret"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="14" height="14"><path d="m9 6 6 6-6 6"/></svg></span></summary>
+        <div class="fbody">
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Hair Ornament</span><span class="fct tnum">4</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Dress</span><span class="fct tnum">3</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Tentacles</span><span class="fct tnum">3</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Idol</span><span class="fct tnum">2</span></label>
+          <label class="fopt"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span><span class="flab">Gloves</span><span class="fct tnum">2</span></label>
+          <button class="fmore">+ 13 tags</button>
+        </div>
+      </details>
+
+      <a class="ambiance-link" href="#ambiances">
+        <span class="al-t"><span class="kj">巡</span> Explorer par ambiance</span>
+        <span class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="16" height="16"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      </a>
+    </aside>
+
+    <!-- ===== RESULTS AREA ===== -->
+    <section class="results">
+
+      <!-- mobile filter bar (≤1024) -->
+      <div class="mobile-filterbar">
+        <button class="mf-btn" id="openDrawer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+          Filtres <span class="fcount tnum">3</span>
+        </button>
+        <span class="mf-apply"><b class="tnum">23</b> résultats</span>
+      </div>
+
+      <div class="results-head">
+        <!-- applied filter chips -->
+        <div class="chips-row" id="appliedChips">
+          <div class="applied-chip"><span class="ck">Fab</span> Good Smile <button class="x" aria-label="Retirer le filtre Good Smile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+          <div class="applied-chip"><span class="ck">Fab</span> CROWN Studio <button class="x" aria-label="Retirer le filtre CROWN Studio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+          <button class="clear-all">Tout effacer</button>
+        </div>
+
+        <!-- results bar: count + sort -->
+        <div class="results-bar">
+          <span class="count-line"><b class="tnum">23</b> figurines · <span class="tnum">8</span> fabricants · <span class="tnum">6</span> séries</span>
+          <div class="sort-wrap">
+            <span class="micro">Trier</span>
+            <button class="sort-sel">Plus récentes
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== GRID ===== -->
+      <div class="grid" id="grid">
+        <!-- 1 -->
+        <article class="card">
+          <div class="well">
+            <span class="seal owned" title="Possédée">✓</span>
+            <div class="card-actions">
+              <button class="act wish" aria-label="Souhaiter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.6-7-10a3.6 3.6 0 0 1 7-1.3A3.6 3.6 0 0 1 19 10c0 5.4-7 10-7 10z"/></svg></button>
+              <button class="act add" aria-label="Ajouter à ma collection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
+            </div>
+            <svg class="fig" viewBox="0 0 100 140" aria-hidden="true"><g fill="rgba(216,180,110,.2)"><ellipse cx="50" cy="22" rx="13" ry="15"/><path d="M50 36c-13 0-20 10-21 30-1 22 4 50 8 64h26c4-14 9-42 8-64-1-20-8-30-21-30z"/><path d="M30 50c-9 6-16 18-16 30l8 3c2-12 8-22 14-27z"/><path d="M70 50c9 6 16 18 16 30l-8 3c-2-12-8-22-14-27z"/></g></svg>
+            <div class="cap"><span class="mono">Nº 0014</span><span class="scale">1/6</span></div>
+          </div>
+          <div class="card-body"><div class="card-maker">CROWN Studio</div><div class="card-name"><em>Tatsumaki</em> VS Tentacle</div><div class="card-serie">One Punch Man · Statue</div></div>
+        </article>
+        <!-- 2 -->
+        <article class="card">
+          <div class="well">
+            <span class="seal wished" title="Souhaitée">♡</span>
+            <div class="card-actions">
+              <button class="act wish" aria-label="Souhaiter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.6-7-10a3.6 3.6 0 0 1 7-1.3A3.6 3.6 0 0 1 19 10c0 5.4-7 10-7 10z"/></svg></button>
+              <button class="act add" aria-label="Ajouter à ma collection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
+            </div>
+            <svg class="fig" viewBox="0 0 100 140" aria-hidden="true"><g fill="rgba(95,179,154,.16)"><ellipse cx="50" cy="22" rx="12" ry="14"/><path d="M50 35c-12 0-18 9-19 28-1 24 3 52 7 65h24c4-13 8-41 7-65-1-19-7-28-19-28z"/><path d="M33 46l-12 14 5 5 11-13z"/><path d="M67 46l12 14-5 5-11-13z"/></g></svg>
+            <div class="cap"><span class="mono">Nº 0011</span><span class="scale">1/6</span></div>
+          </div>
+          <div class="card-body"><div class="card-maker">Crown Studio</div><div class="card-name"><em>Eris</em> Greyrat</div><div class="card-serie">Mushoku Tensei · Statue</div></div>
+        </article>
+        <!-- 3 -->
+        <article class="card">
+          <div class="well">
+            <div class="card-actions">
+              <button class="act wish" aria-label="Souhaiter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.6-7-10a3.6 3.6 0 0 1 7-1.3A3.6 3.6 0 0 1 19 10c0 5.4-7 10-7 10z"/></svg></button>
+              <button class="act add" aria-label="Ajouter à ma collection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
+            </div>
+            <svg class="fig" viewBox="0 0 100 140" aria-hidden="true"><g fill="rgba(216,180,110,.22)"><circle cx="50" cy="34" r="24"/><path d="M50 56c-11 0-17 8-17 22 0 18 3 40 6 52h22c3-12 6-34 6-52 0-14-6-22-17-22z"/></g></svg>
+            <div class="cap"><span class="mono">Nº 0023</span><span class="scale">non-scale</span></div>
+          </div>
+          <div class="card-body"><div class="card-maker">Good Smile</div><div class="card-name"><em>Nendo</em>roid Frieren</div><div class="card-serie">Frieren · Nendoroid</div></div>
+        </article>
+        <!-- 4 -->
+        <article class="card">
+          <div class="well">
+            <span class="seal wished" title="Souhaitée">♡</span>
+            <div class="card-actions">
+              <button class="act wish" aria-label="Souhaiter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.6-7-10a3.6 3.6 0 0 1 7-1.3A3.6 3.6 0 0 1 19 10c0 5.4-7 10-7 10z"/></svg></button>
+              <button class="act add" aria-label="Ajouter à ma collection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
+            </div>
+            <svg class="fig" viewBox="0 0 100 140" aria-hidden="true"><g fill="rgba(236,227,210,.14)"><ellipse cx="50" cy="22" rx="13" ry="15"/><path d="M50 36c-14 0-20 11-22 34l-6 50h56l-6-50c-2-23-8-34-22-34z"/></g></svg>
+            <div class="cap"><span class="mono">Nº 0004</span><span class="scale">1/7</span></div>
+          </div>
+          <div class="card-body"><div class="card-maker">Alter</div><div class="card-name"><em>Emilia</em></div><div class="card-serie">Re:ZERO · Scale</div></div>
+        </article>
+        <!-- 5 -->
+        <article class="card">
+          <div class="well">
+            <div class="card-actions">
+              <button class="act wish" aria-label="Souhaiter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.6-7-10a3.6 3.6 0 0 1 7-1.3A3.6 3.6 0 0 1 19 10c0 5.4-7 10-7 10z"/></svg></button>
+              <button class="act add" aria-label="Ajouter à ma collection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
+            </div>
+            <svg class="fig" viewBox="0 0 100 140" aria-hidden="true"><g fill="rgba(216,180,110,.18)"><ellipse cx="50" cy="24" rx="12" ry="14"/><path d="M50 38c-11 0-17 8-19 28l-4 52h46l-4-52c-2-20-8-28-19-28z"/><path d="M28 52l-8 22 6 3 9-20z"/></g></svg>
+            <div class="cap"><span class="mono">Nº 0005</span><span class="scale">non-scale</span></div>
+          </div>
+          <div class="card-body"><div class="card-maker">Max Factory</div><div class="card-name"><em>figma</em> Ai Hoshino</div><div class="card-serie">Oshi no Ko · Figma</div></div>
+        </article>
+        <!-- 6 -->
+        <article class="card">
+          <div class="well">
+            <div class="card-actions">
+              <button class="act wish" aria-label="Souhaiter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.6-7-10a3.6 3.6 0 0 1 7-1.3A3.6 3.6 0 0 1 19 10c0 5.4-7 10-7 10z"/></svg></button>
+              <button class="act add" aria-label="Ajouter à ma collection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
+            </div>
+            <svg class="fig" viewBox="0 0 100 140" aria-hidden="true"><g fill="rgba(95,179,154,.18)"><ellipse cx="50" cy="22" rx="13" ry="15"/><path d="M50 36c-13 0-19 10-21 32l-5 51h52l-5-51c-2-22-8-32-21-32z"/><path d="M72 48l9 20-6 3-9-18z"/></g></svg>
+            <div class="cap"><span class="mono">Nº 0006</span><span class="scale">1/7</span></div>
+          </div>
+          <div class="card-body"><div class="card-maker">Kotobukiya</div><div class="card-name"><em>Bishoujo</em> Raiden</div><div class="card-serie">Genshin Impact · Bishoujo</div></div>
+        </article>
+        <!-- 7 NSFW -->
+        <article class="card">
+          <div class="well">
+            <div class="nsfw-over"><div class="mosaic"></div><span class="nsfw-pill">Contenu sensible</span><button class="nsfw-reveal">Afficher</button></div>
+            <div class="cap"><span class="mono">Nº 0007</span><span class="scale">1/6</span></div>
+          </div>
+          <div class="card-body"><div class="card-maker">Native</div><div class="card-name"><em>Nure</em> Megami</div><div class="card-serie">Original · Statue</div></div>
+        </article>
+        <!-- 8 -->
+        <article class="card">
+          <div class="well">
+            <span class="seal owned" title="Possédée">✓</span>
+            <div class="card-actions">
+              <button class="act wish" aria-label="Souhaiter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.6-7-10a3.6 3.6 0 0 1 7-1.3A3.6 3.6 0 0 1 19 10c0 5.4-7 10-7 10z"/></svg></button>
+              <button class="act add" aria-label="Ajouter à ma collection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
+            </div>
+            <svg class="fig" viewBox="0 0 100 140" aria-hidden="true"><g fill="rgba(216,180,110,.2)"><ellipse cx="50" cy="23" rx="12" ry="14"/><path d="M50 37c-12 0-18 9-20 30l-5 53h50l-5-53c-2-21-8-30-20-30z"/></g></svg>
+            <div class="cap"><span class="mono">Nº 0008</span><span class="scale">1/7</span></div>
+          </div>
+          <div class="card-body"><div class="card-maker">Orca Toys</div><div class="card-name"><em>Albedo</em></div><div class="card-serie">Overlord · Scale</div></div>
+        </article>
+        <!-- 9 NSFW -->
+        <article class="card">
+          <div class="well">
+            <div class="nsfw-over"><div class="mosaic"></div><span class="nsfw-pill">Contenu sensible</span><button class="nsfw-reveal">Afficher</button></div>
+            <div class="cap"><span class="mono">Nº 0009</span><span class="scale">1/6</span></div>
+          </div>
+          <div class="card-body"><div class="card-maker">Fish Head</div><div class="card-name"><em>Nun</em> Thigh Prayer</div><div class="card-serie">Original · Statue</div></div>
+        </article>
+        <!-- 10 -->
+        <article class="card">
+          <div class="well">
+            <span class="seal owned" title="Possédée">✓</span>
+            <div class="card-actions">
+              <button class="act wish" aria-label="Souhaiter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.6-7-10a3.6 3.6 0 0 1 7-1.3A3.6 3.6 0 0 1 19 10c0 5.4-7 10-7 10z"/></svg></button>
+              <button class="act add" aria-label="Ajouter à ma collection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
+            </div>
+            <svg class="fig" viewBox="0 0 100 140" aria-hidden="true"><g fill="rgba(216,180,110,.22)"><circle cx="50" cy="33" r="23"/><path d="M50 54c-10 0-16 8-16 21 0 18 3 40 6 52h20c3-12 6-34 6-52 0-13-6-21-16-21z"/></g></svg>
+            <div class="cap"><span class="mono">Nº 0010</span><span class="scale">non-scale</span></div>
+          </div>
+          <div class="card-body"><div class="card-maker">Good Smile</div><div class="card-name"><em>Nendo</em>roid Raiden</div><div class="card-serie">Genshin Impact · Nendoroid</div></div>
+        </article>
+        <!-- 11 -->
+        <article class="card">
+          <div class="well">
+            <span class="seal wished" title="Souhaitée">♡</span>
+            <div class="card-actions">
+              <button class="act wish" aria-label="Souhaiter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.6-7-10a3.6 3.6 0 0 1 7-1.3A3.6 3.6 0 0 1 19 10c0 5.4-7 10-7 10z"/></svg></button>
+              <button class="act add" aria-label="Ajouter à ma collection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
+            </div>
+            <svg class="fig" viewBox="0 0 100 140" aria-hidden="true"><g fill="rgba(95,179,154,.2)"><ellipse cx="50" cy="22" rx="13" ry="15"/><path d="M50 36c-13 0-19 10-21 33l-5 50h52l-5-50c-2-23-8-33-21-33z"/></g></svg>
+            <div class="cap"><span class="mono">Nº 0003</span><span class="scale">1/7</span></div>
+          </div>
+          <div class="card-body"><div class="card-maker">Alter</div><div class="card-name"><em>Rem</em></div><div class="card-serie">Re:ZERO · Scale</div></div>
+        </article>
+        <!-- 12 -->
+        <article class="card">
+          <div class="well">
+            <div class="card-actions">
+              <button class="act wish" aria-label="Souhaiter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.6-7-10a3.6 3.6 0 0 1 7-1.3A3.6 3.6 0 0 1 19 10c0 5.4-7 10-7 10z"/></svg></button>
+              <button class="act add" aria-label="Ajouter à ma collection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
+            </div>
+            <svg class="fig" viewBox="0 0 100 140" aria-hidden="true"><g fill="rgba(216,180,110,.18)"><ellipse cx="50" cy="23" rx="12" ry="14"/><path d="M50 37c-12 0-18 10-20 31l-5 52h50l-5-52c-2-21-8-31-20-31z"/><path d="M70 50l10 18-6 3-9-16z"/></g></svg>
+            <div class="cap"><span class="mono">Nº 0012</span><span class="scale">1/7</span></div>
+          </div>
+          <div class="card-body"><div class="card-maker">Max Factory</div><div class="card-name"><em>Frie</em>ren</div><div class="card-serie">Frieren · Scale</div></div>
+        </article>
+        <!-- 13 -->
+        <article class="card">
+          <div class="well">
+            <div class="card-actions">
+              <button class="act wish" aria-label="Souhaiter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.6-7-10a3.6 3.6 0 0 1 7-1.3A3.6 3.6 0 0 1 19 10c0 5.4-7 10-7 10z"/></svg></button>
+              <button class="act add" aria-label="Ajouter à ma collection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
+            </div>
+            <svg class="fig" viewBox="0 0 100 140" aria-hidden="true"><g fill="rgba(236,227,210,.13)"><ellipse cx="50" cy="22" rx="13" ry="15"/><path d="M50 36c-13 0-19 10-21 32l-5 51h52l-5-51c-2-22-8-32-21-32z"/></g></svg>
+            <div class="cap"><span class="mono">Nº 0013</span><span class="scale">1/8</span></div>
+          </div>
+          <div class="card-body"><div class="card-maker">Kotobukiya</div><div class="card-name"><em>Artfx</em> Yuki</div><div class="card-serie">Original · Scale</div></div>
+        </article>
+        <!-- 14 NSFW -->
+        <article class="card">
+          <div class="well">
+            <div class="nsfw-over"><div class="mosaic"></div><span class="nsfw-pill">Contenu sensible</span><button class="nsfw-reveal">Afficher</button></div>
+            <div class="cap"><span class="mono">Nº 0001</span><span class="scale">1/4</span></div>
+          </div>
+          <div class="card-body"><div class="card-maker">Insight</div><div class="card-name"><em>Volup</em>tuous Girl</div><div class="card-serie">Original · Statue</div></div>
+        </article>
+        <!-- 15 -->
+        <article class="card">
+          <div class="well">
+            <div class="card-actions">
+              <button class="act wish" aria-label="Souhaiter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.6-7-10a3.6 3.6 0 0 1 7-1.3A3.6 3.6 0 0 1 19 10c0 5.4-7 10-7 10z"/></svg></button>
+              <button class="act add" aria-label="Ajouter à ma collection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
+            </div>
+            <svg class="fig" viewBox="0 0 100 140" aria-hidden="true"><g fill="rgba(216,180,110,.2)"><ellipse cx="50" cy="22" rx="13" ry="15"/><path d="M50 36c-13 0-20 10-21 30-1 22 4 50 8 64h26c4-14 9-42 8-64-1-20-8-30-21-30z"/><path d="M28 50c-9 6-15 18-15 30l8 3c2-12 7-22 13-27z"/></g></svg>
+            <div class="cap"><span class="mono">Nº 0015</span><span class="scale">1/6</span></div>
+          </div>
+          <div class="card-body"><div class="card-maker">CROWN Studio</div><div class="card-name"><em>Tatsu</em>maki (alt)</div><div class="card-serie">One Punch Man · Statue</div></div>
+        </article>
+        <!-- 16 -->
+        <article class="card">
+          <div class="well">
+            <div class="card-actions">
+              <button class="act wish" aria-label="Souhaiter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 20s-7-4.6-7-10a3.6 3.6 0 0 1 7-1.3A3.6 3.6 0 0 1 19 10c0 5.4-7 10-7 10z"/></svg></button>
+              <button class="act add" aria-label="Ajouter à ma collection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg></button>
+            </div>
+            <svg class="fig" viewBox="0 0 100 140" aria-hidden="true"><g fill="rgba(216,180,110,.18)"><circle cx="50" cy="32" r="22"/><path d="M50 52c-10 0-16 8-16 22 0 18 3 39 6 51h20c3-12 6-33 6-51 0-14-6-22-16-22z"/></g></svg>
+            <div class="cap"><span class="mono">Nº 0016</span><span class="scale">non-scale</span></div>
+          </div>
+          <div class="card-body"><div class="card-maker">Good Smile</div><div class="card-name"><em>Pop</em> Up Parade Ai</div><div class="card-serie">Oshi no Ko · Prize</div></div>
+        </article>
+      </div>
+
+      <!-- skeleton row (loading pattern) -->
+      <div class="skel-block" aria-hidden="true">
+        <span class="micro" style="display:block;margin-bottom:2px;"><span class="diamond"></span> Chargement de la suite</span>
+        <div class="skel-grid">
+          <div class="skel"><div class="sw-well"></div><div class="sw-l"></div><div class="sw-l s2"></div><div class="sw-l s3"></div></div>
+          <div class="skel"><div class="sw-well"></div><div class="sw-l"></div><div class="sw-l s2"></div><div class="sw-l s3"></div></div>
+          <div class="skel"><div class="sw-well"></div><div class="sw-l"></div><div class="sw-l s2"></div><div class="sw-l s3"></div></div>
+          <div class="skel"><div class="sw-well"></div><div class="sw-l"></div><div class="sw-l s2"></div><div class="sw-l s3"></div></div>
+        </div>
+      </div>
+
+      <!-- load more -->
+      <div class="loadmore-zone">
+        <button class="loadmore-btn" id="loadMore"><span class="kj">続</span> Charger plus</button>
+        <div class="progress-track"><div class="fill"></div></div>
+        <div class="position-line"><b class="tnum">23</b> sur <span class="tnum">23</span> · tout est affiché</div>
+      </div>
+
+      <!-- ===== Ambiances nod ===== -->
+      <section class="amb-strip" id="ambiances">
+        <div class="rail-head" style="border:none;margin-bottom:0;">
+          <span class="micro"><span class="diamond"></span> <span class="kj" style="font-family:var(--font-ja);color:var(--accent)">巡</span> Explorer par ambiance · clusters visuels</span>
+          <a class="reset" href="#" style="color:var(--accent)">Tout voir →</a>
+        </div>
+        <div class="amb-grid">
+          <a class="amb-tile" href="#">
+            <span class="badge" aria-hidden="true">巡</span>
+            <div class="ghost" aria-hidden="true"><svg viewBox="0 0 100 140" fill="rgba(143,45,42,.3)"><path d="M50 30c-12 0-18 10-20 32l-5 50h50l-5-50c-2-22-8-32-20-32z"/></svg><svg viewBox="0 0 100 140" fill="rgba(216,180,110,.22)"><ellipse cx="50" cy="20" rx="12" ry="14"/><path d="M50 34c-12 0-18 9-20 30l-5 52h50l-5-52c-2-21-8-30-20-30z"/></svg></div>
+            <div class="amb-name">Tentacules &amp; laque</div><div class="amb-ct tnum">8 figurines</div>
+          </a>
+          <a class="amb-tile" href="#">
+            <span class="badge" aria-hidden="true">巡</span>
+            <div class="ghost" aria-hidden="true"><svg viewBox="0 0 100 140" fill="rgba(236,227,210,.18)"><path d="M50 30c-15 0-22 11-24 36l-7 46h62l-7-46c-2-25-9-36-24-36z"/></svg><svg viewBox="0 0 100 140" fill="rgba(216,180,110,.2)"><ellipse cx="50" cy="20" rx="12" ry="14"/><path d="M50 34c-14 0-20 11-22 34l-6 50h56l-6-50c-2-23-8-34-22-34z"/></svg></div>
+            <div class="amb-name">Robes à frou-frous</div><div class="amb-ct tnum">5 figurines</div>
+          </a>
+          <a class="amb-tile" href="#">
+            <span class="badge" aria-hidden="true">巡</span>
+            <div class="ghost" aria-hidden="true"><svg viewBox="0 0 100 140" fill="rgba(95,179,154,.22)"><ellipse cx="50" cy="20" rx="12" ry="14"/><path d="M50 34c-13 0-19 10-21 32l-5 51h52l-5-51c-2-22-8-32-21-32z"/></svg><svg viewBox="0 0 100 140" fill="rgba(216,180,110,.2)"><ellipse cx="50" cy="22" rx="11" ry="13"/><path d="M50 35c-12 0-18 9-20 30l-5 52h50l-5-52c-2-21-8-30-20-30z"/></svg></div>
+            <div class="amb-name">Idols sur scène</div><div class="amb-ct tnum">4 figurines</div>
+          </a>
+          <a class="amb-tile" href="#">
+            <span class="badge" aria-hidden="true">巡</span>
+            <div class="ghost" aria-hidden="true"><svg viewBox="0 0 100 140" fill="rgba(216,180,110,.26)"><ellipse cx="50" cy="20" rx="13" ry="15"/><path d="M50 34c-14 0-21 11-22 33l-5 51h54l-5-51c-1-22-8-33-22-33z"/></svg></div>
+            <div class="amb-name">Armures &amp; métal</div><div class="amb-ct tnum">3 figurines</div>
+          </a>
+        </div>
+      </section>
+
+      <!-- ===== no-results recovery inset ===== -->
+      <section class="empty-inset">
+        <div class="ei-head">
+          <span class="ei-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/><path d="M8 11h6"/></svg></span>
+          <div>
+            <h3>Aucun résultat pour «&nbsp;<b>tatsumaki figma 1/4</b>&nbsp;»</h3>
+            <p class="ei-sub">Aperçu de l'état vide — la requête est conservée, retire un filtre ou tente une piste ci-dessous.</p>
+          </div>
+        </div>
+        <div class="ei-actions">
+          <button class="ghost-btn">Retirer « Figma »</button>
+          <button class="ghost-btn">Retirer « 1/4 »</button>
+          <button class="ghost-btn">Élargir à toutes les échelles</button>
+          <button class="clear-all">Tout effacer</button>
+        </div>
+        <div class="ei-trend">
+          <span class="micro"><span class="diamond"></span> Tendances en ce moment</span>
+          <div class="trend-chips">
+            <button class="trend-chip"><span class="tk">彫</span> Tatsumaki VS Tentacle</button>
+            <button class="trend-chip"><span class="tk">童</span> Nendoroid Frieren</button>
+            <button class="trend-chip"><span class="tk">像</span> Emilia 1/7</button>
+            <button class="trend-chip"><span class="tk">巡</span> Idols sur scène</button>
+            <button class="trend-chip"><span class="tk">製</span> CROWN Studio</button>
+          </div>
+        </div>
+      </section>
+
+    </section>
+  </div>
+</main>
+
+<footer>
+  <span><span class="kj">像</span> FigureCollector · Catalogue</span>
+  <span>Direction A · Shōjo-Noir · 探 le comptoir</span>
+</footer>
+
+<!-- ===== mobile filter drawer ===== -->
+<div class="drawer-scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="Filtres (mobile)">
+  <div class="drawer-head">
+    <span class="micro"><span class="diamond"></span> Filtres</span>
+    <button class="drawer-close" id="closeDrawer" aria-label="Fermer les filtres"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <div class="drawer-body">
+    <!-- the rail markup is cloned here at runtime -->
+  </div>
+  <div class="drawer-foot">
+    <button class="apply-big" id="applyDrawer">Afficher 23 résultats</button>
+  </div>
+</aside>
+
+<script>
+(function(){
+  "use strict";
+  // ----- search modes (segmented) -----
+  document.querySelectorAll('.search-modes button').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('.search-modes button').forEach(function(x){x.classList.remove('active');x.setAttribute('aria-selected','false');});
+      b.classList.add('active'); b.setAttribute('aria-selected','true');
+    });
+  });
+
+  // ----- autocomplete: open on focus, close on blur/escape -----
+  var q = document.getElementById('q'), ac = document.getElementById('ac');
+  function openAc(){ ac.classList.add('open'); }
+  function closeAc(){ ac.classList.remove('open'); }
+  if(q && ac){
+    q.addEventListener('focus', openAc);
+    q.addEventListener('input', function(){ q.value.length ? openAc() : openAc(); });
+    document.addEventListener('click', function(e){
+      if(!ac.contains(e.target) && e.target !== q) closeAc();
+    });
+    q.addEventListener('keydown', function(e){ if(e.key === 'Escape'){ closeAc(); q.blur(); } });
+    ac.querySelectorAll('.ac-row, .ac-chip').forEach(function(r){
+      r.addEventListener('click', function(){
+        var t = r.querySelector('.q') ? r.querySelector('.q').textContent : r.textContent;
+        q.value = t.trim(); closeAc(); q.focus();
+      });
+    });
+  }
+
+  // ----- glyph type rail -----
+  document.querySelectorAll('.gtile').forEach(function(g){
+    g.addEventListener('click', function(){
+      if(g.classList.contains('zero')) return;
+      document.querySelectorAll('.gtile').forEach(function(x){x.classList.remove('active');});
+      g.classList.add('active');
+    });
+  });
+
+  // ----- quick toggles -----
+  document.querySelectorAll('.qtoggle').forEach(function(t){
+    t.addEventListener('click', function(){
+      t.setAttribute('aria-pressed', t.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+    });
+  });
+
+  // ----- applied chips: remove -----
+  document.querySelectorAll('.applied-chip .x').forEach(function(x){
+    x.addEventListener('click', function(){ x.closest('.applied-chip').remove(); });
+  });
+  var clearAll = document.querySelector('.results-head .clear-all');
+  if(clearAll){ clearAll.addEventListener('click', function(){
+    document.querySelectorAll('#appliedChips .applied-chip').forEach(function(c){c.remove();});
+  });}
+
+  // ----- nsfw reveal -----
+  document.querySelectorAll('.nsfw-reveal').forEach(function(r){
+    r.addEventListener('click', function(){
+      var ov = r.closest('.nsfw-over'); if(ov) ov.style.display = 'none';
+    });
+  });
+
+  // ----- load more (demo: button is at end-of-list state) -----
+  var lm = document.getElementById('loadMore');
+  if(lm){ lm.addEventListener('click', function(){
+    lm.textContent = 'Tout est affiché'; lm.disabled = true; lm.style.opacity = '.5'; lm.style.cursor='default';
+  });}
+
+  // ----- mobile drawer: clone rail into drawer body -----
+  var drawer = document.getElementById('drawer'),
+      scrim = document.getElementById('scrim'),
+      body = drawer ? drawer.querySelector('.drawer-body') : null,
+      rail = document.querySelector('.rail');
+  if(body && rail && !body.childElementCount){
+    var clone = rail.cloneNode(true);
+    clone.removeAttribute('class'); // drop sticky positioning class context
+    clone.classList.add('rail');
+    body.appendChild(clone);
+    // re-bind cloned interactive bits
+    clone.querySelectorAll('.qtoggle').forEach(function(t){
+      t.addEventListener('click', function(){
+        t.setAttribute('aria-pressed', t.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+      });
+    });
+  }
+  function openDrawer(){ if(drawer){drawer.classList.add('open');} if(scrim){scrim.classList.add('open');} }
+  function closeDrawer(){ if(drawer){drawer.classList.remove('open');} if(scrim){scrim.classList.remove('open');} }
+  var od = document.getElementById('openDrawer'), cd = document.getElementById('closeDrawer'), ad = document.getElementById('applyDrawer');
+  if(od) od.addEventListener('click', openDrawer);
+  if(cd) cd.addEventListener('click', closeDrawer);
+  if(ad) ad.addEventListener('click', closeDrawer);
+  if(scrim) scrim.addEventListener('click', closeDrawer);
+})();
+</script>
+</body>
+</html>

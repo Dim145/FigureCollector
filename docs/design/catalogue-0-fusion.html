@@ -1,0 +1,1153 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FigureCollector — ⓪ La Salle des ventes (catalogue, fusion)</title>
+<meta name="description" content="Catalogue redessiné — fusion découverte éditoriale + facettes systématiques. Deux modes : front-door quand on flâne, résultats facettés quand on cherche. Direction A Shōjo-Noir." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Instrument+Sans:ital,wght@0,400..600;1,400..500&family=Noto+Serif+JP:wght@300..500&family=JetBrains+Mono:wght@300..500&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================================
+   ⓪ LA SALLE DES VENTES — catalogue, fusion (recommandée)
+   Deux modes dans une page :
+     • DÉCOUVERTE (idle) : front-door éditoriale — bento fabricants/séries,
+       clusters Ambiances, rails curatés, puis tout le catalogue.
+     • FACETTES (recherche/filtre actif) : rail de facettes persistant,
+       chips de filtres retirables, tri, grille mattée uniforme, charger plus.
+   Squelette rigoureux + signatures éditoriales (kanji + filets or, cellule
+   vedette, texte JP vertical, watermark) sur la peau Direction A « Shōjo-Noir ».
+   GPU-light : pas de blur décoratif, pas de glow, pas de glass.
+============================================================================ */
+:root{
+  /* core (dark) */
+  --color-noir:#161311; --color-noir-soft:#211c19; --color-noir-deep:#100d0b;
+  --color-laque:#8f2d2a; --color-laque-bright:#c4453b;       /* hanko red — the ONE hot accent */
+  --color-or:#d8b46e; --color-or-pale:#e8d4a6; --color-or-deep:#a98a4e;  /* gold = value/metadata */
+  --color-jade:#5fb39a; --color-ivoire:#ece3d2; --color-ivoire-soft:rgba(236,227,210,.8);
+  /* semantic */
+  --surface:var(--color-noir-soft); --surface-raised:var(--color-noir); --surface-sunken:var(--color-noir-deep);
+  --on-surface:var(--color-ivoire); --on-surface-muted:var(--color-ivoire-soft);
+  --on-surface-subtle:rgba(236,227,210,.55);
+  --border:rgba(216,180,110,.22); --border-strong:rgba(216,180,110,.42); --border-subtle:rgba(216,180,110,.12);
+  --primary:var(--color-laque); --primary-hover:var(--color-laque-bright); --accent:var(--color-or);
+  --jade:var(--color-jade); --ring:var(--color-or);
+  /* type */
+  --font-display:"Fraunces",Georgia,serif;
+  --font-sans:"Instrument Sans",system-ui,sans-serif;
+  --font-ja:"Noto Serif JP","Yu Mincho",serif;
+  --font-mono:"JetBrains Mono",ui-monospace,monospace;
+  /* radii / motion / layout */
+  --radius-sm:2px; --radius-md:4px; --radius-lg:8px; --radius-xl:14px; --radius-pill:9999px;
+  --elev-2:0 12px 32px -20px rgba(0,0,0,.7); --elev-3:0 25px 60px -34px rgba(0,0,0,.85);
+  --ease:cubic-bezier(.22,1,.36,1); --dur:240ms;
+  --header-h:56px;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--color-noir);color:var(--on-surface);font-family:var(--font-sans);
+  margin:0;-webkit-font-smoothing:antialiased;line-height:1.55;}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto;} *{transition:none!important;animation:none!important;}}
+
+/* faint grain — GPU-light (static, ≤.05) */
+body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.04;
+  background-image:radial-gradient(circle at 1px 1px,#fff 1px,transparent 0);background-size:3px 3px;}
+
+a{color:inherit;}
+img{max-width:100%;}
+:focus-visible{outline:2px solid var(--ring);outline-offset:2px;border-radius:var(--radius-sm);}
+button{font-family:inherit;}
+
+/* ---- typography helpers ---- */
+.display{font-family:var(--font-display);font-weight:300;letter-spacing:-.012em;line-height:1.03;}
+.ja{font-family:var(--font-ja);}
+.mono{font-family:var(--font-mono);}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;}
+.micro{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--color-or-pale);
+  font-family:var(--font-sans);display:inline-flex;align-items:center;gap:.65em;}
+.micro .dia{width:5px;height:5px;background:var(--primary);transform:rotate(45deg);flex:none;}
+.micro .ja{color:var(--color-or);letter-spacing:.04em;font-size:13px;}
+.gold-rule{height:1px;border:0;margin:0;
+  background:linear-gradient(90deg,transparent,var(--color-or) 30%,var(--color-or) 70%,transparent);opacity:.6;}
+
+/* AccentTitle — first word red italic, rest on-surface */
+.accent-title{font-family:var(--font-display);font-weight:300;letter-spacing:-.015em;line-height:1.04;color:var(--on-surface);}
+.accent-title .em{font-style:italic;color:var(--color-laque-bright);font-weight:380;}
+
+/* =========================================================================
+   APP CHROME — slim top bar + sub-nav
+========================================================================= */
+.topbar{position:sticky;top:0;z-index:60;height:var(--header-h);
+  background:var(--color-noir-deep);border-bottom:1px solid var(--border-subtle);}
+.topbar .inner{max-width:1380px;margin:0 auto;height:100%;padding:0 28px;display:flex;align-items:center;gap:22px;}
+.brand{display:inline-flex;align-items:baseline;gap:9px;text-decoration:none;}
+.brand .mk{width:26px;height:26px;border-radius:6px;background:var(--primary);color:#fff;display:grid;place-items:center;
+  font-family:var(--font-display);font-style:italic;font-size:13px;align-self:center;}
+.brand .wm{font-family:var(--font-display);font-size:17px;letter-spacing:-.01em;}
+.brand .wm .it{font-style:italic;color:var(--color-or);}
+.brand .ja{font-family:var(--font-ja);color:var(--color-or-deep);font-size:15px;margin-right:2px;}
+.topnav{display:flex;gap:2px;margin-left:8px;}
+.topnav a{display:inline-flex;align-items:center;gap:.5em;text-decoration:none;color:var(--on-surface-subtle);
+  font-size:11px;text-transform:uppercase;letter-spacing:.16em;padding:9px 13px;border-radius:var(--radius-md);transition:color var(--dur) var(--ease);}
+.topnav a:hover{color:var(--on-surface);}
+.topnav a.active{color:var(--color-or);}
+.topnav a .ja{font-size:13px;color:var(--color-or);}
+.topbar .right{margin-left:auto;display:flex;align-items:center;gap:12px;}
+.avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--color-or),var(--color-or-deep));
+  color:var(--color-noir);display:grid;place-items:center;font-family:var(--font-display);font-weight:500;font-size:14px;}
+
+/* sub-nav */
+.subnav{position:sticky;top:var(--header-h);z-index:55;background:var(--color-noir-deep);
+  border-bottom:1px solid var(--border-subtle);}
+.subnav .inner{max-width:1380px;margin:0 auto;padding:0 28px;display:flex;align-items:center;gap:4px;height:42px;}
+.subnav a{display:inline-flex;align-items:center;gap:.55em;text-decoration:none;color:var(--on-surface-subtle);
+  font-size:11px;text-transform:uppercase;letter-spacing:.14em;padding:7px 13px;border-radius:var(--radius-pill);
+  transition:color var(--dur) var(--ease);}
+.subnav a .ja{font-family:var(--font-ja);font-size:13px;color:var(--color-or-deep);}
+.subnav a:hover{color:var(--on-surface);}
+.subnav a.active{color:var(--color-or);}
+.subnav a.active .ja{color:var(--color-or);}
+
+/* direction label — fixed top-left */
+.dir-label{position:fixed;left:12px;top:calc(var(--header-h) + 12px);z-index:80;
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--color-noir);background:var(--color-or);padding:6px 11px;border-radius:var(--radius-pill);
+  box-shadow:var(--elev-2);pointer-events:none;max-width:min(92vw,520px);}
+
+/* page shell */
+.page{max-width:1380px;margin:0 auto;padding:0 28px 96px;position:relative;z-index:1;}
+
+/* =========================================================================
+   PAGE HEADER — kicker + AccentTitle + search station
+========================================================================= */
+.page-head{padding:34px 0 8px;}
+.head-row{display:flex;align-items:flex-end;justify-content:space-between;gap:28px;flex-wrap:wrap;}
+.head-left .micro{margin-bottom:14px;}
+.page-head h1{margin:0;font-size:clamp(40px,5.2vw,64px);}
+.page-head h1 .ja{font-family:var(--font-ja);font-weight:300;color:var(--color-or-deep);font-size:.5em;margin-left:.3em;
+  vertical-align:.12em;}
+.head-stats{display:flex;gap:26px;align-items:flex-end;}
+.head-stats .st{display:flex;flex-direction:column;gap:3px;text-align:right;}
+.head-stats .st .k{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.head-stats .st .v{font-family:var(--font-display);font-weight:300;font-size:26px;line-height:1;color:var(--on-surface);}
+.head-stats .st.accent .v{color:var(--color-or);}
+
+/* ---- SEARCH STATION (persistent, wide) ---- */
+.search-station{margin-top:24px;position:relative;z-index:30;}
+.ss-bar{display:flex;align-items:stretch;gap:0;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);overflow:visible;box-shadow:var(--elev-2);position:relative;}
+.ss-modes{display:flex;align-items:center;gap:0;padding:6px;flex:none;border-right:1px solid var(--border-subtle);}
+.ss-mode{appearance:none;border:0;background:transparent;cursor:pointer;color:var(--on-surface-subtle);
+  font:500 11px/1 var(--font-sans);letter-spacing:.1em;text-transform:uppercase;padding:11px 14px;border-radius:var(--radius-md);
+  display:inline-flex;align-items:center;gap:.5em;transition:color var(--dur) var(--ease),background var(--dur) var(--ease);white-space:nowrap;min-height:44px;}
+.ss-mode .ja{font-family:var(--font-ja);font-size:13px;color:var(--color-or-deep);transition:color var(--dur) var(--ease);}
+.ss-mode:hover{color:var(--on-surface);}
+.ss-mode.on{color:var(--color-noir);background:var(--color-or);}
+.ss-mode.on .ja{color:var(--color-noir);}
+.ss-input-wrap{flex:1;display:flex;align-items:center;min-width:0;padding:0 4px 0 16px;}
+.ss-search-ic{flex:none;color:var(--on-surface-subtle);margin-right:10px;}
+.ss-input{flex:1;min-width:0;background:transparent;border:0;outline:none;color:var(--on-surface);
+  font:400 16px/1.2 var(--font-sans);padding:16px 0;}
+.ss-input::placeholder{color:var(--on-surface-subtle);}
+.ss-trail{display:flex;align-items:center;gap:2px;padding:6px 8px 6px 0;flex:none;}
+.ss-iconbtn{width:44px;height:44px;border-radius:var(--radius-md);border:1px solid transparent;background:transparent;
+  color:var(--on-surface-muted);cursor:pointer;display:grid;place-items:center;position:relative;
+  transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease),background var(--dur) var(--ease);}
+.ss-iconbtn:hover{border-color:var(--border);color:var(--color-or);}
+.ss-iconbtn.cam{color:var(--color-or);}
+.ss-iconbtn svg{width:20px;height:20px;}
+.ss-iconbtn .tip{position:absolute;top:calc(100% + 8px);right:0;font-family:var(--font-mono);font-size:9px;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--on-surface-subtle);background:var(--surface-raised);
+  border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:4px 7px;white-space:nowrap;opacity:0;
+  pointer-events:none;transition:opacity var(--dur) var(--ease);}
+.ss-iconbtn:hover .tip{opacity:1;}
+.ss-sep{width:1px;align-self:center;height:26px;background:var(--border-subtle);margin:0 2px;}
+
+/* autocomplete dropdown (sketch) */
+.ss-auto{position:absolute;left:0;right:0;top:calc(100% + 8px);background:var(--surface-raised);
+  border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--elev-3);overflow:hidden;
+  z-index:40;display:none;}
+.ss-auto.open{display:block;}
+.ss-auto .grp{padding:6px 0;}
+.ss-auto .grp+.grp{border-top:1px solid var(--border-subtle);}
+.ss-auto .grp-h{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--on-surface-subtle);padding:8px 18px 6px;display:flex;align-items:center;gap:.6em;}
+.ss-row{display:flex;align-items:center;gap:12px;padding:9px 18px;cursor:pointer;text-decoration:none;color:inherit;
+  transition:background var(--dur) var(--ease);}
+.ss-row:hover,.ss-row:focus-visible{background:var(--surface);}
+.ss-row .ic{flex:none;color:var(--on-surface-subtle);width:16px;display:grid;place-items:center;}
+.ss-row .tx{font-size:14px;color:var(--on-surface-muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ss-row .tx b{color:var(--on-surface);font-weight:600;}
+.ss-row .meta{font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);flex:none;}
+
+/* ---- TYPE RAIL (kanji tiles + counts) ---- */
+.type-rail{display:flex;gap:8px;margin-top:16px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin;}
+.type-rail::-webkit-scrollbar{height:6px;}
+.type-rail::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
+.type-tile{flex:none;display:inline-flex;flex-direction:column;align-items:center;gap:5px;min-width:62px;cursor:pointer;
+  background:var(--surface);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px 12px;
+  text-decoration:none;color:var(--on-surface-muted);transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease),transform var(--dur) var(--ease);}
+.type-tile:hover{border-color:var(--border-strong);transform:translateY(-2px);color:var(--on-surface);}
+.type-tile.on{border-color:var(--color-or);color:var(--on-surface);background:rgba(216,180,110,.06);}
+.type-tile .ja{font-family:var(--font-ja);font-size:22px;color:var(--color-or-deep);line-height:1;}
+.type-tile.on .ja{color:var(--color-or);}
+.type-tile .nm{font-size:10px;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;}
+.type-tile .ct{font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);}
+.type-tile.zero{opacity:.45;}
+.type-tile.zero:hover{transform:none;}
+
+/* =========================================================================
+   MODE SECTIONS — shared section head
+========================================================================= */
+.section-head{display:flex;align-items:baseline;gap:16px;margin:0 0 22px;}
+.section-head .ja{font-family:var(--font-ja);font-size:28px;color:var(--color-or-deep);line-height:1;flex:none;}
+.section-head h2{font-family:var(--font-display);font-weight:300;font-size:25px;letter-spacing:-.01em;margin:0;}
+.section-head h2 .em{font-style:italic;color:var(--color-laque-bright);}
+.section-head .meta{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);letter-spacing:.06em;}
+.section-head .more{margin-left:auto;font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;color:var(--color-or);
+  text-decoration:none;border-bottom:1px solid var(--border-strong);padding-bottom:1px;}
+.section-head .more:hover{color:var(--color-or-pale);}
+
+/* =========================================================================
+   ====== MODE 1 : DÉCOUVERTE (front door) ======
+========================================================================= */
+.discovery{padding-top:18px;}
+
+/* bento "Explorer par fabricant / série" */
+.bento{display:grid;grid-template-columns:1.6fr 1fr 1fr;grid-auto-rows:1fr;gap:14px;}
+.bento .feat{grid-row:span 2;}
+.bento-tile{position:relative;overflow:hidden;text-decoration:none;color:inherit;
+  background:var(--surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);
+  padding:20px;display:flex;flex-direction:column;justify-content:flex-end;min-height:118px;
+  transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease);}
+.bento-tile:hover{border-color:var(--border-strong);transform:translateY(-3px);}
+.bento-tile .wmk{position:absolute;right:-6px;top:-22px;font-family:var(--font-ja);font-weight:300;
+  font-size:120px;line-height:1;color:var(--color-or);opacity:.07;pointer-events:none;user-select:none;}
+.bento-tile .kk{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--on-surface-subtle);margin-bottom:8px;}
+.bento-tile .nm{font-family:var(--font-display);font-weight:300;font-size:20px;line-height:1.1;color:var(--on-surface);}
+.bento-tile .ct{margin-top:10px;font-family:var(--font-mono);font-size:12px;color:var(--color-or-pale);
+  display:inline-flex;align-items:center;gap:.5em;}
+.bento-tile .ct .arr{color:var(--on-surface-subtle);}
+.bento .feat{padding:26px;min-height:252px;background:radial-gradient(120% 90% at 78% 12%,#26201c,var(--surface) 64%);}
+.bento .feat .badge{position:absolute;left:26px;top:24px;font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--color-noir);background:var(--color-or);border-radius:var(--radius-pill);padding:5px 11px;}
+.bento .feat .wmk{font-size:230px;top:-44px;right:-18px;opacity:.08;}
+.bento .feat .nm{font-size:34px;}
+.bento .feat .sub{margin-top:8px;font-size:13px;color:var(--on-surface-muted);max-width:30ch;}
+.bento .feat .ct{margin-top:16px;font-size:13px;}
+.bento .feat .makers{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;}
+.bento .feat .makers .mk{font-family:var(--font-mono);font-size:11px;color:var(--on-surface-muted);
+  border:1px solid var(--border);border-radius:var(--radius-pill);padding:4px 10px;}
+
+/* Ambiances clusters (editorial tiles) */
+.amb-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+.amb{position:relative;overflow:hidden;text-decoration:none;color:inherit;border-radius:var(--radius-lg);
+  border:1px solid var(--border-subtle);background:var(--surface-sunken);min-height:188px;
+  display:flex;flex-direction:column;justify-content:flex-end;padding:16px;
+  transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease);}
+.amb:hover{border-color:var(--color-or);transform:translateY(-3px);}
+.amb .well-bg{position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 22%,#241f1b,var(--color-noir-deep) 72%);}
+.amb .well-bg::after{content:"";position:absolute;inset:0;box-shadow:inset 0 0 90px 18px rgba(0,0,0,.55);}
+.amb .sils{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;}
+.amb .sils .s{position:absolute;}
+.amb .sils .s svg{width:74px;height:auto;}
+.amb .sils .s.a{transform:translateX(-30px) scale(.9);}
+.amb .sils .s.b{transform:translateX(2px) scale(1.12);z-index:1;}
+.amb .sils .s.c{transform:translateX(34px) scale(.82);}
+.amb .badge{position:absolute;left:14px;top:14px;display:inline-flex;align-items:center;gap:.45em;
+  font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-jade);
+  border:1px solid rgba(95,179,154,.3);background:rgba(95,179,154,.10);border-radius:var(--radius-pill);padding:4px 9px;z-index:3;}
+.amb .label{position:relative;z-index:3;}
+.amb .label .nm{font-family:var(--font-display);font-weight:300;font-size:18px;line-height:1.15;color:var(--on-surface);}
+.amb .label .nm .em{font-style:italic;color:var(--color-laque-bright);}
+.amb .label .ct{margin-top:5px;font-family:var(--font-mono);font-size:11px;color:var(--color-or-pale);}
+
+/* curated rails */
+.rail-block{margin-top:8px;}
+.rail-head{display:flex;align-items:baseline;gap:14px;margin-bottom:16px;}
+.rail-head .ja{font-family:var(--font-ja);font-size:24px;color:var(--color-or-deep);line-height:1;flex:none;}
+.rail-head h3{font-family:var(--font-display);font-weight:300;font-size:21px;letter-spacing:-.01em;margin:0;}
+.rail-head h3 .em{font-style:italic;color:var(--color-laque-bright);}
+.rail-head .vtxt{margin-left:auto;writing-mode:vertical-rl;font-family:var(--font-ja);font-size:12px;
+  letter-spacing:.2em;color:var(--on-surface-subtle);height:46px;align-self:center;}
+.rail-head .gline{flex:1;height:1px;margin-left:6px;align-self:center;
+  background:linear-gradient(90deg,var(--color-or),transparent);opacity:.5;}
+.rail-scroll{display:flex;gap:14px;overflow-x:auto;padding-bottom:8px;scroll-behavior:smooth;scrollbar-width:thin;}
+.rail-scroll::-webkit-scrollbar{height:6px;}
+.rail-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
+.rail-scroll .card{flex:none;width:188px;}
+
+/* divider note (mode transition) */
+.mode-divider{display:flex;align-items:center;gap:18px;margin:64px 0 30px;}
+.mode-divider .ln{flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--border-strong),transparent);}
+.mode-divider .txt{font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--color-or-pale);white-space:nowrap;display:inline-flex;align-items:center;gap:.7em;text-align:center;}
+.mode-divider .txt .ja{font-family:var(--font-ja);color:var(--color-or-deep);font-size:15px;}
+
+/* =========================================================================
+   ====== MODE 2 : FACETTES (search results) ======
+========================================================================= */
+.results-wrap{position:relative;}
+.results-wrap .watermark{position:absolute;right:-2%;top:2%;font-family:var(--font-ja);font-weight:300;
+  font-size:clamp(200px,26vw,360px);color:var(--color-or);opacity:.045;line-height:.8;z-index:0;pointer-events:none;user-select:none;}
+.results-layout{display:grid;grid-template-columns:248px minmax(0,1fr);gap:32px;align-items:start;position:relative;z-index:1;}
+
+/* ---- LEFT FACET RAIL ---- */
+.facets{position:sticky;top:calc(var(--header-h) + 50px);align-self:start;}
+.facets .quick{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;}
+.toggle{display:flex;align-items:center;gap:11px;cursor:pointer;border:1px solid var(--border-subtle);
+  border-radius:var(--radius-md);padding:11px 13px;background:var(--surface);min-height:44px;
+  transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease);user-select:none;}
+.toggle:hover{border-color:var(--border);}
+.toggle .sw{width:34px;height:18px;border-radius:99px;background:var(--surface-sunken);border:1px solid var(--border);
+  flex:none;position:relative;transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease);}
+.toggle .sw::after{content:"";position:absolute;left:2px;top:1px;width:14px;height:14px;border-radius:50%;
+  background:var(--on-surface-subtle);transition:transform var(--dur) var(--ease),background var(--dur) var(--ease);}
+.toggle .lbl{font-size:13px;color:var(--on-surface-muted);flex:1;display:inline-flex;align-items:center;gap:.5em;}
+.toggle .lbl .ja{font-family:var(--font-ja);font-size:13px;color:var(--color-or-deep);}
+.toggle .ct{font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);}
+.toggle.on{border-color:var(--border-strong);background:rgba(216,180,110,.05);}
+.toggle.on .sw{background:var(--color-or-deep);border-color:var(--color-or);}
+.toggle.on .sw::after{transform:translateX(16px);background:var(--color-noir);}
+.toggle.on .lbl{color:var(--on-surface);}
+.toggle.nsfw.on .sw{background:var(--color-laque);border-color:var(--color-laque-bright);}
+.toggle.nsfw.on .lbl .ja{color:var(--color-laque-bright);}
+
+.facet-grp{border-top:1px solid var(--border-subtle);padding:4px 0;}
+.facet-grp summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:.6em;padding:13px 2px;
+  font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-or-pale);user-select:none;}
+.facet-grp summary::-webkit-details-marker{display:none;}
+.facet-grp summary .ja{font-family:var(--font-ja);font-size:14px;color:var(--color-or-deep);}
+.facet-grp summary .chev{margin-left:auto;color:var(--on-surface-subtle);transition:transform var(--dur) var(--ease);}
+.facet-grp[open] summary .chev{transform:rotate(180deg);}
+.facet-grp .opts{padding:2px 0 12px;display:flex;flex-direction:column;gap:1px;}
+.facet-opt{display:flex;align-items:center;gap:10px;cursor:pointer;padding:7px 4px;border-radius:var(--radius-sm);
+  transition:background var(--dur) var(--ease);min-height:34px;}
+.facet-opt:hover{background:var(--surface);}
+.facet-opt .box{width:15px;height:15px;border-radius:3px;border:1px solid var(--border-strong);flex:none;
+  display:grid;place-items:center;transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease);}
+.facet-opt .box svg{width:10px;height:10px;opacity:0;transition:opacity var(--dur) var(--ease);}
+.facet-opt.on .box{background:var(--color-laque);border-color:var(--color-laque-bright);}
+.facet-opt.on .box svg{opacity:1;}
+.facet-opt .nm{font-size:13px;color:var(--on-surface-muted);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.facet-opt.on .nm{color:var(--on-surface);}
+.facet-opt .ct{font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);flex:none;}
+.facet-more{font-family:var(--font-mono);font-size:11px;color:var(--color-or);background:transparent;border:0;cursor:pointer;
+  padding:6px 4px;letter-spacing:.04em;}
+.facet-more:hover{color:var(--color-or-pale);}
+.facet-tags{display:flex;flex-wrap:wrap;gap:7px;padding:2px 0 12px;}
+.fchip{display:inline-flex;align-items:center;gap:.4em;font-size:11.5px;color:var(--on-surface-muted);
+  border:1px solid var(--border);border-radius:var(--radius-pill);padding:5px 10px;background:var(--surface);cursor:pointer;
+  transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease);}
+.fchip:hover{border-color:var(--color-or);color:var(--color-or);}
+.fchip .ct{font-family:var(--font-mono);color:var(--on-surface-subtle);font-size:10px;}
+
+/* ---- RESULTS COLUMN ---- */
+.results{min-width:0;}
+.results-bar{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:8px;}
+.results-bar .count{font-family:var(--font-mono);font-size:13px;color:var(--on-surface-muted);letter-spacing:.04em;}
+.results-bar .count b{color:var(--color-or-pale);font-weight:400;}
+.sort{display:inline-flex;align-items:center;gap:10px;}
+.sort .lbl{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.sort select{appearance:none;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);
+  color:var(--on-surface);font:400 13px/1 var(--font-sans);padding:10px 34px 10px 12px;cursor:pointer;min-height:40px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' stroke='%23d8b46e' stroke-width='1.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;}
+.sort select:hover{border-color:var(--border-strong);}
+
+/* applied filter chips */
+.applied{display:flex;align-items:center;flex-wrap:wrap;gap:9px;padding:14px 0 4px;}
+.applied .lead{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--on-surface-subtle);margin-right:2px;}
+.achip{display:inline-flex;align-items:center;gap:.5em;font-size:12px;color:var(--on-surface);
+  border:1px solid var(--border-strong);background:rgba(216,180,110,.06);border-radius:var(--radius-pill);
+  padding:6px 8px 6px 12px;}
+.achip .k{color:var(--on-surface-subtle);font-size:10px;letter-spacing:.08em;text-transform:uppercase;}
+.achip .x{width:18px;height:18px;border-radius:50%;border:0;background:transparent;color:var(--on-surface-subtle);
+  cursor:pointer;display:grid;place-items:center;font-size:13px;line-height:1;
+  transition:color var(--dur) var(--ease),background var(--dur) var(--ease);}
+.achip .x:hover{color:var(--color-laque-bright);background:rgba(196,69,59,.12);}
+.applied .clear{margin-left:4px;font-family:var(--font-sans);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--color-laque-bright);background:transparent;border:0;cursor:pointer;padding:6px 8px;}
+.applied .clear:hover{text-decoration:underline;}
+
+.results .gold-rule{margin:14px 0 22px;}
+
+/* ---- THE GRID (uniform matted portrait) ---- */
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;}
+.card{background:var(--surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);overflow:hidden;
+  text-decoration:none;color:inherit;display:flex;flex-direction:column;
+  transition:transform var(--dur) var(--ease),border-color var(--dur) var(--ease);position:relative;}
+.card:hover{transform:translateY(-3px);border-color:var(--border);}
+.card .well{position:relative;aspect-ratio:3/4;background:radial-gradient(120% 90% at 50% 22%,#241f1b,var(--color-noir-deep) 74%);}
+.card .well::after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 80px 16px rgba(0,0,0,.55);}
+.card .well .sil{position:absolute;inset:0;display:grid;place-items:center;}
+.card .well .sil svg{width:50%;height:auto;}
+/* caption on well */
+.card .well .cap{position:absolute;left:11px;bottom:9px;font-family:var(--font-mono);font-size:10px;letter-spacing:.04em;
+  color:var(--on-surface-subtle);z-index:2;}
+/* owned / wished / nsfw markers */
+.card .mark{position:absolute;right:9px;top:9px;z-index:3;}
+.card .mark.owned{width:24px;height:24px;border-radius:50%;background:var(--color-or);color:var(--color-noir);
+  display:grid;place-items:center;font-size:13px;box-shadow:var(--elev-2);}
+.card .mark.wished{width:24px;height:24px;border-radius:50%;border:1px solid var(--color-laque-bright);
+  background:rgba(196,69,59,.16);color:var(--color-laque-bright);display:grid;place-items:center;font-size:12px;}
+/* nsfw veil */
+.card .veil{position:absolute;inset:0;z-index:4;display:none;flex-direction:column;align-items:center;justify-content:center;
+  gap:9px;background:var(--color-noir-deep);text-align:center;padding:14px;}
+.card.nsfw .veil{display:flex;}
+.card.nsfw .sil{filter:blur(11px);}
+.card .veil .pill{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--color-or-pale);border:1px solid var(--border);border-radius:var(--radius-pill);padding:4px 10px;}
+.card .veil .rev{font-family:var(--font-sans);font-size:11px;color:var(--on-surface-subtle);
+  background:transparent;border:0;cursor:pointer;text-decoration:underline;padding:2px;}
+/* hover quick-actions */
+.card .actions{position:absolute;left:9px;right:9px;bottom:9px;z-index:3;display:flex;gap:7px;
+  opacity:0;transform:translateY(6px);transition:opacity var(--dur) var(--ease),transform var(--dur) var(--ease);}
+.card:hover .actions,.card:focus-within .actions{opacity:1;transform:none;}
+.card.nsfw .actions{display:none;}
+.qa{flex:1;min-height:36px;display:inline-flex;align-items:center;justify-content:center;gap:.4em;cursor:pointer;
+  border-radius:var(--radius-md);font:500 11px/1 var(--font-sans);letter-spacing:.04em;
+  transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease),color var(--dur) var(--ease);}
+.qa.add{background:var(--primary);color:#fff;border:1px solid var(--primary);}
+.qa.add:hover{background:var(--primary-hover);}
+.qa.wish{background:rgba(16,13,11,.82);color:var(--on-surface);border:1px solid var(--border-strong);}
+.qa.wish:hover{border-color:var(--color-or);color:var(--color-or);}
+/* card body */
+.card .body{padding:12px 13px 14px;display:flex;flex-direction:column;gap:5px;flex:1;}
+.card .body .nm{font-family:var(--font-display);font-weight:300;font-size:15px;line-height:1.18;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.36em;}
+.card .body .nm .em{font-style:italic;color:var(--color-laque-bright);}
+.card .body .mt{margin-top:auto;font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);letter-spacing:.02em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card .body .mt .dot{color:var(--border-strong);margin:0 .4em;}
+
+/* skeleton row */
+.skeleton .well{background:var(--surface-sunken);}
+.skeleton .well .sil{display:none;}
+.skeleton .sk-line{height:11px;border-radius:3px;background:var(--surface-sunken);margin:0;}
+.skeleton .body{gap:8px;}
+.skeleton .sk-line.w70{width:70%;}
+.skeleton .sk-line.w90{width:90%;}
+.skeleton .sk-line.w45{width:45%;}
+.sk-note{grid-column:1/-1;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--on-surface-subtle);margin:6px 0 2px;display:flex;align-items:center;gap:.7em;}
+.sk-note .ln{flex:1;height:1px;background:var(--border-subtle);}
+
+/* load more + position line */
+.loadmore-wrap{margin-top:30px;display:flex;flex-direction:column;align-items:center;gap:12px;}
+.loadmore{display:inline-flex;align-items:center;gap:.6em;min-height:46px;padding:0 26px;cursor:pointer;
+  background:transparent;border:1px solid var(--border-strong);border-radius:var(--radius-pill);color:var(--on-surface);
+  font:500 12px/1 var(--font-sans);letter-spacing:.1em;text-transform:uppercase;
+  transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease);}
+.loadmore:hover{border-color:var(--color-or);color:var(--color-or);}
+.loadmore[disabled]{opacity:.5;cursor:default;}
+.position-line{font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);letter-spacing:.06em;}
+.position-line b{color:var(--color-or-pale);font-weight:400;}
+.pos-bar{width:160px;height:3px;border-radius:99px;background:var(--surface-sunken);overflow:hidden;margin-top:2px;}
+.pos-bar .fill{height:100%;background:var(--color-or-deep);width:100%;}
+
+/* ---- NO-RESULTS RECOVERY (inset sketch) ---- */
+.noresults{margin-top:34px;border:1px dashed var(--border-strong);border-radius:var(--radius-xl);
+  background:var(--surface);padding:26px 28px;position:relative;overflow:hidden;}
+.noresults::before{content:"空";position:absolute;right:-2%;bottom:-22%;font-family:var(--font-ja);font-weight:300;
+  font-size:200px;color:var(--color-or);opacity:.05;line-height:.8;pointer-events:none;}
+.noresults > *{position:relative;z-index:1;}
+.noresults .nr-tag{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--on-surface-subtle);margin-bottom:10px;display:inline-flex;align-items:center;gap:.6em;}
+.noresults .nr-tag .ja{font-family:var(--font-ja);font-size:13px;color:var(--color-or-deep);}
+.noresults h3{font-family:var(--font-display);font-weight:300;font-size:22px;margin:0 0 6px;}
+.noresults h3 .em{font-style:italic;color:var(--color-laque-bright);}
+.noresults p{margin:0 0 16px;font-size:13.5px;color:var(--on-surface-muted);max-width:62ch;}
+.noresults p .q{color:var(--color-or-pale);font-family:var(--font-mono);}
+.nr-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+.nr-btn{display:inline-flex;align-items:center;gap:.5em;font-size:12px;letter-spacing:.04em;cursor:pointer;
+  border:1px solid var(--border);border-radius:var(--radius-pill);padding:8px 14px;color:var(--on-surface-muted);
+  background:transparent;transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease);min-height:38px;}
+.nr-btn:hover{border-color:var(--color-or);color:var(--color-or);}
+.nr-btn.keep{border-color:var(--border-strong);color:var(--on-surface);}
+.nr-trending{margin-top:18px;}
+.nr-trending .th{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-or-pale);margin-bottom:10px;}
+.nr-trend-chips{display:flex;flex-wrap:wrap;gap:8px;}
+
+/* =========================================================================
+   MOBILE FILTERS DRAWER
+========================================================================= */
+.mobile-filterbar{display:none;}
+.drawer-scrim{position:fixed;inset:0;z-index:90;background:rgba(8,6,5,.6);display:none;}
+.drawer-scrim.open{display:block;}
+.drawer{position:fixed;top:0;left:0;bottom:0;width:min(86vw,340px);z-index:91;background:var(--surface-raised);
+  border-right:1px solid var(--border);transform:translateX(-100%);transition:transform var(--dur) var(--ease);
+  display:flex;flex-direction:column;}
+.drawer.open{transform:none;}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;border-bottom:1px solid var(--border-subtle);}
+.drawer-head .t{font-family:var(--font-display);font-weight:300;font-size:20px;}
+.drawer-head .t .em{font-style:italic;color:var(--color-laque-bright);}
+.drawer-head .x{width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:transparent;color:var(--on-surface);
+  cursor:pointer;font-size:16px;display:grid;place-items:center;}
+.drawer-body{flex:1;overflow-y:auto;padding:8px 20px 20px;}
+.drawer-foot{padding:16px 20px;border-top:1px solid var(--border-subtle);}
+.drawer-foot .apply{width:100%;min-height:50px;background:var(--primary);color:#fff;border:0;border-radius:var(--radius-md);
+  cursor:pointer;font:500 13px/1 var(--font-sans);letter-spacing:.06em;}
+.drawer-foot .apply:hover{background:var(--primary-hover);}
+
+/* footer */
+.foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--border-subtle);
+  display:flex;align-items:center;gap:14px;font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);letter-spacing:.08em;}
+.foot .ja{font-family:var(--font-ja);color:var(--color-or-deep);font-size:14px;}
+.foot .sp{margin-left:auto;}
+
+/* =========================================================================
+   RESPONSIVE
+========================================================================= */
+@media (max-width:1024px){
+  .bento{grid-template-columns:1fr 1fr;}
+  .bento .feat{grid-row:span 1;grid-column:1/-1;min-height:200px;}
+  .amb-grid{grid-template-columns:repeat(2,1fr);}
+  /* discovery rails already horizontal-scroll */
+  .results-layout{grid-template-columns:1fr;gap:0;}
+  .facets{display:none;}                /* → drawer */
+  .grid{grid-template-columns:repeat(3,1fr);}
+  .results-wrap .watermark{font-size:200px;}
+  .mobile-filterbar{display:flex;align-items:center;gap:12px;position:sticky;top:calc(var(--header-h) + 42px);z-index:40;
+    background:var(--color-noir);padding:12px 0;margin-bottom:4px;}
+  .mobile-filterbar .fbtn{display:inline-flex;align-items:center;gap:.55em;min-height:44px;padding:0 16px;cursor:pointer;
+    background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--radius-pill);color:var(--on-surface);
+    font:500 12px/1 var(--font-sans);letter-spacing:.06em;}
+  .mobile-filterbar .fbtn .ja{font-family:var(--font-ja);color:var(--color-or);}
+  .mobile-filterbar .fbtn .badge{font-family:var(--font-mono);font-size:11px;color:var(--color-noir);background:var(--color-or);
+    border-radius:99px;padding:1px 7px;}
+}
+@media (max-width:640px){
+  .page{padding:0 16px 72px;}
+  .topbar .inner{padding:0 16px;gap:12px;}
+  .topnav{display:none;}
+  .subnav .inner{padding:0 16px;}
+  .dir-label{font-size:8.5px;padding:5px 9px;letter-spacing:.06em;}
+  .head-row{flex-direction:column;align-items:flex-start;gap:16px;}
+  .head-stats{gap:18px;}
+  .head-stats .st .v{font-size:21px;}
+  /* search station stacks */
+  .ss-bar{flex-direction:column;align-items:stretch;}
+  .ss-modes{border-right:0;border-bottom:1px solid var(--border-subtle);overflow-x:auto;justify-content:flex-start;}
+  .ss-input-wrap{padding:0 8px 0 14px;}
+  .ss-auto{position:static;margin-top:8px;box-shadow:none;}
+  .bento{grid-template-columns:1fr;}
+  .bento .feat .nm{font-size:28px;}
+  .amb-grid{grid-template-columns:1fr 1fr;gap:10px;}
+  .amb{min-height:150px;}
+  .grid{grid-template-columns:repeat(2,1fr);gap:12px;}
+  .card .body .nm{font-size:14px;}
+  .card .actions{opacity:1;transform:none;}    /* always-visible on mobile */
+  .rail-scroll .card{width:158px;}
+  .mode-divider{margin:48px 0 24px;}
+  .results-bar{gap:10px;}
+}
+@media (max-width:380px){
+  .grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- ===================== APP CHROME ===================== -->
+<header class="topbar">
+  <div class="inner">
+    <a class="brand" href="#"><span class="mk">F</span><span class="wm"><span class="ja">像</span> Figure<span class="it">Collector</span></span></a>
+    <nav class="topnav" aria-label="Navigation principale">
+      <a href="#" class="active"><span class="ja">目</span> Catalogue</a>
+      <a href="#"><span class="ja">私</span> Ma collection</a>
+      <a href="#"><span class="ja">価</span> Valeur</a>
+    </nav>
+    <div class="right">
+      <div class="avatar" aria-hidden="true">D</div>
+    </div>
+  </div>
+</header>
+<nav class="subnav" aria-label="Sous-navigation catalogue">
+  <div class="inner">
+    <a href="#" class="active"><span class="ja">探</span> Catalogue</a>
+    <a href="#"><span class="ja">写</span> Reconnaître par photo</a>
+  </div>
+</nav>
+
+<div class="dir-label">⓪ LA SALLE DES VENTES · fusion (recommandée) — découverte ↔ facettes</div>
+
+<main class="page">
+
+  <!-- ===================== PAGE HEADER + SEARCH STATION ===================== -->
+  <header class="page-head">
+    <div class="head-row">
+      <div class="head-left">
+        <span class="micro"><span class="dia" aria-hidden="true"></span><span class="ja" aria-hidden="true">目</span> Toutes les figurines, qu'on les possède ou non</span>
+        <h1 class="accent-title"><span class="em">Catalogue</span><span class="ja" aria-hidden="true">目</span></h1>
+      </div>
+      <div class="head-stats" aria-label="Aperçu de la collection">
+        <div class="st accent"><span class="k">Catalogue</span><span class="v num">23</span></div>
+        <div class="st"><span class="k">Possédées</span><span class="v num">3</span></div>
+        <div class="st"><span class="k">Souhaits</span><span class="v num">9</span></div>
+        <div class="st"><span class="k">Types</span><span class="v num">6</span></div>
+      </div>
+    </div>
+
+    <!-- SEARCH STATION -->
+    <div class="search-station">
+      <div class="ss-bar" role="search">
+        <div class="ss-modes" role="tablist" aria-label="Mode de recherche">
+          <button class="ss-mode on" role="tab" aria-selected="true" data-mode="kw"><span class="ja" aria-hidden="true">語</span> Mots-clés</button>
+          <button class="ss-mode" role="tab" aria-selected="false" data-mode="sem"><span class="ja" aria-hidden="true">意</span> Description</button>
+          <button class="ss-mode" role="tab" aria-selected="false" data-mode="vis"><span class="ja" aria-hidden="true">姿</span> Apparence</button>
+        </div>
+        <div class="ss-input-wrap">
+          <span class="ss-search-ic" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M12.5 12.5L16 16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </span>
+          <input class="ss-input" id="ssInput" type="search" autocomplete="off"
+            placeholder="Rechercher par nom, série, fabricant…" aria-label="Rechercher dans le catalogue"
+            aria-expanded="false" aria-controls="ssAuto" />
+        </div>
+        <div class="ss-trail">
+          <button class="ss-iconbtn cam" type="button" aria-label="Recherche visuelle par photo">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 8.5A1.5 1.5 0 0 1 4.5 7h2l1.2-1.8A1 1 0 0 1 8.5 4.7h7a1 1 0 0 1 .8.5L17.5 7h2A1.5 1.5 0 0 1 21 8.5v9A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5v-9Z" stroke="currentColor" stroke-width="1.5"/><circle cx="12" cy="12.5" r="3.2" stroke="currentColor" stroke-width="1.5"/></svg>
+            <span class="tip">Recherche par photo</span>
+          </button>
+          <span class="ss-sep" aria-hidden="true"></span>
+          <button class="ss-iconbtn" type="button" aria-label="Scanner un code-barres JAN / EAN">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 5v14M7 5v14M10 5v14M13 5v14M16 5v14M19 5v14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            <span class="tip">Code-barres</span>
+          </button>
+        </div>
+
+        <!-- autocomplete dropdown (sketch) -->
+        <div class="ss-auto" id="ssAuto" role="listbox" aria-label="Suggestions">
+          <div class="grp">
+            <div class="grp-h"><span class="ja" aria-hidden="true">候</span> Suggestions</div>
+            <a class="ss-row" role="option" href="#"><span class="ic" aria-hidden="true">↗</span><span class="tx"><b>Fri</b>eren — Good Smile Nendoroid</span><span class="meta num">3</span></a>
+            <a class="ss-row" role="option" href="#"><span class="ic" aria-hidden="true">↗</span><span class="tx"><b>Fri</b>eren — Max Factory 1/7</span><span class="meta num">1</span></a>
+            <a class="ss-row" role="option" href="#"><span class="ic" aria-hidden="true">↗</span><span class="tx"><b>Fri</b>lled Dress <span style="opacity:.6">· tag</span></span><span class="meta num">1</span></a>
+            <a class="ss-row" role="option" href="#"><span class="ic" aria-hidden="true">↗</span><span class="tx"><b>Fri</b>lls <span style="opacity:.6">· tag</span></span><span class="meta num">1</span></a>
+            <a class="ss-row" role="option" href="#"><span class="ic" aria-hidden="true">↗</span><span class="tx"><b>Fri</b>eren <span style="opacity:.6">· série</span></span><span class="meta num">4</span></a>
+          </div>
+          <div class="grp">
+            <div class="grp-h"><span class="ja" aria-hidden="true">近</span> Récentes &amp; populaires</div>
+            <a class="ss-row" role="option" href="#"><span class="ic" aria-hidden="true">↺</span><span class="tx">CROWN Studio · Tatsumaki</span><span class="meta">récent</span></a>
+            <a class="ss-row" role="option" href="#"><span class="ic" aria-hidden="true">↺</span><span class="tx">Re:ZERO</span><span class="meta">récent</span></a>
+            <a class="ss-row" role="option" href="#"><span class="ic" aria-hidden="true">★</span><span class="tx">Nendoroid</span><span class="meta">populaire</span></a>
+          </div>
+        </div>
+      </div>
+
+      <!-- TYPE RAIL (quick lens) -->
+      <div class="type-rail" role="tablist" aria-label="Filtrer par type">
+        <a class="type-tile on" href="#"><span class="ja" aria-hidden="true">集</span><span class="nm">Toutes</span><span class="ct num">23</span></a>
+        <a class="type-tile" href="#"><span class="ja" aria-hidden="true">童</span><span class="nm">Nendoroid</span><span class="ct num">3</span></a>
+        <a class="type-tile" href="#"><span class="ja" aria-hidden="true">像</span><span class="nm">Scale</span><span class="ct num">6</span></a>
+        <a class="type-tile" href="#"><span class="ja" aria-hidden="true">動</span><span class="nm">Figma</span><span class="ct num">1</span></a>
+        <a class="type-tile zero" href="#"><span class="ja" aria-hidden="true">賞</span><span class="nm">Prize</span><span class="ct num">0</span></a>
+        <a class="type-tile zero" href="#"><span class="ja" aria-hidden="true">交</span><span class="nm">Trading</span><span class="ct num">0</span></a>
+        <a class="type-tile" href="#"><span class="ja" aria-hidden="true">彫</span><span class="nm">Statue</span><span class="ct num">8</span></a>
+        <a class="type-tile" href="#"><span class="ja" aria-hidden="true">組</span><span class="nm">Plamo</span><span class="ct num">1</span></a>
+        <a class="type-tile zero" href="#"><span class="ja" aria-hidden="true">美</span><span class="nm">Bishoujo</span><span class="ct num">0</span></a>
+        <a class="type-tile zero" href="#"><span class="ja" aria-hidden="true">枕</span><span class="nm">Dakimakura</span><span class="ct num">0</span></a>
+        <a class="type-tile" href="#"><span class="ja" aria-hidden="true">玩</span><span class="nm">Autre</span><span class="ct num">4</span></a>
+      </div>
+    </div>
+  </header>
+
+  <!-- =========================================================================
+       MODE 1 — DÉCOUVERTE (front door, idle: pas de requête / pas de facette)
+  ========================================================================= -->
+  <section class="discovery" aria-label="Découverte du catalogue">
+
+    <!-- bento : explorer par fabricant / série -->
+    <div class="section-head">
+      <span class="ja" aria-hidden="true">蔵</span>
+      <h2><span class="em">Explorer</span> par fabricant &amp; série</h2>
+      <a class="more" href="#">Tous les fabricants →</a>
+    </div>
+    <div class="bento">
+      <a class="bento-tile feat" href="#">
+        <span class="badge">Studio en vedette</span>
+        <span class="wmk ja" aria-hidden="true">冠</span>
+        <span class="kk">Fabricant · garage kit</span>
+        <span class="nm">CROWN Studio</span>
+        <span class="sub">Laque, tentacules et résine — l'atelier qui définit l'ambiance shōjo-noir du catalogue.</span>
+        <span class="makers"><span class="mk">Statues 1/6</span><span class="mk">Tirages limités</span></span>
+        <span class="ct"><span class="num">3</span> figurines <span class="arr" aria-hidden="true">→</span></span>
+      </a>
+      <a class="bento-tile" href="#"><span class="wmk ja" aria-hidden="true">G</span><span class="kk">Fabricant</span><span class="nm">Good Smile</span><span class="ct"><span class="num">5</span> figurines <span class="arr" aria-hidden="true">→</span></span></a>
+      <a class="bento-tile" href="#"><span class="wmk ja" aria-hidden="true">A</span><span class="kk">Fabricant</span><span class="nm">Alter</span><span class="ct"><span class="num">4</span> figurines <span class="arr" aria-hidden="true">→</span></span></a>
+      <a class="bento-tile" href="#"><span class="wmk ja" aria-hidden="true">M</span><span class="kk">Fabricant</span><span class="nm">Max Factory</span><span class="ct"><span class="num">3</span> figurines <span class="arr" aria-hidden="true">→</span></span></a>
+      <a class="bento-tile" href="#"><span class="wmk ja" aria-hidden="true">寿</span><span class="kk">Fabricant</span><span class="nm">Kotobukiya</span><span class="ct"><span class="num">3</span> figurines <span class="arr" aria-hidden="true">→</span></span></a>
+    </div>
+
+    <!-- Ambiances clusters (DINOv2 visual-style) -->
+    <div class="section-head" style="margin-top:46px;">
+      <span class="ja" aria-hidden="true">趣</span>
+      <h2><span class="em">Ambiances</span> visuelles</h2>
+      <a class="more" href="#">Toutes les ambiances →</a>
+    </div>
+    <div class="amb-grid">
+      <a class="amb" href="#">
+        <div class="well-bg" aria-hidden="true"></div>
+        <div class="sils" aria-hidden="true"><span class="s a" data-sil="5"></span><span class="s b" data-sil="1"></span><span class="s c" data-sil="2"></span></div>
+        <span class="badge"><span aria-hidden="true">巡</span> visuel</span>
+        <span class="label"><span class="nm"><span class="em">Tentacules</span> &amp; laque</span><span class="ct num">8 pièces</span></span>
+      </a>
+      <a class="amb" href="#">
+        <div class="well-bg" aria-hidden="true"></div>
+        <div class="sils" aria-hidden="true"><span class="s a" data-sil="3"></span><span class="s b" data-sil="0"></span><span class="s c" data-sil="6"></span></div>
+        <span class="badge"><span aria-hidden="true">巡</span> visuel</span>
+        <span class="label"><span class="nm"><span class="em">Robes</span> à frou-frous</span><span class="ct num">5 pièces</span></span>
+      </a>
+      <a class="amb" href="#">
+        <div class="well-bg" aria-hidden="true"></div>
+        <div class="sils" aria-hidden="true"><span class="s a" data-sil="4"></span><span class="s b" data-sil="8"></span><span class="s c" data-sil="3"></span></div>
+        <span class="badge"><span aria-hidden="true">巡</span> visuel</span>
+        <span class="label"><span class="nm"><span class="em">Idols</span> sur scène</span><span class="ct num">4 pièces</span></span>
+      </a>
+      <a class="amb" href="#">
+        <div class="well-bg" aria-hidden="true"></div>
+        <div class="sils" aria-hidden="true"><span class="s a" data-sil="0"></span><span class="s b" data-sil="4"></span><span class="s c" data-sil="5"></span></div>
+        <span class="badge"><span aria-hidden="true">巡</span> visuel</span>
+        <span class="label"><span class="nm"><span class="em">Armures</span> &amp; métal</span><span class="ct num">3 pièces</span></span>
+      </a>
+    </div>
+
+    <!-- curated rail #1 : Récemment ajoutées -->
+    <div class="rail-block" style="margin-top:46px;">
+      <div class="rail-head">
+        <span class="ja" aria-hidden="true">新</span>
+        <h3><span class="em">Récemment</span> ajoutées</h3>
+        <span class="gline" aria-hidden="true"></span>
+        <span class="vtxt ja" aria-hidden="true">新着</span>
+      </div>
+      <div class="rail-scroll" data-rail="recent"></div>
+    </div>
+
+    <!-- curated rail #2 : Pré-commandes à venir -->
+    <div class="rail-block" style="margin-top:38px;">
+      <div class="rail-head">
+        <span class="ja" aria-hidden="true">予</span>
+        <h3><span class="em">Pré-commandes</span> à venir</h3>
+        <span class="gline" aria-hidden="true"></span>
+        <span class="vtxt ja" aria-hidden="true">予約</span>
+      </div>
+      <div class="rail-scroll" data-rail="preco"></div>
+    </div>
+
+    <!-- curated rail #3 : De tes studios favoris -->
+    <div class="rail-block" style="margin-top:38px;">
+      <div class="rail-head">
+        <span class="ja" aria-hidden="true">推</span>
+        <h3><span class="em">De</span> tes studios favoris <span style="font-size:13px;color:var(--on-surface-subtle);font-style:normal;margin-left:.4em;">CROWN · Alter</span></h3>
+        <span class="gline" aria-hidden="true"></span>
+        <span class="vtxt ja" aria-hidden="true">贔屓</span>
+      </div>
+      <div class="rail-scroll" data-rail="favs"></div>
+    </div>
+
+    <!-- "Tout le catalogue" — the full grid below discovery -->
+    <div class="section-head" style="margin-top:54px;">
+      <span class="ja" aria-hidden="true">全</span>
+      <h2><span class="em">Tout</span> le catalogue</h2>
+      <span class="meta num">23 figurines</span>
+    </div>
+    <div class="grid" id="discoveryGrid"></div>
+  </section>
+
+  <!-- =========================================================================
+       MODE TRANSITION — divider note
+  ========================================================================= -->
+  <div class="mode-divider" role="separator" aria-label="Vue alternative">
+    <span class="ln" aria-hidden="true"></span>
+    <span class="txt"><span class="ja" aria-hidden="true">探</span> — quand on cherche ou filtre, le catalogue bascule en mode résultats —</span>
+    <span class="ln" aria-hidden="true"></span>
+  </div>
+
+  <!-- =========================================================================
+       MODE 2 — FACETTES (search results : requête + facettes actives)
+  ========================================================================= -->
+  <section class="results-wrap" aria-label="Résultats filtrés">
+    <span class="watermark ja" aria-hidden="true">探</span>
+
+    <!-- mobile filter bar -->
+    <div class="mobile-filterbar">
+      <button class="fbtn" type="button" onclick="openDrawer()"><span class="ja" aria-hidden="true">濾</span> Filtres <span class="badge num">3</span></button>
+      <span style="font-family:var(--font-mono);font-size:12px;color:var(--on-surface-muted);" class="num">5 résultats</span>
+    </div>
+
+    <div class="results-layout">
+
+      <!-- LEFT: persistent facet rail -->
+      <aside class="facets" id="facetRail" aria-label="Facettes">
+        <!-- quick toggles OUTSIDE the deep list -->
+        <div class="quick">
+          <button class="toggle" type="button" aria-pressed="false" onclick="toggleSwitch(this)">
+            <span class="sw" aria-hidden="true"></span>
+            <span class="lbl"><span class="ja" aria-hidden="true">私</span> Possédées</span>
+            <span class="ct num">3</span>
+          </button>
+          <button class="toggle on" type="button" aria-pressed="true" onclick="toggleSwitch(this)">
+            <span class="sw" aria-hidden="true"></span>
+            <span class="lbl"><span class="ja" aria-hidden="true">願</span> Souhaits</span>
+            <span class="ct num">9</span>
+          </button>
+          <button class="toggle nsfw" type="button" aria-pressed="false" onclick="toggleSwitch(this)">
+            <span class="sw" aria-hidden="true"></span>
+            <span class="lbl"><span class="ja" aria-hidden="true">隠</span> Afficher NSFW</span>
+            <span class="ct num">3</span>
+          </button>
+        </div>
+
+        <!-- FABRICANT -->
+        <details class="facet-grp" open>
+          <summary><span class="ja" aria-hidden="true">社</span> Fabricant <span class="chev" aria-hidden="true">⌄</span></summary>
+          <div class="opts">
+            <label class="facet-opt on"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">Good Smile</span><span class="ct num">5</span></label>
+            <label class="facet-opt"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">Alter</span><span class="ct num">4</span></label>
+            <label class="facet-opt"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">Max Factory</span><span class="ct num">3</span></label>
+            <label class="facet-opt"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">Kotobukiya</span><span class="ct num">3</span></label>
+            <label class="facet-opt on"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">CROWN Studio</span><span class="ct num">3</span></label>
+            <div class="spec-tail2" hidden>
+              <label class="facet-opt"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">Native</span><span class="ct num">2</span></label>
+              <label class="facet-opt"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">Orca Toys</span><span class="ct num">2</span></label>
+              <label class="facet-opt"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">Fish Head</span><span class="ct num">2</span></label>
+            </div>
+            <button class="facet-more" type="button" onclick="moreFacet(this)">+ 3 de plus</button>
+          </div>
+        </details>
+
+        <!-- SÉRIE -->
+        <details class="facet-grp" open>
+          <summary><span class="ja" aria-hidden="true">作</span> Série <span class="chev" aria-hidden="true">⌄</span></summary>
+          <div class="opts">
+            <label class="facet-opt on"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">One Punch Man</span><span class="ct num">2</span></label>
+            <label class="facet-opt"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">Re:ZERO</span><span class="ct num">2</span></label>
+            <label class="facet-opt"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">Frieren</span><span class="ct num">2</span></label>
+            <label class="facet-opt"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">Genshin Impact</span><span class="ct num">1</span></label>
+            <label class="facet-opt"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">Oshi no Ko</span><span class="ct num">1</span></label>
+            <button class="facet-more" type="button">+ 1 de plus</button>
+          </div>
+        </details>
+
+        <!-- PERSONNAGE -->
+        <details class="facet-grp">
+          <summary><span class="ja" aria-hidden="true">人</span> Personnage <span class="chev" aria-hidden="true">⌄</span></summary>
+          <div class="opts">
+            <label class="facet-opt"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">Tatsumaki</span><span class="ct num">2</span></label>
+            <label class="facet-opt"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">Emilia</span><span class="ct num">1</span></label>
+            <label class="facet-opt"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">Frieren</span><span class="ct num">2</span></label>
+            <button class="facet-more" type="button">+ 9 de plus</button>
+          </div>
+        </details>
+
+        <!-- ÉCHELLE -->
+        <details class="facet-grp">
+          <summary><span class="ja" aria-hidden="true">寸</span> Échelle <span class="chev" aria-hidden="true">⌄</span></summary>
+          <div class="opts">
+            <label class="facet-opt"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">1/4</span><span class="ct num">1</span></label>
+            <label class="facet-opt"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">1/6</span><span class="ct num">5</span></label>
+            <label class="facet-opt"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">1/7</span><span class="ct num">5</span></label>
+            <label class="facet-opt"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">1/8</span><span class="ct num">1</span></label>
+            <label class="facet-opt"><span class="box"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 6.5l2.5 2.5L10 3" stroke="#fff" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="nm">non-scale</span><span class="ct num">5</span></label>
+          </div>
+        </details>
+
+        <!-- TAGS -->
+        <details class="facet-grp">
+          <summary><span class="ja" aria-hidden="true">札</span> Tags populaires <span class="chev" aria-hidden="true">⌄</span></summary>
+          <div class="facet-tags">
+            <button class="fchip" type="button">Dress <span class="ct num">3</span></button>
+            <button class="fchip" type="button">Tentacles <span class="ct num">3</span></button>
+            <button class="fchip" type="button">Hair Ornament <span class="ct num">4</span></button>
+            <button class="fchip" type="button">Gloves <span class="ct num">2</span></button>
+            <button class="fchip" type="button">Idol <span class="ct num">2</span></button>
+            <button class="fchip" type="button">Blue Hair <span class="ct num">2</span></button>
+            <button class="fchip" type="button">Frills <span class="ct num">1</span></button>
+            <button class="fchip" type="button">Boots <span class="ct num">1</span></button>
+            <button class="fchip" type="button">+13</button>
+          </div>
+        </details>
+      </aside>
+
+      <!-- RIGHT: results -->
+      <div class="results">
+
+        <!-- results bar : count + sort -->
+        <div class="results-bar">
+          <span class="count">Résultats pour <b>« Tatsumaki »</b> · <span class="num">23 sur 23</span></span>
+          <div class="sort">
+            <span class="lbl">Trier</span>
+            <select aria-label="Trier les résultats">
+              <option>Plus récentes</option>
+              <option>Nom</option>
+              <option>Sortie</option>
+              <option>Échelle</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- applied filter chips -->
+        <div class="applied" aria-label="Filtres appliqués">
+          <span class="lead">Filtres</span>
+          <span class="achip"><span class="k">Recherche</span> Tatsumaki <button class="x" type="button" aria-label="Retirer la recherche Tatsumaki">✕</button></span>
+          <span class="achip"><span class="k">Fabricant</span> CROWN Studio <button class="x" type="button" aria-label="Retirer le filtre fabricant CROWN Studio">✕</button></span>
+          <span class="achip"><span class="k">Série</span> One Punch Man <button class="x" type="button" aria-label="Retirer le filtre série One Punch Man">✕</button></span>
+          <span class="achip"><span class="k">État</span> Souhaits <button class="x" type="button" aria-label="Retirer le filtre Souhaits">✕</button></span>
+          <button class="clear" type="button" onclick="clearAll()">Tout effacer</button>
+        </div>
+
+        <hr class="gold-rule">
+
+        <!-- grid -->
+        <div class="grid" id="resultsGrid"></div>
+
+        <!-- load more + position -->
+        <div class="loadmore-wrap">
+          <button class="loadmore" type="button" id="loadMore" onclick="loadMore()">
+            <span class="ja" aria-hidden="true">続</span> Charger plus
+          </button>
+          <span class="position-line"><b id="posShown" class="num">8</b> sur <b class="num">23</b> figurines affichées</span>
+          <span class="pos-bar" aria-hidden="true"><span class="fill" id="posFill" style="width:35%"></span></span>
+        </div>
+
+        <!-- no-results recovery (inset sketch — shown for reference) -->
+        <div class="noresults" aria-label="Exemple d'état sans résultat">
+          <span class="nr-tag"><span class="ja" aria-hidden="true">空</span> Aperçu · état sans résultat</span>
+          <h3><span class="em">Aucune</span> figurine ne correspond</h3>
+          <p>Rien pour <span class="q">« Tatsumaki + 1/4 + Nendoroid »</span>. Votre recherche est conservée — retirez un filtre, ou repartez d'une piste ci-dessous.</p>
+          <div class="nr-actions">
+            <button class="nr-btn keep" type="button"><span aria-hidden="true">✕</span> Retirer « Échelle 1/4 »</button>
+            <button class="nr-btn keep" type="button"><span aria-hidden="true">✕</span> Retirer « Type Nendoroid »</button>
+            <button class="nr-btn" type="button"><span aria-hidden="true">⟲</span> Tout effacer</button>
+            <button class="nr-btn" type="button"><span aria-hidden="true">✎</span> Saisie manuelle</button>
+          </div>
+          <div class="nr-trending">
+            <div class="th">Tendances en ce moment</div>
+            <div class="nr-trend-chips">
+              <button class="fchip" type="button">Frieren <span class="ct num">4</span></button>
+              <button class="fchip" type="button">Nendoroid <span class="ct num">3</span></button>
+              <button class="fchip" type="button">CROWN Studio <span class="ct num">3</span></button>
+              <button class="fchip" type="button">Re:ZERO <span class="ct num">2</span></button>
+              <button class="fchip" type="button">Tentacules &amp; laque <span class="ct num">8</span></button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /results -->
+    </div><!-- /results-layout -->
+  </section>
+
+  <footer class="foot">
+    <span class="ja" aria-hidden="true">像</span>
+    <span>FigureCollector · catalogue · 23 figurines · données illustratives</span>
+    <span class="sp num">⓪ fusion — découverte ↔ facettes</span>
+  </footer>
+
+</main>
+
+<!-- ===================== MOBILE FILTER DRAWER ===================== -->
+<div class="drawer-scrim" id="drawerScrim" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer" aria-label="Filtres" aria-hidden="true">
+  <div class="drawer-head">
+    <span class="t"><span class="em">Filtres</span></span>
+    <button class="x" type="button" aria-label="Fermer les filtres" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-body" id="drawerBody">
+    <!-- facet rail is cloned here on open -->
+  </div>
+  <div class="drawer-foot">
+    <button class="apply" type="button" onclick="closeDrawer()">Afficher 5 résultats</button>
+  </div>
+</aside>
+
+<script>
+/* ---------- elegant standing-figure silhouette, tint varies per photo ---------- */
+function silSvg(tint, opacity){
+  opacity = opacity || .18;
+  return '<svg viewBox="0 0 120 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+    + '<path fill="'+tint+'" fill-opacity="'+opacity+'" d="'
+    + 'M60 8c-7 0-12 6-12 14 0 5 2 9 6 12-9 3-16 11-18 22-2 9-1 18 2 27-5 6-9 14-10 23-1 8 0 16 3 23 2 5 6 7 10 6 1 7 3 14 6 20 2 5 7 8 12 8s10-3 12-8c3-6 5-13 6-20 4 1 8-1 10-6 3-7 4-15 3-23-1-9-5-17-10-23 3-9 4-18 2-27-2-11-9-19-18-22 4-3 6-7 6-12 0-8-5-14-12-14z'
+    + '"/></svg>';
+}
+const TINTS = ['#d8b46e','#c4453b','#5fb39a','#e8d4a6','#a98a4e','#8f2d2a','#d8b46e','#5fb39a','#e8d4a6',
+               '#c4453b','#d8b46e','#5fb39a','#e8d4a6','#a98a4e','#c4453b','#5fb39a'];
+
+/* fill any element with data-sil (ambiance silhouettes) */
+document.querySelectorAll('[data-sil]').forEach(function(el){
+  const i = parseInt(el.getAttribute('data-sil'),10) || 0;
+  el.innerHTML = silSvg(TINTS[i % TINTS.length] || '#d8b46e', .22);
+});
+
+/* ---------- mock data : 16 figure cards (per brief) ---------- */
+const FIGS = [
+  {n:1,  maker:'CROWN Studio', em:'CROWN', rest:' Studio — Tatsumaki VS Tentacle', serie:'One Punch Man', scale:'1/6',       type:'Statue',    state:'owned'},
+  {n:2,  maker:'Crown Studio', em:'Crown', rest:' Studio — Eris Greyrat',          serie:'Mushoku Tensei', scale:'1/6',       type:'Statue',    state:'wished'},
+  {n:3,  maker:'Good Smile',   em:'Good',  rest:' Smile — Nendoroid Frieren',      serie:'Frieren',        scale:'non-scale', type:'Nendoroid', state:null},
+  {n:4,  maker:'Alter',        em:'Alter', rest:' — Emilia',                       serie:'Re:ZERO',        scale:'1/7',       type:'Scale',     state:'wished'},
+  {n:5,  maker:'Max Factory',  em:'Max',   rest:' Factory — figma Ai Hoshino',     serie:'Oshi no Ko',     scale:'non-scale', type:'Figma',     state:null},
+  {n:6,  maker:'Kotobukiya',   em:'Koto',  rest:'bukiya — Bishoujo Raiden',        serie:'Genshin Impact', scale:'1/7',       type:'Bishoujo',  state:null},
+  {n:7,  maker:'Native',       em:'Native',rest:' — Nure Megami',                  serie:'—',              scale:'1/6',       type:'Statue',    state:null, nsfw:true},
+  {n:8,  maker:'Orca Toys',    em:'Orca',  rest:' Toys — Albedo',                  serie:'Overlord',       scale:'1/7',       type:'Scale',     state:'owned'},
+  {n:9,  maker:'Fish Head',    em:'Fish',  rest:' Head — Nun Thigh Prayer',        serie:'—',              scale:'1/6',       type:'Statue',    state:null, nsfw:true},
+  {n:10, maker:'Good Smile',   em:'Good',  rest:' Smile — Nendoroid Raiden',       serie:'Genshin Impact', scale:'non-scale', type:'Nendoroid', state:'owned'},
+  {n:11, maker:'Alter',        em:'Alter', rest:' — Rem',                          serie:'Re:ZERO',        scale:'1/7',       type:'Scale',     state:'wished'},
+  {n:12, maker:'Max Factory',  em:'Max',   rest:' Factory — 1/7 Frieren',          serie:'Frieren',        scale:'1/7',       type:'Scale',     state:null},
+  {n:13, maker:'Kotobukiya',   em:'Koto',  rest:'bukiya — Artfx Yuki',             serie:'—',              scale:'1/8',       type:'Scale',     state:null},
+  {n:14, maker:'Insight',      em:'Insight',rest:' — Voluptuous Girl',            serie:'—',              scale:'1/4',       type:'Statue',    state:null, nsfw:true},
+  {n:15, maker:'CROWN Studio', em:'CROWN', rest:' Studio — Tatsumaki (alt)',       serie:'One Punch Man', scale:'1/6',       type:'Statue',    state:null},
+  {n:16, maker:'Good Smile',   em:'Good',  rest:' Smile — Pop Up Parade Ai',       serie:'Oshi no Ko',     scale:'non-scale', type:'Prize',     state:null}
+];
+
+function cardHtml(f, idx){
+  const tint = TINTS[idx % TINTS.length];
+  const noStr = 'Nº ' + String(f.n).padStart(2,'0');
+  let mark = '';
+  if(f.state==='owned') mark = '<span class="mark owned" title="Dans ta collection" aria-label="Possédée">✓</span>';
+  else if(f.state==='wished') mark = '<span class="mark wished" title="Sur ta wishlist" aria-label="Souhaitée">♡</span>';
+  const veil = f.nsfw ? (
+    '<div class="veil"><span class="pill">Contenu sensible</span>'
+    + '<button class="rev" type="button" onclick="revealCard(event)">Révéler</button></div>') : '';
+  return '<a class="card'+(f.nsfw?' nsfw':'')+'" href="#" aria-label="'+f.maker+' '+f.rest.replace(/^[ —]+/,'')+'">'
+    + '<div class="well">'
+      + '<div class="sil">'+silSvg(tint, .2)+'</div>'
+      + mark
+      + '<span class="cap num">'+noStr+' · '+f.scale+'</span>'
+      + '<div class="actions">'
+        + '<button class="qa wish" type="button" onclick="qa(event)"><span aria-hidden="true">♡</span> Souhaiter</button>'
+        + '<button class="qa add" type="button" onclick="qa(event)"><span aria-hidden="true">＋</span> Ajouter</button>'
+      + '</div>'
+      + veil
+    + '</div>'
+    + '<div class="body">'
+      + '<span class="nm"><span class="em">'+f.em+'</span>'+f.rest+'</span>'
+      + '<span class="mt">'+f.serie+'<span class="dot" aria-hidden="true">·</span>'+f.type+'<span class="dot" aria-hidden="true">·</span>'+f.scale+'</span>'
+    + '</div>'
+  + '</a>';
+}
+
+function skeletonHtml(){
+  return '<div class="card skeleton" aria-hidden="true">'
+    + '<div class="well"></div>'
+    + '<div class="body"><span class="sk-line w90"></span><span class="sk-line w70"></span><span class="sk-line w45"></span></div>'
+  + '</div>';
+}
+
+/* ---------- discovery : "Tout le catalogue" full grid (all 16) + curated rails ---------- */
+const discoveryGrid = document.getElementById('discoveryGrid');
+FIGS.forEach(function(f,i){ discoveryGrid.insertAdjacentHTML('beforeend', cardHtml(f,i)); });
+
+/* curated rails reuse subsets */
+function fillRail(name, indices){
+  const el = document.querySelector('[data-rail="'+name+'"]');
+  if(!el) return;
+  indices.forEach(function(i){ el.insertAdjacentHTML('beforeend', cardHtml(FIGS[i], i)); });
+}
+fillRail('recent', [2,4,11,15,5,1]);   // récemment ajoutées
+fillRail('preco',  [3,10,11,1,14]);    // pré-commandes à venir
+fillRail('favs',   [0,14,1,7,10]);     // CROWN · Alter favorites
+
+/* ---------- results : show 8, then load 8 more + a skeleton row ---------- */
+const resultsGrid = document.getElementById('resultsGrid');
+let shown = 0;
+function renderResults(n){
+  resultsGrid.innerHTML = '';
+  for(let i=0;i<n;i++){ resultsGrid.insertAdjacentHTML('beforeend', cardHtml(FIGS[i % FIGS.length], i)); }
+  shown = n;
+  document.getElementById('posShown').textContent = Math.min(shown,23);
+  document.getElementById('posFill').style.width = Math.round(Math.min(shown,23)/23*100) + '%';
+  const btn = document.getElementById('loadMore');
+  if(shown >= 23){ btn.setAttribute('disabled',''); btn.innerHTML = 'Tout est chargé · 23 sur 23'; }
+}
+function loadMore(){
+  /* show a skeleton row first, then resolve to real cards (conveys loading pattern) */
+  const note = '<div class="sk-note" aria-hidden="true"><span>Chargement…</span><span class="ln"></span></div>';
+  resultsGrid.insertAdjacentHTML('beforeend', note);
+  for(let i=0;i<4;i++){ resultsGrid.insertAdjacentHTML('beforeend', skeletonHtml()); }
+  setTimeout(function(){ renderResults(Math.min(shown + 8, 23)); }, 520);
+}
+renderResults(8);
+
+/* ---------- interactions ---------- */
+function qa(e){ e.preventDefault(); e.stopPropagation(); }
+function revealCard(e){
+  e.preventDefault(); e.stopPropagation();
+  e.target.closest('.card').classList.remove('nsfw');
+}
+
+/* search modes (segmented tabs) */
+document.querySelectorAll('.ss-mode').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('.ss-mode').forEach(function(x){ x.classList.remove('on'); x.setAttribute('aria-selected','false'); });
+    b.classList.add('on'); b.setAttribute('aria-selected','true');
+    const ph = {kw:'Rechercher par nom, série, fabricant…',
+                sem:'Décrivez la pièce — « idol cheveux bleus, robe à frous-frous »…',
+                vis:'Collez une URL d\'image ou utilisez l\'appareil photo →'};
+    document.getElementById('ssInput').setAttribute('placeholder', ph[b.dataset.mode] || ph.kw);
+  });
+});
+
+/* autocomplete : open on focus, close on blur/escape */
+const ssInput = document.getElementById('ssInput');
+const ssAuto = document.getElementById('ssAuto');
+function openAuto(){ ssAuto.classList.add('open'); ssInput.setAttribute('aria-expanded','true'); }
+function closeAuto(){ ssAuto.classList.remove('open'); ssInput.setAttribute('aria-expanded','false'); }
+ssInput.addEventListener('focus', openAuto);
+ssInput.addEventListener('input', function(){ if(ssInput.value.length>0) openAuto(); });
+document.addEventListener('click', function(e){ if(!e.target.closest('.search-station')) closeAuto(); });
+document.addEventListener('keydown', function(e){ if(e.key==='Escape'){ closeAuto(); closeDrawer(); } });
+
+/* facet checkboxes */
+document.querySelectorAll('.facet-opt').forEach(function(o){
+  o.addEventListener('click', function(e){ e.preventDefault(); o.classList.toggle('on'); });
+});
+
+/* quick toggles */
+function toggleSwitch(btn){
+  const on = btn.classList.toggle('on');
+  btn.setAttribute('aria-pressed', String(on));
+}
+
+/* facet "more" reveal */
+function moreFacet(btn){
+  const tail = btn.parentElement.querySelector('.spec-tail2');
+  if(tail){ const open = tail.hasAttribute('hidden'); if(open){ tail.removeAttribute('hidden'); btn.textContent='Réduire'; } else { tail.setAttribute('hidden',''); btn.textContent='+ 3 de plus'; } }
+}
+
+/* applied chip removal */
+document.querySelectorAll('.applied .achip .x').forEach(function(x){
+  x.addEventListener('click', function(){ x.closest('.achip').remove(); });
+});
+function clearAll(){
+  document.querySelectorAll('.applied .achip').forEach(function(c){ c.remove(); });
+}
+
+/* mobile filters drawer — clone the facet rail on open */
+const drawer = document.getElementById('drawer');
+const scrim = document.getElementById('drawerScrim');
+const drawerBody = document.getElementById('drawerBody');
+function openDrawer(){
+  if(!drawerBody.childElementCount){
+    const clone = document.getElementById('facetRail').cloneNode(true);
+    clone.removeAttribute('id'); clone.style.display='block'; clone.style.position='static';
+    drawerBody.appendChild(clone);
+    /* rewire cloned facet clicks */
+    drawerBody.querySelectorAll('.facet-opt').forEach(function(o){
+      o.addEventListener('click', function(e){ e.preventDefault(); o.classList.toggle('on'); });
+    });
+    drawerBody.querySelectorAll('.toggle').forEach(function(t){
+      t.addEventListener('click', function(){ toggleSwitch(t); });
+    });
+  }
+  drawer.classList.add('open'); scrim.classList.add('open'); drawer.setAttribute('aria-hidden','false');
+}
+function closeDrawer(){
+  drawer.classList.remove('open'); scrim.classList.remove('open'); drawer.setAttribute('aria-hidden','true');
+}
+</script>
+</body>
+</html>

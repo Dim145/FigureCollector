@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>④ L'Atlas — Catalogue · FigureCollector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Instrument+Sans:ital,wght@0,400..600&family=Noto+Serif+JP:wght@300..500&family=JetBrains+Mono:wght@300..500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --color-noir:#161311; --color-noir-soft:#211c19; --color-noir-deep:#100d0b;
+  --color-laque:#8f2d2a; --color-laque-bright:#c4453b;       /* hanko red — the ONE hot accent (CTA/first word/seal) */
+  --color-or:#d8b46e; --color-or-pale:#e8d4a6; --color-or-deep:#a98a4e;  /* gold = value/metadata/hairlines */
+  --color-jade:#5fb39a; --color-ivoire:#ece3d2; --color-ivoire-soft:rgba(236,227,210,.8);
+  --surface:var(--color-noir-soft); --surface-raised:var(--color-noir); --surface-sunken:var(--color-noir-deep);
+  --on-surface:var(--color-ivoire); --on-surface-muted:var(--color-ivoire-soft); --on-surface-subtle:rgba(236,227,210,.55);
+  --border:rgba(216,180,110,.22); --border-strong:rgba(216,180,110,.42); --border-subtle:rgba(216,180,110,.12);
+  --primary:var(--color-laque); --primary-hover:var(--color-laque-bright); --accent:var(--color-or);
+  --jade:var(--color-jade); --ring:var(--color-or);
+  --font-display:"Fraunces",Georgia,serif; --font-sans:"Instrument Sans",system-ui,sans-serif;
+  --font-ja:"Noto Serif JP","Yu Mincho",serif; --font-mono:"JetBrains Mono",ui-monospace,monospace;
+  --radius-sm:2px; --radius-md:4px; --radius-lg:8px; --radius-xl:14px; --radius-pill:9999px;
+  --ease:cubic-bezier(.22,1,.36,1); --dur:240ms;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--color-noir);color:var(--on-surface);font-family:var(--font-sans);
+  -webkit-font-smoothing:antialiased;line-height:1.5;overflow-x:hidden;
+  background-image:
+    radial-gradient(60% 50% at 12% 0%, rgba(143,45,42,.10), transparent 62%),
+    radial-gradient(50% 40% at 92% 8%, rgba(216,180,110,.06), transparent 60%);
+  background-attachment:fixed;
+}
+/* faint film grain */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.035;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+a{color:inherit;text-decoration:none;}
+button{font-family:inherit;cursor:pointer;color:inherit;background:none;border:none;}
+.tabular{font-variant-numeric:tabular-nums;}
+::selection{background:var(--color-laque);color:var(--color-ivoire);}
+:focus-visible{outline:2px solid var(--ring);outline-offset:2px;border-radius:var(--radius-sm);}
+
+/* ───── direction label ───── */
+.dir-label{
+  position:fixed;top:0;left:0;z-index:90;
+  font-family:var(--font-mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--color-noir-deep);background:var(--color-or);
+  padding:6px 12px;border-bottom-right-radius:var(--radius-md);
+  font-weight:500;
+}
+
+/* ───── app chrome ───── */
+.topbar{
+  position:sticky;top:0;z-index:50;
+  display:flex;align-items:center;gap:22px;
+  padding:12px clamp(18px,4vw,56px);
+  background:rgba(16,13,11,.94);
+  border-bottom:1px solid var(--border-subtle);
+}
+.topbar .brand{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-size:18px;letter-spacing:.01em;}
+.topbar .brand .ja{font-family:var(--font-ja);color:var(--color-or);font-size:20px;}
+.topbar .brand b{font-weight:500;}
+.topbar .brand .accent-first{color:var(--color-laque-bright);font-style:italic;}
+.topbar .spacer{flex:1;}
+.topbar .chrome-link{font-size:12.5px;color:var(--on-surface-muted);display:flex;align-items:center;gap:6px;}
+.topbar .chrome-link .ja{font-family:var(--font-ja);color:var(--color-or-deep);}
+.topbar .avatar{width:30px;height:30px;border-radius:var(--radius-pill);border:1px solid var(--border-strong);
+  display:grid;place-items:center;font-family:var(--font-ja);font-size:14px;color:var(--color-or-pale);background:var(--surface);}
+.subnav{
+  display:flex;gap:2px;align-items:stretch;
+  padding:0 clamp(18px,4vw,56px);
+  background:var(--color-noir-deep);
+  border-bottom:1px solid var(--border-subtle);
+}
+.subnav a{
+  display:flex;align-items:center;gap:8px;padding:11px 16px;font-size:12.5px;letter-spacing:.04em;
+  color:var(--on-surface-subtle);border-bottom:2px solid transparent;position:relative;top:1px;
+}
+.subnav a .ja{font-family:var(--font-ja);font-size:15px;}
+.subnav a.active{color:var(--on-surface);border-bottom-color:var(--color-laque);}
+.subnav a.active .ja{color:var(--color-or);}
+.subnav a:hover:not(.active){color:var(--on-surface-muted);}
+
+/* ───── layout shell ───── */
+.shell{max-width:1440px;margin:0 auto;padding:0 clamp(18px,4vw,56px) 120px;position:relative;z-index:2;}
+
+/* ───── page header ───── */
+.page-head{position:relative;padding:46px 0 18px;}
+.kicker{
+  display:inline-flex;align-items:center;gap:9px;
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--color-or-pale);margin-bottom:14px;
+}
+.kicker .diamond{width:6px;height:6px;background:var(--color-laque);transform:rotate(45deg);}
+.h1{
+  font-family:var(--font-display);font-weight:300;font-size:clamp(46px,7vw,84px);line-height:.96;
+  letter-spacing:-.01em;display:flex;align-items:baseline;gap:.22em;flex-wrap:wrap;
+}
+.h1 .accent-first{color:var(--color-laque-bright);font-style:italic;font-weight:400;}
+.h1 .ja-mark{font-family:var(--font-ja);font-size:.42em;color:var(--color-or);font-weight:300;align-self:center;
+  border:1px solid var(--border);border-radius:var(--radius-md);padding:.12em .3em;letter-spacing:0;}
+.head-meta{display:flex;align-items:center;gap:18px;margin-top:16px;flex-wrap:wrap;}
+.head-meta .lead{font-size:14.5px;color:var(--on-surface-muted);max-width:46ch;}
+.head-meta .count-pill{
+  font-family:var(--font-mono);font-size:12px;color:var(--color-or-pale);
+  border:1px solid var(--border);border-radius:var(--radius-pill);padding:5px 13px;letter-spacing:.04em;
+}
+.head-meta .count-pill b{color:var(--color-ivoire);font-weight:500;}
+/* kanji watermark behind header */
+.page-head .watermark{
+  position:absolute;right:-10px;top:-6px;font-family:var(--font-ja);font-weight:300;
+  font-size:clamp(150px,22vw,290px);color:var(--color-or);opacity:.05;line-height:1;
+  pointer-events:none;user-select:none;z-index:-1;
+}
+
+.hr-gold{height:1px;border:0;background:linear-gradient(90deg,var(--border-strong),var(--border-subtle) 60%,transparent);margin:30px 0;}
+
+/* ───── search station ───── */
+.station{
+  background:linear-gradient(180deg,var(--color-noir-soft),var(--color-noir-deep));
+  border:1px solid var(--border);border-radius:var(--radius-xl);
+  padding:22px clamp(18px,2.4vw,30px);position:relative;overflow:hidden;
+}
+.station::after{ /* huge faint 写 watermark on the command line */
+  content:"写";position:absolute;right:18px;bottom:-46px;font-family:var(--font-ja);font-weight:300;
+  font-size:230px;color:var(--color-or);opacity:.045;line-height:1;pointer-events:none;
+}
+.station-label{
+  display:flex;align-items:center;gap:10px;margin-bottom:14px;
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--color-or-pale);
+}
+.station-label .ja{font-family:var(--font-ja);font-size:16px;color:var(--color-or);letter-spacing:0;}
+.station-label .diamond{width:6px;height:6px;background:var(--color-laque);transform:rotate(45deg);}
+
+.search-wrap{position:relative;z-index:3;}
+.search-bar{
+  display:flex;align-items:stretch;gap:0;
+  background:var(--color-noir);border:1px solid var(--border-strong);border-radius:var(--radius-lg);
+  overflow:visible;position:relative;
+}
+.search-bar:focus-within{border-color:var(--color-or);box-shadow:0 0 0 3px rgba(216,180,110,.14);}
+.search-input{
+  flex:1;min-width:0;background:transparent;border:none;color:var(--on-surface);
+  font-family:var(--font-sans);font-size:16px;padding:16px 16px 16px 50px;letter-spacing:.01em;
+}
+.search-input::placeholder{color:var(--on-surface-subtle);}
+.search-bar .glass{
+  position:absolute;left:17px;top:50%;transform:translateY(-50%);color:var(--color-or);pointer-events:none;
+}
+.search-tools{display:flex;align-items:center;gap:2px;padding:7px;border-left:1px solid var(--border-subtle);}
+.tool-btn{
+  width:46px;height:46px;border-radius:var(--radius-md);display:grid;place-items:center;
+  color:var(--on-surface-muted);transition:background var(--dur) var(--ease),color var(--dur) var(--ease);position:relative;
+}
+.tool-btn:hover{background:var(--surface);color:var(--color-or-pale);}
+.tool-btn.cam{ /* camera given prominence */
+  background:var(--color-laque);color:var(--color-ivoire);width:auto;padding:0 16px;gap:8px;font-size:12.5px;
+  letter-spacing:.04em;border-radius:var(--radius-md);
+}
+.tool-btn.cam:hover{background:var(--color-laque-bright);color:var(--color-ivoire);}
+.tool-btn.cam .ja{font-family:var(--font-ja);font-size:15px;}
+.go-btn{
+  margin-left:6px;padding:0 22px;border-radius:var(--radius-md);background:var(--color-or);color:var(--color-noir-deep);
+  font-weight:600;font-size:13px;letter-spacing:.04em;display:flex;align-items:center;
+  transition:background var(--dur) var(--ease);
+}
+.go-btn:hover{background:var(--color-or-pale);}
+
+/* search modes */
+.modes{display:flex;gap:6px;margin-top:14px;flex-wrap:wrap;align-items:center;}
+.mode-seg{display:inline-flex;background:var(--color-noir);border:1px solid var(--border-subtle);border-radius:var(--radius-pill);padding:3px;}
+.mode-seg button{
+  font-size:12px;letter-spacing:.03em;padding:7px 15px;border-radius:var(--radius-pill);color:var(--on-surface-subtle);
+  transition:color var(--dur) var(--ease),background var(--dur) var(--ease);white-space:nowrap;
+}
+.mode-seg button.active{background:var(--surface);color:var(--color-ivoire);box-shadow:inset 0 0 0 1px var(--border-strong);}
+.mode-seg button:hover:not(.active){color:var(--on-surface-muted);}
+.mode-hint{font-size:11.5px;color:var(--on-surface-subtle);font-family:var(--font-mono);letter-spacing:.03em;margin-left:4px;}
+
+/* autocomplete sketch */
+.autocomplete{
+  position:absolute;left:0;right:0;top:calc(100% + 8px);z-index:30;
+  background:var(--color-noir-soft);border:1px solid var(--border-strong);border-radius:var(--radius-lg);
+  box-shadow:0 18px 40px -16px rgba(0,0,0,.7);overflow:hidden;
+}
+.autocomplete .ac-section{padding:8px 0;border-bottom:1px solid var(--border-subtle);}
+.autocomplete .ac-section:last-child{border-bottom:none;}
+.ac-head{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--on-surface-subtle);padding:4px 18px 6px;}
+.ac-row{display:flex;align-items:center;gap:12px;padding:9px 18px;font-size:14px;color:var(--on-surface-muted);cursor:pointer;}
+.ac-row:hover,.ac-row.hl{background:var(--color-noir);color:var(--on-surface);}
+.ac-row .ic{color:var(--color-or-deep);display:grid;place-items:center;width:18px;}
+.ac-row b{color:var(--color-ivoire);font-weight:600;}
+.ac-row .ac-count{margin-left:auto;font-family:var(--font-mono);font-size:11.5px;color:var(--on-surface-subtle);}
+.ac-chips{display:flex;gap:7px;flex-wrap:wrap;padding:4px 18px 8px;}
+.ac-chips .chip-mini{font-size:11.5px;border:1px solid var(--border);border-radius:var(--radius-pill);padding:4px 11px;color:var(--on-surface-muted);}
+.ac-chips .chip-mini:hover{border-color:var(--border-strong);color:var(--on-surface);}
+
+/* ───── ATLAS ───── */
+.section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin:0 0 18px;flex-wrap:wrap;}
+.section-head .titles .micro{
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--color-or-pale);
+  display:flex;align-items:center;gap:9px;margin-bottom:8px;
+}
+.section-head .titles .micro .diamond{width:6px;height:6px;background:var(--color-laque);transform:rotate(45deg);}
+.section-head .titles h2{font-family:var(--font-display);font-weight:300;font-size:30px;letter-spacing:-.01em;}
+.section-head .titles h2 em{font-style:italic;color:var(--color-or-pale);font-weight:400;}
+.section-head .aside{font-size:12.5px;color:var(--on-surface-subtle);font-family:var(--font-mono);letter-spacing:.04em;max-width:34ch;text-align:right;}
+
+/* the atlas grid — varied tile sizes, editorial composition */
+.atlas{
+  display:grid;gap:14px;
+  grid-template-columns:repeat(4,1fr);
+  grid-auto-rows:168px;
+}
+.cluster{
+  position:relative;overflow:hidden;cursor:pointer;
+  background:
+    radial-gradient(120% 90% at 50% 18%, rgba(216,180,110,.07), transparent 60%),
+    var(--color-noir-deep);
+  border:1px solid var(--border);border-radius:var(--radius-lg);
+  transition:transform var(--dur) var(--ease),border-color var(--dur) var(--ease);
+  display:flex;flex-direction:column;justify-content:flex-end;
+}
+.cluster:hover{transform:translateY(-3px);border-color:var(--border-strong);}
+.cluster:hover .cl-silhs{opacity:.9;}
+.cluster:focus-visible{border-color:var(--color-or);}
+/* size variants */
+.cluster.lg{grid-column:span 2;grid-row:span 2;}
+.cluster.wide{grid-column:span 2;}
+.cluster.tall{grid-row:span 2;}
+/* vignette */
+.cluster::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(100% 80% at 50% 30%, transparent 50%, rgba(16,13,11,.55) 100%);}
+.cl-silhs{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;gap:0;opacity:.7;
+  transition:opacity var(--dur) var(--ease);}
+.cl-silhs svg{height:78%;}
+.cl-silhs svg:nth-child(1){opacity:.45;transform:translateX(28%) scale(.86);}
+.cl-silhs svg:nth-child(2){opacity:.85;z-index:2;}
+.cl-silhs svg:nth-child(3){opacity:.5;transform:translateX(-28%) scale(.8);}
+.cluster.lg .cl-silhs svg{height:70%;}
+.cl-body{position:relative;z-index:3;padding:16px 18px;display:flex;align-items:flex-end;justify-content:space-between;gap:10px;
+  background:linear-gradient(0deg,rgba(16,13,11,.92),rgba(16,13,11,.55) 60%,transparent);}
+.cl-body .cl-name{font-family:var(--font-display);font-size:18px;font-weight:400;line-height:1.1;letter-spacing:-.01em;}
+.cluster.lg .cl-body .cl-name{font-size:25px;}
+.cl-body .cl-name .accent-first{color:var(--color-laque-bright);font-style:italic;}
+.cl-meta{display:flex;align-items:center;gap:7px;margin-top:7px;}
+.cl-meta .cnt{font-family:var(--font-mono);font-size:11.5px;color:var(--color-or-pale);letter-spacing:.04em;}
+.cl-meta .open-hint{font-size:11px;color:var(--on-surface-subtle);}
+.cl-badge{
+  position:absolute;top:12px;left:12px;z-index:4;display:inline-flex;align-items:center;gap:6px;
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-or-pale);
+  background:rgba(16,13,11,.7);border:1px solid var(--border);border-radius:var(--radius-pill);padding:4px 10px;
+}
+.cl-badge .ja{font-family:var(--font-ja);font-size:13px;color:var(--color-or);letter-spacing:0;}
+/* vertical JP tag on the big tile */
+.cl-vert{position:absolute;top:14px;right:14px;z-index:4;writing-mode:vertical-rl;font-family:var(--font-ja);
+  font-size:15px;color:var(--color-or);opacity:.55;letter-spacing:.18em;}
+
+/* "all ambiances" hint tile */
+.cluster.more{background:var(--color-noir-soft);align-items:center;justify-content:center;border-style:dashed;}
+.cluster.more .more-in{text-align:center;}
+.cluster.more .more-in .n{font-family:var(--font-display);font-size:34px;font-weight:300;color:var(--color-or-pale);}
+.cluster.more .more-in .t{font-size:12px;color:var(--on-surface-muted);letter-spacing:.04em;margin-top:4px;}
+.cluster.more::after{display:none;}
+
+/* ───── secondary discovery: explore-by-maker bento + curated rail ───── */
+.explore-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.mk-tile{
+  position:relative;overflow:hidden;background:var(--color-noir-soft);border:1px solid var(--border-subtle);
+  border-radius:var(--radius-md);padding:16px 16px 14px;min-height:90px;display:flex;flex-direction:column;justify-content:space-between;
+  transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease);cursor:pointer;
+}
+.mk-tile:hover{border-color:var(--border-strong);transform:translateY(-2px);}
+.mk-tile .mk-init{position:absolute;right:8px;top:-8px;font-family:var(--font-ja);font-size:62px;font-weight:300;
+  color:var(--color-or);opacity:.07;line-height:1;}
+.mk-tile .mk-name{font-family:var(--font-display);font-size:16px;font-weight:400;position:relative;z-index:2;}
+.mk-tile .mk-cnt{font-family:var(--font-mono);font-size:11.5px;color:var(--color-or-pale);letter-spacing:.04em;position:relative;z-index:2;}
+.mk-tile .mk-cnt b{color:var(--color-ivoire);}
+
+.rail{display:flex;gap:13px;overflow-x:auto;padding:4px 0 14px;scroll-snap-type:x mandatory;}
+.rail::-webkit-scrollbar{height:6px;}
+.rail::-webkit-scrollbar-thumb{background:var(--border);border-radius:var(--radius-pill);}
+.rail-card{flex:0 0 168px;scroll-snap-align:start;}
+
+/* ───── DRILL-IN: result layer ───── */
+.drill{margin-top:30px;}
+.drill-banner{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  background:var(--color-noir-soft);border:1px solid var(--border);border-left:3px solid var(--color-laque);
+  border-radius:var(--radius-md);padding:14px 18px;margin-bottom:18px;
+}
+.drill-banner .db-ja{font-family:var(--font-ja);font-size:26px;color:var(--color-or);}
+.drill-banner .db-txt{flex:1;min-width:200px;}
+.drill-banner .db-txt .db-k{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.drill-banner .db-txt .db-h{font-family:var(--font-display);font-size:20px;font-weight:400;}
+.drill-banner .db-txt .db-h em{font-style:italic;color:var(--color-or-pale);}
+.drill-banner .db-back{font-size:12.5px;color:var(--on-surface-muted);display:inline-flex;align-items:center;gap:6px;
+  border:1px solid var(--border);border-radius:var(--radius-pill);padding:7px 14px;}
+.drill-banner .db-back:hover{border-color:var(--border-strong);color:var(--on-surface);}
+
+/* kanji type-rail = quick lens */
+.type-rail{display:flex;gap:8px;overflow-x:auto;padding:2px 0 14px;}
+.type-rail::-webkit-scrollbar{height:6px;}
+.type-rail::-webkit-scrollbar-thumb{background:var(--border);border-radius:var(--radius-pill);}
+.type-tile{
+  flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:64px;padding:10px 12px;
+  background:var(--color-noir-soft);border:1px solid var(--border-subtle);border-radius:var(--radius-md);
+  transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease);
+}
+.type-tile:hover{border-color:var(--border-strong);}
+.type-tile.active{border-color:var(--color-laque);background:rgba(143,45,42,.12);}
+.type-tile .tt-ja{font-family:var(--font-ja);font-size:22px;color:var(--color-or-pale);line-height:1;}
+.type-tile.active .tt-ja{color:var(--color-laque-bright);}
+.type-tile .tt-label{font-size:11px;color:var(--on-surface-muted);letter-spacing:.02em;}
+.type-tile .tt-cnt{font-family:var(--font-mono);font-size:10.5px;color:var(--on-surface-subtle);}
+.type-tile.zero{opacity:.42;}
+
+/* drill toolbar: chips + sort */
+.drill-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:8px 0 18px;}
+.chips{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1;}
+.chips .chip-label{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.chip{
+  display:inline-flex;align-items:center;gap:8px;font-size:12.5px;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-pill);padding:6px 8px 6px 13px;
+  color:var(--on-surface-muted);
+}
+.chip .x{width:18px;height:18px;border-radius:var(--radius-pill);display:grid;place-items:center;color:var(--on-surface-subtle);
+  transition:background var(--dur) var(--ease),color var(--dur) var(--ease);}
+.chip .x:hover{background:var(--color-laque);color:var(--color-ivoire);}
+.chip.tog{border-color:var(--border-strong);color:var(--on-surface);}
+.chip.tog.own{border-color:rgba(216,180,110,.5);}
+.chip.tog .dot{width:7px;height:7px;border-radius:50%;background:var(--color-or);}
+.chip.tog.wish .dot{background:var(--color-laque-bright);}
+.chips .clear{font-size:12px;color:var(--color-laque-bright);letter-spacing:.02em;padding:4px 6px;}
+.chips .clear:hover{text-decoration:underline;}
+.sort-box{display:flex;align-items:center;gap:9px;}
+.sort-box .micro{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.sort-seg{display:inline-flex;background:var(--color-noir);border:1px solid var(--border-subtle);border-radius:var(--radius-pill);padding:3px;}
+.sort-seg button{font-size:12px;padding:6px 13px;border-radius:var(--radius-pill);color:var(--on-surface-subtle);}
+.sort-seg button.active{background:var(--surface);color:var(--color-ivoire);box-shadow:inset 0 0 0 1px var(--border-strong);}
+
+/* drill body: persistent left rail + grid */
+.drill-body{display:grid;grid-template-columns:240px 1fr;gap:26px;align-items:start;}
+
+/* facet rail */
+.facets{position:sticky;top:96px;border:1px solid var(--border-subtle);border-radius:var(--radius-lg);
+  background:var(--color-noir-soft);overflow:hidden;}
+.facet-quick{padding:14px;border-bottom:1px solid var(--border-subtle);display:grid;gap:8px;}
+.qtog{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border-radius:var(--radius-md);
+  border:1px solid var(--border-subtle);background:var(--color-noir);font-size:13px;transition:border-color var(--dur) var(--ease);}
+.qtog:hover{border-color:var(--border);}
+.qtog .ql{display:flex;align-items:center;gap:9px;}
+.qtog .ql .ja{font-family:var(--font-ja);color:var(--color-or-deep);font-size:15px;}
+.qtog .switch{width:34px;height:19px;border-radius:var(--radius-pill);background:var(--surface);border:1px solid var(--border);position:relative;flex:0 0 auto;}
+.qtog .switch::after{content:"";position:absolute;top:1px;left:1px;width:15px;height:15px;border-radius:50%;background:var(--on-surface-subtle);transition:left var(--dur) var(--ease),background var(--dur) var(--ease);}
+.qtog.on .switch{background:rgba(216,180,110,.25);border-color:var(--border-strong);}
+.qtog.on .switch::after{left:16px;background:var(--color-or);}
+.qtog.on.wish .switch{background:rgba(143,45,42,.3);}
+.qtog.on.wish .switch::after{background:var(--color-laque-bright);}
+.qtog .qc{font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);}
+
+.facet{border-bottom:1px solid var(--border-subtle);}
+.facet:last-child{border-bottom:none;}
+.facet > summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;
+  padding:13px 14px;font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-or-pale);}
+.facet > summary::-webkit-details-marker{display:none;}
+.facet > summary .car{transition:transform var(--dur) var(--ease);color:var(--on-surface-subtle);}
+.facet[open] > summary .car{transform:rotate(180deg);}
+.facet .facet-body{padding:0 14px 14px;display:grid;gap:3px;}
+.fopt{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:var(--radius-sm);font-size:13px;color:var(--on-surface-muted);cursor:pointer;}
+.fopt:hover{background:var(--color-noir);color:var(--on-surface);}
+.fopt .box{width:15px;height:15px;border:1px solid var(--border);border-radius:var(--radius-sm);flex:0 0 auto;display:grid;place-items:center;}
+.fopt.on .box{background:var(--color-or);border-color:var(--color-or);}
+.fopt.on .box svg{display:block;}
+.fopt .box svg{display:none;}
+.fopt .fname{flex:1;}
+.fopt.on .fname{color:var(--on-surface);}
+.fopt .fcnt{font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);}
+.tag-cloud{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 16px;}
+.tag-cloud .tg{font-size:11.5px;border:1px solid var(--border);border-radius:var(--radius-pill);padding:4px 10px;color:var(--on-surface-muted);cursor:pointer;}
+.tag-cloud .tg:hover{border-color:var(--border-strong);color:var(--on-surface);}
+.tag-cloud .tg .tc{font-family:var(--font-mono);color:var(--on-surface-subtle);margin-left:5px;}
+.tag-cloud .tg.more{color:var(--color-or-pale);border-color:var(--border-strong);}
+
+/* results grid */
+.results-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px;}
+.results-head .rh-count{font-size:13px;color:var(--on-surface-muted);}
+.results-head .rh-count b{color:var(--color-ivoire);font-family:var(--font-mono);}
+.results-head .rh-view{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;color:var(--on-surface-subtle);}
+
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;}
+
+/* figure card */
+.card{position:relative;}
+.card .well{
+  position:relative;aspect-ratio:3/4;border-radius:var(--radius-md);overflow:hidden;
+  background:
+    radial-gradient(80% 60% at 50% 30%, rgba(216,180,110,.10), transparent 62%),
+    var(--color-noir-deep);
+  border:1px solid var(--border-subtle);
+  transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease);
+}
+.card:hover .well{border-color:var(--border-strong);transform:translateY(-3px);}
+.well::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(100% 75% at 50% 35%, transparent 55%, rgba(16,13,11,.6) 100%);}
+.well .silh{position:absolute;inset:0;display:grid;place-items:center;}
+.well .silh svg{height:74%;}
+.well .cap{position:absolute;left:10px;bottom:9px;z-index:3;font-family:var(--font-mono);font-size:10.5px;
+  letter-spacing:.04em;color:var(--on-surface-subtle);display:flex;gap:8px;}
+.well .cap .scale{color:var(--color-or-pale);}
+/* seals */
+.seal{position:absolute;top:9px;right:9px;z-index:4;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+  font-size:13px;border:1px solid;}
+.seal.owned{color:var(--color-or);border-color:var(--border-strong);background:rgba(16,13,11,.7);}
+.seal.wished{color:var(--color-laque-bright);border-color:rgba(143,45,42,.5);background:rgba(16,13,11,.7);}
+/* nsfw */
+.well.nsfw .silh{filter:blur(7px);opacity:.6;}
+.nsfw-overlay{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;
+  background:rgba(16,13,11,.42);}
+.nsfw-overlay .pill{font-size:11px;letter-spacing:.06em;border:1px solid var(--border);border-radius:var(--radius-pill);
+  padding:5px 12px;color:var(--on-surface-muted);background:rgba(16,13,11,.7);}
+.nsfw-overlay .reveal{font-size:11px;color:var(--color-or-pale);text-decoration:underline;}
+/* hover quick actions */
+.card .actions{
+  position:absolute;left:8px;right:8px;bottom:8px;z-index:6;display:flex;gap:8px;
+  opacity:0;transform:translateY(6px);transition:opacity var(--dur) var(--ease),transform var(--dur) var(--ease);
+}
+.card:hover .actions,.card:focus-within .actions{opacity:1;transform:none;}
+.act{flex:1;min-height:44px;border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;gap:7px;
+  font-size:12px;letter-spacing:.02em;border:1px solid var(--border);background:rgba(16,13,11,.86);color:var(--on-surface-muted);
+  transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease);}
+.act:hover{border-color:var(--border-strong);color:var(--on-surface);}
+.act.add{background:var(--color-laque);border-color:var(--color-laque);color:var(--color-ivoire);}
+.act.add:hover{background:var(--color-laque-bright);border-color:var(--color-laque-bright);}
+/* card meta */
+.card .meta{padding:10px 2px 0;}
+.card .meta .nm{font-family:var(--font-display);font-size:15px;font-weight:400;line-height:1.25;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.card .meta .nm .accent-first{color:var(--color-laque-bright);font-style:italic;}
+.card .meta .sub{margin-top:4px;font-size:12px;color:var(--on-surface-subtle);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card .meta .sub .maker{color:var(--color-or-pale);}
+
+/* skeleton row */
+.skeleton-note{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--on-surface-subtle);margin:24px 0 12px;display:flex;align-items:center;gap:8px;}
+.skeleton-note .diamond{width:6px;height:6px;background:var(--border-strong);transform:rotate(45deg);}
+.sk-card .well{background:var(--color-noir-soft);}
+.sk-card .well .sk-bar{position:absolute;inset:auto 14px 18px 14px;height:10px;background:var(--border-subtle);border-radius:var(--radius-pill);}
+.sk-card .well .sk-bar.s2{bottom:36px;right:48px;}
+.sk-card .sk-line{height:11px;background:var(--border-subtle);border-radius:var(--radius-pill);margin:10px 2px 0;}
+.sk-card .sk-line.short{width:60%;margin-top:7px;}
+
+/* load more */
+.load-zone{text-align:center;margin-top:34px;}
+.load-zone .pos{font-family:var(--font-mono);font-size:12px;color:var(--on-surface-subtle);letter-spacing:.06em;margin-bottom:14px;}
+.load-zone .pos b{color:var(--color-or-pale);}
+.load-more{display:inline-flex;align-items:center;gap:10px;font-size:13px;letter-spacing:.06em;
+  border:1px solid var(--border-strong);border-radius:var(--radius-pill);padding:13px 28px;color:var(--on-surface);
+  transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease);}
+.load-more:hover{background:var(--color-noir-soft);border-color:var(--color-or);}
+.load-more .ja{font-family:var(--font-ja);color:var(--color-or);}
+.progress{max-width:260px;margin:16px auto 0;height:2px;background:var(--border-subtle);border-radius:var(--radius-pill);overflow:hidden;}
+.progress span{display:block;height:100%;width:70%;background:linear-gradient(90deg,var(--color-or-deep),var(--color-or));}
+
+/* ───── no-results recovery (inset note) ───── */
+.empty{
+  border:1px dashed var(--border);border-radius:var(--radius-lg);background:var(--color-noir-soft);
+  padding:24px;margin-top:30px;display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:start;
+}
+.empty .ja-big{font-family:var(--font-ja);font-size:60px;font-weight:300;color:var(--color-or);opacity:.5;line-height:1;}
+.empty .e-body h3{font-family:var(--font-display);font-weight:400;font-size:20px;margin-bottom:6px;}
+.empty .e-body h3 em{font-style:italic;color:var(--color-laque-bright);}
+.empty .e-body p{font-size:13.5px;color:var(--on-surface-muted);max-width:60ch;}
+.empty .e-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}
+.empty .e-actions .ea{font-size:12.5px;border:1px solid var(--border);border-radius:var(--radius-pill);padding:7px 14px;color:var(--on-surface-muted);}
+.empty .e-actions .ea:hover{border-color:var(--border-strong);color:var(--on-surface);}
+.empty .e-actions .ea.primary{background:var(--color-laque);border-color:var(--color-laque);color:var(--color-ivoire);}
+.empty .e-trend{margin-top:16px;}
+.empty .e-trend .et-h{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--on-surface-subtle);margin-bottom:9px;}
+.empty .e-trend .et-chips{display:flex;gap:8px;flex-wrap:wrap;}
+.empty .e-trend .et-chips .tg{font-size:12px;border:1px solid var(--border);border-radius:var(--radius-pill);padding:6px 12px;color:var(--on-surface-muted);}
+.empty .e-trend .et-chips .tg:hover{border-color:var(--border-strong);color:var(--on-surface);}
+.empty .e-trend .et-chips .tg .tc{font-family:var(--font-mono);color:var(--color-or-pale);margin-left:6px;}
+
+/* footer */
+.foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--border-subtle);display:flex;justify-content:space-between;
+  flex-wrap:wrap;gap:14px;font-size:12px;color:var(--on-surface-subtle);}
+.foot .ja{font-family:var(--font-ja);color:var(--color-or-deep);}
+
+/* mobile filters drawer trigger (hidden desktop) */
+.m-filterbar{display:none;}
+
+/* ───── responsive ───── */
+@media(max-width:1024px){
+  .atlas{grid-template-columns:1fr;grid-auto-rows:140px;}
+  .cluster.lg,.cluster.wide,.cluster.tall{grid-column:auto;grid-row:auto;}
+  .cluster.lg{grid-row:span 1;}
+  .explore-grid{grid-template-columns:repeat(2,1fr);}
+  .drill-body{grid-template-columns:1fr;}
+  .facets{display:none;}
+  .grid{grid-template-columns:repeat(2,1fr);}
+  .m-filterbar{display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:40;
+    background:rgba(16,13,11,.95);border-bottom:1px solid var(--border-subtle);padding:11px 0;margin-bottom:14px;}
+  .m-filterbar .mf-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;
+    border:1px solid var(--border);border-radius:var(--radius-md);padding:11px;min-height:44px;}
+  .m-filterbar .mf-btn .ja{font-family:var(--font-ja);color:var(--color-or);}
+  .m-filterbar .mf-btn.apply{background:var(--color-laque);border-color:var(--color-laque);color:var(--color-ivoire);}
+}
+@media(max-width:640px){
+  .topbar{gap:12px;padding:10px 16px;}
+  .topbar .chrome-link{display:none;}
+  .subnav{padding:0 16px;overflow-x:auto;}
+  .shell{padding:0 16px 90px;}
+  .page-head{padding:30px 0 14px;}
+  .search-input{font-size:15px;padding-left:46px;}
+  .tool-btn.cam span.lbl{display:none;}
+  .tool-btn.cam{width:46px;padding:0;justify-content:center;}
+  .go-btn{display:none;}
+  .modes{gap:8px;}
+  .mode-hint{display:none;}
+  .grid{grid-template-columns:repeat(2,1fr);gap:12px;}
+  .card .actions{opacity:1;transform:none;} /* always-visible on mobile */
+  .empty{grid-template-columns:1fr;}
+  .empty .ja-big{font-size:44px;}
+  .section-head .aside{text-align:left;}
+  .drill-banner .db-back{order:3;}
+}
+@media(max-width:380px){
+  .grid{grid-template-columns:1fr;}
+}
+
+@media(prefers-reduced-motion:reduce){
+  *{transition:none!important;scroll-behavior:auto!important;}
+}
+</style>
+</head>
+<body>
+
+<div class="dir-label">④ L'ATLAS · carte visuelle (ambiances) + scan</div>
+
+<!-- ════════ APP CHROME ════════ -->
+<header class="topbar">
+  <a class="brand" href="#"><span class="ja">像</span> <b><span class="accent-first">Figure</span>Collector</b></a>
+  <span class="spacer"></span>
+  <a class="chrome-link" href="#"><span class="ja">蔵</span> Ma collection</a>
+  <a class="chrome-link" href="#"><span class="ja">願</span> Souhaits</a>
+  <div class="avatar" title="Profil">己</div>
+</header>
+<nav class="subnav" aria-label="Sections catalogue">
+  <a class="active" href="#"><span class="ja">探</span> Catalogue</a>
+  <a href="#"><span class="ja">写</span> Reconnaître par photo</a>
+  <a href="#"><span class="ja">巡</span> Ambiances</a>
+</nav>
+
+<main class="shell">
+
+  <!-- ════════ PAGE HEADER ════════ -->
+  <section class="page-head">
+    <div class="watermark" aria-hidden="true">目</div>
+    <span class="kicker"><span class="diamond"></span> Toutes les figurines, qu'on les possède ou non</span>
+    <h1 class="h1">
+      <span class="accent-first">Cata</span><span>logue</span>
+      <span class="ja-mark">目</span>
+    </h1>
+    <div class="head-meta">
+      <p class="lead">Parcours la carte visuelle de toutes les pièces. Suis une <em>ambiance</em>, scanne une photo, ou plonge dans la grille.</p>
+      <span class="count-pill tabular"><b>23</b> figurines · <b>6</b> types</span>
+    </div>
+  </section>
+
+  <!-- ════════ SEARCH STATION ════════ -->
+  <section class="station" aria-label="Station de recherche">
+    <div class="station-label"><span class="ja">写</span> <span class="diamond"></span> Station de recherche</div>
+
+    <div class="search-wrap">
+      <div class="search-bar">
+        <span class="glass" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        </span>
+        <input class="search-input" id="search" type="text" placeholder="Rechercher par nom, série, fabricant…" value="" autocomplete="off" aria-label="Rechercher">
+        <div class="search-tools">
+          <button class="tool-btn" title="Scanner un code-barres (JAN/EAN)" aria-label="Code-barres">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg>
+          </button>
+          <button class="tool-btn cam" title="Rechercher par photo (visuel)" aria-label="Recherche par photo">
+            <span class="ja">写</span>
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7h3l2-2.5h8L18 7h3v12H3z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            <span class="lbl">Photo</span>
+          </button>
+          <button class="go-btn" type="button">Chercher</button>
+        </div>
+      </div>
+
+      <!-- autocomplete sketch -->
+      <div class="autocomplete" id="ac" role="listbox" aria-label="Suggestions">
+        <div class="ac-section">
+          <div class="ac-head">Suggestions</div>
+          <div class="ac-row hl" role="option"><span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg></span> <b>Tatsu</b>maki VS Tentacle <span class="ac-count tabular">2</span></div>
+          <div class="ac-row" role="option"><span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg></span> <b>Tatsu</b>maki <span class="ac-count">série · One Punch Man</span></div>
+          <div class="ac-row" role="option"><span class="ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l9 9-9 9-9-9z"/></svg></span> <span><b>Crown</b> Studio</span> <span class="ac-count tabular">3 figurines</span></div>
+        </div>
+        <div class="ac-section">
+          <div class="ac-head">Récents · populaires</div>
+          <div class="ac-chips">
+            <span class="chip-mini">Frieren</span>
+            <span class="chip-mini">Re:ZERO</span>
+            <span class="chip-mini">Nendoroid</span>
+            <span class="chip-mini">1/7 Scale</span>
+            <span class="chip-mini">CROWN Studio</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modes">
+      <div class="mode-seg" role="tablist" aria-label="Mode de recherche">
+        <button class="active" role="tab" aria-selected="true">Mots-clés</button>
+        <button role="tab" aria-selected="false">Description (sémantique)</button>
+        <button role="tab" aria-selected="false">Apparence (visuelle)</button>
+      </div>
+      <span class="mode-hint">写 dépose une photo → on retrouve les pièces qui s'y ressemblent</span>
+    </div>
+  </section>
+
+  <hr class="hr-gold">
+
+  <!-- ════════ ATLAS — visual map of ambiances ════════ -->
+  <section aria-label="Ambiances">
+    <div class="section-head">
+      <div class="titles">
+        <div class="micro"><span class="diamond"></span> Ambiances · regroupées par le regard (DINOv2)</div>
+        <h2>La carte des <em>ambiances</em></h2>
+      </div>
+      <p class="aside">巡 Des familles visuelles déduites des photos — laque, frou-frous, scène, métal. Choisis-en une pour entrer.</p>
+    </div>
+
+    <div class="atlas">
+      <!-- big hero cluster -->
+      <article class="cluster lg" tabindex="0" role="button" aria-label="Ambiance Tentacules & laque, 8 figurines">
+        <span class="cl-badge"><span class="ja">巡</span> Ambiance</span>
+        <span class="cl-vert" aria-hidden="true">触手と漆</span>
+        <div class="cl-silhs" aria-hidden="true">
+          <svg viewBox="0 0 60 140" fill="#d8b46e"><path d="M30 6c5 0 8 4 8 9s-3 8-3 12 6 9 6 18-5 14-5 22 5 12 5 22-9 16-14 16-14-6-14-16 5-12 5-22-5-13-5-22 6-9 6-18-3-7-3-12 3-9 8-9z"/></svg>
+          <svg viewBox="0 0 60 140" fill="#c4453b"><path d="M30 4c6 0 9 5 9 11s-4 9-4 13 7 8 7 19-6 13-6 23 6 13 6 24-10 17-16 17-16-6-16-17 6-13 6-24-6-12-6-23 7-8 7-19-4-7-4-13 5-11 11-11z"/></svg>
+          <svg viewBox="0 0 60 140" fill="#a98a4e"><path d="M30 8c5 0 7 4 7 8s-3 7-3 11 5 8 5 16-4 13-4 21 4 11 4 20-8 15-12 15-12-6-12-15 4-11 4-20-4-13-4-21 5-8 5-16-3-7-3-11 2-8 7-8z"/></svg>
+        </div>
+        <div class="cl-body">
+          <div>
+            <div class="cl-name"><span class="accent-first">Tenta</span>cules & laque</div>
+            <div class="cl-meta"><span class="cnt tabular">8 figurines</span> <span class="open-hint">→ Ouvrir l'ambiance</span></div>
+          </div>
+        </div>
+      </article>
+
+      <!-- wide cluster -->
+      <article class="cluster wide" tabindex="0" role="button" aria-label="Ambiance Robes à frou-frous, 5 figurines">
+        <span class="cl-badge"><span class="ja">巡</span> Ambiance</span>
+        <div class="cl-silhs" aria-hidden="true">
+          <svg viewBox="0 0 60 140" fill="#e8d4a6"><path d="M30 8c5 0 7 4 7 9s-2 6-2 10c0 5 9 10 12 30 2 14-2 20-2 28 0 9 4 12 4 18 0 4-9 5-19 5s-19-1-19-5c0-6 4-9 4-18 0-8-4-14-2-28 3-20 12-25 12-30 0-4-2-5-2-10s2-9 7-9z"/></svg>
+          <svg viewBox="0 0 60 140" fill="#d8b46e"><path d="M30 6c6 0 8 5 8 10s-2 7-2 11c0 6 10 11 13 32 2 15-2 21-2 29 0 10 5 13 5 19 0 4-11 6-22 6s-22-2-22-6c0-6 5-9 5-19 0-8-4-14-2-29 3-21 13-26 13-32 0-4-2-5-2-11s2-10 8-10z"/></svg>
+        </div>
+        <div class="cl-body">
+          <div>
+            <div class="cl-name"><span class="accent-first">Robes</span> à frou-frous</div>
+            <div class="cl-meta"><span class="cnt tabular">5 figurines</span> <span class="open-hint">→ Ouvrir</span></div>
+          </div>
+        </div>
+      </article>
+
+      <!-- tall cluster -->
+      <article class="cluster tall" tabindex="0" role="button" aria-label="Ambiance Idols sur scène, 4 figurines">
+        <span class="cl-badge"><span class="ja">巡</span> Ambiance</span>
+        <span class="cl-vert" aria-hidden="true">舞台</span>
+        <div class="cl-silhs" aria-hidden="true">
+          <svg viewBox="0 0 60 140" fill="#5fb39a"><path d="M30 6c5 0 8 4 8 9s-3 7-3 11c0 6 8 8 8 18s-6 12-6 22 6 14 6 24-9 14-13 14-13-4-13-14 6-14 6-24-6-12-6-22 8-12 8-18c0-4-3-6-3-11s3-9 8-9z"/></svg>
+          <svg viewBox="0 0 60 140" fill="#d8b46e"><path d="M30 8c5 0 7 4 7 8s-3 7-3 11c0 6 8 8 8 17s-6 12-6 22 6 13 6 23-8 14-12 14-12-4-12-14 6-13 6-23-6-12-6-22 8-11 8-17c0-4-3-7-3-11s3-8 7-8z"/></svg>
+        </div>
+        <div class="cl-body">
+          <div>
+            <div class="cl-name"><span class="accent-first">Idols</span> sur scène</div>
+            <div class="cl-meta"><span class="cnt tabular">4 figurines</span></div>
+          </div>
+        </div>
+      </article>
+
+      <!-- standard cluster -->
+      <article class="cluster" tabindex="0" role="button" aria-label="Ambiance Armures & métal, 3 figurines">
+        <span class="cl-badge"><span class="ja">巡</span></span>
+        <div class="cl-silhs" aria-hidden="true">
+          <svg viewBox="0 0 60 140" fill="#a98a4e"><path d="M30 7c5 0 8 4 8 9s-2 6-2 10 6 7 6 16-4 11-4 20 5 12 5 22-8 13-13 13-13-3-13-13 5-12 5-22-4-11-4-20 6-12 6-16-2-6-2-10 3-9 8-9z"/></svg>
+          <svg viewBox="0 0 60 140" fill="#ece3d2"><path d="M30 6c5 0 8 4 8 9s-2 6-2 10 6 8 6 17-4 11-4 20 5 12 5 22-8 13-13 13-13-3-13-13 5-12 5-22-4-11-4-20 6-13 6-17-2-6-2-10 3-9 8-9z"/></svg>
+        </div>
+        <div class="cl-body">
+          <div>
+            <div class="cl-name"><span class="accent-first">Armu</span>res & métal</div>
+            <div class="cl-meta"><span class="cnt tabular">3 figurines</span></div>
+          </div>
+        </div>
+      </article>
+
+      <!-- "more ambiances" -->
+      <article class="cluster more" tabindex="0" role="button" aria-label="Voir toutes les ambiances">
+        <div class="more-in">
+          <div class="n tabular">+5</div>
+          <div class="t">ambiances · 巡 voir tout</div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <hr class="hr-gold">
+
+  <!-- ════════ SECONDARY DISCOVERY: explore by maker + curated rail ════════ -->
+  <section aria-label="Explorer par fabricant">
+    <div class="section-head">
+      <div class="titles">
+        <div class="micro"><span class="diamond"></span> Explorer par fabricant</div>
+        <h2>Par <em>studio</em></h2>
+      </div>
+    </div>
+    <div class="explore-grid">
+      <div class="mk-tile" role="button" tabindex="0"><span class="mk-init" aria-hidden="true">G</span><div class="mk-name">Good Smile</div><div class="mk-cnt tabular"><b>5</b> figurines</div></div>
+      <div class="mk-tile" role="button" tabindex="0"><span class="mk-init" aria-hidden="true">A</span><div class="mk-name">Alter</div><div class="mk-cnt tabular"><b>4</b> figurines</div></div>
+      <div class="mk-tile" role="button" tabindex="0"><span class="mk-init" aria-hidden="true">M</span><div class="mk-name">Max Factory</div><div class="mk-cnt tabular"><b>3</b> figurines</div></div>
+      <div class="mk-tile" role="button" tabindex="0"><span class="mk-init" aria-hidden="true">冠</span><div class="mk-name">CROWN Studio</div><div class="mk-cnt tabular"><b>3</b> figurines</div></div>
+    </div>
+  </section>
+
+  <hr class="hr-gold">
+
+  <!-- ════════ DRILL-IN: result layer ════════ -->
+  <section class="drill" aria-label="Résultats de l'ambiance">
+
+    <div class="drill-banner">
+      <span class="db-ja" aria-hidden="true">巡</span>
+      <div class="db-txt">
+        <div class="db-k">Ambiance ouverte · vue résultats</div>
+        <div class="db-h"><em>Tentacules</em> & laque · <span class="tabular">8 pièces</span></div>
+      </div>
+      <a class="db-back" href="#"><span aria-hidden="true">←</span> Retour à la carte</a>
+    </div>
+
+    <!-- kanji type-rail = quick lens -->
+    <div class="type-rail" role="tablist" aria-label="Filtrer par type">
+      <button class="type-tile active" role="tab" aria-selected="true"><span class="tt-ja">集</span><span class="tt-label">Toutes</span><span class="tt-cnt tabular">23</span></button>
+      <button class="type-tile" role="tab"><span class="tt-ja">童</span><span class="tt-label">Nendoroid</span><span class="tt-cnt tabular">3</span></button>
+      <button class="type-tile" role="tab"><span class="tt-ja">像</span><span class="tt-label">Scale</span><span class="tt-cnt tabular">6</span></button>
+      <button class="type-tile" role="tab"><span class="tt-ja">動</span><span class="tt-label">Figma</span><span class="tt-cnt tabular">1</span></button>
+      <button class="type-tile zero" role="tab" aria-disabled="true"><span class="tt-ja">賞</span><span class="tt-label">Prize</span><span class="tt-cnt tabular">0</span></button>
+      <button class="type-tile zero" role="tab" aria-disabled="true"><span class="tt-ja">交</span><span class="tt-label">Trading</span><span class="tt-cnt tabular">0</span></button>
+      <button class="type-tile" role="tab"><span class="tt-ja">彫</span><span class="tt-label">Statue</span><span class="tt-cnt tabular">8</span></button>
+      <button class="type-tile" role="tab"><span class="tt-ja">組</span><span class="tt-label">Plamo</span><span class="tt-cnt tabular">1</span></button>
+      <button class="type-tile zero" role="tab" aria-disabled="true"><span class="tt-ja">美</span><span class="tt-label">Bishoujo</span><span class="tt-cnt tabular">0</span></button>
+      <button class="type-tile zero" role="tab" aria-disabled="true"><span class="tt-ja">枕</span><span class="tt-label">Dakimakura</span><span class="tt-cnt tabular">0</span></button>
+      <button class="type-tile" role="tab"><span class="tt-ja">玩</span><span class="tt-label">Autre</span><span class="tt-cnt tabular">4</span></button>
+    </div>
+
+    <!-- mobile filter trigger -->
+    <div class="m-filterbar">
+      <button class="mf-btn" id="m-filters"><span class="ja">濾</span> Filtres · <span class="tabular">2</span></button>
+      <button class="mf-btn apply">Afficher 8 résultats</button>
+    </div>
+
+    <!-- chips + sort -->
+    <div class="drill-toolbar">
+      <div class="chips">
+        <span class="chip-label">Filtres :</span>
+        <span class="chip tog own"><span class="dot"></span> Possédées <button class="x" aria-label="Retirer">×</button></span>
+        <span class="chip">Ambiance : Tentacules & laque <button class="x" aria-label="Retirer le filtre Ambiance">×</button></span>
+        <span class="chip">CROWN Studio <button class="x" aria-label="Retirer CROWN Studio">×</button></span>
+        <button class="clear">Tout effacer</button>
+      </div>
+      <div class="sort-box">
+        <span class="micro">Trier</span>
+        <div class="sort-seg" role="tablist" aria-label="Trier">
+          <button class="active">Plus récentes</button>
+          <button>Nom</button>
+          <button>Sortie</button>
+          <button>Échelle</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="drill-body">
+
+      <!-- ── facet left rail ── -->
+      <aside class="facets" aria-label="Filtres détaillés">
+        <div class="facet-quick">
+          <button class="qtog on own" aria-pressed="true">
+            <span class="ql"><span class="ja">蔵</span> Possédées</span>
+            <span class="qc tabular">3</span><span class="switch"></span>
+          </button>
+          <button class="qtog wish" aria-pressed="false">
+            <span class="ql"><span class="ja">願</span> Souhaits</span>
+            <span class="qc tabular">9</span><span class="switch"></span>
+          </button>
+          <button class="qtog" aria-pressed="false">
+            <span class="ql"><span class="ja">禁</span> Afficher NSFW</span>
+            <span class="qc tabular">3</span><span class="switch"></span>
+          </button>
+        </div>
+
+        <details class="facet" open>
+          <summary>Fabricant <span class="car">▾</span></summary>
+          <div class="facet-body">
+            <label class="fopt"><span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#100d0b" stroke-width="3"><path d="m5 12 4 4 10-10"/></svg></span><span class="fname">Good Smile</span><span class="fcnt tabular">5</span></label>
+            <label class="fopt"><span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#100d0b" stroke-width="3"><path d="m5 12 4 4 10-10"/></svg></span><span class="fname">Alter</span><span class="fcnt tabular">4</span></label>
+            <label class="fopt"><span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#100d0b" stroke-width="3"><path d="m5 12 4 4 10-10"/></svg></span><span class="fname">Max Factory</span><span class="fcnt tabular">3</span></label>
+            <label class="fopt on"><span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#100d0b" stroke-width="3"><path d="m5 12 4 4 10-10"/></svg></span><span class="fname">CROWN Studio</span><span class="fcnt tabular">3</span></label>
+            <label class="fopt"><span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#100d0b" stroke-width="3"><path d="m5 12 4 4 10-10"/></svg></span><span class="fname">Kotobukiya</span><span class="fcnt tabular">3</span></label>
+            <label class="fopt"><span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#100d0b" stroke-width="3"><path d="m5 12 4 4 10-10"/></svg></span><span class="fname">Native</span><span class="fcnt tabular">2</span></label>
+            <label class="fopt"><span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#100d0b" stroke-width="3"><path d="m5 12 4 4 10-10"/></svg></span><span class="fname">Orca Toys</span><span class="fcnt tabular">2</span></label>
+            <label class="fopt"><span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#100d0b" stroke-width="3"><path d="m5 12 4 4 10-10"/></svg></span><span class="fname">Fish Head</span><span class="fcnt tabular">2</span></label>
+          </div>
+        </details>
+
+        <details class="facet" open>
+          <summary>Série <span class="car">▾</span></summary>
+          <div class="facet-body">
+            <label class="fopt"><span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#100d0b" stroke-width="3"><path d="m5 12 4 4 10-10"/></svg></span><span class="fname">One Punch Man</span><span class="fcnt tabular">2</span></label>
+            <label class="fopt"><span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#100d0b" stroke-width="3"><path d="m5 12 4 4 10-10"/></svg></span><span class="fname">Re:ZERO</span><span class="fcnt tabular">2</span></label>
+            <label class="fopt"><span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#100d0b" stroke-width="3"><path d="m5 12 4 4 10-10"/></svg></span><span class="fname">Frieren</span><span class="fcnt tabular">2</span></label>
+            <label class="fopt"><span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#100d0b" stroke-width="3"><path d="m5 12 4 4 10-10"/></svg></span><span class="fname">Genshin Impact</span><span class="fcnt tabular">1</span></label>
+            <label class="fopt"><span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#100d0b" stroke-width="3"><path d="m5 12 4 4 10-10"/></svg></span><span class="fname">Oshi no Ko</span><span class="fcnt tabular">2</span></label>
+            <label class="fopt"><span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#100d0b" stroke-width="3"><path d="m5 12 4 4 10-10"/></svg></span><span class="fname">Mushoku Tensei</span><span class="fcnt tabular">1</span></label>
+          </div>
+        </details>
+
+        <details class="facet">
+          <summary>Échelle <span class="car">▾</span></summary>
+          <div class="facet-body">
+            <label class="fopt"><span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#100d0b" stroke-width="3"><path d="m5 12 4 4 10-10"/></svg></span><span class="fname">1/4</span><span class="fcnt tabular">1</span></label>
+            <label class="fopt"><span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#100d0b" stroke-width="3"><path d="m5 12 4 4 10-10"/></svg></span><span class="fname">1/6</span><span class="fcnt tabular">5</span></label>
+            <label class="fopt"><span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#100d0b" stroke-width="3"><path d="m5 12 4 4 10-10"/></svg></span><span class="fname">1/7</span><span class="fcnt tabular">5</span></label>
+            <label class="fopt"><span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#100d0b" stroke-width="3"><path d="m5 12 4 4 10-10"/></svg></span><span class="fname">1/8</span><span class="fcnt tabular">1</span></label>
+            <label class="fopt"><span class="box"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#100d0b" stroke-width="3"><path d="m5 12 4 4 10-10"/></svg></span><span class="fname">non-scale</span><span class="fcnt tabular">4</span></label>
+          </div>
+        </details>
+
+        <details class="facet" open>
+          <summary>Tags populaires <span class="car">▾</span></summary>
+        </details>
+        <div class="tag-cloud">
+          <span class="tg">Tentacles <span class="tc tabular">3</span></span>
+          <span class="tg">Dress <span class="tc tabular">3</span></span>
+          <span class="tg">Hair Ornament <span class="tc tabular">4</span></span>
+          <span class="tg">Gloves <span class="tc tabular">2</span></span>
+          <span class="tg">Idol <span class="tc tabular">2</span></span>
+          <span class="tg">Blue Hair <span class="tc tabular">2</span></span>
+          <span class="tg">Boots <span class="tc tabular">1</span></span>
+          <span class="tg more">+13</span>
+        </div>
+      </aside>
+
+      <!-- ── results grid ── -->
+      <div>
+        <div class="results-head">
+          <span class="rh-count"><b class="tabular">8</b> résultats dans cette ambiance</span>
+          <span class="rh-view">巡 GRILLE · 3 col</span>
+        </div>
+
+        <div class="grid">
+
+          <!-- 1 — OWNED -->
+          <article class="card">
+            <div class="well">
+              <span class="seal owned" title="Possédée">✓</span>
+              <div class="silh" aria-hidden="true"><svg viewBox="0 0 60 140" fill="rgba(216,180,110,.2)"><path d="M30 6c5 0 8 4 8 9s-3 8-3 12 6 9 6 18-5 14-5 22 5 12 5 22-9 16-14 16-14-6-14-16 5-12 5-22-5-13-5-22 6-9 6-18-3-7-3-12 3-9 8-9z"/></svg></div>
+              <span class="cap"><span>Nº 0231</span><span class="scale">1/6</span></span>
+              <div class="actions"><button class="act"><span aria-hidden="true">♡</span> Souhaiter</button><button class="act add"><span aria-hidden="true">＋</span> Ajouter</button></div>
+            </div>
+            <div class="meta"><div class="nm"><span class="accent-first">Tatsu</span>maki VS Tentacle</div><div class="sub"><span class="maker">CROWN Studio</span> · One Punch Man</div></div>
+          </article>
+
+          <!-- 2 — WISHED -->
+          <article class="card">
+            <div class="well">
+              <span class="seal wished" title="Souhaitée">♡</span>
+              <div class="silh" aria-hidden="true"><svg viewBox="0 0 60 140" fill="rgba(216,180,110,.16)"><path d="M30 8c5 0 7 4 7 9s-2 6-2 10c0 5 9 10 12 30 2 14-2 20-2 28 0 9 4 12 4 18 0 4-9 5-19 5s-19-1-19-5c0-6 4-9 4-18 0-8-4-14-2-28 3-20 12-25 12-30 0-4-2-5-2-10s2-9 7-9z"/></svg></div>
+              <span class="cap"><span>Nº 0228</span><span class="scale">1/6</span></span>
+              <div class="actions"><button class="act"><span aria-hidden="true">♡</span> Souhaiter</button><button class="act add"><span aria-hidden="true">＋</span> Ajouter</button></div>
+            </div>
+            <div class="meta"><div class="nm"><span class="accent-first">Eris</span> Greyrat</div><div class="sub"><span class="maker">Crown Studio</span> · Mushoku Tensei</div></div>
+          </article>
+
+          <!-- 3 -->
+          <article class="card">
+            <div class="well">
+              <div class="silh" aria-hidden="true"><svg viewBox="0 0 60 140" fill="rgba(95,179,154,.2)"><path d="M30 6c5 0 8 4 8 9s-3 7-3 11c0 6 8 8 8 18s-6 12-6 22 6 14 6 24-9 14-13 14-13-4-13-14 6-14 6-24-6-12-6-22 8-12 8-18c0-4-3-6-3-11s3-9 8-9z"/></svg></div>
+              <span class="cap"><span>Nº 0219</span><span class="scale">non-scale</span></span>
+              <div class="actions"><button class="act"><span aria-hidden="true">♡</span> Souhaiter</button><button class="act add"><span aria-hidden="true">＋</span> Ajouter</button></div>
+            </div>
+            <div class="meta"><div class="nm"><span class="accent-first">Nendo</span>roid Frieren</div><div class="sub"><span class="maker">Good Smile</span> · Frieren</div></div>
+          </article>
+
+          <!-- 4 — WISHED -->
+          <article class="card">
+            <div class="well">
+              <span class="seal wished" title="Souhaitée">♡</span>
+              <div class="silh" aria-hidden="true"><svg viewBox="0 0 60 140" fill="rgba(232,212,166,.18)"><path d="M30 6c6 0 8 5 8 10s-2 7-2 11c0 6 10 11 13 32 2 15-2 21-2 29 0 10 5 13 5 19 0 4-11 6-22 6s-22-2-22-6c0-6 5-9 5-19 0-8-4-14-2-29 3-21 13-26 13-32 0-4-2-5-2-11s2-10 8-10z"/></svg></div>
+              <span class="cap"><span>Nº 0214</span><span class="scale">1/7</span></span>
+              <div class="actions"><button class="act"><span aria-hidden="true">♡</span> Souhaiter</button><button class="act add"><span aria-hidden="true">＋</span> Ajouter</button></div>
+            </div>
+            <div class="meta"><div class="nm"><span class="accent-first">Emi</span>lia</div><div class="sub"><span class="maker">Alter</span> · Re:ZERO · 1/7</div></div>
+          </article>
+
+          <!-- 5 -->
+          <article class="card">
+            <div class="well">
+              <div class="silh" aria-hidden="true"><svg viewBox="0 0 60 140" fill="rgba(216,180,110,.18)"><path d="M30 8c5 0 7 4 7 8s-3 7-3 11c0 6 8 8 8 17s-6 12-6 22 6 13 6 23-8 14-12 14-12-4-12-14 6-13 6-23-6-12-6-22 8-11 8-17c0-4-3-7-3-11s3-8 7-8z"/></svg></div>
+              <span class="cap"><span>Nº 0207</span><span class="scale">non-scale</span></span>
+              <div class="actions"><button class="act"><span aria-hidden="true">♡</span> Souhaiter</button><button class="act add"><span aria-hidden="true">＋</span> Ajouter</button></div>
+            </div>
+            <div class="meta"><div class="nm"><span class="accent-first">figma</span> Ai Hoshino</div><div class="sub"><span class="maker">Max Factory</span> · Oshi no Ko</div></div>
+          </article>
+
+          <!-- 6 -->
+          <article class="card">
+            <div class="well">
+              <div class="silh" aria-hidden="true"><svg viewBox="0 0 60 140" fill="rgba(196,69,59,.18)"><path d="M30 6c5 0 8 4 8 9s-3 8-3 12 6 9 6 18-5 14-5 22 5 12 5 22-9 16-14 16-14-6-14-16 5-12 5-22-5-13-5-22 6-9 6-18-3-7-3-12 3-9 8-9z"/></svg></div>
+              <span class="cap"><span>Nº 0198</span><span class="scale">1/7</span></span>
+              <div class="actions"><button class="act"><span aria-hidden="true">♡</span> Souhaiter</button><button class="act add"><span aria-hidden="true">＋</span> Ajouter</button></div>
+            </div>
+            <div class="meta"><div class="nm"><span class="accent-first">Bishoujo</span> Raiden</div><div class="sub"><span class="maker">Kotobukiya</span> · Genshin · 1/7</div></div>
+          </article>
+
+          <!-- 7 — NSFW -->
+          <article class="card">
+            <div class="well nsfw">
+              <div class="silh" aria-hidden="true"><svg viewBox="0 0 60 140" fill="rgba(216,180,110,.2)"><path d="M30 8c5 0 7 4 7 9s-2 6-2 10c0 5 9 10 12 30 2 14-2 20-2 28 0 9 4 12 4 18 0 4-9 5-19 5s-19-1-19-5c0-6 4-9 4-18 0-8-4-14-2-28 3-20 12-25 12-30 0-4-2-5-2-10s2-9 7-9z"/></svg></div>
+              <div class="nsfw-overlay"><span class="pill">Contenu sensible</span><button class="reveal">Afficher</button></div>
+              <span class="cap"><span>Nº 0192</span><span class="scale">1/6</span></span>
+            </div>
+            <div class="meta"><div class="nm"><span class="accent-first">Nure</span> Megami</div><div class="sub"><span class="maker">Native</span> · 1/6</div></div>
+          </article>
+
+          <!-- 8 — OWNED -->
+          <article class="card">
+            <div class="well">
+              <span class="seal owned" title="Possédée">✓</span>
+              <div class="silh" aria-hidden="true"><svg viewBox="0 0 60 140" fill="rgba(232,212,166,.18)"><path d="M30 6c6 0 8 5 8 10s-2 7-2 11c0 6 10 11 13 32 2 15-2 21-2 29 0 10 5 13 5 19 0 4-11 6-22 6s-22-2-22-6c0-6 5-9 5-19 0-8-4-14-2-29 3-21 13-26 13-32 0-4-2-5-2-11s2-10 8-10z"/></svg></div>
+              <span class="cap"><span>Nº 0188</span><span class="scale">1/7</span></span>
+              <div class="actions"><button class="act"><span aria-hidden="true">♡</span> Souhaiter</button><button class="act add"><span aria-hidden="true">＋</span> Ajouter</button></div>
+            </div>
+            <div class="meta"><div class="nm"><span class="accent-first">Albe</span>do</div><div class="sub"><span class="maker">Orca Toys</span> · 1/7 · Scale</div></div>
+          </article>
+
+          <!-- 9 — NSFW -->
+          <article class="card">
+            <div class="well nsfw">
+              <div class="silh" aria-hidden="true"><svg viewBox="0 0 60 140" fill="rgba(216,180,110,.2)"><path d="M30 6c5 0 8 4 8 9s-3 8-3 12 6 9 6 18-5 14-5 22 5 12 5 22-9 16-14 16-14-6-14-16 5-12 5-22-5-13-5-22 6-9 6-18-3-7-3-12 3-9 8-9z"/></svg></div>
+              <div class="nsfw-overlay"><span class="pill">Contenu sensible</span><button class="reveal">Afficher</button></div>
+              <span class="cap"><span>Nº 0181</span><span class="scale">1/6</span></span>
+            </div>
+            <div class="meta"><div class="nm"><span class="accent-first">Nun</span> Thigh Prayer</div><div class="sub"><span class="maker">Fish Head</span> · 1/6</div></div>
+          </article>
+
+        </div>
+
+        <!-- skeleton row (loading pattern) -->
+        <div class="skeleton-note"><span class="diamond"></span> Chargement — 3 pièces de plus</div>
+        <div class="grid" aria-hidden="true">
+          <article class="card sk-card"><div class="well"><span class="sk-bar s2"></span><span class="sk-bar"></span></div><div class="sk-line"></div><div class="sk-line short"></div></article>
+          <article class="card sk-card"><div class="well"><span class="sk-bar s2"></span><span class="sk-bar"></span></div><div class="sk-line"></div><div class="sk-line short"></div></article>
+          <article class="card sk-card"><div class="well"><span class="sk-bar s2"></span><span class="sk-bar"></span></div><div class="sk-line"></div><div class="sk-line short"></div></article>
+        </div>
+
+        <!-- load more -->
+        <div class="load-zone">
+          <div class="pos">Affichage de <b class="tabular">8</b> sur <b class="tabular">23</b></div>
+          <button class="load-more"><span class="ja">続</span> Charger plus</button>
+          <div class="progress" aria-hidden="true"><span></span></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── no-results recovery (inset note) ── -->
+    <div class="empty" role="note" aria-label="Aucun résultat — exemple de récupération">
+      <div class="ja-big" aria-hidden="true">無</div>
+      <div class="e-body">
+        <h3>Aucune pièce pour <em>« tatsumaki 1/4 »</em></h3>
+        <p>Ta recherche est conservée. Retire un filtre, élargis l'ambiance, ou tente une de ces pistes — la grille n'est jamais un cul-de-sac.</p>
+        <div class="e-actions">
+          <button class="ea primary">Retirer « Échelle : 1/4 »</button>
+          <button class="ea"><span aria-hidden="true">写</span> Chercher par photo</button>
+          <button class="ea">Élargir à toute l'ambiance</button>
+        </div>
+        <div class="e-trend">
+          <div class="et-h">Tendances · à essayer</div>
+          <div class="et-chips">
+            <span class="tg">Tatsumaki <span class="tc tabular">2</span></span>
+            <span class="tg">Tentacles <span class="tc tabular">3</span></span>
+            <span class="tg">CROWN Studio <span class="tc tabular">3</span></span>
+            <span class="tg">Frieren <span class="tc tabular">2</span></span>
+            <span class="tg">Statue <span class="tc tabular">8</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  <footer class="foot">
+    <span><span class="ja">像</span> FigureCollector · Catalogue mondial · <span class="tabular">23</span> pièces référencées</span>
+    <span>巡 Ambiances calculées par DINOv2 · 写 recherche visuelle in-browser</span>
+  </footer>
+
+</main>
+
+<script>
+(function(){
+  // search-mode segmented
+  document.querySelectorAll('.mode-seg button').forEach(function(b){
+    b.addEventListener('click',function(){
+      this.parentNode.querySelectorAll('button').forEach(function(x){x.classList.remove('active');x.setAttribute('aria-selected','false');});
+      this.classList.add('active');this.setAttribute('aria-selected','true');
+    });
+  });
+  // sort segmented
+  document.querySelectorAll('.sort-seg button').forEach(function(b){
+    b.addEventListener('click',function(){
+      this.parentNode.querySelectorAll('button').forEach(function(x){x.classList.remove('active');});
+      this.classList.add('active');
+    });
+  });
+  // type-rail lens
+  document.querySelectorAll('.type-tile:not(.zero)').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.type-tile').forEach(function(x){x.classList.remove('active');x.setAttribute('aria-selected','false');});
+      this.classList.add('active');this.setAttribute('aria-selected','true');
+    });
+  });
+  // facet quick toggles
+  document.querySelectorAll('.qtog').forEach(function(b){
+    b.addEventListener('click',function(){
+      var on=this.classList.toggle('on');
+      this.setAttribute('aria-pressed',on?'true':'false');
+    });
+  });
+  // facet options
+  document.querySelectorAll('.fopt').forEach(function(o){
+    o.addEventListener('click',function(e){e.preventDefault();this.classList.toggle('on');});
+  });
+  // autocomplete: show on focus, hide on blur
+  var search=document.getElementById('search'), ac=document.getElementById('ac');
+  function setAC(v){ ac.style.display=v?'block':'none'; }
+  setAC(false);
+  search.addEventListener('focus',function(){setAC(true);});
+  search.addEventListener('blur',function(){setTimeout(function(){setAC(false);},150);});
+  // chip removal
+  document.querySelectorAll('.chip .x').forEach(function(x){
+    x.addEventListener('click',function(){var c=this.closest('.chip');c.style.opacity='0';setTimeout(function(){c.remove();},180);});
+  });
+})();
+</script>
+
+</body>
+</html>

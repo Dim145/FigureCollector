@@ -1,0 +1,1008 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>③ Le Cabinet — Catalogue · FigureCollector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Instrument+Sans:ital,wght@0,400..600;1,400..500&family=Noto+Serif+JP:wght@300..500&family=JetBrains+Mono:wght@300..500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --color-noir:#161311; --color-noir-soft:#211c19; --color-noir-deep:#100d0b;
+  --color-laque:#8f2d2a; --color-laque-bright:#c4453b;       /* hanko red — the ONE hot accent */
+  --color-or:#d8b46e; --color-or-pale:#e8d4a6; --color-or-deep:#a98a4e;  /* gold = value/metadata/hairlines */
+  --color-jade:#5fb39a; --color-ivoire:#ece3d2; --color-ivoire-soft:rgba(236,227,210,.8);
+  --surface:var(--color-noir-soft); --surface-raised:var(--color-noir); --surface-sunken:var(--color-noir-deep);
+  --on-surface:var(--color-ivoire); --on-surface-muted:var(--color-ivoire-soft); --on-surface-subtle:rgba(236,227,210,.55);
+  --border:rgba(216,180,110,.22); --border-strong:rgba(216,180,110,.42); --border-subtle:rgba(216,180,110,.12);
+  --primary:var(--color-laque); --primary-hover:var(--color-laque-bright); --accent:var(--color-or);
+  --jade:var(--color-jade); --ring:var(--color-or);
+  --font-display:"Fraunces",Georgia,serif; --font-sans:"Instrument Sans",system-ui,sans-serif;
+  --font-ja:"Noto Serif JP","Yu Mincho",serif; --font-mono:"JetBrains Mono",ui-monospace,monospace;
+  --radius-sm:2px; --radius-md:4px; --radius-lg:8px; --radius-xl:14px; --radius-pill:9999px;
+  --ease:cubic-bezier(.22,1,.36,1); --dur:240ms;
+  --elev-2:0 12px 32px -20px rgba(0,0,0,.7);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--color-noir);color:var(--on-surface);
+  font-family:var(--font-sans);font-size:15px;line-height:1.55;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+img,svg{display:block}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;color:inherit;background:none;border:0}
+:focus-visible{outline:2px solid var(--ring);outline-offset:2px;border-radius:var(--radius-sm)}
+.tnum{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--font-mono)}
+.wrap{width:100%;max-width:1320px;margin:0 auto;padding:0 clamp(1rem,3vw,2.4rem)}
+
+/* faint static grain (GPU-light) */
+.grain{position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:.05;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");}
+
+/* ===== signature bits ===== */
+.micro{font-family:var(--font-sans);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--color-or-pale)}
+.micro .dot{display:inline-block;width:5px;height:5px;background:var(--primary);transform:rotate(45deg);margin:0 .55em;vertical-align:middle}
+.gold-rule{height:1px;border:0;margin:0;background:linear-gradient(90deg,transparent,var(--color-or) 22%,var(--color-or) 78%,transparent);opacity:.55}
+.kanji-wm{position:absolute;font-family:var(--font-ja);color:var(--color-or);opacity:.05;line-height:1;pointer-events:none;user-select:none;z-index:0}
+.vtxt{writing-mode:vertical-rl;text-orientation:mixed;font-family:var(--font-ja);letter-spacing:.18em}
+
+/* ===== page label ===== */
+.page-label{position:fixed;top:62px;left:14px;z-index:60;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--color-noir-deep);background:var(--color-or);
+  padding:5px 11px;border-radius:var(--radius-sm);box-shadow:var(--elev-2);font-weight:500;max-width:88vw}
+
+/* ===== top bar + sub-nav ===== */
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:1.4rem;
+  height:54px;padding:0 clamp(1rem,3vw,2.4rem);
+  background:rgba(16,13,11,.94);border-bottom:1px solid var(--border-subtle)}
+.brand{display:flex;align-items:center;gap:.55rem;font-family:var(--font-display);font-weight:300;font-size:18px;letter-spacing:.01em}
+.brand .ja{font-family:var(--font-ja);color:var(--color-or);font-size:20px}
+.topbar .spacer{flex:1}
+.topbar .util{display:flex;align-items:center;gap:1.1rem;font-size:13px;color:var(--on-surface-muted)}
+.topbar .util a:hover{color:var(--on-surface)}
+.topbar .pill{display:inline-flex;align-items:center;gap:.45em;border:1px solid var(--border);border-radius:var(--radius-pill);
+  padding:5px 12px;font-size:12px;color:var(--color-or-pale)}
+.subnav{position:sticky;top:54px;z-index:49;display:flex;align-items:center;gap:1.6rem;
+  padding:.55rem clamp(1rem,3vw,2.4rem);background:rgba(16,13,11,.9);border-bottom:1px solid var(--border-subtle);
+  font-size:12.5px;letter-spacing:.04em;color:var(--on-surface-subtle)}
+.subnav a{display:inline-flex;align-items:center;gap:.5em}
+.subnav a .ja{font-family:var(--font-ja);color:var(--color-or-deep);font-size:15px}
+.subnav a.cur{color:var(--color-or-pale)}
+.subnav a.cur .ja{color:var(--color-or)}
+.subnav a:not(.cur):hover{color:var(--on-surface-muted)}
+
+/* ============================================================
+   HERO — editorial invitation + persistent search station
+   ============================================================ */
+.hero{position:relative;overflow:hidden;padding:clamp(2.4rem,5vw,4rem) 0 clamp(1.8rem,3vw,2.6rem)}
+.hero .kanji-wm{font-size:min(48vw,540px);right:-4%;top:50%;transform:translateY(-52%)}
+.hero-inner{position:relative;z-index:1}
+.hero h1{font-family:var(--font-display);font-weight:300;font-optical-sizing:auto;
+  font-size:clamp(3rem,8vw,6.4rem);line-height:.92;margin:.5rem 0 .2rem;letter-spacing:-.01em}
+.hero h1 .accent{font-style:italic;color:var(--color-laque-bright);font-weight:400}
+.hero h1 .ja{font-family:var(--font-ja);color:var(--color-or);opacity:.85;font-size:.4em;font-weight:300;
+  vertical-align:.35em;margin-left:.25em}
+.hero .lede{max-width:46ch;color:var(--on-surface-muted);font-size:clamp(.95rem,1.5vw,1.05rem);margin:.6rem 0 0}
+.hero .lede b{color:var(--color-or-pale);font-weight:500}
+
+/* search station */
+.station{position:relative;z-index:1;margin-top:clamp(1.6rem,3vw,2.4rem);
+  background:linear-gradient(180deg,var(--surface),var(--surface-raised));
+  border:1px solid var(--border);border-radius:var(--radius-lg);padding:clamp(1rem,2vw,1.4rem)}
+.modes{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--border);border-radius:var(--radius-pill);
+  background:var(--surface-sunken);margin-bottom:.9rem;flex-wrap:wrap}
+.modes button{font-size:12.5px;letter-spacing:.02em;padding:7px 15px;border-radius:var(--radius-pill);
+  color:var(--on-surface-subtle);transition:color var(--dur) var(--ease),background var(--dur) var(--ease);min-height:34px}
+.modes button .ja{font-family:var(--font-ja);margin-right:.4em;font-size:13px;opacity:.7}
+.modes button[aria-selected="true"]{background:var(--surface-raised);color:var(--color-or-pale);
+  box-shadow:inset 0 0 0 1px var(--border-strong)}
+.modes button:not([aria-selected="true"]):hover{color:var(--on-surface)}
+.searchbar{display:flex;align-items:center;gap:.6rem;background:var(--surface-sunken);
+  border:1px solid var(--border-strong);border-radius:var(--radius-md);padding:.55rem .7rem .55rem .9rem}
+.searchbar .ico{width:18px;height:18px;color:var(--color-or-deep);flex:none}
+.searchbar input{flex:1;min-width:28ch;background:none;border:0;color:var(--on-surface);font-size:15px;font-family:var(--font-sans);padding:.45rem 0;outline:none}
+.searchbar input::placeholder{color:var(--on-surface-subtle)}
+.searchbar .tools{display:flex;align-items:center;gap:.2rem}
+.searchbar .tool{width:38px;height:38px;display:grid;place-items:center;border-radius:var(--radius-sm);
+  color:var(--color-or-pale);transition:background var(--dur) var(--ease),color var(--dur) var(--ease)}
+.searchbar .tool:hover{background:rgba(216,180,110,.1);color:var(--color-or)}
+.searchbar .tool svg{width:18px;height:18px}
+.searchbar .go{align-self:stretch;display:inline-flex;align-items:center;gap:.45em;background:var(--primary);
+  color:var(--color-ivoire);border-radius:var(--radius-sm);padding:0 1.1rem;font-size:13px;letter-spacing:.04em;
+  font-weight:500;min-height:44px;transition:background var(--dur) var(--ease)}
+.searchbar .go:hover{background:var(--primary-hover)}
+.station .hint{margin-top:.7rem;font-size:11.5px;color:var(--on-surface-subtle);display:flex;gap:1.2rem;flex-wrap:wrap}
+.station .hint .ja{font-family:var(--font-ja);color:var(--color-or-deep);margin-right:.3em}
+
+/* autocomplete sketch */
+.ac{position:relative;z-index:5;margin-top:-2px}
+.ac-panel{position:absolute;left:0;right:0;top:.4rem;background:var(--surface-raised);border:1px solid var(--border-strong);
+  border-radius:var(--radius-md);box-shadow:var(--elev-2);overflow:hidden}
+.ac-head{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--on-surface-subtle);
+  padding:.55rem .9rem .2rem}
+.ac-row{display:flex;align-items:center;gap:.7rem;padding:.5rem .9rem;font-size:13.5px;color:var(--on-surface-muted);
+  cursor:pointer;transition:background var(--dur) var(--ease)}
+.ac-row:hover,.ac-row.on{background:rgba(216,180,110,.07);color:var(--on-surface)}
+.ac-row svg{width:14px;height:14px;color:var(--color-or-deep);flex:none}
+.ac-row b{color:var(--color-or-pale);font-weight:500}
+.ac-row .meta{margin-left:auto;font-size:11px;color:var(--on-surface-subtle)}
+.ac-foot{display:flex;gap:.5rem;flex-wrap:wrap;padding:.6rem .9rem .8rem;border-top:1px solid var(--border-subtle)}
+.ac-foot .lab{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--on-surface-subtle);align-self:center;margin-right:.2rem}
+.ac-chip{font-size:12px;border:1px solid var(--border);border-radius:var(--radius-pill);padding:3px 11px;color:var(--on-surface-muted)}
+.ac-chip:hover{border-color:var(--border-strong);color:var(--on-surface)}
+
+/* type rail (kanji tiles) */
+.typerail{position:relative;z-index:1;margin-top:1.4rem;display:flex;gap:.55rem;overflow-x:auto;padding-bottom:.4rem;scrollbar-width:thin}
+.tchip{flex:none;display:flex;flex-direction:column;align-items:center;gap:.15rem;min-width:74px;padding:.7rem .6rem;
+  border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--surface);
+  transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.tchip:hover{border-color:var(--border-strong);transform:translateY(-2px)}
+.tchip[aria-pressed="true"]{border-color:var(--color-or);box-shadow:inset 0 0 0 1px var(--color-or)}
+.tchip .ja{font-family:var(--font-ja);font-size:22px;color:var(--color-or);line-height:1}
+.tchip .nm{font-size:11.5px;color:var(--on-surface-muted);white-space:nowrap}
+.tchip .ct{font-size:11px;color:var(--on-surface-subtle)}
+.tchip[aria-pressed="true"] .nm{color:var(--color-or-pale)}
+.tchip.zero{opacity:.45}
+
+/* ============================================================
+   SECTION scaffolding (editorial rail headers)
+   ============================================================ */
+.section{position:relative;padding:clamp(2.2rem,4vw,3.4rem) 0}
+.section.alt{background:var(--surface-raised);border-top:1px solid var(--border-subtle);border-bottom:1px solid var(--border-subtle)}
+.sec-head{display:flex;align-items:flex-end;gap:1rem;margin-bottom:1.3rem}
+.sec-head .ja{font-family:var(--font-ja);font-size:clamp(1.8rem,3.6vw,2.6rem);color:var(--color-or);opacity:.85;line-height:.8}
+.sec-head .txt h2{font-family:var(--font-display);font-weight:400;font-size:clamp(1.4rem,2.6vw,1.95rem);margin:.1rem 0 0;letter-spacing:.01em}
+.sec-head .txt .micro{display:block;margin-bottom:.1rem}
+.sec-head .rule{flex:1;height:1px;align-self:center;margin-bottom:.55rem;
+  background:linear-gradient(90deg,var(--color-or) 0%,transparent 100%);opacity:.4}
+.sec-head .more{align-self:center;margin-bottom:.45rem;font-size:12px;color:var(--color-or-pale);white-space:nowrap;display:inline-flex;gap:.4em;align-items:center}
+.sec-head .more:hover{color:var(--color-or)}
+
+/* ----- bento: explorer par fabricant ----- */
+.bento{display:grid;gap:.9rem;grid-template-columns:repeat(4,1fr);grid-auto-rows:118px}
+.maker{position:relative;overflow:hidden;border:1px solid var(--border-subtle);border-radius:var(--radius-md);
+  background:var(--surface);padding:1rem 1.1rem;display:flex;flex-direction:column;justify-content:flex-end;
+  transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.maker:hover{border-color:var(--border-strong);transform:translateY(-2px)}
+.maker .ini{position:absolute;top:-.15em;right:.2em;font-family:var(--font-ja);font-size:6.5rem;line-height:1;
+  color:var(--color-or);opacity:.07;pointer-events:none}
+.maker.feat{grid-column:span 2;grid-row:span 2;
+  background:radial-gradient(120% 110% at 80% 10%,#26201b,var(--surface) 60%)}
+.maker.feat .ini{font-size:13rem;opacity:.09}
+.maker .nm{font-family:var(--font-display);font-size:1.05rem;color:var(--on-surface);position:relative;z-index:1}
+.maker.feat .nm{font-size:1.9rem;font-weight:400}
+.maker .ct{font-size:12px;color:var(--color-or-pale);position:relative;z-index:1;margin-top:.15rem}
+.maker .ct .lbl{color:var(--on-surface-subtle)}
+.maker.feat .tag{position:relative;z-index:1;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-or-deep);margin-bottom:auto}
+.maker.feat .specks{position:absolute;left:1.1rem;bottom:5.4rem;display:flex;gap:.5rem;opacity:.5}
+.maker.feat .specks svg{width:34px;height:50px}
+
+/* ----- explorer par série / personnage row ----- */
+.tilerow{display:flex;gap:.7rem;overflow-x:auto;padding-bottom:.5rem;scrollbar-width:thin}
+.serie{flex:none;min-width:178px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);background:var(--surface);
+  padding:.85rem .95rem;position:relative;overflow:hidden;transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.serie:hover{border-color:var(--border-strong);transform:translateY(-2px)}
+.serie .ini{position:absolute;right:-.1em;bottom:-.45em;font-family:var(--font-ja);font-size:3.6rem;color:var(--color-or);opacity:.07;line-height:1}
+.serie .nm{font-family:var(--font-display);font-size:1rem;position:relative;z-index:1}
+.serie .ct{font-size:11.5px;color:var(--on-surface-subtle);margin-top:.15rem;position:relative;z-index:1}
+.serie .ct b{color:var(--color-or-pale);font-weight:500}
+
+/* ----- ambiances (visual clusters) ----- */
+.amb-grid{display:grid;gap:.9rem;grid-template-columns:repeat(4,1fr)}
+.amb{position:relative;overflow:hidden;border:1px solid var(--border-subtle);border-radius:var(--radius-md);
+  aspect-ratio:5/4;background:radial-gradient(115% 95% at 50% 24%,#221c18 0%,var(--surface-sunken) 72%);
+  display:flex;flex-direction:column;justify-content:flex-end;padding:.9rem 1rem;
+  transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.amb:hover{border-color:var(--border-strong);transform:translateY(-2px)}
+.amb .vignette{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(120% 100% at 50% 30%,transparent 48%,rgba(16,13,11,.55) 86%,rgba(16,13,11,.9) 100%)}
+.amb .specks{position:absolute;top:8%;left:0;right:0;display:flex;justify-content:center;align-items:flex-end;gap:.1rem;opacity:.4}
+.amb .specks svg{width:48px;height:72px}
+.amb .specks svg:nth-child(2){width:60px;height:90px;opacity:1}
+.amb .badge{position:absolute;top:.7rem;right:.7rem;z-index:2;font-family:var(--font-ja);font-size:13px;color:var(--color-or-pale);
+  border:1px solid var(--border-strong);border-radius:var(--radius-pill);width:30px;height:30px;display:grid;place-items:center;
+  background:rgba(16,13,11,.5)}
+.amb .nm{position:relative;z-index:2;font-family:var(--font-display);font-size:1.1rem;line-height:1.15}
+.amb .ct{position:relative;z-index:2;font-size:11.5px;color:var(--color-or-pale);margin-top:.1rem}
+.amb .ct .lbl{color:var(--on-surface-subtle)}
+
+/* ----- curated rails (horizontal card strips) ----- */
+.rail{position:relative}
+.rail + .rail{margin-top:clamp(2rem,3.5vw,2.8rem)}
+.strip{display:flex;gap:.9rem;overflow-x:auto;padding-bottom:.6rem;scroll-snap-type:x mandatory;scrollbar-width:thin}
+.strip .card{flex:none;width:210px;scroll-snap-align:start}
+
+/* ============================================================
+   FIGURE CARD — matted specimen well (shared)
+   ============================================================ */
+.card{position:relative;border:1px solid var(--border-subtle);border-radius:var(--radius-md);
+  background:var(--surface);overflow:hidden;transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.card:hover{border-color:var(--border-strong);transform:translateY(-3px)}
+.well{position:relative;aspect-ratio:3/4;
+  background:radial-gradient(95% 80% at 50% 30%,#241e19 0%,var(--surface-sunken) 70%);overflow:hidden}
+.well .vignette{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(120% 100% at 50% 32%,transparent 50%,rgba(16,13,11,.5) 86%,rgba(16,13,11,.86) 100%)}
+.well .spec{position:absolute;left:50%;top:48%;transform:translate(-50%,-50%);height:74%;width:auto}
+.well .cap{position:absolute;left:.55rem;right:.55rem;bottom:.5rem;z-index:2;display:flex;justify-content:space-between;
+  font-family:var(--font-mono);font-size:10px;color:var(--on-surface-subtle);letter-spacing:.04em}
+.well .cap .sc{color:var(--color-or-pale)}
+/* status seals */
+.seal{position:absolute;top:.55rem;left:.55rem;z-index:3;display:inline-flex;align-items:center;gap:.35em;
+  font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:var(--radius-pill);
+  font-family:var(--font-mono)}
+.seal.own{color:var(--color-or-pale);border:1px solid var(--border-strong);background:rgba(16,13,11,.5)}
+.seal.own .ck{color:var(--color-or)}
+.seal.wish{color:var(--color-laque-bright);border:1px solid rgba(196,69,59,.5);background:rgba(16,13,11,.5)}
+/* hover quick actions */
+.qa{position:absolute;left:.5rem;right:.5rem;bottom:.5rem;z-index:4;display:flex;gap:.45rem;
+  opacity:0;transform:translateY(6px);transition:opacity var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.card:hover .qa{opacity:1;transform:none}
+.card:hover .cap{opacity:0}
+.qa button{flex:1;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:.4em;
+  font-size:12px;border-radius:var(--radius-sm);border:1px solid var(--border-strong);background:rgba(16,13,11,.78);
+  color:var(--color-or-pale);transition:background var(--dur) var(--ease),color var(--dur) var(--ease)}
+.qa button.add{background:var(--primary);border-color:var(--primary);color:var(--color-ivoire)}
+.qa button:hover{background:rgba(216,180,110,.14)}
+.qa button.add:hover{background:var(--primary-hover)}
+.qa button svg{width:14px;height:14px}
+/* NSFW */
+.well.nsfw .spec{opacity:.18}
+.nsfw-veil{position:absolute;inset:0;z-index:3;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;
+  background:repeating-linear-gradient(45deg,#15110f,#15110f 9px,#1b1613 9px,#1b1613 18px)}
+.nsfw-veil .pill{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--on-surface-muted);
+  border:1px solid var(--border);border-radius:var(--radius-pill);padding:4px 11px;background:rgba(16,13,11,.6)}
+.nsfw-veil .rev{font-size:11px;color:var(--color-or-pale)}
+.card .body{padding:.7rem .8rem .85rem}
+.card .body .nm{font-family:var(--font-display);font-size:.97rem;line-height:1.2;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .body .nm .fw{color:var(--color-laque-bright);font-style:italic}
+.card .body .meta{display:flex;align-items:center;gap:.4rem;margin-top:.35rem;font-size:11.5px;color:var(--on-surface-subtle);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .body .meta .mk{color:var(--color-or-pale)}
+.card .body .meta .sep{opacity:.45}
+
+/* ============================================================
+   DEEP-DIVE GRID (the back room)
+   ============================================================ */
+.gridhead{display:flex;align-items:flex-end;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.gridhead .lead{display:flex;align-items:flex-end;gap:.9rem}
+.gridhead .lead .ja{font-family:var(--font-ja);font-size:2.2rem;color:var(--color-or);opacity:.8;line-height:.8}
+.gridhead .lead h2{font-family:var(--font-display);font-weight:400;font-size:1.6rem;margin:0}
+.gridhead .lead .pos{font-size:12px;color:var(--on-surface-subtle);margin-bottom:.35rem}
+.gridhead .lead .pos b{color:var(--color-or-pale);font-weight:500}
+.gridtools{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:.5em;border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:.5rem .85rem;font-size:12.5px;color:var(--on-surface-muted);min-height:40px;
+  transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease)}
+.btn:hover{border-color:var(--border-strong);color:var(--on-surface)}
+.btn svg{width:15px;height:15px;color:var(--color-or-deep)}
+.btn .ct{color:var(--color-or-pale)}
+.select{display:inline-flex;align-items:center;gap:.5em;border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:.5rem .85rem;font-size:12.5px;color:var(--on-surface-muted);min-height:40px;position:relative}
+.select select{appearance:none;background:none;border:0;color:var(--color-or-pale);font-family:var(--font-sans);font-size:12.5px;padding-right:1.2em;outline:none}
+.select .ch{position:absolute;right:.7rem;color:var(--color-or-deep);pointer-events:none}
+
+/* applied chips */
+.applied{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:1.1rem}
+.applied .lab{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--on-surface-subtle)}
+.fchip{display:inline-flex;align-items:center;gap:.5em;font-size:12px;border:1px solid var(--border-strong);
+  border-radius:var(--radius-pill);padding:4px 6px 4px 12px;color:var(--on-surface);background:var(--surface)}
+.fchip .k{color:var(--on-surface-subtle);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase}
+.fchip .x{width:20px;height:20px;border-radius:var(--radius-pill);display:grid;place-items:center;color:var(--color-or-pale);
+  border:1px solid var(--border);font-size:12px;line-height:1}
+.fchip .x:hover{background:var(--primary);border-color:var(--primary);color:var(--color-ivoire)}
+.applied .clear{font-size:12px;color:var(--color-laque-bright);margin-left:.2rem}
+.applied .clear:hover{text-decoration:underline}
+
+.grid{display:grid;gap:1rem;grid-template-columns:repeat(4,1fr)}
+
+/* skeletons */
+.sk{border:1px solid var(--border-subtle);border-radius:var(--radius-md);overflow:hidden;background:var(--surface)}
+.sk .well{aspect-ratio:3/4;background:var(--surface-sunken)}
+.sk .ln{height:11px;border-radius:3px;background:rgba(216,180,110,.08);margin:.55rem .8rem}
+.sk .ln.w70{width:70%}.sk .ln.w45{width:45%}
+.skhead{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--on-surface-subtle);margin:1.4rem 0 .7rem}
+
+/* load more */
+.loadmore{display:flex;flex-direction:column;align-items:center;gap:.8rem;margin-top:2rem}
+.loadmore .pos{font-size:12px;color:var(--on-surface-subtle)}
+.loadmore .pos b{color:var(--color-or-pale);font-weight:500}
+.loadmore button{border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:.8rem 2.2rem;
+  font-size:13px;letter-spacing:.04em;color:var(--color-or-pale);min-height:48px;
+  transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease)}
+.loadmore button:hover{background:rgba(216,180,110,.08);border-color:var(--color-or)}
+.loadmore .track{width:min(420px,80%);height:3px;border-radius:3px;background:var(--surface-sunken);overflow:hidden}
+.loadmore .track i{display:block;height:100%;width:70%;background:linear-gradient(90deg,var(--color-or-deep),var(--color-or))}
+
+/* no-results inset */
+.empty{margin-top:2.4rem;border:1px solid var(--border);border-radius:var(--radius-lg);padding:clamp(1.4rem,3vw,2.2rem);
+  background:var(--surface);position:relative;overflow:hidden}
+.empty .kanji-wm{font-size:14rem;right:2%;top:50%;transform:translateY(-50%)}
+.empty h3{font-family:var(--font-display);font-weight:400;font-size:1.4rem;margin:0 0 .3rem;position:relative;z-index:1}
+.empty p{color:var(--on-surface-muted);font-size:14px;max-width:54ch;position:relative;z-index:1;margin:.2rem 0 .9rem}
+.empty p b{color:var(--color-or-pale)}
+.empty .acts{display:flex;gap:.6rem;flex-wrap:wrap;position:relative;z-index:1}
+.empty .trend{font-size:12px;color:var(--on-surface-subtle);margin-top:1rem;position:relative;z-index:1}
+.empty .trend .ja{font-family:var(--font-ja);color:var(--color-or-deep);margin-right:.4em}
+.empty .trend a{color:var(--color-or-pale);margin-right:.7rem;white-space:nowrap}
+.empty .trend a:hover{color:var(--color-or)}
+
+/* footer */
+.foot{border-top:1px solid var(--border-subtle);margin-top:clamp(2.4rem,5vw,4rem);padding:2rem 0 3rem;
+  color:var(--on-surface-subtle);font-size:12px;display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
+.foot .ja{font-family:var(--font-ja);color:var(--color-or-deep)}
+
+/* ===== mobile filter drawer (mock, shown as inline note on desktop) ===== */
+.mfilters{display:none}
+
+/* fig silhouette tints */
+.fig .body{fill:var(--color-or-deep);opacity:.34}
+.fig .hi{fill:var(--color-or-pale);opacity:.30}
+.fig .sh{fill:#000;opacity:.4}
+.fig.t-laque .body{fill:var(--color-laque);opacity:.3}
+.fig.t-jade .body{fill:var(--color-jade);opacity:.26}
+.fig.t-ivoire .body{fill:var(--color-ivoire);opacity:.16}
+.fig.t-deep .body{fill:var(--color-or);opacity:.22}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width:1024px){
+  .bento{grid-template-columns:repeat(3,1fr)}
+  .maker.feat{grid-column:span 2;grid-row:span 2}
+  .amb-grid{grid-template-columns:repeat(3,1fr)}
+  .grid{grid-template-columns:repeat(3,1fr)}
+  .mfilters{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:1rem;
+    font-size:11.5px;color:var(--on-surface-subtle)}
+}
+@media (max-width:640px){
+  .hero h1{font-size:clamp(2.6rem,16vw,3.4rem)}
+  .searchbar{flex-wrap:wrap}
+  .searchbar input{min-width:0;width:100%;order:-1}
+  .searchbar .go{flex:1}
+  .bento{grid-template-columns:repeat(2,1fr);grid-auto-rows:104px}
+  .maker.feat{grid-column:span 2;grid-row:span 2}
+  .maker.feat .specks{display:none}
+  .amb-grid{grid-template-columns:repeat(2,1fr)}
+  .grid{grid-template-columns:repeat(2,1fr)}
+  .strip .card{width:160px}
+  .gridhead{align-items:flex-start}
+  /* on mobile, quick actions are always visible per brief */
+  .card .qa{opacity:1;transform:none;position:static;margin:.5rem .6rem 0;left:auto;right:auto;bottom:auto}
+  .card:hover .cap{opacity:1}
+  .well .cap{position:absolute}
+  .sticky-filter{position:fixed;left:0;right:0;bottom:0;z-index:55;display:flex;gap:.6rem;padding:.7rem 1rem;
+    background:rgba(16,13,11,.96);border-top:1px solid var(--border-strong)}
+  .sticky-filter button{flex:1;min-height:48px;border-radius:var(--radius-sm);font-size:13px}
+  .sticky-filter .ff{border:1px solid var(--border-strong);color:var(--color-or-pale)}
+  .sticky-filter .res{background:var(--primary);color:var(--color-ivoire)}
+  body{padding-bottom:74px}
+}
+.sticky-filter{display:none}
+@media (max-width:640px){.sticky-filter{display:flex}}
+
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;scroll-behavior:auto!important}
+}
+</style>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+<div class="page-label">③ LE CABINET · découverte (rails + bento + ambiances)</div>
+
+<!-- ====== SVG FIGURE LIBRARY (silhouettes réutilisables, partagées avec la famille A) ====== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="fig-scale" viewBox="0 0 100 150">
+    <ellipse class="sh" cx="50" cy="143" rx="27" ry="5"/>
+    <path class="body" d="M50 58 C36 58 27 100 32 134 L68 134 C73 100 64 58 50 58 Z"/>
+    <path class="hi" d="M50 58 C44 58 40 78 41 110 L50 110 Z"/>
+    <path class="body" d="M50 46 C45 46 43 54 45 62 L55 62 C57 54 55 46 50 46 Z"/>
+    <circle class="hi" cx="50" cy="36" r="11"/>
+    <path class="body" d="M38 33 C28 37 24 70 33 100 C35 80 39 62 45 56 C40 46 41 35 38 33 Z"/>
+    <path class="body" d="M62 33 C72 37 78 74 67 104 C65 82 61 62 55 56 C60 46 59 35 62 33 Z"/>
+    <path class="sh" d="M40 50 C34 60 33 84 36 96 C37 78 41 62 45 56 Z"/>
+  </symbol>
+  <symbol id="fig-action" viewBox="0 0 100 150">
+    <ellipse class="sh" cx="46" cy="143" rx="24" ry="5"/>
+    <path class="body" d="M44 56 C36 56 33 82 38 100 L40 134 L52 134 L52 104 L60 120 L70 112 L54 86 C56 70 54 56 44 56 Z"/>
+    <path class="body" d="M46 58 L74 40 L78 48 L52 70 Z"/>
+    <circle class="hi" cx="45" cy="44" r="10"/>
+    <path class="body" d="M36 40 C30 44 30 58 36 64 C36 54 40 48 45 45 Z"/>
+    <path class="hi" d="M44 58 C40 70 40 86 42 100 L48 100 C47 84 48 70 50 60 Z"/>
+  </symbol>
+  <symbol id="fig-mecha" viewBox="0 0 100 150">
+    <ellipse class="sh" cx="50" cy="143" rx="26" ry="5"/>
+    <path class="body" d="M38 60 L62 60 L66 96 L58 132 L42 132 L34 96 Z"/>
+    <path class="hi" d="M38 60 L50 60 L50 132 L42 132 L34 96 Z"/>
+    <rect class="body" x="44" y="40" width="12" height="16" rx="2"/>
+    <path class="hi" d="M48 38 L52 38 L54 44 L46 44 Z"/>
+    <path class="body" d="M30 62 L38 64 L40 92 L30 90 Z"/>
+    <path class="body" d="M70 62 L62 64 L60 92 L70 90 Z"/>
+    <rect class="sh" x="46" y="70" width="8" height="22" rx="2"/>
+  </symbol>
+</defs></svg>
+
+<!-- ====== TOP BAR ====== -->
+<header class="topbar">
+  <a class="brand" href="#"><span class="ja">像</span> FigureCollector</a>
+  <span class="spacer"></span>
+  <nav class="util">
+    <a href="#">Ma collection</a>
+    <a href="#">Souhaits</a>
+    <span class="pill"><span class="ja" style="font-family:var(--font-ja)">守</span> ddubois</span>
+  </nav>
+</header>
+<nav class="subnav" aria-label="Sections du catalogue">
+  <a href="#" class="cur"><span class="ja">探</span> Catalogue</a>
+  <a href="#"><span class="ja">写</span> Reconnaître par photo</a>
+  <a href="#" style="margin-left:auto;color:var(--on-surface-subtle)"><span class="ja">目</span> 23 fiches indexées</a>
+</nav>
+
+<!-- ============================================================
+     HERO + SEARCH STATION
+     ============================================================ -->
+<section class="hero">
+  <span class="kanji-wm" aria-hidden="true">目</span>
+  <div class="wrap hero-inner">
+    <p class="micro">Toutes les figurines, qu'on les possède ou non <span class="dot"></span> 23 fiches</p>
+    <h1><span class="accent">Cata</span>logue<span class="ja">目</span></h1>
+    <p class="lede">Le cabinet. On entre par les <b>fabricants</b>, les <b>séries</b> et les <b>ambiances</b> —
+      la grille complète attend au fond, pour fouiller.</p>
+
+    <!-- SEARCH STATION (persistent, wide) -->
+    <div class="station" role="search">
+      <div class="modes" role="tablist" aria-label="Mode de recherche">
+        <button role="tab" aria-selected="true"><span class="ja">字</span>Mots-clés</button>
+        <button role="tab" aria-selected="false"><span class="ja">意</span>Description <span style="opacity:.6">(sémantique)</span></button>
+        <button role="tab" aria-selected="false"><span class="ja">見</span>Apparence <span style="opacity:.6">(visuelle)</span></button>
+      </div>
+      <div class="searchbar">
+        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Rechercher par nom, série, fabricant…" autocomplete="off" value="frier" aria-label="Recherche">
+        <div class="tools">
+          <button class="tool" title="Recherche par photo (visuelle)" aria-label="Recherche par photo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 8a2 2 0 0 1 2-2h1.5l1-1.5h5l1 1.5H18a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><circle cx="12" cy="12" r="3.2"/></svg>
+          </button>
+          <button class="tool" title="Scanner un code-barres (JAN / EAN)" aria-label="Scanner un code-barres">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 6v12M7 6v12M10 6v12M13 6v12M17 6v12M20 6v12" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <button class="go"><span class="ja" style="font-family:var(--font-ja)">探</span> Chercher</button>
+      </div>
+
+      <!-- autocomplete sketch -->
+      <div class="ac">
+        <div class="ac-panel" role="listbox" aria-label="Suggestions">
+          <div class="ac-head">Suggestions</div>
+          <div class="ac-row on" role="option"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span><b>Frier</b>en</span><span class="meta">série · 3</span></div>
+          <div class="ac-row" role="option"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Nendoroid <b>Frier</b>en</span><span class="meta">figure</span></div>
+          <div class="ac-row" role="option"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>1/7 <b>Frier</b>en — Max Factory</span><span class="meta">figure</span></div>
+          <div class="ac-foot">
+            <span class="lab">Récents</span>
+            <button class="ac-chip">Tatsumaki</button>
+            <button class="ac-chip">Re:ZERO</button>
+            <button class="ac-chip">CROWN Studio</button>
+          </div>
+        </div>
+      </div>
+
+      <p class="hint">
+        <span><span class="ja">写</span>Photo : identifie une pièce depuis une image</span>
+        <span><span class="ja">●</span>Code-barres : ajoute via JAN/EAN</span>
+        <span><span class="ja">意</span>Sémantique : « fille en armure sous la pluie »</span>
+      </p>
+    </div>
+
+    <!-- TYPE RAIL (kanji tiles + counts) -->
+    <div class="typerail" role="group" aria-label="Filtrer par type">
+      <button class="tchip" aria-pressed="true"><span class="ja">集</span><span class="nm">Toutes</span><span class="ct tnum">23</span></button>
+      <button class="tchip"><span class="ja">童</span><span class="nm">Nendoroid</span><span class="ct tnum">3</span></button>
+      <button class="tchip"><span class="ja">像</span><span class="nm">Scale</span><span class="ct tnum">6</span></button>
+      <button class="tchip"><span class="ja">動</span><span class="nm">Figma</span><span class="ct tnum">1</span></button>
+      <button class="tchip zero"><span class="ja">賞</span><span class="nm">Prize</span><span class="ct tnum">0</span></button>
+      <button class="tchip zero"><span class="ja">交</span><span class="nm">Trading</span><span class="ct tnum">0</span></button>
+      <button class="tchip"><span class="ja">彫</span><span class="nm">Statue</span><span class="ct tnum">8</span></button>
+      <button class="tchip"><span class="ja">組</span><span class="nm">Plamo</span><span class="ct tnum">1</span></button>
+      <button class="tchip zero"><span class="ja">美</span><span class="nm">Bishoujo</span><span class="ct tnum">0</span></button>
+      <button class="tchip zero"><span class="ja">枕</span><span class="nm">Dakimakura</span><span class="ct tnum">0</span></button>
+      <button class="tchip"><span class="ja">玩</span><span class="nm">Autre</span><span class="ct tnum">4</span></button>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     DISCOVERY — EXPLORER PAR FABRICANT (bento)
+     ============================================================ -->
+<section class="section">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="ja" aria-hidden="true">工</span>
+      <div class="txt">
+        <span class="micro">Explorer le cabinet</span>
+        <h2>Par fabricant</h2>
+      </div>
+      <span class="rule" aria-hidden="true"></span>
+      <a class="more" href="#">Tous les fabricants <span aria-hidden="true">→</span></a>
+    </div>
+    <div class="bento">
+      <a class="maker feat" href="#">
+        <span class="ini" aria-hidden="true">微</span>
+        <span class="tag">Studio à l'honneur</span>
+        <span class="specks" aria-hidden="true">
+          <svg class="fig t-deep" viewBox="0 0 100 150"><use href="#fig-scale"/></svg>
+          <svg class="fig t-laque" viewBox="0 0 100 150"><use href="#fig-scale"/></svg>
+          <svg class="fig t-ivoire" viewBox="0 0 100 150"><use href="#fig-action"/></svg>
+        </span>
+        <span class="nm">Good Smile Company</span>
+        <span class="ct"><b class="tnum">5</b> <span class="lbl">fiches · Nendoroid · Pop Up Parade</span></span>
+      </a>
+      <a class="maker" href="#"><span class="ini" aria-hidden="true">改</span><span class="nm">Alter</span><span class="ct"><span class="tnum">4</span> <span class="lbl">fiches</span></span></a>
+      <a class="maker" href="#"><span class="ini" aria-hidden="true">factory</span><span class="nm">Max Factory</span><span class="ct"><span class="tnum">3</span> <span class="lbl">fiches</span></span></a>
+      <a class="maker" href="#"><span class="ini" aria-hidden="true">寿</span><span class="nm">Kotobukiya</span><span class="ct"><span class="tnum">3</span> <span class="lbl">fiches</span></span></a>
+      <a class="maker" href="#"><span class="ini" aria-hidden="true">冠</span><span class="nm">CROWN Studio</span><span class="ct"><span class="tnum">3</span> <span class="lbl">fiches</span></span></a>
+      <a class="maker" href="#"><span class="ini" aria-hidden="true">本</span><span class="nm">Native</span><span class="ct"><span class="tnum">2</span> <span class="lbl">fiches</span></span></a>
+      <a class="maker" href="#"><span class="ini" aria-hidden="true">魚</span><span class="nm">Orca Toys</span><span class="ct"><span class="tnum">2</span> <span class="lbl">fiches</span></span></a>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     DISCOVERY — EXPLORER PAR SÉRIE / PERSONNAGE (row)
+     ============================================================ -->
+<section class="section alt">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="ja" aria-hidden="true">作</span>
+      <div class="txt">
+        <span class="micro">Explorer le cabinet</span>
+        <h2>Par série &amp; personnage</h2>
+      </div>
+      <span class="rule" aria-hidden="true"></span>
+      <a class="more" href="#">Toutes les séries <span aria-hidden="true">→</span></a>
+    </div>
+    <div class="tilerow">
+      <a class="serie" href="#"><span class="ini" aria-hidden="true">拳</span><span class="nm">One Punch Man</span><span class="ct">Tatsumaki <b class="tnum">·2</b></span></a>
+      <a class="serie" href="#"><span class="ini" aria-hidden="true">零</span><span class="nm">Re:ZERO</span><span class="ct">Emilia · Rem <b class="tnum">·3</b></span></a>
+      <a class="serie" href="#"><span class="ini" aria-hidden="true">葬</span><span class="nm">Frieren</span><span class="ct">Frieren <b class="tnum">·3</b></span></a>
+      <a class="serie" href="#"><span class="ini" aria-hidden="true">原</span><span class="nm">Genshin Impact</span><span class="ct">Raiden <b class="tnum">·2</b></span></a>
+      <a class="serie" href="#"><span class="ini" aria-hidden="true">推</span><span class="nm">Oshi no Ko</span><span class="ct">Ai Hoshino <b class="tnum">·2</b></span></a>
+      <a class="serie" href="#"><span class="ini" aria-hidden="true">転</span><span class="nm">Mushoku Tensei</span><span class="ct">Eris <b class="tnum">·1</b></span></a>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     DISCOVERY — AMBIANCES (DINOv2 visual clusters)
+     ============================================================ -->
+<section class="section">
+  <div class="wrap">
+    <div class="sec-head">
+      <span class="ja" aria-hidden="true">趣</span>
+      <div class="txt">
+        <span class="micro">Regroupées par l'œil — apparence visuelle</span>
+        <h2>Ambiances</h2>
+      </div>
+      <span class="rule" aria-hidden="true"></span>
+      <a class="more" href="#"><span class="ja" style="font-family:var(--font-ja);color:var(--color-or-deep)">巡</span> Explorer toutes</a>
+    </div>
+    <div class="amb-grid">
+      <a class="amb" href="#">
+        <span class="badge ja" aria-hidden="true">巡</span>
+        <span class="specks" aria-hidden="true"><svg class="fig t-jade" viewBox="0 0 100 150"><use href="#fig-scale"/></svg><svg class="fig t-laque" viewBox="0 0 100 150"><use href="#fig-action"/></svg><svg class="fig t-jade" viewBox="0 0 100 150"><use href="#fig-scale"/></svg></span>
+        <span class="vignette" aria-hidden="true"></span>
+        <span class="nm">Tentacules &amp; laque</span>
+        <span class="ct"><span class="tnum">8</span> <span class="lbl">pièces</span></span>
+      </a>
+      <a class="amb" href="#">
+        <span class="badge ja" aria-hidden="true">巡</span>
+        <span class="specks" aria-hidden="true"><svg class="fig t-ivoire" viewBox="0 0 100 150"><use href="#fig-scale"/></svg><svg class="fig t-deep" viewBox="0 0 100 150"><use href="#fig-scale"/></svg><svg class="fig t-ivoire" viewBox="0 0 100 150"><use href="#fig-scale"/></svg></span>
+        <span class="vignette" aria-hidden="true"></span>
+        <span class="nm">Robes à frou-frous</span>
+        <span class="ct"><span class="tnum">5</span> <span class="lbl">pièces</span></span>
+      </a>
+      <a class="amb" href="#">
+        <span class="badge ja" aria-hidden="true">巡</span>
+        <span class="specks" aria-hidden="true"><svg class="fig t-laque" viewBox="0 0 100 150"><use href="#fig-action"/></svg><svg class="fig t-deep" viewBox="0 0 100 150"><use href="#fig-action"/></svg><svg class="fig t-laque" viewBox="0 0 100 150"><use href="#fig-action"/></svg></span>
+        <span class="vignette" aria-hidden="true"></span>
+        <span class="nm">Idols sur scène</span>
+        <span class="ct"><span class="tnum">4</span> <span class="lbl">pièces</span></span>
+      </a>
+      <a class="amb" href="#">
+        <span class="badge ja" aria-hidden="true">巡</span>
+        <span class="specks" aria-hidden="true"><svg class="fig t-ivoire" viewBox="0 0 100 150"><use href="#fig-mecha"/></svg><svg class="fig t-deep" viewBox="0 0 100 150"><use href="#fig-mecha"/></svg><svg class="fig t-ivoire" viewBox="0 0 100 150"><use href="#fig-mecha"/></svg></span>
+        <span class="vignette" aria-hidden="true"></span>
+        <span class="nm">Armures &amp; métal</span>
+        <span class="ct"><span class="tnum">3</span> <span class="lbl">pièces</span></span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     CURATED RAILS (horizontal card strips)
+     ============================================================ -->
+<section class="section alt">
+  <div class="wrap">
+
+    <!-- rail 1 -->
+    <div class="rail">
+      <div class="sec-head">
+        <span class="ja" aria-hidden="true">新</span>
+        <div class="txt"><span class="micro">Fraîchement indexées</span><h2>Récemment ajoutées</h2></div>
+        <span class="rule" aria-hidden="true"></span>
+        <a class="more" href="#">Tout voir <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="strip">
+        <!-- card 1 OWNED -->
+        <article class="card">
+          <div class="well">
+            <span class="seal own"><span class="ck">✓</span> Possédée</span>
+            <svg class="spec fig t-laque" viewBox="0 0 100 150"><use href="#fig-scale"/></svg>
+            <span class="vignette" aria-hidden="true"></span>
+            <div class="cap"><span class="mono">Nº CRN-01</span><span class="sc">1/6</span></div>
+            <div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaiter</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div>
+          </div>
+          <div class="body"><div class="nm"><span class="fw">Tatsumaki</span> VS Tentacle</div><div class="meta"><span class="mk">CROWN Studio</span><span class="sep">·</span>One Punch Man</div></div>
+        </article>
+        <!-- card 3 -->
+        <article class="card">
+          <div class="well">
+            <svg class="spec fig t-jade" viewBox="0 0 100 150"><use href="#fig-action"/></svg>
+            <span class="vignette" aria-hidden="true"></span>
+            <div class="cap"><span class="mono">Nº GSC-03</span><span class="sc">non-scale</span></div>
+            <div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaiter</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div>
+          </div>
+          <div class="body"><div class="nm"><span class="fw">Nendoroid</span> Frieren</div><div class="meta"><span class="mk">Good Smile</span><span class="sep">·</span>Frieren</div></div>
+        </article>
+        <!-- card 12 -->
+        <article class="card">
+          <div class="well">
+            <svg class="spec fig t-deep" viewBox="0 0 100 150"><use href="#fig-scale"/></svg>
+            <span class="vignette" aria-hidden="true"></span>
+            <div class="cap"><span class="mono">Nº MXF-12</span><span class="sc">1/7</span></div>
+            <div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaiter</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div>
+          </div>
+          <div class="body"><div class="nm"><span class="fw">1/7</span> Frieren</div><div class="meta"><span class="mk">Max Factory</span><span class="sep">·</span>Frieren</div></div>
+        </article>
+        <!-- card 16 -->
+        <article class="card">
+          <div class="well">
+            <svg class="spec fig t-ivoire" viewBox="0 0 100 150"><use href="#fig-action"/></svg>
+            <span class="vignette" aria-hidden="true"></span>
+            <div class="cap"><span class="mono">Nº GSC-16</span><span class="sc">non-scale</span></div>
+            <div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaiter</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div>
+          </div>
+          <div class="body"><div class="nm"><span class="fw">Pop</span> Up Parade Ai</div><div class="meta"><span class="mk">Good Smile</span><span class="sep">·</span>Oshi no Ko</div></div>
+        </article>
+        <!-- card 8 OWNED -->
+        <article class="card">
+          <div class="well">
+            <span class="seal own"><span class="ck">✓</span> Possédée</span>
+            <svg class="spec fig t-deep" viewBox="0 0 100 150"><use href="#fig-scale"/></svg>
+            <span class="vignette" aria-hidden="true"></span>
+            <div class="cap"><span class="mono">Nº ORC-08</span><span class="sc">1/7</span></div>
+            <div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaiter</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div>
+          </div>
+          <div class="body"><div class="nm"><span class="fw">Albedo</span></div><div class="meta"><span class="mk">Orca Toys</span><span class="sep">·</span>Overlord</div></div>
+        </article>
+      </div>
+    </div>
+
+    <!-- rail 2 -->
+    <div class="rail">
+      <div class="sec-head">
+        <span class="ja" aria-hidden="true">予</span>
+        <div class="txt"><span class="micro">Date-slip à surveiller</span><h2>Pré-commandes à venir</h2></div>
+        <span class="rule" aria-hidden="true"></span>
+        <a class="more" href="#">Tout voir <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="strip">
+        <!-- card 4 WISHED -->
+        <article class="card">
+          <div class="well">
+            <span class="seal wish">♡ Souhait</span>
+            <svg class="spec fig t-jade" viewBox="0 0 100 150"><use href="#fig-scale"/></svg>
+            <span class="vignette" aria-hidden="true"></span>
+            <div class="cap"><span class="mono">Nº ALT-04</span><span class="sc">1/7</span></div>
+            <div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaité</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div>
+          </div>
+          <div class="body"><div class="nm"><span class="fw">Emilia</span></div><div class="meta"><span class="mk">Alter</span><span class="sep">·</span>Re:ZERO</div></div>
+        </article>
+        <!-- card 11 WISHED -->
+        <article class="card">
+          <div class="well">
+            <span class="seal wish">♡ Souhait</span>
+            <svg class="spec fig t-laque" viewBox="0 0 100 150"><use href="#fig-scale"/></svg>
+            <span class="vignette" aria-hidden="true"></span>
+            <div class="cap"><span class="mono">Nº ALT-11</span><span class="sc">1/7</span></div>
+            <div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaité</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div>
+          </div>
+          <div class="body"><div class="nm"><span class="fw">Rem</span></div><div class="meta"><span class="mk">Alter</span><span class="sep">·</span>Re:ZERO</div></div>
+        </article>
+        <!-- card 5 -->
+        <article class="card">
+          <div class="well">
+            <svg class="spec fig t-ivoire" viewBox="0 0 100 150"><use href="#fig-action"/></svg>
+            <span class="vignette" aria-hidden="true"></span>
+            <div class="cap"><span class="mono">Nº MXF-05</span><span class="sc">non-scale</span></div>
+            <div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaiter</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div>
+          </div>
+          <div class="body"><div class="nm"><span class="fw">figma</span> Ai Hoshino</div><div class="meta"><span class="mk">Max Factory</span><span class="sep">·</span>Oshi no Ko</div></div>
+        </article>
+        <!-- card 6 -->
+        <article class="card">
+          <div class="well">
+            <svg class="spec fig t-deep" viewBox="0 0 100 150"><use href="#fig-scale"/></svg>
+            <span class="vignette" aria-hidden="true"></span>
+            <div class="cap"><span class="mono">Nº KTB-06</span><span class="sc">1/7</span></div>
+            <div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaiter</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div>
+          </div>
+          <div class="body"><div class="nm"><span class="fw">Bishoujo</span> Raiden</div><div class="meta"><span class="mk">Kotobukiya</span><span class="sep">·</span>Genshin Impact</div></div>
+        </article>
+      </div>
+    </div>
+
+    <!-- rail 3 -->
+    <div class="rail">
+      <div class="sec-head">
+        <span class="ja" aria-hidden="true">推</span>
+        <div class="txt"><span class="micro">Suivis par toi</span><h2>De tes studios favoris <span style="font-size:.6em;color:var(--on-surface-subtle)">— CROWN · Alter</span></h2></div>
+        <span class="rule" aria-hidden="true"></span>
+        <a class="more" href="#">Gérer mes studios <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="strip">
+        <!-- card 2 WISHED -->
+        <article class="card">
+          <div class="well">
+            <span class="seal wish">♡ Souhait</span>
+            <svg class="spec fig t-laque" viewBox="0 0 100 150"><use href="#fig-scale"/></svg>
+            <span class="vignette" aria-hidden="true"></span>
+            <div class="cap"><span class="mono">Nº CRN-02</span><span class="sc">1/6</span></div>
+            <div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaité</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div>
+          </div>
+          <div class="body"><div class="nm"><span class="fw">Eris</span> Greyrat</div><div class="meta"><span class="mk">CROWN Studio</span><span class="sep">·</span>Mushoku Tensei</div></div>
+        </article>
+        <!-- card 15 -->
+        <article class="card">
+          <div class="well">
+            <svg class="spec fig t-deep" viewBox="0 0 100 150"><use href="#fig-scale"/></svg>
+            <span class="vignette" aria-hidden="true"></span>
+            <div class="cap"><span class="mono">Nº CRN-15</span><span class="sc">1/6</span></div>
+            <div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaiter</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div>
+          </div>
+          <div class="body"><div class="nm"><span class="fw">Tatsumaki</span> (alt)</div><div class="meta"><span class="mk">CROWN Studio</span><span class="sep">·</span>One Punch Man</div></div>
+        </article>
+        <!-- card 11 (Alter) WISHED -->
+        <article class="card">
+          <div class="well">
+            <span class="seal wish">♡ Souhait</span>
+            <svg class="spec fig t-jade" viewBox="0 0 100 150"><use href="#fig-scale"/></svg>
+            <span class="vignette" aria-hidden="true"></span>
+            <div class="cap"><span class="mono">Nº ALT-11</span><span class="sc">1/7</span></div>
+            <div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaité</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div>
+          </div>
+          <div class="body"><div class="nm"><span class="fw">Rem</span></div><div class="meta"><span class="mk">Alter</span><span class="sep">·</span>Re:ZERO</div></div>
+        </article>
+        <!-- card 13 -->
+        <article class="card">
+          <div class="well">
+            <svg class="spec fig t-ivoire" viewBox="0 0 100 150"><use href="#fig-scale"/></svg>
+            <span class="vignette" aria-hidden="true"></span>
+            <div class="cap"><span class="mono">Nº KTB-13</span><span class="sc">1/8</span></div>
+            <div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaiter</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div>
+          </div>
+          <div class="body"><div class="nm"><span class="fw">Artfx</span> Yuki</div><div class="meta"><span class="mk">Kotobukiya</span><span class="sep">·</span>To Love-Ru</div></div>
+        </article>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================================================
+     DEEP-DIVE — THE FULL GRID (the back room)
+     ============================================================ -->
+<section class="section" id="grille">
+  <div class="wrap">
+    <div class="gridhead">
+      <div class="lead">
+        <span class="ja" aria-hidden="true">蔵</span>
+        <h2>Toute la collection</h2>
+        <span class="pos">— <b class="tnum">16</b> sur <b class="tnum">23</b> affichées</span>
+      </div>
+      <div class="gridtools">
+        <button class="btn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h16M7 12h10M10 18h4" stroke-linecap="round"/></svg> Filtres <span class="ct tnum">2</span></button>
+        <span class="select"><label for="sort" class="micro" style="text-transform:uppercase;color:var(--on-surface-subtle)">Trier</label>
+          <select id="sort"><option>Plus récentes</option><option>Nom</option><option>Sortie</option><option>Échelle</option></select>
+          <span class="ch" aria-hidden="true">▾</span></span>
+      </div>
+    </div>
+
+    <!-- quick toggles + applied chips -->
+    <div class="applied">
+      <span class="lab">Vue rapide</span>
+      <button class="fchip"><span class="k">État</span> Possédées <span class="x" aria-label="retirer">×</span></button>
+      <button class="fchip"><span class="k">État</span> Souhaits <span class="x" aria-label="retirer">×</span></button>
+      <button class="fchip"><span class="k">NSFW</span> Masqué <span class="x" aria-label="retirer">×</span></button>
+      <span style="width:1px;height:18px;background:var(--border);margin:0 .2rem"></span>
+      <span class="lab">Filtres actifs</span>
+      <button class="fchip"><span class="k">Fabricant</span> CROWN Studio <span class="x" aria-label="retirer">×</span></button>
+      <button class="fchip"><span class="k">Échelle</span> 1/6 <span class="x" aria-label="retirer">×</span></button>
+      <button class="clear">Tout effacer</button>
+    </div>
+
+    <!-- responsive note: mobile uses the bottom drawer trigger -->
+    <div class="mfilters"><span class="ja" style="font-family:var(--font-ja);color:var(--color-or-deep)">注</span> Sur mobile : les facettes passent dans un tiroir « Filtres » (bouton fixe en bas) → « Afficher X résultats ».</div>
+
+    <!-- THE UNIFORM GRID — 16 cards -->
+    <div class="grid">
+
+      <!-- 1 OWNED -->
+      <article class="card">
+        <div class="well"><span class="seal own"><span class="ck">✓</span> Possédée</span><svg class="spec fig t-laque" viewBox="0 0 100 150"><use href="#fig-scale"/></svg><span class="vignette"></span><div class="cap"><span class="mono">Nº CRN-01</span><span class="sc">1/6</span></div><div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaiter</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div></div>
+        <div class="body"><div class="nm"><span class="fw">Tatsumaki</span> VS Tentacle</div><div class="meta"><span class="mk">CROWN Studio</span><span class="sep">·</span>OPM · Statue</div></div>
+      </article>
+      <!-- 2 WISHED -->
+      <article class="card">
+        <div class="well"><span class="seal wish">♡ Souhait</span><svg class="spec fig t-jade" viewBox="0 0 100 150"><use href="#fig-scale"/></svg><span class="vignette"></span><div class="cap"><span class="mono">Nº CRN-02</span><span class="sc">1/6</span></div><div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaité</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div></div>
+        <div class="body"><div class="nm"><span class="fw">Eris</span> Greyrat</div><div class="meta"><span class="mk">CROWN Studio</span><span class="sep">·</span>Mushoku · Statue</div></div>
+      </article>
+      <!-- 3 -->
+      <article class="card">
+        <div class="well"><svg class="spec fig t-jade" viewBox="0 0 100 150"><use href="#fig-action"/></svg><span class="vignette"></span><div class="cap"><span class="mono">Nº GSC-03</span><span class="sc">non-scale</span></div><div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaiter</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div></div>
+        <div class="body"><div class="nm"><span class="fw">Nendoroid</span> Frieren</div><div class="meta"><span class="mk">Good Smile</span><span class="sep">·</span>Frieren · Nendo</div></div>
+      </article>
+      <!-- 4 WISHED -->
+      <article class="card">
+        <div class="well"><span class="seal wish">♡ Souhait</span><svg class="spec fig t-jade" viewBox="0 0 100 150"><use href="#fig-scale"/></svg><span class="vignette"></span><div class="cap"><span class="mono">Nº ALT-04</span><span class="sc">1/7</span></div><div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaité</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div></div>
+        <div class="body"><div class="nm"><span class="fw">Emilia</span></div><div class="meta"><span class="mk">Alter</span><span class="sep">·</span>Re:ZERO · Scale</div></div>
+      </article>
+      <!-- 5 -->
+      <article class="card">
+        <div class="well"><svg class="spec fig t-ivoire" viewBox="0 0 100 150"><use href="#fig-action"/></svg><span class="vignette"></span><div class="cap"><span class="mono">Nº MXF-05</span><span class="sc">non-scale</span></div><div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaiter</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div></div>
+        <div class="body"><div class="nm"><span class="fw">figma</span> Ai Hoshino</div><div class="meta"><span class="mk">Max Factory</span><span class="sep">·</span>Oshi · Figma</div></div>
+      </article>
+      <!-- 6 -->
+      <article class="card">
+        <div class="well"><svg class="spec fig t-deep" viewBox="0 0 100 150"><use href="#fig-scale"/></svg><span class="vignette"></span><div class="cap"><span class="mono">Nº KTB-06</span><span class="sc">1/7</span></div><div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaiter</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div></div>
+        <div class="body"><div class="nm"><span class="fw">Bishoujo</span> Raiden</div><div class="meta"><span class="mk">Kotobukiya</span><span class="sep">·</span>Genshin</div></div>
+      </article>
+      <!-- 7 NSFW -->
+      <article class="card">
+        <div class="well nsfw"><svg class="spec fig t-laque" viewBox="0 0 100 150"><use href="#fig-scale"/></svg><div class="nsfw-veil"><span class="pill">Contenu sensible</span><span class="rev">Afficher</span></div><div class="cap"><span class="mono">Nº NAT-07</span><span class="sc">1/6</span></div></div>
+        <div class="body"><div class="nm"><span class="fw">Nure</span> Megami</div><div class="meta"><span class="mk">Native</span><span class="sep">·</span>Original · Statue</div></div>
+      </article>
+      <!-- 8 OWNED -->
+      <article class="card">
+        <div class="well"><span class="seal own"><span class="ck">✓</span> Possédée</span><svg class="spec fig t-deep" viewBox="0 0 100 150"><use href="#fig-scale"/></svg><span class="vignette"></span><div class="cap"><span class="mono">Nº ORC-08</span><span class="sc">1/7</span></div><div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaiter</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div></div>
+        <div class="body"><div class="nm"><span class="fw">Albedo</span></div><div class="meta"><span class="mk">Orca Toys</span><span class="sep">·</span>Overlord · Scale</div></div>
+      </article>
+      <!-- 9 NSFW -->
+      <article class="card">
+        <div class="well nsfw"><svg class="spec fig t-laque" viewBox="0 0 100 150"><use href="#fig-scale"/></svg><div class="nsfw-veil"><span class="pill">Contenu sensible</span><span class="rev">Afficher</span></div><div class="cap"><span class="mono">Nº FSH-09</span><span class="sc">1/6</span></div></div>
+        <div class="body"><div class="nm"><span class="fw">Nun</span> Thigh Prayer</div><div class="meta"><span class="mk">Fish Head</span><span class="sep">·</span>Original · Statue</div></div>
+      </article>
+      <!-- 10 OWNED -->
+      <article class="card">
+        <div class="well"><span class="seal own"><span class="ck">✓</span> Possédée</span><svg class="spec fig t-ivoire" viewBox="0 0 100 150"><use href="#fig-action"/></svg><span class="vignette"></span><div class="cap"><span class="mono">Nº GSC-10</span><span class="sc">non-scale</span></div><div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaiter</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div></div>
+        <div class="body"><div class="nm"><span class="fw">Nendoroid</span> Raiden</div><div class="meta"><span class="mk">Good Smile</span><span class="sep">·</span>Genshin · Nendo</div></div>
+      </article>
+      <!-- 11 WISHED -->
+      <article class="card">
+        <div class="well"><span class="seal wish">♡ Souhait</span><svg class="spec fig t-laque" viewBox="0 0 100 150"><use href="#fig-scale"/></svg><span class="vignette"></span><div class="cap"><span class="mono">Nº ALT-11</span><span class="sc">1/7</span></div><div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaité</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div></div>
+        <div class="body"><div class="nm"><span class="fw">Rem</span></div><div class="meta"><span class="mk">Alter</span><span class="sep">·</span>Re:ZERO · Scale</div></div>
+      </article>
+      <!-- 12 -->
+      <article class="card">
+        <div class="well"><svg class="spec fig t-deep" viewBox="0 0 100 150"><use href="#fig-scale"/></svg><span class="vignette"></span><div class="cap"><span class="mono">Nº MXF-12</span><span class="sc">1/7</span></div><div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaiter</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div></div>
+        <div class="body"><div class="nm"><span class="fw">1/7</span> Frieren</div><div class="meta"><span class="mk">Max Factory</span><span class="sep">·</span>Frieren · Scale</div></div>
+      </article>
+      <!-- 13 -->
+      <article class="card">
+        <div class="well"><svg class="spec fig t-ivoire" viewBox="0 0 100 150"><use href="#fig-scale"/></svg><span class="vignette"></span><div class="cap"><span class="mono">Nº KTB-13</span><span class="sc">1/8</span></div><div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaiter</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div></div>
+        <div class="body"><div class="nm"><span class="fw">Artfx</span> Yuki</div><div class="meta"><span class="mk">Kotobukiya</span><span class="sep">·</span>To Love-Ru · Scale</div></div>
+      </article>
+      <!-- 14 NSFW -->
+      <article class="card">
+        <div class="well nsfw"><svg class="spec fig t-laque" viewBox="0 0 100 150"><use href="#fig-scale"/></svg><div class="nsfw-veil"><span class="pill">Contenu sensible</span><span class="rev">Afficher</span></div><div class="cap"><span class="mono">Nº INS-14</span><span class="sc">1/4</span></div></div>
+        <div class="body"><div class="nm"><span class="fw">Voluptuous</span> Girl</div><div class="meta"><span class="mk">Insight</span><span class="sep">·</span>Original · Statue</div></div>
+      </article>
+      <!-- 15 -->
+      <article class="card">
+        <div class="well"><svg class="spec fig t-deep" viewBox="0 0 100 150"><use href="#fig-scale"/></svg><span class="vignette"></span><div class="cap"><span class="mono">Nº CRN-15</span><span class="sc">1/6</span></div><div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaiter</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div></div>
+        <div class="body"><div class="nm"><span class="fw">Tatsumaki</span> (alt)</div><div class="meta"><span class="mk">CROWN Studio</span><span class="sep">·</span>OPM · Statue</div></div>
+      </article>
+      <!-- 16 -->
+      <article class="card">
+        <div class="well"><svg class="spec fig t-ivoire" viewBox="0 0 100 150"><use href="#fig-action"/></svg><span class="vignette"></span><div class="cap"><span class="mono">Nº GSC-16</span><span class="sc">non-scale</span></div><div class="qa"><button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg> Souhaiter</button><button class="add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg> Ajouter</button></div></div>
+        <div class="body"><div class="nm"><span class="fw">Pop</span> Up Parade Ai</div><div class="meta"><span class="mk">Good Smile</span><span class="sep">·</span>Oshi · Prize</div></div>
+      </article>
+
+    </div>
+
+    <!-- skeleton row (static, conveys loading pattern) -->
+    <p class="skhead">↓ Chargement de la suite (aperçu du squelette)</p>
+    <div class="grid" aria-hidden="true">
+      <div class="sk"><div class="well"></div><div class="ln w70"></div><div class="ln w45"></div></div>
+      <div class="sk"><div class="well"></div><div class="ln w70"></div><div class="ln w45"></div></div>
+      <div class="sk"><div class="well"></div><div class="ln w70"></div><div class="ln w45"></div></div>
+      <div class="sk"><div class="well"></div><div class="ln w70"></div><div class="ln w45"></div></div>
+    </div>
+
+    <!-- load more -->
+    <div class="loadmore">
+      <div class="track" aria-hidden="true"><i></i></div>
+      <button>Charger plus<span class="ja" style="font-family:var(--font-ja);color:var(--color-or-deep);margin-left:.5em">続</span></button>
+      <p class="pos"><b class="tnum">16</b> sur <b class="tnum">23</b> figurines</p>
+    </div>
+
+    <!-- no-results recovery sketch (inset) -->
+    <div class="empty" role="note" aria-label="Aperçu : aucun résultat">
+      <span class="kanji-wm" aria-hidden="true">空</span>
+      <span class="micro">Aperçu — état « aucun résultat »</span>
+      <h3>Rien pour « <span style="color:var(--color-laque-bright);font-style:italic">tentacle</span> + 1/4 + Possédées »</h3>
+      <p>On garde ta recherche. Essaie d'<b>élargir</b> : retire un filtre, ou repars d'une piste ci-dessous.</p>
+      <div class="acts">
+        <button class="fchip"><span class="k">Retirer</span> Échelle 1/4 <span class="x">×</span></button>
+        <button class="fchip"><span class="k">Retirer</span> Possédées <span class="x">×</span></button>
+        <button class="btn" style="border-color:var(--border-strong);color:var(--color-or-pale)">Tout effacer</button>
+      </div>
+      <p class="trend"><span class="ja">流</span>Tendances :
+        <a href="#">Tatsumaki</a><a href="#">Frieren</a><a href="#">Tentacules &amp; laque</a><a href="#">Alter 1/7</a><a href="#">Nendoroid</a>
+      </p>
+    </div>
+
+  </div>
+</section>
+
+<footer class="foot">
+  <div class="wrap" style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;width:100%">
+    <span><span class="ja">像</span> FigureCollector — le cabinet de curiosités</span>
+    <span class="mono">23 fiches · 8 fabricants · 6 séries · 4 ambiances</span>
+  </div>
+</footer>
+
+<!-- mobile-only sticky filter trigger (shown ≤640) -->
+<div class="sticky-filter" aria-hidden="true">
+  <button class="ff">Filtres · 2</button>
+  <button class="res">Afficher 16 résultats</button>
+</div>
+
+<script>
+// tiny inline JS: segmented search modes + type rail toggles + load-more demo
+(function(){
+  var modes=document.querySelectorAll('.modes [role="tab"]');
+  modes.forEach(function(b){b.addEventListener('click',function(){
+    modes.forEach(function(x){x.setAttribute('aria-selected','false')});
+    b.setAttribute('aria-selected','true');
+  });});
+
+  var tchips=document.querySelectorAll('.typerail .tchip');
+  tchips.forEach(function(b){b.addEventListener('click',function(){
+    tchips.forEach(function(x){x.setAttribute('aria-pressed','false')});
+    b.setAttribute('aria-pressed','true');
+  });});
+
+  var btn=document.querySelector('.loadmore button');
+  if(btn){btn.addEventListener('click',function(){
+    var pos=document.querySelector('.loadmore .pos');
+    if(pos) pos.innerHTML='<b class="tnum">23</b> sur <b class="tnum">23</b> figurines — tout est chargé';
+    var track=document.querySelector('.loadmore .track i'); if(track) track.style.width='100%';
+    btn.textContent='Tout est chargé'; btn.disabled=true; btn.style.opacity='.55';
+  });}
+
+  // hide autocomplete on outside click (sketch behaviour)
+  var ac=document.querySelector('.ac-panel');
+  document.addEventListener('click',function(e){
+    if(!ac) return;
+    if(e.target.closest('.station')) return;
+    ac.style.display='none';
+  });
+})();
+</script>
+</body>
+</html>
