@@ -10,6 +10,7 @@ import { resolveFigureCover } from "../lib/coverUrl.js";
 import AppShell from "../components/AppShell.jsx";
 import AccentTitle from "../components/AccentTitle.jsx";
 import FigureCard from "../components/FigureCard.jsx";
+import { PageLayout } from "../components/layout/index.js";
 
 /**
  * Downscale a photo to a modest JPEG and return its bare base64 (no data: URL
@@ -162,38 +163,26 @@ export default function RecognizePage() {
 
   return (
     <AppShell>
-      <main className="relative max-w-4xl mx-auto px-6 py-16">
-        {/* ─── Editorial header ─── */}
-        <header className="relative mb-10">
-          <span
-            aria-hidden
-            className="kanji-mark text-[20rem] md:text-[24rem] -top-24 -right-6 hidden sm:block select-none"
-          >
-            視
-          </span>
-          <p className="micro reveal flex items-center gap-2.5" style={{ "--i": 0 }}>
+      <PageLayout
+        kanji="視"
+        kicker={
+          <span className="inline-flex items-center gap-2.5">
             <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
             {t("recognize.kicker", { default: "RECONNAÎTRE" })}
-            <span aria-hidden className="ja not-italic text-[var(--color-or)]">視</span>
+            <span aria-hidden className="ja not-italic text-[var(--color-or)]">
+              視
+            </span>
             {t("recognize.kicker_label", { default: "PHOTO" })}
-          </p>
-          <h1
-            className="display text-4xl md:text-6xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
-            style={{ "--i": 1 }}
-          >
-            <AccentTitle text={t("recognize.title", { default: "Reconnaître par photo" })} />
-          </h1>
-          <div className="gold-rule w-24 mt-6 reveal" style={{ "--i": 2 }} />
-          <p
-            className="display-italic text-[var(--color-or)] text-lg mt-5 max-w-xl reveal"
-            style={{ "--i": 3 }}
-          >
-            {t("recognize.gloss", {
-              default:
-                "Photographie ta figurine — l'empreinte est calculée sur ton appareil, seule une signature anonyme circule pour retrouver la pièce au catalogue.",
-            })}
-          </p>
-        </header>
+          </span>
+        }
+        title={t("recognize.title", { default: "Reconnaître par photo" })}
+      >
+        <p className="display-italic text-[var(--color-or)] text-lg max-w-xl">
+          {t("recognize.gloss", {
+            default:
+              "Photographie ta figurine — l'empreinte est calculée sur ton appareil, seule une signature anonyme circule pour retrouver la pièce au catalogue.",
+          })}
+        </p>
 
         {disabled ? (
           <div
@@ -510,7 +499,7 @@ export default function RecognizePage() {
             ) : null}
           </>
         )}
-      </main>
+      </PageLayout>
     </AppShell>
   );
 }

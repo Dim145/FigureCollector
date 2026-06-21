@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { motion, useReducedMotion } from "motion/react";
+import { Lock } from "lucide-react";
 import { useT } from "../i18n/index.jsx";
 import { appLocale } from "../lib/locale.js";
 import { useMe } from "../hooks/useMe.js";
@@ -148,20 +149,20 @@ export default function AchievementsPage() {
   if (totalCount === 0) {
     return (
       <AppShell>
-        <main className="ach-page max-w-6xl mx-auto px-6 pt-8 pb-20">
+        <div className="ach-page max-w-6xl mx-auto px-6 pt-8 pb-20">
           <EmptyState
             kanji="勲"
             title={t("achievements.empty.title")}
             body={t("achievements.empty.body")}
           />
-        </main>
+        </div>
       </AppShell>
     );
   }
 
   return (
     <AppShell>
-      <main className="ach-page max-w-6xl mx-auto px-6 pt-8 pb-20">
+      <div className="ach-page max-w-6xl mx-auto px-6 pt-8 pb-20">
         <Hero unlocked={unlockedCount} total={totalCount} percent={pct} t={t} />
 
         {recent.length > 0 ? <RecentStrip recent={recent} t={t} /> : null}
@@ -171,7 +172,7 @@ export default function AchievementsPage() {
         {Object.entries(grouped).map(([category, items]) => (
           <CategorySection key={category} category={category} items={items} t={t} />
         ))}
-      </main>
+      </div>
     </AppShell>
   );
 }
@@ -439,7 +440,7 @@ function AchCard({ achievement: a, index, t }) {
           </>
         ) : (
           <span className="ach-card-locked-pill">
-            <span aria-hidden>🔒</span>
+            <Lock size={16} strokeWidth={1.75} aria-hidden />
             {t("achievements.locked")}
           </span>
         )}

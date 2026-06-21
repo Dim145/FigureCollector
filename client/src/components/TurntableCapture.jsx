@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useT } from "../i18n/index.jsx";
+import Button from "./Button.jsx";
 
 const TARGET = 24;
 
@@ -144,14 +145,15 @@ export default function TurntableCapture({ onComplete }) {
             <span className="block w-10 h-10 rounded-full bg-[var(--color-or)] mx-auto" />
           </button>
 
-          <button
+          <Button
             type="button"
             onClick={finish}
             disabled={frames.length < 6}
-            className="px-5 py-3 bg-[var(--color-laque)] text-[var(--color-ivoire)] text-[11px] uppercase tracking-[0.18em] disabled:opacity-40 disabled:cursor-not-allowed"
+            size="sm"
+            className="uppercase tracking-[0.18em]"
           >
             {t("turntable.save")}
-          </button>
+          </Button>
         </div>
 
         <div className="mt-3 flex items-center gap-3 text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)]">

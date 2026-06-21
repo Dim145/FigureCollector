@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { Box } from "lucide-react";
 import { useT } from "../i18n/index.jsx";
 import { useScanCapabilities } from "../hooks/useScans.js";
 import { useIsAdmin } from "../hooks/useMe.js";
@@ -92,11 +93,12 @@ export default function TurntableWizard({ onUpload, onCancel, busy }) {
               <span
                 className={
                   generate3d
-                    ? "text-[var(--color-or)]"
-                    : "text-[var(--color-ivoire-soft)]"
+                    ? "inline-flex items-center gap-1.5 text-[var(--color-or)]"
+                    : "inline-flex items-center gap-1.5 text-[var(--color-ivoire-soft)]"
                 }
               >
-                🧊 {t("turntable.wizard.generate_3d")}
+                <Box size={16} strokeWidth={1.75} aria-hidden />
+                {t("turntable.wizard.generate_3d")}
               </span>
             </label>
           ) : null}
@@ -125,11 +127,12 @@ export default function TurntableWizard({ onUpload, onCancel, busy }) {
             <span
               className={
                 generate3d
-                  ? "text-[var(--color-or)]"
-                  : "text-[var(--color-ivoire-soft)]"
+                  ? "inline-flex items-center gap-1.5 text-[var(--color-or)]"
+                  : "inline-flex items-center gap-1.5 text-[var(--color-ivoire-soft)]"
               }
             >
-              🧊 {t("turntable.wizard.generate_3d")}
+              <Box size={16} strokeWidth={1.75} aria-hidden />
+              {t("turntable.wizard.generate_3d")}
             </span>
           </label>
         </div>

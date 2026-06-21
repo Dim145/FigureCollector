@@ -6,6 +6,7 @@ import { useOwnedItems, useSetOwnedValue } from "../hooks/useCollection.js";
 import { useMyPriceHistory, useMyStats } from "../hooks/useStats.js";
 import AppShell from "../components/AppShell.jsx";
 import { PageLayout } from "../components/layout/index.js";
+import ErrorState from "../components/ErrorState.jsx";
 import { useDisplayCurrency } from "../components/DisplayCurrencyProvider.jsx";
 import PriceHistoryDialog, { toSeries } from "../components/PriceHistory.jsx";
 import { effectiveValue, figurePaid } from "../lib/money.js";
@@ -244,6 +245,22 @@ export default function CotePage() {
 
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
+
+  if (owned.isError || stats.isError) {
+    return (
+      <AppShell>
+        <PageLayout width="standard">
+          <ErrorState
+            error={owned.error ?? stats.error}
+            onRetry={() => {
+              owned.refetch();
+              stats.refetch();
+            }}
+          />
+        </PageLayout>
+      </AppShell>
+    );
+  }
 
   const loading = owned.isLoading || stats.isLoading;
   const histRow = histFigureId

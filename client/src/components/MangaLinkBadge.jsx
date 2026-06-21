@@ -1,3 +1,4 @@
+import { Library } from "lucide-react";
 import { useT } from "../i18n/index.jsx";
 import { useMangaLink, useFigureManga, mangaPageHref } from "../hooks/useMangaLink.js";
 import { safeHref } from "../lib/safeUrl.js";
@@ -47,7 +48,7 @@ export default function MangaLinkBadge({ figureId }) {
         className="flex items-center gap-2 text-[11px] uppercase tracking-[0.06em]"
         style={{ color: INDIGO_BRIGHT }}
       >
-        <span aria-hidden>📚</span>
+        <Library size={16} strokeWidth={1.75} aria-hidden />
         <span>{t("manga.badge.in_collection")}</span>
       </div>
 

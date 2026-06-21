@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useT } from "../i18n/index.jsx";
+import Button from "./Button.jsx";
 
 // Server rejects frames > 2048 px per side. Keep a safety margin and downscale
 // the *longest* side (so portrait 4K videos round-trip too — clamping width
@@ -275,14 +276,15 @@ export default function TurntableVideo({ onComplete, gsplat = false }) {
             </button>
             {/* gsplat only: ship the original video directly — no extraction. */}
             {gsplat ? (
-              <button
+              <Button
                 type="button"
                 onClick={sendVideoOnly}
                 disabled={busy}
-                className="px-5 py-3 bg-[var(--color-laque)] text-[var(--color-ivoire)] text-[11px] uppercase tracking-[0.18em] disabled:opacity-40"
+                size="sm"
+                className="uppercase tracking-[0.18em]"
               >
                 {t("turntable.video.send")}
-              </button>
+              </Button>
             ) : null}
           </div>
           {gsplat ? (
@@ -308,15 +310,16 @@ export default function TurntableVideo({ onComplete, gsplat = false }) {
                 ))}
               </ul>
               <div className="flex justify-end">
-                <button
+                <Button
                   type="button"
                   disabled={frames.length < 6}
                   onClick={() => onComplete(frames, file)}
-                  className="px-5 py-3 bg-[var(--color-laque)] text-[var(--color-ivoire)] text-[11px] uppercase tracking-[0.18em] disabled:opacity-40"
+                  size="sm"
+                  className="uppercase tracking-[0.18em]"
                 >
                   {/* For 3D, make it explicit the video ships with the frames. */}
                   {gsplat ? t("turntable.video.save_with_video") : t("turntable.save")}
-                </button>
+                </Button>
               </div>
             </>
           ) : null}

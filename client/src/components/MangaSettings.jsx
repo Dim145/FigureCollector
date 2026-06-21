@@ -7,6 +7,7 @@ import {
   useSetMangaLink,
   useSyncMangaLink,
 } from "../hooks/useMangaLink.js";
+import Button from "./Button.jsx";
 
 const INDIGO = "var(--color-indigo)";
 const INDIGO_BRIGHT = "var(--color-indigo-bright)";
@@ -176,21 +177,22 @@ function ApprovedCard({ t, link, onUnlink, unlinking }) {
       </div>
       {confirmOff ? (
         <span className="shrink-0 inline-flex items-center gap-2 text-[12px]">
-          <button
-            type="button"
+          <Button
+            variant="danger"
+            size="sm"
             onClick={onUnlink}
             disabled={unlinking}
-            className="px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] bg-[var(--color-laque)] text-[var(--color-ivoire)] disabled:opacity-60"
+            loading={unlinking}
           >
             {t("settings.manga.unlink")}
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setConfirmOff(false)}
-            className="px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] border border-[color-mix(in_oklab,var(--color-or)_30%,transparent)] text-[var(--color-ivoire-soft)]"
           >
             {t("editor.cancel")}
-          </button>
+          </Button>
         </span>
       ) : (
         <button

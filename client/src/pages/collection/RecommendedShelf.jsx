@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import AccentTitle from "../../components/AccentTitle.jsx";
+import Button from "../../components/Button.jsx";
 import FigureCard from "../../components/FigureCard.jsx";
 import { resolveFigureCover } from "../../lib/coverUrl.js";
 import { useVisualSearchStatus, useRecommendations } from "../../hooks/useVisualSearch.js";
@@ -89,16 +90,19 @@ export default function RecommendedShelf({ t, nsfwPref }) {
                     blurImage={g.is_nsfw && nsfwPref === "blur"}
                     badge={{ label: `${Math.round((1 - distance) * 100)}%`, tone: "match" }}
                   />
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => skip(g.id)}
-                    className="mt-3 w-full inline-flex items-center justify-center gap-2 py-2 border border-[var(--color-or)]/35 bg-[var(--color-noir)]/50 text-[11px] uppercase tracking-[0.22em] text-[var(--color-ivoire-soft)] hover:text-[var(--color-laque-bright)] hover:border-[var(--color-laque-bright)]/60 hover:bg-[var(--color-laque)]/10 transition-colors"
+                    className="mt-3 w-full uppercase"
+                    iconStart={
+                      <span aria-hidden className="text-[var(--color-or)]">
+                        ✕
+                      </span>
+                    }
                   >
-                    <span aria-hidden className="text-[var(--color-or)]">
-                      ✕
-                    </span>
                     {t("collection.reco.skip")}
-                  </button>
+                  </Button>
                 </motion.li>
               ))}
             </AnimatePresence>

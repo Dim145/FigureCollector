@@ -12,6 +12,7 @@ import { useSemanticSearch } from "../hooks/useSemanticSearch.js";
 import { useLookSearch } from "../hooks/useLookSearch.js";
 import { stashCapturedFile } from "../lib/visualSearchStash.js";
 import AppShell from "../components/AppShell.jsx";
+import ErrorState from "../components/ErrorState.jsx";
 import { PageLayout } from "../components/layout/index.js";
 import { Button, Tabs, Drawer } from "../components/ui/index.js";
 import BarcodeScanner from "../components/BarcodeScanner.jsx";
@@ -278,6 +279,24 @@ export default function BrowsePage() {
 
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
+
+  // The keyword catalogue query failing used to fall through to an empty grid
+  // with no signal; surface it like StatsPage so the page stops failing
+  // silently (the on-device search modes carry their own inline error states).
+  if (figures.isError) {
+    return (
+      <AppShell>
+        <PageLayout
+          kicker={t("browse.subtitle")}
+          title={t("browse.title")}
+          kanji="目"
+          width="wide"
+        >
+          <ErrorState error={figures.error} onRetry={() => figures.refetch()} />
+        </PageLayout>
+      </AppShell>
+    );
+  }
 
   const total = figures.data?.length ?? 0;
   const semanticFigures = (semantic.results ?? []).map((r) => r.figure);

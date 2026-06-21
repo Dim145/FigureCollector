@@ -4,6 +4,7 @@ import { ScanLine } from "lucide-react";
 import { useStoresForFigure } from "../../hooks/useStores.js";
 import { buildBuyUrl } from "../../lib/storeLink.js";
 import { displayTags } from "../../lib/tags.js";
+import Button from "../../components/Button.jsx";
 import TagRail from "../../components/TagRail.jsx";
 import LinkedStoresModal from "../../components/LinkedStoresModal.jsx";
 
@@ -223,19 +224,24 @@ function StoreBuyList({ stores, t }) {
               </span>
             </Link>
             {buyHref ? (
-              <a
+              <Button
+                as="a"
+                variant="primary"
+                size="sm"
                 href={buyHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={t("figure.stores.buy_at", { name: s.name })}
-                className="tap-target shrink-0 inline-flex items-center gap-1.5 px-3 text-[10px] uppercase tracking-[0.2em] text-[var(--color-ivoire)] bg-[var(--color-laque)] hover:bg-[var(--color-laque-bright)] transition-colors"
+                className="tap-target shrink-0 gap-1.5 px-3 text-[10px] uppercase tracking-[0.2em]"
+                iconStart={
+                  <span aria-hidden className="ja">
+                    購
+                  </span>
+                }
+                iconEnd={<span aria-hidden>↗</span>}
               >
-                <span aria-hidden className="ja">
-                  購
-                </span>
                 {t("figure.stores.buy")}
-                <span aria-hidden>↗</span>
-              </a>
+              </Button>
             ) : (
               <Link
                 to={`/catalogue/stores/${s.slug}`}

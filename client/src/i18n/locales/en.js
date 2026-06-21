@@ -2561,4 +2561,6 @@ export default {
   "pagination.next": "Next page",
   "preorders.kicker": "PRE-ORDERS · 予約 · HORARIUM",
   "wishlist.remove.body": "Remove this piece from your wishlist?",
+  "wishlist.acquired": "Piece added to your collection",
+  "store.back_catalogue": "Catalogue",
 };

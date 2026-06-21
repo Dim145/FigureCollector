@@ -129,7 +129,14 @@ function GridItem({
     />
   );
   return (
-    <Reveal as="li" delay={Math.min(index, 7) * 0.05} y={24}>
+    <Reveal
+      as="li"
+      delay={Math.min(index, 7) * 0.05}
+      y={24}
+      // Skip layout/paint for off-screen cards in long collections; the size
+      // hint keeps the scrollbar honest before a card is first rendered.
+      style={{ contentVisibility: "auto", containIntrinsicSize: "auto 360px" }}
+    >
       {selectMode ? (
         <button
           type="button"
@@ -219,7 +226,7 @@ function BulkBar({
       <div
         role="region"
         aria-label={t("bulk.toolbar", { default: "Actions groupées" })}
-        className="hidden lg:flex sticky top-2 z-30 mb-5 flex-wrap items-center gap-2 p-3 border border-[color-mix(in_oklab,var(--color-or)_28%,transparent)] bg-[color-mix(in_oklab,var(--color-or)_10%,transparent)] backdrop-blur-md"
+        className="hidden lg:flex sticky top-24 z-30 mb-5 flex-wrap items-center gap-2 p-3 border border-[color-mix(in_oklab,var(--color-or)_28%,transparent)] bg-[color-mix(in_oklab,var(--color-or)_10%,transparent)] backdrop-blur-md"
       >
         <span className="display text-xl text-[var(--color-or-pale)]">
           <b className="text-[var(--color-ivoire)]">{count}</b> {t("bulk.selected_label")}
@@ -294,7 +301,7 @@ function BulkBar({
 
       {/* ── Mobile: slim sticky launcher + bottom sheet ─────────────────── */}
       <div
-        className="lg:hidden sticky top-2 z-30 mb-5 flex items-center gap-2 p-3 border border-[color-mix(in_oklab,var(--color-or)_28%,transparent)] bg-[color-mix(in_oklab,var(--color-or)_10%,transparent)] backdrop-blur-md"
+        className="lg:hidden sticky top-24 z-30 mb-5 flex items-center gap-2 p-3 border border-[color-mix(in_oklab,var(--color-or)_28%,transparent)] bg-[color-mix(in_oklab,var(--color-or)_10%,transparent)] backdrop-blur-md"
         role="region"
         aria-label={t("bulk.toolbar", { default: "Actions groupées" })}
       >

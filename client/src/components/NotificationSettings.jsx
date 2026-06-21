@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Bell, BellOff, Mail } from "lucide-react";
 import {
   subscribeToWebPush,
   unsubscribeFromWebPush,
@@ -383,11 +384,12 @@ function TestRow({ channelType, t }) {
         type="button"
         onClick={onClick}
         disabled={test.isPending}
-        className="notif-channel-test-btn"
+        className="notif-channel-test-btn inline-flex items-center gap-1.5"
       >
+        {test.isPending ? null : <Mail size={16} strokeWidth={1.75} aria-hidden />}
         {test.isPending
           ? t("notif.channel.test.sending")
-          : `📨 ${t("notif.channel.test.send")}`}
+          : t("notif.channel.test.send")}
       </button>
       {notice ? (
         <span
@@ -665,20 +667,22 @@ function BrowserPushControls({ system, mine, t }) {
         {!isEnabled || !subscribed ? (
           <button
             type="button"
-            className="notif-channel-form-btn is-save"
+            className="notif-channel-form-btn is-save inline-flex items-center gap-1.5"
             onClick={subscribe}
             disabled={busy || !vapidPublicKey}
           >
-            🔔 {t("notif.channel.browser_push.subscribe")}
+            <Bell size={16} strokeWidth={1.75} aria-hidden />
+            {t("notif.channel.browser_push.subscribe")}
           </button>
         ) : (
           <button
             type="button"
-            className="notif-channel-form-btn is-cancel"
+            className="notif-channel-form-btn is-cancel inline-flex items-center gap-1.5"
             onClick={unsubscribe}
             disabled={busy}
           >
-            🔕 {t("notif.channel.browser_push.unsubscribe")}
+            <BellOff size={16} strokeWidth={1.75} aria-hidden />
+            {t("notif.channel.browser_push.unsubscribe")}
           </button>
         )}
       </div>

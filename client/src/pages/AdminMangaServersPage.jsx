@@ -8,6 +8,7 @@ import {
   useRevokeMangaServer,
 } from "../hooks/useAdminMangaServers.js";
 import AccentTitle from "../components/AccentTitle.jsx";
+import Button from "../components/Button.jsx";
 import Card from "../components/Card.jsx";
 import StatCard from "../components/StatCard.jsx";
 import EmptyState from "../components/EmptyState.jsx";
@@ -509,21 +510,18 @@ function DeleteConfirm({ t, busy, error, onYes, onNo }) {
           {t("admin.manga_servers.delete.confirm")}
         </span>
       )}
-      <button
-        type="button"
+      <Button
+        variant="danger"
+        size="sm"
         onClick={onYes}
         disabled={busy}
-        className="text-[10px] uppercase tracking-[0.12em] px-2.5 py-1 bg-[var(--color-laque)] text-[var(--color-ivoire)] disabled:opacity-60"
+        loading={busy}
       >
         {t("admin.manga_servers.delete.yes")}
-      </button>
-      <button
-        type="button"
-        onClick={onNo}
-        className="text-[10px] uppercase tracking-[0.12em] px-2.5 py-1 border border-[color-mix(in_oklab,var(--color-or)_30%,transparent)] text-[var(--color-ivoire-soft)]"
-      >
+      </Button>
+      <Button variant="ghost" size="sm" onClick={onNo}>
         {t("admin.manga_servers.delete.no")}
-      </button>
+      </Button>
     </span>
   );
 }

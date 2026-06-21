@@ -103,9 +103,16 @@ export default function FigureDetailPage() {
   }
 
   const onDelete = async () => {
-    await del.mutateAsync(f.id);
-    setConfirming(false);
-    navigate("/catalogue");
+    try {
+      await del.mutateAsync(f.id);
+      navigate("/catalogue");
+    } catch {
+      // The mutation surfaces its own error via the global toast; we only need
+      // to make sure a failed delete doesn't leave the confirm dialog stuck
+      // open + disabled. Resetting in `finally` closes it either way.
+    } finally {
+      setConfirming(false);
+    }
   };
 
   // Jump from the hero's "Éditer ma pièce" CTA down to the owner editor.
@@ -115,7 +122,7 @@ export default function FigureDetailPage() {
 
   return (
     <AppShell>
-      <main className="relative pb-24">
+      <div className="relative pb-24">
         {/* Editorial breadcrumb — CATALOGUE › Fiche, a quiet way back to where
          *  most arrivals come from. */}
         <div className="max-w-7xl mx-auto px-6 pt-8">
@@ -190,7 +197,7 @@ export default function FigureDetailPage() {
         {scanCode && f.jan ? (
           <BarcodeDialog code={f.jan} label={f.name} onClose={() => setScanCode(false)} />
         ) : null}
-      </main>
+      </div>
     </AppShell>
   );
 }

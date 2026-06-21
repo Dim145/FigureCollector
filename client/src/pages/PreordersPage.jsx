@@ -7,6 +7,7 @@ import { usePreorders } from "../hooks/useCollection.js";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
 import EmptyState from "../components/EmptyState.jsx";
+import ErrorState from "../components/ErrorState.jsx";
 import { PageLayout } from "../components/layout/index.js";
 import CalendarSubscribe from "./preorders/CalendarSubscribe.jsx";
 import PreorderStatRibbon from "./preorders/PreorderStatRibbon.jsx";
@@ -64,6 +65,16 @@ export default function PreordersPage() {
 
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
+
+  if (preorders.isError) {
+    return (
+      <AppShell>
+        <PageLayout width="standard">
+          <ErrorState error={preorders.error} onRetry={() => preorders.refetch()} />
+        </PageLayout>
+      </AppShell>
+    );
+  }
 
   const addButton = (
     <Button variant="primary" iconStart={<Plus size={16} />} onClick={() => setAddOpen(true)}>

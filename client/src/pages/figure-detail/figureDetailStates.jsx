@@ -61,7 +61,7 @@ export function FigureMissingState({ t, figureId }) {
  *  this visit only (state lives in the orchestrator). */
 export function NsfwInterstitial({ t, figureId, onAcknowledge }) {
   return (
-    <main className="relative max-w-xl mx-auto px-6 py-24 text-center">
+    <section className="relative max-w-xl mx-auto px-6 py-24 text-center">
       <span
         aria-hidden
         className="kanji-mark text-[18rem] -top-12 left-1/2 -translate-x-1/2 select-none"
@@ -104,6 +104,6 @@ export function NsfwInterstitial({ t, figureId, onAcknowledge }) {
           {t("figure.missing.cta_browse")}
         </Link>
       </div>
-    </main>
+    </section>
   );
 }

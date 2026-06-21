@@ -5,21 +5,18 @@
  * editorial red-accent headline of the redesign.
  *
  * Put `.display` (Fraunces) on the heading itself; this only adds the colour
- * + italic on the first token. Single-word titles render unchanged so it
- * degrades gracefully across locales.
+ * + italic on the first token — including single-word titles, whose sole token
+ * still gets the accent (no special-case, so figure names read as headlines).
  */
 export default function AccentTitle({ text, className = "" }) {
   const str = String(text ?? "");
   const space = str.indexOf(" ");
-  if (space === -1) {
-    return <span className={className}>{str}</span>;
-  }
-  const first = str.slice(0, space);
-  const rest = str.slice(space + 1);
+  const first = space === -1 ? str : str.slice(0, space);
+  const rest = space === -1 ? "" : str.slice(space + 1);
   return (
     <span className={className}>
-      <span className="italic text-[var(--color-laque-bright)]">{first}</span>{" "}
-      {rest}
+      <span className="italic text-[var(--color-laque-bright)]">{first}</span>
+      {rest ? <> {rest}</> : null}
     </span>
   );
 }

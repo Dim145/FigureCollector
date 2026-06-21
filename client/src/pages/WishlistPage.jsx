@@ -12,6 +12,9 @@ import { useAddOwnedItem } from "../hooks/useCollection.js";
 import AppShell from "../components/AppShell.jsx";
 import { PageLayout, Section } from "../components/layout/index.js";
 import { Button, EmptyState } from "../components/ui/index.js";
+import { useToast } from "../components/ui/Toast.jsx";
+import ConfirmDialog from "../components/ConfirmDialog.jsx";
+import ErrorState from "../components/ErrorState.jsx";
 import { SectionSkeleton } from "../components/Skeleton.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import { useDisplayCurrency } from "../components/DisplayCurrencyProvider.jsx";
@@ -36,6 +39,7 @@ import WishItem from "./wishlist/WishItem.jsx";
 export default function WishlistPage() {
   const t = useT();
   const me = useMe();
+  const toast = useToast();
   const wishlist = useWishlistItems();
   const patch = usePatchWishlistItem();
   const remove = useRemoveWishlistItem();
@@ -81,6 +85,8 @@ export default function WishlistPage() {
   const [editId, setEditId] = useState(null);
   const [draftAmount, setDraftAmount] = useState("");
   const [draftNote, setDraftNote] = useState("");
+  // Wish queued for removal confirmation; null when the dialog is closed.
+  const [pendingRemove, setPendingRemove] = useState(null);
   const startEdit = (it) => {
     setEditId(it.figure_id);
     setDraftAmount(it.max_price_amount != null ? String(it.max_price_amount) : "");
@@ -103,10 +109,30 @@ export default function WishlistPage() {
     );
   };
   const acquire = (it) =>
-    addOwned.mutate({ figure_id: it.figure_id }, { onSuccess: () => remove.mutate(it.figure_id) });
+    addOwned.mutate(
+      { figure_id: it.figure_id },
+      {
+        onSuccess: () => {
+          remove.mutate(it.figure_id);
+          toast.success(
+            t("wishlist.acquired", { default: "Pièce ajoutée à la collection" }),
+          );
+        },
+      },
+    );
 
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
+
+  if (wishlist.isError) {
+    return (
+      <AppShell>
+        <PageLayout width="wide">
+          <ErrorState error={wishlist.error} onRetry={() => wishlist.refetch()} />
+        </PageLayout>
+      </AppShell>
+    );
+  }
 
   const hasItems = items.length > 0;
 
@@ -209,7 +235,7 @@ export default function WishlistPage() {
                       onCancelEdit={() => setEditId(null)}
                       onSave={() => saveEdit(it)}
                       onAcquire={() => acquire(it)}
-                      onRemove={() => remove.mutate(it.figure_id)}
+                      onRemove={() => setPendingRemove(it)}
                       saving={patch.isPending}
                       acquiring={addOwned.isPending}
                     />
@@ -220,6 +246,24 @@ export default function WishlistPage() {
           </>
         )}
       </PageLayout>
+
+      <ConfirmDialog
+        open={!!pendingRemove}
+        title={t("wishlist.remove")}
+        body={t("wishlist.remove.body")}
+        confirmLabel={t("editor.confirm")}
+        destructive
+        busy={remove.isPending}
+        onCancel={() => setPendingRemove(null)}
+        onConfirm={() => {
+          if (pendingRemove) {
+            remove.mutate(pendingRemove.figure_id, {
+              onSuccess: () => setPendingRemove(null),
+              onError: () => setPendingRemove(null),
+            });
+          }
+        }}
+      />
     </AppShell>
   );
 }

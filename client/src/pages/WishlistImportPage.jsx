@@ -19,12 +19,12 @@ import {
 } from "../lib/proxyMap.js";
 import { parseMfcCsv } from "../lib/mfcCsv.js";
 import { useProxyEnabled, fetchProxyProduct } from "../hooks/useProxy.js";
-import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
 import Card from "../components/Card.jsx";
 import FigureCard from "../components/FigureCard.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
+import PageLayout from "../components/layout/PageLayout.jsx";
 
 /**
  * « Importer dans mes souhaits » — bulk import, multi-source.
@@ -337,33 +337,24 @@ export default function WishlistImportPage() {
 
   return (
     <AppShell>
-      <main className="relative max-w-5xl mx-auto px-6 py-16">
-        {/* Editorial header — kicker · 蒐 · SOUHAITS → AccentTitle h1 → gold-rule,
-            over a faint 蒐 watermark bleeding off the top-right corner. */}
-        <Reveal as="header" className="relative mb-10">
-          <span
-            aria-hidden
-            className="kanji-mark text-[22rem] -top-28 -right-8 hidden md:block select-none"
-          >
-            蒐
-          </span>
-
-          <p className="micro flex items-center gap-2.5" style={{ "--i": 0 }}>
+      <PageLayout
+        width="standard"
+        kanji="蒐"
+        kicker={
+          <span className="flex items-center gap-2.5">
             <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
             {t("import.eyebrow")}
             <span aria-hidden className="ja not-italic text-[var(--color-or)]">
               輸
             </span>
             {t("import.kicker_label", { default: "SOUHAITS" })}
-          </p>
-          <h1 className="display text-5xl md:text-6xl text-[var(--color-ivoire)] mt-3 leading-[0.95]">
-            <AccentTitle text={t("import.title")} />
-          </h1>
-          <div className="gold-rule w-24 mt-6" />
-          <p className="mt-5 max-w-2xl leading-relaxed text-[var(--color-ivoire-soft)]">
-            {t("import.subtitle")}
-          </p>
-        </Reveal>
+          </span>
+        }
+        title={t("import.title")}
+      >
+        <p className="-mt-2 mb-8 max-w-2xl leading-relaxed text-[var(--color-ivoire-soft)]">
+          {t("import.subtitle")}
+        </p>
 
         <Steps phase={phase} t={t} />
 
@@ -397,7 +388,7 @@ export default function WishlistImportPage() {
         {phase === "importing" ? <ImportingPhase progress={progress} t={t} /> : null}
 
         {phase === "done" ? <DonePhase summary={summary} onReset={reset} t={t} /> : null}
-      </main>
+      </PageLayout>
     </AppShell>
   );
 }
@@ -649,8 +640,10 @@ function ReviewPhase({
   const full = selectedCount >= BATCH_MAX;
   return (
     <div>
-      {/* Selection ledger — count (gold, turns red at the cap) + select-all/none. */}
-      <div className="sticky top-2 z-30 mb-6 flex flex-wrap items-center gap-3 p-3 border border-[color-mix(in_oklab,var(--color-or)_28%,transparent)] bg-[color-mix(in_oklab,var(--color-noir-deep)_82%,transparent)] backdrop-blur-md">
+      {/* Selection ledger — count (gold, turns red at the cap) + select-all/none.
+          `top` clears the AppShell sticky header + the collection sub-nav rail
+          (≈5rem) so the bar docks below the chrome instead of hiding under it. */}
+      <div className="sticky top-[5.25rem] z-30 mb-6 flex flex-wrap items-center gap-3 p-3 border border-[color-mix(in_oklab,var(--color-or)_28%,transparent)] bg-[color-mix(in_oklab,var(--color-noir-deep)_82%,transparent)] backdrop-blur-md">
         <span className="display text-xl leading-none">
           <b
             className="figural"

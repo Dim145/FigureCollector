@@ -10,12 +10,13 @@ import {
   useNotificationRealtime,
   useNotifications,
 } from "../hooks/useNotifications.js";
-import AccentTitle from "../components/AccentTitle.jsx";
+import { Check } from "lucide-react";
 import AppShell from "../components/AppShell.jsx";
 import Button from "../components/Button.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import StatCard from "../components/StatCard.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
+import PageLayout from "../components/layout/PageLayout.jsx";
 import { formatNotification } from "../lib/notificationMessages.js";
 
 // Per-event accent — the kanji "type marker" carries its own lifecycle hue so
@@ -78,54 +79,38 @@ export default function NotificationsPage() {
 
   return (
     <AppShell>
-      <main className="notif-page relative max-w-3xl mx-auto px-6 pt-12 pb-24">
-        {/* ─── Editorial header ─── */}
-        <header className="relative mb-10">
-          <span
-            aria-hidden
-            className="kanji-mark text-[20rem] -top-24 -right-6 hidden md:block"
-          >
-            報
-          </span>
-
-          <p className="micro reveal" style={{ "--i": 0 }}>
+      <PageLayout
+        width="prose"
+        kanji="報"
+        kicker={
+          <>
             {t("notifications.popover.eyebrow")}
             <span aria-hidden className="ja mx-2 not-italic">報</span>
             {t("notifications.kicker_tag", { default: "JOURNAL" })}
-          </p>
-          <h1
-            className="display text-5xl md:text-6xl mt-3 text-[var(--color-ivoire)] leading-[0.95] reveal"
-            style={{ "--i": 1 }}
-          >
-            <AccentTitle text={t("notifications.page_title")} />
-          </h1>
-          <div className="gold-rule w-24 mt-5 reveal" style={{ "--i": 2 }} />
-          <p
-            className="display-italic text-base mt-4 text-[var(--color-ivoire-soft)]/80 reveal"
-            style={{ "--i": 3 }}
-          >
-            {t("notifications.subtitle")}
-          </p>
+          </>
+        }
+        title={t("notifications.page_title")}
+        className="notif-page"
+      >
+        <p className="display-italic text-base -mt-2 mb-2 text-[var(--color-ivoire-soft)]/80">
+          {t("notifications.subtitle")}
+        </p>
 
-          {total > 0 ? (
-            <div
-              className="mt-8 grid grid-cols-3 gap-3 reveal"
-              style={{ "--i": 3 }}
-            >
-              <StatCard label={t("notifications.tab.all")} value={total} />
-              <StatCard
-                label={t("notifications.tab.unread")}
-                value={unread}
-                tone={unread > 0 ? "red" : undefined}
-              />
-              <StatCard
-                label={t("notifications.stat.read", { default: "Lues" })}
-                value={read}
-                tone="gold"
-              />
-            </div>
-          ) : null}
-        </header>
+        {total > 0 ? (
+          <div className="mt-6 mb-8 grid grid-cols-3 gap-3">
+            <StatCard label={t("notifications.tab.all")} value={total} />
+            <StatCard
+              label={t("notifications.tab.unread")}
+              value={unread}
+              tone={unread > 0 ? "red" : undefined}
+            />
+            <StatCard
+              label={t("notifications.stat.read", { default: "Lues" })}
+              value={read}
+              tone="gold"
+            />
+          </div>
+        ) : null}
 
         {/* ─── A toolbar: tab pills + mark-all ─── */}
         <Reveal
@@ -157,9 +142,9 @@ export default function NotificationsPage() {
               variant="ghost"
               onClick={() => markAll.mutate()}
               loading={markAll.isPending}
+              iconStart={<Check size={16} strokeWidth={1.75} aria-hidden />}
               className="!px-4 !py-2 !text-[11px] !uppercase !tracking-[0.22em]"
             >
-              <span aria-hidden>✓</span>
               {t("notifications.mark_all_read")}
             </Button>
           ) : null}
@@ -201,7 +186,7 @@ export default function NotificationsPage() {
             ))}
           </div>
         )}
-      </main>
+      </PageLayout>
     </AppShell>
   );
 }

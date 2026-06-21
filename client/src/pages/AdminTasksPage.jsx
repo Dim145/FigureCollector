@@ -11,6 +11,7 @@ import {
   useAdminVisualSearchQueue,
   useAdminVisualSearchDuplicates,
 } from "../hooks/useAdmin.js";
+import Button from "../components/Button.jsx";
 import StatCard from "../components/StatCard.jsx";
 import EmptyState from "../components/EmptyState.jsx";
 import { resolveFigureCover } from "../lib/coverUrl.js";
@@ -614,22 +615,22 @@ function TaskRow({ scan, t, index = 0 }) {
             {terminal ? (
               confirmDel ? (
                 <span className="inline-flex items-center gap-1.5">
-                  <button
-                    type="button"
+                  <Button
+                    variant="danger"
+                    size="sm"
                     onClick={() => del.mutate(scan.id, { onSuccess: () => setConfirmDel(false) })}
                     disabled={del.isPending}
-                    className="tap-target text-[10px] uppercase tracking-[0.14em] px-3 py-1.5 bg-[var(--color-laque)] text-[var(--color-ivoire)] disabled:opacity-60"
+                    loading={del.isPending}
                   >
                     {t("admin.tasks.delete.yes")}
-                  </button>
-                  <button
-                    type="button"
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setConfirmDel(false)}
-                    className="tap-target text-[10px] uppercase tracking-[0.14em] px-3 py-1.5 border text-[var(--color-ivoire-soft)]"
-                    style={{ borderColor: "color-mix(in oklab, var(--color-or) 30%, transparent)" }}
                   >
                     {t("admin.tasks.delete.no")}
-                  </button>
+                  </Button>
                 </span>
               ) : (
                 <ActBtn

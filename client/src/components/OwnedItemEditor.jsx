@@ -80,13 +80,13 @@ export default function OwnedItemEditor({ owned, catalogMsrp, catalogCurrency })
               </button>
             ) : null}
             {canCancel ? (
-              <button
-                type="button"
+              <Button
+                variant="danger"
+                size="sm"
                 onClick={() => setCancelOpen(true)}
-                className="text-[10px] uppercase tracking-[0.22em] text-[var(--color-laque-bright)] hover:text-[var(--color-laque)] transition-colors border border-[var(--color-laque-bright)]/40 hover:border-[var(--color-laque-bright)] px-3 py-1.5"
               >
                 × {t("owned.editor.cancel_preorder")}
-              </button>
+              </Button>
             ) : null}
             <button
               type="button"

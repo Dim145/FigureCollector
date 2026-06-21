@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useT } from "../i18n/index.jsx";
+import Button from "./Button.jsx";
 
 /**
  * Multi-file import: pick 6-96 still images, re-encode each as WebP before
@@ -108,14 +109,15 @@ export default function TurntableImport({ onComplete }) {
             ))}
           </ul>
           <div className="mt-6 flex justify-end">
-            <button
+            <Button
               type="button"
               disabled={frames.length < 6}
               onClick={() => onComplete(frames)}
-              className="px-5 py-3 bg-[var(--color-laque)] text-[var(--color-ivoire)] text-[11px] uppercase tracking-[0.18em] disabled:opacity-40"
+              size="sm"
+              className="uppercase tracking-[0.18em]"
             >
               {t("turntable.save")}
-            </button>
+            </Button>
           </div>
         </>
       ) : null}

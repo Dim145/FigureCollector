@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
+import Breadcrumbs from "../components/ui/Breadcrumbs.jsx";
 import FigureCard from "../components/FigureCard.jsx";
 import StatCard from "../components/StatCard.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
@@ -77,13 +78,13 @@ export default function EntityPage({ kind }) {
   if (q.isLoading) {
     return (
       <AppShell>
-        <main
+        <div
           role="status"
           aria-live="polite"
           className="max-w-6xl mx-auto px-6 py-16 text-center text-[var(--color-ivoire-soft)] italic"
         >
           …
-        </main>
+        </div>
       </AppShell>
     );
   }
@@ -92,7 +93,7 @@ export default function EntityPage({ kind }) {
     const glyph = kindGlyph(kind);
     return (
       <AppShell>
-        <main className="relative max-w-3xl mx-auto px-6 py-24">
+        <div className="relative max-w-3xl mx-auto px-6 py-24">
           <span
             aria-hidden
             className="kanji-mark text-[18rem] -top-16 -right-6 hidden md:block select-none"
@@ -119,7 +120,7 @@ export default function EntityPage({ kind }) {
           >
             {notFound ? t("entity.missing.body") : q.error?.message}
           </p>
-        </main>
+        </div>
       </AppShell>
     );
   }
@@ -128,7 +129,7 @@ export default function EntityPage({ kind }) {
   if (!entity)
     return (
       <AppShell>
-        <main />
+        <div />
       </AppShell>
     );
 
@@ -150,7 +151,14 @@ export default function EntityPage({ kind }) {
 
   return (
     <AppShell>
-      <main className="relative max-w-6xl mx-auto px-6 py-12">
+      <div className="relative max-w-6xl mx-auto px-6 py-12">
+        <Breadcrumbs
+          className="mb-6 relative z-[1]"
+          items={[
+            { label: t("figure.back", { default: "Catalogue" }), to: "/catalogue" },
+            { label: entity.name },
+          ]}
+        />
         <Header entity={entity} kind={kind} t={t} mangaHref={mangaHref} figures={figures} />
 
         {figures.length > 0 ? <StatStrip figures={figures} kind={kind} t={t} /> : null}
@@ -263,7 +271,7 @@ export default function EntityPage({ kind }) {
             </ul>
           )}
         </section>
-      </main>
+      </div>
     </AppShell>
   );
 }

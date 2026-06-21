@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { Gift } from "lucide-react";
 import { useT } from "../i18n/index.jsx";
+import Button from "./Button.jsx";
 import {
   useGiftShare,
   useEnableGiftShare,
@@ -91,7 +93,13 @@ export default function GiftSharePanel() {
           </div>
 
           <p className="mt-3 text-[12px] text-[var(--color-ivoire-soft)] leading-relaxed">
-            🎁 <b className="text-[var(--color-ivoire)]">{t("gift.hidden_title")}</b>{" "}
+            <Gift
+              size={16}
+              strokeWidth={1.75}
+              aria-hidden
+              className="inline-block align-text-bottom mr-1.5"
+            />
+            <b className="text-[var(--color-ivoire)]">{t("gift.hidden_title")}</b>{" "}
             {t("gift.hidden_body")}
           </p>
 
@@ -99,14 +107,14 @@ export default function GiftSharePanel() {
             {confirmOff ? (
               <span className="inline-flex items-center gap-2 text-[12px]">
                 <span className="text-[var(--color-ivoire-soft)]">{t("gift.disable_confirm")}</span>
-                <button
-                  type="button"
+                <Button
+                  variant="danger"
+                  size="sm"
                   onClick={turnOff}
-                  disabled={disable.isPending}
-                  className="px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] bg-[var(--color-laque)] text-[var(--color-ivoire)]"
+                  loading={disable.isPending}
                 >
                   {t("gift.disable")}
-                </button>
+                </Button>
                 <button
                   type="button"
                   onClick={() => setConfirmOff(false)}

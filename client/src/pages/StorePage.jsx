@@ -13,6 +13,7 @@ import { safeHref } from "../lib/safeUrl.js";
 import { buildBuyUrl } from "../lib/storeLink.js";
 import AccentTitle from "../components/AccentTitle.jsx";
 import AppShell from "../components/AppShell.jsx";
+import Breadcrumbs from "../components/ui/Breadcrumbs.jsx";
 import PageSkeleton, { SectionSkeleton } from "../components/Skeleton.jsx";
 import Button from "../components/Button.jsx";
 import Card from "../components/Card.jsx";
@@ -60,7 +61,7 @@ export default function StorePage() {
     // title + gold-rule + a red CTA back to the boutiques list.
     return (
       <AppShell>
-        <main className="max-w-5xl mx-auto px-6 py-20">
+        <div className="max-w-5xl mx-auto px-6 py-20">
           <Card className="max-w-xl mx-auto p-12 text-center relative overflow-hidden">
             <span
               aria-hidden
@@ -79,7 +80,7 @@ export default function StorePage() {
               </Button>
             </Link>
           </Card>
-        </main>
+        </div>
       </AppShell>
     );
   }
@@ -110,7 +111,14 @@ export default function StorePage() {
 
   return (
     <AppShell>
-      <main className="relative max-w-7xl mx-auto px-6 py-16">
+      <div className="relative max-w-7xl mx-auto px-6 py-16">
+        <Breadcrumbs
+          className="mb-6 relative z-[1]"
+          items={[
+            { label: t("store.back_catalogue", { default: "Catalogue" }), to: "/catalogue" },
+            { label: s.name },
+          ]}
+        />
         {/* ─── Editorial header ─── */}
         <header className="relative mb-12">
           {/* Calm 店 ("shop") watermark — gold, very faint, bleeding off the
@@ -205,37 +213,36 @@ export default function StorePage() {
               ) : null}
 
               {/* Visit CTA — the page's single hot action, the Direction A red
-                  hanko pill. Rendered as the <a> itself (not a <button> nested
-                  in an <a>, which would be invalid markup + a double tab stop):
-                  it mirrors the <Button variant="primary"> look with the same
-                  Tailwind utilities + inline laque var()s, so it stays on-token
-                  and theme-driven. The host rides along as a quiet mono
-                  sub-label; gold-outline ghost is reserved for the per-figure
-                  buy chips below. */}
+                  hanko pill. Rendered as the shared <Button variant="primary">
+                  polymorphically as an <a> (not a <button> nested in an <a>,
+                  which would be invalid markup + a double tab stop). The host
+                  rides along as a quiet mono sub-label; gold-outline ghost is
+                  reserved for the per-figure buy chips below. */}
               {visitHref ? (
-                <a
+                <Button
+                  as="a"
+                  variant="primary"
                   href={visitHref}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={`${t("store.visit")} · ${prettyHost(s.url)}`}
-                  className="group/visit tap-target relative overflow-hidden inline-flex items-center justify-center gap-2 mt-7 px-6 rounded-full font-medium tracking-wide text-[var(--color-ivoire)] transition-colors duration-300 hover:bg-[var(--color-laque-bright)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-noir)] focus-visible:ring-[var(--color-laque-bright)]"
-                  style={{
-                    background: "var(--color-laque)",
-                    boxShadow:
-                      "0 10px 28px -12px color-mix(in oklab, var(--color-laque) 55%, transparent)",
-                  }}
+                  className="mt-7"
+                  iconStart={
+                    <span aria-hidden className="ja text-lg leading-none -ml-1">
+                      購
+                    </span>
+                  }
+                  iconEnd={
+                    <span
+                      aria-hidden
+                      className="font-mono text-[10px] uppercase tracking-[0.18em] opacity-75"
+                    >
+                      ↗ {prettyHost(s.url)}
+                    </span>
+                  }
                 >
-                  <span aria-hidden className="ja text-lg leading-none -ml-1">
-                    購
-                  </span>
-                  <span>{t("store.visit")}</span>
-                  <span
-                    aria-hidden
-                    className="font-mono text-[10px] uppercase tracking-[0.18em] opacity-75"
-                  >
-                    ↗ {prettyHost(s.url)}
-                  </span>
-                </a>
+                  {t("store.visit")}
+                </Button>
               ) : null}
 
               {/* Figurine-metric strip — glanceable scale of the boutique's
@@ -382,7 +389,7 @@ export default function StorePage() {
           )}
         </section>
 
-      </main>
+      </div>
 
       {imageUrl ? (
         <Lightbox

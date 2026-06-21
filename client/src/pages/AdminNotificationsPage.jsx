@@ -5,6 +5,7 @@ import {
   useAdminUpdateChannel,
   useGenerateVapid,
 } from "../hooks/useNotifications.js";
+import { KeyRound } from "lucide-react";
 import AccentTitle from "../components/AccentTitle.jsx";
 import Button from "../components/Button.jsx";
 import Card from "../components/Card.jsx";
@@ -283,7 +284,8 @@ function AdminChannelCard({ channel, t }) {
                   t("admin.notif.vapid.generating")
                 ) : (
                   <>
-                    <span aria-hidden>🔑</span> {t("admin.notif.vapid.generate")}
+                    <KeyRound size={16} strokeWidth={1.75} aria-hidden />{" "}
+                    {t("admin.notif.vapid.generate")}
                   </>
                 )}
               </Button>

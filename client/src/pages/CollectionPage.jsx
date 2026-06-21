@@ -15,6 +15,7 @@ import AppShell from "../components/AppShell.jsx";
 import { PageLayout } from "../components/layout/index.js";
 import { Button, EmptyState } from "../components/ui/index.js";
 import { SectionSkeleton } from "../components/Skeleton.jsx";
+import ErrorState from "../components/ErrorState.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import { preorderPhase } from "../lib/preorderStatus.js";
 import { effectiveValue, figurePaid } from "../lib/money.js";
@@ -153,6 +154,16 @@ export default function CollectionPage() {
 
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
+
+  if (owned.isError) {
+    return (
+      <AppShell>
+        <PageLayout width="wide">
+          <ErrorState error={owned.error} onRetry={() => owned.refetch()} />
+        </PageLayout>
+      </AppShell>
+    );
+  }
 
   // ── Bulk actions over the current selection ──────────────────────────────
   const selectedItems = filtered.filter((o) => sel.isSelected(o.id));

@@ -319,22 +319,23 @@ function Row({ w, t }) {
 
             {confirmingDelete ? (
               <span className="inline-flex items-center gap-1.5">
-                <button
-                  type="button"
+                <Button
+                  variant="danger"
+                  size="sm"
                   onClick={onDelete}
                   disabled={del.isPending}
-                  className="tap-target text-[10px] uppercase tracking-[0.12em] px-3 py-2 bg-[var(--color-laque)] text-[var(--color-ivoire)] hover:bg-[var(--color-laque-bright)] transition-colors disabled:opacity-60"
+                  loading={del.isPending}
                 >
                   {t("admin.workers.delete_yes")}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setConfirmingDelete(false)}
                   disabled={del.isPending}
-                  className="tap-target text-[10px] uppercase tracking-[0.12em] px-3 py-2 border border-[color-mix(in_oklab,var(--color-or)_30%,transparent)] text-[var(--color-ivoire-soft)] hover:text-[var(--color-ivoire)] transition-colors disabled:opacity-60"
                 >
                   {t("admin.workers.delete_no")}
-                </button>
+                </Button>
               </span>
             ) : (
               <button

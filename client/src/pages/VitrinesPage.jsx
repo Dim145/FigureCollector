@@ -25,6 +25,7 @@ import AppShell from "../components/AppShell.jsx";
 import { PageLayout, Section } from "../components/layout/index.js";
 import { Button, EmptyState } from "../components/ui/index.js";
 import { SectionSkeleton } from "../components/Skeleton.jsx";
+import ErrorState from "../components/ErrorState.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import ShelfPlanner from "../components/ShelfPlanner.jsx";
 import { typeHue } from "../lib/typeHue.js";
@@ -260,6 +261,16 @@ export default function VitrinesPage() {
 
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
+
+  if (owned.isError) {
+    return (
+      <AppShell>
+        <PageLayout width="wide">
+          <ErrorState error={owned.error} onRetry={() => owned.refetch()} />
+        </PageLayout>
+      </AppShell>
+    );
+  }
 
   const total = owned.data?.length ?? 0;
   const cabinetKeys = order.filter((k) => k !== LOOSE);

@@ -2621,4 +2621,6 @@ export default {
   "pagination.next": "Page suivante",
   "preorders.kicker": "PRÉ-COMMANDES · 予約 · HORARIUM",
   "wishlist.remove.body": "Retirer cette pièce de tes souhaits ?",
+  "wishlist.acquired": "Pièce ajoutée à la collection",
+  "store.back_catalogue": "Catalogue",
 };

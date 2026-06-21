@@ -56,7 +56,7 @@ export default function AdminLayout() {
 
   return (
     <AppShell>
-      <main className="relative max-w-6xl mx-auto px-6 py-12 md:py-16">
+      <div className="relative max-w-6xl mx-auto px-6 py-12 md:py-16">
         {/* ─── Editorial header ─── */}
         <header className="relative mb-10">
           <span
@@ -104,7 +104,7 @@ export default function AdminLayout() {
             <Outlet />
           </section>
         </div>
-      </main>
+      </div>
     </AppShell>
   );
 }

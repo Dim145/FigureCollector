@@ -191,7 +191,7 @@ export default function BarcodeScanner({ onDetect, onClose }) {
                 <button
                   type="submit"
                   disabled={!/^\d{6,14}$/.test(manual.trim())}
-                  className="px-4 py-2 bg-[var(--color-laque)] text-[var(--color-ivoire)] text-[11px] uppercase tracking-[0.16em] disabled:opacity-40"
+                  className="px-4 py-2 bg-[var(--primary)] text-[var(--color-ivoire)] text-[11px] uppercase tracking-[0.16em] disabled:opacity-40"
                 >
                   {t("scan.lookup")}
                 </button>
