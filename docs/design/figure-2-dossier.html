@@ -1,0 +1,1153 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FigureCollector — ② Le Dossier · /figures/:id</title>
+<meta name="description" content="Maquette fiche figurine — Direction ② « Le Dossier » : long scroll unique + index d'ancres collant, registre structuré, value-ticker toujours visible. Skin Shōjo-Noir." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Instrument+Sans:ital,wght@0,400..600;1,400..500&family=Noto+Serif+JP:wght@300..500&family=JetBrains+Mono:wght@300..500&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================================
+   ② LE DOSSIER — single long scroll + sticky anchor index (kanji register)
+   Skin: Direction A « Shōjo-Noir » (FIXED tokens). GPU-light: flat fills,
+   hairlines, static gradients. No backdrop-blur decoration, no glassmorphism.
+============================================================================ */
+:root{
+  /* core (dark) */
+  --color-noir:#161311; --color-noir-soft:#211c19; --color-noir-deep:#100d0b;
+  --color-laque:#8f2d2a; --color-laque-bright:#c4453b;      /* hanko red — the ONE hot accent */
+  --color-or:#d8b46e; --color-or-pale:#e8d4a6; --color-or-deep:#a98a4e;  /* gold = value */
+  --color-jade:#5fb39a; --color-jade-deep:#3f8f78;          /* gain (+) */
+  --color-ivoire:#ece3d2; --color-ivoire-soft:rgba(236,227,210,.8);
+  /* semantic */
+  --surface:var(--color-noir-soft); --surface-raised:var(--color-noir); --surface-sunken:var(--color-noir-deep);
+  --on-surface:var(--color-ivoire); --on-surface-muted:var(--color-ivoire-soft);
+  --on-surface-subtle:rgba(236,227,210,.55);
+  --border:rgba(216,180,110,.22); --border-strong:rgba(216,180,110,.42); --border-subtle:rgba(216,180,110,.12);
+  --primary:var(--color-laque); --primary-hover:var(--color-laque-bright); --accent:var(--color-or);
+  --danger:var(--color-laque-bright); --success:var(--color-jade); --ring:var(--color-or);
+  /* type */
+  --font-display:"Fraunces",Georgia,serif;
+  --font-sans:"Instrument Sans",system-ui,sans-serif;
+  --font-ja:"Noto Serif JP","Yu Mincho",serif;
+  --font-mono:"JetBrains Mono",ui-monospace,monospace;
+  /* radii / space / motion */
+  --radius-sm:2px; --radius-md:4px; --radius-lg:8px; --radius-xl:14px; --radius-pill:9999px;
+  --elev-2:0 12px 32px -20px rgba(0,0,0,.7); --elev-3:0 25px 60px -34px rgba(0,0,0,.85);
+  --ease:cubic-bezier(.22,1,.36,1); --dur:240ms;
+  /* layout */
+  --bar-h:52px;        /* slim app chrome */
+  --idx-h:50px;        /* sticky anchor index sub-bar */
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;background:var(--color-noir);color:var(--on-surface);
+  font-family:var(--font-sans);-webkit-font-smoothing:antialiased;line-height:1.55;
+  /* anchor scroll offset accounts for chrome + index bar */
+}
+/* atmosphere: faint maroon vignette + grain (GPU-light, fixed, no blur) */
+body::before{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(120% 70% at 50% -8%, rgba(143,45,42,.18), transparent 56%),
+    radial-gradient(70% 50% at 90% 4%, rgba(216,180,110,.05), transparent 60%);
+}
+body::after{
+  content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.04;
+  background-image:radial-gradient(circle at 1px 1px,#fff 1px,transparent 0);
+  background-size:3px 3px;
+}
+img,svg{display:block;max-width:100%;}
+a{color:inherit;}
+:focus-visible{outline:2px solid var(--ring);outline-offset:3px;border-radius:var(--radius-sm);}
+
+/* ---- typography helpers ---- */
+.display{font-family:var(--font-display);font-weight:330;letter-spacing:-.012em;line-height:1.04;}
+.ja{font-family:var(--font-ja);}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums;}
+.num{font-variant-numeric:tabular-nums;}
+.micro{font-size:11px;text-transform:uppercase;letter-spacing:.2em;color:var(--color-or-pale);
+  font-family:var(--font-sans);font-weight:600;display:inline-flex;align-items:center;gap:.7em;}
+.micro .ja{color:var(--color-or);letter-spacing:.05em;font-size:14px;font-weight:400;}
+.micro .dot{width:5px;height:5px;background:var(--primary);transform:rotate(45deg);flex:0 0 auto;}
+.gold-rule{height:1px;border:0;margin:0;
+  background:linear-gradient(90deg,transparent,var(--color-or) 30% 70%,transparent);opacity:.6;}
+
+/* AccentTitle: figure name, first word red italic */
+.accent-title{font-family:var(--font-display);font-weight:300;line-height:1.02;letter-spacing:-.02em;color:var(--on-surface);}
+.accent-title .em{color:var(--color-laque-bright);font-style:italic;font-weight:360;}
+
+/* lot-stamp */
+.lot-stamp{display:inline-flex;align-items:center;gap:.6em;font-family:var(--font-mono);
+  font-size:11px;letter-spacing:.04em;color:var(--color-or-pale);
+  border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:6px 11px;
+  background:repeating-linear-gradient(90deg,transparent,transparent 9px,rgba(216,180,110,.05) 9px,rgba(216,180,110,.05) 10px);}
+.lot-stamp b{color:var(--color-or);font-weight:500;}
+.lot-stamp .sep{color:var(--border-strong);}
+
+/* ===========================================================================
+   SLIM APP CHROME
+=========================================================================== */
+.appbar{position:sticky;top:0;z-index:60;height:var(--bar-h);
+  display:flex;align-items:center;gap:18px;padding:0 28px;
+  background:var(--color-noir-deep);border-bottom:1px solid var(--border-subtle);}
+.brand{display:inline-flex;align-items:center;gap:9px;font-weight:600;text-decoration:none;color:var(--on-surface);}
+.brand .glyph{width:26px;height:26px;border-radius:7px;background:var(--primary);color:#fff;
+  display:grid;place-items:center;font-family:var(--font-ja);font-size:15px;}
+.brand .wm{font-family:var(--font-display);font-size:17px;letter-spacing:-.01em;}
+.brand .wm i{font-style:italic;color:var(--color-or);}
+.appnav{display:flex;gap:2px;margin-left:14px;}
+.appnav a{color:var(--on-surface-subtle);text-decoration:none;font-size:11px;text-transform:uppercase;
+  letter-spacing:.16em;padding:8px 12px;border-radius:var(--radius-lg);transition:color var(--dur) var(--ease);
+  display:inline-flex;align-items:center;gap:.5em;}
+.appnav a .ja{color:var(--color-or-deep);font-size:13px;}
+.appnav a:hover{color:var(--on-surface);}
+.appnav a.active{color:var(--color-or);}
+.appnav .right{margin-left:auto;}
+.appbar .right{margin-left:auto;display:flex;align-items:center;gap:12px;}
+.avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--color-or),var(--color-or-deep));
+  color:var(--color-noir);display:grid;place-items:center;font-family:var(--font-display);font-weight:600;font-size:14px;}
+
+/* ===========================================================================
+   PAGE SCAFFOLD
+=========================================================================== */
+.page{position:relative;z-index:1;}
+.shell{max-width:1320px;margin:0 auto;padding:0 28px;}
+.breadcrumb{display:flex;align-items:center;gap:10px;padding:18px 0 6px;
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.04em;color:var(--on-surface-subtle);}
+.breadcrumb a{color:var(--on-surface-subtle);text-decoration:none;transition:color var(--dur) var(--ease);}
+.breadcrumb a:hover{color:var(--color-or);}
+.breadcrumb .sep{color:var(--border-strong);}
+.breadcrumb .cur{color:var(--on-surface-muted);}
+
+/* direction label */
+.dirlabel{position:fixed;left:14px;bottom:14px;z-index:90;
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;color:var(--color-or-pale);
+  background:var(--color-noir-deep);border:1px solid var(--border-strong);border-radius:var(--radius-pill);
+  padding:7px 14px;box-shadow:var(--elev-2);}
+.dirlabel b{color:var(--color-or);font-weight:500;}
+
+/* ===========================================================================
+   HERO BAND — gallery left / identity right + value ticker + CTA
+=========================================================================== */
+.hero{position:relative;border-bottom:1px solid var(--border-subtle);}
+.hero .kanji-wm{position:absolute;right:2%;top:-4%;font-family:var(--font-ja);font-weight:500;
+  font-size:clamp(180px,26vw,420px);line-height:.8;color:var(--color-or);opacity:.05;
+  pointer-events:none;user-select:none;z-index:0;}
+.hero-grid{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);
+  gap:46px;padding:30px 0 38px;}
+
+/* --- gallery --- */
+.gallery{display:flex;flex-direction:column;gap:14px;}
+.main-stage{position:relative;}
+.stage-frame{position:relative;aspect-ratio:4/5;border:1px solid var(--border);border-radius:var(--radius-lg);
+  overflow:hidden;box-shadow:var(--elev-2);}
+.stage-frame .vign{position:absolute;inset:0;z-index:3;pointer-events:none;
+  box-shadow:inset 0 0 120px 30px rgba(0,0,0,.55);}
+.stage-arrows{position:absolute;inset:0;z-index:4;display:flex;align-items:center;justify-content:space-between;
+  padding:0 10px;pointer-events:none;}
+.arr{pointer-events:auto;width:44px;height:44px;border-radius:50%;border:1px solid var(--border-strong);
+  background:rgba(16,13,11,.62);color:var(--on-surface);display:grid;place-items:center;cursor:pointer;
+  font-size:17px;transition:transform var(--dur) var(--ease),border-color var(--dur) var(--ease);}
+.arr:hover{transform:scale(1.06);border-color:var(--color-or);}
+.stage-meta{position:absolute;left:12px;bottom:11px;z-index:4;font-family:var(--font-mono);font-size:11px;
+  letter-spacing:.05em;color:var(--color-or-pale);text-shadow:0 1px 6px rgba(0,0,0,.8);}
+.nsfw-pill{position:absolute;right:12px;top:12px;z-index:5;font-family:var(--font-mono);font-size:10px;
+  letter-spacing:.12em;color:var(--color-ivoire);background:rgba(143,45,42,.85);border:1px solid var(--color-laque-bright);
+  border-radius:var(--radius-pill);padding:4px 10px;}
+.count-pill{position:absolute;left:12px;top:12px;z-index:5;font-family:var(--font-mono);font-size:11px;
+  letter-spacing:.06em;color:var(--color-or-pale);background:rgba(16,13,11,.7);border:1px solid var(--border-strong);
+  border-radius:var(--radius-pill);padding:4px 11px;}
+
+/* NSFW veil */
+.nsfw-veil{position:absolute;inset:0;z-index:6;display:grid;place-items:center;gap:12px;
+  background:repeating-linear-gradient(45deg,rgba(16,13,11,.92),rgba(16,13,11,.92) 7px,rgba(33,28,25,.92) 7px,rgba(33,28,25,.92) 14px);
+  text-align:center;transition:opacity var(--dur) var(--ease);}
+.nsfw-veil.hidden{opacity:0;pointer-events:none;}
+.nsfw-veil p{margin:0;font-family:var(--font-mono);font-size:12px;letter-spacing:.1em;color:var(--on-surface-muted);}
+.btn-reveal{appearance:none;border:1px solid var(--border-strong);background:transparent;color:var(--color-or);
+  font:600 11px/1 var(--font-sans);text-transform:uppercase;letter-spacing:.14em;padding:11px 18px;
+  border-radius:var(--radius-pill);cursor:pointer;transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease);}
+.btn-reveal:hover{border-color:var(--color-or);color:var(--color-or-pale);}
+
+/* filmstrip */
+.filmstrip{display:flex;gap:9px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin;
+  scrollbar-color:var(--border-strong) transparent;}
+.thumb{flex:0 0 auto;width:66px;aspect-ratio:4/5;border:1px solid var(--border-subtle);border-radius:var(--radius-md);
+  overflow:hidden;cursor:pointer;position:relative;background:var(--surface-sunken);
+  transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease);padding:0;}
+.thumb:hover{transform:translateY(-2px);border-color:var(--border-strong);}
+.thumb.active{border-color:var(--color-or);box-shadow:0 0 0 1px var(--color-or);}
+.thumb .lbl360{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--font-mono);
+  font-size:9px;letter-spacing:.04em;color:var(--color-or);gap:2px;}
+.thumb .lbl360 .glyph{font-size:18px;line-height:1;}
+.thumb.more{display:grid;place-items:center;font-family:var(--font-mono);font-size:13px;color:var(--color-or-pale);
+  letter-spacing:.04em;}
+.thumb.more .sub{font-size:8px;color:var(--on-surface-subtle);letter-spacing:.16em;}
+
+/* --- identity --- */
+.identity{display:flex;flex-direction:column;}
+.identity .topline{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px;}
+.identity h1{margin:0;font-size:clamp(34px,4.4vw,58px);}
+.identity .version{margin:14px 0 0;display:inline-flex;align-items:center;gap:10px;
+  font-family:var(--font-display);font-style:italic;font-size:19px;font-weight:300;color:var(--on-surface-muted);}
+.identity .version .badge{font-family:var(--font-mono);font-style:normal;font-size:10px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--color-or-pale);border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 9px;}
+.identity .stamps{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px;}
+.type-chip{display:inline-flex;align-items:center;gap:.55em;font-family:var(--font-sans);font-size:11px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--on-surface-muted);
+  border:1px solid var(--border);border-radius:var(--radius-pill);padding:6px 13px;}
+.type-chip .ja{color:var(--color-or);font-size:14px;font-weight:400;}
+
+/* value ticker — the quiet stock band, ALWAYS visible */
+.ticker{margin-top:24px;border:1px solid var(--border);border-radius:var(--radius-lg);
+  background:linear-gradient(180deg,rgba(33,28,25,.7),rgba(16,13,11,.7));overflow:hidden;}
+.ticker .ribbon{display:flex;align-items:center;height:24px;padding:0 12px;gap:8px;
+  border-bottom:1px solid var(--border-subtle);background:var(--surface-sunken);}
+.ticker .ribbon .ja{color:var(--color-or);font-size:12px;}
+.ticker .ribbon span{font-family:var(--font-mono);font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.ticker .stats{display:flex;align-items:stretch;}
+.ticker .tk{flex:1;padding:13px 16px;border-right:1px solid var(--border-subtle);min-width:0;}
+.ticker .tk:last-child{border-right:0;}
+.ticker .tk .lab{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.ticker .tk .val{font-family:var(--font-display);font-size:23px;font-weight:360;margin-top:5px;
+  font-variant-numeric:tabular-nums;white-space:nowrap;}
+.ticker .tk .val.gold{color:var(--color-or);}
+.ticker .tk .val.jade{color:var(--color-jade);display:inline-flex;align-items:center;gap:5px;}
+.ticker .tk .val .arr{font-size:14px;}
+.ticker .tk .sub{font-family:var(--font-mono);font-size:10px;color:var(--on-surface-subtle);margin-top:3px;}
+
+/* hero actions */
+.hero-actions{margin-top:22px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.owned-seal{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--border-strong);
+  border-radius:var(--radius-pill);padding:11px 18px;background:rgba(95,179,154,.07);}
+.owned-seal .mk{width:22px;height:22px;border-radius:50%;border:1px solid var(--color-jade-deep);color:var(--color-jade);
+  display:grid;place-items:center;font-size:12px;}
+.owned-seal .txt{font-family:var(--font-mono);font-size:11px;letter-spacing:.1em;color:var(--color-jade);text-transform:uppercase;}
+.cta{display:inline-flex;align-items:center;gap:9px;background:var(--primary);color:#fff;border:0;
+  border-radius:var(--radius-pill);padding:13px 24px;font:600 12px/1 var(--font-sans);cursor:pointer;
+  text-transform:uppercase;letter-spacing:.14em;text-decoration:none;
+  transition:transform var(--dur) var(--ease),background var(--dur) var(--ease);}
+.cta:hover{transform:translateY(-1px);background:var(--primary-hover);}
+.icon-btns{display:flex;gap:8px;margin-left:auto;}
+.icon-btn{width:44px;height:44px;border-radius:var(--radius-lg);border:1px solid var(--border);background:transparent;
+  color:var(--on-surface-muted);display:grid;place-items:center;cursor:pointer;font-size:15px;
+  transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease),transform var(--dur) var(--ease);}
+.icon-btn:hover{border-color:var(--color-or);color:var(--color-or);transform:translateY(-1px);}
+.icon-btn.danger:hover{border-color:var(--danger);color:var(--danger);}
+
+/* ===========================================================================
+   STICKY ANCHOR INDEX — mirrors the app insights ChapterNav
+=========================================================================== */
+.anchor-index{position:sticky;top:var(--bar-h);z-index:50;
+  background:var(--color-noir-deep);border-bottom:1px solid var(--border);border-top:1px solid var(--border-subtle);}
+.anchor-index .rail{max-width:1320px;margin:0 auto;padding:0 28px;display:flex;align-items:center;gap:6px;
+  height:var(--idx-h);overflow-x:auto;scrollbar-width:none;}
+.anchor-index .rail::-webkit-scrollbar{display:none;}
+.anchor-index .lead{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--on-surface-subtle);margin-right:8px;white-space:nowrap;flex:0 0 auto;}
+.idx-link{flex:0 0 auto;display:inline-flex;align-items:center;gap:.55em;text-decoration:none;
+  font:600 11px/1 var(--font-sans);text-transform:uppercase;letter-spacing:.12em;color:var(--on-surface-subtle);
+  padding:9px 14px;border-radius:var(--radius-pill);position:relative;
+  transition:color var(--dur) var(--ease),background var(--dur) var(--ease);}
+.idx-link .ja{font-family:var(--font-ja);font-size:14px;font-weight:400;color:var(--color-or-deep);
+  transition:color var(--dur) var(--ease);}
+.idx-link:hover{color:var(--on-surface);}
+.idx-link:hover .ja{color:var(--color-or);}
+.idx-link.current{color:var(--on-surface);background:rgba(216,180,110,.08);}
+.idx-link.current .ja{color:var(--color-or);}
+.idx-link.current::after{content:"";position:absolute;left:50%;bottom:2px;width:4px;height:4px;
+  background:var(--color-or);transform:translateX(-50%) rotate(45deg);}
+
+/* ===========================================================================
+   SECTIONS — single full-width scroll, kanji-titled, gold-ruled
+=========================================================================== */
+section[id]{scroll-margin-top:calc(var(--bar-h) + var(--idx-h) + 16px);}
+.sec{padding:52px 0 8px;position:relative;}
+.sec-head{display:flex;align-items:flex-end;gap:18px;margin-bottom:26px;}
+.sec-head .kanji{font-family:var(--font-ja);font-weight:300;font-size:40px;line-height:.8;color:var(--color-or);opacity:.9;flex:0 0 auto;}
+.sec-head .ht{display:flex;flex-direction:column;gap:6px;}
+.sec-head h2{margin:0;font-family:var(--font-display);font-weight:330;font-size:clamp(26px,3vw,36px);letter-spacing:-.01em;}
+.sec-head .rule{flex:1;height:1px;align-self:center;margin-bottom:10px;
+  background:linear-gradient(90deg,var(--color-or-deep),transparent);opacity:.5;}
+.sec-watermark{position:absolute;right:0;top:30px;font-family:var(--font-ja);font-weight:500;
+  font-size:200px;line-height:.8;color:var(--color-or);opacity:.04;pointer-events:none;user-select:none;z-index:0;}
+.sec > .sec-body{position:relative;z-index:1;}
+
+/* IDENTITÉ */
+.identite-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:40px;align-items:start;}
+.lede{font-family:var(--font-display);font-weight:300;font-size:18px;line-height:1.62;color:var(--on-surface-muted);}
+.lede::first-letter{float:left;font-size:64px;line-height:.78;padding:6px 12px 0 0;color:var(--color-laque-bright);
+  font-style:italic;font-weight:380;}
+.read-more{margin-top:14px;appearance:none;border:0;background:transparent;color:var(--color-or);cursor:pointer;
+  font:600 11px/1 var(--font-sans);text-transform:uppercase;letter-spacing:.14em;display:inline-flex;align-items:center;gap:7px;
+  padding:6px 0;}
+.read-more:hover{color:var(--color-or-pale);}
+.lede-rest{display:none;}
+.lede-rest.open{display:block;margin-top:14px;}
+
+/* key-specs summary */
+.keyspecs{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--border-subtle);
+  border:1px solid var(--border-subtle);border-radius:var(--radius-lg);overflow:hidden;}
+.keyspecs .ks{background:var(--surface);padding:14px 16px;}
+.keyspecs .ks .k{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.keyspecs .ks .v{font-family:var(--font-display);font-size:17px;font-weight:330;margin-top:5px;color:var(--on-surface);}
+
+/* grouped specs <dl> single-column */
+.spec-groups{margin-top:22px;display:flex;flex-direction:column;gap:22px;}
+.spec-group h3{margin:0 0 10px;font-family:var(--font-mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--color-or-pale);display:flex;align-items:center;gap:9px;}
+.spec-group h3::after{content:"";flex:1;height:1px;background:var(--border-subtle);}
+.spec-group dl{margin:0;display:flex;flex-direction:column;}
+.spec-group .row{display:flex;justify-content:space-between;gap:18px;padding:9px 0;border-bottom:1px solid var(--border-subtle);}
+.spec-group .row:last-child{border-bottom:0;}
+.spec-group dt{font-size:13px;color:var(--on-surface-subtle);font-family:var(--font-sans);}
+.spec-group dd{margin:0;text-align:right;font-size:14px;color:var(--on-surface);
+  font-family:var(--font-mono);font-variant-numeric:tabular-nums;}
+.spec-group .row.hidden-spec{display:none;}
+.spec-group .row.hidden-spec.show{display:flex;}
+.voir-tout{margin-top:12px;}
+
+/* VALEUR */
+.value-trio{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:28px;}
+.vcard{border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 22px;background:var(--surface);position:relative;overflow:hidden;}
+.vcard .lab{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.vcard .big{font-family:var(--font-display);font-size:36px;font-weight:340;margin-top:8px;font-variant-numeric:tabular-nums;}
+.vcard .big.gold{color:var(--color-or);}
+.vcard .big.jade{color:var(--color-jade);display:inline-flex;align-items:center;gap:8px;}
+.vcard .pct{font-family:var(--font-mono);font-size:14px;color:var(--color-jade);margin-top:6px;font-variant-numeric:tabular-nums;}
+.vcard .sub{font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);margin-top:6px;}
+
+.chart-wrap{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface-sunken);padding:22px 24px 16px;}
+.chart-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;}
+.chart-head .t{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.chart-head .legend{font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);display:flex;gap:16px;}
+.chart-head .legend i{font-style:normal;display:inline-flex;align-items:center;gap:6px;}
+.chart-head .legend .sw{width:14px;height:2px;}
+.chart-svg{width:100%;height:auto;display:block;}
+.chart-svg text{font-family:var(--font-mono);font-size:10px;fill:var(--on-surface-subtle);}
+.chart-svg .pt-lbl{fill:var(--color-or-pale);}
+
+/* PRÉ-COMMANDE */
+.preorder-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:40px;align-items:start;}
+.deposit-bar{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);padding:20px 22px;}
+.deposit-bar .hd{display:flex;justify-content:space-between;align-items:baseline;}
+.deposit-bar .hd .t{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.deposit-bar .hd .amt{font-family:var(--font-display);font-size:24px;font-weight:340;font-variant-numeric:tabular-nums;color:var(--color-or);}
+.deposit-bar .hd .amt small{font-size:14px;color:var(--on-surface-subtle);}
+.track{height:12px;border-radius:var(--radius-pill);background:var(--surface-sunken);border:1px solid var(--border-subtle);
+  margin:16px 0 10px;overflow:hidden;}
+.track .fill{height:100%;width:12%;background:linear-gradient(90deg,var(--color-or-deep),var(--color-or));border-radius:var(--radius-pill);}
+.deposit-bar .legend{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);}
+.deposit-bar .legend b{color:var(--on-surface);font-weight:500;}
+.next-charge{margin-top:16px;display:flex;align-items:center;gap:14px;border:1px dashed var(--border-strong);
+  border-radius:var(--radius-lg);padding:14px 16px;background:rgba(216,180,110,.04);}
+.next-charge .when{font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;color:var(--on-surface-subtle);}
+.next-charge .amt2{font-family:var(--font-display);font-size:22px;font-weight:340;color:var(--color-or);font-variant-numeric:tabular-nums;margin-left:auto;}
+.nonref{margin-top:12px;font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;color:var(--on-surface-subtle);}
+
+/* release-slip timeline */
+.slip-title{font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--on-surface-subtle);margin-bottom:18px;}
+.timeline{position:relative;margin:0;padding:0 0 0 26px;list-style:none;}
+.timeline::before{content:"";position:absolute;left:6px;top:6px;bottom:6px;width:1px;background:var(--border-strong);}
+.timeline li{position:relative;padding:0 0 20px;}
+.timeline li:last-child{padding-bottom:0;}
+.timeline li .node{position:absolute;left:-26px;top:3px;width:13px;height:13px;border-radius:50%;
+  border:1px solid var(--border-strong);background:var(--surface-sunken);}
+.timeline li.done .node{background:var(--color-or-deep);border-color:var(--color-or);}
+.timeline li.current .node{background:var(--color-laque);border-color:var(--color-laque-bright);box-shadow:0 0 0 3px rgba(143,45,42,.25);}
+.timeline li .step{font-family:var(--font-sans);font-size:14px;font-weight:600;color:var(--on-surface);}
+.timeline li.current .step{color:var(--color-laque-bright);}
+.timeline li .date{font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);margin-top:2px;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;}
+.timeline li .date s{color:var(--on-surface-subtle);opacity:.65;}
+.timeline li .date .new{color:var(--color-or-pale);}
+.timeline li .tag{display:inline-block;margin-top:6px;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--color-laque-bright);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:2px 7px;}
+
+/* BOUTIQUES */
+.shops{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;}
+.shop{display:flex;align-items:center;gap:16px;padding:16px 20px;border-bottom:1px solid var(--border-subtle);
+  text-decoration:none;color:inherit;transition:background var(--dur) var(--ease);}
+.shop:last-child{border-bottom:0;}
+.shop:hover{background:rgba(216,180,110,.05);}
+.shop .sigil{width:40px;height:40px;border-radius:var(--radius-md);border:1px solid var(--border);display:grid;place-items:center;
+  font-family:var(--font-display);font-weight:500;font-size:16px;color:var(--color-or-pale);flex:0 0 auto;}
+.shop .name{font-family:var(--font-sans);font-weight:600;font-size:15px;}
+.shop .where{font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);margin-top:2px;}
+.shop .price{margin-left:auto;font-family:var(--font-display);font-size:19px;font-weight:340;color:var(--color-or);font-variant-numeric:tabular-nums;text-align:right;}
+.shop .go{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--on-surface-subtle);
+  border:1px solid var(--border);border-radius:var(--radius-pill);padding:7px 14px;flex:0 0 auto;transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease);}
+.shop:hover .go{border-color:var(--color-or);color:var(--color-or);}
+
+/* MA PIÈCE — owner layer, clearly separated */
+.owner-layer{border:1px solid var(--border-strong);border-radius:var(--radius-xl);background:var(--surface);
+  position:relative;overflow:hidden;}
+.owner-layer::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:linear-gradient(180deg,var(--color-jade),var(--color-jade-deep));}
+.owner-head{display:flex;align-items:center;gap:12px;padding:18px 24px;border-bottom:1px solid var(--border-subtle);background:rgba(95,179,154,.05);}
+.owner-head .tag{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-jade);}
+.owner-head .ja{font-family:var(--font-ja);color:var(--color-jade);font-size:18px;}
+.owner-head .edit{margin-left:auto;font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--on-surface-muted);border:1px solid var(--border);border-radius:var(--radius-pill);padding:8px 14px;text-decoration:none;
+  transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease);}
+.owner-head .edit:hover{border-color:var(--color-or);color:var(--color-or);}
+.owner-body{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:0;}
+.owner-facts{padding:20px 24px;border-right:1px solid var(--border-subtle);}
+.owner-facts dl{margin:0;display:flex;flex-direction:column;}
+.owner-facts .row{display:flex;justify-content:space-between;gap:18px;padding:9px 0;border-bottom:1px solid var(--border-subtle);}
+.owner-facts .row:last-child{border-bottom:0;}
+.owner-facts dt{font-size:13px;color:var(--on-surface-subtle);}
+.owner-facts dd{margin:0;text-align:right;font-size:14px;font-family:var(--font-mono);font-variant-numeric:tabular-nums;color:var(--on-surface);}
+.owner-facts dd .state{color:var(--color-jade);}
+.owner-side{padding:20px 24px;display:flex;flex-direction:column;gap:18px;}
+.mini-h{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--on-surface-subtle);margin-bottom:10px;}
+.docs{display:flex;flex-direction:column;gap:8px;}
+.doc{display:flex;align-items:center;gap:11px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px 13px;
+  text-decoration:none;color:inherit;transition:border-color var(--dur) var(--ease);}
+.doc:hover{border-color:var(--border-strong);}
+.doc .ic{width:26px;height:32px;border:1px solid var(--border-strong);border-radius:2px;display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:8px;color:var(--color-laque-bright);flex:0 0 auto;}
+.doc .nm{font-size:13px;}
+.doc .sz{font-family:var(--font-mono);font-size:10px;color:var(--on-surface-subtle);margin-left:auto;}
+.owner-photos{display:flex;gap:8px;}
+.owner-photos .pw{flex:1;aspect-ratio:4/5;border:1px solid var(--border-subtle);border-radius:var(--radius-md);overflow:hidden;position:relative;background:var(--surface-sunken);}
+.owner-photos .pw.cover::after{content:"COUVERTURE";position:absolute;left:5px;top:5px;font-family:var(--font-mono);font-size:7px;
+  letter-spacing:.1em;color:var(--color-noir);background:var(--color-or);padding:2px 5px;border-radius:2px;}
+.owner-tags{display:flex;flex-wrap:wrap;gap:7px;}
+.tagchip{font-family:var(--font-mono);font-size:10px;letter-spacing:.04em;color:var(--on-surface-muted);
+  border:1px solid var(--border);border-radius:var(--radius-pill);padding:5px 11px;}
+.tagchip .h{color:var(--color-laque-bright);}
+
+/* VUE 360 — full-width plate */
+.plate{position:relative;border:1px solid var(--border);border-radius:var(--radius-xl);overflow:hidden;
+  background:radial-gradient(120% 90% at 50% 0%,#241a16 0%,#140d0b 60%,#0a0706 100%);
+  aspect-ratio:21/9;display:grid;place-items:center;box-shadow:var(--elev-2);}
+.plate .turntable{position:absolute;bottom:7%;left:50%;transform:translateX(-50%);width:42%;height:14%;
+  border-radius:50%;border:1px solid var(--border-strong);
+  background:radial-gradient(ellipse at center,rgba(216,180,110,.1),transparent 72%);}
+.plate .turntable::after{content:"";position:absolute;inset:18% 22%;border-radius:50%;border:1px dashed rgba(216,180,110,.25);}
+.plate .badge360{position:absolute;top:18px;left:18px;font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;
+  color:var(--color-noir);background:var(--color-or);border-radius:var(--radius-pill);padding:8px 16px;display:inline-flex;align-items:center;gap:8px;
+  box-shadow:var(--elev-2);}
+.plate .badge360 .g{font-size:15px;}
+.plate .hint{position:absolute;bottom:18px;right:18px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;
+  color:var(--on-surface-subtle);}
+.plate svg.fig{height:62%;position:relative;z-index:2;filter:drop-shadow(0 18px 22px rgba(0,0,0,.6));}
+
+/* FIGURINES PROCHES */
+.proches{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;}
+.pcard{border:1px solid var(--border-subtle);border-radius:var(--radius-lg);overflow:hidden;background:var(--surface);
+  text-decoration:none;color:inherit;transition:transform var(--dur) var(--ease),border-color var(--dur) var(--ease);}
+.pcard:hover{transform:translateY(-4px);border-color:var(--border-strong);box-shadow:var(--elev-2);}
+.pcard .pw{aspect-ratio:4/5;position:relative;background:var(--surface-sunken);overflow:hidden;}
+.pcard .pw .match{position:absolute;right:8px;top:8px;font-family:var(--font-mono);font-size:10px;letter-spacing:.04em;
+  color:var(--color-or-pale);background:rgba(16,13,11,.72);border:1px solid var(--border);border-radius:var(--radius-pill);padding:3px 9px;}
+.pcard .cap{padding:13px 15px;}
+.pcard .cap b{display:block;font-family:var(--font-display);font-weight:400;font-size:15px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pcard .cap b .em{color:var(--color-laque-bright);font-style:italic;}
+.pcard .cap span{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;color:var(--on-surface-subtle);text-transform:uppercase;}
+
+/* WELL (specimen) — shared media placeholder */
+.well{position:relative;overflow:hidden;width:100%;height:100%;display:grid;place-items:center;
+  background:radial-gradient(120% 90% at 30% 0%, color-mix(in oklab,var(--hue,var(--color-or)) 24%, #1a1310) 0%, #120c0a 62%, #0a0706 100%);}
+.well .spot{position:absolute;inset:0;background:radial-gradient(60% 50% at 32% 14%,
+    color-mix(in oklab,var(--hue,var(--color-or)) 28%, transparent),transparent 70%);mix-blend-mode:screen;opacity:.75;}
+.well .floor{position:absolute;left:10%;right:10%;bottom:7%;height:8%;border-radius:50%;
+  background:radial-gradient(ellipse,rgba(0,0,0,.6),transparent 70%);}
+.well .kanji-wm{position:absolute;right:6px;bottom:0;font-family:var(--font-ja);font-weight:500;
+  font-size:4.6rem;line-height:.8;color:color-mix(in oklab,var(--hue,var(--color-or)) 14%, transparent);user-select:none;}
+.well svg.fig{position:relative;z-index:2;height:76%;filter:drop-shadow(0 12px 16px rgba(0,0,0,.5));}
+.well svg.fig .body{fill:color-mix(in oklab,var(--hue,var(--color-or)) 50%, #5c4a43);}
+.well svg.fig .hi{fill:color-mix(in oklab,var(--hue,var(--color-or)) 62%, #fff 28%);}
+.well svg.fig .sh{fill:color-mix(in oklab,var(--hue,var(--color-or)) 30%, #16100e);}
+.well .ins{position:absolute;left:8px;bottom:7px;font-family:var(--font-mono);font-size:9px;letter-spacing:.04em;
+  color:var(--color-or-pale);opacity:.8;z-index:3;}
+
+/* footer */
+.foot{margin-top:64px;border-top:1px solid var(--border-subtle);padding:28px 0 64px;
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;color:var(--on-surface-subtle);
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.foot .ja{color:var(--color-or-deep);}
+
+/* ===========================================================================
+   RESPONSIVE — ≤1024px single column, kill sticky, mobile reorder
+=========================================================================== */
+@media (max-width:1024px){
+  .hero-grid{grid-template-columns:1fr;gap:30px;}
+  .identite-grid,.preorder-grid,.owner-body{grid-template-columns:1fr;}
+  .owner-facts{border-right:0;border-bottom:1px solid var(--border-subtle);}
+  .value-trio{grid-template-columns:1fr;}
+  .proches{grid-template-columns:repeat(2,1fr);}
+  /* anchor index → horizontal chip row, no longer pinned below header height that matters */
+  .anchor-index{top:var(--bar-h);}
+  .anchor-index .lead{display:none;}
+  .keyspecs{grid-template-columns:1fr 1fr;}
+  /* mobile reorder: gallery → value/CTA → pré-commande/état → specs → historique → proches.
+     Hero already shows gallery then identity(value+CTA). Reorder the main sections: */
+  .secflow{display:flex;flex-direction:column;}
+  #preco{order:1;} #moi{order:2;} #ident{order:3;} #valeur{order:4;}
+  #boutiques{order:5;} #v360{order:6;} #proches{order:7;}
+}
+@media (max-width:640px){
+  .shell,.anchor-index .rail{padding:0 16px;}
+  .ticker .stats{flex-wrap:wrap;}
+  .ticker .tk{flex:1 1 50%;border-bottom:1px solid var(--border-subtle);}
+  .ticker .tk:nth-child(2){border-right:0;}
+  .keyspecs{grid-template-columns:1fr;}
+  .proches{grid-template-columns:1fr;}
+  .sec-head h2{font-size:22px;}
+  .identity h1{font-size:30px;}
+  .hero-actions{flex-wrap:wrap;}
+  .icon-btns{margin-left:0;width:100%;}
+  .next-charge{flex-wrap:wrap;}
+  .next-charge .amt2{margin-left:0;}
+  .plate{aspect-ratio:4/3;}
+  .appnav{display:none;}
+}
+@media (prefers-reduced-motion:reduce){
+  *{scroll-behavior:auto !important;transition:none !important;animation:none !important;}
+}
+</style>
+</head>
+<body>
+
+<!-- ===== shared SVG silhouettes (reused from the app skin) ===== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="fig-scale" viewBox="0 0 100 150">
+      <ellipse class="sh" cx="50" cy="143" rx="27" ry="5"/>
+      <path class="body" d="M50 58 C36 58 27 100 32 134 L68 134 C73 100 64 58 50 58 Z"/>
+      <path class="hi" d="M50 58 C44 58 40 78 41 110 L50 110 Z"/>
+      <path class="body" d="M50 46 C45 46 43 54 45 62 L55 62 C57 54 55 46 50 46 Z"/>
+      <circle class="hi" cx="50" cy="36" r="11"/>
+      <path class="body" d="M38 33 C28 37 24 70 33 100 C35 80 39 62 45 56 C40 46 41 35 38 33 Z"/>
+      <path class="body" d="M62 33 C72 37 78 74 67 104 C65 82 61 62 55 56 C60 46 59 35 62 33 Z"/>
+      <path class="sh" d="M40 50 C34 60 33 84 36 96 C37 78 41 62 45 56 Z"/>
+    </symbol>
+    <symbol id="fig-nendo" viewBox="0 0 100 150">
+      <ellipse class="sh" cx="50" cy="143" rx="22" ry="5"/>
+      <path class="body" d="M50 96 C39 96 35 122 40 136 L60 136 C65 122 61 96 50 96 Z"/>
+      <circle class="body" cx="50" cy="60" r="35"/>
+      <path class="hi" d="M50 25 C33 25 20 40 18 58 C30 50 40 47 50 47 Z"/>
+      <circle class="sh" cx="38" cy="64" r="4" opacity=".5"/>
+      <circle class="sh" cx="62" cy="64" r="4" opacity=".5"/>
+    </symbol>
+    <symbol id="fig-action" viewBox="0 0 100 150">
+      <ellipse class="sh" cx="46" cy="143" rx="24" ry="5"/>
+      <path class="body" d="M44 56 C36 56 33 82 38 100 L40 134 L52 134 L52 104 L60 120 L70 112 L54 86 C56 70 54 56 44 56 Z"/>
+      <path class="body" d="M46 58 L74 40 L78 48 L52 70 Z"/>
+      <circle class="hi" cx="45" cy="44" r="10"/>
+      <path class="body" d="M36 40 C30 44 30 58 36 64 C36 54 40 48 45 45 Z"/>
+      <path class="hi" d="M44 58 C40 70 40 86 42 100 L48 100 C47 84 48 70 50 60 Z"/>
+    </symbol>
+    <symbol id="fig-mecha" viewBox="0 0 100 150">
+      <ellipse class="sh" cx="50" cy="143" rx="26" ry="5"/>
+      <path class="body" d="M38 60 L62 60 L66 96 L58 132 L42 132 L34 96 Z"/>
+      <path class="hi" d="M38 60 L50 60 L50 132 L42 132 L34 96 Z"/>
+      <rect class="body" x="44" y="40" width="12" height="16" rx="2"/>
+      <path class="hi" d="M48 38 L52 38 L54 44 L46 44 Z"/>
+      <path class="body" d="M30 62 L38 64 L40 92 L30 90 Z"/>
+      <path class="body" d="M70 62 L62 64 L60 92 L70 90 Z"/>
+      <rect class="sh" x="46" y="70" width="8" height="22" rx="2"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- direction label -->
+<div class="dirlabel"><b>②&nbsp;LE&nbsp;DOSSIER</b>&nbsp;· sticky anchor index</div>
+
+<!-- ===== slim app chrome ===== -->
+<header class="appbar">
+  <a class="brand" href="#"><span class="glyph ja">像</span><span class="wm">Figure<i>Collector</i></span></a>
+  <nav class="appnav">
+    <a href="#" class="active"><span class="ja">目</span>Catalogue</a>
+    <a href="#"><span class="ja">私</span>Ma collection</a>
+    <a href="#"><span class="ja">巡</span>Insights</a>
+  </nav>
+  <div class="right">
+    <span class="avatar">D</span>
+  </div>
+</header>
+
+<main class="page">
+  <div class="shell">
+    <nav class="breadcrumb" aria-label="Fil d'Ariane">
+      <a href="#">Catalogue</a><span class="sep">›</span>
+      <a href="#">One Punch Man</a><span class="sep">›</span>
+      <span class="cur">Fiche · Tatsumaki VS Tentacle</span>
+    </nav>
+  </div>
+
+  <!-- ============================ HERO BAND ============================ -->
+  <section class="hero" aria-label="Présentation">
+    <span class="kanji-wm" aria-hidden="true">彫</span>
+    <div class="shell">
+      <div class="hero-grid">
+
+        <!-- gallery -->
+        <div class="gallery">
+          <div class="main-stage">
+            <div class="stage-frame">
+              <div class="well" style="--hue:var(--color-jade)">
+                <div class="spot"></div>
+                <span class="kanji-wm" aria-hidden="true">竜</span>
+                <svg class="fig" viewBox="0 0 100 150" aria-label="Visuel principal de la figurine"><use href="#fig-scale"/></svg>
+                <div class="floor"></div>
+                <span class="ins">Nº 019E5BF9 · 1/24</span>
+              </div>
+              <span class="count-pill mono">⊞ 24 photos · 1/24</span>
+              <span class="nsfw-pill">+18 · 4 visuels</span>
+              <div class="stage-arrows">
+                <button class="arr" aria-label="Photo précédente">‹</button>
+                <button class="arr" aria-label="Photo suivante">›</button>
+              </div>
+              <div class="vign"></div>
+            </div>
+          </div>
+          <!-- filmstrip -->
+          <div class="filmstrip" role="list" aria-label="Miniatures">
+            <button class="thumb active" role="listitem" aria-label="Photo 1" aria-current="true">
+              <div class="well" style="--hue:var(--color-jade)"><div class="spot"></div><svg class="fig" viewBox="0 0 100 150"><use href="#fig-scale"/></svg></div>
+            </button>
+            <button class="thumb" role="listitem" aria-label="Photo 2">
+              <div class="well" style="--hue:#8a5a4a"><svg class="fig" viewBox="0 0 100 150"><use href="#fig-scale"/></svg></div>
+            </button>
+            <button class="thumb" role="listitem" aria-label="Vue 360 degrés">
+              <div class="well" style="--hue:var(--color-or)"></div>
+              <span class="lbl360"><span class="glyph">⟳</span>360°<span style="font-size:7px;letter-spacing:.14em">glisser</span></span>
+            </button>
+            <button class="thumb" role="listitem" aria-label="Photo 4">
+              <div class="well" style="--hue:#5a6a8a"><svg class="fig" viewBox="0 0 100 150"><use href="#fig-scale"/></svg></div>
+            </button>
+            <button class="thumb" role="listitem" aria-label="Photo 5">
+              <div class="well" style="--hue:var(--color-laque)"><svg class="fig" viewBox="0 0 100 150"><use href="#fig-scale"/></svg></div>
+            </button>
+            <button class="thumb more" role="listitem" aria-label="Voir les 18 autres photos">+18<span class="sub">PHOTOS</span></button>
+          </div>
+        </div>
+
+        <!-- identity -->
+        <div class="identity">
+          <div class="topline">
+            <span class="micro"><span class="dot"></span><span class="ja">彫</span> One Punch Man · Tatsumaki</span>
+          </div>
+          <h1 class="accent-title"><span class="em">CROWN</span> Studio — Tatsumaki VS Tentacle</h1>
+          <div class="version"><span class="badge">VERSION</span> Standard Version</div>
+
+          <div class="stamps">
+            <span class="type-chip"><span class="ja">彫</span> GK Statue</span>
+            <span class="lot-stamp"><span>LOT Nº</span><b>019E5BF9</b><span class="sep">·</span><span>TYPE</span><b>Statue</b></span>
+          </div>
+
+          <!-- VALUE TICKER — always visible "stock band" -->
+          <div class="ticker" role="group" aria-label="Valeur de la pièce">
+            <div class="ribbon"><span class="ja">価</span><span>Valeur · figée à l'achat</span></div>
+            <div class="stats">
+              <div class="tk">
+                <div class="lab">Cote actuelle</div>
+                <div class="val gold">310,00&nbsp;€</div>
+                <div class="sub">au 21 juin 2026</div>
+              </div>
+              <div class="tk">
+                <div class="lab">Payé</div>
+                <div class="val">242,37&nbsp;€</div>
+                <div class="sub">prix d'achat</div>
+              </div>
+              <div class="tk">
+                <div class="lab">Plus-value</div>
+                <div class="val jade"><span class="arr">▲</span>+27,9&nbsp;%</div>
+                <div class="sub">+67,63&nbsp;€</div>
+              </div>
+              <div class="tk">
+                <div class="lab">Acompte</div>
+                <div class="val">30 / 242&nbsp;€</div>
+                <div class="sub">≈12 % versé</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- actions -->
+          <div class="hero-actions">
+            <span class="owned-seal" title="Déjà dans ta collection">
+              <span class="mk">✓</span><span class="txt">Déjà dans ta collection</span>
+            </span>
+            <a class="cta" href="#moi">✎ Éditer ma pièce</a>
+            <div class="icon-btns">
+              <button class="icon-btn" aria-label="Partager" title="Partager">↗</button>
+              <button class="icon-btn" aria-label="Éditer la fiche" title="Éditer">✎</button>
+              <button class="icon-btn danger" aria-label="Supprimer" title="Supprimer">🗑</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================== STICKY ANCHOR INDEX ====================== -->
+  <nav class="anchor-index" aria-label="Sur cette page">
+    <div class="rail">
+      <span class="lead">Sur cette page</span>
+      <a class="idx-link current" href="#ident"><span class="ja">目</span>Identité</a>
+      <a class="idx-link" href="#valeur"><span class="ja">価</span>Valeur</a>
+      <a class="idx-link" href="#preco"><span class="ja">予</span>Pré-commande</a>
+      <a class="idx-link" href="#boutiques"><span class="ja">店</span>Boutiques</a>
+      <a class="idx-link" href="#moi"><span class="ja">私</span>Ma pièce</a>
+      <a class="idx-link" href="#v360"><span class="ja">巡</span>360°</a>
+      <a class="idx-link" href="#proches"><span class="ja">似</span>Proches</a>
+    </div>
+  </nav>
+
+  <div class="shell secflow">
+
+    <!-- ============================ IDENTITÉ ============================ -->
+    <section id="ident" class="sec">
+      <span class="sec-watermark" aria-hidden="true">目</span>
+      <div class="sec-body">
+        <div class="sec-head">
+          <span class="kanji" aria-hidden="true">目</span>
+          <div class="ht"><span class="micro"><span class="dot"></span>Registre</span><h2>Identité</h2></div>
+          <span class="rule"></span>
+        </div>
+
+        <div class="identite-grid">
+          <div>
+            <p class="lede">Tatsumaki dressée dans une spirale de tentacules, robe verte fendue par le vent
+              psychique — la pièce signature du studio CROWN sur la licence One Punch Man.
+              <span class="lede-rest" id="ledeRest">Sculptée par Yuki Anami, la statue capture l'instant
+              où l'esper soulève l'assaut d'un seul regard : cheveux flottants en résine translucide, socle orné
+              gravé du sceau du studio, finition main sur édition limitée. PVC, ABS et résine combinés pour les
+              transparences. Hauteur 290&nbsp;mm à l'échelle 1/6.</span>
+            </p>
+            <button class="read-more" id="ledeBtn" aria-expanded="false" aria-controls="ledeRest">Lire la suite ↓</button>
+
+            <!-- grouped specs -->
+            <div class="spec-groups">
+              <div class="spec-group">
+                <h3>Identité</h3>
+                <dl>
+                  <div class="row"><dt>Fabricant</dt><dd>CROWN Studio</dd></div>
+                  <div class="row"><dt>Série</dt><dd>One Punch Man</dd></div>
+                  <div class="row"><dt>Personnage</dt><dd>Tatsumaki</dd></div>
+                  <div class="row"><dt>Version</dt><dd>Standard Version</dd></div>
+                </dl>
+              </div>
+              <div class="spec-group">
+                <h3>Physique</h3>
+                <dl>
+                  <div class="row"><dt>Échelle</dt><dd>1/6</dd></div>
+                  <div class="row"><dt>Hauteur</dt><dd>290 mm</dd></div>
+                  <div class="row"><dt>Sculpteur</dt><dd>Yuki Anami</dd></div>
+                  <div class="row hidden-spec"><dt>Matériaux</dt><dd>PVC · ABS · résine</dd></div>
+                  <div class="row hidden-spec"><dt>Type</dt><dd>GK Statue 彫</dd></div>
+                </dl>
+              </div>
+              <div class="spec-group">
+                <h3>Catalogue</h3>
+                <dl>
+                  <div class="row"><dt>Édition</dt><dd>limitée · 499 ex</dd></div>
+                  <div class="row"><dt>Sortie</dt><dd>1 déc. 2027</dd></div>
+                  <div class="row hidden-spec"><dt>JAN / EAN</dt><dd>4 580416 925501</dd></div>
+                  <div class="row hidden-spec"><dt>Prix conseillé</dt><dd>332,37 €</dd></div>
+                </dl>
+              </div>
+              <button class="read-more voir-tout" id="voirToutBtn" aria-expanded="false">Voir tout (4 champs) ↓</button>
+            </div>
+          </div>
+
+          <!-- key-specs summary -->
+          <aside>
+            <h3 style="margin:0 0 12px;font-family:var(--font-mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--on-surface-subtle)">En un coup d'œil</h3>
+            <div class="keyspecs">
+              <div class="ks"><div class="k">Fabricant</div><div class="v">CROWN Studio</div></div>
+              <div class="ks"><div class="k">Série</div><div class="v">One Punch Man</div></div>
+              <div class="ks"><div class="k">Personnage</div><div class="v">Tatsumaki</div></div>
+              <div class="ks"><div class="k">Échelle</div><div class="v num">1/6</div></div>
+            </div>
+            <hr class="gold-rule" style="margin:18px 0">
+            <div style="display:flex;flex-wrap:wrap;gap:7px">
+              <span class="tagchip"><span class="h">#</span>tentacules</span>
+              <span class="tagchip"><span class="h">#</span>dynamique</span>
+              <span class="tagchip"><span class="h">#</span>buste-détaillé</span>
+              <span class="tagchip"><span class="h">#</span>socle-orné</span>
+              <span class="tagchip"><span class="h">#</span>cheveux-flottants</span>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+    <hr class="gold-rule" style="margin:18px 0 0">
+
+    <!-- ============================ VALEUR ============================ -->
+    <section id="valeur" class="sec">
+      <span class="sec-watermark" aria-hidden="true">価</span>
+      <div class="sec-body">
+        <div class="sec-head">
+          <span class="kanji" aria-hidden="true">価</span>
+          <div class="ht"><span class="micro"><span class="dot"></span>Marché</span><h2>Valeur &amp; historique</h2></div>
+          <span class="rule"></span>
+        </div>
+
+        <div class="value-trio">
+          <div class="vcard">
+            <div class="lab">Cote actuelle</div>
+            <div class="big gold">310,00&nbsp;€</div>
+            <div class="sub">marché secondaire · 21 juin 2026</div>
+          </div>
+          <div class="vcard">
+            <div class="lab">Payé</div>
+            <div class="big">242,37&nbsp;€</div>
+            <div class="sub">taux figé à l'achat</div>
+          </div>
+          <div class="vcard">
+            <div class="lab">Plus-value</div>
+            <div class="big jade"><span style="font-size:24px">▲</span>+67,63&nbsp;€</div>
+            <div class="pct">▲ +27,9 %</div>
+          </div>
+        </div>
+
+        <div class="chart-wrap">
+          <div class="chart-head">
+            <span class="t">Historique de cote · 6 points · ~10 mois</span>
+            <span class="legend">
+              <i><span class="sw" style="background:var(--color-jade)"></span>cote</i>
+              <i><span class="sw" style="background:var(--color-or-deep)"></span>payé 242 €</i>
+            </span>
+          </div>
+          <!-- hand-drawn chart: 242→250→268→255→290→310 -->
+          <svg class="chart-svg" viewBox="0 0 720 240" preserveAspectRatio="none" role="img" aria-label="Historique de cote de 242 à 310 euros sur six points">
+            <!-- gridlines -->
+            <g stroke="var(--border-subtle)" stroke-width="1">
+              <line x1="48" y1="30" x2="700" y2="30"/>
+              <line x1="48" y1="80" x2="700" y2="80"/>
+              <line x1="48" y1="130" x2="700" y2="130"/>
+              <line x1="48" y1="180" x2="700" y2="180"/>
+            </g>
+            <!-- y labels -->
+            <g>
+              <text x="40" y="34" text-anchor="end">320</text>
+              <text x="40" y="84" text-anchor="end">290</text>
+              <text x="40" y="134" text-anchor="end">260</text>
+              <text x="40" y="184" text-anchor="end">230</text>
+            </g>
+            <!-- baseline = payé 242 € (maps to y≈204) -->
+            <line x1="48" y1="204" x2="700" y2="204" stroke="var(--color-or-deep)" stroke-width="1.5" stroke-dasharray="5 5"/>
+            <!-- area under cote -->
+            <path d="M70,184 L196,170 L322,140 L448,162 L574,82 L688,48 L688,210 L70,210 Z"
+                  fill="var(--color-jade)" opacity="0.10"/>
+            <!-- polyline -->
+            <polyline points="70,184 196,170 322,140 448,162 574,82 688,48"
+                  fill="none" stroke="var(--color-jade)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+            <!-- points + value labels -->
+            <g>
+              <circle cx="70" cy="184" r="4" fill="var(--color-jade)"/><text class="pt-lbl" x="70" y="200" text-anchor="middle">242</text>
+              <circle cx="196" cy="170" r="4" fill="var(--color-jade)"/><text class="pt-lbl" x="196" y="160" text-anchor="middle">250</text>
+              <circle cx="322" cy="140" r="4" fill="var(--color-jade)"/><text class="pt-lbl" x="322" y="130" text-anchor="middle">268</text>
+              <circle cx="448" cy="162" r="4" fill="var(--color-jade)"/><text class="pt-lbl" x="448" y="178" text-anchor="middle">255</text>
+              <circle cx="574" cy="82" r="4" fill="var(--color-jade)"/><text class="pt-lbl" x="574" y="72" text-anchor="middle">290</text>
+              <circle cx="688" cy="48" r="5" fill="var(--color-or)" stroke="var(--color-noir)" stroke-width="1.5"/><text class="pt-lbl" x="678" y="40" text-anchor="end" style="fill:var(--color-or)">310</text>
+            </g>
+            <!-- x labels -->
+            <g>
+              <text x="70" y="228" text-anchor="middle">août</text>
+              <text x="196" y="228" text-anchor="middle">oct.</text>
+              <text x="322" y="228" text-anchor="middle">déc.</text>
+              <text x="448" y="228" text-anchor="middle">févr.</text>
+              <text x="574" y="228" text-anchor="middle">avr.</text>
+              <text x="688" y="228" text-anchor="middle">juin</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <hr class="gold-rule" style="margin:18px 0 0">
+
+    <!-- ========================== PRÉ-COMMANDE ========================== -->
+    <section id="preco" class="sec">
+      <span class="sec-watermark" aria-hidden="true">予</span>
+      <div class="sec-body">
+        <div class="sec-head">
+          <span class="kanji" aria-hidden="true">予</span>
+          <div class="ht"><span class="micro"><span class="dot"></span>Échéancier</span><h2>Pré-commande</h2></div>
+          <span class="rule"></span>
+        </div>
+
+        <div class="preorder-grid">
+          <!-- deposit + next charge -->
+          <div>
+            <div class="deposit-bar">
+              <div class="hd">
+                <span class="t">Acompte versé</span>
+                <span class="amt">30,00&nbsp;€ <small>/ 242,37&nbsp;€</small></span>
+              </div>
+              <div class="track"><div class="fill"></div></div>
+              <div class="legend"><span>≈12 % versé</span><span>Solde restant <b>212,37&nbsp;€</b></span></div>
+            </div>
+            <div class="next-charge">
+              <div>
+                <div class="when">Prochain prélèvement</div>
+                <div style="font-family:var(--font-display);font-size:16px;margin-top:3px">1 oct. 2027</div>
+              </div>
+              <span class="amt2">90,00&nbsp;€</span>
+            </div>
+            <p class="nonref">⚠ Acompte non-remboursable · paiement échelonné boutique ORZGK</p>
+          </div>
+
+          <!-- release-slip timeline (most-recent top) -->
+          <div>
+            <div class="slip-title">Bordereau de sortie · révisions</div>
+            <ol class="timeline">
+              <li class="current">
+                <span class="node"></span>
+                <div class="step">En production</div>
+                <div class="date">étape actuelle</div>
+                <span class="tag">▲ Retardée</span>
+              </li>
+              <li class="done">
+                <span class="node"></span>
+                <div class="step">Sortie annoncée</div>
+                <div class="date"><s>1 sept. 2027</s><span class="new">→ 1 déc. 2027</span></div>
+              </li>
+              <li class="done">
+                <span class="node"></span>
+                <div class="step">Pré-commande ouverte</div>
+                <div class="date">acompte 30 € · 1 mai 2026</div>
+              </li>
+              <li class="done">
+                <span class="node"></span>
+                <div class="step">Annoncée</div>
+                <div class="date">origine · 1 sept. 2027</div>
+              </li>
+              <li>
+                <span class="node"></span>
+                <div class="step">Expédiée</div>
+                <div class="date">à venir</div>
+              </li>
+              <li>
+                <span class="node"></span>
+                <div class="step">En main</div>
+                <div class="date">à venir</div>
+              </li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="gold-rule" style="margin:18px 0 0">
+
+    <!-- =========================== BOUTIQUES =========================== -->
+    <section id="boutiques" class="sec">
+      <span class="sec-watermark" aria-hidden="true">店</span>
+      <div class="sec-body">
+        <div class="sec-head">
+          <span class="kanji" aria-hidden="true">店</span>
+          <div class="ht"><span class="micro"><span class="dot"></span>Où l'acheter</span><h2>Boutiques</h2></div>
+          <span class="rule"></span>
+        </div>
+        <div class="shops">
+          <a class="shop" href="#">
+            <span class="sigil">O</span>
+            <div><div class="name">ORZGK</div><div class="where">store officiel · paiement échelonné · acheté ici</div></div>
+            <span class="price">242,37&nbsp;€</span>
+            <span class="go">Acheter ↗</span>
+          </a>
+          <a class="shop" href="#">
+            <span class="sigil">N</span>
+            <div><div class="name">Nin-Nin Game</div><div class="where">import JP · expédition mondiale</div></div>
+            <span class="price">298,00&nbsp;€</span>
+            <span class="go">Acheter ↗</span>
+          </a>
+          <a class="shop" href="#">
+            <span class="sigil">A</span>
+            <div><div class="name">AmiAmi</div><div class="where">pré-commande · stock limité</div></div>
+            <span class="price">312,40&nbsp;€</span>
+            <span class="go">Acheter ↗</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <hr class="gold-rule" style="margin:18px 0 0">
+
+    <!-- ============================ MA PIÈCE ============================ -->
+    <section id="moi" class="sec">
+      <span class="sec-watermark" aria-hidden="true">私</span>
+      <div class="sec-body">
+        <div class="sec-head">
+          <span class="kanji" aria-hidden="true">私</span>
+          <div class="ht"><span class="micro"><span class="dot" style="background:var(--color-jade)"></span>Couche propriétaire</span><h2>Ma pièce</h2></div>
+          <span class="rule"></span>
+        </div>
+
+        <div class="owner-layer">
+          <div class="owner-head">
+            <span class="ja">私</span>
+            <span class="tag">Mon exemplaire · données privées</span>
+            <a class="edit" href="#">✎ Éditer ma pièce</a>
+          </div>
+          <div class="owner-body">
+            <div class="owner-facts">
+              <dl>
+                <div class="row"><dt>État</dt><dd><span class="state">MIB · scellée</span></dd></div>
+                <div class="row"><dt>Boutique</dt><dd>ORZGK</dd></div>
+                <div class="row"><dt>Emplacement</dt><dd>chambre</dd></div>
+                <div class="row"><dt>Date d'achat</dt><dd>24/05/2026</dd></div>
+                <div class="row"><dt>Prix payé</dt><dd>242,37 €</dd></div>
+                <div class="row"><dt>Notes</dt><dd style="color:var(--on-surface-subtle)">—</dd></div>
+              </dl>
+            </div>
+            <div class="owner-side">
+              <div>
+                <div class="mini-h">Justificatifs · 2 PDF</div>
+                <div class="docs">
+                  <a class="doc" href="#"><span class="ic">PDF</span><span class="nm">Facture ORZGK</span><span class="sz">214 Ko</span></a>
+                  <a class="doc" href="#"><span class="ic">PDF</span><span class="nm">Bordereau douane</span><span class="sz">88 Ko</span></a>
+                </div>
+              </div>
+              <div>
+                <div class="mini-h">Mes photos · couverture</div>
+                <div class="owner-photos">
+                  <div class="pw cover"><div class="well" style="--hue:var(--color-jade)"><div class="spot"></div><svg class="fig" viewBox="0 0 100 150"><use href="#fig-scale"/></svg></div></div>
+                  <div class="pw"><div class="well" style="--hue:#8a5a4a"><svg class="fig" viewBox="0 0 100 150"><use href="#fig-scale"/></svg></div></div>
+                  <div class="pw"><div class="well" style="--hue:var(--color-or)"><svg class="fig" viewBox="0 0 100 150"><use href="#fig-scale"/></svg></div></div>
+                </div>
+              </div>
+              <div>
+                <div class="mini-h">Mes tags</div>
+                <div class="owner-tags">
+                  <span class="tagchip"><span class="h">#</span>tentacules</span>
+                  <span class="tagchip"><span class="h">#</span>socle-orné</span>
+                  <span class="tagchip"><span class="h">#</span>cheveux-flottants</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="gold-rule" style="margin:18px 0 0">
+
+    <!-- ============================ VUE 360° ============================ -->
+    <section id="v360" class="sec">
+      <span class="sec-watermark" aria-hidden="true">巡</span>
+      <div class="sec-body">
+        <div class="sec-head">
+          <span class="kanji" aria-hidden="true">巡</span>
+          <div class="ht"><span class="micro"><span class="dot"></span>Tour complet</span><h2>Vue 360°</h2></div>
+          <span class="rule"></span>
+        </div>
+        <div class="plate">
+          <span class="badge360"><span class="g">⟳</span> 360° · glisser pour pivoter</span>
+          <svg class="fig" viewBox="0 0 100 150" style="--hue:var(--color-jade)" aria-label="Aperçu turntable 360 degrés"><use href="#fig-scale"/></svg>
+          <div class="turntable"></div>
+          <span class="hint">autorotation · maintenir + glisser pour contrôler</span>
+        </div>
+      </div>
+    </section>
+
+    <hr class="gold-rule" style="margin:18px 0 0">
+
+    <!-- ======================== FIGURINES PROCHES ======================== -->
+    <section id="proches" class="sec">
+      <span class="sec-watermark" aria-hidden="true">似</span>
+      <div class="sec-body">
+        <div class="sec-head">
+          <span class="kanji" aria-hidden="true">似</span>
+          <div class="ht"><span class="micro"><span class="dot"></span>Recherche visuelle</span><h2>Figurines proches</h2></div>
+          <span class="rule"></span>
+        </div>
+        <div class="proches">
+          <a class="pcard" href="#">
+            <div class="pw"><div class="well" style="--hue:#b48ce6"><div class="spot"></div><svg class="fig" viewBox="0 0 100 150"><use href="#fig-scale"/></svg></div><span class="match num">92 %</span></div>
+            <div class="cap"><b><span class="em">CROWN</span> — Eris Greyrat</b><span>1/6 · GK Statue</span></div>
+          </a>
+          <a class="pcard" href="#">
+            <div class="pw"><div class="well" style="--hue:var(--color-sakura,#e98fb0)"><div class="spot"></div><svg class="fig" viewBox="0 0 100 150"><use href="#fig-scale"/></svg></div><span class="match num">88 %</span></div>
+            <div class="cap"><b><span class="em">Native</span> — Nure Megami</b><span>1/6 · PVC</span></div>
+          </a>
+          <a class="pcard" href="#">
+            <div class="pw"><div class="well" style="--hue:var(--color-jade)"><div class="spot"></div><svg class="fig" viewBox="0 0 100 150"><use href="#fig-action"/></svg></div><span class="match num">85 %</span></div>
+            <div class="cap"><b><span class="em">Orca</span> Toys — Albedo</b><span>1/7 · PVC</span></div>
+          </a>
+          <a class="pcard" href="#">
+            <div class="pw"><div class="well" style="--hue:var(--color-laque)"><div class="spot"></div><svg class="fig" viewBox="0 0 100 150"><use href="#fig-scale"/></svg></div><span class="match num">81 %</span></div>
+            <div class="cap"><b><span class="em">Kaitendo</span> — Rias</b><span>1/6 · PVC</span></div>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span class="ja">像</span>
+      <span>FigureCollector · fiche 019E5BF9 · données chiffrées de bout en bout</span>
+      <span style="margin-left:auto">② Le Dossier · maquette</span>
+    </footer>
+  </div>
+</main>
+
+<script>
+(function(){
+  /* ---- disclosures ---- */
+  var ledeBtn=document.getElementById('ledeBtn'),ledeRest=document.getElementById('ledeRest');
+  if(ledeBtn){ledeBtn.addEventListener('click',function(){
+    var open=ledeRest.classList.toggle('open');
+    ledeBtn.setAttribute('aria-expanded',open);
+    ledeBtn.textContent=open?'Réduire ↑':'Lire la suite ↓';
+  });}
+  var vtBtn=document.getElementById('voirToutBtn');
+  if(vtBtn){vtBtn.addEventListener('click',function(){
+    var hidden=document.querySelectorAll('.hidden-spec');
+    var open=!hidden[0].classList.contains('show');
+    hidden.forEach(function(r){r.classList.toggle('show',open);});
+    vtBtn.setAttribute('aria-expanded',open);
+    vtBtn.textContent=open?'Réduire ↑':'Voir tout (4 champs) ↓';
+  });}
+
+  /* ---- filmstrip active state (mock) ---- */
+  var thumbs=document.querySelectorAll('.filmstrip .thumb');
+  thumbs.forEach(function(t){t.addEventListener('click',function(){
+    thumbs.forEach(function(x){x.classList.remove('active');x.removeAttribute('aria-current');});
+    t.classList.add('active');t.setAttribute('aria-current','true');
+  });});
+
+  /* ---- NSFW reveal mock on a thumb-driven veil (none on main here, but keep handler) ---- */
+  document.querySelectorAll('.btn-reveal').forEach(function(b){
+    b.addEventListener('click',function(){var v=b.closest('.nsfw-veil');if(v)v.classList.add('hidden');});
+  });
+
+  /* ---- scroll-spy via IntersectionObserver ---- */
+  var links=Array.prototype.slice.call(document.querySelectorAll('.idx-link'));
+  var map={};links.forEach(function(l){map[l.getAttribute('href').slice(1)]=l;});
+  var sections=Array.prototype.slice.call(document.querySelectorAll('section[id]'));
+  function setCurrent(id){links.forEach(function(l){l.classList.remove('current');});
+    if(map[id]){map[id].classList.add('current');}}
+
+  if('IntersectionObserver' in window){
+    var visible={};
+    var io=new IntersectionObserver(function(entries){
+      entries.forEach(function(e){visible[e.target.id]=e.isIntersecting?e.intersectionRatio:0;});
+      // pick the section nearest the top that is intersecting
+      var best=null,bestTop=Infinity;
+      sections.forEach(function(s){
+        if(visible[s.id]>0){var top=s.getBoundingClientRect().top;
+          if(top<bestTop && top< (window.innerHeight*0.5)){bestTop=top;best=s.id;}}
+      });
+      if(best)setCurrent(best);
+    },{rootMargin:'-110px 0px -55% 0px',threshold:[0,.15,.5,1]});
+    sections.forEach(function(s){io.observe(s);});
+  }
+  // smooth-scroll handled by CSS scroll-margin-top + html scroll-behavior
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>③ La Vitrine — Fiche figurine · FigureCollector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Instrument+Sans:ital,wght@0,400..600;1,400..500&family=Noto+Serif+JP:wght@300..500&family=JetBrains+Mono:wght@300..500&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* core (dark) */
+  --color-noir:#161311; --color-noir-soft:#211c19; --color-noir-deep:#100d0b;
+  --color-laque:#8f2d2a; --color-laque-bright:#c4453b;      /* hanko red — the ONE hot accent */
+  --color-or:#d8b46e; --color-or-pale:#e8d4a6; --color-or-deep:#a98a4e;  /* gold = value */
+  --color-jade:#5fb39a; --color-jade-deep:#3f8f78;          /* gain (+) */
+  --color-ivoire:#ece3d2; --color-ivoire-soft:rgba(236,227,210,.8);
+  /* semantic */
+  --surface:var(--color-noir-soft); --surface-raised:var(--color-noir); --surface-sunken:var(--color-noir-deep);
+  --on-surface:var(--color-ivoire); --on-surface-muted:var(--color-ivoire-soft);
+  --on-surface-subtle:rgba(236,227,210,.55);
+  --border:rgba(216,180,110,.22); --border-strong:rgba(216,180,110,.42); --border-subtle:rgba(216,180,110,.12);
+  --primary:var(--color-laque); --primary-hover:var(--color-laque-bright); --accent:var(--color-or);
+  --danger:var(--color-laque-bright); --success:var(--color-jade); --ring:var(--color-or);
+  /* type */
+  --font-display:"Fraunces",Georgia,serif;
+  --font-sans:"Instrument Sans",system-ui,sans-serif;
+  --font-ja:"Noto Serif JP","Yu Mincho",serif;
+  --font-mono:"JetBrains Mono",ui-monospace,monospace;
+  /* radii / space / motion */
+  --radius-sm:2px; --radius-md:4px; --radius-lg:8px; --radius-xl:14px; --radius-pill:9999px;
+  --elev-2:0 12px 32px -20px rgba(0,0,0,.7); --elev-3:0 25px 60px -34px rgba(0,0,0,.85);
+  --ease:cubic-bezier(.22,1,.36,1); --dur:240ms;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--color-noir);color:var(--on-surface);
+  font-family:var(--font-sans);font-size:15px;line-height:1.55;
+  -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+img,svg{display:block}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;cursor:pointer;color:inherit}
+:focus-visible{outline:2px solid var(--ring);outline-offset:2px;border-radius:var(--radius-sm)}
+.tnum{font-variant-numeric:tabular-nums}
+.mono{font-family:var(--font-mono)}
+
+/* faint grain overlay (GPU-light, static) */
+.grain{position:fixed;inset:0;z-index:9999;pointer-events:none;opacity:.045;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");}
+
+/* ============ shared signature bits ============ */
+.micro{font-family:var(--font-sans);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--color-or-pale)}
+.micro .dot{display:inline-block;width:5px;height:5px;background:var(--primary);transform:rotate(45deg);margin:0 .5em;vertical-align:middle}
+.gold-rule{height:1px;border:0;margin:0;background:linear-gradient(90deg,transparent,var(--color-or) 30%,var(--color-or) 70%,transparent)}
+.lot-stamp{display:inline-flex;align-items:center;gap:.7em;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;
+  color:var(--color-or-pale);border:1px solid var(--border-strong);border-radius:var(--radius-sm);
+  padding:5px 10px;background:rgba(16,13,11,.55);text-transform:uppercase}
+.lot-stamp b{color:var(--on-surface-subtle);font-weight:400}
+.kanji-wm{position:absolute;font-family:var(--font-ja);color:var(--color-or);opacity:.06;line-height:1;pointer-events:none;user-select:none}
+
+/* ============ top bar ============ */
+.topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:1.4rem;
+  height:54px;padding:0 clamp(1rem,3vw,2.4rem);
+  background:rgba(16,13,11,.86);border-bottom:1px solid var(--border-subtle);backdrop-filter:none}
+.brand{display:flex;align-items:center;gap:.6rem;font-family:var(--font-display);font-weight:300;font-size:18px;letter-spacing:.01em}
+.brand .ja{font-family:var(--font-ja);color:var(--color-or);font-size:20px}
+.topnav{display:flex;gap:1.4rem;margin-left:.6rem;font-size:13px;color:var(--on-surface-muted)}
+.topnav a:hover{color:var(--on-surface)}
+.topnav .cur{color:var(--color-or-pale)}
+.topbar .spacer{flex:1}
+.topbar .ja-tab{font-family:var(--font-ja);color:var(--color-or);opacity:.8;font-size:15px}
+
+/* page label */
+.page-label{position:fixed;top:62px;left:14px;z-index:60;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--color-noir-deep);background:var(--color-or);
+  padding:5px 11px;border-radius:var(--radius-sm);box-shadow:var(--elev-2);font-weight:500}
+
+.breadcrumb{display:flex;align-items:center;gap:.55rem;font-size:12px;color:var(--on-surface-subtle);
+  padding:1.1rem clamp(1rem,3vw,2.4rem) .3rem;letter-spacing:.04em}
+.breadcrumb a:hover{color:var(--on-surface-muted)}
+.breadcrumb .sep{color:var(--color-or-deep);opacity:.6}
+.breadcrumb .cur{color:var(--color-or-pale)}
+
+/* =================================================================
+   CINEMATIC HERO — near full-bleed media stage
+   ================================================================= */
+.hero{position:relative;width:100%;margin-bottom:clamp(96px,9vw,150px)}
+.stage{position:relative;width:100%;
+  height:clamp(560px,76vh,860px);
+  background:radial-gradient(120% 90% at 62% 30%, #2a231d 0%, #1b1715 42%, var(--color-noir-deep) 100%);
+  overflow:hidden;border-bottom:1px solid var(--border-subtle)}
+/* directional gallery light */
+.stage .keylight{position:absolute;top:-18%;left:48%;width:60%;height:120%;
+  background:radial-gradient(closest-side, rgba(232,212,166,.16), rgba(232,212,166,.04) 55%, transparent 72%);
+  transform:rotate(8deg);pointer-events:none}
+/* vignette */
+.stage .vignette{position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(125% 105% at 60% 40%, transparent 46%, rgba(16,13,11,.45) 78%, rgba(16,13,11,.92) 100%)}
+.stage .floor{position:absolute;left:0;right:0;bottom:0;height:34%;
+  background:linear-gradient(to top, rgba(16,13,11,.65), transparent);pointer-events:none}
+.stage .kanji-hero{font-size:min(64vh,640px);right:-6%;top:50%;transform:translateY(-50%);opacity:.05}
+/* hero specimen */
+.specimen{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  height:90%;display:flex;align-items:flex-end;justify-content:center}
+.specimen svg.fig{height:100%;width:auto;filter:drop-shadow(0 30px 40px rgba(0,0,0,.55))}
+.fig .body{fill:var(--color-or-deep);opacity:.34}
+.fig .hi{fill:var(--color-or-pale);opacity:.30}
+.fig .sh{fill:#000;opacity:.4}
+.specimen .pedestal{position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+  width:46%;height:18px;border-radius:50%;background:radial-gradient(closest-side,rgba(216,180,110,.22),transparent 72%)}
+
+/* hero edge filmstrip */
+.hero-strip{position:absolute;top:50%;left:clamp(.7rem,2vw,1.6rem);transform:translateY(-50%);
+  display:flex;flex-direction:column;gap:9px;z-index:6}
+.hero-strip .th{position:relative;width:62px;height:78px;border-radius:var(--radius-sm);overflow:hidden;
+  border:1px solid var(--border);background:var(--surface-sunken);transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.hero-strip .th:hover{transform:translateX(4px);border-color:var(--border-strong)}
+.hero-strip .th.on{border-color:var(--color-or);box-shadow:inset 0 0 0 1px var(--color-or)}
+.hero-strip .th svg.fig{height:74%;margin:8px auto 0}
+.hero-strip .th .spot{position:absolute;inset:0;background:radial-gradient(60% 50% at 50% 38%,rgba(232,212,166,.12),transparent 70%)}
+.hero-strip .th .lbl360{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  font-family:var(--font-mono);font-size:9px;letter-spacing:.06em;color:var(--color-or-pale)}
+.hero-strip .th .lbl360 .ring{font-size:22px;line-height:1}
+.hero-strip .th .plus{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono);font-size:14px;color:var(--color-or-pale);background:rgba(16,13,11,.55)}
+.hero-strip .strip-cap{font-family:var(--font-mono);font-size:9px;letter-spacing:.14em;color:var(--on-surface-subtle);
+  text-align:center;text-transform:uppercase;margin-top:2px}
+
+/* NSFW veil on one hero thumb */
+.veil{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  background:rgba(16,13,11,.82);background-image:repeating-linear-gradient(45deg,rgba(143,45,42,.16) 0 6px,transparent 6px 12px);
+  font-size:8.5px;text-align:center;color:var(--on-surface-muted);padding:4px}
+.veil .eye{font-family:var(--font-ja);color:var(--color-laque-bright);font-size:14px}
+.veil button{font-size:8px;border:1px solid var(--border-strong);background:transparent;color:var(--color-or-pale);
+  border-radius:var(--radius-pill);padding:2px 6px;letter-spacing:.05em}
+
+/* hero action icon cluster (top-right) */
+.hero-actions{position:absolute;top:clamp(.8rem,2vw,1.4rem);right:clamp(.8rem,2vw,1.4rem);display:flex;gap:.5rem;z-index:7}
+.icon-btn{width:44px;height:44px;display:grid;place-items:center;border:1px solid var(--border);border-radius:var(--radius-sm);
+  background:rgba(16,13,11,.6);color:var(--on-surface-muted);transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.icon-btn:hover{border-color:var(--border-strong);color:var(--on-surface);transform:translateY(-2px)}
+.icon-btn.danger:hover{color:var(--color-laque-bright);border-color:var(--color-laque-bright)}
+.icon-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.5}
+
+/* photo counter chip */
+.shotcount{position:absolute;left:50%;bottom:clamp(1rem,3vw,2rem);transform:translateX(-50%);z-index:6;
+  display:flex;align-items:center;gap:.6rem;font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;
+  color:var(--on-surface-subtle)}
+.shotcount .nav{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--border);border-radius:50%;
+  background:rgba(16,13,11,.5);transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.shotcount .nav:hover{border-color:var(--border-strong);transform:scale(1.06)}
+.shotcount .nav svg{width:13px;height:13px;stroke:var(--color-or-pale);fill:none;stroke-width:1.7}
+
+/* LOWER-THIRD — overlaid identity */
+.lower-third{position:absolute;left:0;right:0;bottom:0;z-index:5;padding:clamp(2rem,5vw,4rem) clamp(1rem,3vw,2.4rem) 0;
+  background:linear-gradient(to top, rgba(16,13,11,.94) 8%, rgba(16,13,11,.72) 46%, transparent 100%)}
+.lt-inner{max-width:1440px;margin:0 auto;padding-bottom:1.6rem}
+.lt-kicker{display:flex;align-items:center;gap:.55rem;margin-bottom:.7rem}
+.lt-kicker .ja{font-family:var(--font-ja);color:var(--color-or);font-size:15px}
+.accent-title{font-family:var(--font-display);font-weight:300;line-height:1.02;
+  font-size:clamp(2.4rem,5.6vw,5rem);letter-spacing:-.012em;max-width:18ch;margin:0}
+.accent-title .first{color:var(--color-laque-bright);font-style:italic}
+.lt-sub{display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem 1.1rem;margin-top:.9rem;color:var(--on-surface-muted);font-size:14px}
+.lt-sub .ver{font-family:var(--font-display);font-style:italic;color:var(--color-or-pale);font-size:17px}
+.lt-sub .pip{color:var(--color-or-deep)}
+
+/* OVERLAPPING CARTOUCHE — breaks the grid over the hero bottom edge */
+.cartouche{position:relative;z-index:8;max-width:1440px;margin:-86px auto 0;padding:0 clamp(1rem,3vw,2.4rem);
+  display:grid;grid-template-columns:minmax(280px,1fr) auto;gap:1.2rem;align-items:end}
+.cart-specs{background:var(--surface);border:1px solid var(--border-strong);border-radius:var(--radius-lg);
+  box-shadow:var(--elev-3);padding:1.1rem 1.3rem 1.15rem;position:relative;overflow:hidden}
+.cart-specs::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(var(--color-laque),var(--color-or-deep))}
+.cart-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.85rem}
+.cart-head .lab{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--on-surface-subtle)}
+.keyspecs{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
+.keyspecs .ks{padding:0 1rem;border-left:1px solid var(--border-subtle)}
+.keyspecs .ks:first-child{padding-left:0;border-left:0}
+.keyspecs .ks .k{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--on-surface-subtle);margin-bottom:.25rem}
+.keyspecs .ks .v{font-family:var(--font-display);font-size:18px;font-weight:300;color:var(--on-surface)}
+.keyspecs .ks .v .ja{font-family:var(--font-ja);color:var(--color-or);font-size:14px;margin-left:.25em}
+
+/* primary CTA seal — owned */
+.owned-seal{background:var(--surface-raised);border:1px solid var(--border-strong);border-radius:var(--radius-lg);
+  box-shadow:var(--elev-3);padding:1rem 1.2rem;min-width:300px;position:relative}
+.owned-seal .ribbon{position:absolute;top:-1px;right:1.1rem;font-family:var(--font-ja);font-size:13px;color:var(--color-noir-deep);
+  background:var(--color-or);padding:3px 8px 4px;border-radius:0 0 var(--radius-sm) var(--radius-sm);letter-spacing:.08em}
+.owned-seal .st{display:flex;align-items:center;gap:.6rem;margin-bottom:.85rem}
+.owned-seal .st .chk{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;
+  border:1px solid var(--color-jade);color:var(--color-jade)}
+.owned-seal .st .chk svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2}
+.owned-seal .st .txt b{display:block;font-family:var(--font-display);font-size:15px;font-weight:400}
+.owned-seal .st .txt span{font-size:11px;color:var(--on-surface-subtle);letter-spacing:.04em}
+.btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:.55rem;width:100%;min-height:46px;
+  background:var(--primary);color:var(--color-ivoire);border:1px solid var(--color-laque-bright);border-radius:var(--radius-md);
+  font-size:14px;letter-spacing:.04em;font-weight:500;transition:background var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.btn-primary:hover{background:var(--primary-hover);transform:translateY(-1px)}
+.btn-primary svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.6}
+
+/* =================================================================
+   BENTO DASHBOARD — asymmetric tiles, one dominant
+   ================================================================= */
+.wrap{max-width:1440px;margin:0 auto;padding:0 clamp(1rem,3vw,2.4rem)}
+.section-head{display:flex;align-items:baseline;gap:1rem;margin:0 0 1.2rem}
+.section-head h2{font-family:var(--font-display);font-weight:300;font-size:clamp(1.5rem,2.6vw,2.1rem);margin:0;letter-spacing:-.01em}
+.section-head h2 .ja{font-family:var(--font-ja);color:var(--color-or);font-size:.7em;margin-right:.35em}
+.section-head .line{flex:1;height:1px;background:linear-gradient(90deg,var(--border-strong),transparent)}
+.section-head .count{font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);letter-spacing:.1em}
+
+.bento{display:grid;gap:18px;
+  grid-template-columns:repeat(12,1fr);
+  grid-auto-rows:minmax(10px,auto);
+  margin-top:1.6rem}
+.tile{background:var(--surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);
+  padding:1.4rem;position:relative;overflow:hidden;transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.tile:hover{border-color:var(--border);transform:translateY(-2px)}
+.tile-lab{display:flex;align-items:center;gap:.5rem;font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--on-surface-subtle);margin-bottom:1rem}
+.tile-lab .ja{font-family:var(--font-ja);color:var(--color-or);font-size:13px;opacity:.85}
+
+/* tile placement */
+.t-value{grid-column:span 5;grid-row:span 2}
+.t-360{grid-column:span 4;grid-row:span 2}
+.t-preco{grid-column:span 3;grid-row:span 2}
+.t-specs{grid-column:span 5}
+.t-shops{grid-column:span 4}
+.t-mine{grid-column:span 3}
+.t-tags{grid-column:span 12}
+
+/* VALUE tile (dominant) */
+.t-value{background:linear-gradient(155deg,#231c14 0%, var(--surface) 60%);border-color:var(--border)}
+.t-value .kanji-wm{font-size:200px;right:-30px;bottom:-60px}
+.val-grid{display:grid;grid-template-columns:1.3fr 1fr;gap:1.2rem;align-items:end;position:relative}
+.cote-num{font-family:var(--font-display);font-weight:300;line-height:.9;color:var(--color-or);
+  font-size:clamp(3.4rem,6vw,5.4rem);letter-spacing:-.02em}
+.cote-num .cur{font-size:.42em;color:var(--color-or-pale);vertical-align:.55em;margin-left:.1em;font-style:italic}
+.cote-cap{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--on-surface-subtle);margin-top:.3rem}
+.plusvalue{display:inline-flex;align-items:center;gap:.4rem;margin-top:.9rem;
+  font-family:var(--font-mono);font-size:15px;color:var(--color-jade);font-weight:500;
+  border:1px solid var(--color-jade-deep);background:rgba(95,179,154,.08);border-radius:var(--radius-pill);padding:5px 13px}
+.plusvalue .arr{font-size:12px}
+.val-meta{display:flex;flex-direction:column;gap:.65rem;font-size:13px}
+.val-meta .row{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px dotted var(--border-subtle);padding-bottom:.35rem}
+.val-meta .row span:first-child{color:var(--on-surface-subtle);font-size:11.5px;letter-spacing:.04em}
+.val-meta .row b{font-family:var(--font-mono);font-weight:400;color:var(--on-surface)}
+.spark-wrap{margin-top:1.1rem;position:relative}
+.spark-wrap svg{width:100%;height:auto;display:block}
+.spark-foot{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:10px;color:var(--on-surface-subtle);margin-top:.4rem;letter-spacing:.06em}
+.disclosure{margin-top:.9rem}
+.disclosure summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:.45rem;
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;color:var(--color-or-pale);
+  border:1px solid var(--border);border-radius:var(--radius-pill);padding:5px 13px;transition:border-color var(--dur) var(--ease)}
+.disclosure summary::-webkit-details-marker{display:none}
+.disclosure summary:hover{border-color:var(--border-strong)}
+.disclosure summary .tri{transition:transform var(--dur) var(--ease)}
+.disclosure[open] summary .tri{transform:rotate(90deg)}
+.fullchart{margin-top:1.1rem;border-top:1px solid var(--border-subtle);padding-top:1.1rem}
+.fullchart svg{width:100%;height:auto}
+.chart-ax{font-family:var(--font-mono);font-size:9px;fill:var(--on-surface-subtle);letter-spacing:.04em}
+
+/* 360 tile */
+.t-360{background:radial-gradient(120% 90% at 50% 36%,#251f18,var(--surface) 70%)}
+.turntable{position:relative;height:100%;min-height:200px;display:flex;align-items:center;justify-content:center}
+.turntable .keylight{position:absolute;top:-10%;left:50%;width:80%;height:90%;transform:translateX(-50%);
+  background:radial-gradient(closest-side,rgba(232,212,166,.12),transparent 70%);pointer-events:none}
+.turntable svg.fig{height:62%;cursor:grab;transition:transform var(--dur) var(--ease)}
+.turntable svg.fig:active{cursor:grabbing}
+.tt-base{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);width:62%;height:22px;border-radius:50%;
+  border:1px solid var(--border-strong);background:radial-gradient(closest-side,rgba(216,180,110,.16),transparent 75%)}
+.tt-base::after{content:"";position:absolute;inset:5px;border-radius:50%;border:1px dashed var(--border-subtle)}
+.badge360{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
+  display:inline-flex;align-items:center;gap:.5rem;font-family:var(--font-mono);font-size:11px;letter-spacing:.05em;
+  color:var(--color-noir-deep);background:var(--color-or);border-radius:var(--radius-pill);padding:6px 14px;font-weight:500;
+  box-shadow:var(--elev-2)}
+.badge360 .ring{font-size:14px}
+.tt-hint{position:absolute;top:0;right:0;font-family:var(--font-mono);font-size:9px;letter-spacing:.1em;
+  color:var(--on-surface-subtle);text-transform:uppercase}
+
+/* preco tile */
+.t-preco{background:var(--surface-raised);border-color:var(--border)}
+.deposit-amt{font-family:var(--font-display);font-weight:300;font-size:1.7rem;color:var(--on-surface);line-height:1.1}
+.deposit-amt .of{color:var(--on-surface-subtle);font-size:.62em;font-family:var(--font-mono)}
+.deposit-cap{font-size:11px;color:var(--on-surface-subtle);letter-spacing:.04em;margin:.2rem 0 .8rem}
+.bar{height:9px;border-radius:var(--radius-pill);background:var(--surface-sunken);overflow:hidden;border:1px solid var(--border-subtle)}
+.bar i{display:block;height:100%;width:12%;background:linear-gradient(90deg,var(--color-laque),var(--color-or-deep));border-radius:var(--radius-pill)}
+.bar-foot{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:10px;color:var(--on-surface-subtle);margin-top:.4rem;letter-spacing:.05em}
+.preco-rows{margin-top:1rem;display:flex;flex-direction:column;gap:.7rem}
+.preco-rows .pr{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px}
+.preco-rows .pr span{color:var(--on-surface-subtle);font-size:11px;letter-spacing:.03em}
+.preco-rows .pr b{font-family:var(--font-mono);font-weight:400}
+.preco-rows .pr.next b{color:var(--color-or-pale)}
+.slipnote{margin-top:.9rem;border-top:1px dotted var(--border-subtle);padding-top:.7rem;font-size:11.5px;line-height:1.5}
+.slipnote .now{color:var(--color-laque-bright)}
+.slipnote .was{color:var(--on-surface-subtle);text-decoration:line-through;text-decoration-color:var(--color-or-deep)}
+.slipnote .lab{font-family:var(--font-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--on-surface-subtle)}
+.norefund{font-size:10px;color:var(--on-surface-subtle);font-style:italic;margin-top:.5rem}
+
+/* specs tile */
+.specs-groups{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem 2rem}
+.spec-group h4{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--color-or-pale);margin:0 0 .7rem;padding-bottom:.4rem;border-bottom:1px solid var(--border-subtle)}
+dl.spec{margin:0;display:grid;grid-template-columns:auto 1fr;gap:.5rem .8rem}
+dl.spec dt{color:var(--on-surface-subtle);font-size:12px;letter-spacing:.02em;white-space:nowrap}
+dl.spec dd{margin:0;text-align:right;font-size:13px;color:var(--on-surface)}
+dl.spec dd.mono{font-family:var(--font-mono);font-size:12px}
+dl.spec dd .ja{font-family:var(--font-ja);color:var(--color-or);margin-left:.3em}
+
+/* shops tile */
+.shop-row{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.7rem 0;border-bottom:1px solid var(--border-subtle)}
+.shop-row:last-child{border-bottom:0}
+.shop-row .nm{font-family:var(--font-display);font-size:15px;font-weight:400}
+.shop-row .nm small{display:block;font-family:var(--font-sans);font-size:11px;color:var(--on-surface-subtle)}
+.shop-link{display:inline-flex;align-items:center;gap:.4rem;font-family:var(--font-mono);font-size:11px;letter-spacing:.05em;
+  border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 11px;color:var(--color-or-pale);
+  transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.shop-link:hover{border-color:var(--color-or);transform:translateX(2px)}
+.shop-link svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:1.6}
+
+/* MA COPIE tile — owner layer, visually distinct */
+.t-mine{background:linear-gradient(165deg,#1c1512,var(--surface-sunken));border:1px solid var(--border-strong)}
+.t-mine .tile-lab{color:var(--color-or-pale)}
+.mine-grid{display:flex;flex-direction:column;gap:.55rem}
+.mine-grid .mr{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;
+  border-bottom:1px dotted var(--border-subtle);padding-bottom:.4rem}
+.mine-grid .mr span{color:var(--on-surface-subtle);font-size:11px;letter-spacing:.03em}
+.mine-grid .mr b{font-family:var(--font-mono);font-weight:400}
+.state-chip{display:inline-flex;align-items:center;gap:.35rem;font-family:var(--font-mono);font-size:10px;letter-spacing:.06em;
+  color:var(--color-jade);border:1px solid var(--color-jade-deep);border-radius:var(--radius-pill);padding:2px 9px}
+
+/* tags rail */
+.t-tags{background:transparent;border:0;border-top:1px solid var(--border-subtle);border-radius:0;padding:1.2rem 0 0}
+.tags-rail{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center}
+.tag{font-size:12px;letter-spacing:.02em;color:var(--on-surface-muted);border:1px solid var(--border);
+  border-radius:var(--radius-pill);padding:5px 13px;transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease)}
+.tag:hover{border-color:var(--border-strong);color:var(--on-surface)}
+.tag .h{color:var(--color-or-deep);margin-right:.15em}
+
+/* description lede */
+.lede-block{margin-top:clamp(2.2rem,4vw,3.4rem);position:relative}
+.lede-block .kanji-wm{font-size:150px;left:-20px;top:-50px}
+.lede{font-family:var(--font-display);font-weight:300;font-size:clamp(1.05rem,1.8vw,1.32rem);line-height:1.65;
+  max-width:62ch;color:var(--on-surface-muted);position:relative}
+.lede .dropcap{float:left;font-family:var(--font-display);font-weight:300;font-style:italic;color:var(--color-laque-bright);
+  font-size:4.2em;line-height:.78;padding:.05em .12em 0 0;margin-top:.04em}
+.lede .more{font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;color:var(--color-or-pale);
+  border-bottom:1px solid var(--border-strong);padding-bottom:1px;margin-left:.4em;white-space:nowrap}
+
+/* ============ MA COPIE expanded zone ============ */
+.mine-zone{margin-top:clamp(3rem,5vw,4.5rem);background:linear-gradient(180deg,#1b1512,var(--color-noir-deep));
+  border:1px solid var(--border-strong);border-radius:var(--radius-xl);padding:clamp(1.6rem,3vw,2.6rem);position:relative;overflow:hidden}
+.mine-zone .kanji-wm{font-size:240px;right:-30px;top:-70px;opacity:.05}
+.mz-head{display:flex;align-items:center;gap:.8rem;margin-bottom:1.6rem}
+.mz-head .seal{font-family:var(--font-ja);font-size:15px;color:var(--color-noir-deep);background:var(--color-or);
+  padding:4px 10px;border-radius:var(--radius-sm);letter-spacing:.06em}
+.mz-head h3{font-family:var(--font-display);font-weight:300;font-size:1.6rem;margin:0}
+.mz-grid{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:1.6rem}
+.mz-card{background:var(--surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:1.2rem}
+.mz-card h4{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-or-pale);margin:0 0 .9rem}
+.justif{display:flex;align-items:center;gap:.7rem;padding:.65rem;border:1px solid var(--border-subtle);border-radius:var(--radius-md);margin-bottom:.6rem;
+  transition:border-color var(--dur) var(--ease)}
+.justif:hover{border-color:var(--border)}
+.justif .ic{width:30px;height:36px;border:1px solid var(--border);border-radius:2px;display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:8px;color:var(--color-laque-bright);flex-shrink:0}
+.justif .t{font-size:12.5px}
+.justif .t small{display:block;color:var(--on-surface-subtle);font-size:10.5px;font-family:var(--font-mono)}
+.cover-well{aspect-ratio:4/5;background:var(--surface-sunken);border:1px solid var(--border);border-radius:var(--radius-md);
+  position:relative;overflow:hidden;display:flex;align-items:flex-end;justify-content:center}
+.cover-well .spot{position:absolute;inset:0;background:radial-gradient(60% 50% at 50% 36%,rgba(232,212,166,.12),transparent 70%)}
+.cover-well svg.fig{height:80%}
+.cover-well .insc{position:absolute;left:7px;bottom:6px;font-family:var(--font-mono);font-size:8px;color:var(--on-surface-subtle);letter-spacing:.05em}
+.cover-well .star{position:absolute;top:7px;right:7px;color:var(--color-or);font-size:13px}
+.myphotos{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
+.myphotos .mp{aspect-ratio:1;background:var(--surface-sunken);border:1px solid var(--border-subtle);border-radius:2px;
+  position:relative;overflow:hidden;display:flex;align-items:flex-end;justify-content:center}
+.myphotos .mp svg.fig{height:78%}
+.myphotos .mp .spot{position:absolute;inset:0;background:radial-gradient(60% 50% at 50% 40%,rgba(232,212,166,.08),transparent 70%)}
+.myphotos .add{display:grid;place-items:center;color:var(--on-surface-subtle);font-size:20px;border-style:dashed}
+
+/* similar figures */
+.proches{margin-top:clamp(3rem,5vw,4.5rem)}
+.sim-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1.2rem;margin-top:1.6rem}
+.sim-card{background:var(--surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);overflow:hidden;
+  transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease)}
+.sim-card:hover{border-color:var(--border);transform:translateY(-4px)}
+.sim-well{aspect-ratio:4/5;background:radial-gradient(120% 90% at 50% 34%,#221c16,var(--surface-sunken));position:relative;
+  display:flex;align-items:flex-end;justify-content:center;overflow:hidden}
+.sim-well .spot{position:absolute;inset:0;background:radial-gradient(58% 48% at 50% 36%,rgba(232,212,166,.13),transparent 70%)}
+.sim-well svg.fig{height:80%}
+.sim-well .kanji-wm{font-size:90px;right:-6px;bottom:-12px}
+.sim-match{position:absolute;top:9px;left:9px;font-family:var(--font-mono);font-size:10px;letter-spacing:.05em;
+  color:var(--color-or-pale);background:rgba(16,13,11,.6);border:1px solid var(--border);border-radius:var(--radius-pill);padding:2px 8px}
+.sim-body{padding:.9rem 1rem 1.1rem}
+.sim-body .nm{font-family:var(--font-display);font-size:15px;font-weight:400;line-height:1.2}
+.sim-body .nm .first{color:var(--color-laque-bright);font-style:italic}
+.sim-body .meta{font-size:11.5px;color:var(--on-surface-subtle);margin-top:.25rem;font-family:var(--font-mono);letter-spacing:.04em}
+
+footer{margin:clamp(3.5rem,6vw,5.5rem) 0 0;padding:2rem clamp(1rem,3vw,2.4rem);border-top:1px solid var(--border-subtle)}
+.foot-inner{max-width:1440px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;
+  font-size:11px;color:var(--on-surface-subtle);letter-spacing:.05em}
+.foot-inner .ja{font-family:var(--font-ja);color:var(--color-or);opacity:.7}
+
+/* =================== RESPONSIVE =================== */
+@media (max-width:1024px){
+  .stage{height:clamp(440px,64vh,620px)}
+  .hero-strip{flex-direction:row;top:auto;bottom:96px;left:50%;transform:translateX(-50%);z-index:6}
+  .hero-strip .th{width:48px;height:60px}
+  .hero-strip .strip-cap{display:none}
+  .cartouche{grid-template-columns:1fr;margin-top:-64px;gap:1rem}
+  .owned-seal{min-width:0}
+  /* bento → single reordered column */
+  .bento{grid-template-columns:1fr}
+  .t-value,.t-360,.t-preco,.t-specs,.t-shops,.t-mine,.t-tags{grid-column:1/-1;grid-row:auto}
+  .t-value{order:1}
+  .owned-seal{order:0}
+  .t-preco{order:2}
+  .t-mine{order:3}
+  .t-specs{order:4}
+  .t-360{order:5;min-height:280px}
+  .t-shops{order:6}
+  .t-tags{order:7}
+  .specs-groups{grid-template-columns:1fr}
+  .mz-grid{grid-template-columns:1fr 1fr}
+  .sim-grid{grid-template-columns:1fr 1fr}
+}
+@media (max-width:640px){
+  body{font-size:14px}
+  .topnav{display:none}
+  .stage{height:62vh}
+  .accent-title{font-size:clamp(2rem,9vw,2.6rem)}
+  .hero-strip{bottom:88px;gap:6px}
+  .keyspecs{grid-template-columns:1fr 1fr;gap:.9rem 0}
+  .keyspecs .ks{padding:0 .8rem}
+  .keyspecs .ks:nth-child(odd){padding-left:0;border-left:0}
+  .keyspecs .ks:nth-child(even){border-left:1px solid var(--border-subtle)}
+  .val-grid{grid-template-columns:1fr}
+  .mz-grid{grid-template-columns:1fr}
+  .sim-grid{grid-template-columns:1fr}
+  .hero-actions{top:auto;bottom:auto;right:.7rem;top:.7rem}
+  .page-label{font-size:9px;padding:4px 8px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;scroll-behavior:auto!important}
+  .tile:hover,.sim-card:hover,.icon-btn:hover,.btn-primary:hover{transform:none}
+}
+</style>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+<div class="page-label">③ La Vitrine · cinematic + bento</div>
+
+<!-- ====== SVG FIGURE LIBRARY (silhouettes réutilisables) ====== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="fig-scale" viewBox="0 0 100 150">
+      <ellipse class="sh" cx="50" cy="143" rx="27" ry="5"/>
+      <path class="body" d="M50 58 C36 58 27 100 32 134 L68 134 C73 100 64 58 50 58 Z"/>
+      <path class="hi" d="M50 58 C44 58 40 78 41 110 L50 110 Z"/>
+      <path class="body" d="M50 46 C45 46 43 54 45 62 L55 62 C57 54 55 46 50 46 Z"/>
+      <circle class="hi" cx="50" cy="36" r="11"/>
+      <path class="body" d="M38 33 C28 37 24 70 33 100 C35 80 39 62 45 56 C40 46 41 35 38 33 Z"/>
+      <path class="body" d="M62 33 C72 37 78 74 67 104 C65 82 61 62 55 56 C60 46 59 35 62 33 Z"/>
+      <path class="sh" d="M40 50 C34 60 33 84 36 96 C37 78 41 62 45 56 Z"/>
+    </symbol>
+    <symbol id="fig-action" viewBox="0 0 100 150">
+      <ellipse class="sh" cx="46" cy="143" rx="24" ry="5"/>
+      <path class="body" d="M44 56 C36 56 33 82 38 100 L40 134 L52 134 L52 104 L60 120 L70 112 L54 86 C56 70 54 56 44 56 Z"/>
+      <path class="body" d="M46 58 L74 40 L78 48 L52 70 Z"/>
+      <circle class="hi" cx="45" cy="44" r="10"/>
+      <path class="body" d="M36 40 C30 44 30 58 36 64 C36 54 40 48 45 45 Z"/>
+      <path class="hi" d="M44 58 C40 70 40 86 42 100 L48 100 C47 84 48 70 50 60 Z"/>
+    </symbol>
+    <symbol id="fig-mecha" viewBox="0 0 100 150">
+      <ellipse class="sh" cx="50" cy="143" rx="26" ry="5"/>
+      <path class="body" d="M38 60 L62 60 L66 96 L58 132 L42 132 L34 96 Z"/>
+      <path class="hi" d="M38 60 L50 60 L50 132 L42 132 L34 96 Z"/>
+      <rect class="body" x="44" y="40" width="12" height="16" rx="2"/>
+      <path class="hi" d="M48 38 L52 38 L54 44 L46 44 Z"/>
+      <path class="body" d="M30 62 L38 64 L40 92 L30 90 Z"/>
+      <path class="body" d="M70 62 L62 64 L60 92 L70 90 Z"/>
+      <rect class="sh" x="46" y="70" width="8" height="22" rx="2"/>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- ====== TOP BAR ====== -->
+<header class="topbar">
+  <a class="brand" href="#"><span class="ja">像</span> FigureCollector</a>
+  <nav class="topnav">
+    <a href="#" class="cur"><span class="ja" style="font-family:var(--font-ja)">目</span> Catalogue</a>
+    <a href="#">Ma collection</a>
+    <a href="#">Souhaits</a>
+  </nav>
+  <span class="spacer"></span>
+  <span class="ja-tab">朱</span>
+</header>
+
+<!-- breadcrumb -->
+<nav class="breadcrumb" aria-label="Fil d'ariane">
+  <a href="#">Catalogue</a><span class="sep">›</span>
+  <a href="#">One Punch Man</a><span class="sep">›</span>
+  <span class="cur">Fiche</span>
+</nav>
+
+<!-- =================================================================
+     CINEMATIC HERO
+     ================================================================= -->
+<section class="hero" aria-label="Présentation">
+  <div class="stage">
+    <span class="kanji-wm kanji-hero" aria-hidden="true">朱</span>
+    <div class="keylight" aria-hidden="true"></div>
+
+    <!-- hero specimen -->
+    <div class="specimen">
+      <svg class="fig" viewBox="0 0 100 150" role="img" aria-label="Visuel de la figurine"><use href="#fig-scale"/></svg>
+      <div class="pedestal" aria-hidden="true"></div>
+    </div>
+
+    <div class="vignette" aria-hidden="true"></div>
+    <div class="floor" aria-hidden="true"></div>
+
+    <!-- action icon cluster -->
+    <div class="hero-actions">
+      <button class="icon-btn" title="Partager" aria-label="Partager">
+        <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+      </button>
+      <button class="icon-btn" title="Éditer la fiche" aria-label="Éditer la fiche">
+        <svg viewBox="0 0 24 24"><path d="M16.5 3.5l4 4L8 20H4v-4z"/></svg>
+      </button>
+      <button class="icon-btn danger" title="Supprimer" aria-label="Supprimer">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16M9 6V4h6v2m-8 0v14h10V6"/></svg>
+      </button>
+    </div>
+
+    <!-- edge filmstrip -->
+    <div class="hero-strip" role="group" aria-label="Galerie — 24 photos">
+      <button class="th on" aria-label="Photo 1 sur 24"><span class="spot"></span><svg class="fig" viewBox="0 0 100 150"><use href="#fig-scale"/></svg></button>
+      <button class="th" aria-label="Photo 2 sur 24"><span class="spot"></span><svg class="fig" viewBox="0 0 100 150" style="--c"><use href="#fig-action"/></svg></button>
+      <button class="th" aria-label="Vue 360 degrés"><span class="lbl360"><span class="ring">⟳</span>360°<small>glisser</small></span></button>
+      <button class="th" aria-label="Photo sensible — masquée"><div class="veil"><span class="eye">目</span>Contenu sensible<button type="button">Révéler</button></div></button>
+      <button class="th" aria-label="Photo 5 sur 24"><span class="spot"></span><svg class="fig" viewBox="0 0 100 150"><use href="#fig-mecha"/></svg></button>
+      <button class="th" aria-label="Voir les 18 autres photos"><span class="plus">+18</span></button>
+      <span class="strip-cap">24 vues</span>
+    </div>
+
+    <!-- photo counter -->
+    <div class="shotcount">
+      <button class="nav" aria-label="Photo précédente"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <span class="tnum">01 / 24</span>
+      <button class="nav" aria-label="Photo suivante"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+
+    <!-- LOWER THIRD -->
+    <div class="lower-third">
+      <div class="lt-inner">
+        <div class="lt-kicker micro"><span class="ja">朱</span><span class="dot"></span>GK Statue · 1/6 · Édition limitée</div>
+        <h1 class="accent-title"><span class="first">CROWN</span> Studio — Tatsumaki VS Tentacle</h1>
+        <div class="lt-sub">
+          <span class="ver">Standard Version</span>
+          <span class="pip">·</span><span>One Punch Man</span>
+          <span class="pip">·</span><span>Tatsumaki</span>
+          <span class="pip">·</span><span>Sculpteur Yuki Anami</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OVERLAPPING CARTOUCHE -->
+  <div class="cartouche">
+    <div class="cart-specs">
+      <div class="cart-head">
+        <span class="lab">Cartouche — spécifications clés</span>
+        <span class="lot-stamp"><span>LOT Nº</span> 019E5BF9 <b>·</b> <span>TYPE</span> Statue</span>
+      </div>
+      <div class="keyspecs">
+        <div class="ks"><div class="k">Fabricant</div><div class="v">CROWN Studio</div></div>
+        <div class="ks"><div class="k">Série</div><div class="v">One Punch Man</div></div>
+        <div class="ks"><div class="k">Personnage</div><div class="v">Tatsumaki</div></div>
+        <div class="ks"><div class="k">Échelle</div><div class="v tnum">1/6 <span class="ja">彫</span></div></div>
+      </div>
+    </div>
+
+    <div class="owned-seal">
+      <span class="ribbon">蔵</span>
+      <div class="st">
+        <span class="chk"><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 6"/></svg></span>
+        <div class="txt"><b>Déjà dans ta collection</b><span>MIB · scellée · acquise le 24/05/2026</span></div>
+      </div>
+      <button class="btn-primary">
+        <svg viewBox="0 0 24 24"><path d="M16.5 3.5l4 4L8 20H4v-4z"/></svg>
+        Éditer ma pièce
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================
+     BENTO DASHBOARD
+     ================================================================= -->
+<main>
+<div class="wrap">
+  <div class="section-head">
+    <h2><span class="ja">価</span>Tableau de bord</h2>
+    <span class="line"></span>
+    <span class="count">VALEUR · PRÉCO · SPECS</span>
+  </div>
+
+  <div class="bento">
+
+    <!-- VALUE (dominant) -->
+    <section class="tile t-value" aria-label="Valeur et historique">
+      <span class="kanji-wm" aria-hidden="true">金</span>
+      <div class="tile-lab"><span class="ja">価</span>Valeur &amp; historique</div>
+      <div class="val-grid">
+        <div>
+          <div class="cote-num tnum">310<span class="cur">,00 €</span></div>
+          <div class="cote-cap">Cote actuelle — marché secondaire</div>
+          <div class="plusvalue tnum"><span class="arr">▲</span>+67,63 € · +27,9 %</div>
+        </div>
+        <div class="val-meta">
+          <div class="row"><span>Payé</span><b class="tnum">242,37 €</b></div>
+          <div class="row"><span>Cote</span><b class="tnum">310,00 €</b></div>
+          <div class="row"><span>MSRP</span><b class="tnum">332,37 €</b></div>
+        </div>
+      </div>
+
+      <!-- sparkline -->
+      <div class="spark-wrap">
+        <svg viewBox="0 0 520 90" preserveAspectRatio="none" aria-label="Évolution de la cote sur 10 mois">
+          <line x1="0" y1="78" x2="520" y2="78" stroke="var(--color-or-deep)" stroke-width="1" opacity=".4"/>
+          <polyline points="0,70 104,62 208,44 312,56 416,18 520,8" fill="none" stroke="var(--color-jade)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <polygon points="0,70 104,62 208,44 312,56 416,18 520,8 520,90 0,90" fill="var(--color-jade)" opacity=".07"/>
+          <circle cx="520" cy="8" r="3.5" fill="var(--color-jade)"/>
+        </svg>
+        <div class="spark-foot"><span>août 2026</span><span>6 relevés · ~10 mois</span><span>juin 2027</span></div>
+      </div>
+
+      <details class="disclosure">
+        <summary><span class="tri">▸</span> Voir l'historique complet</summary>
+        <div class="fullchart">
+          <svg viewBox="0 0 520 170" aria-label="Historique de prix détaillé">
+            <!-- gridlines -->
+            <line x1="40" y1="20" x2="520" y2="20" stroke="var(--border-subtle)" stroke-width="1"/>
+            <line x1="40" y1="65" x2="520" y2="65" stroke="var(--border-subtle)" stroke-width="1"/>
+            <line x1="40" y1="110" x2="520" y2="110" stroke="var(--border-subtle)" stroke-width="1"/>
+            <line x1="40" y1="148" x2="520" y2="148" stroke="var(--color-or-deep)" stroke-width="1" opacity=".5"/>
+            <!-- y labels -->
+            <text class="chart-ax" x="0" y="24">320</text>
+            <text class="chart-ax" x="0" y="69">290</text>
+            <text class="chart-ax" x="0" y="114">260</text>
+            <text class="chart-ax" x="0" y="152">240</text>
+            <!-- area + line : 242,250,268,255,290,310 -->
+            <polygon points="40,140 136,128 232,104 328,124 424,72 520,42 520,148 40,148" fill="var(--color-jade)" opacity=".08"/>
+            <polyline points="40,140 136,128 232,104 328,124 424,72 520,42" fill="none" stroke="var(--color-jade)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <g fill="var(--color-jade)">
+              <circle cx="40" cy="140" r="3"/><circle cx="136" cy="128" r="3"/><circle cx="232" cy="104" r="3"/>
+              <circle cx="328" cy="124" r="3"/><circle cx="424" cy="72" r="3"/><circle cx="520" cy="42" r="4" fill="var(--color-or)"/>
+            </g>
+            <!-- x labels -->
+            <text class="chart-ax" x="40" y="166">242</text>
+            <text class="chart-ax" x="120" y="166">250</text>
+            <text class="chart-ax" x="216" y="166">268</text>
+            <text class="chart-ax" x="312" y="166">255</text>
+            <text class="chart-ax" x="408" y="166">290</text>
+            <text class="chart-ax" x="500" y="166">310</text>
+          </svg>
+        </div>
+      </details>
+    </section>
+
+    <!-- 360 -->
+    <section class="tile t-360" aria-label="Vue 360 degrés">
+      <span class="tt-hint">⟳ 3D disponible</span>
+      <div class="tile-lab"><span class="ja">回</span>Vue 360°</div>
+      <div class="turntable">
+        <div class="keylight" aria-hidden="true"></div>
+        <svg class="fig" viewBox="0 0 100 150" id="ttFig" aria-label="Modèle 360° — glisser pour pivoter"><use href="#fig-scale"/></svg>
+        <div class="tt-base" aria-hidden="true"></div>
+        <span class="badge360"><span class="ring">⟳</span> 360° · glisser pour pivoter</span>
+      </div>
+    </section>
+
+    <!-- PRECO -->
+    <section class="tile t-preco" aria-label="Pré-commande">
+      <div class="tile-lab"><span class="ja">予</span>Pré-commande</div>
+      <div class="deposit-amt tnum">30 €<span class="of"> / 242,37 €</span></div>
+      <div class="deposit-cap">Acompte versé — ≈ 12 %</div>
+      <div class="bar" role="img" aria-label="12 % de l'acompte versé"><i></i></div>
+      <div class="bar-foot"><span>versé 30 €</span><span class="tnum">reste 212,37 €</span></div>
+
+      <div class="preco-rows">
+        <div class="pr next"><span>Prochain prélèvement</span><b class="tnum">90 € · 1 oct. 2027</b></div>
+        <div class="pr"><span>Solde restant</span><b class="tnum">212,37 €</b></div>
+      </div>
+
+      <div class="slipnote">
+        <span class="lab">Bordereau de sortie</span><br>
+        <span class="now">▲ Retardée — 1 déc. 2027</span><br>
+        <span class="was">Annoncée — 1 sept. 2027</span>
+        <div class="norefund">Acompte non-remboursable · En production</div>
+      </div>
+    </section>
+
+    <!-- SPECS -->
+    <section class="tile t-specs" aria-label="Spécifications complètes">
+      <div class="tile-lab"><span class="ja">仕</span>Spécifications</div>
+      <div class="specs-groups">
+        <div class="spec-group">
+          <h4>Identité</h4>
+          <dl class="spec">
+            <dt>Fabricant</dt><dd>CROWN Studio</dd>
+            <dt>Série</dt><dd>One Punch Man</dd>
+            <dt>Personnage</dt><dd>Tatsumaki</dd>
+            <dt>Sculpteur</dt><dd>Yuki Anami</dd>
+          </dl>
+        </div>
+        <div class="spec-group">
+          <h4>Physique</h4>
+          <dl class="spec">
+            <dt>Type</dt><dd>GK Statue <span class="ja">彫</span></dd>
+            <dt>Échelle</dt><dd class="mono">1/6</dd>
+            <dt>Hauteur</dt><dd class="mono">290 mm</dd>
+            <dt>Matériaux</dt><dd>PVC, ABS, résine</dd>
+          </dl>
+        </div>
+        <div class="spec-group">
+          <h4>Catalogue</h4>
+          <dl class="spec">
+            <dt>Édition</dt><dd>Limitée 499 ex</dd>
+            <dt>Sortie</dt><dd class="mono">1 déc. 2027</dd>
+            <dt>JAN / EAN</dt><dd class="mono">4 580416 925501</dd>
+            <dt>MSRP</dt><dd class="mono">332,37 €</dd>
+          </dl>
+        </div>
+        <div class="spec-group">
+          <h4>Référence</h4>
+          <dl class="spec">
+            <dt>Lot Nº</dt><dd class="mono">019E5BF9</dd>
+            <dt>Photos</dt><dd class="mono">24</dd>
+            <dt>3D / 360°</dt><dd>Disponible</dd>
+            <dt>Contenu</dt><dd>Sensible (+18)</dd>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <!-- SHOPS -->
+    <section class="tile t-shops" aria-label="Boutiques">
+      <div class="tile-lab"><span class="ja">店</span>Acheter chez…</div>
+      <div class="shop-row">
+        <div class="nm">ORZGK<small>Boutique d'achat · en stock</small></div>
+        <a class="shop-link" href="#">Acheter <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+      </div>
+      <div class="shop-row">
+        <div class="nm">Nin-Nin Game<small>Pré-commande ouverte</small></div>
+        <a class="shop-link" href="#">Voir <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+      </div>
+      <div class="shop-row">
+        <div class="nm">AmiAmi<small>Liste d'attente</small></div>
+        <a class="shop-link" href="#">Voir <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>
+      </div>
+    </section>
+
+    <!-- MA COPIE (owner) -->
+    <section class="tile t-mine" aria-label="Ma copie — résumé">
+      <div class="tile-lab"><span class="ja">蔵</span>Ma copie</div>
+      <div class="mine-grid">
+        <div class="mr"><span>État</span><span class="state-chip">● MIB · scellée</span></div>
+        <div class="mr"><span>Boutique</span><b>ORZGK</b></div>
+        <div class="mr"><span>Emplacement</span><b>chambre</b></div>
+        <div class="mr"><span>Achat</span><b class="tnum">24/05/2026</b></div>
+        <div class="mr"><span>Prix payé</span><b class="tnum">242,37 €</b></div>
+      </div>
+    </section>
+
+    <!-- TAGS rail -->
+    <section class="tile t-tags" aria-label="Tags">
+      <div class="tags-rail">
+        <span class="micro" style="margin-right:.4rem">Tags</span>
+        <span class="tag"><span class="h">#</span>tentacules</span>
+        <span class="tag"><span class="h">#</span>dynamique</span>
+        <span class="tag"><span class="h">#</span>buste-détaillé</span>
+        <span class="tag"><span class="h">#</span>socle-orné</span>
+        <span class="tag"><span class="h">#</span>cheveux-flottants</span>
+      </div>
+    </section>
+
+  </div><!-- /bento -->
+
+  <!-- description lede -->
+  <div class="lede-block">
+    <span class="kanji-wm" aria-hidden="true">嵐</span>
+    <p class="lede">
+      <span class="dropcap">T</span>atsumaki déchaîne le Tornado de Terreur dans une composition verticale saisissante : la résine capte le mouvement d'une spirale de débris tandis que le buste, finement peint, tranche par sa froideur. Une pièce de présentation pensée pour la vitrine — socle orné, cheveux flottants, équilibre instable maîtrisé.
+      <a href="#" class="more">lire la suite →</a>
+    </p>
+  </div>
+
+  <!-- ============ MA COPIE expanded zone ============ -->
+  <section class="mine-zone" aria-label="Ma copie — justificatifs et photos">
+    <span class="kanji-wm" aria-hidden="true">蔵</span>
+    <div class="mz-head">
+      <span class="seal">蔵</span>
+      <h3>Ma copie — pièces &amp; justificatifs</h3>
+    </div>
+    <div class="mz-grid">
+      <div class="mz-card">
+        <h4>Justificatifs</h4>
+        <div class="justif">
+          <span class="ic">PDF</span>
+          <span class="t">Facture ORZGK<small>242,37 € · 24/05/2026</small></span>
+        </div>
+        <div class="justif">
+          <span class="ic">PDF</span>
+          <span class="t">Bordereau douane<small>import · TVA acquittée</small></span>
+        </div>
+        <div class="justif" style="border-style:dashed;justify-content:center;color:var(--on-surface-subtle)">
+          <span class="t" style="text-align:center">＋ Ajouter un justificatif</span>
+        </div>
+      </div>
+      <div class="mz-card">
+        <h4>Couverture</h4>
+        <div class="cover-well">
+          <span class="spot"></span>
+          <span class="star">★</span>
+          <svg class="fig" viewBox="0 0 100 150"><use href="#fig-scale"/></svg>
+          <span class="insc mono">Nº 019E5BF9 · cover</span>
+        </div>
+      </div>
+      <div class="mz-card">
+        <h4>Mes photos</h4>
+        <div class="myphotos">
+          <div class="mp"><span class="spot"></span><svg class="fig" viewBox="0 0 100 150"><use href="#fig-scale"/></svg></div>
+          <div class="mp"><span class="spot"></span><svg class="fig" viewBox="0 0 100 150"><use href="#fig-action"/></svg></div>
+          <div class="mp"><span class="spot"></span><svg class="fig" viewBox="0 0 100 150"><use href="#fig-mecha"/></svg></div>
+          <div class="mp"><span class="spot"></span><svg class="fig" viewBox="0 0 100 150"><use href="#fig-scale"/></svg></div>
+          <div class="mp"><span class="spot"></span><svg class="fig" viewBox="0 0 100 150"><use href="#fig-action"/></svg></div>
+          <div class="mp add">＋</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FIGURINES PROCHES ============ -->
+  <section class="proches" aria-label="Figurines proches">
+    <div class="section-head">
+      <h2><span class="ja">近</span>Figurines proches</h2>
+      <span class="line"></span>
+      <span class="count">4 SUGGESTIONS</span>
+    </div>
+    <div class="sim-grid">
+      <a class="sim-card" href="#">
+        <div class="sim-well"><span class="spot"></span><span class="kanji-wm" aria-hidden="true">緑</span><span class="sim-match">92 %</span><svg class="fig" viewBox="0 0 100 150"><use href="#fig-scale"/></svg></div>
+        <div class="sim-body"><div class="nm"><span class="first">CROWN</span> — Eris Greyrat</div><div class="meta">1/6 · CROWN Studio</div></div>
+      </a>
+      <a class="sim-card" href="#">
+        <div class="sim-well"><span class="spot"></span><span class="kanji-wm" aria-hidden="true">朱</span><span class="sim-match">88 %</span><svg class="fig" viewBox="0 0 100 150"><use href="#fig-action"/></svg></div>
+        <div class="sim-body"><div class="nm"><span class="first">Native</span> — Nure Megami</div><div class="meta">1/6 · Native</div></div>
+      </a>
+      <a class="sim-card" href="#">
+        <div class="sim-well"><span class="spot"></span><span class="kanji-wm" aria-hidden="true">金</span><span class="sim-match">85 %</span><svg class="fig" viewBox="0 0 100 150"><use href="#fig-scale"/></svg></div>
+        <div class="sim-body"><div class="nm"><span class="first">Orca</span> Toys — Albedo</div><div class="meta">1/7 · Orca Toys</div></div>
+      </a>
+      <a class="sim-card" href="#">
+        <div class="sim-well"><span class="spot"></span><span class="kanji-wm" aria-hidden="true">藍</span><span class="sim-match">81 %</span><svg class="fig" viewBox="0 0 100 150"><use href="#fig-mecha"/></svg></div>
+        <div class="sim-body"><div class="nm"><span class="first">Kaitendo</span> — Rias</div><div class="meta">1/6 · Kaitendo</div></div>
+      </a>
+    </div>
+  </section>
+</div>
+</main>
+
+<footer>
+  <div class="foot-inner">
+    <span><span class="ja">像</span> FigureCollector · fiche figurine</span>
+    <span>LOT Nº 019E5BF9 · maquette ③ La Vitrine · Direction A — Shōjo-Noir</span>
+  </div>
+</footer>
+
+<script>
+// tiny gallery: hero filmstrip selection (visual only)
+(function(){
+  var strip = document.querySelectorAll('.hero-strip .th');
+  strip.forEach(function(t){
+    t.addEventListener('click', function(){
+      strip.forEach(function(x){x.classList.remove('on')});
+      t.classList.add('on');
+    });
+  });
+
+  // NSFW reveal
+  document.querySelectorAll('.veil button').forEach(function(b){
+    b.addEventListener('click', function(e){
+      e.stopPropagation();
+      var v = b.closest('.veil');
+      v.style.opacity = '0';
+      v.style.transition = 'opacity .3s var(--ease)';
+      setTimeout(function(){v.style.display='none'},300);
+    });
+  });
+
+  // 360 drag-to-rotate (mock — rotates silhouette in place)
+  var fig = document.getElementById('ttFig');
+  if(fig){
+    var dragging=false, startX=0, rot=0;
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function down(x){dragging=true;startX=x;}
+    function move(x){ if(!dragging||reduce) return; var d=(x-startX)*0.6; fig.style.transform='rotateY('+(rot+d)+'deg)'; }
+    function up(x){ if(!dragging) return; rot += (x-startX)*0.6; dragging=false; }
+    fig.addEventListener('mousedown',function(e){down(e.clientX);e.preventDefault();});
+    window.addEventListener('mousemove',function(e){move(e.clientX);});
+    window.addEventListener('mouseup',function(e){up(e.clientX);});
+    fig.addEventListener('touchstart',function(e){down(e.touches[0].clientX);},{passive:true});
+    fig.addEventListener('touchmove',function(e){move(e.touches[0].clientX);},{passive:true});
+    fig.addEventListener('touchend',function(e){up(e.changedTouches[0].clientX);});
+  }
+})();
+</script>
+</body>
+</html>

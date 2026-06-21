@@ -1,0 +1,1140 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FigureCollector — ⓪ La Fiche (fusion)</title>
+<meta name="description" content="Fiche figurine redessinée — fusion PDP premium systématique + traitement éditorial. Direction A Shōjo-Noir." />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Instrument+Sans:ital,wght@0,400..600;1,400..500&family=Noto+Serif+JP:wght@300..500&family=JetBrains+Mono:wght@300..500&display=swap" rel="stylesheet">
+
+<style>
+/* ============================================================================
+   ⓪ LA FICHE — fusion (recommandée)
+   PDP premium systématique (squelette rigoureux : héro split, rail sticky,
+   index d'ancres, specs groupées) + signatures éditoriales (drop-cap,
+   pull-quote, watermark kanji) sur la peau Direction A « Shōjo-Noir ».
+   GPU-light : pas de blur décoratif, pas de glow, pas de glass.
+============================================================================ */
+:root{
+  /* core (dark) */
+  --color-noir:#161311; --color-noir-soft:#211c19; --color-noir-deep:#100d0b;
+  --color-laque:#8f2d2a; --color-laque-bright:#c4453b;      /* hanko red — the ONE hot accent */
+  --color-or:#d8b46e; --color-or-pale:#e8d4a6; --color-or-deep:#a98a4e;  /* gold = value */
+  --color-jade:#5fb39a; --color-jade-deep:#3f8f78;          /* gain (+) */
+  --color-ivoire:#ece3d2; --color-ivoire-soft:rgba(236,227,210,.8);
+  /* semantic */
+  --surface:var(--color-noir-soft); --surface-raised:var(--color-noir); --surface-sunken:var(--color-noir-deep);
+  --on-surface:var(--color-ivoire); --on-surface-muted:var(--color-ivoire-soft);
+  --on-surface-subtle:rgba(236,227,210,.55);
+  --border:rgba(216,180,110,.22); --border-strong:rgba(216,180,110,.42); --border-subtle:rgba(216,180,110,.12);
+  --primary:var(--color-laque); --primary-hover:var(--color-laque-bright); --accent:var(--color-or);
+  --danger:var(--color-laque-bright); --success:var(--color-jade); --ring:var(--color-or);
+  /* type */
+  --font-display:"Fraunces",Georgia,serif;
+  --font-sans:"Instrument Sans",system-ui,sans-serif;
+  --font-ja:"Noto Serif JP","Yu Mincho",serif;
+  --font-mono:"JetBrains Mono",ui-monospace,monospace;
+  /* radii / space / motion */
+  --radius-sm:2px; --radius-md:4px; --radius-lg:8px; --radius-xl:14px; --radius-pill:9999px;
+  --elev-2:0 12px 32px -20px rgba(0,0,0,.7); --elev-3:0 25px 60px -34px rgba(0,0,0,.85);
+  --ease:cubic-bezier(.22,1,.36,1); --dur:240ms;
+  /* layout */
+  --header-h:56px;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--color-noir);color:var(--on-surface);font-family:var(--font-sans);
+  margin:0;-webkit-font-smoothing:antialiased;line-height:1.55;}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto;} *{transition:none!important;animation:none!important;}}
+
+/* faint grain — GPU-light (static, ≤.05) */
+body::after{content:"";position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.04;
+  background-image:radial-gradient(circle at 1px 1px,#fff 1px,transparent 0);background-size:3px 3px;}
+
+a{color:inherit;}
+img{max-width:100%;}
+:focus-visible{outline:2px solid var(--ring);outline-offset:2px;border-radius:var(--radius-sm);}
+
+/* ---- typography helpers ---- */
+.display{font-family:var(--font-display);font-weight:300;letter-spacing:-.012em;line-height:1.03;}
+.ja{font-family:var(--font-ja);}
+.mono{font-family:var(--font-mono);}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;}
+.micro{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--color-or-pale);
+  font-family:var(--font-sans);display:inline-flex;align-items:center;gap:.65em;}
+.micro .dia{width:5px;height:5px;background:var(--primary);transform:rotate(45deg);flex:none;}
+.micro .ja{color:var(--color-or);letter-spacing:.04em;font-size:13px;}
+.gold-rule{height:1px;border:0;margin:0;
+  background:linear-gradient(90deg,transparent,var(--color-or) 30%,var(--color-or) 70%,transparent);opacity:.6;}
+
+/* AccentTitle — first word red italic, rest on-surface */
+.accent-title{font-family:var(--font-display);font-weight:300;letter-spacing:-.015em;line-height:1.04;color:var(--on-surface);}
+.accent-title .em{font-style:italic;color:var(--color-laque-bright);font-weight:380;}
+
+/* lot-stamp */
+.lot-stamp{display:inline-flex;align-items:center;gap:.85em;font-family:var(--font-mono);font-size:10.5px;
+  letter-spacing:.08em;color:var(--on-surface-muted);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:6px 11px;background:repeating-linear-gradient(90deg,transparent 0 6px,rgba(216,180,110,.03) 6px 7px);}
+.lot-stamp b{color:var(--color-or-pale);font-weight:500;}
+.lot-stamp .sep{color:var(--border-strong);}
+
+/* =========================================================================
+   APP CHROME — slim top bar
+========================================================================= */
+.topbar{position:sticky;top:0;z-index:60;height:var(--header-h);
+  background:var(--color-noir-deep);border-bottom:1px solid var(--border-subtle);}
+.topbar .inner{max-width:1380px;margin:0 auto;height:100%;padding:0 28px;display:flex;align-items:center;gap:22px;}
+.brand{display:inline-flex;align-items:baseline;gap:9px;text-decoration:none;}
+.brand .mk{width:26px;height:26px;border-radius:6px;background:var(--primary);color:#fff;display:grid;place-items:center;
+  font-family:var(--font-display);font-style:italic;font-size:13px;align-self:center;}
+.brand .wm{font-family:var(--font-display);font-size:17px;letter-spacing:-.01em;}
+.brand .wm .it{font-style:italic;color:var(--color-or);}
+.topnav{display:flex;gap:2px;margin-left:8px;}
+.topnav a{display:inline-flex;align-items:center;gap:.5em;text-decoration:none;color:var(--on-surface-subtle);
+  font-size:11px;text-transform:uppercase;letter-spacing:.16em;padding:9px 13px;border-radius:var(--radius-md);transition:color var(--dur) var(--ease);}
+.topnav a:hover{color:var(--on-surface);}
+.topnav a.active{color:var(--color-or);}
+.topnav a .ja{font-size:13px;color:var(--color-or);}
+.topbar .right{margin-left:auto;display:flex;align-items:center;gap:12px;}
+.avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--color-or),var(--color-or-deep));
+  color:var(--color-noir);display:grid;place-items:center;font-family:var(--font-display);font-weight:500;font-size:14px;}
+
+/* direction label — fixed top-left */
+.dir-label{position:fixed;left:12px;top:calc(var(--header-h) + 12px);z-index:70;
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--color-noir);background:var(--color-or);padding:6px 11px;border-radius:var(--radius-pill);
+  box-shadow:var(--elev-2);pointer-events:none;}
+
+/* page shell */
+.page{max-width:1380px;margin:0 auto;padding:0 28px 96px;position:relative;z-index:1;}
+
+/* breadcrumb */
+.crumbs{display:flex;align-items:center;gap:.6em;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--on-surface-subtle);padding:20px 0 14px;}
+.crumbs a{text-decoration:none;color:var(--on-surface-subtle);transition:color var(--dur) var(--ease);}
+.crumbs a:hover{color:var(--color-or);}
+.crumbs .chev{color:var(--border-strong);}
+.crumbs .cur{color:var(--on-surface-muted);}
+
+/* =========================================================================
+   HERO ROW — gallery (≈58%) + sticky summary rail (≈42%)
+========================================================================= */
+.hero{display:grid;grid-template-columns:minmax(0,1.38fr) minmax(0,1fr);gap:44px;align-items:start;
+  padding-top:6px;padding-bottom:40px;}
+
+/* ---- GALLERY (left, scrolls, tall) ---- */
+.gallery{min-width:0;}
+.plate{position:relative;aspect-ratio:4/5;border-radius:var(--radius-lg);overflow:hidden;
+  background:radial-gradient(120% 90% at 50% 22%,#26201c,var(--color-noir-deep) 72%);
+  border:1px solid var(--border-subtle);cursor:zoom-in;}
+.plate::after{content:"";position:absolute;inset:0;pointer-events:none;
+  box-shadow:inset 0 0 130px 30px rgba(0,0,0,.6);} /* vignette */
+.plate .sil{position:absolute;inset:0;display:grid;place-items:center;}
+.plate .sil svg{width:46%;height:auto;}
+.plate .inscr{position:absolute;left:14px;bottom:12px;font-family:var(--font-mono);font-size:11px;letter-spacing:.06em;
+  color:var(--on-surface-subtle);z-index:2;}
+.plate .zoom{position:absolute;right:14px;bottom:12px;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--on-surface-subtle);border:1px solid var(--border);border-radius:var(--radius-pill);
+  padding:5px 10px;display:inline-flex;align-items:center;gap:.5em;z-index:2;}
+/* NSFW veil on the main plate when slide is the censored one */
+.plate .veil{position:absolute;inset:0;z-index:3;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  background:var(--color-noir-deep);text-align:center;padding:20px;}
+.plate.is-nsfw .veil{display:flex;}
+.plate .veil .lbl{font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-or-pale);}
+.plate .veil .nm{font-size:13px;color:var(--on-surface-subtle);max-width:240px;}
+.veil-btn{cursor:pointer;border:1px solid var(--border-strong);background:transparent;color:var(--on-surface);
+  border-radius:var(--radius-pill);padding:10px 18px;font:500 12px/1 var(--font-sans);letter-spacing:.04em;
+  transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease);min-height:44px;}
+.veil-btn:hover{border-color:var(--color-or);color:var(--color-or);}
+/* faint blurred motif under veil (one-off, not decorative-everywhere; allowed) */
+.plate.is-nsfw .sil{filter:blur(14px);}
+
+/* 360 plate styling when active slide */
+.plate.is-360{background:radial-gradient(120% 90% at 50% 30%,#241f1b,var(--color-noir-deep) 72%);}
+.plate .turn{position:absolute;left:50%;bottom:18%;transform:translateX(-50%);width:54%;height:14%;
+  border-radius:50%;border:1px solid var(--border);background:radial-gradient(60% 80% at 50% 0,rgba(216,180,110,.10),transparent);display:none;}
+.plate.is-360 .turn{display:block;}
+.badge-360{position:absolute;left:50%;top:16px;transform:translateX(-50%);display:none;align-items:center;gap:.55em;
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;color:var(--color-noir);background:var(--color-or);
+  border-radius:var(--radius-pill);padding:7px 14px;z-index:4;white-space:nowrap;}
+.plate.is-360 .badge-360{display:inline-flex;}
+
+/* filmstrip */
+.strip{display:flex;align-items:center;gap:10px;margin-top:12px;}
+.strip .arrow{flex:none;width:38px;height:46px;border-radius:var(--radius-md);border:1px solid var(--border);
+  background:var(--surface);color:var(--on-surface-muted);cursor:pointer;display:grid;place-items:center;font-size:16px;
+  transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease);}
+.strip .arrow:hover{border-color:var(--color-or);color:var(--color-or);}
+.thumbs{display:flex;gap:10px;overflow-x:auto;scroll-behavior:smooth;padding-bottom:4px;flex:1;scrollbar-width:thin;}
+.thumbs::-webkit-scrollbar{height:6px;}
+.thumbs::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
+.thumb{flex:none;width:72px;aspect-ratio:4/5;border-radius:var(--radius-md);overflow:hidden;cursor:pointer;position:relative;
+  background:radial-gradient(120% 90% at 50% 25%,#241f1b,var(--color-noir-deep) 75%);border:1px solid var(--border-subtle);
+  transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease);}
+.thumb:hover{transform:translateY(-2px);}
+.thumb.on{border-color:var(--color-or);}
+.thumb .sil{position:absolute;inset:0;display:grid;place-items:center;}
+.thumb .sil svg{width:52%;}
+.thumb.nsfw .sil{filter:blur(5px);}
+.thumb.nsfw::after{content:"18+";position:absolute;right:4px;top:4px;font:500 8px/1 var(--font-mono);
+  color:var(--color-laque-bright);border:1px solid var(--color-laque);border-radius:3px;padding:2px 3px;letter-spacing:.04em;}
+.thumb.t360 .g{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;}
+.thumb.t360 .g .ic{font-size:18px;color:var(--color-or);}
+.thumb.t360 .g .lb{font:500 8px/1 var(--font-mono);letter-spacing:.08em;color:var(--on-surface-muted);text-transform:uppercase;}
+.thumb.more{display:grid;place-items:center;border-style:dashed;}
+.thumb.more span{font-family:var(--font-mono);font-size:14px;color:var(--color-or-pale);}
+
+/* ---- STICKY SUMMARY RAIL (right, short) ---- */
+.rail{position:sticky;top:calc(var(--header-h) + 18px);align-self:start;min-width:0;}
+.rail-card{background:var(--surface);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);
+  padding:26px 26px 24px;box-shadow:var(--elev-2);}
+.rail .kicker-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;}
+.rail .accent-title{font-size:clamp(28px,3.2vw,40px);margin:0;}
+.rail .version{margin-top:10px;font-family:var(--font-display);font-style:italic;font-weight:300;
+  font-size:16px;color:var(--on-surface-muted);}
+.rail .stamp-row{margin-top:14px;}
+
+/* value trio */
+.trio{margin-top:22px;display:grid;grid-template-columns:1fr;gap:0;}
+.trio .cote{display:flex;align-items:baseline;justify-content:space-between;gap:12px;}
+.trio .cote .lbl{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.trio .cote .val{font-family:var(--font-display);font-weight:300;font-size:46px;line-height:1;color:var(--color-or);}
+.trio .cote .val .cur{font-size:24px;color:var(--color-or-deep);margin-left:2px;}
+.trio .sub{margin-top:14px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+.trio .sub .item{display:flex;flex-direction:column;gap:3px;}
+.trio .sub .item .k{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.trio .sub .item .v{font-family:var(--font-mono);font-size:16px;color:var(--on-surface);}
+.gain{display:inline-flex;align-items:center;gap:.4em;font-family:var(--font-mono);color:var(--color-jade);
+  background:rgba(95,179,154,.10);border:1px solid rgba(95,179,154,.30);border-radius:var(--radius-pill);
+  padding:4px 11px;font-size:14px;}
+.gain .arr{font-size:11px;}
+
+/* mini sparkline */
+.spark{margin-top:18px;display:flex;align-items:center;gap:12px;}
+.spark svg{flex:none;}
+.spark .cap{font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);letter-spacing:.04em;}
+
+/* state badge */
+.state{margin-top:20px;display:flex;align-items:center;gap:10px;
+  border:1px solid var(--border);border-radius:var(--radius-md);padding:11px 14px;background:var(--surface-raised);}
+.state .seal{width:30px;height:30px;flex:none;border-radius:50%;border:1px solid var(--border-strong);
+  display:grid;place-items:center;color:var(--color-or);font-family:var(--font-ja);font-size:15px;}
+.state .txt{display:flex;flex-direction:column;gap:1px;}
+.state .txt .t{font-size:13px;color:var(--on-surface);font-weight:500;}
+.state .txt .s{font-size:11px;color:var(--on-surface-subtle);letter-spacing:.06em;}
+
+/* primary CTA + secondary icon-buttons */
+.cta-row{margin-top:18px;display:flex;flex-direction:column;gap:12px;}
+.cta{display:inline-flex;align-items:center;justify-content:center;gap:.6em;width:100%;min-height:48px;
+  background:var(--primary);color:#fff;border:0;border-radius:var(--radius-md);cursor:pointer;
+  font:500 13px/1 var(--font-sans);letter-spacing:.06em;transition:background var(--dur) var(--ease),transform var(--dur) var(--ease);}
+.cta:hover{background:var(--primary-hover);transform:translateY(-1px);}
+.icon-row{display:flex;gap:8px;}
+.icon-btn{flex:1;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:.45em;
+  background:transparent;border:1px solid var(--border);border-radius:var(--radius-md);color:var(--on-surface-muted);
+  cursor:pointer;font:500 11px/1 var(--font-sans);letter-spacing:.1em;text-transform:uppercase;
+  transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease);}
+.icon-btn:hover{border-color:var(--color-or);color:var(--color-or);}
+.icon-btn.danger:hover{border-color:var(--color-laque-bright);color:var(--color-laque-bright);}
+
+/* =========================================================================
+   ANCHOR INDEX (sticky scroll-spy) + CONTENT
+========================================================================= */
+.below{position:relative;}
+.anchor-wrap{position:sticky;top:var(--header-h);z-index:40;background:var(--color-noir);
+  border-top:1px solid var(--border-subtle);border-bottom:1px solid var(--border-subtle);}
+.anchor-index{max-width:1380px;margin:0 auto;display:flex;gap:4px;overflow-x:auto;padding:10px 0;scrollbar-width:none;}
+.anchor-index::-webkit-scrollbar{display:none;}
+.anchor-index a{flex:none;display:inline-flex;align-items:center;gap:.55em;text-decoration:none;
+  font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--on-surface-subtle);
+  padding:8px 14px;border-radius:var(--radius-pill);border:1px solid transparent;
+  transition:color var(--dur) var(--ease),border-color var(--dur) var(--ease);white-space:nowrap;}
+.anchor-index a .ja{font-family:var(--font-ja);font-size:14px;color:var(--color-or-deep);transition:color var(--dur) var(--ease);}
+.anchor-index a:hover{color:var(--on-surface);}
+.anchor-index a.spy{color:var(--color-or);border-color:var(--border);}
+.anchor-index a.spy .ja{color:var(--color-or);}
+
+.content{display:flex;flex-direction:column;gap:6px;padding-top:8px;}
+section.block{padding:46px 0 8px;scroll-margin-top:calc(var(--header-h) + 64px);position:relative;}
+.block-head{display:flex;align-items:baseline;gap:16px;margin-bottom:26px;}
+.block-head .ja{font-family:var(--font-ja);font-size:30px;color:var(--color-or-deep);line-height:1;flex:none;}
+.block-head h2{font-family:var(--font-display);font-weight:300;font-size:27px;letter-spacing:-.01em;margin:0;}
+.block-head .meta{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);letter-spacing:.06em;}
+
+/* kanji watermark behind a section */
+.watermark{position:absolute;right:-2%;top:8%;font-family:var(--font-ja);font-weight:300;
+  font-size:clamp(220px,30vw,420px);color:var(--color-or);opacity:.06;line-height:.8;z-index:0;pointer-events:none;user-select:none;}
+.block > *{position:relative;z-index:1;}
+
+/* ---- Identité : drop-cap lede + grouped specs ---- */
+.id-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:48px;align-items:start;}
+.lede{font-family:var(--font-display);font-weight:300;font-size:18px;line-height:1.65;color:var(--on-surface-muted);}
+.lede::first-letter{font-family:var(--font-display);font-weight:300;font-style:italic;color:var(--color-laque-bright);
+  font-size:74px;line-height:.72;float:left;padding:8px 14px 0 0;}
+.lede .more-link{display:inline-block;margin-top:6px;font-family:var(--font-sans);font-size:13px;font-style:normal;
+  letter-spacing:.04em;color:var(--color-or);cursor:pointer;border-bottom:1px solid var(--border-strong);text-decoration:none;}
+.lede .more-link:hover{color:var(--color-or-pale);}
+.lede .tail{display:none;}
+.lede.open .tail{display:inline;}
+.lede.open .more-link{display:none;}
+
+/* key specs summary card */
+.keyspecs{background:var(--surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:18px;}
+.keyspecs .kk{font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--on-surface-subtle);margin-bottom:12px;}
+.keyspecs dl{margin:0;display:grid;grid-template-columns:1fr 1fr;gap:14px 20px;}
+.keyspecs .pair{display:flex;flex-direction:column;gap:2px;}
+.keyspecs .pair dt{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.keyspecs .pair dd{margin:0;font-size:14px;color:var(--on-surface);font-family:var(--font-display);font-weight:300;}
+
+/* grouped specs <dl> single-column key->value */
+.specs-group{margin-bottom:8px;}
+.specs-group .gt{display:flex;align-items:center;gap:.6em;font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--color-or-pale);margin:18px 0 8px;}
+.specs-group .gt .ja{font-family:var(--font-ja);font-size:13px;color:var(--color-or-deep);}
+dl.specs{margin:0;}
+dl.specs > div{display:flex;align-items:baseline;justify-content:space-between;gap:18px;padding:9px 0;border-bottom:1px solid var(--border-subtle);}
+dl.specs dt{font-size:13px;color:var(--on-surface-subtle);letter-spacing:.02em;flex:none;}
+dl.specs dd{margin:0;font-size:14px;color:var(--on-surface);text-align:right;font-family:var(--font-mono);}
+dl.specs dd.disp{font-family:var(--font-display);font-weight:300;font-size:15px;}
+.spec-tail{display:none;}
+.spec-tail.open{display:block;}
+.disclosure{margin-top:14px;display:inline-flex;align-items:center;gap:.5em;background:transparent;
+  border:1px solid var(--border);border-radius:var(--radius-pill);color:var(--on-surface-muted);cursor:pointer;
+  font:500 11px/1 var(--font-sans);letter-spacing:.12em;text-transform:uppercase;padding:10px 16px;min-height:44px;
+  transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease);}
+.disclosure:hover{border-color:var(--color-or);color:var(--color-or);}
+.disclosure .chev{transition:transform var(--dur) var(--ease);}
+.disclosure[aria-expanded="true"] .chev{transform:rotate(180deg);}
+
+/* ---- Valeur & historique ---- */
+.value-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:44px;align-items:start;}
+.trio-strip{display:flex;flex-wrap:wrap;gap:14px;}
+.trio-cell{flex:1;min-width:150px;background:var(--surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:18px 20px;}
+.trio-cell .k{font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.trio-cell .v{margin-top:8px;font-family:var(--font-display);font-weight:300;font-size:32px;line-height:1;}
+.trio-cell.cote .v{color:var(--color-or);}
+.trio-cell.paye .v{color:var(--on-surface);}
+.trio-cell.gain-cell .v{color:var(--color-jade);display:inline-flex;align-items:center;gap:.3em;}
+.trio-cell.gain-cell .v .arr{font-size:18px;}
+.trio-cell .vv{margin-top:6px;font-family:var(--font-mono);font-size:12px;color:var(--on-surface-subtle);}
+
+.pullquote{margin:26px 0 0;border-left:2px solid var(--color-or);padding:6px 0 6px 22px;}
+.pullquote q{font-family:var(--font-display);font-weight:300;font-style:italic;font-size:22px;line-height:1.4;
+  color:var(--on-surface);quotes:none;}
+.pullquote q .hl{color:var(--color-jade);font-style:normal;}
+.pullquote .by{margin-top:8px;font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;color:var(--on-surface-subtle);}
+
+.chart-card{background:var(--surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:20px 22px;}
+.chart-card .ch-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.chart-card .ch-head .ttl{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.chart-card .ch-head .now{font-family:var(--font-mono);font-size:13px;color:var(--color-or);}
+.fullchart{display:none;}
+.fullchart.open{display:block;}
+.chart-svg{width:100%;height:auto;display:block;}
+
+/* ---- Pré-commande ---- */
+.preco-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;align-items:start;}
+.deposit{background:var(--surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:22px 24px;}
+.deposit .dl-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;}
+.deposit .dl-row .a{font-family:var(--font-display);font-weight:300;font-size:24px;color:var(--color-or);}
+.deposit .dl-row .b{font-family:var(--font-mono);font-size:13px;color:var(--on-surface-subtle);}
+.bar{height:12px;border-radius:var(--radius-pill);background:var(--surface-sunken);border:1px solid var(--border-subtle);overflow:hidden;}
+.bar .fill{height:100%;width:12.4%;background:linear-gradient(90deg,var(--color-or-deep),var(--color-or));border-radius:var(--radius-pill);}
+.deposit .pct{margin-top:8px;font-family:var(--font-mono);font-size:12px;color:var(--on-surface-subtle);}
+.deposit .lines{margin-top:18px;display:flex;flex-direction:column;gap:11px;}
+.deposit .lines .ln{display:flex;align-items:baseline;justify-content:space-between;font-size:13px;}
+.deposit .lines .ln .k{color:var(--on-surface-subtle);}
+.deposit .lines .ln .v{font-family:var(--font-mono);color:var(--on-surface);}
+.deposit .lines .ln .v.hot{color:var(--color-or-pale);}
+.flag{margin-top:16px;display:inline-flex;align-items:center;gap:.5em;font-size:12px;color:var(--color-laque-bright);
+  border:1px solid var(--color-laque);border-radius:var(--radius-sm);padding:7px 11px;letter-spacing:.02em;}
+
+/* vertical timeline */
+.timeline{position:relative;padding-left:30px;}
+.timeline::before{content:"";position:absolute;left:9px;top:6px;bottom:6px;width:1px;background:var(--border);}
+.tl-step{position:relative;padding:0 0 22px;}
+.tl-step:last-child{padding-bottom:0;}
+.tl-step .node{position:absolute;left:-30px;top:2px;width:18px;height:18px;border-radius:50%;border:1px solid var(--border-strong);
+  background:var(--color-noir);display:grid;place-items:center;}
+.tl-step .node i{width:6px;height:6px;border-radius:50%;background:var(--border-strong);}
+.tl-step.done .node{border-color:var(--color-or);}
+.tl-step.done .node i{background:var(--color-or);}
+.tl-step.cur .node{border-color:var(--color-laque-bright);box-shadow:0 0 0 3px rgba(196,69,59,.18);}
+.tl-step.cur .node i{background:var(--color-laque-bright);}
+.tl-step .st{font-size:14px;color:var(--on-surface);display:flex;align-items:center;gap:.6em;}
+.tl-step .st .tag{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--color-laque-bright);border:1px solid var(--color-laque);border-radius:99px;padding:2px 7px;}
+.tl-step.future .st{color:var(--on-surface-subtle);}
+.tl-step .dt{margin-top:3px;font-family:var(--font-mono);font-size:12px;color:var(--on-surface-subtle);}
+.slip{background:var(--surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:22px;}
+.slip .row{display:flex;align-items:baseline;justify-content:space-between;gap:14px;font-size:13px;}
+.slip .row + .row{margin-top:8px;padding-top:8px;border-top:1px solid var(--border-subtle);}
+.slip .row .k{color:var(--on-surface-subtle);letter-spacing:.04em;}
+.slip .row .old{font-family:var(--font-mono);text-decoration:line-through;color:var(--on-surface-subtle);}
+.slip .row .new{font-family:var(--font-mono);color:var(--color-or-pale);display:inline-flex;align-items:center;gap:.4em;}
+.slip .row .new .arr{color:var(--color-laque-bright);}
+
+/* ---- Boutiques + tags ---- */
+.shops-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:48px;align-items:start;}
+.shop{display:flex;align-items:center;gap:16px;padding:15px 0;border-bottom:1px solid var(--border-subtle);}
+.shop .mk{width:42px;height:42px;flex:none;border-radius:var(--radius-md);border:1px solid var(--border);display:grid;place-items:center;
+  font-family:var(--font-display);font-style:italic;font-size:17px;color:var(--color-or);background:var(--surface);}
+.shop .nm{font-size:15px;color:var(--on-surface);}
+.shop .nm small{display:block;font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);margin-top:2px;}
+.shop .buy{margin-left:auto;display:inline-flex;align-items:center;gap:.5em;text-decoration:none;
+  border:1px solid var(--border);border-radius:var(--radius-pill);padding:9px 16px;font:500 11px/1 var(--font-sans);
+  letter-spacing:.1em;text-transform:uppercase;color:var(--on-surface-muted);min-height:44px;
+  transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease);}
+.shop .buy:hover{border-color:var(--color-or);color:var(--color-or);}
+.tags{display:flex;flex-wrap:wrap;gap:9px;}
+.chip{display:inline-flex;align-items:center;gap:.45em;font-size:12px;letter-spacing:.02em;color:var(--on-surface-muted);
+  border:1px solid var(--border);border-radius:var(--radius-pill);padding:7px 13px;background:var(--surface);}
+.chip .h{color:var(--color-laque-bright);}
+
+/* ---- Ma copie (owner layer, separated) ---- */
+#macopie{border:1px solid var(--border);border-radius:var(--radius-xl);background:var(--surface);
+  padding:36px 36px 32px;margin-top:18px;scroll-margin-top:calc(var(--header-h) + 64px);position:relative;overflow:hidden;}
+#macopie::before{content:"私";position:absolute;right:-1%;bottom:-12%;font-family:var(--font-ja);
+  font-size:clamp(180px,22vw,300px);color:var(--color-or);opacity:.05;line-height:.8;pointer-events:none;}
+#macopie > *{position:relative;z-index:1;}
+.owner-banner{display:flex;align-items:center;gap:12px;margin-bottom:24px;}
+.owner-banner .seal{width:34px;height:34px;flex:none;border-radius:50%;background:var(--primary);color:#fff;
+  display:grid;place-items:center;font-family:var(--font-ja);font-size:17px;}
+.owner-banner .t{font-family:var(--font-display);font-weight:300;font-size:22px;}
+.owner-banner .t .em{font-style:italic;color:var(--color-laque-bright);}
+.owner-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:44px;align-items:start;}
+.owner-facts dl.specs dd{font-family:var(--font-mono);}
+.owner-cols{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+.docs{margin-top:4px;}
+.docs .dt{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-or-pale);margin-bottom:10px;}
+.doc{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);
+  background:var(--surface-raised);margin-bottom:9px;}
+.doc .ic{width:26px;height:30px;flex:none;border:1px solid var(--border);border-radius:2px;display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:8px;color:var(--color-laque-bright);}
+.doc .nm{font-size:13px;color:var(--on-surface);}
+.doc .nm small{display:block;font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);margin-top:1px;}
+.doc .dl{margin-left:auto;font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.mine-photos .dt{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-or-pale);margin-bottom:10px;}
+.mine-strip{display:flex;gap:10px;}
+.mine-strip .mp{flex:1;aspect-ratio:1/1;border-radius:var(--radius-md);position:relative;overflow:hidden;
+  background:radial-gradient(120% 90% at 50% 30%,#241f1b,var(--color-noir-deep));border:1px solid var(--border-subtle);}
+.mine-strip .mp.cover::after{content:"COUVERTURE";position:absolute;left:6px;top:6px;font:500 8px/1 var(--font-mono);
+  letter-spacing:.08em;color:var(--color-noir);background:var(--color-or);padding:3px 5px;border-radius:2px;}
+.mine-strip .mp .sil{position:absolute;inset:0;display:grid;place-items:center;}
+.mine-strip .mp .sil svg{width:48%;}
+
+/* ---- Vue 360 (full-width plate band) ---- */
+#vue360{scroll-margin-top:calc(var(--header-h) + 64px);}
+.band360{position:relative;border-radius:var(--radius-xl);overflow:hidden;border:1px solid var(--border-subtle);
+  background:radial-gradient(120% 120% at 50% 0,#26201c,var(--color-noir-deep) 70%);min-height:380px;
+  display:grid;place-items:center;cursor:grab;}
+.band360::after{content:"";position:absolute;inset:0;box-shadow:inset 0 0 160px 40px rgba(0,0,0,.6);pointer-events:none;}
+.band360 .stage{position:relative;display:grid;place-items:center;z-index:2;padding:40px 0;}
+.band360 .stage svg{width:170px;height:auto;}
+.band360 .base{margin-top:-10px;width:200px;height:34px;border-radius:50%;
+  background:radial-gradient(60% 90% at 50% 0,rgba(216,180,110,.16),transparent 70%);border:1px solid var(--border);}
+.band360 .b360{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);display:inline-flex;align-items:center;gap:.55em;
+  font-family:var(--font-mono);font-size:12px;letter-spacing:.06em;color:var(--color-noir);background:var(--color-or);
+  border-radius:var(--radius-pill);padding:9px 16px;z-index:3;}
+
+/* ---- Figurines proches (bento/plate index) ---- */
+.near-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;}
+.near{background:var(--surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);overflow:hidden;
+  text-decoration:none;color:inherit;transition:transform var(--dur) var(--ease),border-color var(--dur) var(--ease);}
+.near:hover{transform:translateY(-3px);border-color:var(--border);}
+.near .well{position:relative;aspect-ratio:4/5;background:radial-gradient(120% 90% at 50% 25%,#241f1b,var(--color-noir-deep) 75%);}
+.near .well .sil{position:absolute;inset:0;display:grid;place-items:center;}
+.near .well .sil svg{width:46%;}
+.near .well .sim{position:absolute;right:8px;top:8px;font-family:var(--font-mono);font-size:11px;color:var(--color-jade);
+  border:1px solid rgba(95,179,154,.3);background:rgba(95,179,154,.10);border-radius:99px;padding:3px 8px;}
+.near .body{padding:13px 14px 16px;}
+.near .body .nm{font-family:var(--font-display);font-weight:300;font-size:15px;line-height:1.2;}
+.near .body .nm .em{font-style:italic;color:var(--color-laque-bright);}
+.near .body .mt{margin-top:6px;font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);letter-spacing:.04em;}
+
+/* footer */
+.foot{margin-top:64px;padding-top:24px;border-top:1px solid var(--border-subtle);
+  display:flex;align-items:center;gap:14px;font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);letter-spacing:.08em;}
+.foot .ja{font-family:var(--font-ja);color:var(--color-or-deep);font-size:14px;}
+
+/* lightbox */
+.lightbox{position:fixed;inset:0;z-index:100;background:rgba(8,6,5,.92);display:none;place-items:center;padding:40px;}
+.lightbox.open{display:grid;}
+.lightbox .lb-plate{width:min(72vh,520px);aspect-ratio:4/5;border-radius:var(--radius-lg);position:relative;overflow:hidden;
+  background:radial-gradient(120% 90% at 50% 22%,#2a2420,var(--color-noir-deep) 72%);border:1px solid var(--border);}
+.lightbox .lb-plate .sil{position:absolute;inset:0;display:grid;place-items:center;}
+.lightbox .lb-plate .sil svg{width:50%;}
+.lightbox .close{position:fixed;top:24px;right:28px;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);
+  background:transparent;color:var(--on-surface);font-size:18px;cursor:pointer;display:grid;place-items:center;
+  transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease);}
+.lightbox .close:hover{border-color:var(--color-or);color:var(--color-or);}
+
+/* =========================================================================
+   RESPONSIVE — ≤1024 single column, kill sticky, reorder
+========================================================================= */
+@media (max-width:1024px){
+  .hero{grid-template-columns:1fr;gap:28px;}
+  .rail{position:static;top:auto;}
+  .anchor-wrap{position:static;}
+  .id-grid,.value-grid,.preco-grid,.shops-grid,.owner-grid{grid-template-columns:1fr;gap:28px;}
+  .near-grid{grid-template-columns:repeat(2,1fr);}
+  .watermark{font-size:200px;}
+}
+@media (max-width:640px){
+  .page{padding:0 16px 72px;}
+  .topbar .inner{padding:0 16px;gap:12px;}
+  .topnav{display:none;}
+  .dir-label{font-size:9px;padding:5px 9px;}
+  .block-head h2{font-size:22px;}
+  .keyspecs dl{grid-template-columns:1fr;}
+  .owner-cols{grid-template-columns:1fr;}
+  .near-grid{grid-template-columns:1fr 1fr;gap:12px;}
+  #macopie{padding:24px 20px;}
+  .rail-card{padding:22px 20px;}
+  .trio .cote .val{font-size:38px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ===================== APP CHROME ===================== -->
+<header class="topbar">
+  <div class="inner">
+    <a class="brand" href="#"><span class="mk">F</span><span class="wm">Figure<span class="it">Collector</span></span></a>
+    <nav class="topnav" aria-label="Navigation principale">
+      <a href="#" class="active"><span class="ja">目</span> Catalogue</a>
+      <a href="#"><span class="ja">私</span> Ma collection</a>
+      <a href="#"><span class="ja">価</span> Valeur</a>
+    </nav>
+    <div class="right">
+      <div class="avatar" aria-hidden="true">D</div>
+    </div>
+  </div>
+</header>
+
+<div class="dir-label">⓪ LA FICHE · fusion (recommandée)</div>
+
+<main class="page">
+
+  <!-- breadcrumb -->
+  <nav class="crumbs" aria-label="Fil d'Ariane">
+    <a href="#">Catalogue</a><span class="chev">›</span>
+    <a href="#">One Punch Man</a><span class="chev">›</span>
+    <span class="cur">Fiche</span>
+  </nav>
+
+  <!-- ===================== HERO ROW ===================== -->
+  <div class="hero">
+
+    <!-- LEFT: gallery (scrolls, tall) -->
+    <div class="gallery">
+      <figure class="plate" id="mainPlate" tabindex="0" role="button" aria-label="Agrandir le visuel">
+        <div class="sil" id="mainSil"></div>
+        <div class="turn" aria-hidden="true"></div>
+        <span class="badge-360"><span aria-hidden="true">⟳</span> 360° · glisser pour pivoter</span>
+        <span class="inscr mono">Nº 019E5BF9 · 01/24</span>
+        <span class="zoom"><span aria-hidden="true">⤢</span> agrandir</span>
+        <div class="veil" aria-hidden="true">
+          <span class="lbl">Contenu sensible</span>
+          <span class="nm">Ce visuel peut heurter la sensibilité. Vous pouvez le révéler.</span>
+          <button class="veil-btn" type="button" onclick="revealNsfw(event)">Révéler ce visuel</button>
+        </div>
+      </figure>
+
+      <div class="strip">
+        <button class="arrow" type="button" aria-label="Miniatures précédentes" onclick="scrollThumbs(-1)">‹</button>
+        <div class="thumbs" id="thumbs"></div>
+        <button class="arrow" type="button" aria-label="Miniatures suivantes" onclick="scrollThumbs(1)">›</button>
+      </div>
+    </div>
+
+    <!-- RIGHT: sticky summary rail (short) -->
+    <aside class="rail" aria-label="Résumé">
+      <div class="rail-card">
+        <div class="kicker-row">
+          <span class="micro"><span class="dia" aria-hidden="true"></span><span class="ja" aria-hidden="true">彫</span> GK Statue · 1/6</span>
+        </div>
+        <h1 class="accent-title"><span class="em">CROWN</span> Studio — Tatsumaki VS Tentacle</h1>
+        <div class="version">Standard Version</div>
+        <div class="stamp-row">
+          <span class="lot-stamp"><span>LOT</span> <b>Nº 019E5BF9</b> <span class="sep">·</span> <span>TYPE</span> <b>Statue</b></span>
+        </div>
+
+        <!-- VALUE TRIO -->
+        <div class="trio">
+          <div class="cote">
+            <span class="lbl">Cote actuelle</span>
+            <span class="val num">310<span class="cur"> €</span></span>
+          </div>
+          <div class="sub">
+            <div class="item">
+              <span class="k">Payé</span>
+              <span class="v num">242,37 €</span>
+            </div>
+            <div class="item">
+              <span class="k">Plus-value</span>
+              <span class="gain num"><span class="arr" aria-hidden="true">▲</span> +27,9 %</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- mini sparkline -->
+        <div class="spark">
+          <svg width="116" height="34" viewBox="0 0 116 34" aria-hidden="true">
+            <line x1="0" y1="33" x2="116" y2="33" stroke="var(--color-or)" stroke-opacity=".35" stroke-width="1"/>
+            <polyline points="2,26 24,24 46,15 68,19 90,6 114,2" fill="none" stroke="var(--color-jade)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+            <circle cx="114" cy="2" r="2.6" fill="var(--color-jade)"/>
+          </svg>
+          <span class="cap num">+67,63 € · 10 mois</span>
+        </div>
+
+        <!-- STATE badge (static-looking, with text) -->
+        <div class="state" role="status">
+          <span class="seal ja" aria-hidden="true">私</span>
+          <span class="txt">
+            <span class="t">Déjà dans ta collection</span>
+            <span class="s">MIB · scellée · pré-commande en cours</span>
+          </span>
+        </div>
+
+        <!-- primary CTA + secondary icons -->
+        <div class="cta-row">
+          <button class="cta" type="button"><span aria-hidden="true">✎</span> Éditer ma pièce</button>
+          <div class="icon-row">
+            <button class="icon-btn" type="button"><span aria-hidden="true">↗</span> Partager</button>
+            <button class="icon-btn danger" type="button"><span aria-hidden="true">⌫</span> Retirer</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div><!-- /hero -->
+
+  <!-- ===================== BELOW: anchor index + content ===================== -->
+  <div class="below">
+    <div class="anchor-wrap">
+      <nav class="anchor-index" id="anchorIndex" aria-label="Sur cette page">
+        <a href="#identite"><span class="ja" aria-hidden="true">目</span> Identité</a>
+        <a href="#valeur"><span class="ja" aria-hidden="true">価</span> Valeur</a>
+        <a href="#preco"><span class="ja" aria-hidden="true">予</span> Pré-commande</a>
+        <a href="#boutiques"><span class="ja" aria-hidden="true">店</span> Boutiques</a>
+        <a href="#macopie"><span class="ja" aria-hidden="true">私</span> Ma pièce</a>
+        <a href="#vue360"><span class="ja" aria-hidden="true">巡</span> 360°</a>
+        <a href="#proches"><span class="ja" aria-hidden="true">似</span> Proches</a>
+      </nav>
+    </div>
+
+    <div class="content">
+
+      <!-- ===== IDENTITÉ ===== -->
+      <section class="block" id="identite">
+        <span class="watermark" aria-hidden="true">彫</span>
+        <div class="block-head">
+          <span class="ja" aria-hidden="true">目</span>
+          <h2>Identité</h2>
+          <span class="meta">One Punch Man · Tatsumaki</span>
+        </div>
+        <div class="id-grid">
+          <!-- drop-cap lede (editorial signature) -->
+          <div>
+            <p class="lede" id="lede">
+              Tatsumaki, la Tornade de la terreur, suspendue dans une spirale de tentacules — CROWN Studio
+              fige l'esper de classe S au sommet de sa puissance télékinésique.
+              <span class="tail">&nbsp;Le sculpteur Yuki Anami travaille la torsion de la chevelure flottante et la
+              tension du buste détaillé, posés sur un socle orné en résine. Tirage limité à 499 exemplaires,
+              cette pièce 1/6 de 290 mm condense le geste shōjo-noir : violence chorégraphiée, élégance froide.</span>
+              <a class="more-link" id="ledeMore" role="button" tabindex="0" onclick="toggleLede()" onkeydown="if(event.key==='Enter'){toggleLede()}">lire la suite →</a>
+            </p>
+
+            <div class="pullquote">
+              <q class="display">« Un esper de classe S, <span class="hl">499 exemplaires</span> seulement. »</q>
+              <div class="by">— Édition limitée · scellée d'origine</div>
+            </div>
+          </div>
+
+          <!-- key specs + grouped specs -->
+          <div>
+            <div class="keyspecs">
+              <div class="kk">Coup d'œil</div>
+              <dl>
+                <div class="pair"><dt>Fabricant</dt><dd>CROWN Studio</dd></div>
+                <div class="pair"><dt>Série</dt><dd>One Punch Man</dd></div>
+                <div class="pair"><dt>Personnage</dt><dd>Tatsumaki</dd></div>
+                <div class="pair"><dt>Échelle</dt><dd>1/6</dd></div>
+              </dl>
+            </div>
+
+            <div class="specs-group">
+              <div class="gt"><span class="ja" aria-hidden="true">名</span> Identité</div>
+              <dl class="specs">
+                <div><dt>Fabricant</dt><dd class="disp">CROWN Studio</dd></div>
+                <div><dt>Série</dt><dd class="disp">One Punch Man</dd></div>
+                <div><dt>Personnage</dt><dd class="disp">Tatsumaki</dd></div>
+                <div><dt>Version</dt><dd class="disp">Standard Version</dd></div>
+              </dl>
+            </div>
+
+            <div class="specs-group">
+              <div class="gt"><span class="ja" aria-hidden="true">体</span> Physique</div>
+              <dl class="specs">
+                <div><dt>Type</dt><dd class="disp">GK Statue 彫</dd></div>
+                <div><dt>Échelle</dt><dd>1/6</dd></div>
+                <div><dt>Hauteur</dt><dd>290 mm</dd></div>
+                <div class="spec-tail"><dt>Sculpteur</dt><dd class="disp">Yuki Anami</dd></div>
+                <div class="spec-tail"><dt>Matériaux</dt><dd class="disp">PVC, ABS, résine</dd></div>
+                <div class="spec-tail"><dt>Édition</dt><dd>limitée · 499 ex</dd></div>
+              </dl>
+            </div>
+
+            <div class="specs-group spec-tail">
+              <div class="gt"><span class="ja" aria-hidden="true">録</span> Catalogue</div>
+              <dl class="specs">
+                <div><dt>JAN / EAN</dt><dd>4 580416 925501</dd></div>
+                <div><dt>Prix conseillé</dt><dd>332,37 €</dd></div>
+                <div><dt>Sortie (actuelle)</dt><dd>1 déc. 2027</dd></div>
+              </dl>
+            </div>
+
+            <button class="disclosure" type="button" id="specBtn" aria-expanded="false" onclick="toggleSpecs()">
+              Voir tout (Catalogue, sculpteur, matériaux…) <span class="chev" aria-hidden="true">⌄</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <hr class="gold-rule">
+
+      <!-- ===== VALEUR & HISTORIQUE ===== -->
+      <section class="block" id="valeur">
+        <div class="block-head">
+          <span class="ja" aria-hidden="true">価</span>
+          <h2>Valeur &amp; historique</h2>
+          <span class="meta">EUR · taux figé à l'achat</span>
+        </div>
+        <div class="value-grid">
+          <div>
+            <div class="trio-strip">
+              <div class="trio-cell cote">
+                <div class="k">Cote actuelle</div>
+                <div class="v num">310,00 €</div>
+                <div class="vp num">&nbsp;</div>
+              </div>
+              <div class="trio-cell paye">
+                <div class="k">Payé</div>
+                <div class="v num">242,37 €</div>
+                <div class="vv num">acquis le 24/05/2026</div>
+              </div>
+              <div class="trio-cell gain-cell">
+                <div class="k">Plus-value</div>
+                <div class="v num"><span class="arr" aria-hidden="true">▲</span>+67,63 €</div>
+                <div class="vv num" style="color:var(--color-jade)">+27,9 %</div>
+              </div>
+            </div>
+
+            <!-- editorial pull-quote of the gain -->
+            <div class="pullquote">
+              <q class="display">« <span class="hl">+27,9 %</span> en dix mois — la cote a dépassé le prix payé. »</q>
+              <div class="by">— Historique 6 relevés · août 2026 → juin 2027</div>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="ch-head">
+              <span class="ttl">Évolution de la cote</span>
+              <span class="now num">310,00 €</span>
+            </div>
+            <!-- compact area chart (always visible) -->
+            <svg class="chart-svg" viewBox="0 0 460 150" role="img" aria-label="Cote de 242 € à 310 € sur six relevés">
+              <defs>
+                <linearGradient id="jadeFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="var(--color-jade)" stop-opacity=".30"/>
+                  <stop offset="1" stop-color="var(--color-jade)" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <!-- baseline (payé) -->
+              <line x1="6" y1="108" x2="454" y2="108" stroke="var(--color-or)" stroke-opacity=".35" stroke-dasharray="4 4" stroke-width="1"/>
+              <text x="6" y="100" font-family="var(--font-mono)" font-size="10" fill="var(--color-or)" fill-opacity=".7">payé 242 €</text>
+              <!-- area -->
+              <path d="M6,108 L96,98 L186,75 L276,90 L366,38 L450,18 L450,140 L6,140 Z" fill="url(#jadeFill)"/>
+              <!-- line: 242 250 268 255 290 310 -->
+              <polyline points="6,108 96,98 186,75 276,90 366,38 450,18" fill="none" stroke="var(--color-jade)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+              <circle cx="450" cy="18" r="3.4" fill="var(--color-jade)"/>
+              <text x="452" y="14" font-family="var(--font-mono)" font-size="10" fill="var(--color-jade)" text-anchor="end">310 €</text>
+            </svg>
+
+            <button class="disclosure" type="button" id="chartBtn" aria-expanded="false" onclick="toggleChart()">
+              Historique complet (6 relevés) <span class="chev" aria-hidden="true">⌄</span>
+            </button>
+
+            <div class="fullchart" id="fullchart">
+              <svg class="chart-svg" viewBox="0 0 460 200" role="img" aria-label="Historique détaillé de la cote avec axes" style="margin-top:14px">
+                <!-- y gridlines -->
+                <g font-family="var(--font-mono)" font-size="9" fill="var(--on-surface-subtle)">
+                  <line x1="40" y1="20" x2="454" y2="20" stroke="var(--border-subtle)"/>
+                  <line x1="40" y1="70" x2="454" y2="70" stroke="var(--border-subtle)"/>
+                  <line x1="40" y1="120" x2="454" y2="120" stroke="var(--border-subtle)"/>
+                  <line x1="40" y1="170" x2="454" y2="170" stroke="var(--border-subtle)"/>
+                  <text x="34" y="23" text-anchor="end">320</text>
+                  <text x="34" y="73" text-anchor="end">290</text>
+                  <text x="34" y="123" text-anchor="end">260</text>
+                  <text x="34" y="173" text-anchor="end">242</text>
+                </g>
+                <!-- baseline payé -->
+                <line x1="40" y1="170" x2="454" y2="170" stroke="var(--color-or)" stroke-opacity=".4" stroke-dasharray="4 4"/>
+                <!-- area + line for 242,250,268,255,290,310 mapped -->
+                <path d="M52,170 L130,156 L208,123 L286,145 L364,87 L446,40 L446,180 L52,180 Z" fill="url(#jadeFill)"/>
+                <polyline points="52,170 130,156 208,123 286,145 364,87 446,40" fill="none" stroke="var(--color-jade)" stroke-width="2.4" stroke-linejoin="round"/>
+                <g fill="var(--color-jade)">
+                  <circle cx="52" cy="170" r="3"/><circle cx="130" cy="156" r="3"/><circle cx="208" cy="123" r="3"/>
+                  <circle cx="286" cy="145" r="3"/><circle cx="364" cy="87" r="3"/><circle cx="446" cy="40" r="3.6"/>
+                </g>
+                <!-- value labels -->
+                <g font-family="var(--font-mono)" font-size="9" fill="var(--on-surface-muted)" text-anchor="middle">
+                  <text x="52" y="186">242</text><text x="130" y="186">250</text><text x="208" y="186">268</text>
+                  <text x="286" y="186">255</text><text x="364" y="186">290</text><text x="446" y="186">310</text>
+                </g>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <hr class="gold-rule">
+
+      <!-- ===== PRÉ-COMMANDE ===== -->
+      <section class="block" id="preco">
+        <div class="block-head">
+          <span class="ja" aria-hidden="true">予</span>
+          <h2>Pré-commande</h2>
+          <span class="meta">Acompte non-remboursable</span>
+        </div>
+        <div class="preco-grid">
+
+          <!-- deposit bar + lines -->
+          <div class="deposit">
+            <div class="dl-row">
+              <span class="a num">30 € payé</span>
+              <span class="b num">sur 242,37 €</span>
+            </div>
+            <div class="bar" role="img" aria-label="Acompte 30 € versé sur 242,37 €, soit environ 12 %">
+              <div class="fill"></div>
+            </div>
+            <div class="pct num">≈ 12 % versé</div>
+
+            <div class="lines">
+              <div class="ln"><span class="k">Solde restant</span><span class="v num">212,37 €</span></div>
+              <div class="ln"><span class="k">Prochain prélèvement</span><span class="v hot num">90 € · 1 oct. 2027</span></div>
+              <div class="ln"><span class="k">Boutique</span><span class="v">ORZGK</span></div>
+            </div>
+
+            <span class="flag"><span aria-hidden="true">⚠</span> Acompte non-remboursable</span>
+          </div>
+
+          <!-- release-slip + vertical timeline -->
+          <div>
+            <div class="slip">
+              <div class="row">
+                <span class="k">Annoncée (origine)</span>
+                <span class="old num">1 sept. 2027</span>
+              </div>
+              <div class="row">
+                <span class="k">Sortie actuelle</span>
+                <span class="new num"><span class="arr" aria-hidden="true">↗</span> 1 déc. 2027</span>
+              </div>
+            </div>
+
+            <div class="timeline" aria-label="Étapes de la pré-commande">
+              <div class="tl-step done">
+                <span class="node" aria-hidden="true"><i></i></span>
+                <div class="st">Annoncée</div>
+                <div class="dt num">1 sept. 2027 → repoussée</div>
+              </div>
+              <div class="tl-step done">
+                <span class="node" aria-hidden="true"><i></i></span>
+                <div class="st">Pré-commande</div>
+                <div class="dt num">acompte 30 € · 24 mai 2026</div>
+              </div>
+              <div class="tl-step cur">
+                <span class="node" aria-hidden="true"><i></i></span>
+                <div class="st">En production <span class="tag">actuel</span></div>
+                <div class="dt num">solde 212,37 € à venir</div>
+              </div>
+              <div class="tl-step future">
+                <span class="node" aria-hidden="true"><i></i></span>
+                <div class="st">Expédiée</div>
+                <div class="dt num">estimée déc. 2027</div>
+              </div>
+              <div class="tl-step future">
+                <span class="node" aria-hidden="true"><i></i></span>
+                <div class="st">En main</div>
+                <div class="dt num">—</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <hr class="gold-rule">
+
+      <!-- ===== BOUTIQUES + TAGS ===== -->
+      <section class="block" id="boutiques">
+        <div class="block-head">
+          <span class="ja" aria-hidden="true">店</span>
+          <h2>Acheter chez</h2>
+          <span class="meta">3 boutiques · prix indicatifs</span>
+        </div>
+        <div class="shops-grid">
+          <div>
+            <div class="shop">
+              <span class="mk" aria-hidden="true">O</span>
+              <span class="nm">ORZGK <small>boutique d'origine · pré-commande</small></span>
+              <a class="buy" href="#">Acheter ↗</a>
+            </div>
+            <div class="shop">
+              <span class="mk" aria-hidden="true">N</span>
+              <span class="nm">Nin-Nin Game <small>stock annoncé · expédié du Japon</small></span>
+              <a class="buy" href="#">Acheter ↗</a>
+            </div>
+            <div class="shop">
+              <span class="mk" aria-hidden="true">A</span>
+              <span class="nm">AmiAmi <small>liste d'attente</small></span>
+              <a class="buy" href="#">Acheter ↗</a>
+            </div>
+          </div>
+          <div>
+            <div class="gt" style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--color-or-pale);margin-bottom:14px;">Tags</div>
+            <div class="tags">
+              <span class="chip"><span class="h" aria-hidden="true">#</span>tentacules</span>
+              <span class="chip"><span class="h" aria-hidden="true">#</span>dynamique</span>
+              <span class="chip"><span class="h" aria-hidden="true">#</span>buste-détaillé</span>
+              <span class="chip"><span class="h" aria-hidden="true">#</span>socle-orné</span>
+              <span class="chip"><span class="h" aria-hidden="true">#</span>cheveux-flottants</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <hr class="gold-rule">
+
+      <!-- ===== MA COPIE (owner layer, separated) ===== -->
+      <section id="macopie" aria-label="Ma copie">
+        <div class="owner-banner">
+          <span class="seal ja" aria-hidden="true">私</span>
+          <span class="t"><span class="em">Ma</span> copie</span>
+        </div>
+        <div class="owner-grid">
+          <div class="owner-facts">
+            <dl class="specs">
+              <div><dt>État</dt><dd>MIB · scellée</dd></div>
+              <div><dt>Boutique</dt><dd>ORZGK</dd></div>
+              <div><dt>Emplacement</dt><dd>chambre</dd></div>
+              <div><dt>Date d'achat</dt><dd>24/05/2026</dd></div>
+              <div><dt>Prix payé</dt><dd>242,37 €</dd></div>
+              <div><dt>Notes</dt><dd>—</dd></div>
+            </dl>
+
+            <div class="docs" style="margin-top:22px">
+              <div class="dt">Justificatifs</div>
+              <div class="doc">
+                <span class="ic" aria-hidden="true">PDF</span>
+                <span class="nm">Facture ORZGK <small>242,37 € · 24/05/2026</small></span>
+                <span class="dl">Voir</span>
+              </div>
+              <div class="doc">
+                <span class="ic" aria-hidden="true">PDF</span>
+                <span class="nm">Bordereau douane <small>import · droits acquittés</small></span>
+                <span class="dl">Voir</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mine-photos">
+            <div class="dt">Couverture &amp; mes photos</div>
+            <div class="mine-strip">
+              <div class="mp cover"><div class="sil" data-sil="6"></div></div>
+              <div class="mp"><div class="sil" data-sil="7"></div></div>
+              <div class="mp"><div class="sil" data-sil="8"></div></div>
+            </div>
+            <p style="margin-top:14px;font-size:13px;color:var(--on-surface-subtle);line-height:1.6">
+              Ces clichés sont les tiens — distincts des visuels catalogue. La couverture sert d'aperçu dans ta collection.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== VUE 360 (full-width plate band) ===== -->
+      <section class="block" id="vue360">
+        <div class="block-head">
+          <span class="ja" aria-hidden="true">巡</span>
+          <h2>Vue 360°</h2>
+          <span class="meta">turntable · maintenez et glissez</span>
+        </div>
+        <div class="band360" role="img" aria-label="Vue 360° interactive de la figurine">
+          <div class="stage">
+            <div class="sil" data-sil="360"></div>
+            <div class="base" aria-hidden="true"></div>
+          </div>
+          <span class="b360"><span aria-hidden="true">⟳</span> 360° · glisser pour pivoter</span>
+        </div>
+      </section>
+
+      <hr class="gold-rule">
+
+      <!-- ===== FIGURINES PROCHES ===== -->
+      <section class="block" id="proches">
+        <div class="block-head">
+          <span class="ja" aria-hidden="true">似</span>
+          <h2>Figurines proches</h2>
+          <span class="meta">par similarité visuelle</span>
+        </div>
+        <div class="near-grid">
+          <a class="near" href="#">
+            <div class="well"><div class="sil" data-sil="11"></div><span class="sim num">92 %</span></div>
+            <div class="body"><div class="nm"><span class="em">CROWN</span> — Eris Greyrat</div><div class="mt">1/6 · GK Statue</div></div>
+          </a>
+          <a class="near" href="#">
+            <div class="well"><div class="sil" data-sil="12"></div><span class="sim num">88 %</span></div>
+            <div class="body"><div class="nm"><span class="em">Native</span> — Nure Megami</div><div class="mt">1/6 · PVC</div></div>
+          </a>
+          <a class="near" href="#">
+            <div class="well"><div class="sil" data-sil="13"></div><span class="sim num">85 %</span></div>
+            <div class="body"><div class="nm"><span class="em">Orca</span> Toys — Albedo</div><div class="mt">1/7 · PVC</div></div>
+          </a>
+          <a class="near" href="#">
+            <div class="well"><div class="sil" data-sil="14"></div><span class="sim num">81 %</span></div>
+            <div class="body"><div class="nm"><span class="em">Kaitendo</span> — Rias</div><div class="mt">1/6 · résine</div></div>
+          </a>
+        </div>
+      </section>
+
+      <footer class="foot">
+        <span class="ja" aria-hidden="true">像</span>
+        <span>FigureCollector · fiche 019E5BF9 · données illustratives</span>
+      </footer>
+
+    </div><!-- /content -->
+  </div><!-- /below -->
+</main>
+
+<!-- lightbox -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Visuel agrandi">
+  <button class="close" type="button" aria-label="Fermer" onclick="closeLightbox()">✕</button>
+  <div class="lb-plate"><div class="sil" id="lbSil"></div></div>
+</div>
+
+<script>
+/* ---------- elegant standing-figure silhouette, tint varies per photo ---------- */
+function silSvg(tint, opacity){
+  opacity = opacity || .18;
+  return '<svg viewBox="0 0 120 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+    + '<path fill="'+tint+'" fill-opacity="'+opacity+'" d="'
+    + 'M60 8c-7 0-12 6-12 14 0 5 2 9 6 12-9 3-16 11-18 22-2 9-1 18 2 27-5 6-9 14-10 23-1 8 0 16 3 23 2 5 6 7 10 6 1 7 3 14 6 20 2 5 7 8 12 8s10-3 12-8c3-6 5-13 6-20 4 1 8-1 10-6 3-7 4-15 3-23-1-9-5-17-10-23 3-9 4-18 2-27-2-11-9-19-18-22 4-3 6-7 6-12 0-8-5-14-12-14z'
+    + '"/></svg>';
+}
+const TINTS = ['#d8b46e','#c4453b','#5fb39a','#e8d4a6','#a98a4e','#8f2d2a','#d8b46e','#5fb39a','#e8d4a6',
+               '#c4453b','#d8b46e','#5fb39a','#e8d4a6','#a98a4e'];
+
+/* fill any element with data-sil */
+document.querySelectorAll('[data-sil]').forEach(function(el){
+  const i = parseInt(el.getAttribute('data-sil'),10) || 0;
+  const tint = el.getAttribute('data-sil')==='360' ? '#d8b46e' : (TINTS[i % TINTS.length] || '#d8b46e');
+  el.innerHTML = silSvg(tint, el.getAttribute('data-sil')==='360' ? .3 : .18);
+});
+
+/* ---------- gallery / filmstrip ---------- */
+/* 24 photos: index 0..23. 4 = NSFW, 5 = 360 slide. Show 5 thumbs + overflow. */
+const PHOTOS = [];
+for(let i=0;i<24;i++){ PHOTOS.push({nsfw:i===4, is360:i===5}); }
+let current = 0;
+
+const mainPlate = document.getElementById('mainPlate');
+const mainSil   = document.getElementById('mainSil');
+const thumbsEl  = document.getElementById('thumbs');
+
+function renderMain(){
+  const p = PHOTOS[current];
+  mainPlate.classList.toggle('is-nsfw', p.nsfw && !p.revealed);
+  mainPlate.classList.toggle('is-360', !!p.is360);
+  mainSil.innerHTML = silSvg(TINTS[current % TINTS.length], .2);
+  mainPlate.querySelector('.inscr').textContent = 'Nº 019E5BF9 · ' + String(current+1).padStart(2,'0') + '/24';
+}
+function selectPhoto(i){ current=i; renderMain(); markThumb(); }
+function markThumb(){
+  thumbsEl.querySelectorAll('.thumb').forEach(function(t,idx){ t.classList.toggle('on', idx===current); });
+}
+function revealNsfw(e){ e.stopPropagation(); PHOTOS[current].revealed=true; renderMain(); }
+
+/* build thumbs: show 5 + a "+18" overflow tile */
+const VISIBLE = 5;
+for(let i=0;i<VISIBLE;i++){
+  const p = PHOTOS[i];
+  const t = document.createElement('button');
+  t.type='button'; t.className='thumb' + (p.nsfw?' nsfw':'') + (p.is360?' t360':'') + (i===0?' on':'');
+  t.setAttribute('aria-label','Visuel '+(i+1)+(p.is360?' (vue 360°)':'')+(p.nsfw?' (sensible)':''));
+  if(p.is360){
+    t.innerHTML = '<div class="g"><span class="ic" aria-hidden="true">⟳</span><span class="lb">360°</span><span class="lb">glisser</span></div>';
+  } else {
+    t.innerHTML = '<div class="sil">'+silSvg(TINTS[i % TINTS.length], .3)+'</div>';
+  }
+  t.onclick = (function(idx){ return function(){ selectPhoto(idx); }; })(i);
+  thumbsEl.appendChild(t);
+}
+const overflow = document.createElement('button');
+overflow.type='button'; overflow.className='thumb more';
+overflow.setAttribute('aria-label','Voir les 18 visuels restants');
+overflow.innerHTML = '<span>+18</span>';
+overflow.onclick = function(){ openLightbox(); };
+thumbsEl.appendChild(overflow);
+
+function scrollThumbs(dir){ thumbsEl.scrollBy({left: dir*200, behavior:'smooth'}); }
+renderMain();
+
+/* ---------- lightbox ---------- */
+const lightbox = document.getElementById('lightbox');
+const lbSil = document.getElementById('lbSil');
+function openLightbox(){ lbSil.innerHTML = silSvg(TINTS[current % TINTS.length], .22); lightbox.classList.add('open'); }
+function closeLightbox(){ lightbox.classList.remove('open'); }
+mainPlate.addEventListener('click', function(){ if(!mainPlate.classList.contains('is-nsfw')) openLightbox(); });
+mainPlate.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); if(!mainPlate.classList.contains('is-nsfw')) openLightbox(); } });
+lightbox.addEventListener('click', function(e){ if(e.target===lightbox) closeLightbox(); });
+document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeLightbox(); });
+
+/* ---------- disclosures ---------- */
+function toggleLede(){ document.getElementById('lede').classList.toggle('open'); }
+function toggleSpecs(){
+  const btn = document.getElementById('specBtn');
+  const open = btn.getAttribute('aria-expanded')==='true';
+  btn.setAttribute('aria-expanded', String(!open));
+  document.querySelectorAll('.spec-tail').forEach(function(el){ el.classList.toggle('open', !open); });
+  btn.firstChild.textContent = (!open ? 'Réduire ' : 'Voir tout (Catalogue, sculpteur, matériaux…) ');
+}
+function toggleChart(){
+  const btn = document.getElementById('chartBtn');
+  const open = btn.getAttribute('aria-expanded')==='true';
+  btn.setAttribute('aria-expanded', String(!open));
+  document.getElementById('fullchart').classList.toggle('open', !open);
+  btn.firstChild.textContent = (!open ? 'Masquer l’historique ' : 'Historique complet (6 relevés) ');
+}
+
+/* ---------- scroll-spy on anchor index ---------- */
+const spyLinks = Array.from(document.querySelectorAll('#anchorIndex a'));
+const spyMap = {};
+spyLinks.forEach(function(a){ spyMap[a.getAttribute('href').slice(1)] = a; });
+const spySections = Object.keys(spyMap).map(function(id){ return document.getElementById(id); }).filter(Boolean);
+
+const spyObserver = new IntersectionObserver(function(entries){
+  entries.forEach(function(en){
+    if(en.isIntersecting){
+      spyLinks.forEach(function(a){ a.classList.remove('spy'); });
+      const link = spyMap[en.target.id];
+      if(link){ link.classList.add('spy');
+        link.scrollIntoView({block:'nearest', inline:'center', behavior:'smooth'}); }
+    }
+  });
+}, {rootMargin: '-' + (56+70) + 'px 0px -55% 0px', threshold:0});
+spySections.forEach(function(s){ spyObserver.observe(s); });
+</script>
+</body>
+</html>

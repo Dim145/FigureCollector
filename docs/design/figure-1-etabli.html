@@ -1,0 +1,952 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>① L'Établi · Fiche figurine — FigureCollector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Instrument+Sans:ital,wght@0,400..600;1,400..500&family=Noto+Serif+JP:wght@300..500&family=JetBrains+Mono:wght@300..500&display=swap');
+
+:root{
+  /* core (dark) */
+  --color-noir:#161311; --color-noir-soft:#211c19; --color-noir-deep:#100d0b;
+  --color-laque:#8f2d2a; --color-laque-bright:#c4453b;      /* hanko red — the ONE hot accent */
+  --color-or:#d8b46e; --color-or-pale:#e8d4a6; --color-or-deep:#a98a4e;  /* gold = value */
+  --color-jade:#5fb39a; --color-jade-deep:#3f8f78;          /* gain (+) */
+  --color-ivoire:#ece3d2; --color-ivoire-soft:rgba(236,227,210,.8);
+  /* semantic */
+  --surface:var(--color-noir-soft); --surface-raised:var(--color-noir); --surface-sunken:var(--color-noir-deep);
+  --on-surface:var(--color-ivoire); --on-surface-muted:var(--color-ivoire-soft);
+  --on-surface-subtle:rgba(236,227,210,.55);
+  --border:rgba(216,180,110,.22); --border-strong:rgba(216,180,110,.42); --border-subtle:rgba(216,180,110,.12);
+  --primary:var(--color-laque); --primary-hover:var(--color-laque-bright); --accent:var(--color-or);
+  --danger:var(--color-laque-bright); --success:var(--color-jade); --ring:var(--color-or);
+  /* type */
+  --font-display:"Fraunces",Georgia,serif;
+  --font-sans:"Instrument Sans",system-ui,sans-serif;
+  --font-ja:"Noto Serif JP","Yu Mincho",serif;
+  --font-mono:"JetBrains Mono",ui-monospace,monospace;
+  /* radii / space / motion */
+  --radius-sm:2px; --radius-md:4px; --radius-lg:8px; --radius-xl:14px; --radius-pill:9999px;
+  --elev-2:0 12px 32px -20px rgba(0,0,0,.7); --elev-3:0 25px 60px -34px rgba(0,0,0,.85);
+  --ease:cubic-bezier(.22,1,.36,1); --dur:240ms;
+  --header-h:52px;
+}
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;background:var(--color-noir);color:var(--on-surface);
+  font-family:var(--font-sans);font-size:15px;line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+body::before{ /* faint grain */
+  content:"";position:fixed;inset:0;z-index:9998;pointer-events:none;opacity:.04;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode:overlay;
+}
+a{color:inherit;text-decoration:none;}
+.tnum{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;}
+
+/* ---- direction label ---- */
+.dir-label{
+  position:fixed;top:10px;left:10px;z-index:9999;
+  font-family:var(--font-mono);font-size:10.5px;letter-spacing:.12em;
+  color:var(--color-or-pale);background:rgba(16,13,11,.86);
+  border:1px solid var(--border-strong);border-radius:var(--radius-pill);
+  padding:6px 12px;text-transform:uppercase;
+}
+.dir-label b{color:var(--color-laque-bright);}
+
+/* ---- top bar chrome ---- */
+.topbar{
+  position:sticky;top:0;z-index:90;height:var(--header-h);
+  display:flex;align-items:center;gap:22px;
+  padding:0 28px;background:rgba(16,13,11,.92);
+  border-bottom:1px solid var(--border-subtle);
+}
+.brand{font-family:var(--font-display);font-size:17px;letter-spacing:.01em;display:flex;align-items:center;gap:8px;}
+.brand .ja{font-family:var(--font-ja);color:var(--color-or);font-size:18px;}
+.brand b{font-weight:600;}
+.topbar nav{display:flex;gap:18px;font-size:12.5px;color:var(--on-surface-muted);letter-spacing:.04em;}
+.topbar nav a:hover{color:var(--on-surface);}
+.topbar nav .ja{font-family:var(--font-ja);color:var(--color-or-deep);margin-right:5px;}
+.topbar .spacer{flex:1;}
+.topbar .acct{width:30px;height:30px;border-radius:var(--radius-pill);border:1px solid var(--border-strong);display:grid;place-items:center;font-family:var(--font-ja);color:var(--color-or);font-size:14px;}
+
+/* ---- layout shell ---- */
+.shell{max-width:1440px;margin:0 auto;padding:0 28px 80px;}
+
+.crumbs{
+  display:flex;align-items:center;gap:9px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--on-surface-subtle);padding:20px 2px 18px;
+}
+.crumbs a:hover{color:var(--color-or-pale);}
+.crumbs .sep{color:var(--color-or-deep);}
+.crumbs .cur{color:var(--color-or-pale);}
+
+/* gold rule */
+.gold-rule{height:1px;border:0;margin:0;
+  background:linear-gradient(90deg,transparent,var(--color-or) 30%,var(--color-or) 70%,transparent);
+  opacity:.5;}
+
+/* micro kicker */
+.micro{
+  font-family:var(--font-sans);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--color-or-pale);display:inline-flex;align-items:center;gap:8px;
+}
+.micro .ja{font-family:var(--font-ja);color:var(--color-or);letter-spacing:0;font-size:14px;}
+.micro .dot{width:5px;height:5px;border-radius:50%;background:var(--primary);transform:rotate(45deg);}
+
+/* ============ HERO ROW ============ */
+.hero{
+  display:grid;grid-template-columns:minmax(0,58fr) minmax(0,42fr);
+  gap:34px;align-items:start;margin-top:8px;
+}
+
+/* ---- gallery (left, tall) ---- */
+.gallery{min-width:0;}
+.well{
+  position:relative;border-radius:var(--radius-lg);overflow:hidden;
+  background:var(--surface-sunken);border:1px solid var(--border-subtle);
+}
+.well::before{ /* radial light */
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(120% 90% at 50% 18%,rgba(216,180,110,.10),transparent 60%);
+}
+.well::after{ /* vignette */
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(130% 120% at 50% 42%,transparent 52%,rgba(16,13,11,.66) 100%);
+}
+.well .fig{position:absolute;inset:0;margin:auto;width:54%;height:auto;}
+.well .fig path{opacity:.18;}
+.well .inscription{
+  position:absolute;left:12px;bottom:10px;z-index:3;
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;
+  color:var(--color-or-pale);opacity:.8;
+}
+.well .kanji-wm{
+  position:absolute;right:10px;bottom:2px;z-index:1;
+  font-family:var(--font-ja);font-size:5rem;color:var(--color-or);opacity:.06;line-height:1;user-select:none;
+}
+
+.main-well{aspect-ratio:4/5;cursor:zoom-in;}
+.main-well .zoom-hint{
+  position:absolute;top:12px;right:12px;z-index:4;
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;color:var(--color-or-pale);
+  border:1px solid var(--border-strong);border-radius:var(--radius-pill);
+  padding:5px 11px;background:rgba(16,13,11,.5);display:inline-flex;gap:6px;align-items:center;
+}
+.main-well .photo-count{
+  position:absolute;top:12px;left:12px;z-index:4;
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;color:var(--on-surface-muted);
+  background:rgba(16,13,11,.5);border:1px solid var(--border-subtle);border-radius:var(--radius-pill);padding:5px 10px;
+}
+
+/* nsfw veil on main when active */
+.main-well.nsfw .veil{
+  position:absolute;inset:0;z-index:5;display:grid;place-items:center;gap:0;
+  background:repeating-linear-gradient(45deg,rgba(16,13,11,.92),rgba(16,13,11,.92) 9px,rgba(33,28,25,.92) 9px,rgba(33,28,25,.92) 18px);
+  text-align:center;
+}
+.main-well .veil-in{display:flex;flex-direction:column;align-items:center;gap:14px;}
+.main-well .veil .lbl{font-family:var(--font-display);font-style:italic;font-size:18px;color:var(--on-surface);}
+.main-well .veil .sub{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.reveal-btn{
+  font-family:var(--font-sans);font-size:12px;letter-spacing:.08em;color:var(--color-or-pale);
+  background:transparent;border:1px solid var(--border-strong);border-radius:var(--radius-pill);
+  padding:9px 18px;cursor:pointer;transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease);min-height:40px;
+}
+.reveal-btn:hover{border-color:var(--color-or);color:var(--on-surface);}
+.main-well.revealed .veil{display:none;}
+
+/* 360 slide as main */
+.main-well.turntable .turn-base{
+  position:absolute;left:50%;bottom:8%;z-index:2;transform:translateX(-50%);
+  width:62%;height:46px;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(216,180,110,.18),transparent 72%);
+  border:1px solid var(--border-subtle);border-bottom-color:var(--border-strong);
+}
+.badge-360{
+  position:absolute;left:50%;bottom:14px;z-index:4;transform:translateX(-50%);white-space:nowrap;
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.08em;color:var(--color-noir-deep);
+  background:linear-gradient(180deg,var(--color-or-pale),var(--color-or));
+  border-radius:var(--radius-pill);padding:8px 16px;display:inline-flex;gap:7px;align-items:center;font-weight:500;
+  box-shadow:var(--elev-2);
+}
+.badge-360 .spin{display:inline-block;animation:spin 4.5s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* filmstrip */
+.filmstrip{display:flex;align-items:stretch;gap:10px;margin-top:12px;}
+.strip-arrow{
+  flex:0 0 auto;width:34px;border:1px solid var(--border-subtle);border-radius:var(--radius-md);
+  background:var(--surface);color:var(--color-or-pale);cursor:pointer;font-size:14px;
+  display:grid;place-items:center;transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease);
+}
+.strip-arrow:hover{border-color:var(--border-strong);background:var(--surface-raised);}
+.thumbs{flex:1;min-width:0;display:flex;gap:10px;overflow:hidden;}
+.thumb{
+  flex:1 1 0;min-width:0;aspect-ratio:4/5;border-radius:var(--radius-md);position:relative;
+  cursor:pointer;overflow:hidden;background:var(--surface-sunken);
+  border:1px solid var(--border-subtle);transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease);
+}
+.thumb:hover{transform:translateY(-2px);border-color:var(--border-strong);}
+.thumb.active{border-color:var(--color-or);}
+.thumb .fig{position:absolute;inset:0;margin:auto;width:56%;}
+.thumb .fig path{opacity:.2;}
+.thumb .tg{position:absolute;inset:0;background:radial-gradient(110% 100% at 50% 25%,rgba(216,180,110,.07),transparent 60%);}
+.thumb.t360{display:grid;place-items:center;gap:3px;}
+.thumb.t360 .ring{font-size:20px;color:var(--color-or);z-index:2;}
+.thumb.t360 .l1{font-family:var(--font-mono);font-size:10px;color:var(--color-or-pale);z-index:2;}
+.thumb.t360 .l2{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--on-surface-subtle);z-index:2;}
+.thumb.tnsfw .fig{filter:blur(5px);}
+.thumb.tnsfw::after{content:"見";position:absolute;inset:0;display:grid;place-items:center;font-family:var(--font-ja);color:var(--color-or-pale);font-size:16px;background:rgba(16,13,11,.4);z-index:2;}
+.thumb.overflow{display:grid;place-items:center;background:var(--surface);}
+.thumb.overflow span{font-family:var(--font-mono);font-size:16px;color:var(--color-or-pale);z-index:2;}
+.thumb.overflow small{font-size:9px;letter-spacing:.1em;color:var(--on-surface-subtle);z-index:2;text-transform:uppercase;}
+
+/* ---- sticky summary rail (right) ---- */
+.rail{
+  position:sticky;top:calc(var(--header-h) + 18px);align-self:start;
+  display:flex;flex-direction:column;gap:18px;min-width:0;
+}
+.rail-id .micro{margin-bottom:12px;}
+.accent-title{
+  font-family:var(--font-display);font-weight:300;font-size:clamp(28px,3vw,40px);
+  line-height:1.06;letter-spacing:-.01em;margin:0;
+}
+.accent-title .first{color:var(--color-laque-bright);font-style:italic;}
+.title-sub{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:12px;}
+.version-chip{
+  font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-or-pale);
+  border:1px solid var(--border);border-radius:var(--radius-pill);padding:4px 12px;
+}
+.type-tag{font-family:var(--font-sans);font-size:12px;color:var(--on-surface-muted);display:inline-flex;gap:6px;align-items:center;}
+.type-tag .ja{font-family:var(--font-ja);color:var(--color-or);}
+.lot-stamp{
+  display:inline-flex;align-items:center;gap:0;margin-top:14px;
+  font-family:var(--font-mono);font-size:10.5px;letter-spacing:.05em;color:var(--color-or-pale);
+  border:1px solid var(--border-strong);border-radius:var(--radius-sm);overflow:hidden;
+  background:repeating-linear-gradient(90deg,transparent,transparent 3px,rgba(216,180,110,.04) 3px,rgba(216,180,110,.04) 4px);
+}
+.lot-stamp span{padding:6px 11px;white-space:nowrap;}
+.lot-stamp .div{padding:0;border-left:1px dashed var(--border-strong);align-self:stretch;}
+.lot-stamp b{color:var(--on-surface-subtle);font-weight:400;}
+
+/* value trio */
+.trio{
+  border:1px solid var(--border);border-radius:var(--radius-lg);
+  background:linear-gradient(180deg,var(--surface),var(--surface-raised));
+  padding:18px 20px 16px;
+}
+.trio-top{display:flex;align-items:baseline;justify-content:space-between;gap:14px;}
+.trio-cote .k{font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.trio-cote .v{
+  font-family:var(--font-display);font-weight:400;font-size:42px;line-height:1;color:var(--color-or);
+  margin-top:4px;font-variant-numeric:tabular-nums oldstyle-nums;
+}
+.spark{flex:0 0 auto;}
+.trio-row{display:flex;gap:22px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border-subtle);}
+.trio-cell .k{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.trio-cell .v{font-family:var(--font-mono);font-size:16px;margin-top:5px;color:var(--on-surface);}
+.gain{color:var(--color-jade);font-family:var(--font-mono);}
+.gain .arr{font-size:.85em;}
+.gain .pct{color:var(--color-jade-deep);}
+
+/* state badge */
+.state-badge{
+  display:inline-flex;align-items:center;gap:9px;align-self:flex-start;
+  font-size:12px;letter-spacing:.06em;color:var(--color-jade);
+  border:1px solid var(--color-jade-deep);border-radius:var(--radius-pill);
+  padding:7px 14px;background:rgba(95,179,154,.06);
+}
+.state-badge .ico{width:7px;height:7px;border-radius:50%;background:var(--color-jade);}
+.state-badge.pre{color:var(--color-or-pale);border-color:var(--border-strong);background:rgba(216,180,110,.05);}
+.state-badge.pre .ico{background:var(--color-or);}
+
+/* primary CTA + icon actions */
+.rail-cta{display:flex;flex-direction:column;gap:12px;}
+.cta-primary{
+  display:flex;align-items:center;justify-content:center;gap:10px;min-height:50px;
+  font-family:var(--font-sans);font-size:14px;font-weight:600;letter-spacing:.04em;cursor:pointer;
+  color:var(--color-ivoire);background:var(--primary);border:1px solid var(--color-laque-bright);
+  border-radius:var(--radius-md);transition:background var(--dur) var(--ease),transform var(--dur) var(--ease);
+}
+.cta-primary:hover{background:var(--primary-hover);transform:translateY(-1px);}
+.cta-primary .ja{font-family:var(--font-ja);font-weight:400;}
+.icon-actions{display:flex;gap:10px;}
+.icon-btn{
+  flex:1;min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  font-size:12px;letter-spacing:.04em;color:var(--on-surface-muted);cursor:pointer;
+  background:transparent;border:1px solid var(--border);border-radius:var(--radius-md);
+  transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease);
+}
+.icon-btn:hover{border-color:var(--border-strong);color:var(--on-surface);}
+.icon-btn.danger:hover{border-color:var(--color-laque-bright);color:var(--color-laque-bright);}
+.rail-note{font-size:11px;color:var(--on-surface-subtle);text-align:center;letter-spacing:.02em;}
+
+/* ============ BODY (full-width single scroll) ============ */
+.body-flow{margin-top:64px;display:flex;flex-direction:column;gap:60px;}
+section{scroll-margin-top:70px;}
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:22px;}
+.sec-head h2{
+  font-family:var(--font-display);font-weight:300;font-size:26px;margin:0;letter-spacing:-.01em;
+}
+.sec-head .ja{font-family:var(--font-ja);color:var(--color-or);opacity:.55;font-size:18px;}
+.sec-head .ln{flex:1;height:1px;background:linear-gradient(90deg,var(--border-strong),transparent);align-self:center;}
+
+/* two-up content grids that still fill width */
+.grid-2{display:grid;grid-template-columns:1.15fr .85fr;gap:44px;align-items:start;}
+.grid-2-even{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:start;}
+
+/* description */
+.lede{font-family:var(--font-display);font-weight:300;font-size:17px;line-height:1.7;color:var(--on-surface-muted);position:relative;}
+.lede .dropcap{
+  float:left;font-family:var(--font-display);font-weight:400;font-style:italic;
+  font-size:62px;line-height:.78;color:var(--color-laque-bright);
+  margin:6px 14px 0 0;
+}
+.desc-more{color:var(--on-surface);max-height:0;overflow:hidden;transition:max-height 400ms var(--ease);}
+.desc-more.open{max-height:420px;}
+.desc-more p{margin:14px 0 0;font-family:var(--font-display);font-weight:300;font-size:16px;line-height:1.7;color:var(--on-surface-muted);}
+.read-more{
+  margin-top:14px;font-family:var(--font-sans);font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--color-or-pale);background:transparent;border:0;border-bottom:1px solid var(--border-strong);
+  padding:4px 0;cursor:pointer;transition:color var(--dur) var(--ease);
+}
+.read-more:hover{color:var(--color-or);}
+
+/* key specs panel */
+.keyspecs{
+  border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);padding:4px 22px;
+}
+.keyspecs .row{display:flex;justify-content:space-between;gap:18px;padding:13px 0;border-bottom:1px solid var(--border-subtle);}
+.keyspecs .row:last-child{border-bottom:0;}
+.keyspecs .k{font-size:12px;letter-spacing:.06em;color:var(--on-surface-subtle);text-transform:uppercase;}
+.keyspecs .v{font-family:var(--font-mono);font-size:13px;color:var(--on-surface);text-align:right;}
+.keyspecs .v .ja{font-family:var(--font-ja);color:var(--color-or);}
+
+/* full grouped specs (disclosure) */
+.spec-disclosure{margin-top:18px;}
+.disc-toggle{
+  width:100%;display:flex;align-items:center;justify-content:space-between;
+  font-family:var(--font-sans);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-or-pale);
+  background:transparent;border:1px dashed var(--border-strong);border-radius:var(--radius-md);
+  padding:13px 16px;cursor:pointer;min-height:46px;transition:border-color var(--dur) var(--ease);
+}
+.disc-toggle:hover{border-color:var(--color-or);}
+.disc-toggle .chev{transition:transform var(--dur) var(--ease);font-family:var(--font-mono);}
+.disc-toggle[aria-expanded="true"] .chev{transform:rotate(180deg);}
+.disc-body{max-height:0;overflow:hidden;transition:max-height 480ms var(--ease);}
+.disc-body.open{max-height:1200px;}
+.spec-groups{display:grid;grid-template-columns:repeat(3,1fr);gap:34px;padding-top:26px;}
+.spec-group h3{
+  font-family:var(--font-sans);font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--color-or-pale);margin:0 0 6px;display:flex;align-items:center;gap:8px;
+}
+.spec-group h3 .dot{width:5px;height:5px;background:var(--primary);transform:rotate(45deg);}
+.spec-group dl{margin:0;}
+.spec-group .pair{display:flex;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid var(--border-subtle);}
+.spec-group dt{font-size:12px;color:var(--on-surface-subtle);}
+.spec-group dd{margin:0;font-family:var(--font-mono);font-size:12.5px;color:var(--on-surface);text-align:right;}
+
+/* value & history full chart */
+.chart-card{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);padding:22px 24px;}
+.chart-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:6px;}
+.chart-head .now{font-family:var(--font-display);font-size:30px;color:var(--color-or);}
+.chart-head .delta{font-family:var(--font-mono);font-size:13px;}
+.chart-svg{width:100%;height:auto;display:block;}
+.legend{display:flex;gap:24px;margin-top:6px;font-size:11px;color:var(--on-surface-subtle);letter-spacing:.04em;}
+.legend i{display:inline-block;width:14px;height:2px;vertical-align:middle;margin-right:7px;}
+.legend .jl i{background:var(--color-jade);}
+.legend .gl i{background:var(--color-or);}
+
+/* value side stack */
+.vstack{display:flex;flex-direction:column;gap:14px;}
+.stat-line{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--border-subtle);padding-bottom:12px;}
+.stat-line .k{font-size:12px;color:var(--on-surface-subtle);letter-spacing:.04em;}
+.stat-line .v{font-family:var(--font-mono);font-size:18px;}
+.stat-line .v.or{color:var(--color-or);}
+
+/* pre-order */
+.preorder-card{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface);padding:24px;}
+.dep-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:11px;}
+.dep-head .amt{font-family:var(--font-mono);font-size:14px;color:var(--on-surface);}
+.dep-head .amt b{color:var(--color-or);font-weight:400;}
+.dep-head .pctlab{font-family:var(--font-mono);font-size:12px;color:var(--on-surface-subtle);}
+.dep-bar{height:12px;border-radius:var(--radius-pill);background:var(--surface-sunken);border:1px solid var(--border-subtle);overflow:hidden;position:relative;}
+.dep-fill{height:100%;width:12.4%;background:linear-gradient(90deg,var(--color-or-deep),var(--color-or));border-radius:var(--radius-pill);}
+.dep-meta{display:flex;flex-wrap:wrap;gap:8px 22px;margin-top:14px;font-size:12.5px;color:var(--on-surface-muted);}
+.dep-meta b{color:var(--on-surface);font-family:var(--font-mono);}
+.dep-next{margin-top:18px;padding:12px 14px;border:1px solid var(--border);border-left:2px solid var(--color-laque);border-radius:var(--radius-md);background:var(--surface-raised);display:flex;justify-content:space-between;align-items:center;gap:14px;}
+.dep-next .lab{font-size:12px;color:var(--on-surface-subtle);letter-spacing:.04em;}
+.dep-next .val{font-family:var(--font-mono);font-size:15px;color:var(--on-surface);}
+.dep-next .val small{color:var(--on-surface-subtle);font-size:11px;}
+.nonref{margin-top:10px;font-size:11px;color:var(--on-surface-subtle);font-style:italic;}
+
+/* release-slip timeline */
+.timeline{margin-top:4px;}
+.tl-title{font-family:var(--font-sans);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--color-or-pale);margin-bottom:16px;}
+.tl{list-style:none;margin:0;padding:0;position:relative;}
+.tl::before{content:"";position:absolute;left:7px;top:5px;bottom:5px;width:1px;background:linear-gradient(180deg,var(--color-or),var(--border-subtle));}
+.tl li{position:relative;padding:0 0 20px 28px;}
+.tl li:last-child{padding-bottom:0;}
+.tl .node{position:absolute;left:1px;top:3px;width:13px;height:13px;border-radius:50%;background:var(--surface-sunken);border:1px solid var(--border-strong);}
+.tl li.cur .node{background:var(--color-or);border-color:var(--color-or);box-shadow:0 0 0 3px rgba(216,180,110,.18);}
+.tl li.done .node{background:var(--color-jade-deep);border-color:var(--color-jade);}
+.tl .date{font-family:var(--font-mono);font-size:12px;color:var(--on-surface);}
+.tl .date.struck{text-decoration:line-through;color:var(--on-surface-subtle);text-decoration-color:var(--color-laque-bright);}
+.tl .lab{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--on-surface-subtle);margin-top:2px;}
+.tl .tag-delay{color:var(--color-laque-bright);font-size:10px;letter-spacing:.12em;text-transform:uppercase;}
+.tl .tag-cur{color:var(--color-or-pale);}
+.tl-stages{display:flex;flex-wrap:wrap;gap:6px;margin-top:18px;}
+.stage-chip{font-size:10.5px;letter-spacing:.06em;color:var(--on-surface-subtle);border:1px solid var(--border-subtle);border-radius:var(--radius-pill);padding:5px 11px;}
+.stage-chip.on{color:var(--color-or-pale);border-color:var(--border-strong);background:rgba(216,180,110,.05);}
+
+/* boutiques */
+.shops{display:flex;flex-direction:column;gap:0;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;}
+.shop{display:flex;align-items:center;gap:16px;padding:16px 20px;border-bottom:1px solid var(--border-subtle);transition:background var(--dur) var(--ease);}
+.shop:last-child{border-bottom:0;}
+.shop:hover{background:var(--surface);}
+.shop .name{font-family:var(--font-display);font-size:17px;flex:1;}
+.shop .price{font-family:var(--font-mono);font-size:14px;color:var(--color-or);}
+.shop .go{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-or-pale);border:1px solid var(--border-strong);border-radius:var(--radius-pill);padding:7px 15px;min-height:38px;display:inline-flex;align-items:center;transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease);}
+.shop .go:hover{border-color:var(--color-or);color:var(--on-surface);}
+
+/* tags */
+.tags{display:flex;flex-wrap:wrap;gap:10px;}
+.tag{font-size:12.5px;letter-spacing:.02em;color:var(--on-surface-muted);border:1px solid var(--border);border-radius:var(--radius-pill);padding:8px 15px;transition:border-color var(--dur) var(--ease),color var(--dur) var(--ease);cursor:pointer;}
+.tag::before{content:"#";color:var(--color-or-deep);margin-right:3px;}
+.tag:hover{border-color:var(--border-strong);color:var(--on-surface);}
+
+/* ===== Ma copie owner block (separated) ===== */
+.owner{position:relative;border:1px solid var(--border-strong);border-radius:var(--radius-xl);background:linear-gradient(180deg,var(--surface),var(--surface-raised));padding:32px 34px 34px;overflow:hidden;}
+.owner .kanji-wm{position:absolute;right:18px;top:-22px;font-family:var(--font-ja);font-size:11rem;color:var(--color-or);opacity:.05;line-height:1;user-select:none;z-index:0;}
+.owner > *{position:relative;z-index:1;}
+.owner-head{display:flex;align-items:center;gap:14px;margin-bottom:6px;}
+.owner-head .seal{font-family:var(--font-ja);font-size:15px;color:var(--color-ivoire);background:var(--primary);border-radius:var(--radius-sm);width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--color-laque-bright);}
+.owner-head h2{font-family:var(--font-display);font-weight:300;font-size:24px;margin:0;}
+.owner-head .tag{margin-left:auto;cursor:default;}
+.owner-grid{display:grid;grid-template-columns:1.1fr 1fr;gap:34px;margin-top:20px;align-items:start;}
+.owner dl{margin:0;}
+.owner .pair{display:flex;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid var(--border-subtle);}
+.owner dt{font-size:12px;letter-spacing:.04em;color:var(--on-surface-subtle);}
+.owner dd{margin:0;font-family:var(--font-mono);font-size:13px;color:var(--on-surface);text-align:right;}
+.owner dd .mib{color:var(--color-jade);}
+.owner dd .or{color:var(--color-or);}
+.sub-label{font-family:var(--font-sans);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--color-or-pale);margin:0 0 12px;display:flex;align-items:center;gap:8px;}
+.sub-label .dot{width:5px;height:5px;background:var(--primary);transform:rotate(45deg);}
+.docs{display:flex;flex-direction:column;gap:9px;margin-bottom:22px;}
+.doc{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--border);border-radius:var(--radius-md);transition:border-color var(--dur) var(--ease);}
+.doc:hover{border-color:var(--border-strong);}
+.doc .ic{font-family:var(--font-mono);font-size:10px;color:var(--color-laque-bright);border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:3px 6px;letter-spacing:.06em;}
+.doc .dn{flex:1;font-size:13px;color:var(--on-surface);}
+.doc .dl{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.my-photos{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+.my-photos .cover{grid-column:span 2;grid-row:span 2;}
+.mp{position:relative;aspect-ratio:4/5;border-radius:var(--radius-md);overflow:hidden;background:var(--surface-sunken);border:1px solid var(--border-subtle);}
+.mp .fig{position:absolute;inset:0;margin:auto;width:58%;}
+.mp .fig path{opacity:.16;}
+.mp .tg{position:absolute;inset:0;background:radial-gradient(110% 100% at 50% 25%,rgba(216,180,110,.06),transparent 60%);}
+.mp.cover::after{content:"COUVERTURE";position:absolute;left:8px;bottom:8px;font-family:var(--font-mono);font-size:9px;letter-spacing:.12em;color:var(--color-noir-deep);background:var(--color-or);border-radius:var(--radius-sm);padding:3px 7px;}
+
+/* 360 plate (full width) */
+.plate360{position:relative;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--surface-sunken);overflow:hidden;height:380px;}
+.plate360::before{content:"";position:absolute;inset:0;background:radial-gradient(90% 120% at 50% 15%,rgba(216,180,110,.10),transparent 55%);}
+.plate360 .fig{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);height:64%;}
+.plate360 .fig path{opacity:.2;}
+.plate360 .base{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);width:300px;height:60px;border-radius:50%;background:radial-gradient(closest-side,rgba(216,180,110,.16),transparent 72%);border:1px solid var(--border-subtle);border-bottom-color:var(--border-strong);}
+.plate360 .kanji-wm{position:absolute;right:24px;bottom:0;font-family:var(--font-ja);font-size:8rem;color:var(--color-or);opacity:.06;}
+.plate360 .hint{position:absolute;top:16px;left:16px;font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;color:var(--on-surface-subtle);}
+
+/* similar */
+.similar-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;}
+.sim-card{display:flex;flex-direction:column;gap:0;cursor:pointer;}
+.sim-well{position:relative;aspect-ratio:4/5;border-radius:var(--radius-lg);overflow:hidden;background:var(--surface-sunken);border:1px solid var(--border-subtle);transition:border-color var(--dur) var(--ease),transform var(--dur) var(--ease);}
+.sim-card:hover .sim-well{transform:translateY(-3px);border-color:var(--border-strong);}
+.sim-well .fig{position:absolute;inset:0;margin:auto;width:54%;}
+.sim-well .fig path{opacity:.18;}
+.sim-well .tg{position:absolute;inset:0;background:radial-gradient(110% 100% at 50% 22%,rgba(216,180,110,.07),transparent 60%);}
+.sim-well .match{position:absolute;top:10px;right:10px;font-family:var(--font-mono);font-size:10px;letter-spacing:.04em;color:var(--color-jade);border:1px solid var(--color-jade-deep);border-radius:var(--radius-pill);padding:3px 8px;background:rgba(16,13,11,.5);}
+.sim-meta{padding:12px 2px 0;}
+.sim-meta .nm{font-family:var(--font-display);font-size:16px;line-height:1.15;}
+.sim-meta .nm .first{color:var(--color-laque-bright);font-style:italic;}
+.sim-meta .sub{font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);margin-top:4px;letter-spacing:.02em;}
+
+footer{margin-top:72px;padding-top:26px;border-top:1px solid var(--border-subtle);display:flex;justify-content:space-between;align-items:center;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--on-surface-subtle);}
+footer .ja{font-family:var(--font-ja);color:var(--color-or-deep);}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width:1024px){
+  .hero{grid-template-columns:1fr;gap:28px;}
+  .rail{position:static;top:auto;}
+  .grid-2,.grid-2-even{grid-template-columns:1fr;gap:30px;}
+  .spec-groups{grid-template-columns:1fr;gap:26px;}
+  .owner-grid{grid-template-columns:1fr;gap:26px;}
+  .similar-grid{grid-template-columns:repeat(2,1fr);}
+  /* mobile priority reorder: gallery → value/CTA stays via DOM order (rail already after gallery) */
+}
+@media (max-width:640px){
+  .shell{padding:0 16px 64px;}
+  .topbar{padding:0 16px;gap:14px;}
+  .topbar nav{display:none;}
+  .filmstrip{gap:7px;}
+  .thumbs{gap:7px;}
+  .accent-title{font-size:30px;}
+  .trio-top{flex-direction:column;align-items:flex-start;gap:14px;}
+  .my-photos{grid-template-columns:repeat(2,1fr);}
+  .my-photos .cover{grid-column:span 2;grid-row:span 1;aspect-ratio:16/10;}
+  .similar-grid{grid-template-columns:1fr;}
+  .body-flow{gap:48px;margin-top:48px;}
+  .owner{padding:24px 18px;}
+  .plate360{height:300px;}
+}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition:none!important;scroll-behavior:auto!important;}
+}
+</style>
+
+<div class="dir-label"><b>①</b> L'ÉTABLI · sticky summary rail</div>
+
+<!-- reusable silhouettes -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="fig-scale" viewBox="0 0 100 160">
+    <path fill="var(--color-or)" d="M50 16 C44 16 41 22 42 29 C43 35 47 38 50 38 C53 38 57 35 58 29 C59 22 56 16 50 16 Z"/>
+    <path fill="var(--color-or)" d="M50 40 C40 40 33 52 34 70 C35 84 38 96 36 116 C35 130 33 142 38 150 L62 150 C67 142 65 130 64 116 C62 96 65 84 66 70 C67 52 60 40 50 40 Z"/>
+    <path fill="var(--color-or)" d="M34 64 C26 70 22 92 28 108 C30 92 33 78 40 70 Z"/>
+    <path fill="var(--color-or)" d="M66 64 C74 70 80 86 76 104 C72 90 67 78 60 70 Z"/>
+    <path fill="var(--color-or)" d="M50 14 C40 12 30 18 26 30 C36 24 44 22 50 23 C56 22 64 24 74 30 C70 18 60 12 50 14 Z"/>
+  </symbol>
+  <symbol id="fig-action" viewBox="0 0 100 160">
+    <path fill="var(--color-or)" d="M52 16 C46 16 43 22 44 28 C45 34 49 37 52 37 C55 37 59 34 60 28 C61 22 58 16 52 16 Z"/>
+    <path fill="var(--color-or)" d="M46 38 C37 40 33 56 38 76 L34 112 L26 146 L40 148 L48 116 L50 100 L58 124 L72 116 L56 86 C58 68 56 42 46 38 Z"/>
+    <path fill="var(--color-or)" d="M48 56 L80 34 L86 44 L54 70 Z"/>
+    <path fill="var(--color-or)" d="M30 60 C22 66 22 84 30 92 C30 78 36 68 44 62 Z"/>
+  </symbol>
+  <symbol id="fig-elegant" viewBox="0 0 100 160">
+    <path fill="var(--color-or)" d="M50 18 C45 18 42 23 43 29 C44 35 48 37 50 37 C52 37 56 35 57 29 C58 23 55 18 50 18 Z"/>
+    <path fill="var(--color-or)" d="M50 38 C42 38 37 48 38 64 C39 78 40 92 36 112 C32 132 34 146 42 150 L58 150 C66 146 68 132 64 112 C60 92 61 78 62 64 C63 48 58 38 50 38 Z"/>
+    <path fill="var(--color-or)" d="M40 60 C30 70 28 96 34 120 C34 96 38 76 46 66 Z"/>
+    <path fill="var(--color-or)" d="M60 60 C70 70 72 96 66 120 C66 96 62 76 54 66 Z"/>
+  </symbol>
+</svg>
+
+<header class="topbar">
+  <a class="brand" href="#"><span class="ja">像</span><b>Figure</b>Collector</a>
+  <nav>
+    <a href="#"><span class="ja">目</span>Catalogue</a>
+    <a href="#"><span class="ja">棚</span>Ma collection</a>
+    <a href="#"><span class="ja">心</span>Souhaits</a>
+  </nav>
+  <span class="spacer" style="flex:1"></span>
+  <span class="acct">朱</span>
+</header>
+
+<div class="shell">
+
+  <nav class="crumbs" aria-label="Fil d'Ariane">
+    <a href="#">Catalogue</a><span class="sep">›</span>
+    <a href="#">One Punch Man</a><span class="sep">›</span>
+    <span class="cur">Tatsumaki VS Tentacle</span>
+  </nav>
+
+  <!-- ================= HERO ROW ================= -->
+  <div class="hero">
+
+    <!-- ===== LEFT: gallery (tall) ===== -->
+    <div class="gallery">
+      <div class="main-well nsfw" id="mainWell">
+        <span class="photo-count">Nº 1 / 24</span>
+        <span class="zoom-hint">⤢ agrandir</span>
+        <svg class="fig" viewBox="0 0 100 160" aria-label="Visuel figurine"><use href="#fig-action"/></svg>
+        <span class="inscription">Nº 019E5BF9 · 1/24</span>
+        <span class="kanji-wm">彫</span>
+        <div class="veil">
+          <div class="veil-in">
+            <div class="lbl">Contenu sensible</div>
+            <div class="sub">NSFW · masqué par défaut</div>
+            <button class="reveal-btn" onclick="document.getElementById('mainWell').classList.add('revealed')">Révéler le visuel</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="filmstrip">
+        <button class="strip-arrow" aria-label="Précédent">‹</button>
+        <div class="thumbs">
+          <button class="thumb active" aria-label="Photo 1" onclick="swap(this,'fig-action')"><div class="tg"></div><svg class="fig" viewBox="0 0 100 160"><use href="#fig-action"/></svg></button>
+          <button class="thumb" aria-label="Photo 2" onclick="swap(this,'fig-scale')"><div class="tg"></div><svg class="fig" viewBox="0 0 100 160"><use href="#fig-scale"/></svg></button>
+          <button class="thumb tnsfw" aria-label="Photo 3 — sensible" onclick="swap(this,'fig-elegant')"><div class="tg"></div><svg class="fig" viewBox="0 0 100 160"><use href="#fig-elegant"/></svg></button>
+          <button class="thumb t360" aria-label="Vue 360°" onclick="document.getElementById('vue360').scrollIntoView()"><span class="ring">⟳</span><span class="l1">360°</span><span class="l2">glisser</span></button>
+          <button class="thumb" aria-label="Photo 5" onclick="swap(this,'fig-elegant')"><div class="tg"></div><svg class="fig" viewBox="0 0 100 160"><use href="#fig-elegant"/></svg></button>
+          <button class="thumb overflow" aria-label="18 photos de plus"><span>+18</span><small>photos</small></button>
+        </div>
+        <button class="strip-arrow" aria-label="Suivant">›</button>
+      </div>
+    </div>
+
+    <!-- ===== RIGHT: sticky summary rail (SHORT) ===== -->
+    <aside class="rail" aria-label="Résumé">
+      <div class="rail-id">
+        <span class="micro"><span class="ja">彫</span><span class="dot"></span> One Punch Man · CROWN Studio</span>
+        <h1 class="accent-title"><span class="first">CROWN</span> Studio — Tatsumaki VS Tentacle</h1>
+        <div class="title-sub">
+          <span class="version-chip">Standard Version</span>
+          <span class="type-tag"><span class="ja">彫</span> GK Statue · 1/6</span>
+        </div>
+        <div class="lot-stamp">
+          <span>LOT Nº <b>019E5BF9</b></span>
+          <span class="div"></span>
+          <span>TYPE <b>Statue</b></span>
+          <span class="div"></span>
+          <span>ÉD. <b>499 ex</b></span>
+        </div>
+      </div>
+
+      <!-- VALUE TRIO -->
+      <div class="trio">
+        <div class="trio-top">
+          <div class="trio-cote">
+            <div class="k">Cote actuelle</div>
+            <div class="v tnum">310,00&nbsp;€</div>
+          </div>
+          <svg class="spark" width="118" height="46" viewBox="0 0 118 46" aria-label="Tendance des prix, en hausse">
+            <polyline fill="none" stroke="var(--color-or)" stroke-width="1" stroke-dasharray="2 3" opacity=".4" points="2,28 116,28"/>
+            <polyline fill="none" stroke="var(--color-jade)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              points="2,30 25,27 48,20 71,25 94,9 116,4"/>
+            <circle cx="116" cy="4" r="3" fill="var(--color-jade)"/>
+          </svg>
+        </div>
+        <div class="trio-row">
+          <div class="trio-cell">
+            <div class="k">Payé</div>
+            <div class="v tnum">242,37&nbsp;€</div>
+          </div>
+          <div class="trio-cell">
+            <div class="k">Plus-value</div>
+            <div class="v gain tnum"><span class="arr">▲</span> +67,63&nbsp;€ <span class="pct">(+27,9 %)</span></div>
+          </div>
+        </div>
+      </div>
+
+      <span class="state-badge"><span class="ico"></span>Dans ta collection · MIB scellée</span>
+
+      <div class="rail-cta">
+        <button class="cta-primary"><span class="ja">編</span> Éditer ma pièce</button>
+        <div class="icon-actions">
+          <button class="icon-btn" aria-label="Partager">↗ Partager</button>
+          <button class="icon-btn" aria-label="Éditer la fiche">✎ Fiche</button>
+          <button class="icon-btn danger" aria-label="Supprimer">⌫ Retirer</button>
+        </div>
+        <p class="rail-note">Acquise le 24/05/2026 · boutique ORZGK</p>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ================= BODY FLOW ================= -->
+  <div class="body-flow">
+
+    <!-- description + key specs -->
+    <section id="desc">
+      <div class="sec-head"><span class="ja">説</span><h2>Description &amp; fiche technique</h2><span class="ln"></span></div>
+      <div class="grid-2">
+        <div>
+          <p class="lede">
+            <span class="dropcap">T</span>atsumaki, la Tornade de Terreur, suspendue à mi-vol dans une spirale de débris et de tentacules — CROWN Studio condense ici toute la tension psychokinétique du personnage dans une composition verticale audacieuse.
+          </p>
+          <div class="desc-more" id="descMore">
+            <p>Le sculpteur Yuki Anami soigne le drapé flottant de la robe et le translucide des appendices, tandis que le socle orné reprend les motifs de l'Association des Héros. Tirage limité à 499 exemplaires numérotés, certificat d'authenticité inclus.</p>
+            <p>Matériaux PVC, ABS et résine pour les pièces fines. Hauteur totale 290 mm socle compris. Échelle 1/6 fidèle aux proportions de l'œuvre.</p>
+          </div>
+          <button class="read-more" id="readMore" aria-expanded="false" aria-controls="descMore" onclick="toggleDesc(this)">Lire la suite +</button>
+        </div>
+        <div>
+          <div class="keyspecs" aria-label="Spécifications clés">
+            <div class="row"><span class="k">Fabricant</span><span class="v">CROWN Studio</span></div>
+            <div class="row"><span class="k">Série</span><span class="v">One Punch Man</span></div>
+            <div class="row"><span class="k">Personnage</span><span class="v">Tatsumaki</span></div>
+            <div class="row"><span class="k">Échelle</span><span class="v">1/6</span></div>
+          </div>
+
+          <div class="spec-disclosure">
+            <button class="disc-toggle" aria-expanded="false" aria-controls="specGroups" onclick="toggleSpecs(this)">
+              <span>Voir toutes les spécifications</span><span class="chev">▾</span>
+            </button>
+            <div class="disc-body" id="specGroups">
+              <div class="spec-groups">
+                <div class="spec-group">
+                  <h3><span class="dot"></span>Identité</h3>
+                  <dl>
+                    <div class="pair"><dt>Fabricant</dt><dd>CROWN Studio</dd></div>
+                    <div class="pair"><dt>Série</dt><dd>One Punch Man</dd></div>
+                    <div class="pair"><dt>Personnage</dt><dd>Tatsumaki</dd></div>
+                    <div class="pair"><dt>Sculpteur</dt><dd>Yuki Anami</dd></div>
+                  </dl>
+                </div>
+                <div class="spec-group">
+                  <h3><span class="dot"></span>Physique</h3>
+                  <dl>
+                    <div class="pair"><dt>Échelle</dt><dd>1/6</dd></div>
+                    <div class="pair"><dt>Hauteur</dt><dd>290 mm</dd></div>
+                    <div class="pair"><dt>Matériaux</dt><dd>PVC · ABS · résine</dd></div>
+                    <div class="pair"><dt>Type</dt><dd>GK Statue</dd></div>
+                  </dl>
+                </div>
+                <div class="spec-group">
+                  <h3><span class="dot"></span>Catalogue</h3>
+                  <dl>
+                    <div class="pair"><dt>Édition</dt><dd>limitée 499 ex</dd></div>
+                    <div class="pair"><dt>Sortie</dt><dd>1 déc. 2027</dd></div>
+                    <div class="pair"><dt>JAN/EAN</dt><dd>4580416 925501</dd></div>
+                    <div class="pair"><dt>Prix public</dt><dd>332,37 €</dd></div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="gold-rule">
+
+    <!-- valeur & historique -->
+    <section id="valeur">
+      <div class="sec-head"><span class="ja">価</span><h2>Valeur &amp; historique</h2><span class="ln"></span></div>
+      <div class="grid-2">
+        <div class="chart-card">
+          <div class="chart-head">
+            <div>
+              <div class="k" style="font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--on-surface-subtle)">Cote actuelle</div>
+              <div class="now tnum">310,00&nbsp;€</div>
+            </div>
+            <div class="delta gain tnum"><span class="arr">▲</span> +67,63 € <span class="pct">(+27,9 %)</span> · ~10 mois</div>
+          </div>
+          <svg class="chart-svg" viewBox="0 0 520 200" preserveAspectRatio="none" aria-label="Historique de prix sur 6 points">
+            <!-- gridlines -->
+            <g stroke="var(--border-subtle)" stroke-width="1">
+              <line x1="40" y1="20" x2="510" y2="20"/>
+              <line x1="40" y1="70" x2="510" y2="70"/>
+              <line x1="40" y1="120" x2="510" y2="120"/>
+              <line x1="40" y1="170" x2="510" y2="170"/>
+            </g>
+            <!-- baseline (paid) -->
+            <line x1="40" y1="125" x2="510" y2="125" stroke="var(--color-or)" stroke-width="1" stroke-dasharray="3 4" opacity=".55"/>
+            <!-- area -->
+            <polygon fill="var(--color-jade)" opacity=".10"
+              points="40,128 134,118 228,99 322,108 416,55 510,30 510,170 40,170"/>
+            <!-- line -->
+            <polyline fill="none" stroke="var(--color-jade)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+              points="40,128 134,118 228,99 322,108 416,55 510,30"/>
+            <!-- points -->
+            <g fill="var(--color-noir)" stroke="var(--color-jade)" stroke-width="2">
+              <circle cx="40" cy="128" r="3.5"/><circle cx="134" cy="118" r="3.5"/><circle cx="228" cy="99" r="3.5"/>
+              <circle cx="322" cy="108" r="3.5"/><circle cx="416" cy="55" r="3.5"/>
+            </g>
+            <circle cx="510" cy="30" r="4.5" fill="var(--color-jade)"/>
+            <!-- y ticks -->
+            <g fill="var(--on-surface-subtle)" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="end">
+              <text x="34" y="24">320</text><text x="34" y="74">290</text><text x="34" y="124">260</text><text x="34" y="174">240</text>
+            </g>
+            <!-- value labels -->
+            <g fill="var(--color-ivoire)" font-family="JetBrains Mono, monospace" font-size="10" text-anchor="middle">
+              <text x="40" y="146">242</text><text x="134" y="136">250</text><text x="228" y="89">268</text>
+              <text x="322" y="126">255</text><text x="416" y="45">290</text>
+              <text x="510" y="22" fill="var(--color-jade)">310</text>
+            </g>
+          </svg>
+          <div class="legend">
+            <span class="jl"><i></i>Cote estimée</span>
+            <span class="gl"><i></i>Prix payé (242,37 €)</span>
+          </div>
+        </div>
+        <div class="vstack">
+          <div class="stat-line"><span class="k">Prix payé (figé à l'achat)</span><span class="v tnum">242,37&nbsp;€</span></div>
+          <div class="stat-line"><span class="k">Cote actuelle</span><span class="v or tnum">310,00&nbsp;€</span></div>
+          <div class="stat-line"><span class="k">Plus-value latente</span><span class="v gain tnum"><span class="arr">▲</span> +67,63&nbsp;€</span></div>
+          <div class="stat-line"><span class="k">Rendement</span><span class="v gain tnum"><span class="arr">▲</span> +27,9&nbsp;%</span></div>
+          <div class="stat-line" style="border-bottom:0"><span class="k">Prix public (MSRP)</span><span class="v tnum">332,37&nbsp;€</span></div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="gold-rule">
+
+    <!-- pré-commande -->
+    <section id="precommande">
+      <div class="sec-head"><span class="ja">予</span><h2>Pré-commande</h2><span class="ln"></span></div>
+      <div class="grid-2-even">
+        <div class="preorder-card">
+          <div class="dep-head">
+            <span class="amt"><b>30,00 €</b> versés sur 242,37 €</span>
+            <span class="pctlab tnum">≈ 12 %</span>
+          </div>
+          <div class="dep-bar" role="progressbar" aria-valuenow="12" aria-valuemin="0" aria-valuemax="100" aria-label="Acompte versé"><div class="dep-fill"></div></div>
+          <div class="dep-meta">
+            <span>Solde restant <b class="tnum">212,37 €</b></span>
+            <span>Acompte <b class="tnum">30,00 €</b></span>
+          </div>
+          <div class="dep-next">
+            <span class="lab">Prochain prélèvement</span>
+            <span class="val tnum">90,00 € <small>· le 1 oct. 2027</small></span>
+          </div>
+          <p class="nonref">L'acompte de 30 € est non-remboursable.</p>
+        </div>
+
+        <div class="preorder-card timeline">
+          <div class="tl-title">Bordereau de sortie</div>
+          <ul class="tl">
+            <li class="cur">
+              <span class="node"></span>
+              <span class="date">1 déc. 2027</span>
+              <div class="lab"><span class="tag-delay">⚑ Retardée</span> · sortie actuelle</div>
+            </li>
+            <li class="done">
+              <span class="node"></span>
+              <span class="date struck">1 sept. 2027</span>
+              <div class="lab">Annoncée · date d'origine</div>
+            </li>
+          </ul>
+          <div class="tl-stages" aria-label="Étapes">
+            <span class="stage-chip on">Annoncée</span>
+            <span class="stage-chip on">Pré-commande</span>
+            <span class="stage-chip on">En production</span>
+            <span class="stage-chip">Expédiée</span>
+            <span class="stage-chip">En main</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="gold-rule">
+
+    <!-- boutiques + tags -->
+    <section id="boutiques">
+      <div class="grid-2">
+        <div>
+          <div class="sec-head"><span class="ja">店</span><h2>Acheter chez…</h2><span class="ln"></span></div>
+          <div class="shops">
+            <div class="shop"><span class="name">ORZGK</span><span class="price tnum">242,37 €</span><a href="#" class="go">Acheter</a></div>
+            <div class="shop"><span class="name">Nin-Nin Game</span><span class="price tnum">259,90 €</span><a href="#" class="go">Voir</a></div>
+            <div class="shop"><span class="name">AmiAmi</span><span class="price tnum">248,00 €</span><a href="#" class="go">Voir</a></div>
+          </div>
+        </div>
+        <div>
+          <div class="sec-head"><span class="ja">標</span><h2>Tags</h2><span class="ln"></span></div>
+          <div class="tags">
+            <span class="tag">tentacules</span>
+            <span class="tag">dynamique</span>
+            <span class="tag">buste-détaillé</span>
+            <span class="tag">socle-orné</span>
+            <span class="tag">cheveux-flottants</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="gold-rule">
+
+    <!-- ===== Ma copie (separated owner block) ===== -->
+    <section id="macopie">
+      <div class="owner">
+        <span class="kanji-wm" aria-hidden="true">私</span>
+        <div class="owner-head">
+          <span class="seal">私</span>
+          <h2>Ma copie</h2>
+          <span class="tag state-badge" style="margin-left:auto;cursor:default"><span class="ico"></span>MIB · scellée</span>
+        </div>
+        <div class="owner-grid">
+          <dl>
+            <div class="pair"><dt>État</dt><dd><span class="mib">MIB · scellée</span></dd></div>
+            <div class="pair"><dt>Boutique</dt><dd>ORZGK</dd></div>
+            <div class="pair"><dt>Emplacement</dt><dd>chambre</dd></div>
+            <div class="pair"><dt>Date d'achat</dt><dd>24/05/2026</dd></div>
+            <div class="pair"><dt>Prix payé</dt><dd><span class="or">242,37 €</span></dd></div>
+            <div class="pair"><dt>Notes</dt><dd style="color:var(--on-surface-subtle)">—</dd></div>
+          </dl>
+          <div>
+            <p class="sub-label"><span class="dot"></span>Justificatifs</p>
+            <div class="docs">
+              <div class="doc"><span class="ic">PDF</span><span class="dn">Facture ORZGK</span><a href="#" class="dl">Ouvrir</a></div>
+              <div class="doc"><span class="ic">PDF</span><span class="dn">Bordereau douane</span><a href="#" class="dl">Ouvrir</a></div>
+            </div>
+            <p class="sub-label"><span class="dot"></span>Mes photos &amp; couverture</p>
+            <div class="my-photos">
+              <div class="mp cover"><div class="tg"></div><svg class="fig" viewBox="0 0 100 160"><use href="#fig-action"/></svg></div>
+              <div class="mp"><div class="tg"></div><svg class="fig" viewBox="0 0 100 160"><use href="#fig-scale"/></svg></div>
+              <div class="mp"><div class="tg"></div><svg class="fig" viewBox="0 0 100 160"><use href="#fig-elegant"/></svg></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <hr class="gold-rule">
+
+    <!-- ===== Vue 360 (full-width plate) ===== -->
+    <section id="vue360">
+      <div class="sec-head"><span class="ja">転</span><h2>Vue 360°</h2><span class="ln"></span></div>
+      <div class="plate360">
+        <span class="hint">⟳ autorotation</span>
+        <span class="kanji-wm" aria-hidden="true">転</span>
+        <svg class="fig" viewBox="0 0 100 160"><use href="#fig-action"/></svg>
+        <div class="base"></div>
+        <div class="badge-360"><span class="spin">⟳</span> 360° · glisser pour pivoter</div>
+      </div>
+    </section>
+
+    <hr class="gold-rule">
+
+    <!-- ===== Figurines proches ===== -->
+    <section id="proches">
+      <div class="sec-head"><span class="ja">近</span><h2>Figurines proches</h2><span class="ln"></span></div>
+      <div class="similar-grid">
+        <article class="sim-card">
+          <div class="sim-well"><div class="tg"></div><span class="match tnum">92 %</span><svg class="fig" viewBox="0 0 100 160"><use href="#fig-elegant"/></svg></div>
+          <div class="sim-meta"><div class="nm"><span class="first">CROWN</span> — Eris Greyrat</div><div class="sub">1/6 · CROWN Studio</div></div>
+        </article>
+        <article class="sim-card">
+          <div class="sim-well"><div class="tg"></div><span class="match tnum">88 %</span><svg class="fig" viewBox="0 0 100 160"><use href="#fig-scale"/></svg></div>
+          <div class="sim-meta"><div class="nm"><span class="first">Native</span> — Nure Megami</div><div class="sub">1/6 · Native</div></div>
+        </article>
+        <article class="sim-card">
+          <div class="sim-well"><div class="tg"></div><span class="match tnum">85 %</span><svg class="fig" viewBox="0 0 100 160"><use href="#fig-scale"/></svg></div>
+          <div class="sim-meta"><div class="nm"><span class="first">Orca</span> Toys — Albedo</div><div class="sub">1/7 · Orca Toys</div></div>
+        </article>
+        <article class="sim-card">
+          <div class="sim-well"><div class="tg"></div><span class="match tnum">81 %</span><svg class="fig" viewBox="0 0 100 160"><use href="#fig-action"/></svg></div>
+          <div class="sim-meta"><div class="nm"><span class="first">Kaitendo</span> — Rias</div><div class="sub">1/6 · Kaitendo</div></div>
+        </article>
+      </div>
+    </section>
+
+  </div><!-- /body-flow -->
+
+  <footer>
+    <span><span class="ja">像</span> FigureCollector · fiche 019E5BF9</span>
+    <span>Direction A · Shōjo-Noir</span>
+  </footer>
+</div>
+
+<script>
+  function swap(btn, figId){
+    document.querySelectorAll('.thumbs .thumb').forEach(t=>t.classList.remove('active'));
+    btn.classList.add('active');
+    var use = document.querySelector('#mainWell .fig use');
+    if(use) use.setAttribute('href','#'+figId);
+    var w = document.getElementById('mainWell');
+    // photo 3 is sensitive -> re-veil
+    if(figId==='fig-elegant' && btn.classList.contains('tnsfw')){ w.classList.remove('revealed'); }
+  }
+  function toggleDesc(btn){
+    var m = document.getElementById('descMore');
+    var open = m.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open);
+    btn.textContent = open ? 'Réduire −' : 'Lire la suite +';
+  }
+  function toggleSpecs(btn){
+    var b = document.getElementById('specGroups');
+    var open = b.classList.toggle('open');
+    btn.setAttribute('aria-expanded', open);
+    btn.querySelector('span').textContent = open ? 'Masquer les spécifications' : 'Voir toutes les spécifications';
+  }
+</script>
