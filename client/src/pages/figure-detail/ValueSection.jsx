@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
 import { useFigurePriceHistory } from "../../hooks/useStats.js";
 import { effectiveValue, figurePaid } from "../../lib/money.js";
 import { appLocale } from "../../lib/locale.js";
@@ -84,22 +85,36 @@ export default function ValueSection({ f, owned, t }) {
         ) : null}
       </div>
 
-      {series.length >= 1 ? (
-        <div className="fig-chart-card">
-          <div className="fig-chart-head">
-            <span className="ttl">{t("cote.history.evolution")}</span>
-            {value ? (
-              <span className="now tabular-nums">
-                <Money amount={value.amount} currency={value.currency} />
-              </span>
-            ) : null}
-          </div>
-          <StepChart points={series} currency={currency} locale={locale} height={170} t={t} />
-          <div className="fig-chart-ledger">
-            <PriceLedger points={series} currency={currency} locale={locale} t={t} />
-          </div>
+      <div className="fig-chart-card">
+        <div className="fig-chart-head">
+          <span className="ttl">{t("cote.history.evolution")}</span>
+          {value ? (
+            <span className="now tabular-nums">
+              <Money amount={value.amount} currency={value.currency} />
+            </span>
+          ) : null}
         </div>
-      ) : null}
+
+        {/* ≥2 relevés → the full step-chart + ledger; otherwise a quiet,
+         *  on-skin empty state. The "Voir dans la Cote" link is always present
+         *  so the full cote page is one tap away. */}
+        {series.length >= 2 ? (
+          <>
+            <StepChart points={series} currency={currency} locale={locale} height={170} t={t} />
+            <div className="fig-chart-ledger">
+              <PriceLedger points={series} currency={currency} locale={locale} t={t} />
+            </div>
+          </>
+        ) : (
+          <p className="fig-chart-empty">
+            {t("figure.value.no_history", { default: "Pas encore d'historique" })}
+          </p>
+        )}
+
+        <Link to="/insights/cote" className="fig-chart-cote-link">
+          {t("figure.value.see_in_cote", { default: "Voir dans la Cote" })} →
+        </Link>
+      </div>
     </div>
   );
 }

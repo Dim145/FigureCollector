@@ -1,7 +1,8 @@
-import { useId, useRef, useEffect } from "react";
+import { useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useFocusTrap } from "../../hooks/useFocusTrap.js";
+import { useScrollLock } from "../../hooks/useScrollLock.js";
 import { useT } from "../../i18n/index.jsx";
 
 const SIDES = {
@@ -40,15 +41,7 @@ export default function Drawer({
   const ref = useRef(null);
   const titleId = useId();
   useFocusTrap(ref, { active: open, onClose });
-
-  useEffect(() => {
-    if (!open) return undefined;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [open]);
+  useScrollLock(open);
 
   if (!open) return null;
   const s = SIDES[side] ?? SIDES.right;

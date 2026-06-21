@@ -1,22 +1,18 @@
-import { usePreorderForOwned } from "../../hooks/useCollection.js";
 import Foldable from "../../components/Foldable.jsx";
 import OwnedItemEditor from "../../components/OwnedItemEditor.jsx";
 import CoverPicker from "../../components/CoverPicker.jsx";
 import PhotoStrip from "../../components/PhotoStrip.jsx";
 import DocumentsSection from "../../components/DocumentsSection.jsx";
-import TrackingChip from "../../components/TrackingChip.jsx";
 
 /**
  * #ma-piece — the owner layer of ⓪ La Fiche, visually SEPARATED from the
  * catalogue sections above (the Discogs model: the catalogue record, then a
  * distinct "this is YOUR copy" zone).
  *
- * Re-lays the former OwnerStack blocks (minus the 360° turntable, which is now
- * its own full-width #vue360 band — see Turntable.jsx):
+ * Keeps only genuine owner-copy data (the 360° turntable is its own full-width
+ * #vue360 band; the pre-order history/tracking now lives in #preco):
  *   情 Mes informations  → OwnedItemEditor   (open)
  *   扉 Couverture        → CoverPicker        (collapsed)
- *   予 Suivi pré-commande → carrier-tracking chip (only when a tracking URL
- *                          exists — the horizontal timeline lives in #preco)
  *   影 Mes photos        → PhotoStrip
  *   証 Justificatifs     → DocumentsSection    (collapsed)
  *
@@ -38,11 +34,6 @@ export default function MaPieceSection({ f, owned, nsfwPref, t }) {
         <CoverPicker owned={owned} />
       </Foldable>
 
-      {/* Carrier tracking — only when the linked preorder carries a tracking
-       *  URL. The release-slip TIMELINE lives in #preco; this is just the live
-       *  chip the owner pings. */}
-      <OwnedTracking ownedId={owned.id} t={t} />
-
       <Foldable size="minor" kanji="影" label={t("figure.owner.tab.photos")}>
         <PhotoStrip
           ownedId={owned.id}
@@ -56,19 +47,5 @@ export default function MaPieceSection({ f, owned, nsfwPref, t }) {
         <DocumentsSection ownedId={owned.id} />
       </Foldable>
     </div>
-  );
-}
-
-/** Live carrier-tracking chip for an owned item's linked preorder (if any).
- *  Wraps itself in its own foldable so it doesn't clutter when absent. */
-function OwnedTracking({ ownedId, t }) {
-  const preorder = usePreorderForOwned(ownedId);
-  const url = preorder.data?.tracking_url;
-  if (!url) return null;
-  return (
-    <Foldable size="minor" kanji="予" label={t("figure.owner.tab.preorder")}>
-      <p className="micro-tight mb-1.5">{t("preorders.tracking.carrier")}</p>
-      <TrackingChip url={url} />
-    </Foldable>
   );
 }

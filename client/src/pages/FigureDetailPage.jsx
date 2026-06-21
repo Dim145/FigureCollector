@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useIsAdmin, useMe } from "../hooks/useMe.js";
@@ -16,7 +16,6 @@ import ShareDialog from "../components/ShareDialog.jsx";
 import BarcodeDialog from "../components/BarcodeDialog.jsx";
 import Breadcrumbs from "../components/ui/Breadcrumbs.jsx";
 import FigureHero from "../components/FigureHero.jsx";
-import FigurePhotosSection from "../components/FigurePhotosSection.jsx";
 import SummaryRail from "./figure-detail/SummaryRail.jsx";
 import FigureAnchorIndex from "./figure-detail/FigureAnchorIndex.jsx";
 import IdentitySection from "./figure-detail/IdentitySection.jsx";
@@ -66,6 +65,35 @@ export default function FigureDetailPage() {
   const [sharing, setSharing] = useState(false);
   const [scanCode, setScanCode] = useState(false);
   const [nsfwAcknowledged, setNsfwAcknowledged] = useState(false);
+
+  // Live AppShell header height → `--fig-header-h`. The page has no contextual
+  // sub-nav, so the real <header> is shorter than the 5rem the CSS hard-codes;
+  // measuring it keeps the sticky anchor index (and rail) pinned EXACTLY under
+  // the navbar across its scroll-shrink. rAF-coalesced; SSR-guarded.
+  const rootRef = useRef(null);
+  const figureReady = !!figure.data;
+  useEffect(() => {
+    if (typeof window === "undefined" || !figureReady) return undefined;
+    let frame = 0;
+    const apply = () => {
+      frame = 0;
+      const h = document.querySelector("header")?.offsetHeight;
+      if (h && rootRef.current) {
+        rootRef.current.style.setProperty("--fig-header-h", `${h}px`);
+      }
+    };
+    const onChange = () => {
+      if (!frame) frame = requestAnimationFrame(apply);
+    };
+    apply();
+    window.addEventListener("scroll", onChange, { passive: true });
+    window.addEventListener("resize", onChange, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onChange);
+      window.removeEventListener("resize", onChange);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [figureReady]);
 
   if (me.isLoading) return null;
   if (!me.data?.authenticated) return <Navigate to="/login" replace />;
@@ -157,7 +185,7 @@ export default function FigureDetailPage() {
 
   return (
     <AppShell>
-      <div className="fig-detail relative pb-24">
+      <div ref={rootRef} className="fig-detail relative pb-24">
         {/* Breadcrumb — a quiet way back to the catalogue. */}
         <div className="max-w-7xl mx-auto px-6 pt-8">
           <Breadcrumbs
@@ -215,7 +243,13 @@ export default function FigureDetailPage() {
         {/* ── SECTIONS ── single full-width editorial scroll. */}
         <div className="max-w-7xl mx-auto px-6">
           <Section id="identite" kanji="目" title={t("figure.anchor.identity", { default: "Identité" })}>
-            <IdentitySection f={f} t={t} />
+            <IdentitySection
+              f={f}
+              t={t}
+              canEdit={canEdit}
+              nsfwPref={nsfwPref}
+              galleryDefaultOpen={!alreadyOwned}
+            />
           </Section>
 
           {showValue ? (
@@ -245,6 +279,9 @@ export default function FigureDetailPage() {
           </Section>
 
           {showMine ? (
+            // Owner zone — genuine owner-copy data only (état / notes / photos /
+            // cover / justificatifs). The catalogue gallery now lives in
+            // #identite; the preorder history/tracking now lives in #preco.
             <Section
               id="owner-stack"
               kanji="私"
@@ -253,35 +290,8 @@ export default function FigureDetailPage() {
               banner={t("figure.already_owned")}
             >
               <MaPieceSection f={f} owned={ownedRecord} nsfwPref={nsfwPref} t={t} />
-              {/* Catalogue (shared) photos — editable by catalog editors, kept
-               *  with the owner zone since it's an editing surface. */}
-              <div className="mt-12">
-                <FigurePhotosSection
-                  figureId={f.id}
-                  figureName={f.name}
-                  canEdit={canEdit}
-                  uploadDisabled={f.is_nsfw && nsfwPref === "blur"}
-                  blurImages={f.is_nsfw && nsfwPref === "blur"}
-                />
-              </div>
             </Section>
-          ) : (
-            // Not owned → the shared catalogue gallery still belongs on the
-            // page (below boutiques) so viewers see every visual.
-            <Section
-              id="galerie"
-              kanji="写"
-              title={t("figure.section.gallery", { default: "Galerie" })}
-            >
-              <FigurePhotosSection
-                figureId={f.id}
-                figureName={f.name}
-                canEdit={canEdit}
-                uploadDisabled={f.is_nsfw && nsfwPref === "blur"}
-                blurImages={f.is_nsfw && nsfwPref === "blur"}
-              />
-            </Section>
-          )}
+          ) : null}
 
           {show360 ? (
             <Section

@@ -2591,4 +2591,7 @@ export default {
   "figure.rail.not_owned": "Not owned",
   "figure.view360.meta": "360° view",
   "cote.acquired_on": "acquired on",
+  "figure.identity.complementary": "Specs",
+  "figure.value.no_history": "No history yet",
+  "figure.value.see_in_cote": "View in Cote",
 };

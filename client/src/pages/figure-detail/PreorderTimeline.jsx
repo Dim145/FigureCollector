@@ -6,6 +6,7 @@ import {
   formatCountdown,
 } from "../../lib/deliveryCountdown.js";
 import Money from "../../components/Money.jsx";
+import TrackingChip from "../../components/TrackingChip.jsx";
 
 /**
  * Horizontal pré-commande timeline — the ④ L'Estampe design ported into the
@@ -107,6 +108,10 @@ export default function PreorderTimeline({ f, owned, t }) {
   const etaDays = deliveryCountdown(po);
   const etaDate = deliveryDateLabel(po);
 
+  // Carrier tracking — the live chip the owner pings, relocated here from the
+  // owner zone so all pre-order tracking lives in #preco.
+  const trackingUrl = po?.tracking_url ?? null;
+
   // Nothing worth drawing? bail (parent hides the section).
   if (!current && currentStep == null) return null;
 
@@ -205,6 +210,21 @@ export default function PreorderTimeline({ f, owned, t }) {
               ⚠ {t("figure.preco.non_refundable", { default: "Acompte non-remboursable" })}
             </span>
           </div>
+        </div>
+      ) : null}
+
+      {/* Carrier tracking — the live chip the owner pings (only when the linked
+       *  preorder carries a tracking URL). Consolidated here with the slip
+       *  timeline; it no longer lives in the owner zone. */}
+      {trackingUrl ? (
+        <div className="pc-tracking">
+          <span className="pc-tracking-lbl">
+            <span className="ja-s" aria-hidden>
+              追跡
+            </span>
+            {t("preorders.tracking.carrier")}
+          </span>
+          <TrackingChip url={trackingUrl} />
         </div>
       ) : null}
     </div>

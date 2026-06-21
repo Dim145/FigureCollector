@@ -1136,6 +1136,50 @@ dl.fig-specs dd {
   font-family: var(--font-display);
   font-weight: 300;
 }
+dl.fig-specs dd a {
+  color: var(--color-or-pale);
+}
+/* Single-column variant — used when only one of {description, sidecar} exists,
+ *  so the surviving column fills the full width with no dead gutter. */
+.fig-id-grid--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+.fig-id-grid--single .fig-specs-group,
+.fig-id-grid--single .fig-keyspecs {
+  max-width: 48rem;
+}
+
+/* The editorial description column. It is clamped (inline max-height) to the
+ *  sidecar's live height when both columns exist; the "Lire la suite" toggle is
+ *  shown by JS ONLY when the clamped prose overflows that height. */
+.fig-desc--clamp {
+  overflow: hidden;
+  /* Soft fade at the cut so the clamp reads intentionally, not chopped. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent);
+  mask-image: linear-gradient(to bottom, #000 78%, transparent);
+}
+.fig-desc-more {
+  margin-top: 0.85rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  transition: color 200ms var(--ease-quick);
+}
+.fig-desc-more:hover {
+  color: var(--color-or);
+}
+.fig-desc-more:focus-visible {
+  outline: 2px solid var(--ring, var(--color-or));
+  outline-offset: 2px;
+}
 
 /* ─── #valeur — value trio + full price-history chart. */
 .fig-value-grid {
@@ -1219,6 +1263,40 @@ dl.fig-specs dd {
   border-top: 1px solid color-mix(in oklab, var(--color-or) 14%, transparent);
   max-height: 12rem;
   overflow-y: auto;
+}
+/* Quiet empty state — fewer than 2 price points → no chart to draw. */
+.fig-chart-empty {
+  margin: 0.25rem 0 0;
+  padding: 1.25rem 0;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 0.95rem;
+  color: var(--color-ivoire-soft);
+}
+/* "Voir dans la Cote →" — quiet link to the full cote page. */
+.fig-chart-cote-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 14%, transparent);
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-or-pale);
+  text-decoration: none;
+  transition: color 200ms var(--ease-quick);
+}
+.fig-chart-cote-link:hover {
+  color: var(--color-or);
+}
+.fig-chart-cote-link:focus-visible {
+  outline: 2px solid var(--ring, var(--color-or));
+  outline-offset: 2px;
 }
 
 /* ─── #preco — horizontal release-slip timeline (ported from ④ L'Estampe). */
@@ -1401,6 +1479,31 @@ dl.fig-specs dd {
   color: var(--color-laque-bright);
 }
 
+/* Carrier-tracking row — the live chip, relocated here from the owner zone so
+ *  all pre-order tracking is consolidated in #preco. */
+.pc-tracking {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  padding: 1.1rem 1.4rem 1.4rem;
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 12%, transparent);
+}
+.pc-tracking-lbl {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--color-ivoire-soft);
+}
+.pc-tracking-lbl .ja-s {
+  font-family: var(--font-ja);
+  font-size: 13px;
+  color: var(--color-or-pale);
+}
+
 /* ─── #boutiques — stores + marché + tags, two columns. */
 .fig-shops-grid {
   display: grid;
@@ -1481,11 +1584,52 @@ dl.fig-specs dd {
   color: var(--color-ivoire-soft);
 }
 
-/* ─── #vue360 — full-width turntable band. */
+/* ─── #vue360 — gallery turntable band (NOT a boxed widget).
+ *
+ *   · no heavy frame — the viewer floats on the page like a gallery turntable;
+ *   · the inner TurntableSection <h2> is hidden (the #vue360 section head
+ *     already names it) while the Remplacer / + scan actions stay, pushed to
+ *     the right;
+ *   · the redundant frame-count caption ("24 IMAGES") + the viewer's own
+ *     bottom-left running count are hidden — the scrub/progress bar already
+ *     conveys position;
+ *   · the viewer is centered and appreciably larger (no small left box with a
+ *     dead right gutter).
+ *
+ * These reach into the shared TurntableSection / TurntableViewer markup, which
+ * this band owns the presentation of. */
 .fig-band360 {
-  border: 1px solid color-mix(in oklab, var(--color-or) 12%, transparent);
-  border-radius: var(--radius-xl, 14px);
-  overflow: hidden;
+  position: relative;
+}
+/* Drop the inner redundant heading; keep the actions row, right-aligned. */
+.fig-band360 > section > header {
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+.fig-band360 > section > header > h2.micro {
+  display: none;
+}
+/* Hide the "N images" caption under the viewer — the scrub bar conveys it.
+ *  (Scoped to the direct viewer-wrapper child so unrelated .micro text under
+ *  processing/failure notices is untouched.) */
+.fig-band360 > section > div.max-w-md > p.micro {
+  display: none;
+}
+/* Let the viewer breathe: centered, appreciably larger than the old max-w-md. */
+.fig-band360 > section > div.max-w-md {
+  max-width: min(640px, 100%);
+  margin-inline: auto;
+}
+/* Strip the boxed-widget frame off the viewer itself → gallery turntable. */
+.fig-band360 .max-w-md [role="img"] {
+  border: 0;
+  background: transparent;
+}
+/* Hide the viewer's bottom-left running count ("20/24"); keep the right-hand
+ *  drag/auto affordance. The scrub bar (the .bottom-3 overlay) already shows
+ *  position. Targeting the utility class is stabler than nth-child here. */
+.fig-band360 .max-w-md [role="img"] .bottom-3 .justify-between > span:first-child {
+  visibility: hidden;
 }
 
 /* ─── RESPONSIVE — ≤1024px single column, kill sticky, reorder priority. */

@@ -57,10 +57,24 @@ export default function FigureAnchorIndex({ entries }) {
     };
   }, []);
 
-  // Keep the active chip in view in the mobile scroll strip.
+  // Keep the active chip centered in the mobile chip strip — scrolling ONLY the
+  // nav container horizontally. `scrollIntoView` would scroll every ancestor
+  // (incl. the window) vertically; on mobile that fights the page scroll, so
+  // each scroll flips `active` → re-scroll → the page is yanked back up. We
+  // compute the target scrollLeft from the link's offset within the nav and
+  // never touch the window.
   useEffect(() => {
-    const link = navRef.current?.querySelector(`[data-anchor="${active}"]`);
-    link?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+    const nav = navRef.current;
+    if (!nav) return;
+    const link = nav.querySelector(`[data-anchor="${active}"]`);
+    if (!link) return;
+    const target = link.offsetLeft - nav.clientWidth / 2 + link.offsetWidth / 2;
+    const max = nav.scrollWidth - nav.clientWidth;
+    const left = Math.max(0, Math.min(target, max));
+    const reduce =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    nav.scrollTo({ left, behavior: reduce ? "auto" : "smooth" });
   }, [active]);
 
   function go(e, id) {
