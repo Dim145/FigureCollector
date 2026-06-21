@@ -335,47 +335,42 @@ dl.specs dd.disp{font-family:var(--font-display);font-weight:300;font-size:15px;
 .fullchart.open{display:block;}
 .chart-svg{width:100%;height:auto;display:block;}
 
-/* ---- Pré-commande ---- */
-.preco-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:48px;align-items:start;}
-.deposit{background:var(--surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:22px 24px;}
-.deposit .dl-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;}
-.deposit .dl-row .a{font-family:var(--font-display);font-weight:300;font-size:24px;color:var(--color-or);}
-.deposit .dl-row .b{font-family:var(--font-mono);font-size:13px;color:var(--on-surface-subtle);}
-.bar{height:12px;border-radius:var(--radius-pill);background:var(--surface-sunken);border:1px solid var(--border-subtle);overflow:hidden;}
-.bar .fill{height:100%;width:12.4%;background:linear-gradient(90deg,var(--color-or-deep),var(--color-or));border-radius:var(--radius-pill);}
-.deposit .pct{margin-top:8px;font-family:var(--font-mono);font-size:12px;color:var(--on-surface-subtle);}
-.deposit .lines{margin-top:18px;display:flex;flex-direction:column;gap:11px;}
-.deposit .lines .ln{display:flex;align-items:baseline;justify-content:space-between;font-size:13px;}
-.deposit .lines .ln .k{color:var(--on-surface-subtle);}
-.deposit .lines .ln .v{font-family:var(--font-mono);color:var(--on-surface);}
-.deposit .lines .ln .v.hot{color:var(--color-or-pale);}
-.flag{margin-top:16px;display:inline-flex;align-items:center;gap:.5em;font-size:12px;color:var(--color-laque-bright);
-  border:1px solid var(--color-laque);border-radius:var(--radius-sm);padding:7px 11px;letter-spacing:.02em;}
-
-/* vertical timeline */
-.timeline{position:relative;padding-left:30px;}
-.timeline::before{content:"";position:absolute;left:9px;top:6px;bottom:6px;width:1px;background:var(--border);}
-.tl-step{position:relative;padding:0 0 22px;}
-.tl-step:last-child{padding-bottom:0;}
-.tl-step .node{position:absolute;left:-30px;top:2px;width:18px;height:18px;border-radius:50%;border:1px solid var(--border-strong);
-  background:var(--color-noir);display:grid;place-items:center;}
-.tl-step .node i{width:6px;height:6px;border-radius:50%;background:var(--border-strong);}
-.tl-step.done .node{border-color:var(--color-or);}
-.tl-step.done .node i{background:var(--color-or);}
-.tl-step.cur .node{border-color:var(--color-laque-bright);box-shadow:0 0 0 3px rgba(196,69,59,.18);}
-.tl-step.cur .node i{background:var(--color-laque-bright);}
-.tl-step .st{font-size:14px;color:var(--on-surface);display:flex;align-items:center;gap:.6em;}
-.tl-step .st .tag{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;
-  color:var(--color-laque-bright);border:1px solid var(--color-laque);border-radius:99px;padding:2px 7px;}
-.tl-step.future .st{color:var(--on-surface-subtle);}
-.tl-step .dt{margin-top:3px;font-family:var(--font-mono);font-size:12px;color:var(--on-surface-subtle);}
-.slip{background:var(--surface);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:16px 18px;margin-bottom:22px;}
-.slip .row{display:flex;align-items:baseline;justify-content:space-between;gap:14px;font-size:13px;}
-.slip .row + .row{margin-top:8px;padding-top:8px;border-top:1px solid var(--border-subtle);}
-.slip .row .k{color:var(--on-surface-subtle);letter-spacing:.04em;}
-.slip .row .old{font-family:var(--font-mono);text-decoration:line-through;color:var(--on-surface-subtle);}
-.slip .row .new{font-family:var(--font-mono);color:var(--color-or-pale);display:inline-flex;align-items:center;gap:.4em;}
-.slip .row .new .arr{color:var(--color-laque-bright);}
+/* ---- Pré-commande (release-slip timeline, ported from ④ L'Estampe) ---- */
+.pc-preco{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;}
+.pc-preco-top{display:flex;flex-wrap:wrap;gap:22px;align-items:center;justify-content:space-between;padding:18px 22px;
+  background:linear-gradient(180deg,rgba(216,180,110,.05),transparent);}
+.pc-slip-dates{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;}
+.pc-slip-dates .now{font-family:var(--font-display);font-size:24px;color:var(--on-surface);}
+.pc-slip-dates .now .ja-s{font-family:var(--font-ja);font-size:13px;color:var(--color-or-deep);margin-right:8px;}
+.pc-slip-dates .was{font-family:var(--font-mono);font-size:12px;color:var(--on-surface-subtle);text-decoration:line-through;text-decoration-color:var(--color-laque-bright);}
+.pc-slip-dates .lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--color-or-pale);}
+.pc-delay-badge{font-family:var(--font-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--color-laque-bright);
+  border:1px solid var(--color-laque);border-radius:var(--radius-sm);padding:5px 10px;}
+/* horizontal steps */
+.pc-steps{display:flex;align-items:flex-start;gap:0;padding:26px 22px 8px;position:relative;}
+.pc-step{flex:1;text-align:center;position:relative;min-width:0;}
+.pc-step .pc-node{width:14px;height:14px;border-radius:50%;border:1.5px solid var(--border-strong);background:var(--color-noir-deep);
+  margin:0 auto 12px;position:relative;z-index:1;}
+.pc-step.done .pc-node{background:var(--color-or);border-color:var(--color-or);}
+.pc-step.current .pc-node{background:var(--color-laque-bright);border-color:var(--color-laque-bright);box-shadow:0 0 0 4px rgba(196,69,59,.18);}
+.pc-step::before{content:"";position:absolute;top:6.5px;left:-50%;width:100%;height:1.5px;background:var(--border-subtle);z-index:0;}
+.pc-step:first-child::before{display:none;}
+.pc-step.done::before,.pc-step.current::before{background:var(--color-or-deep);}
+.pc-step .s-name{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--on-surface-subtle);}
+.pc-step.done .s-name{color:var(--on-surface-muted);}
+.pc-step.current .s-name{color:var(--color-laque-bright);}
+.pc-step .s-sub{font-family:var(--font-mono);font-size:9px;color:var(--on-surface-subtle);margin-top:3px;letter-spacing:.04em;}
+/* deposit bar */
+.pc-deposit{padding:18px 22px 24px;border-top:1px solid var(--border-subtle);}
+.pc-deposit .dhd{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--font-mono);font-size:11px;
+  letter-spacing:.06em;color:var(--on-surface-muted);margin-bottom:10px;gap:14px;flex-wrap:wrap;}
+.pc-deposit .dhd b{color:var(--color-or-pale);font-weight:400;}
+.pc-bar{height:10px;border-radius:var(--radius-pill);background:var(--surface-sunken);border:1px solid var(--border-subtle);overflow:hidden;position:relative;}
+.pc-bar .pc-fill{height:100%;width:12.4%;background:linear-gradient(90deg,var(--color-or-deep),var(--color-or));border-radius:var(--radius-pill);}
+.pc-deposit .pc-dfoot{display:flex;flex-wrap:wrap;gap:18px;margin-top:12px;font-family:var(--font-mono);font-size:11px;color:var(--on-surface-subtle);}
+.pc-deposit .pc-dfoot b{color:var(--on-surface);font-weight:400;}
+.pc-deposit .pc-dfoot .next{color:var(--color-or-pale);}
+.pc-deposit .pc-dfoot .warn{color:var(--color-laque-bright);}
 
 /* ---- Boutiques + tags ---- */
 .shops-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:48px;align-items:start;}
@@ -479,7 +474,7 @@ dl.specs dd.disp{font-family:var(--font-display);font-weight:300;font-size:15px;
   .hero{grid-template-columns:1fr;gap:28px;}
   .rail{position:static;top:auto;}
   .anchor-wrap{position:static;}
-  .id-grid,.value-grid,.preco-grid,.shops-grid,.owner-grid{grid-template-columns:1fr;gap:28px;}
+  .id-grid,.value-grid,.shops-grid,.owner-grid{grid-template-columns:1fr;gap:28px;}
   .near-grid{grid-template-columns:repeat(2,1fr);}
   .watermark{font-size:200px;}
 }
@@ -495,6 +490,13 @@ dl.specs dd.disp{font-family:var(--font-display);font-weight:300;font-size:15px;
   #macopie{padding:24px 20px;}
   .rail-card{padding:22px 20px;}
   .trio .cote .val{font-size:38px;}
+  /* pré-commande: collapse horizontal timeline to a compact vertical list */
+  .pc-steps{flex-direction:column;align-items:flex-start;gap:18px;padding:22px 22px 8px;}
+  .pc-step{flex:none;width:100%;text-align:left;display:flex;align-items:baseline;gap:12px;}
+  .pc-step .pc-node{margin:0;flex:none;}
+  .pc-step::before{top:-9px;left:6.5px;width:1.5px;height:18px;}
+  .pc-step:first-child::before{display:none;}
+  .pc-step .s-sub{margin-top:0;margin-left:auto;}
 }
 </style>
 </head>
@@ -810,67 +812,34 @@ dl.specs dd.disp{font-family:var(--font-display);font-weight:300;font-size:15px;
           <h2>Pré-commande</h2>
           <span class="meta">Acompte non-remboursable</span>
         </div>
-        <div class="preco-grid">
-
-          <!-- deposit bar + lines -->
-          <div class="deposit">
-            <div class="dl-row">
-              <span class="a num">30 € payé</span>
-              <span class="b num">sur 242,37 €</span>
+        <!-- release-slip timeline (ported from ④ L'Estampe) -->
+        <div class="pc-preco">
+          <div class="pc-preco-top">
+            <div class="pc-slip-dates">
+              <span class="now"><span class="ja-s" aria-hidden="true">発売</span>1 déc. 2027</span>
+              <span class="lbl">Sortie actuelle</span>
+              <span class="was num">Annoncée 1 sept. 2027</span>
             </div>
-            <div class="bar" role="img" aria-label="Acompte 30 € versé sur 242,37 €, soit environ 12 %">
-              <div class="fill"></div>
-            </div>
-            <div class="pct num">≈ 12 % versé</div>
-
-            <div class="lines">
-              <div class="ln"><span class="k">Solde restant</span><span class="v num">212,37 €</span></div>
-              <div class="ln"><span class="k">Prochain prélèvement</span><span class="v hot num">90 € · 1 oct. 2027</span></div>
-              <div class="ln"><span class="k">Boutique</span><span class="v">ORZGK</span></div>
-            </div>
-
-            <span class="flag"><span aria-hidden="true">⚠</span> Acompte non-remboursable</span>
+            <span class="pc-delay-badge">Retardée · +3 mois</span>
           </div>
-
-          <!-- release-slip + vertical timeline -->
-          <div>
-            <div class="slip">
-              <div class="row">
-                <span class="k">Annoncée (origine)</span>
-                <span class="old num">1 sept. 2027</span>
-              </div>
-              <div class="row">
-                <span class="k">Sortie actuelle</span>
-                <span class="new num"><span class="arr" aria-hidden="true">↗</span> 1 déc. 2027</span>
-              </div>
+          <!-- horizontal release-slip timeline -->
+          <div class="pc-steps" role="list" aria-label="Étapes de production">
+            <div class="pc-step done" role="listitem"><span class="pc-node" aria-hidden="true"></span><div class="s-name">Annoncée</div><div class="s-sub num">1 sept. 27</div></div>
+            <div class="pc-step done" role="listitem"><span class="pc-node" aria-hidden="true"></span><div class="s-name">Pré-commande</div><div class="s-sub">ouverte</div></div>
+            <div class="pc-step current" role="listitem"><span class="pc-node" aria-hidden="true"></span><div class="s-name">En production</div><div class="s-sub">en cours</div></div>
+            <div class="pc-step" role="listitem"><span class="pc-node" aria-hidden="true"></span><div class="s-name">Expédiée</div><div class="s-sub">—</div></div>
+            <div class="pc-step" role="listitem"><span class="pc-node" aria-hidden="true"></span><div class="s-name">En main</div><div class="s-sub">—</div></div>
+          </div>
+          <!-- deposit bar -->
+          <div class="pc-deposit">
+            <p class="dhd"><span>Acompte versé</span><b class="num">30,00 € payé sur 242,37 € · ≈ 12 %</b></p>
+            <div class="pc-bar" role="progressbar" aria-valuenow="12" aria-valuemin="0" aria-valuemax="100" aria-label="Acompte 12 %">
+              <div class="pc-fill"></div>
             </div>
-
-            <div class="timeline" aria-label="Étapes de la pré-commande">
-              <div class="tl-step done">
-                <span class="node" aria-hidden="true"><i></i></span>
-                <div class="st">Annoncée</div>
-                <div class="dt num">1 sept. 2027 → repoussée</div>
-              </div>
-              <div class="tl-step done">
-                <span class="node" aria-hidden="true"><i></i></span>
-                <div class="st">Pré-commande</div>
-                <div class="dt num">acompte 30 € · 24 mai 2026</div>
-              </div>
-              <div class="tl-step cur">
-                <span class="node" aria-hidden="true"><i></i></span>
-                <div class="st">En production <span class="tag">actuel</span></div>
-                <div class="dt num">solde 212,37 € à venir</div>
-              </div>
-              <div class="tl-step future">
-                <span class="node" aria-hidden="true"><i></i></span>
-                <div class="st">Expédiée</div>
-                <div class="dt num">estimée déc. 2027</div>
-              </div>
-              <div class="tl-step future">
-                <span class="node" aria-hidden="true"><i></i></span>
-                <div class="st">En main</div>
-                <div class="dt num">—</div>
-              </div>
+            <div class="pc-dfoot num">
+              <span>Solde restant <b>212,37 €</b></span>
+              <span class="next">Prochain prélèvement <b>90,00 € le 1 oct. 2027</b></span>
+              <span class="warn">⚠ Acompte non-remboursable</span>
             </div>
           </div>
         </div>
