@@ -1,8 +1,6 @@
-import { useMemo, useRef } from "react";
-import { createPortal } from "react-dom";
+import { useMemo } from "react";
 import { useT } from "../i18n/index.jsx";
-import { useFocusTrap } from "../hooks/useFocusTrap.js";
-import Button from "./Button.jsx";
+import { Modal, Button } from "./ui/index.js";
 
 /**
  * EAN-13 / JAN-13 barcode rendering modal.
@@ -16,6 +14,9 @@ import Button from "./Button.jsx";
  * Anything that isn't a valid 12/13-digit numeric falls back to plain
  * monospace rendering with a "code shown verbatim" note.
  *
+ * Composes the shared <Modal> (portal, focus-trap, Esc, scroll-lock, scrim)
+ * so it no longer hand-rolls a portal + scrim + close button.
+ *
  * @param {object} props
  * @param {string} props.code   The raw JAN value (12 or 13 digits ideally).
  * @param {string} [props.label] Display name for the figure (for the title bar).
@@ -23,63 +24,38 @@ import Button from "./Button.jsx";
  */
 export default function BarcodeDialog({ code, label, onClose }) {
   const t = useT();
-  const cardRef = useRef(null);
-  // Focus enters the dialog on open + Tab cycles between focusable
-  // children + Esc closes + focus restores to the trigger on close.
-  useFocusTrap(cardRef, { active: true, onClose });
-
   const ean13 = useMemo(() => encodeEan13(code), [code]);
 
-  return createPortal(
-    <div
-      className="fig-pop"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="barcode-title"
-      onClick={onClose}
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      size="sm"
+      title={
+        <>
+          <span className="micro block mb-1">{t("barcode.eyebrow")}</span>
+          {label ?? t("barcode.title")}
+        </>
+      }
+      footer={
+        <Button variant="ghost" type="button" onClick={onClose}>
+          {t("common.close", { default: "Fermer" })}
+        </Button>
+      }
     >
-      <div ref={cardRef} tabIndex={-1} className="fig-pop-card" onClick={(e) => e.stopPropagation()}>
-        <header className="flex items-baseline justify-between gap-3 mb-4">
-          <div className="min-w-0">
-            <p className="micro">{t("barcode.eyebrow")}</p>
-            <h2
-              id="barcode-title"
-              className="display text-2xl text-[var(--color-ivoire)] mt-1 truncate"
-            >
-              {label ?? t("barcode.title")}
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t("editor.cancel")}
-            className="text-[var(--color-ivoire-soft)] hover:text-[var(--color-or)] text-xl px-2 -mt-1"
-          >
-            ✕
-          </button>
-        </header>
+      {ean13 ? (
+        <BarcodeSvg digits={ean13.digits} bars={ean13.bars} />
+      ) : (
+        <div className="bg-[var(--color-ivoire)] text-[var(--color-noir)] py-6 px-4 text-center">
+          <p className="font-mono text-2xl tracking-[0.32em]">{code}</p>
+          <p className="text-[10px] uppercase tracking-[0.22em] opacity-70 mt-3">
+            {t("barcode.not_ean")}
+          </p>
+        </div>
+      )}
 
-        {ean13 ? (
-          <BarcodeSvg digits={ean13.digits} bars={ean13.bars} />
-        ) : (
-          <div className="bg-[var(--color-ivoire)] text-[var(--color-noir)] py-6 px-4 text-center">
-            <p className="font-mono text-2xl tracking-[0.32em]">{code}</p>
-            <p className="text-[10px] uppercase tracking-[0.22em] opacity-70 mt-3">
-              {t("barcode.not_ean")}
-            </p>
-          </div>
-        )}
-
-        <p className="micro-tight mt-4 opacity-70 break-all">{code}</p>
-
-        <footer className="mt-6 flex items-center justify-end gap-3">
-          <Button variant="primary" type="button" onClick={onClose}>
-            {t("editor.cancel")}
-          </Button>
-        </footer>
-      </div>
-    </div>,
-    document.body,
+      <p className="micro-tight mt-4 opacity-70 break-all">{code}</p>
+    </Modal>
   );
 }
 

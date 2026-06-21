@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { useT } from "../i18n/index.jsx";
 import {
   useAdminSettings,
@@ -15,6 +14,7 @@ import { useVisualSearchStatus } from "../hooks/useVisualSearch.js";
 import AccentTitle from "../components/AccentTitle.jsx";
 import Button from "../components/Button.jsx";
 import Card from "../components/Card.jsx";
+import { Modal } from "../components/ui/index.js";
 
 /**
  * Admin · Réglages — Direction A ("Shōjo-Noir").
@@ -932,70 +932,52 @@ function ForceButton({ t, onForce, busy, label, confirmLabel }) {
 
 /** Modal explaining what an "ambiance" is, in plain language. */
 function AmbianceHelpModal({ t, onClose }) {
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[100] grid place-items-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label={t("admin.settings.visual.ambiances_help_title", {
-        default: "Qu'est-ce qu'une ambiance ?",
-      })}
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      size="md"
+      footer={
+        <Button variant="primary" onClick={onClose}>
+          {t("common.got_it", { default: "Compris" })}
+        </Button>
+      }
     >
-      <button
-        type="button"
-        aria-label={t("common.close", { default: "Fermer" })}
-        onClick={onClose}
-        className="absolute inset-0 bg-[var(--color-noir)]/80 backdrop-blur-sm"
-      />
-      <div className="relative z-10 w-full max-w-lg bg-[var(--color-noir)] border border-[var(--color-or)]/30 p-7 shadow-2xl">
-        <header className="mb-4">
-          <p className="micro flex items-center gap-2">
-            <span aria-hidden className="ja not-italic text-[var(--color-or)]">彩</span>
-            {t("admin.settings.visual.ambiances_help_eyebrow", { default: "Recherche par photo" })}
-          </p>
-          <h3 className="display text-2xl text-[var(--color-ivoire)] mt-1">
-            {t("admin.settings.visual.ambiances_help_title", {
-              default: "Qu'est-ce qu'une ambiance ?",
-            })}
-          </h3>
-          <div className="gold-rule w-16 mt-3" />
-        </header>
-        <div className="space-y-3 text-sm leading-relaxed text-[var(--color-ivoire-soft)]">
-          <p>
-            {t("admin.settings.visual.ambiances_help_p1", {
-              default:
-                "Une ambiance regroupe des figurines qui se ressemblent à l'œil — même style, même atmosphère (pose, couleurs, composition) — indépendamment de leur type ou de leur fabricant.",
-            })}
-          </p>
-          <p>
-            {t("admin.settings.visual.ambiances_help_p2", {
-              default:
-                "Le regroupement est calculé à partir des images elles-mêmes (la même empreinte visuelle que la recherche par photo), pas à partir des fiches : deux pièces au rendu proche se retrouvent dans la même ambiance.",
-            })}
-          </p>
-          <p>
-            {t("admin.settings.visual.ambiances_help_p3", {
-              default:
-                "C'est une aide à la découverte : feuilleter sa collection « par atmosphère » plutôt que par catégorie. Ça n'a d'intérêt que sur une collection assez grande et variée — sur un petit catalogue, ou s'il ne contient qu'un seul genre de pièces, les ambiances sont peu parlantes. C'est pourquoi c'est désactivé par défaut.",
-            })}
-          </p>
-        </div>
-        <div className="mt-6 flex justify-end">
-          <Button variant="primary" onClick={onClose}>
-            {t("common.got_it", { default: "Compris" })}
-          </Button>
-        </div>
+      <header className="mb-4">
+        <p className="micro flex items-center gap-2">
+          <span aria-hidden className="ja not-italic text-[var(--accent)]">
+            彩
+          </span>
+          {t("admin.settings.visual.ambiances_help_eyebrow", { default: "Recherche par photo" })}
+        </p>
+        <h3 className="display text-2xl text-[var(--on-surface)] mt-1">
+          {t("admin.settings.visual.ambiances_help_title", {
+            default: "Qu'est-ce qu'une ambiance ?",
+          })}
+        </h3>
+        <div className="gold-rule w-16 mt-3" />
+      </header>
+      <div className="space-y-3 text-sm leading-relaxed text-[var(--on-surface-muted)]">
+        <p>
+          {t("admin.settings.visual.ambiances_help_p1", {
+            default:
+              "Une ambiance regroupe des figurines qui se ressemblent à l'œil — même style, même atmosphère (pose, couleurs, composition) — indépendamment de leur type ou de leur fabricant.",
+          })}
+        </p>
+        <p>
+          {t("admin.settings.visual.ambiances_help_p2", {
+            default:
+              "Le regroupement est calculé à partir des images elles-mêmes (la même empreinte visuelle que la recherche par photo), pas à partir des fiches : deux pièces au rendu proche se retrouvent dans la même ambiance.",
+          })}
+        </p>
+        <p>
+          {t("admin.settings.visual.ambiances_help_p3", {
+            default:
+              "C'est une aide à la découverte : feuilleter sa collection « par atmosphère » plutôt que par catégorie. Ça n'a d'intérêt que sur une collection assez grande et variée — sur un petit catalogue, ou s'il ne contient qu'un seul genre de pièces, les ambiances sont peu parlantes. C'est pourquoi c'est désactivé par défaut.",
+          })}
+        </p>
       </div>
-    </div>,
-    document.body,
+    </Modal>
   );
 }
 

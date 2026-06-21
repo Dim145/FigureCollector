@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { createPortal } from "react-dom";
+import { useId, useState } from "react";
 import { useT } from "../i18n/index.jsx";
 import { appLocale } from "../lib/locale.js";
 import {
@@ -7,7 +6,7 @@ import {
   useRemoveOwnedItem,
   useUpdatePreorder,
 } from "../hooks/useCollection.js";
-import Button from "./Button.jsx";
+import { Modal, Button } from "./ui/index.js";
 import FormField from "./FormField.jsx";
 
 /**
@@ -30,6 +29,10 @@ import FormField from "./FormField.jsx";
  * on record so deleting it would erase data the user might want later
  * (notably for the year-in-review "Pertes sur annulations" line).
  *
+ * Composes the shared <Modal> (portal, focus-trap, Esc, scroll-lock, scrim)
+ * so it no longer hand-rolls a portal + scrim. Portaling escapes the
+ * preorder card's transformed containing block, same as before.
+ *
  * Props:
  *   preorder   : the preorder row to cancel
  *   ownedId    : the linked owned_item id (may be null for legacy /
@@ -38,6 +41,7 @@ import FormField from "./FormField.jsx";
  */
 export default function CancellationDialog({ preorder, ownedId, onClose }) {
   const t = useT();
+  const formId = useId();
   const deposit = preorder?.deposit_amount != null
     ? Number(preorder.deposit_amount)
     : 0;
@@ -117,149 +121,128 @@ export default function CancellationDialog({ preorder, ownedId, onClose }) {
     }
   };
 
-  // Render through a portal to <body>. The preorder card's hover state
-  // applies a transform (and the surrounding `.reveal` animation has a
-  // `translateY` keyframe), which establishes a new containing block —
-  // `position: fixed` then refers to THAT ancestor instead of the viewport
-  // and the modal renders clipped INSIDE the card. Portaling escapes the
-  // entire stacking-context chain, same trick the Lightbox uses.
-  if (typeof document === "undefined") return null;
-  return createPortal(
-    <div
-      role="dialog"
-      aria-modal
-      onClick={() => (busy ? null : onClose?.())}
-      className="fixed inset-0 z-50 grid place-items-center bg-[var(--color-noir)]/85 backdrop-blur-sm px-4"
+  const errorBlock = error ? (
+    <p
+      role="alert"
+      className="text-sm text-[var(--danger)] border-l-2 border-[var(--danger)] pl-3 py-1"
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-[var(--color-noir-soft)] border border-[var(--color-laque-bright)]/60 px-6 py-5"
-        style={{
-          boxShadow:
-            "0 50px 90px -40px rgba(0,0,0,0.95), 0 12px 28px -8px rgba(0,0,0,0.6), inset 0 1px 0 oklch(0.65 0.18 25 / 0.18)",
-        }}
-      >
-        <header className="mb-5">
-          <p className="micro text-[var(--color-laque-bright)]">
+      {error}
+    </p>
+  ) : null;
+
+  return (
+    <Modal
+      open
+      onClose={busy ? () => {} : onClose}
+      size="sm"
+      title={
+        <>
+          <span className="micro block mb-1 text-[var(--danger)]">
             {t("cancel.eyebrow")}
-          </p>
-          <h2 className="display text-xl text-[var(--color-ivoire)] mt-1">
-            {step === "refund"
-              ? t("cancel.refund.title")
-              : t("cancel.fate.title")}
-          </h2>
-        </header>
-
-        {step === "refund" ? (
-          <form onSubmit={submitRefund} className="space-y-4">
-            {deposit > 0 ? (
-              <>
-                <p className="text-sm text-[var(--color-ivoire-soft)] leading-relaxed">
-                  {t("cancel.refund.body", {
-                    deposit: fmtMoney(deposit),
-                    currency,
-                  })}
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setRefund("0")}
-                    aria-pressed={refundNum === 0}
-                    className={`flex-1 px-3 py-2 text-[10px] uppercase tracking-[0.22em] border transition-colors ${
-                      refundNum === 0
-                        ? "border-[var(--color-laque-bright)] bg-[var(--color-laque-bright)]/15 text-[var(--color-laque-bright)]"
-                        : "border-[var(--color-or)]/30 text-[var(--color-ivoire-soft)] hover:border-[var(--color-laque-bright)]/60"
-                    }`}
-                  >
-                    {t("cancel.refund.lost")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setRefund(String(deposit))}
-                    aria-pressed={fullyRefunded}
-                    className={`flex-1 px-3 py-2 text-[10px] uppercase tracking-[0.22em] border transition-colors ${
-                      fullyRefunded
-                        ? "border-[var(--color-or)] bg-[var(--color-or)]/15 text-[var(--color-or)]"
-                        : "border-[var(--color-or)]/30 text-[var(--color-ivoire-soft)] hover:border-[var(--color-or)]/60"
-                    }`}
-                  >
-                    {t("cancel.refund.full")}
-                  </button>
-                </div>
-                <FormField
-                  label={t("cancel.refund.field")}
-                  type="number"
-                  value={refund}
-                  onChange={setRefund}
-                  placeholder="0"
-                />
-              </>
-            ) : (
-              <p className="text-sm text-[var(--color-ivoire-soft)] leading-relaxed">
-                {t("cancel.refund.no_deposit")}
-              </p>
-            )}
-
-            {error ? (
-              <p
-                role="alert"
-                className="text-sm text-[var(--color-laque-bright)] border-l-2 border-[var(--color-laque-bright)] pl-3 py-1"
-              >
-                {error}
-              </p>
-            ) : null}
-
-            <div className="flex justify-end gap-3 pt-2 border-t border-[var(--color-or)]/15">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={onClose}
-                disabled={busy}
-              >
-                {t("editor.cancel")}
-              </Button>
-              <Button type="submit" variant="primary" loading={busy}>
-                {t("cancel.refund.confirm")}
-              </Button>
-            </div>
-          </form>
+          </span>
+          {step === "refund"
+            ? t("cancel.refund.title")
+            : t("cancel.fate.title")}
+        </>
+      }
+      footer={
+        step === "refund" ? (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onClose}
+              disabled={busy}
+            >
+              {t("editor.cancel")}
+            </Button>
+            <Button type="submit" form={formId} variant="danger" loading={busy}>
+              {t("cancel.refund.confirm")}
+            </Button>
+          </>
         ) : (
-          <div className="space-y-4">
-            <p className="text-sm text-[var(--color-ivoire-soft)] leading-relaxed">
-              {t("cancel.fate.body")}
-            </p>
-            {error ? (
-              <p
-                role="alert"
-                className="text-sm text-[var(--color-laque-bright)] border-l-2 border-[var(--color-laque-bright)] pl-3 py-1"
-              >
-                {error}
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onArchive}
+              disabled={busy}
+            >
+              {t("cancel.fate.archive")}
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={onDelete}
+              loading={busy}
+            >
+              {t("cancel.fate.delete")}
+            </Button>
+          </>
+        )
+      }
+    >
+      {step === "refund" ? (
+        <form id={formId} onSubmit={submitRefund} className="space-y-4">
+          {deposit > 0 ? (
+            <>
+              <p className="text-sm text-[var(--on-surface-muted)] leading-relaxed">
+                {t("cancel.refund.body", {
+                  deposit: fmtMoney(deposit),
+                  currency,
+                })}
               </p>
-            ) : null}
-            <div className="flex justify-end gap-3 pt-2 border-t border-[var(--color-or)]/15">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={onArchive}
-                disabled={busy}
-              >
-                {t("cancel.fate.archive")}
-              </Button>
-              <Button
-                type="button"
-                variant="primary"
-                onClick={onDelete}
-                loading={busy}
-                className="!bg-[var(--color-laque-bright)] hover:!bg-[var(--color-laque)] !text-[var(--color-ivoire)]"
-              >
-                {t("cancel.fate.delete")}
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>,
-    document.body,
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRefund("0")}
+                  aria-pressed={refundNum === 0}
+                  className={`flex-1 px-3 py-2 text-[10px] uppercase tracking-[0.22em] border transition-colors ${
+                    refundNum === 0
+                      ? "border-[var(--danger)] bg-[var(--danger-surface)] text-[var(--danger)]"
+                      : "border-[var(--border)] text-[var(--on-surface-muted)] hover:border-[var(--danger)]/60"
+                  }`}
+                >
+                  {t("cancel.refund.lost")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRefund(String(deposit))}
+                  aria-pressed={fullyRefunded}
+                  className={`flex-1 px-3 py-2 text-[10px] uppercase tracking-[0.22em] border transition-colors ${
+                    fullyRefunded
+                      ? "border-[var(--accent)] bg-[var(--accent)]/15 text-[var(--accent)]"
+                      : "border-[var(--border)] text-[var(--on-surface-muted)] hover:border-[var(--accent)]/60"
+                  }`}
+                >
+                  {t("cancel.refund.full")}
+                </button>
+              </div>
+              <FormField
+                label={t("cancel.refund.field")}
+                type="number"
+                value={refund}
+                onChange={setRefund}
+                placeholder="0"
+              />
+            </>
+          ) : (
+            <p className="text-sm text-[var(--on-surface-muted)] leading-relaxed">
+              {t("cancel.refund.no_deposit")}
+            </p>
+          )}
+
+          {errorBlock}
+        </form>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--on-surface-muted)] leading-relaxed">
+            {t("cancel.fate.body")}
+          </p>
+          {errorBlock}
+        </div>
+      )}
+    </Modal>
   );
 }
 

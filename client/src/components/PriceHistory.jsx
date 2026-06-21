@@ -1,10 +1,9 @@
-import { useId, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { useFocusTrap } from "../hooks/useFocusTrap.js";
 import { useT } from "../i18n/index.jsx";
 import AccentTitle from "./AccentTitle.jsx";
 import Button from "./Button.jsx";
+import { Modal } from "./ui/index.js";
 import { fmtMoney } from "../lib/money.js";
 
 /**
@@ -318,10 +317,11 @@ export function PriceLedger({ points, currency, locale, t, showSource = true }) 
 }
 
 /**
- * The "évolution du prix" dialog (figure page). Direction-A modal on the
- * shared `.fig-pop` chrome: kicker · 推 · MARCHÉ, accent title, the step
- * chart, the relevés ledger, and a footer offering both exits — "Voir dans
- * la Cote →" (deep-links to the expanded row) and a ghost close.
+ * The "évolution du prix" dialog (figure page). Composes the shared <Modal>
+ * (focus-trap, Esc, scroll-lock, scrim, close button) with a Direction-A
+ * editorial body: kicker · 推 · MARCHÉ, accent title, the step chart, the
+ * relevés ledger, and a footer offering both exits — "Voir dans la Cote →"
+ * (deep-links to the expanded row) and a ghost close.
  */
 export default function PriceHistoryDialog({
   open,
@@ -333,57 +333,19 @@ export default function PriceHistoryDialog({
   locale,
 }) {
   const t = useT();
-  const ref = useRef(null);
-  const titleId = useId();
-  useFocusTrap(ref, { active: open, onClose });
-
-  if (!open) return null;
-
   const source = points?.find((p) => p.source)?.source;
 
-  return createPortal(
-    <div role="dialog" aria-modal="true" onClick={onClose} className="fig-pop">
-      <div
-        ref={ref}
-        tabIndex={-1}
-        onClick={(e) => e.stopPropagation()}
-        className="fig-pop-card"
-        aria-labelledby={titleId}
-        style={{ maxWidth: "560px" }}
-      >
-        <p className="micro flex items-center gap-2.5">
-          <span aria-hidden className="w-1 h-1 bg-[var(--color-laque-bright)] rotate-45" />
-          {t("cote.history.kicker")}
-          <span aria-hidden className="ja not-italic text-[var(--color-or)]">
-            推
-          </span>
-          {t("cote.history.kicker_label")}
-          <span className="flex-1" />
-          {source ? (
-            <span className="font-mono normal-case tracking-normal text-[9px] text-[var(--color-ivoire-soft)]">
-              {t("cote.history.source", { s: source })}
-            </span>
-          ) : null}
-        </p>
-        <h2 id={titleId} className="display text-2xl text-[var(--color-ivoire)] mt-2.5">
-          <AccentTitle text={figureName} />{" "}
-          <span className="text-[var(--color-ivoire-soft)]">
-            — {t("cote.history.title_suffix")}
-          </span>
-        </h2>
-        <div className="gold-rule w-12 mt-3.5 mb-5" />
-
-        <StepChart points={points} currency={currency} locale={locale} height={170} t={t} />
-
-        <div className="mt-4 pt-3 border-t border-[var(--color-or)]/12 max-h-44 overflow-y-auto">
-          <PriceLedger points={points} currency={currency} locale={locale} t={t} />
-        </div>
-
-        <div className="flex items-center justify-between gap-3 mt-5 pt-4 border-t border-[var(--color-or)]/12">
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      size="md"
+      footer={
+        <div className="flex items-center justify-between gap-3 w-full">
           <Link
             to={`/insights/cote#figure-${figureId}`}
             onClick={onClose}
-            className="micro text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors"
+            className="micro text-[var(--accent)] hover:text-[var(--accent)] transition-colors"
           >
             {t("cote.history.see_in_cote")} →
           </Link>
@@ -391,8 +353,33 @@ export default function PriceHistoryDialog({
             {t("cote.history.close")}
           </Button>
         </div>
+      }
+    >
+      <p className="micro flex items-center gap-2.5">
+        <span aria-hidden className="w-1 h-1 bg-[var(--primary)] rotate-45" />
+        {t("cote.history.kicker")}
+        <span aria-hidden className="ja not-italic text-[var(--accent)]">
+          推
+        </span>
+        {t("cote.history.kicker_label")}
+        <span className="flex-1" />
+        {source ? (
+          <span className="font-mono normal-case tracking-normal text-[9px] text-[var(--on-surface-muted)]">
+            {t("cote.history.source", { s: source })}
+          </span>
+        ) : null}
+      </p>
+      <h2 className="display text-2xl text-[var(--on-surface)] mt-2.5">
+        <AccentTitle text={figureName} />{" "}
+        <span className="text-[var(--on-surface-muted)]">— {t("cote.history.title_suffix")}</span>
+      </h2>
+      <div className="gold-rule w-12 mt-3.5 mb-5" />
+
+      <StepChart points={points} currency={currency} locale={locale} height={170} t={t} />
+
+      <div className="mt-4 pt-3 border-t border-[var(--border-subtle)] max-h-44 overflow-y-auto">
+        <PriceLedger points={points} currency={currency} locale={locale} t={t} />
       </div>
-    </div>,
-    document.body,
+    </Modal>
   );
 }
