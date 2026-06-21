@@ -1276,6 +1276,28 @@ dl.fig-specs dd a {
   max-width: 48rem;
 }
 
+/* No-description Identité — the spec blocks (Coup d'œil · 作 Production ·
+ *  録 Compléments) become width-filling columns instead of a stranded half
+ *  column. auto-fit makes the present blocks consume the whole row (1 col on
+ *  phones, 2–3 on wider), so there's never an empty right — and it self-adapts
+ *  whether Compléments survived the dedupe. A shared top hairline + uniform top
+ *  padding align the column heads into a single editorial spec sheet. */
+.fig-id-specgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 2.25rem 3rem;
+  align-items: start;
+}
+.fig-id-specgrid > * {
+  margin: 0;
+  padding-top: 1rem;
+  border-top: 1px solid color-mix(in oklab, var(--color-or) 22%, transparent);
+}
+.fig-id-specgrid .fig-keyspecs-label,
+.fig-id-specgrid .fig-specs-group-title {
+  margin-top: 0;
+}
+
 /* The editorial description column. It is clamped (inline max-height) to the
  *  sidecar's live height when both columns exist; the "Lire la suite" toggle is
  *  shown by JS ONLY when the clamped prose overflows that height. */

@@ -64,84 +64,92 @@ export default function IdentitySection({ f, t, canEdit, nsfwPref, galleryDefaul
   // column fills as tall as the right, no taller) — measured live via this ref.
   const sidecarRef = useRef(null);
 
-  // The right-column content, reused whether it sits on the right (description
-  // present) or fills a single column (description absent).
+  // The three spec blocks, extracted so they can render EITHER stacked in the
+  // right column (description present) OR as independent columns of a
+  // width-filling grid (description absent — see the layout decision below).
+  const glanceBlock = hasGlance ? (
+    <div className="fig-keyspecs">
+      <div className="fig-keyspecs-label">
+        {t("figure.identity.glance", { default: "Coup d'œil" })}
+      </div>
+      <HeadlineSpecs f={f} t={t} />
+      {/* Catalogue lot reference — moved down from the sticky rail (it is
+       *  reference data, not glance-critical). */}
+      <div className="mt-4">
+        <span className="fig-lot">
+          <span className="fig-lot-label">{t("figure.lot.eyebrow")}</span>
+          <span className="fig-lot-value">
+            Nº{" "}
+            {String(f.id ?? "")
+              .slice(0, 8)
+              .toUpperCase()}
+          </span>
+          <span className="fig-lot-label">{t("figure.lot.kind")}</span>
+          <span className="fig-lot-value">{t(`type.${f.figure_type ?? "other"}`)}</span>
+        </span>
+      </div>
+    </div>
+  ) : null;
+
+  const productionBlock =
+    productionRows.length > 0 ? (
+      <div className="fig-specs-group">
+        <div className="fig-specs-group-title">
+          <span className="ja" aria-hidden>
+            作
+          </span>
+          {t("figure.cartouche.production")}
+        </div>
+        <dl className="fig-specs">
+          {productionRows.map((r) => (
+            <div key={r.label}>
+              <dt>{r.label}</dt>
+              <dd>{r.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    ) : null;
+
+  const complementBlock =
+    dedupedSpecs.length > 0 ? (
+      <div className="fig-specs-group">
+        <div className="fig-specs-group-title">
+          <span className="ja" aria-hidden>
+            録
+          </span>
+          {t("figure.identity.complementary", { default: "Compléments" })}
+        </div>
+        <dl className="fig-specs">
+          {dedupedSpecs.map(([k, v], i) => (
+            <div key={`${k}-${i}`}>
+              <dt>{k}</dt>
+              <dd>
+                {/^https?:\/\//.test(v) ? (
+                  <a
+                    href={v}
+                    target="_blank"
+                    rel="noopener noreferrer nofollow"
+                    className="underline underline-offset-2 hover:text-[var(--color-or)] transition-colors"
+                  >
+                    {v.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                  </a>
+                ) : (
+                  v
+                )}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    ) : null;
+
+  // Stacked version — the right column when a description occupies the left.
   const sidecar = hasSidecar ? (
     <div ref={sidecarRef} className="min-w-0">
-      {hasGlance ? (
-        <div className="fig-keyspecs">
-          <div className="fig-keyspecs-label">
-            {t("figure.identity.glance", { default: "Coup d'œil" })}
-          </div>
-          <HeadlineSpecs f={f} t={t} />
-          {/* Catalogue lot reference — moved down from the sticky rail (it is
-           *  reference data, not glance-critical). */}
-          <div className="mt-4">
-            <span className="fig-lot">
-              <span className="fig-lot-label">{t("figure.lot.eyebrow")}</span>
-              <span className="fig-lot-value">
-                Nº{" "}
-                {String(f.id ?? "")
-                  .slice(0, 8)
-                  .toUpperCase()}
-              </span>
-              <span className="fig-lot-label">{t("figure.lot.kind")}</span>
-              <span className="fig-lot-value">{t(`type.${f.figure_type ?? "other"}`)}</span>
-            </span>
-          </div>
-        </div>
-      ) : null}
-
-      {productionRows.length > 0 ? (
-        <div className="fig-specs-group">
-          <div className="fig-specs-group-title">
-            <span className="ja" aria-hidden>
-              作
-            </span>
-            {t("figure.cartouche.production")}
-          </div>
-          <dl className="fig-specs">
-            {productionRows.map((r) => (
-              <div key={r.label}>
-                <dt>{r.label}</dt>
-                <dd>{r.value}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      ) : null}
-
-      {dedupedSpecs.length > 0 ? (
-        <div className="fig-specs-group">
-          <div className="fig-specs-group-title">
-            <span className="ja" aria-hidden>
-              録
-            </span>
-            {t("figure.identity.complementary", { default: "Compléments" })}
-          </div>
-          <dl className="fig-specs">
-            {dedupedSpecs.map(([k, v], i) => (
-              <div key={`${k}-${i}`}>
-                <dt>{k}</dt>
-                <dd>
-                  {/^https?:\/\//.test(v) ? (
-                    <a
-                      href={v}
-                      target="_blank"
-                      rel="noopener noreferrer nofollow"
-                      className="underline underline-offset-2 hover:text-[var(--color-or)] transition-colors"
-                    >
-                      {v.replace(/^https?:\/\//, "").replace(/\/$/, "")}
-                    </a>
-                  ) : (
-                    v
-                  )}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      ) : null}
+      {glanceBlock}
+      {productionBlock}
+      {complementBlock}
     </div>
   ) : null;
 
@@ -164,7 +172,18 @@ export default function IdentitySection({ f, t, canEdit, nsfwPref, galleryDefaul
       </div>
     );
   } else if (hasSidecar) {
-    identityBody = <div className="fig-id-grid fig-id-grid--single">{sidecar}</div>;
+    // No description → don't strand the spec groups in a half-width column.
+    // Spread the blocks (Coup d'œil · Production · Compléments) across a
+    // width-filling auto-grid: the present blocks become equal-min-width
+    // columns that consume the full row, so there is never an empty right —
+    // robust whether Compléments survived the dedupe or not.
+    identityBody = (
+      <div className="fig-id-specgrid">
+        {glanceBlock}
+        {productionBlock}
+        {complementBlock}
+      </div>
+    );
   }
 
   return (
