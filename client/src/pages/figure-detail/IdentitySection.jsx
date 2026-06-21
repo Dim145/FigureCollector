@@ -284,7 +284,14 @@ function DescriptionColumn({ lede, body, t, clampRef = null }) {
           </p>
         ) : null}
         {body ? (
-          <p className="text-[var(--color-ivoire-soft)] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+          <p
+            className={`text-[var(--color-ivoire-soft)] leading-relaxed whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${
+              /* When there's no editorial lede (e.g. a scraped blob), the body is
+                 the opening paragraph — give IT the gold drop-cap so the
+                 description always opens on the signature lettrine. */
+              lede ? "" : "fig-lede--cap"
+            }`}
+          >
             {body}
           </p>
         ) : null}
