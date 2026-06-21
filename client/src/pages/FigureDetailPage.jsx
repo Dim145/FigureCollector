@@ -5,19 +5,26 @@ import { useIsAdmin, useMe } from "../hooks/useMe.js";
 import { useFigure, useOwnedItems } from "../hooks/useCollection.js";
 import { useDeleteFigure } from "../hooks/useAdmin.js";
 import { ApiError } from "../lib/api.js";
-import { nsfwBlocked } from "../lib/nsfw.js";
+import { nsfwBlocked, nsfwClass } from "../lib/nsfw.js";
+import { typeHue, typeKanji } from "../lib/typeHue.js";
+import { preorderPhase, preorderPhaseFromFigure } from "../lib/preorderStatus.js";
 import AppShell from "../components/AppShell.jsx";
 import ErrorState from "../components/ErrorState.jsx";
-import Foldable from "../components/Foldable.jsx";
 import ConfirmDialog from "../components/ConfirmDialog.jsx";
 import FigureEditDialog from "../components/FigureEditDialog.jsx";
-import FigurePhotosSection from "../components/FigurePhotosSection.jsx";
 import ShareDialog from "../components/ShareDialog.jsx";
 import BarcodeDialog from "../components/BarcodeDialog.jsx";
 import Breadcrumbs from "../components/ui/Breadcrumbs.jsx";
-import FigureHeroPanel from "./figure-detail/FigureHeroPanel.jsx";
-import FigureCartouche from "./figure-detail/FigureCartouche.jsx";
-import OwnerStack from "./figure-detail/OwnerStack.jsx";
+import FigureHero from "../components/FigureHero.jsx";
+import FigurePhotosSection from "../components/FigurePhotosSection.jsx";
+import SummaryRail from "./figure-detail/SummaryRail.jsx";
+import FigureAnchorIndex from "./figure-detail/FigureAnchorIndex.jsx";
+import IdentitySection from "./figure-detail/IdentitySection.jsx";
+import ValueSection from "./figure-detail/ValueSection.jsx";
+import PreorderTimeline from "./figure-detail/PreorderTimeline.jsx";
+import BoutiquesSection from "./figure-detail/BoutiquesSection.jsx";
+import MaPieceSection from "./figure-detail/MaPieceSection.jsx";
+import Turntable from "./figure-detail/Turntable.jsx";
 import SimilarFiguresSection from "./figure-detail/SimilarFiguresSection.jsx";
 import {
   FigureDetailLoading,
@@ -26,21 +33,21 @@ import {
 } from "./figure-detail/figureDetailStates.jsx";
 
 /**
- * "La fiche d'une pièce" — the definitive single-object record page. A thin
- * orchestrator: it resolves the figure + ownership, gates NSFW, owns the
- * modal/overlay state, and composes the page-local panels. No tabs — a long
- * editorial scroll (mobile-friendly):
+ * "La fiche d'une pièce" — the definitive single-object record page,
+ * re-architected to the validated ⓪ La Fiche mockup. A thin orchestrator: it
+ * resolves the figure + ownership, gates NSFW, owns the modal state, and
+ * composes the page.
  *
- *   Breadcrumbs (CATALOGUE › Fiche)
- *   I.   Hero          → FigureHeroPanel (gallery + headline + glance + CTA)
- *   II.  La fiche       → <Foldable> FigureCartouche + FigurePhotosSection
- *                         (open by default when the viewer doesn't own it)
- *   III. Ma pièce       → OwnerStack (owner-only: editor, cover, preorder,
- *                         photos, justificatifs, 360°)
- *   IV.  Figures proches → SimilarFiguresSection (DINOv2; self-hides)
+ *   Breadcrumb (Catalogue › Fiche)
+ *   HERO ROW   → FigureHero gallery (left, tall) + sticky SummaryRail (right)
+ *   ANCHOR     → FigureAnchorIndex (scroll-spy kanji register)
+ *   SECTIONS   → 目 #identite · 価 #valeur · 予 #preco · 店 #boutiques ·
+ *                私 #ma-piece(=owner-stack) · 巡 #vue360 · 似 #proches
+ *   Modals     → FigureEditDialog, delete ConfirmDialog, ShareDialog, BarcodeDialog
  *
- * Modals (FigureEditDialog, delete ConfirmDialog, ShareDialog, BarcodeDialog)
- * are mounted here so a single piece of state drives each.
+ * Sections self-hide when their data is absent (no #preco unless preorder /
+ * release date; no #ma-piece / #vue360 unless owned; #proches self-hides). The
+ * anchor index only lists the sections actually rendered.
  */
 export default function FigureDetailPage() {
   const { id } = useParams();
@@ -50,8 +57,7 @@ export default function FigureDetailPage() {
   const navigate = useNavigate();
   const figure = useFigure(id);
   // Include archived: this page must surface an archived owned_item too so the
-  // user can restore it / see the cancellation history. /collection filters
-  // them out via its own toggle.
+  // user can restore it / see the cancellation history.
   const owned = useOwnedItems({ includeArchived: true });
   const del = useDeleteFigure();
 
@@ -107,24 +113,52 @@ export default function FigureDetailPage() {
       await del.mutateAsync(f.id);
       navigate("/catalogue");
     } catch {
-      // The mutation surfaces its own error via the global toast; we only need
-      // to make sure a failed delete doesn't leave the confirm dialog stuck
-      // open + disabled. Resetting in `finally` closes it either way.
+      // The mutation surfaces its own error via the global toast; resetting in
+      // `finally` closes the confirm dialog either way.
     } finally {
       setConfirming(false);
     }
   };
 
-  // Jump from the hero's "Éditer ma pièce" CTA down to the owner editor.
+  // Jump from the rail's "Éditer ma pièce" CTA down to the owner zone.
   const scrollToOwnerStack = () => {
     document.getElementById("owner-stack")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  // Which sections exist? The anchor index + content render in lockstep.
+  const phase = ownedRecord ? preorderPhase(ownedRecord) : preorderPhaseFromFigure(f);
+  const hasPreco =
+    !!f.release_date || phase === "preorder" || phase === "imminent" || phase === "cancelled";
+  const showValue = alreadyOwned;
+  const showMine = alreadyOwned;
+  const show360 = alreadyOwned;
+
+  const anchors = [
+    { id: "identite", kanji: "目", label: t("figure.anchor.identity", { default: "Identité" }) },
+    showValue && {
+      id: "valeur",
+      kanji: "価",
+      label: t("figure.anchor.value", { default: "Valeur" }),
+    },
+    hasPreco && {
+      id: "preco",
+      kanji: "予",
+      label: t("figure.anchor.preorder", { default: "Pré-commande" }),
+    },
+    { id: "boutiques", kanji: "店", label: t("figure.anchor.shops", { default: "Boutiques" }) },
+    showMine && {
+      id: "owner-stack",
+      kanji: "私",
+      label: t("figure.anchor.mine", { default: "Ma pièce" }),
+    },
+    show360 && { id: "vue360", kanji: "巡", label: t("figure.anchor.view360", { default: "360°" }) },
+    { id: "proches", kanji: "似", label: t("figure.anchor.similar", { default: "Proches" }) },
+  ].filter(Boolean);
+
   return (
     <AppShell>
-      <div className="relative pb-24">
-        {/* Editorial breadcrumb — CATALOGUE › Fiche, a quiet way back to where
-         *  most arrivals come from. */}
+      <div className="fig-detail relative pb-24">
+        {/* Breadcrumb — a quiet way back to the catalogue. */}
         <div className="max-w-7xl mx-auto px-6 pt-8">
           <Breadcrumbs
             items={[
@@ -134,26 +168,111 @@ export default function FigureDetailPage() {
           />
         </div>
 
-        <FigureHeroPanel
-          f={f}
-          ownedRecord={ownedRecord}
-          alreadyOwned={alreadyOwned}
-          canEdit={canEdit}
-          nsfwPref={nsfwPref}
-          t={t}
-          onEdit={() => setEditing(true)}
-          onDelete={() => setConfirming(true)}
-          onShare={() => setSharing(true)}
-          onEditMine={scrollToOwnerStack}
-        />
+        {/* ── HERO ROW ── gallery (left, tall) + sticky summary rail (right). No
+         *  overflow:hidden on this subtree, or the sticky rail breaks. */}
+        <section className="relative" style={{ "--hue": typeHue(f.figure_type) }}>
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -top-20 left-0 right-0 h-[460px] -z-0"
+            style={{
+              background:
+                "radial-gradient(46% 70% at 22% 0%, color-mix(in oklab, var(--hue) 24%, transparent), transparent 68%), radial-gradient(40% 60% at 84% 12%, color-mix(in oklab, var(--color-or) 18%, transparent), transparent 72%)",
+              maskImage: "linear-gradient(to bottom, transparent, #000 140px)",
+              WebkitMaskImage: "linear-gradient(to bottom, transparent, #000 140px)",
+            }}
+          />
+          <span
+            aria-hidden
+            className="kanji-mark text-[32rem] -top-16 -left-16 hidden md:block opacity-[0.07]"
+          >
+            {typeKanji(f.figure_type)}
+          </span>
 
-        {/* "La fiche" — catalog data + shared gallery, in one foldable. Defaults
-         *  OPEN when the viewer doesn't own the piece (they need everything to
-         *  decide); CLOSED when they do (their own data is the focus then). */}
-        <section className="max-w-7xl mx-auto px-6">
-          <Foldable size="major" label={t("figure.section.cartouche")} defaultOpen={!alreadyOwned}>
-            <FigureCartouche f={f} t={t} onShowBarcode={() => setScanCode(true)} />
-            <div className="mt-12">
+          <div className="relative max-w-7xl mx-auto px-6 pt-12 md:pt-16 grid lg:grid-cols-[1.38fr_minmax(0,1fr)] gap-10 lg:gap-12 items-start">
+            <FigureHero
+              figure={f}
+              ownedItemId={ownedRecord?.id ?? null}
+              figureTypeKanji={typeKanji(f.figure_type)}
+              nsfwBlurClass={nsfwClass(f.is_nsfw, nsfwPref)}
+            />
+            <SummaryRail
+              f={f}
+              ownedRecord={ownedRecord}
+              alreadyOwned={alreadyOwned}
+              canEdit={canEdit}
+              t={t}
+              onEdit={() => setEditing(true)}
+              onDelete={() => setConfirming(true)}
+              onShare={() => setSharing(true)}
+              onEditMine={scrollToOwnerStack}
+            />
+          </div>
+        </section>
+
+        {/* ── STICKY ANCHOR INDEX ── */}
+        <FigureAnchorIndex entries={anchors} />
+
+        {/* ── SECTIONS ── single full-width editorial scroll. */}
+        <div className="max-w-7xl mx-auto px-6">
+          <Section id="identite" kanji="目" title={t("figure.anchor.identity", { default: "Identité" })}>
+            <IdentitySection f={f} t={t} />
+          </Section>
+
+          {showValue ? (
+            <Section
+              id="valeur"
+              kanji="価"
+              title={t("figure.anchor.value", { default: "Valeur" })}
+              meta={t("figure.value.meta", { default: "EUR · taux figé à l'achat" })}
+            >
+              <ValueSection f={f} owned={ownedRecord} t={t} />
+            </Section>
+          ) : null}
+
+          {hasPreco ? (
+            <Section
+              id="preco"
+              kanji="予"
+              title={t("figure.anchor.preorder", { default: "Pré-commande" })}
+              meta={t("figure.preco.meta", { default: "Acompte non-remboursable" })}
+            >
+              <PreorderTimeline f={f} owned={ownedRecord} t={t} />
+            </Section>
+          ) : null}
+
+          <Section id="boutiques" kanji="店" title={t("figure.cartouche.stores")}>
+            <BoutiquesSection f={f} t={t} onShowBarcode={() => setScanCode(true)} />
+          </Section>
+
+          {showMine ? (
+            <Section
+              id="owner-stack"
+              kanji="私"
+              title={t("figure.owner.title")}
+              variant="mapiece"
+              banner={t("figure.already_owned")}
+            >
+              <MaPieceSection f={f} owned={ownedRecord} nsfwPref={nsfwPref} t={t} />
+              {/* Catalogue (shared) photos — editable by catalog editors, kept
+               *  with the owner zone since it's an editing surface. */}
+              <div className="mt-12">
+                <FigurePhotosSection
+                  figureId={f.id}
+                  figureName={f.name}
+                  canEdit={canEdit}
+                  uploadDisabled={f.is_nsfw && nsfwPref === "blur"}
+                  blurImages={f.is_nsfw && nsfwPref === "blur"}
+                />
+              </div>
+            </Section>
+          ) : (
+            // Not owned → the shared catalogue gallery still belongs on the
+            // page (below boutiques) so viewers see every visual.
+            <Section
+              id="galerie"
+              kanji="写"
+              title={t("figure.section.gallery", { default: "Galerie" })}
+            >
               <FigurePhotosSection
                 figureId={f.id}
                 figureName={f.name}
@@ -161,16 +280,28 @@ export default function FigureDetailPage() {
                 uploadDisabled={f.is_nsfw && nsfwPref === "blur"}
                 blurImages={f.is_nsfw && nsfwPref === "blur"}
               />
-            </div>
-          </Foldable>
-        </section>
+            </Section>
+          )}
 
-        {/* Owner-only stack — each block independently foldable. */}
-        {ownedRecord ? <OwnerStack f={f} owned={ownedRecord} nsfwPref={nsfwPref} t={t} /> : null}
+          {show360 ? (
+            <Section
+              id="vue360"
+              kanji="巡"
+              title={t("figure.anchor.view360", { default: "Vue 360°" })}
+              meta={t("figure.view360.meta", { default: "turntable · maintenez et glissez" })}
+            >
+              <Turntable owned={ownedRecord} />
+            </Section>
+          ) : null}
+        </div>
 
-        {/* Figurines visuellement proches — self-hides when photo search is off
-         *  or the piece isn't on the index yet. */}
-        <SimilarFiguresSection figureId={f.id} nsfwPref={nsfwPref} t={t} />
+        {/* Figurines visuellement proches — self-hides (renders null when photo
+         *  search is off or there are no neighbours). It brings its own
+         *  max-width + centred heading chrome, so it sits OUTSIDE the shared
+         *  section container; the `#proches` anchor lands on this wrapper. */}
+        <div id="proches" style={{ scrollMarginTop: "calc(var(--fig-header-h, 5rem) + 4rem)" }}>
+          <SimilarFiguresSection figureId={f.id} nsfwPref={nsfwPref} t={t} />
+        </div>
 
         {/* ─── Modals + fullscreen overlays ─── */}
         {editing ? <FigureEditDialog figure={f} onClose={() => setEditing(false)} /> : null}
@@ -199,5 +330,35 @@ export default function FigureDetailPage() {
         ) : null}
       </div>
     </AppShell>
+  );
+}
+
+/** A titled content section — kanji + gold-rule head + an `id` that matches an
+ *  anchor entry. The `mapiece` variant wraps the body in the visually-distinct
+ *  owner zone (border + watermark + banner). */
+function Section({ id, kanji, title, meta, banner, variant, children }) {
+  return (
+    <section id={id} className={`fig-section ${variant === "mapiece" ? "fig-mapiece" : ""}`}>
+      {variant === "mapiece" ? (
+        <div className="fig-mapiece-banner">
+          <span className="seal ja" aria-hidden>
+            私
+          </span>
+          <span className="fig-mapiece-banner-title">
+            <span className="em">{title}</span>
+            {banner ? <span className="fig-mapiece-banner-sub"> · {banner}</span> : null}
+          </span>
+        </div>
+      ) : (
+        <header className="fig-section-head">
+          <span className="ja" aria-hidden>
+            {kanji}
+          </span>
+          <h2>{title}</h2>
+          {meta ? <span className="meta">{meta}</span> : null}
+        </header>
+      )}
+      {children}
+    </section>
   );
 }
