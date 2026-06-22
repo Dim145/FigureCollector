@@ -232,8 +232,14 @@
   display: flex;
   gap: 14px;
   overflow-x: auto;
-  padding: 0 0 10px;
-  margin: 0;
+  /* `overflow-x: auto` also clips the cross axis, so the cards' hover lift
+     (translateY(-5px)) and their soft drop-shadow/glow would be cut at the top
+     and at the bottom (by the container edge + scrollbar). Pad the scroll box
+     to give the lift + shadow room; the matching negative top margin (it nets
+     to ~0 against the header's 16px margin-bottom) keeps the layout from
+     shifting down. */
+  padding: 16px 0 26px;
+  margin: -16px 0 0;
   list-style: none;
   scroll-behavior: smooth;
   /* Firefox: thin thumb over a transparent gutter (no default grey groove). */
