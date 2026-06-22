@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import FigureCard from "../../components/FigureCard.jsx";
 import { resolveFigureCover } from "../../lib/coverUrl.js";
 import { preorderBadgeLabel, preorderPhaseFromFigure } from "../../lib/preorderStatus.js";
@@ -23,6 +24,31 @@ export default function CuratedRail({
   me,
   t,
 }) {
+  const scrollRef = useRef(null);
+
+  // Edge fade — mask whichever side still has off-screen cards so the
+  // horizontal cut reads as a soft fade, not a hard slice. Driven imperatively
+  // via `data-fade` off scroll/resize (no re-renders); React leaves the
+  // attribute alone because the JSX value is static. Re-measures when the
+  // figure set changes (content width) or the viewport resizes.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return undefined;
+    const update = () => {
+      const atStart = el.scrollLeft <= 1;
+      const atEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1;
+      el.dataset.fade = atStart && atEnd ? "none" : atStart ? "end" : atEnd ? "start" : "both";
+    };
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", update);
+      ro.disconnect();
+    };
+  }, [figures]);
+
   if (!figures || figures.length === 0) return null;
   const nsfwPref = me?.data?.user?.nsfw_visibility ?? "hide";
   return (
@@ -43,7 +69,7 @@ export default function CuratedRail({
           </span>
         ) : null}
       </header>
-      <ul className="cat-rail-scroll" role="list">
+      <ul ref={scrollRef} data-fade="end" className="cat-rail-scroll" role="list">
         {figures.map((f) => {
           const phase = preorderPhaseFromFigure(f);
           const label = preorderBadgeLabel(phase, t);

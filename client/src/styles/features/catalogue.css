@@ -263,6 +263,22 @@
 .cat-rail-scroll::-webkit-scrollbar-thumb:hover {
   background: var(--color-or-deep);
 }
+/* Edge fade — `data-fade` (set by CuratedRail from the scroll position) masks
+   the side(s) that still have off-screen cards, so the horizontal cut is a
+   soft fade rather than a hard slice. The gradient runs left→right only, so the
+   cards' hover lift + drop-shadow (vertical) are untouched. */
+.cat-rail-scroll[data-fade="end"] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent);
+}
+.cat-rail-scroll[data-fade="start"] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 44px);
+  mask-image: linear-gradient(to right, transparent, #000 44px);
+}
+.cat-rail-scroll[data-fade="both"] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent);
+}
 .cat-rail-item {
   flex: none;
   width: 210px;
