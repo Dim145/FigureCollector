@@ -248,6 +248,16 @@ function Hero({ unlocked, total, percent, t }) {
           zIndex: 0,
           background:
             "radial-gradient(60% 80% at 18% 30%, color-mix(in oklab, var(--color-or) 16%, transparent), transparent 70%), radial-gradient(55% 75% at 82% 60%, color-mix(in oklab, var(--color-indigo) 14%, transparent), transparent 72%), radial-gradient(50% 60% at 60% 0%, color-mix(in oklab, var(--color-jade) 10%, transparent), transparent 70%)",
+          // Feather the wash's own rectangular edges so the gradients fade out
+          // instead of hard-stopping at its bounds — that clipped edge is the
+          // visible "bordure". Intersect a horizontal + vertical fade so all
+          // four sides dissolve while the gradient cores stay intact.
+          maskImage:
+            "linear-gradient(to right, transparent, #000 8%, #000 92%, transparent), linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent)",
+          WebkitMaskImage:
+            "linear-gradient(to right, transparent, #000 8%, #000 92%, transparent), linear-gradient(to bottom, transparent, #000 14%, #000 86%, transparent)",
+          maskComposite: "intersect",
+          WebkitMaskComposite: "source-in",
         }}
       />
       <div className="ach-hero-ring" aria-hidden>
