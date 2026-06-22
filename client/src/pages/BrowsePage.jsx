@@ -845,7 +845,6 @@ export default function BrowsePage() {
         <ExploreBento
           manufacturers={catFacets.data?.manufacturers}
           onPickManufacturer={setManufacturer}
-          onSeeAll={() => catFacets.data?.manufacturers?.[0] && setManufacturer(catFacets.data.manufacturers[0].name)}
           t={t}
         />
 

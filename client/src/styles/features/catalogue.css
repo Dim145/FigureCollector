@@ -219,18 +219,30 @@
   display: flex;
   gap: 14px;
   overflow-x: auto;
-  padding: 0 0 8px;
+  padding: 0 0 10px;
   margin: 0;
   list-style: none;
   scroll-behavior: smooth;
+  /* Firefox: thin thumb over a transparent gutter (no default grey groove). */
   scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
 }
+/* WebKit: a transparent track + an inset, rounded, gold-hairline pill thumb —
+   reads as a quiet on-brand filet rather than the chunky default scrollbar. */
 .cat-rail-scroll::-webkit-scrollbar {
-  height: 6px;
+  height: 8px;
+}
+.cat-rail-scroll::-webkit-scrollbar-track {
+  background: transparent;
 }
 .cat-rail-scroll::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--border-strong);
   border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.cat-rail-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-or-deep);
 }
 .cat-rail-item {
   flex: none;

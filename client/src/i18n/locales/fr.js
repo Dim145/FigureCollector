@@ -837,6 +837,7 @@ export default {
   "browse.discover.explore_em": "Explorer",
   "browse.discover.explore_rest": "par fabricant & série",
   "browse.discover.all_makers": "Tous les fabricants",
+  "browse.discover.fewer_makers": "Réduire",
   "browse.discover.featured_studio": "Studio en vedette",
   "browse.discover.figures": "figurines",
   "browse.discover.ambiances_em": "Ambiances",

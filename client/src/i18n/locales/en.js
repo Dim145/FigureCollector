@@ -814,6 +814,7 @@ export default {
   "browse.discover.explore_em": "Explore",
   "browse.discover.explore_rest": "by manufacturer & series",
   "browse.discover.all_makers": "All manufacturers",
+  "browse.discover.fewer_makers": "Collapse",
   "browse.discover.featured_studio": "Featured studio",
   "browse.discover.figures": "figures",
   "browse.discover.ambiances_em": "Visual",
