@@ -20,6 +20,8 @@ export default function SearchBar({
   t,
   query,
   onQueryChange,
+  onFocus,
+  onKeyDown,
   searchModes,
   mode,
   onModeChange,
@@ -29,9 +31,16 @@ export default function SearchBar({
   onPhoto,
   onScan,
   onOpenHelp,
+  // Combobox wiring (keyword mode only — set by BrowsePage). When `listId` is
+  // present the input announces itself as a combobox driving that listbox, with
+  // the active option reflected via aria-activedescendant.
+  listId,
+  comboExpanded,
+  activeId,
 }) {
   const photoInputRef = useRef(null);
   const showModes = searchModes.length > 1;
+  const combo = !!listId;
 
   const placeholder = isSemantic
     ? t("browse.search.semantic_placeholder", {
@@ -78,8 +87,19 @@ export default function SearchBar({
           type="text"
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
+          onFocus={onFocus}
+          onKeyDown={onKeyDown}
           placeholder={placeholder}
           aria-label={placeholder}
+          {...(combo
+            ? {
+                role: "combobox",
+                "aria-expanded": !!comboExpanded,
+                "aria-controls": listId,
+                "aria-autocomplete": "list",
+                "aria-activedescendant": activeId || undefined,
+              }
+            : {})}
           className={`w-full pl-12 ${
             photoEnabled ? "pr-[6.5rem]" : "pr-14"
           } py-4 bg-[var(--color-noir)] border border-[var(--color-or)]/25 text-[var(--color-ivoire)] placeholder:text-[var(--color-ivoire-soft)]/40 text-lg outline-none focus:border-[var(--color-or)] transition-colors`}
