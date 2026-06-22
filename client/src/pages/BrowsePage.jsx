@@ -59,6 +59,14 @@ const SORT_OPTIONS = [
 // figures list isn't paginated server-side, so we reveal more of the loaded set).
 const PAGE_SIZE = 24;
 
+// The whole-catalogue working set the page loads up front. The figures list
+// defaults to 50 rows; the discovery counts, type-rail counts, the client-side
+// série/perso/échelle/tag/owned/wished filters and "Charger plus" all operate
+// over this set, so it must be the full catalogue, not the 50 newest. 200 is
+// the server's clamp ceiling (mirrors the admin list); beyond that we'd need
+// real server-side pagination + a count endpoint.
+const CATALOGUE_LIMIT = 200;
+
 // SigLIP (Apparence) cross-modal cosine sits genuinely low (~0.05–0.16) and its
 // own sigmoid calibration reads ~0 % for out-of-domain figure photos, so a raw
 // % looks broken. We rescale that observed band to a readable 0–100 relevance
@@ -204,6 +212,7 @@ export default function BrowsePage() {
     figure_type: ambiance ? undefined : type || undefined,
     tag: tag || undefined,
     manufacturer: ambiance ? undefined : manufacturer || undefined,
+    limit: CATALOGUE_LIMIT,
   });
   const clusters = useVisualClusters({ enabled: ambiance });
   const semantic = useSemanticSearch({ active: isSemantic, query: debouncedQ });

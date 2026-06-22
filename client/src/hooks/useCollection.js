@@ -10,6 +10,10 @@ export function useFigures(params = {}, { enabled = true } = {}) {
   if (params.figure_type) search.set("figure_type", params.figure_type);
   if (params.manufacturer) search.set("manufacturer", params.manufacturer);
   if (params.tag) search.set("tag", params.tag);
+  // The server list defaults to 50 rows (clamp 1..200). Callers that drive a
+  // client-side filter/paging model over the result (the catalogue) must raise
+  // this so the loaded set isn't silently capped at the 50 newest figures.
+  if (params.limit) search.set("limit", params.limit);
   const qs = search.toString();
   return useQuery({
     queryKey: ["figures", params],

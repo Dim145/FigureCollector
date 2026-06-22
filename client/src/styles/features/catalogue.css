@@ -93,10 +93,16 @@
   transform: translateY(-3px);
 }
 .cat-bento-feat {
-  grid-row: span 2;
   padding: 26px;
-  min-height: 252px;
+  min-height: 160px;
   background: radial-gradient(120% 90% at 78% 12%, color-mix(in oklab, var(--color-or) 8%, var(--surface)), var(--surface) 64%);
+}
+/* The 2-row span only applies when there are enough trailing tiles to flank it
+   (set by ExploreBento); otherwise — a catalogue with few makers — it would
+   leave a large structural void below the feature cell. */
+.cat-bento-feat.is-tall {
+  grid-row: span 2;
+  min-height: 252px;
 }
 .cat-bento-badge {
   position: absolute;
@@ -144,6 +150,13 @@
   font-size: 20px;
   line-height: 1.1;
   color: var(--on-surface);
+  /* Long maker names degrade predictably: break + clamp to 2 lines rather than
+     overflowing the tile or pushing the eyebrow/count out of frame. */
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 .cat-bento-feat .cat-bento-nm {
   font-size: clamp(26px, 4vw, 34px);
@@ -847,7 +860,7 @@
   font-size: 13px;
   color: var(--color-or-deep);
 }
-.cat-noresults h3 {
+.cat-noresults h2 {
   font-family: var(--font-display);
   font-weight: 300;
   font-size: 22px;
@@ -918,7 +931,8 @@
   .cat-bento {
     grid-template-columns: 1fr 1fr;
   }
-  .cat-bento-feat {
+  .cat-bento-feat,
+  .cat-bento-feat.is-tall {
     grid-row: span 1;
     grid-column: 1 / -1;
     min-height: 200px;
@@ -940,6 +954,13 @@
   }
   .cat-mode-divider {
     margin: 40px 0 24px;
+  }
+  /* Let the caption wrap instead of being clipped (it has nowrap by default),
+     which would otherwise collapse the two flanking rule lines on narrow screens. */
+  .cat-mode-divider .txt {
+    white-space: normal;
+    text-align: center;
+    font-size: 10px;
   }
 }
 

@@ -21,7 +21,12 @@ export default function ExploreBento({ manufacturers, onPickManufacturer, t }) {
   const [feat, ...rest] = makers;
   const tiles = showAll ? rest : rest.slice(0, COLLAPSED_TILES);
   const canExpand = rest.length > COLLAPSED_TILES;
+  // The feature cell only spans 2 rows when there are ≥4 tiles to flank it;
+  // with fewer makers a tall cell would leave a big void beneath it.
+  const featTall = tiles.length >= COLLAPSED_TILES;
   const initial = (name) => (name ? name.trim().charAt(0).toUpperCase() : "·");
+  const figuresLabel = (n) =>
+    `${n} ${t("browse.discover.figures", { n, default: n > 1 ? "figurines" : "figurine" })}`;
 
   return (
     <section aria-label={t("browse.discover.explore_title", { default: "Explorer par fabricant" })}>
@@ -50,7 +55,7 @@ export default function ExploreBento({ manufacturers, onPickManufacturer, t }) {
       <div className="cat-bento">
         <button
           type="button"
-          className="cat-bento-tile cat-bento-feat"
+          className={`cat-bento-tile cat-bento-feat${featTall ? " is-tall" : ""}`}
           onClick={() => onPickManufacturer(feat.name)}
         >
           <span className="cat-bento-badge">
@@ -62,7 +67,7 @@ export default function ExploreBento({ manufacturers, onPickManufacturer, t }) {
           <span className="cat-bento-kk">{t("figure.spec.manufacturer", { default: "Fabricant" })}</span>
           <span className="cat-bento-nm">{feat.name}</span>
           <span className="cat-bento-ct num">
-            {feat.count} {t("browse.discover.figures", { default: "figurines" })}{" "}
+            {figuresLabel(feat.count)}{" "}
             <span className="cat-arr" aria-hidden>
               →
             </span>
@@ -84,7 +89,7 @@ export default function ExploreBento({ manufacturers, onPickManufacturer, t }) {
             </span>
             <span className="cat-bento-nm">{m.name}</span>
             <span className="cat-bento-ct num">
-              {m.count} {t("browse.discover.figures", { default: "figurines" })}{" "}
+              {figuresLabel(m.count)}{" "}
               <span className="cat-arr" aria-hidden>
                 →
               </span>

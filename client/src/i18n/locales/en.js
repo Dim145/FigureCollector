@@ -817,6 +817,8 @@ export default {
   "browse.discover.fewer_makers": "Collapse",
   "browse.discover.featured_studio": "Featured studio",
   "browse.discover.figures": "figures",
+  "browse.discover.figures.one": "figure",
+  "browse.discover.figures.other": "figures",
   "browse.discover.ambiances_em": "Visual",
   "browse.discover.ambiances_rest": "moods",
   "browse.discover.all_ambiances": "All moods",

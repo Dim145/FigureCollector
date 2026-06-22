@@ -840,6 +840,8 @@ export default {
   "browse.discover.fewer_makers": "Réduire",
   "browse.discover.featured_studio": "Studio en vedette",
   "browse.discover.figures": "figurines",
+  "browse.discover.figures.one": "figurine",
+  "browse.discover.figures.other": "figurines",
   "browse.discover.ambiances_em": "Ambiances",
   "browse.discover.ambiances_rest": "visuelles",
   "browse.discover.all_ambiances": "Toutes les ambiances",
