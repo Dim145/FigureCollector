@@ -229,9 +229,26 @@ async fn replace_photo(
     Ok(Json(saved))
 }
 
+/// Authorization predicate for the public photo proxy, extracted so the
+/// security matrix is unit-testable without a DB. A non-owner may fetch a photo
+/// ONLY when it's the piece's pinned cover (`is_cover`) on a public profile
+/// that permits this piece's NSFW state — gallery photos stay private to the
+/// owner. The owner always sees their own photos.
+fn photo_visible(
+    viewer: Option<Uuid>,
+    owner_id: Uuid,
+    is_public: bool,
+    show_nsfw: bool,
+    is_nsfw: bool,
+    is_cover: bool,
+) -> bool {
+    viewer == Some(owner_id) || (is_public && (show_nsfw || !is_nsfw) && is_cover)
+}
+
 /// Public(-ish) photo proxy. Streams the WebP back through the backend so the
-/// Garage bucket itself can stay private. Auth check: the owning user, or
-/// anyone if the owning user has `public_profile_enabled = TRUE`.
+/// Garage bucket itself can stay private. Auth: the owner, or — for a public
+/// profile — only the piece's pinned COVER (never arbitrary gallery photos),
+/// subject to the profile's NSFW preference. See `photo_visible`.
 async fn fetch_photo(
     State(state): State<AppState>,
     session: Session,
@@ -244,22 +261,25 @@ async fn fetch_photo(
 
     // Resolve the owning user + their public/NSFW flags + the piece's NSFW
     // flag (joined via owned_items → figures), so a non-owner can't pull an
-    // NSFW photo off a public profile that opted out of sharing NSFW.
-    let owner: Option<(Uuid, bool, bool, bool)> = sqlx::query_as(
-        "SELECT u.id, u.public_profile_enabled, u.public_profile_show_nsfw, f.is_nsfw
+    // NSFW photo off a public profile that opted out of sharing NSFW. Also flag
+    // whether this photo is the piece's pinned cover — the only photo any public
+    // surface (profile vitrine, compare) ever exposes.
+    let owner: Option<(Uuid, bool, bool, bool, bool)> = sqlx::query_as(
+        "SELECT u.id, u.public_profile_enabled, u.public_profile_show_nsfw, f.is_nsfw,
+                COALESCE(o.cover_photo_id = $2, FALSE) AS is_cover
          FROM owned_items o
          JOIN users u ON u.id = o.user_id
          JOIN figures f ON f.id = o.figure_id
          WHERE o.id = $1",
     )
     .bind(p.owned_item_id)
+    .bind(photo_id)
     .fetch_optional(&state.pool)
     .await?;
-    let (owner_id, is_public, show_nsfw, is_nsfw) = owner.ok_or(AppError::NotFound)?;
+    let (owner_id, is_public, show_nsfw, is_nsfw, is_cover) = owner.ok_or(AppError::NotFound)?;
 
     let viewer: Option<Uuid> = session.get("user_id").await?;
-    let allowed = viewer == Some(owner_id) || (is_public && (show_nsfw || !is_nsfw));
-    if !allowed {
+    if !photo_visible(viewer, owner_id, is_public, show_nsfw, is_nsfw, is_cover) {
         return Err(AppError::Forbidden);
     }
 
@@ -317,4 +337,54 @@ pub fn router() -> Router<AppState> {
             axum::routing::put(replace_photo).delete(delete_photo),
         )
         .route("/photos/{id}", get(fetch_photo))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::photo_visible;
+    use uuid::Uuid;
+
+    fn owner() -> Uuid {
+        Uuid::from_u128(1)
+    }
+    fn stranger() -> Option<Uuid> {
+        Some(Uuid::from_u128(2))
+    }
+
+    #[test]
+    fn owner_sees_any_of_their_own_photos() {
+        // Even a private, non-cover, NSFW photo — the owner always sees their own.
+        assert!(photo_visible(Some(owner()), owner(), false, false, true, false));
+    }
+
+    #[test]
+    fn non_owner_gets_the_public_cover() {
+        assert!(photo_visible(stranger(), owner(), true, false, false, true));
+    }
+
+    #[test]
+    fn non_owner_cannot_get_a_non_cover_gallery_photo() {
+        // The regression this hardening closes: a non-cover gallery photo of a
+        // public profile must NOT be fetchable by a non-owner.
+        assert!(!photo_visible(stranger(), owner(), true, false, false, false));
+    }
+
+    #[test]
+    fn non_owner_cannot_get_a_cover_on_a_private_profile() {
+        assert!(!photo_visible(stranger(), owner(), false, false, false, true));
+    }
+
+    #[test]
+    fn non_owner_nsfw_cover_follows_the_profile_preference() {
+        // NSFW cover hidden unless the owner publishes NSFW…
+        assert!(!photo_visible(stranger(), owner(), true, false, true, true));
+        // …and shown when they do.
+        assert!(photo_visible(stranger(), owner(), true, true, true, true));
+    }
+
+    #[test]
+    fn anonymous_viewer_is_treated_as_a_non_owner() {
+        assert!(photo_visible(None, owner(), true, false, false, true)); // public cover ok
+        assert!(!photo_visible(None, owner(), true, false, false, false)); // non-cover denied
+    }
 }

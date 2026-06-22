@@ -265,25 +265,28 @@ pub async fn delete_for_user(pool: &PgPool, user_id: Uuid, scan_id: Uuid) -> App
 
 /// Authorise the viewer: owner OR (owner has public profile + scan is ready).
 pub async fn assert_visible(pool: &PgPool, viewer: Option<Uuid>, scan: &Scan) -> AppResult<()> {
-    let owner: Option<(Uuid, bool, bool, bool)> = sqlx::query_as(
-        "SELECT u.id, u.public_profile_enabled, u.public_profile_show_nsfw, f.is_nsfw
+    let owner: Option<(Uuid, bool, bool, bool, bool)> = sqlx::query_as(
+        "SELECT u.id, u.public_profile_enabled, u.public_profile_show_nsfw, f.is_nsfw,
+                COALESCE(o.cover_scan_id = $2, FALSE) AS is_cover
          FROM owned_items o
          JOIN users u ON u.id = o.user_id
          JOIN figures f ON f.id = o.figure_id
          WHERE o.id = $1",
     )
     .bind(scan.owned_item_id)
+    .bind(scan.id)
     .fetch_optional(pool)
     .await?;
-    let Some((owner_id, is_public, show_nsfw, is_nsfw)) = owner else {
+    let Some((owner_id, is_public, show_nsfw, is_nsfw, is_cover)) = owner else {
         return Err(AppError::NotFound);
     };
     if viewer == Some(owner_id) {
         return Ok(());
     }
-    // Non-owner: public profile, scan finished, and either the owner shares
-    // NSFW or the underlying piece isn't NSFW.
-    if is_public && scan.state == "ready" && (show_nsfw || !is_nsfw) {
+    // Non-owner: public profile, scan finished, not-NSFW (or shared), AND this
+    // scan is the piece's pinned cover — the only scan a public surface shows
+    // (the cover thumbnail). Other/old scans stay private to the owner.
+    if is_public && scan.state == "ready" && (show_nsfw || !is_nsfw) && is_cover {
         return Ok(());
     }
     Err(AppError::Forbidden)
