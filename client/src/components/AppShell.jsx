@@ -11,6 +11,7 @@ import AuroraBackground from "./AuroraBackground.jsx";
 import TypeAccentVars from "./TypeAccentVars.jsx";
 import MobileTabBar from "./MobileTabBar.jsx";
 import MobileNavSheet from "./MobileNavSheet.jsx";
+import BackToTop from "./BackToTop.jsx";
 import Avatar from "./ui/Avatar.jsx";
 import DropdownMenu from "./ui/DropdownMenu.jsx";
 import { SECTIONS, ADD_ACTION, ACCOUNT_NAV, sectionForPath } from "../lib/navConfig.js";
@@ -295,6 +296,10 @@ export default function AppShell({ children }) {
           </p>
         </div>
       </footer>
+
+      {/* Floating "back to top" for long pages — self-hides until scrolled,
+          lifts above the mobile tab bar when it's present. */}
+      <BackToTop hasTabBar={authed} />
     </div>
   );
 }
