@@ -255,6 +255,13 @@
   border-right: 1px solid oklch(0.4 0.06 75 / 0.5);
   color: oklch(0.2 0.02 60);
 }
+/* Kanji-only plaque (a status stamp shares the row, so the romaji is sr-only):
+   drop the trailing hairline divider + spacing so the glyph stands alone. */
+.label-plaque.is-solo .label-plaque-kanji {
+  padding-right: 0;
+  margin-right: 0;
+  border-right: 0;
+}
 
 /* Stamp — solid black slab with a vertical red sash on the left edge and
    crisp ivoire text. Reads as "auction lot tag" / "RÉSERVÉ" stamp without

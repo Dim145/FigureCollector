@@ -133,46 +133,44 @@ export default function FigureCard({
           <FigurePlaceholder />
         )}
 
-        {/* Brass plaque — type with kanji */}
-        <div className="absolute top-3 left-3 z-[3]">
-          <span className="label-plaque">
+        {/* Top bar — the brass type plaque (left) and a SINGLE status element
+         *  (right) share one flex row with a gap, so the two can never collide
+         *  on a narrow card: the plaque truncates its label (the kanji still
+         *  identifies the type) before it would reach the stamp. Right-slot
+         *  priority: pre-order stamp > owned seal > wished heart — mutually
+         *  exclusive (owned/wished enforced server-side). */}
+        <div className="absolute top-3 left-3 right-3 z-[3] flex items-start justify-between gap-2">
+          <span className={`label-plaque min-w-0 ${badge ? "is-solo" : ""}`}>
             <span className="label-plaque-kanji" aria-hidden>
               {typeMeta.kanji}
             </span>
-            <span>{typeMeta.label}</span>
+            {/* When a status stamp shares the row, drop the romaji to the kanji
+                glyph alone — it already marks the type and frees the room the
+                stamp needs (no ugly truncation). Kept in the DOM as sr-only so
+                screen readers still get the type name (the kanji is aria-hidden). */}
+            <span className={`min-w-0 ${badge ? "sr-only" : "truncate"}`}>{typeMeta.label}</span>
           </span>
-        </div>
 
-        {/* Top-right corner — a SINGLE status element. Priority:
-         *  pre-order stamp > owned seal > wished heart. The corner never
-         *  stacks: a pre-order badge hides the user markers, and owning a
-         *  figure outranks wishing it (the two are mutually exclusive anyway,
-         *  enforced server-side). */}
-        {badge ? (
-          <div className="absolute top-3 right-3 z-[3]">
+          {badge ? (
             <StatusStamp badge={badge} />
-          </div>
-        ) : owned ? (
-          <div className="absolute top-3 right-3 z-[3]">
+          ) : owned ? (
             <span
-              className="fc-mark fc-mark--owned"
+              className="fc-mark fc-mark--owned shrink-0"
               title={t("catalog.mark.owned")}
               aria-label={t("catalog.mark.owned")}
             >
               ✓
             </span>
-          </div>
-        ) : wished ? (
-          <div className="absolute top-3 right-3 z-[3]">
+          ) : wished ? (
             <span
-              className="fc-mark fc-mark--wished"
+              className="fc-mark fc-mark--wished shrink-0"
               title={t("catalog.mark.wished")}
               aria-label={t("catalog.mark.wished")}
             >
               ♥
             </span>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
 
         {/* Catalogue inscription — sits over a fade-up gradient at the well's foot */}
         <div className="specimen-inscription">
@@ -231,7 +229,7 @@ function StatusStamp({ badge }) {
           ? "label-stamp--cancelled"
           : "label-stamp--ivory";
   return (
-    <span className={`label-stamp ${sashClass}`}>
+    <span className={`label-stamp shrink-0 ${sashClass}`}>
       <span>{label}</span>
     </span>
   );
