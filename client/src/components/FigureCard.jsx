@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useI18n, useT } from "../i18n/index.jsx";
 import { useFigureTypes } from "../hooks/useAdmin.js";
 import { typeHue } from "../lib/typeHue.js";
+import { Tooltip } from "./ui/index.js";
 
 /**
  * Cabinet de curiosités — display-pedestal card.
@@ -66,6 +67,19 @@ export default function FigureCard({
     el.style.setProperty("--x", `${e.clientX - r.left}px`);
     el.style.setProperty("--y", `${e.clientY - r.top}px`);
   };
+
+  // The brass type plaque. When a status stamp shares the row it's kanji-only
+  // (the romaji is sr-only), so a sighted user can't read the type — wrap it in
+  // a tooltip surfacing the full type name on hover/focus. The Tooltip portals
+  // out of the card, so the rail's overflow can't clip it.
+  const typePlaque = (
+    <span className={`label-plaque min-w-0 ${badge ? "is-solo" : ""}`}>
+      <span className="label-plaque-kanji" aria-hidden>
+        {typeMeta.kanji}
+      </span>
+      <span className={`min-w-0 ${badge ? "sr-only" : "truncate"}`}>{typeMeta.label}</span>
+    </span>
+  );
 
   const inner = (
     <div
@@ -140,16 +154,7 @@ export default function FigureCard({
          *  priority: pre-order stamp > owned seal > wished heart — mutually
          *  exclusive (owned/wished enforced server-side). */}
         <div className="absolute top-3 left-3 right-3 z-[3] flex items-start justify-between gap-2">
-          <span className={`label-plaque min-w-0 ${badge ? "is-solo" : ""}`}>
-            <span className="label-plaque-kanji" aria-hidden>
-              {typeMeta.kanji}
-            </span>
-            {/* When a status stamp shares the row, drop the romaji to the kanji
-                glyph alone — it already marks the type and frees the room the
-                stamp needs (no ugly truncation). Kept in the DOM as sr-only so
-                screen readers still get the type name (the kanji is aria-hidden). */}
-            <span className={`min-w-0 ${badge ? "sr-only" : "truncate"}`}>{typeMeta.label}</span>
-          </span>
+          {badge ? <Tooltip label={typeMeta.label}>{typePlaque}</Tooltip> : typePlaque}
 
           {badge ? (
             <StatusStamp badge={badge} />
