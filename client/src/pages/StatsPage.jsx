@@ -12,7 +12,7 @@ import { PageLayout } from "../components/layout/index.js";
 
 import StatsTitlePage from "./insights/StatsTitlePage.jsx";
 import ChapterNav from "./insights/ChapterNav.jsx";
-import LazyChapter from "./insights/LazyChapter.jsx";
+import LazyChapter, { RevealAllProvider } from "./insights/LazyChapter.jsx";
 import SpendChapter from "./insights/SpendChapter.jsx";
 import AllocationChapter from "./insights/AllocationChapter.jsx";
 import PalmaresChapter from "./insights/PalmaresChapter.jsx";
@@ -117,45 +117,47 @@ export default function StatsPage() {
     <AppShell>
       <PageLayout width="wide">
         {exportCta}
-        <div className="grid lg:grid-cols-[200px_minmax(0,1fr)] gap-8 lg:gap-12">
-          {/* Sticky jump-nav rail (TOC). Hidden when there are <2 chapters. */}
-          <div className="lg:order-1">
-            <ChapterNav chapters={chapters} />
-          </div>
+        <RevealAllProvider>
+          <div className="grid lg:grid-cols-[200px_minmax(0,1fr)] gap-8 lg:gap-12">
+            {/* Sticky jump-nav rail (TOC). Hidden when there are <2 chapters. */}
+            <div className="lg:order-1">
+              <ChapterNav chapters={chapters} />
+            </div>
 
-          <div className="min-w-0 lg:order-2">
-            {/* I — Frontispiece (eager) */}
-            <StatsTitlePage data={data} t={t} year={year} />
+            <div className="min-w-0 lg:order-2">
+              {/* I — Frontispiece (eager) */}
+              <StatsTitlePage data={data} t={t} year={year} />
 
-            {/* II — Dépenses (eager: first chapter, above the fold) */}
-            <SpendChapter data={data} t={t} />
+              {/* II — Dépenses (eager: first chapter, above the fold) */}
+              <SpendChapter data={data} t={t} />
 
-            {/* III+ — mount on scroll */}
-            <LazyChapter>
-              <AllocationChapter data={data} t={t} />
-            </LazyChapter>
-
-            <LazyChapter>
-              <PalmaresChapter data={data} t={t} />
-            </LazyChapter>
-
-            <LazyChapter>
-              <ChronicleChapter data={data} t={t} />
-            </LazyChapter>
-
-            <LazyChapter minHeight={480}>
-              <CrownPriceChapter data={data} t={t} />
-            </LazyChapter>
-
-            {insightsData ? (
-              <LazyChapter minHeight={240}>
-                <InsightsChapters insights={insightsData} t={t} />
+              {/* III+ — mount on scroll */}
+              <LazyChapter>
+                <AllocationChapter data={data} t={t} />
               </LazyChapter>
-            ) : null}
 
-            <Colophon t={t} pieces={data.total_pieces} year={year} />
+              <LazyChapter>
+                <PalmaresChapter data={data} t={t} />
+              </LazyChapter>
+
+              <LazyChapter>
+                <ChronicleChapter data={data} t={t} />
+              </LazyChapter>
+
+              <LazyChapter minHeight={480}>
+                <CrownPriceChapter data={data} t={t} />
+              </LazyChapter>
+
+              {insightsData ? (
+                <LazyChapter minHeight={240}>
+                  <InsightsChapters insights={insightsData} t={t} />
+                </LazyChapter>
+              ) : null}
+
+              <Colophon t={t} pieces={data.total_pieces} year={year} />
+            </div>
           </div>
-        </div>
+        </RevealAllProvider>
       </PageLayout>
     </AppShell>
   );

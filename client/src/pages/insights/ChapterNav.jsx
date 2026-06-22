@@ -1,4 +1,22 @@
 import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import { useRevealAll } from "./LazyChapter.jsx";
+
+/**
+ * Smooth-scroll to a chapter anchor, then move focus there for keyboard/AT
+ * users. `block: "start"` + the rule's `scroll-mt-28` land it just under the
+ * sticky header. Honours prefers-reduced-motion (instant jump). The caller has
+ * already ensured the anchor is mounted (see `go`).
+ */
+function scrollToChapter(el) {
+  const reduce =
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+  // Move focus for keyboard/AT users without yanking the scroll position.
+  el.setAttribute("tabindex", "-1");
+  el.focus({ preventScroll: true });
+}
 
 /**
  * Sticky chapter jump-nav (table of contents) for the almanac.
@@ -14,12 +32,14 @@ import { useEffect, useRef, useState } from "react";
  *
  * Active-section tracking is a plain scroll listener (the approach the Settings
  * page uses) — robust to anchors that mount late as lazy chapters hydrate.
- * Clicking smooth-scrolls (auto under prefers-reduced-motion). `chapters` =
- * [{ id, roman, label }] for the chapters actually rendered.
+ * Clicking forces any lazy target chapter to mount, then jumps to it (see
+ * `scrollToChapter`). `chapters` = [{ id, roman, label }] for the chapters
+ * actually rendered.
  */
 export default function ChapterNav({ chapters }) {
   const [active, setActive] = useState(chapters[0]?.id ?? null);
   const chaptersRef = useRef(chapters);
+  const { revealAll } = useRevealAll();
 
   // Keep the latest chapter list in a ref so the scroll listener (bound once)
   // always reads the current set as lazy chapters mount in. Updated in an
@@ -59,15 +79,18 @@ export default function ChapterNav({ chapters }) {
 
   function go(e, id) {
     e.preventDefault();
-    const el = document.getElementById(id);
+    let el = document.getElementById(id);
+    if (!el) {
+      // The target chapter is still a lazy placeholder — its anchor lives inside
+      // the not-yet-mounted children, so a plain jump would be a dead click.
+      // Mount every chapter synchronously (flushSync commits before we read the
+      // DOM back), then scroll to the now-present anchor.
+      flushSync(() => revealAll());
+      el = document.getElementById(id);
+    }
     if (!el) return;
-    const reduce =
-      typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
-    // Move focus for keyboard/AT users without yanking the scroll position.
-    el.setAttribute("tabindex", "-1");
-    el.focus({ preventScroll: true });
+    setActive(id); // highlight the target immediately; the scroll spy keeps it in sync after
+    scrollToChapter(el);
   }
 
   if (chapters.length < 2) return null;

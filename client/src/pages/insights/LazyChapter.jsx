@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 /**
  * Mount-on-scroll gate for below-the-fold almanac chapters.
@@ -15,15 +15,34 @@ import { useEffect, useRef, useState } from "react";
  * - Reserves `minHeight` while unmounted so the scrollbar + jump-nav anchors
  *   don't jump as chapters hydrate.
  * - No IO support (or the page is pre-rendered) → render eagerly.
+ * - `RevealAll` escape hatch: the jump-nav forces every chapter to mount before
+ *   scrolling to a below-the-fold anchor (the anchor lives inside the lazy
+ *   children, so a TOC jump to a not-yet-mounted chapter would be a dead click).
  */
+const RevealAllContext = createContext({ revealed: false, revealAll: () => {} });
+
+/** Provider: once `revealAll()` fires, every LazyChapter below mounts at once. */
+export function RevealAllProvider({ children }) {
+  const [revealed, setRevealed] = useState(false);
+  const revealAll = useCallback(() => setRevealed(true), []);
+  const value = useMemo(() => ({ revealed, revealAll }), [revealed, revealAll]);
+  return <RevealAllContext.Provider value={value}>{children}</RevealAllContext.Provider>;
+}
+
+/** Hook for the jump-nav to mount every chapter before scrolling. */
+export function useRevealAll() {
+  return useContext(RevealAllContext);
+}
+
 export default function LazyChapter({ minHeight = 360, rootMargin = "600px 0px", children }) {
+  const { revealed } = useRevealAll();
   const supported =
     typeof window !== "undefined" && typeof window.IntersectionObserver === "function";
   const [shown, setShown] = useState(!supported);
   const ref = useRef(null);
 
   useEffect(() => {
-    if (shown) return undefined;
+    if (shown || revealed) return undefined;
     const el = ref.current;
     if (!el) return undefined;
     const io = new IntersectionObserver(
@@ -37,8 +56,8 @@ export default function LazyChapter({ minHeight = 360, rootMargin = "600px 0px",
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [shown, rootMargin]);
+  }, [shown, revealed, rootMargin]);
 
-  if (shown) return children;
+  if (shown || revealed) return children;
   return <div ref={ref} aria-hidden style={{ minHeight }} />;
 }
