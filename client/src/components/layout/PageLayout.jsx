@@ -24,6 +24,10 @@ export default function PageLayout({
   width = "standard",
   children,
   className = "",
+  // Hero top padding. Defaults to the standard editorial breathing room; pages
+  // that need the first content closer to the fold (e.g. the catalogue) can
+  // pass a tighter clamp.
+  padTop = "clamp(2rem, 5vw, 4rem)",
 }) {
   // When a page passes no header content (e.g. it renders its own frontispiece),
   // skip the editorial header AND the section gap entirely — otherwise the empty
@@ -34,7 +38,7 @@ export default function PageLayout({
       className={`mx-auto w-full ${WIDTHS[width] ?? WIDTHS.standard} ${className}`}
       style={{
         paddingInline: "var(--space-page-x)",
-        paddingTop: "clamp(2rem, 5vw, 4rem)",
+        paddingTop: padTop,
         paddingBottom: "var(--space-section)",
       }}
     >

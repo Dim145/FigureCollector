@@ -18,7 +18,6 @@ import { PageLayout } from "../components/layout/index.js";
 import { Button, Tabs, Drawer } from "../components/ui/index.js";
 import { SectionSkeleton } from "../components/Skeleton.jsx";
 import BarcodeScanner from "../components/BarcodeScanner.jsx";
-import BrowseHeader from "./catalogue/BrowseHeader.jsx";
 import SearchBar from "./catalogue/SearchBar.jsx";
 import SearchAutocomplete from "./catalogue/SearchAutocomplete.jsx";
 import BrowseFilters from "./catalogue/BrowseFilters.jsx";
@@ -597,7 +596,13 @@ export default function BrowsePage() {
   if (figures.isError) {
     return (
       <AppShell>
-        <PageLayout kicker={t("browse.subtitle")} title={t("browse.title")} kanji="目" width="wide">
+        <PageLayout
+          kicker={t("browse.subtitle")}
+          title={t("browse.title")}
+          kanji="目"
+          width="wide"
+          padTop="clamp(1.25rem, 3vw, 2.25rem)"
+        >
           <ErrorState error={figures.error} onRetry={() => figures.refetch()} />
         </PageLayout>
       </AppShell>
@@ -634,6 +639,17 @@ export default function BrowsePage() {
       </select>
     </label>
   ) : null;
+
+  // A quiet catalogue count beside the title, replacing the old 4-card KPI
+  // strip (those were collection metrics — Possédées/Souhaits live on Ma
+  // Collection, the type counts on the type rail). Shown in discovery; in
+  // results mode the toolbar carries the sort and the result count sits by
+  // the grid.
+  const countPill = (
+    <span className="font-mono text-[12px] tracking-wide text-[var(--on-surface-muted)] num">
+      {t("browse.total_short", { default: "{n} figurines", n: total })}
+    </span>
+  );
 
   // ── Applied-filter chips (removable), flattened from the active filters ──────
   const chips = [];
@@ -962,18 +978,11 @@ export default function BrowsePage() {
         title={t("browse.title")}
         kanji="目"
         width="wide"
-        toolbar={active && !ambiance ? sortControl : null}
+        padTop="clamp(1.25rem, 3vw, 2.25rem)"
+        toolbar={ambiance ? null : active ? sortControl : countPill}
       >
-        <BrowseHeader
-          t={t}
-          total={total}
-          ownedCount={ownedIds.size}
-          wishedCount={wishedIds.size}
-          typeCount={countsByType.size}
-        />
-
         {ambianceAvailable ? (
-          <nav className="mt-8" aria-label={t("browse.view.aria", { default: "Mode d'affichage" })}>
+          <nav className="mt-6" aria-label={t("browse.view.aria", { default: "Mode d'affichage" })}>
             <Tabs
               tabs={viewTabs}
               value={viewMode}
@@ -989,7 +998,7 @@ export default function BrowsePage() {
             Hidden in the ambiance view (which discovers figures visually). */}
         {!ambiance ? (
           <div
-            className="mt-8 cat-search-station"
+            className="mt-6 cat-search-station"
             onBlur={(e) => {
               // Tab-away / focus-out dismissal: close when focus leaves the
               // station entirely (clicks land on options inside it, so those
