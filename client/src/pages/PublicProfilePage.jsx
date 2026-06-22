@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { ArrowLeftRight } from "lucide-react";
 import { useT, useI18n } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
-import { usePublicProfile } from "../hooks/useProfile.js";
+import { usePublicProfile, useCompare } from "../hooks/useProfile.js";
 import { useFigureTypes } from "../hooks/useAdmin.js";
 import { Button, StatCard, EmptyState, SegmentedControl, Spinner } from "../components/ui/index.js";
 import { PageLayout, Section } from "../components/layout/index.js";
@@ -17,7 +17,7 @@ import CountButton from "./profile/CountButton.jsx";
 import TypeFilter from "./profile/TypeFilter.jsx";
 import VitrineGrid from "./profile/VitrineGrid.jsx";
 import ForSaleGrid from "./profile/ForSaleGrid.jsx";
-import ShowcaseDiorama from "./profile/ShowcaseDiorama.jsx";
+import DioramaShelf from "./vitrines/DioramaShelf.jsx";
 
 /**
  * /u/:slug — a collector's public vitrine (Direction A "Shōjo-Noir"), rebuilt on
@@ -26,7 +26,8 @@ import ShowcaseDiorama from "./profile/ShowcaseDiorama.jsx";
  * Thin orchestrator: it loads the profile, derives a couple of view bits, and
  * composes the shared frame (`PageLayout` → `Section`) with page-local pieces
  * (`ProfileAvatar`, `CountButton`, `TypeFilter`, `VitrineGrid`, `ForSaleGrid`,
- * `ShowcaseDiorama`). The editorial header lives in a custom `titleNode` so the
+ * and the shared `DioramaShelf`). The editorial header lives in a custom
+ * `titleNode` so the
  * avatar + handle + follow + counts read as one block under the signature
  * red-accent name; everything below is a `Section`.
  *
@@ -43,6 +44,12 @@ export default function PublicProfilePage() {
   const me = useMe();
   const profile = usePublicProfile(slug);
   const figureTypes = useFigureTypes();
+  // Affinity teaser: only fire the (heavier) compare for an authed viewer who
+  // isn't looking at their own profile. Prefills the cache for /compare too.
+  const viewerCanCompare =
+    !!me.data?.authenticated &&
+    me.data?.user?.username?.toLowerCase() !== slug?.toLowerCase();
+  const compare = useCompare(slug, { enabled: viewerCanCompare });
   const [list, setList] = useState(null);
   const [vitrineView, setVitrineView] = useState("grid"); // "grid" | "diorama"
   const [typeFilter, setTypeFilter] = useState(null); // figure_type id | null = all
@@ -185,10 +192,25 @@ export default function PublicProfilePage() {
           {me.data?.authenticated && !isSelf ? (
             <div className="flex flex-wrap items-center gap-3">
               <FollowButton username={user.username} isFollowing={social?.is_following} />
-              <Link to={`/u/${user.username}/compare`}>
-                <Button variant="ghost" iconStart={<ArrowLeftRight size={16} />}>
-                  {t("compare.title", { name: user.display_name })}
-                </Button>
+              {/* Right-sized secondary action that doubles as the affinity
+                  teaser. Explicit font-sans + size so it never inherits the
+                  PageLayout <h1> display font (the old giant-button bug). */}
+              <Link
+                to={`/u/${user.username}/compare`}
+                title={t("compare.title", { name: user.display_name })}
+                aria-label={
+                  compare.data?.affinity != null
+                    ? t("compare.cta_aria", {
+                        name: user.display_name,
+                        pct: compare.data.affinity,
+                      })
+                    : t("compare.title", { name: user.display_name })
+                }
+                style={{ fontFamily: "var(--font-sans)" }}
+                className="group inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[var(--color-or)]/45 pl-1.5 pr-4 text-[12px] not-italic tracking-[0.04em] text-[var(--color-or)] transition-colors hover:border-[var(--color-or)] hover:bg-[color-mix(in_oklab,var(--color-or)_7%,transparent)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-or)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-noir)]"
+              >
+                <AffinityRing pct={compare.data?.affinity} />
+                {t("compare.cta", { default: "Comparer" })}
               </Link>
             </div>
           ) : null}
@@ -306,7 +328,11 @@ export default function PublicProfilePage() {
               body={t("collection.empty.title")}
             />
           ) : vitrineView === "diorama" ? (
-            <ShowcaseDiorama items={coll} />
+            <DioramaShelf
+              items={coll.map((e) => ({ ...e, id: e.owned_id }))}
+              hrefFor={(o) => `/figures/${o.figure_id}`}
+              t={t}
+            />
           ) : (
             <>
               {showFilter ? (
@@ -370,5 +396,42 @@ function AccentName({ text }) {
     <>
       <span className="italic text-[var(--color-laque-bright)]">{first}</span> {rest}
     </>
+  );
+}
+
+/**
+ * Tiny gold ring inside the "Comparer" pill — the affinity teaser. Fills to the
+ * server-computed taste-match %. While the compare query is still loading (or
+ * unavailable) it falls back to the ⇄ glyph so the pill always reads as compare.
+ * Reuses the back-to-top ring language (instant, GPU-light SVG).
+ */
+function AffinityRing({ pct }) {
+  if (pct == null) {
+    return (
+      <span aria-hidden className="grid h-[26px] w-[26px] place-items-center">
+        <ArrowLeftRight size={14} />
+      </span>
+    );
+  }
+  const r = 11;
+  const circ = 2 * Math.PI * r;
+  return (
+    <span aria-hidden className="relative grid h-[26px] w-[26px] place-items-center">
+      <svg viewBox="0 0 26 26" className="absolute inset-0 -rotate-90 h-full w-full">
+        <circle cx="13" cy="13" r={r} fill="none" stroke="var(--color-or)" strokeOpacity="0.3" strokeWidth="2" />
+        <circle
+          cx="13"
+          cy="13"
+          r={r}
+          fill="none"
+          stroke="var(--color-or)"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeDasharray={circ}
+          strokeDashoffset={circ * (1 - pct / 100)}
+        />
+      </svg>
+      <span className="text-[10px] leading-none tabular-nums">{pct}</span>
+    </span>
   );
 }

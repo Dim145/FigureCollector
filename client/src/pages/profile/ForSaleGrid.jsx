@@ -1,6 +1,7 @@
 import FigureCard from "../../components/FigureCard.jsx";
 import Money from "../../components/Money.jsx";
 import Reveal from "../../components/motion/Reveal.jsx";
+import { resolveOwnedCover } from "../../lib/coverUrl.js";
 
 /**
  * The "À vendre / à échanger" specimens on a public profile. Each is a
@@ -20,7 +21,7 @@ export default function ForSaleGrid({ entries, t }) {
             name={e.figure_name}
             type={e.figure_type}
             manufacturer={e.manufacturer_name}
-            imageUrl={e.figure_image}
+            imageUrl={resolveOwnedCover(e)}
             scale={e.scale}
             versionName={e.version_name}
           />

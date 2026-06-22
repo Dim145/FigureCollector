@@ -2,6 +2,7 @@ import Card from "../../components/Card.jsx";
 import FigureCard from "../../components/FigureCard.jsx";
 import Reveal from "../../components/motion/Reveal.jsx";
 import { mixAccent } from "./mixAccent.js";
+import { resolveOwnedCover } from "../../lib/coverUrl.js";
 
 /**
  * One bucket column of the compare readout: an accent-tinted header (kanji +
@@ -12,7 +13,7 @@ import { mixAccent } from "./mixAccent.js";
  * `accent` follows the palette: hanko-red for *your* pieces, gold for shared,
  * ivoire for theirs (the single hot accent stays on your side).
  */
-export default function CompareBucket({ title, kanji, count, entries, accent, t, delay = 0 }) {
+export default function CompareBucket({ title, kanji, count, entries, accent, t, nsfwBlur = false, delay = 0 }) {
   return (
     <Reveal as="section" delay={delay} y={24} className="relative">
       <header className="flex items-baseline justify-between gap-3 mb-3">
@@ -59,7 +60,8 @@ export default function CompareBucket({ title, kanji, count, entries, accent, t,
                 name={e.figure_name}
                 type={e.figure_type}
                 manufacturer={e.manufacturer_name}
-                imageUrl={e.figure_image}
+                imageUrl={resolveOwnedCover(e)}
+                blurImage={Boolean(e.is_nsfw && nsfwBlur)}
               />
             </Reveal>
           ))}

@@ -10,11 +10,14 @@ export function usePublicProfile(slug) {
   });
 }
 
-export function useCompare(slug) {
+export function useCompare(slug, { enabled = true } = {}) {
   return useQuery({
     queryKey: ["compare", slug],
     queryFn: () => api.get(`/compare/${slug}`),
-    enabled: !!slug,
+    // The profile teaser passes `enabled: viewerCanCompare` so the (heavier)
+    // diff only fires for an authed, non-self viewer; the cache it fills makes
+    // the eventual /compare navigation instant.
+    enabled: enabled && !!slug,
     retry: false,
   });
 }

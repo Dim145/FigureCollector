@@ -27,7 +27,7 @@ export default function CompareShelf({ metrics, youName, themName, t }) {
           onlyLabel={t("compare.bucket.yours_only")}
           accent="var(--color-laque-bright)"
         />
-        <VsSpine common={metrics.common} t={t} />
+        <VsSpine affinity={metrics.affinity} common={metrics.common} t={t} />
         <ShelfSide
           align="left"
           eyebrow={t("compare.side.them", { default: "Sa vitrine" })}
@@ -71,39 +71,59 @@ function ShelfSide({ align, eyebrow, name, total, only, onlyLabel, accent }) {
 }
 
 /**
- * The central spine: a hairline with the shared count seated on a gold node and
- * a 対 mark — where the two shelves meet. On mobile the flanking hairlines read
- * as a vertical connector between the stacked plaques.
+ * The central spine: a gold affinity medallion (a ring filled to the
+ * server-computed taste-match %) where the two shelves meet, with the shared
+ * count beneath it. Reuses the back-to-top ring language (instant, GPU-light
+ * SVG). On mobile the flanking hairlines read as a vertical connector between
+ * the stacked plaques.
  */
-function VsSpine({ common, t }) {
+function VsSpine({ affinity, common, t }) {
+  const r = 30;
+  const circ = 2 * Math.PI * r;
   return (
     <div className="flex flex-col items-center justify-center px-1 sm:px-2">
       <span
         aria-hidden
-        className="block w-px h-8 sm:h-10"
+        className="block w-px h-6 sm:h-8"
         style={{ background: `linear-gradient(${mixAccent("var(--color-or)", 50)}, transparent)` }}
       />
       <span
-        className="my-2 grid place-items-center w-14 h-14 sm:w-16 sm:h-16 rounded-full"
-        style={{
-          background: mixAccent("var(--color-or)", 10),
-          border: `1px solid ${mixAccent("var(--color-or)", 40)}`,
-          boxShadow: `inset 0 0 0 1px ${mixAccent("var(--color-or)", 8)}`,
-        }}
+        role="img"
+        aria-label={t("compare.affinity_aria", { pct: affinity })}
+        className="relative my-2 grid place-items-center w-[72px] h-[72px]"
       >
-        <span className="ja text-base leading-none text-[var(--color-or-pale)]" aria-hidden>
-          対
-        </span>
-        <span className="figural tabular-nums text-xl leading-none text-[var(--color-or)] mt-0.5">
-          {common}
+        <svg
+          viewBox="0 0 72 72"
+          className="absolute inset-0 h-full w-full -rotate-90"
+          aria-hidden
+        >
+          <circle cx="36" cy="36" r={r} fill="none" stroke="var(--color-or)" strokeOpacity="0.3" strokeWidth="3" />
+          <circle
+            cx="36"
+            cy="36"
+            r={r}
+            fill="none"
+            stroke="var(--color-or)"
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            strokeDasharray={circ}
+            strokeDashoffset={circ * (1 - affinity / 100)}
+          />
+        </svg>
+        <span aria-hidden className="figural tabular-nums text-2xl leading-none text-[var(--color-or)]">
+          {affinity}
+          <span className="text-sm align-top">%</span>
         </span>
       </span>
       <span className="micro-tight text-[var(--color-or-pale)]/80">
-        {t("compare.bucket.common")}
+        {t("compare.affinity_label", { default: "AFFINITÉ" })}
+      </span>
+      <span className="micro-tight text-[var(--color-ivoire-soft)]/60 mt-1">
+        <span className="tabular-nums">{common}</span> · {t("compare.bucket.common")}
       </span>
       <span
         aria-hidden
-        className="block w-px h-8 sm:h-10"
+        className="block w-px h-6 sm:h-8 mt-1"
         style={{ background: `linear-gradient(transparent, ${mixAccent("var(--color-or)", 50)})` }}
       />
     </div>

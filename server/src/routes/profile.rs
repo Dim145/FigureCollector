@@ -121,6 +121,12 @@ struct PublicCollectionEntry {
     asking_price_currency: Option<String>,
     sale_note: Option<String>,
     created_at: DateTime<Utc>,
+    // Owner's pinned cover so the vitrine / diorama show the real cover, not
+    // catalog art — resolved client-side via `resolveOwnedCover` like /collection.
+    cover_photo_id: Option<Uuid>,
+    cover_scan_id: Option<Uuid>,
+    cover_photo_key: Option<String>,
+    catalog_cover_photo_id: Option<Uuid>,
 }
 
 #[derive(Serialize, FromRow)]
@@ -150,7 +156,13 @@ async fn get_public_profile(
             m.name AS manufacturer_name, f.scale, f.height_mm, f.version_name,
             o.condition,
             o.for_sale, o.for_trade, o.asking_price_amount, o.asking_price_currency, o.sale_note,
-            o.created_at
+            o.created_at,
+            o.cover_photo_id, o.cover_scan_id,
+            (SELECT ph.storage_key FROM photos ph WHERE ph.id = o.cover_photo_id) AS cover_photo_key,
+            (SELECT fp.id FROM figure_photos fp
+               WHERE fp.figure_id = o.figure_id
+               ORDER BY fp.is_primary DESC, fp.position ASC, fp.created_at ASC
+               LIMIT 1) AS catalog_cover_photo_id
          FROM owned_items o
          JOIN figures f         ON f.id = o.figure_id
          LEFT JOIN manufacturers m ON m.id = f.manufacturer_id
@@ -340,9 +352,18 @@ async fn patch_my_profile(
 #[derive(Serialize)]
 struct CompareResponse {
     them: PublicUserCard,
+    /// 0–100 taste-match: Sørensen–Dice over shared series (weighted highest),
+    /// manufacturers, then exact pieces. Transparent + explained in the UI.
+    affinity: u8,
     common: Vec<CompareEntry>,
     yours_only: Vec<CompareEntry>,
     theirs_only: Vec<CompareEntry>,
+    /// Series / manufacturers BOTH collect, ranked by combined piece count.
+    shared_series: Vec<SharedFacet>,
+    shared_manufacturers: Vec<SharedFacet>,
+    /// Paired collection value. `theirs` stays empty unless they opted into
+    /// publishing their value (same gate as the public profile).
+    value: ComparedValue,
 }
 
 #[derive(Serialize, FromRow)]
@@ -353,6 +374,63 @@ struct CompareEntry {
     figure_type: String,
     figure_image: Option<String>,
     manufacturer_name: Option<String>,
+    /// NSFW flag so the SPA can blur the viewer's OWN NSFW pieces per their
+    /// preference (the target's NSFW is already excluded server-side).
+    is_nsfw: bool,
+    /// Owner's pinned cover (the viewer's for `yours_only`, the target's for
+    /// `theirs_only`/`common`) so the SPA resolves the real cover, not catalog
+    /// art — same chain as the collection grid (`resolveOwnedCover`).
+    cover_photo_id: Option<Uuid>,
+    cover_scan_id: Option<Uuid>,
+    cover_photo_key: Option<String>,
+    catalog_cover_photo_id: Option<Uuid>,
+}
+
+/// A series or manufacturer both collectors own, with the combined piece count.
+#[derive(Serialize)]
+struct SharedFacet {
+    name: String,
+    count: i64,
+}
+
+#[derive(Serialize)]
+struct ComparedValue {
+    yours: Vec<CurrencyTotal>,
+    theirs: Vec<CurrencyTotal>,
+}
+
+/// One row of a series/manufacturer FULL OUTER JOIN diff between the two users.
+#[derive(FromRow)]
+struct FacetRow {
+    bucket: String,
+    name: String,
+    count: i64,
+}
+
+/// Per-currency collection value (manual value, else MSRP) for one user,
+/// mirroring the public-profile valuation. Drives the compare value KPIs.
+async fn collection_value(
+    pool: &PgPool,
+    user_id: Uuid,
+    hide_nsfw: bool,
+) -> AppResult<Vec<CurrencyTotal>> {
+    Ok(sqlx::query_as(
+        "SELECT currency, SUM(amount)::numeric AS amount FROM (
+            SELECT CASE WHEN o.value_amount IS NOT NULL
+                        THEN COALESCE(o.value_currency, o.price_currency, f.msrp_currency)
+                        ELSE f.msrp_currency END           AS currency,
+                   COALESCE(o.value_amount, f.msrp_amount) AS amount
+            FROM owned_items o JOIN figures f ON f.id = o.figure_id
+            WHERE o.user_id = $1 AND ($2 = FALSE OR f.is_nsfw = FALSE)
+         ) s
+         WHERE amount IS NOT NULL AND currency IS NOT NULL
+         GROUP BY currency
+         ORDER BY amount DESC",
+    )
+    .bind(user_id)
+    .bind(hide_nsfw)
+    .fetch_all(pool)
+    .await?)
 }
 
 async fn compare(
@@ -365,19 +443,19 @@ async fn compare(
     if them.id == viewer {
         return Err(AppError::BadRequest("cannot compare against yourself"));
     }
-    // Same guard get_public_profile uses: when the target opts out of sharing
-    // NSFW, exclude their NSFW pieces from the diff. Filtering on the final
-    // figures join covers both the `theirs` and `common` buckets (a `common`
-    // figure that's NSFW would otherwise still leak the target owns it).
+    // NSFW gate applies ONLY to the target's side: the viewer always sees their
+    // OWN full collection (hiding their own pieces because the *target* opted out
+    // of NSFW was confusing — "I own 3 but it says 0"). The target's NSFW pieces
+    // stay hidden, so `theirs_only`/`common` never leak a piece the target keeps
+    // private; a viewer's NSFW piece the target also owns simply falls into
+    // `yours_only` instead of `common` (no leak).
     let hide_nsfw = !them.public_profile_show_nsfw;
 
-    // Single-pass diff: materialise the two user-id sets once, FULL OUTER
-    // JOIN them on figure_id, then label each row as 'common' / 'yours' /
-    // 'theirs' via a CASE over (yours.figure_id IS NULL, theirs.figure_id
-    // IS NULL). Previously the route fired three separate queries each
-    // with TWO sub-queries on `owned_items` — six scans of the parent
-    // table per /compare hit. The composite index added in
-    // 20260525000001_perf_indexes makes the two CTE scans index-only.
+    // Single-pass diff: materialise the two user-id sets (carrying each owner's
+    // pinned cover), FULL OUTER JOIN on figure_id, label each row 'common' /
+    // 'yours' / 'theirs'. NB: the join CTE is `merged`, NOT `both` — BOTH is a
+    // reserved keyword in Postgres (used in `trim(both …)`), so an unquoted
+    // `both` CTE is a hard syntax error → the whole endpoint 500'd.
     #[derive(FromRow)]
     struct CompareRow {
         bucket: String,
@@ -387,29 +465,52 @@ async fn compare(
         figure_type: String,
         figure_image: Option<String>,
         manufacturer_name: Option<String>,
+        is_nsfw: bool,
+        cover_photo_id: Option<Uuid>,
+        cover_scan_id: Option<Uuid>,
+        cover_photo_key: Option<String>,
+        catalog_cover_photo_id: Option<Uuid>,
     }
 
     let rows: Vec<CompareRow> = sqlx::query_as(
         "WITH
-            yours  AS (SELECT DISTINCT figure_id FROM owned_items WHERE user_id = $1),
-            theirs AS (SELECT DISTINCT figure_id FROM owned_items WHERE user_id = $2),
-            both   AS (
+            yours AS (
+                SELECT DISTINCT ON (figure_id) figure_id, cover_photo_id, cover_scan_id
+                FROM owned_items WHERE user_id = $1
+                ORDER BY figure_id, created_at DESC
+            ),
+            theirs AS (
+                SELECT DISTINCT ON (o.figure_id) o.figure_id, o.cover_photo_id, o.cover_scan_id
+                FROM owned_items o JOIN figures f ON f.id = o.figure_id
+                WHERE o.user_id = $2 AND ($3 = FALSE OR f.is_nsfw = FALSE)
+                ORDER BY o.figure_id, o.created_at DESC
+            ),
+            merged AS (
                 SELECT COALESCE(y.figure_id, t.figure_id) AS figure_id,
                        CASE
                            WHEN y.figure_id IS NULL THEN 'theirs'
                            WHEN t.figure_id IS NULL THEN 'yours'
                            ELSE 'common'
-                       END AS bucket
+                       END AS bucket,
+                       -- cover belongs to whoever 'owns' the bucket: yours-only →
+                       -- you, theirs-only & common → them (the shelf being browsed).
+                       CASE WHEN t.figure_id IS NULL THEN y.cover_photo_id ELSE t.cover_photo_id END AS cover_photo_id,
+                       CASE WHEN t.figure_id IS NULL THEN y.cover_scan_id  ELSE t.cover_scan_id  END AS cover_scan_id
                 FROM yours y FULL OUTER JOIN theirs t ON t.figure_id = y.figure_id
             )
          SELECT b.bucket,
                 f.id AS figure_id, f.name AS figure_name, f.slug AS figure_slug,
-                f.figure_type, f.official_image_url AS figure_image,
-                m.name AS manufacturer_name
-         FROM both b
+                f.figure_type, f.official_image_url AS figure_image, f.is_nsfw,
+                m.name AS manufacturer_name,
+                b.cover_photo_id, b.cover_scan_id,
+                (SELECT ph.storage_key FROM photos ph WHERE ph.id = b.cover_photo_id) AS cover_photo_key,
+                (SELECT fp.id FROM figure_photos fp
+                   WHERE fp.figure_id = f.id
+                   ORDER BY fp.is_primary DESC, fp.position ASC, fp.created_at ASC
+                   LIMIT 1) AS catalog_cover_photo_id
+         FROM merged b
          JOIN figures f ON f.id = b.figure_id
          LEFT JOIN manufacturers m ON m.id = f.manufacturer_id
-         WHERE ($3 = FALSE OR f.is_nsfw = FALSE)
          ORDER BY f.name",
     )
     .bind(viewer)
@@ -429,6 +530,11 @@ async fn compare(
             figure_type: r.figure_type,
             figure_image: r.figure_image,
             manufacturer_name: r.manufacturer_name,
+            is_nsfw: r.is_nsfw,
+            cover_photo_id: r.cover_photo_id,
+            cover_scan_id: r.cover_scan_id,
+            cover_photo_key: r.cover_photo_key,
+            catalog_cover_photo_id: r.catalog_cover_photo_id,
         };
         match r.bucket.as_str() {
             "common" => common.push(entry),
@@ -437,6 +543,119 @@ async fn compare(
             _ => {}
         }
     }
+
+    // Series & manufacturer diffs (FULL OUTER JOIN per facet) → the "shared
+    // terrain" lists + the affinity score. Same NSFW gate as the figure diff.
+    let series_rows: Vec<FacetRow> = sqlx::query_as(
+        "WITH
+            ys AS (SELECT fs.series_id AS k, COUNT(DISTINCT o.figure_id)::bigint AS n
+                   FROM owned_items o JOIN figure_series fs ON fs.figure_id = o.figure_id
+                   WHERE o.user_id = $1
+                   GROUP BY fs.series_id),
+            ts AS (SELECT fs.series_id AS k, COUNT(DISTINCT o.figure_id)::bigint AS n
+                   FROM owned_items o JOIN figures f ON f.id = o.figure_id
+                   JOIN figure_series fs ON fs.figure_id = f.id
+                   WHERE o.user_id = $2 AND ($3 = FALSE OR f.is_nsfw = FALSE)
+                   GROUP BY fs.series_id)
+         SELECT CASE WHEN ys.k IS NULL THEN 'theirs' WHEN ts.k IS NULL THEN 'yours' ELSE 'common' END AS bucket,
+                s.name,
+                (COALESCE(ys.n, 0) + COALESCE(ts.n, 0))::bigint AS count
+         FROM ys FULL OUTER JOIN ts ON ts.k = ys.k
+         JOIN series s ON s.id = COALESCE(ys.k, ts.k)
+         ORDER BY count DESC, s.name",
+    )
+    .bind(viewer)
+    .bind(them.id)
+    .bind(hide_nsfw)
+    .fetch_all(&state.pool)
+    .await?;
+
+    let maker_rows: Vec<FacetRow> = sqlx::query_as(
+        "WITH
+            ym AS (SELECT f.manufacturer_id AS k, COUNT(DISTINCT o.figure_id)::bigint AS n
+                   FROM owned_items o JOIN figures f ON f.id = o.figure_id
+                   WHERE o.user_id = $1 AND f.manufacturer_id IS NOT NULL
+                   GROUP BY f.manufacturer_id),
+            tm AS (SELECT f.manufacturer_id AS k, COUNT(DISTINCT o.figure_id)::bigint AS n
+                   FROM owned_items o JOIN figures f ON f.id = o.figure_id
+                   WHERE o.user_id = $2 AND f.manufacturer_id IS NOT NULL
+                     AND ($3 = FALSE OR f.is_nsfw = FALSE)
+                   GROUP BY f.manufacturer_id)
+         SELECT CASE WHEN ym.k IS NULL THEN 'theirs' WHEN tm.k IS NULL THEN 'yours' ELSE 'common' END AS bucket,
+                man.name,
+                (COALESCE(ym.n, 0) + COALESCE(tm.n, 0))::bigint AS count
+         FROM ym FULL OUTER JOIN tm ON tm.k = ym.k
+         JOIN manufacturers man ON man.id = COALESCE(ym.k, tm.k)
+         ORDER BY count DESC, man.name",
+    )
+    .bind(viewer)
+    .bind(them.id)
+    .bind(hide_nsfw)
+    .fetch_all(&state.pool)
+    .await?;
+
+    // Affinity — Sørensen–Dice per dimension, weighted (shared series & makers
+    // signal taste far more than owning the exact same SKU). 0 when both sides
+    // are empty on every dimension.
+    fn dice(common: f64, a_total: f64, b_total: f64) -> f64 {
+        if a_total + b_total > 0.0 {
+            2.0 * common / (a_total + b_total)
+        } else {
+            0.0
+        }
+    }
+    fn bucket_total(rows: &[FacetRow], side: &str) -> f64 {
+        rows.iter()
+            .filter(|r| r.bucket == "common" || r.bucket == side)
+            .count() as f64
+    }
+    let common_series = series_rows.iter().filter(|r| r.bucket == "common").count() as f64;
+    let common_makers = maker_rows.iter().filter(|r| r.bucket == "common").count() as f64;
+    let series_dice = dice(
+        common_series,
+        bucket_total(&series_rows, "yours"),
+        bucket_total(&series_rows, "theirs"),
+    );
+    let maker_dice = dice(
+        common_makers,
+        bucket_total(&maker_rows, "yours"),
+        bucket_total(&maker_rows, "theirs"),
+    );
+    let figure_dice = dice(
+        common.len() as f64,
+        (common.len() + yours_only.len()) as f64,
+        (common.len() + theirs_only.len()) as f64,
+    );
+    let affinity =
+        (100.0 * (0.50 * series_dice + 0.30 * maker_dice + 0.20 * figure_dice)).round() as u8;
+
+    let shared_series: Vec<SharedFacet> = series_rows
+        .iter()
+        .filter(|r| r.bucket == "common")
+        .take(12)
+        .map(|r| SharedFacet {
+            name: r.name.clone(),
+            count: r.count,
+        })
+        .collect();
+    let shared_manufacturers: Vec<SharedFacet> = maker_rows
+        .iter()
+        .filter(|r| r.bucket == "common")
+        .take(12)
+        .map(|r| SharedFacet {
+            name: r.name.clone(),
+            count: r.count,
+        })
+        .collect();
+
+    // Value KPIs — yours always (it's your own data); theirs only when they've
+    // opted into publishing their collection value.
+    let yours_value = collection_value(&state.pool, viewer, false).await?;
+    let theirs_value = if them.public_profile_show_value {
+        collection_value(&state.pool, them.id, hide_nsfw).await?
+    } else {
+        Vec::new()
+    };
 
     Ok(Json(CompareResponse {
         them: PublicUserCard {
@@ -447,9 +666,16 @@ async fn compare(
             locale: them.locale,
             member_since: them.created_at,
         },
+        affinity,
         common,
         yours_only,
         theirs_only,
+        shared_series,
+        shared_manufacturers,
+        value: ComparedValue {
+            yours: yours_value,
+            theirs: theirs_value,
+        },
     }))
 }
 
