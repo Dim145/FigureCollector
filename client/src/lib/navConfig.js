@@ -63,22 +63,11 @@ export const SECTIONS = [
     labelDefault: "Catalogue",
     kanji: "目",
     icon: LayoutGrid,
-    children: [
-      {
-        to: "/catalogue",
-        labelKey: "nav.browse",
-        labelDefault: "Parcourir",
-        kanji: "探",
-        end: true,
-      },
-      {
-        to: "/catalogue/photo",
-        labelKey: "nav.recognize",
-        labelDefault: "Recherche photo",
-        kanji: "写",
-        flag: "visualSearch",
-      },
-    ],
+    // No sub-nav: "Parcourir" was just /catalogue itself, and photo search is
+    // reached from the camera in the catalogue search bar (plus the account
+    // menu + command palette), so the two-item rail was redundant. `/catalogue/
+    // photo` still maps to this section via the pathname-prefix check below.
+    children: [],
   },
   {
     id: "insights",

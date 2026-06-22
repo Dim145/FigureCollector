@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "motion/react";
-import { Check, LogOut, Shield } from "lucide-react";
+import { Camera, Check, LogOut, Shield } from "lucide-react";
 import { useT, useI18n } from "../i18n/index.jsx";
 import { useIsAdmin, useLogout, useMe } from "../hooks/useMe.js";
 import { useVisualSearchStatus } from "../hooks/useVisualSearch.js";
@@ -177,7 +177,15 @@ export default function AppShell({ children }) {
 
             <ThemeToggle />
 
-            {authed ? <UserMenu user={user} isAdmin={isAdmin} onSignOut={onSignOut} t={t} /> : null}
+            {authed ? (
+              <UserMenu
+                user={user}
+                isAdmin={isAdmin}
+                onSignOut={onSignOut}
+                t={t}
+                photoEnabled={flagOn.visualSearch}
+              />
+            ) : null}
             {/* No mobile hamburger: the bottom tab bar's "⋯ Plus" opens the
                 MobileNavSheet, and the avatar holds account/preferences. */}
           </div>
@@ -393,12 +401,25 @@ function SubNavItem({ to, end, kanji, label }) {
 // their icons), the language toggle (one item per locale, active one checked),
 // an Admin entry when the user is admin, and Logout as a destructive item set
 // apart by a separator. Navigation items route via onSelect.
-function UserMenu({ user, isAdmin, onSignOut, t }) {
+function UserMenu({ user, isAdmin, onSignOut, t, photoEnabled }) {
   const navigate = useNavigate();
   const { locale, setLocale, supported } = useI18n();
   const name = user?.display_name ?? user?.username ?? "?";
 
   const items = [
+    // Photo search lives in the catalogue search bar (camera); surface it here
+    // too as a quick entry — but only when the visual-search feature is on.
+    ...(photoEnabled
+      ? [
+          {
+            key: "photo",
+            label: t("nav.recognize", { default: "Reconnaître par photo" }),
+            icon: Camera,
+            onSelect: () => navigate("/catalogue/photo"),
+          },
+          { separator: true },
+        ]
+      : []),
     ...ACCOUNT_NAV.map((it) => ({
       key: it.to,
       label: t(it.labelKey, { default: it.labelDefault }),
