@@ -164,7 +164,7 @@ const FIGURE_COLUMNS: &str = "id, name, slug, manufacturer_id, sculptor_id, figu
 
 /// Same columns as `FIGURE_COLUMNS` but each prefixed with the `f.` table
 /// alias, for use in joined SELECTs.
-const FIGURE_COLUMNS_PREFIXED: &str =
+pub(crate) const FIGURE_COLUMNS_PREFIXED: &str =
     "f.id, f.name, f.slug, f.manufacturer_id, f.sculptor_id, f.figure_type, f.scale, \
      f.height_mm, f.materials, f.release_date, f.msrp_amount, f.msrp_currency, f.jan, \
      f.exclusivity, f.edition, f.version_name, f.official_image_url, f.description, f.mfc_id, \
@@ -176,7 +176,7 @@ const FIGURE_COLUMNS_PREFIXED: &str =
 /// `series` / `characters` are M2M; we project the first row per figure (by
 /// FK id, which sort by upsert order) — matches the create / patch flow that
 /// only supports a single value of each.
-const FIGURE_NAME_JOINS: &str = "
+pub(crate) const FIGURE_NAME_JOINS: &str = "
     LEFT JOIN manufacturers m  ON m.id  = f.manufacturer_id
     LEFT JOIN sculptors     sc ON sc.id = f.sculptor_id
     LEFT JOIN LATERAL (
@@ -194,7 +194,7 @@ const FIGURE_NAME_JOINS: &str = "
 
 /// Column projection corresponding to [`FIGURE_NAME_JOINS`]. Pair the two
 /// or the row deserialises with `manufacturer_name` etc. left as `None`.
-const FIGURE_NAME_PROJECTION: &str =
+pub(crate) const FIGURE_NAME_PROJECTION: &str =
     ", m.name  AS manufacturer_name, m.slug  AS manufacturer_slug, \
        sc.name AS sculptor_name,     sc.slug AS sculptor_slug, \
        s.name  AS series_name,       s.slug  AS series_slug, \

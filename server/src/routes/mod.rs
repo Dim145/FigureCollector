@@ -15,6 +15,7 @@ pub mod activity;
 pub mod admin;
 pub mod auth;
 pub mod calendar;
+pub mod catalogue;
 pub mod documents;
 pub mod entities;
 pub mod export;
@@ -176,6 +177,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(ws::router())
         .merge(figures::router())
         .merge(entities::router())
+        .merge(catalogue::router())
         .merge(owned::router())
         .merge(location::router())
         .merge(manga::router())
