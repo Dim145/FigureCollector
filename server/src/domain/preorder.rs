@@ -34,6 +34,10 @@ pub struct Preorder {
     /// What was actually paid back when the preorder is cancelled.
     /// See migration 19 header for the full semantics.
     pub deposit_refund_amount: Option<Decimal>,
+    /// When the buyer paid the remaining balance (the acompte covers only part
+    /// of `price_amount`). NULL ⇒ still owed. Lets the order read as settled
+    /// before it ships — makers bill the balance at the pre-shipping stage.
+    pub balance_paid_at: Option<NaiveDate>,
     /// Auto-set on the status='shipped' transition. Combined with
     /// `estimated_delivery_days` to project a delivery date.
     pub shipped_at: Option<DateTime<Utc>>,
@@ -65,6 +69,7 @@ pub struct PreorderWithFigure {
     pub price_currency: Option<String>,
     pub deposit_amount: Option<Decimal>,
     pub deposit_refund_amount: Option<Decimal>,
+    pub balance_paid_at: Option<NaiveDate>,
     pub shipped_at: Option<DateTime<Utc>>,
     pub estimated_delivery_days: Option<i32>,
     pub notes: Option<String>,
@@ -91,6 +96,7 @@ pub struct NewPreorder {
     pub price_currency: Option<String>,
     pub deposit_amount: Option<Decimal>,
     pub deposit_refund_amount: Option<Decimal>,
+    pub balance_paid_at: Option<NaiveDate>,
     pub estimated_delivery_days: Option<i32>,
     pub notes: Option<String>,
 }
@@ -113,6 +119,10 @@ pub struct PreorderPatch {
     /// the patch SQL's CASE clause.
     #[serde(default, deserialize_with = "double_option")]
     pub deposit_refund_amount: Option<Option<Decimal>>,
+    /// Same three-state semantics as `deposit_refund_amount`: field absent →
+    /// keep, JSON `null` → clear (balance no longer marked paid), value → set.
+    #[serde(default, deserialize_with = "double_option")]
+    pub balance_paid_at: Option<Option<NaiveDate>>,
     pub estimated_delivery_days: Option<i32>,
     pub notes: Option<String>,
 }
@@ -172,17 +182,18 @@ pub async fn create(
             id, user_id, figure_id, status, store_id, order_ref, tracking_url,
             release_date_original, release_date_current,
             price_amount, price_currency, deposit_amount, deposit_refund_amount,
-            estimated_delivery_days, shipped_at, notes, price_fx_rate
+            estimated_delivery_days, shipped_at, notes, price_fx_rate,
+            balance_paid_at
          ) VALUES (
             $1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10,$11,$12,$13,
             CASE WHEN $4 = 'shipped' THEN NOW() ELSE NULL END,
-            $14, $15
+            $14, $15, $16
          )
          RETURNING id, user_id, figure_id, status, store_id, order_ref, tracking_url,
                    release_date_original, release_date_current,
                    price_amount, price_currency, deposit_amount,
-                   deposit_refund_amount, shipped_at, estimated_delivery_days,
-                   notes,
+                   deposit_refund_amount, balance_paid_at, shipped_at,
+                   estimated_delivery_days, notes,
                    created_at, updated_at",
     )
     .bind(id)
@@ -200,6 +211,7 @@ pub async fn create(
     .bind(input.estimated_delivery_days)
     .bind(&input.notes)
     .bind(price_fx_rate)
+    .bind(input.balance_paid_at)
     .fetch_one(pool)
     .await
     .map_err(|e| match e {
@@ -220,7 +232,7 @@ pub async fn list_for_user(pool: &PgPool, user_id: Uuid) -> AppResult<Vec<Preord
             p.order_ref, p.tracking_url,
             p.release_date_original, p.release_date_current,
             p.price_amount, p.price_currency,
-            p.deposit_amount, p.deposit_refund_amount,
+            p.deposit_amount, p.deposit_refund_amount, p.balance_paid_at,
             p.shipped_at, p.estimated_delivery_days,
             p.notes,
             p.created_at,
@@ -283,7 +295,7 @@ pub async fn patch(
         "SELECT id, user_id, figure_id, status, store_id, order_ref, tracking_url,
                 release_date_original, release_date_current,
                 price_amount, price_currency,
-                deposit_amount, deposit_refund_amount,
+                deposit_amount, deposit_refund_amount, balance_paid_at,
                 shipped_at, estimated_delivery_days, notes,
                 created_at, updated_at
          FROM preorders WHERE id = $1 AND user_id = $2
@@ -327,6 +339,9 @@ pub async fn patch(
             -- clears via $10 (refund_val) being NULL; an omitted field leaves
             -- the column untouched.
             deposit_refund_amount   = CASE WHEN $9 THEN $10 ELSE deposit_refund_amount END,
+            -- Same three-state update as the refund: $16 (field present?) gates
+            -- $17 — an explicit JSON null clears it, an omitted field keeps it.
+            balance_paid_at         = CASE WHEN $16 THEN $17 ELSE balance_paid_at END,
             estimated_delivery_days = COALESCE($11, estimated_delivery_days),
             -- Auto-stamp shipped_at on the FIRST transition to 'shipped'.
             -- COALESCE keeps any previous value so re-saving the same
@@ -348,7 +363,7 @@ pub async fn patch(
          RETURNING id, user_id, figure_id, status, store_id, order_ref, tracking_url,
                    release_date_original, release_date_current,
                    price_amount, price_currency,
-                   deposit_amount, deposit_refund_amount,
+                   deposit_amount, deposit_refund_amount, balance_paid_at,
                    shipped_at, estimated_delivery_days, notes,
                    created_at, updated_at",
     )
@@ -369,6 +384,10 @@ pub async fn patch(
     .bind(id)
     .bind(user_id)
     .bind(price_fx_rate)
+    // $16 should_update: was balance_paid_at present in the body at all?
+    // $17 value: the inner date (None when explicit null → clears the column).
+    .bind(input.balance_paid_at.is_some())
+    .bind(input.balance_paid_at.flatten())
     .fetch_one(&mut *tx)
     .await?;
 
@@ -511,7 +530,7 @@ pub async fn find_by_owned_item(
         "SELECT id, user_id, figure_id, status, store_id, order_ref, tracking_url,
                 release_date_original, release_date_current,
                 price_amount, price_currency,
-                deposit_amount, deposit_refund_amount,
+                deposit_amount, deposit_refund_amount, balance_paid_at,
                 shipped_at, estimated_delivery_days, notes,
                 created_at, updated_at
          FROM preorders WHERE owned_item_id = $1 AND user_id = $2",

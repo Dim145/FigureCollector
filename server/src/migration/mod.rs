@@ -68,6 +68,7 @@ mod m20260620_000001_owned_documents_parsed;
 mod m20260620_000001_owned_trading;
 mod m20260620_000002_collection_layout;
 mod m20260620_000003_document_ocr_jobs;
+mod m20260625_000001_preorder_balance_paid;
 
 pub struct Migrator;
 
@@ -131,6 +132,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260620_000001_owned_trading::Migration),
             Box::new(m20260620_000002_collection_layout::Migration),
             Box::new(m20260620_000003_document_ocr_jobs::Migration),
+            Box::new(m20260625_000001_preorder_balance_paid::Migration),
         ]
     }
 }

@@ -1,6 +1,7 @@
 .idea
 .claude
 .remember
+graphify-out
 
 # --- OS ---
 .DS_Store

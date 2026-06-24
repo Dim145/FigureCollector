@@ -66,6 +66,31 @@ static RE_FROM: LazyLock<Regex> =
 static RE_TITLE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?im)^\s*(.+?)\s+invoice\s*$").unwrap());
 
+// --- PayPal "print-details" receipt patterns (French) ------------------------
+// pdf-extract DOUBLES every glyph in PayPal's bold spans ("Numéro" →
+// "NNuumméérroo", "169,50" → "116699,,5500"). So the label regexes put `+` on
+// each char (matches the doubled form too), bold amounts are de-doubled, and we
+// read the amount from the non-bold "X € EUR = Y $ USD" conversion line — the
+// buyer-side EUR figure actually charged — rather than the bold "Total".
+static RE_PP_CONVERSION: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"([0-9][0-9.,]*)\s*€\s*EUR\s*=\s*([0-9][0-9.,]*)\s*\$?\s*USD").unwrap()
+});
+static RE_PP_TOTAL: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)(?:t+o+t+a+l+|m+o+n+t+a+n+t+)\s+([0-9][0-9.,]*)\s*(€|\$|EUR|USD)").unwrap()
+});
+static RE_PP_INVOICE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)n+u+m+[ée]+r+o+\s+d+e+\s+f+a+c+t+u+r+e+\s+([A-Za-z0-9][A-Za-z0-9._\-]{3,40})").unwrap()
+});
+// The transaction id is one alphanumeric run, but the print page line-wraps it
+// ("…87276\n63L"), so allow a single short continuation chunk after a space —
+// not a greedy run of words (which would swallow the next label).
+static RE_PP_TXN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)n+u+m+[ée]+r+o+\s+d+e+\s+t+r+a+n+s+a+c+t+i+o+n+\s+([A-Za-z0-9]{6,20}(?:\s[A-Za-z0-9]{1,8})?)").unwrap()
+});
+static RE_PP_DATE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)(\d{1,2})\s+(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s+(\d{4})").unwrap()
+});
+
 /// The extracted, structured view of a single invoice. Serialised as-is into
 /// `owned_item_documents.parsed_metadata` (JSONB) and returned to the SPA.
 /// All fields optional — a sparse invoice still yields what it can.
@@ -131,6 +156,14 @@ pub fn parse_invoice(raw_text: &str) -> ParsedInvoice {
     let flat = flatten_ws(&text);
     let lower = flat.to_lowercase();
 
+    // PayPal "print-details" receipts are a distinct format (French labels,
+    // doubled-bold glyphs, EUR/USD conversion). Detect by the PayPal export URL /
+    // page title — NOT a bare "paypal", since store invoices list "PayPal" merely
+    // as a payment method and must keep the generic path.
+    if lower.contains("paypal.com/myaccount") || lower.contains("paypal : activit") {
+        return parse_paypal(&text, &flat);
+    }
+
     let mut inv = ParsedInvoice {
         invoice_number: RE_INVOICE_NO
             .captures(&flat)
@@ -193,6 +226,86 @@ pub fn parse_invoice(raw_text: &str) -> ParsedInvoice {
         .map(|l| l.chars().take(140).collect());
 
     inv
+}
+
+/// Parse a PayPal "print-details" receipt (French). Fills what it reliably can —
+/// amount/currency, invoice + transaction numbers, the payment date — and leaves
+/// the merchant for manual entry (the seller appears only as a localised legal
+/// name that's rarely the shop the buyer recognises).
+fn parse_paypal(_text: &str, flat: &str) -> ParsedInvoice {
+    let mut inv = ParsedInvoice {
+        payment_method: Some("PayPal".to_string()),
+        role: "other".to_string(),
+        ..Default::default()
+    };
+
+    // Amount + currency: prefer the non-bold "X € EUR = Y $ USD" conversion line
+    // (what the buyer was actually charged, in EUR); else the de-doubled Total.
+    if let Some(c) = RE_PP_CONVERSION.captures(flat) {
+        inv.amount = parse_amount(&c[1]);
+        inv.currency = Some("EUR".to_string());
+    } else if let Some(c) = RE_PP_TOTAL.captures(flat) {
+        inv.amount = parse_amount(&dedouble_number(c[1].trim()));
+        inv.currency = Some(
+            match c[2].to_uppercase().as_str() {
+                "€" | "EUR" => "EUR",
+                _ => "USD",
+            }
+            .to_string(),
+        );
+    }
+
+    inv.invoice_number = RE_PP_INVOICE
+        .captures(flat)
+        .map(|c| c[1].trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    // The transaction id is split across lines on the print page ("…87276\n63L");
+    // flatten_ws joined the halves with a space — strip it back out.
+    inv.transaction_id = RE_PP_TXN
+        .captures(flat)
+        .map(|c| c[1].split_whitespace().collect::<String>())
+        .filter(|s| s.len() >= 8 && s.len() <= 30);
+
+    let date = RE_PP_DATE
+        .captures(flat)
+        .and_then(|c| parse_french_date(&c[1], &c[2], &c[3]));
+    inv.paid_on = date;
+    inv.invoice_date = date;
+
+    inv
+}
+
+/// Collapse a fully-doubled token (every glyph drawn twice for fake-bold, which
+/// is how pdf-extract renders PayPal's bold amounts: "116699,,5500" → "169,50").
+/// Genuine repeats are left alone — "152,00" isn't pair-wise identical, so kept.
+fn dedouble_number(s: &str) -> String {
+    let ch: Vec<char> = s.chars().collect();
+    if ch.len() >= 4 && ch.len() % 2 == 0 && ch.chunks(2).all(|p| p[0] == p[1]) {
+        ch.chunks(2).map(|p| p[0]).collect()
+    } else {
+        s.to_string()
+    }
+}
+
+/// Parse a French "DD month YYYY" date (e.g. "18 mai 2026").
+fn parse_french_date(day: &str, month: &str, year: &str) -> Option<NaiveDate> {
+    let m = match month.to_lowercase().as_str() {
+        "janvier" => 1,
+        "février" | "fevrier" => 2,
+        "mars" => 3,
+        "avril" => 4,
+        "mai" => 5,
+        "juin" => 6,
+        "juillet" => 7,
+        "août" | "aout" => 8,
+        "septembre" => 9,
+        "octobre" => 10,
+        "novembre" => 11,
+        "décembre" | "decembre" => 12,
+        _ => return None,
+    };
+    NaiveDate::from_ymd_opt(year.parse().ok()?, m, day.parse().ok()?)
 }
 
 /// Aggregate parsed invoices attached to one item into the proposed totals.
@@ -462,5 +575,74 @@ mod tests {
         assert_eq!(p.role, "shipping");
         assert_eq!(p.order_number.as_deref(), Some("67419180"));
         assert!(p.item_label.as_deref().unwrap_or("").contains("Freight")); // 】 tolerance
+    }
+
+    // Trimmed reproduction of a real PayPal "Activités" receipt, as pdf-extract
+    // emits it: bold spans draw every glyph twice ("NNuumméérroo", "116699,,5500"),
+    // the transaction id wraps across two print lines, and the page is in French.
+    const PAYPAL_RECEIPT: &str = "深圳市 −169,50 $ USD\n\
+        18 mai 2026 . Paiement\n\
+        PPaayyéé  aavveecc\n\
+        152,00 € EUR = 169,50 $ USD\n\
+        1 EUR = 1,1151 $US USD\n\
+         152,00 €\n\
+        NNuumméérroo  ddee  ffaaccttuurree\n\
+        ddfabd-20307\n\
+        Sex Doll Custom\n\
+         166,60 $ USD\n\
+        PayPal : Activités https://www.paypal.com/myaccount/activities/print-details/6JW99996...\n\
+        NNuumméérroo  ddee  ttrraannssaaccttiioonn\n\
+        6JW99996E87276\n\
+        63L\n\
+         [vc_row]\n\
+        Montant 116699,,5500  $$  UUSSDD\n\
+        TToottaall 116699,,5500  $$  UUSSDD\n";
+
+    #[test]
+    fn parses_paypal_receipt() {
+        let p = parse_invoice(PAYPAL_RECEIPT);
+        assert_eq!(p.payment_method.as_deref(), Some("PayPal"));
+        assert_eq!(p.role, "other");
+        // The buyer-side conversion line wins over the doubled $ Total: 152,00 € EUR.
+        assert_eq!(p.amount, Some(dec("152.00")));
+        assert_eq!(p.currency.as_deref(), Some("EUR"));
+        assert!(!p.currency_guess);
+        // Wrapped id ("…87276\n63L") rejoined, with the bold-doubled label tolerated.
+        assert_eq!(p.transaction_id.as_deref(), Some("6JW99996E8727663L"));
+        assert_eq!(p.invoice_number.as_deref(), Some("ddfabd-20307"));
+        assert_eq!(p.invoice_date, NaiveDate::from_ymd_opt(2026, 5, 18));
+        assert_eq!(p.paid_on, NaiveDate::from_ymd_opt(2026, 5, 18));
+        assert_eq!(p.store, None); // PayPal receipts name no store → manual entry
+    }
+
+    #[test]
+    fn paypal_dedoubles_bold_total_without_conversion_line() {
+        // No "X € EUR = Y $ USD" line → fall back to the doubled-bold Total and
+        // collapse the doubling: "116699,,5500" → "169,50".
+        let t = "PayPal : Activités https://www.paypal.com/myaccount/activities/print-details/X\n\
+                 19 juin 2026 . Paiement\n\
+                 TToottaall 116699,,5500  $$  UUSSDD\n";
+        let p = parse_invoice(t);
+        assert_eq!(p.payment_method.as_deref(), Some("PayPal"));
+        assert_eq!(p.amount, Some(dec("169.50")));
+        assert_eq!(p.currency.as_deref(), Some("USD"));
+        assert_eq!(p.invoice_date, NaiveDate::from_ymd_opt(2026, 6, 19));
+    }
+
+    #[test]
+    fn dedouble_number_collapses_only_fully_doubled_tokens() {
+        assert_eq!(dedouble_number("116699,,5500"), "169,50");
+        assert_eq!(dedouble_number("152,00"), "152,00"); // genuine, not pair-doubled
+        assert_eq!(dedouble_number("5500"), "50");
+    }
+
+    #[test]
+    fn paypal_standard_invoices_stay_on_the_generic_path() {
+        // ORZGK names "PayPal Standard" as a payment method but is NOT a paypal.com
+        // receipt — it must keep the generic store/role parsing, not route to PayPal.
+        let p = parse_invoice(ORZGK_DEPOSIT);
+        assert_eq!(p.store.as_deref(), Some("ORZGK"));
+        assert_eq!(p.role, "deposit");
+        assert_eq!(p.payment_method.as_deref(), Some("PayPal Standard"));
     }
 }

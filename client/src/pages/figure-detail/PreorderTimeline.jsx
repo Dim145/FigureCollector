@@ -102,17 +102,39 @@ export default function PreorderTimeline({ f, owned, t }) {
         : null;
   const currency = owned?.price_currency || po?.price_currency || f.msrp_currency || null;
   const hasDeposit = deposit != null && deposit > 0 && total != null && total > 0;
-  const pct = hasDeposit ? Math.max(0, Math.min(100, Math.round((deposit / total) * 100))) : 0;
+  // Explicit "balance settled" date the owner can set (the remaining balance is
+  // typically billed weeks BEFORE shipment), independent of the order status.
+  const balancePaidAt = po?.balance_paid_at ?? null;
+  // …or recorded implicitly by raising the acompte to the full price
+  // (deposit ≥ total ⇒ nothing left to owe).
+  const fullyPaidByDeposit = hasDeposit && deposit >= total;
+  // Shipped or received ⇒ the maker took the balance before sending; or the
+  // balance was recorded paid (either way above). The order is then settled:
+  // show it fully paid rather than still owing. Keyed off the status string,
+  // not the step index — "released" alone (the product hit the market) does
+  // NOT mean the buyer has paid their balance.
+  const settled =
+    !cancelled &&
+    (status === "shipped" ||
+      status === "received" ||
+      fullyPaidByDeposit ||
+      balancePaidAt != null);
+  const depositPct = hasDeposit
+    ? Math.max(0, Math.min(100, Math.round((deposit / total) * 100)))
+    : 0;
+  const pct = settled ? 100 : depositPct;
   const balance = hasDeposit ? Math.max(0, total - deposit) : null;
   // Human-readable announcement for the deposit progressbar — a screen reader
   // would otherwise read only the bare "… 34 %" with no money context.
   const depositValueText = hasDeposit
-    ? t("figure.preco.deposit_aria", {
-        paid: fmtMoney(deposit, currency, appLocale()),
-        total: fmtMoney(total, currency, appLocale()),
-        pct,
-        default: `${fmtMoney(deposit, currency, appLocale())} payé sur ${fmtMoney(total, currency, appLocale())} · ${pct} %`,
-      })
+    ? settled
+      ? t("figure.preco.fully_paid", { default: "Payé intégralement" })
+      : t("figure.preco.deposit_aria", {
+          paid: fmtMoney(deposit, currency, appLocale()),
+          total: fmtMoney(total, currency, appLocale()),
+          pct: depositPct,
+          default: `${fmtMoney(deposit, currency, appLocale())} payé sur ${fmtMoney(total, currency, appLocale())} · ${depositPct} %`,
+        })
     : undefined;
 
   // Delivery ETA — only meaningful once shipped with an estimate.
@@ -193,9 +215,16 @@ export default function PreorderTimeline({ f, owned, t }) {
           <p className="dhd">
             <span>{t("figure.glance.deposit_paid", { default: "Acompte versé" })}</span>
             <b className="tabular-nums">
-              <Money amount={deposit} currency={currency} />{" "}
-              {t("figure.preco.paid_on", { default: "payé sur" })}{" "}
-              <Money amount={total} currency={currency} /> · ≈ {pct} %
+              <Money amount={deposit} currency={currency} />
+              {settled ? (
+                <> · {t("figure.preco.settled", { default: "réglé" })}</>
+              ) : (
+                <>
+                  {" "}
+                  {t("figure.preco.paid_on", { default: "payé sur" })}{" "}
+                  <Money amount={total} currency={currency} /> · ≈ {depositPct} %
+                </>
+              )}
             </b>
           </p>
           <div
@@ -210,12 +239,24 @@ export default function PreorderTimeline({ f, owned, t }) {
             <span className="pc-fill" style={{ width: `${pct}%` }} />
           </div>
           <div className="pc-dfoot tabular-nums">
-            <span>
-              {t("figure.glance.balance_due", { default: "Solde restant" })}{" "}
-              <b>
-                <Money amount={balance} currency={currency} />
-              </b>
-            </span>
+            {settled ? (
+              <span className="paid">
+                ✓ {t("figure.preco.fully_paid", { default: "Payé intégralement" })}
+                {balancePaidAt ? (
+                  <span className="paid-on">
+                    {" · "}
+                    {fmtDate(balancePaidAt, { day: "numeric", month: "short", year: "numeric" })}
+                  </span>
+                ) : null}
+              </span>
+            ) : (
+              <span>
+                {t("figure.glance.balance_due", { default: "Solde restant" })}{" "}
+                <b>
+                  <Money amount={balance} currency={currency} />
+                </b>
+              </span>
+            )}
             {etaDays != null ? (
               <span
                 className="next"
@@ -225,9 +266,11 @@ export default function PreorderTimeline({ f, owned, t }) {
                 <b>{formatCountdown(etaDays, t)}</b>
               </span>
             ) : null}
-            <span className="warn">
-              ⚠ {t("figure.preco.non_refundable", { default: "Acompte non-remboursable" })}
-            </span>
+            {settled ? null : (
+              <span className="warn">
+                ⚠ {t("figure.preco.non_refundable", { default: "Acompte non-remboursable" })}
+              </span>
+            )}
           </div>
         </div>
       ) : null}

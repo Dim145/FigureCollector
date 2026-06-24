@@ -692,6 +692,9 @@ export default {
   "preorders.field.deposit_ph": "30",
   "preorders.field.deposit_hint":
     "Upfront payment at order time (deducted from the balance before shipping).",
+  "preorders.field.balance_paid": "Balance paid on",
+  "preorders.field.balance_paid_hint":
+    "Date you paid the remaining balance — leave empty while it's still owed.",
   "preorders.field.delivery_days": "Estimated delivery (days)",
   "preorders.field.delivery_days_ph": "7",
   "preorders.field.delivery_days_hint":
@@ -2676,6 +2679,8 @@ export default {
   "figure.preco.deposit_aria": "{paid} paid of {total} · {pct} %",
   "figure.preco.delivery": "Delivery",
   "figure.preco.non_refundable": "Non-refundable deposit",
+  "figure.preco.settled": "settled",
+  "figure.preco.fully_paid": "Paid in full",
   "figure.preco.step.announced": "Announced",
   "figure.preco.step.preorder": "Pre-order",
   "figure.preco.step.production": "In production",

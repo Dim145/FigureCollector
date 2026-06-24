@@ -712,6 +712,8 @@ export default {
   "preorders.field.deposit": "Dépôt",
   "preorders.field.deposit_ph": "30",
   "preorders.field.deposit_hint": "Acompte versé à la commande (déduit du solde avant livraison).",
+  "preorders.field.balance_paid": "Solde réglé le",
+  "preorders.field.balance_paid_hint": "Date du paiement du solde restant — laisse vide tant qu'il n'est pas payé.",
   "preorders.field.delivery_days": "Livraison estimée (jours)",
   "preorders.field.delivery_days_ph": "7",
   "preorders.field.delivery_days_hint":
@@ -2737,6 +2739,8 @@ export default {
   "figure.preco.deposit_aria": "{paid} payé sur {total} · {pct} %",
   "figure.preco.delivery": "Livraison",
   "figure.preco.non_refundable": "Acompte non-remboursable",
+  "figure.preco.settled": "réglé",
+  "figure.preco.fully_paid": "Payé intégralement",
   "figure.preco.step.announced": "Annoncée",
   "figure.preco.step.preorder": "Pré-commande",
   "figure.preco.step.production": "En production",

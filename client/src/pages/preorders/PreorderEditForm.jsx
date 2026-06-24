@@ -30,6 +30,9 @@ export default function PreorderEditForm({ preorder: p, onClose, t }) {
     tracking_url: p.tracking_url ?? "",
     release_date: p.release_date_current ?? "",
     deposit_amount: p.deposit_amount != null ? String(p.deposit_amount) : "",
+    // Date the remaining balance was paid ("" = still owed). Drives the
+    // "Payé intégralement" state independently of the shipped/received status.
+    balance_paid: p.balance_paid_at ?? "",
     estimated_delivery_days:
       p.estimated_delivery_days != null ? String(p.estimated_delivery_days) : "",
     note: "",
@@ -56,6 +59,9 @@ export default function PreorderEditForm({ preorder: p, onClose, t }) {
       release_date: form.release_date || null,
       release_date_note: nz(form.note),
       deposit_amount: num(form.deposit_amount),
+      // Always sent: a date marks the balance paid, an empty field clears it
+      // (the server PATCH treats explicit null as "no longer paid").
+      balance_paid_at: form.balance_paid || null,
       estimated_delivery_days: form.estimated_delivery_days
         ? Number.parseInt(form.estimated_delivery_days, 10) || null
         : null,
@@ -140,14 +146,26 @@ export default function PreorderEditForm({ preorder: p, onClose, t }) {
         ) : null}
       </div>
 
-      <FormField
-        label={t("preorders.field.deposit")}
-        type="number"
-        value={form.deposit_amount}
-        onChange={set("deposit_amount")}
-        placeholder={t("preorders.field.deposit_ph")}
-        hint={t("preorders.field.deposit_hint")}
-      />
+      <div className="grid sm:grid-cols-2 gap-4">
+        <FormField
+          label={t("preorders.field.deposit")}
+          type="number"
+          value={form.deposit_amount}
+          onChange={set("deposit_amount")}
+          placeholder={t("preorders.field.deposit_ph")}
+          hint={t("preorders.field.deposit_hint")}
+        />
+        {/* Explicit "balance settled" date — covers paying the balance weeks
+         *  before the figure ships (makers bill it at the pre-shipping stage),
+         *  which status alone can't express. Empty = still owed. */}
+        <FormField
+          label={t("preorders.field.balance_paid")}
+          type="date"
+          value={form.balance_paid}
+          onChange={set("balance_paid")}
+          hint={t("preorders.field.balance_paid_hint")}
+        />
+      </div>
 
       {/* Delivery ETA — only meaningful from `shipped` onward, but editable in
        *  all states so the user can pre-fill a carrier ETA before our status

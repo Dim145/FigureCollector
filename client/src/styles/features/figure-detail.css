@@ -1668,6 +1668,9 @@ dl.fig-specs dd a {
 .pc-dfoot .warn {
   color: var(--color-laque-bright);
 }
+.pc-dfoot .paid {
+  color: var(--color-jade);
+}
 
 /* Carrier-tracking row — the live chip, relocated here from the owner zone so
  *  all pre-order tracking is consolidated in #preco. */
