@@ -2,7 +2,7 @@ import FigureCard from "../../components/FigureCard.jsx";
 import Reveal from "../../components/motion/Reveal.jsx";
 import { EmptyState } from "../../components/ui/index.js";
 import { SectionSkeleton } from "../../components/Skeleton.jsx";
-import { resolveFigureCover } from "../../lib/coverUrl.js";
+import { resolveFigureCoverSources } from "../../lib/coverUrl.js";
 import { preorderBadgeLabel, preorderPhaseFromFigure } from "../../lib/preorderStatus.js";
 
 /**
@@ -17,7 +17,9 @@ import { preorderBadgeLabel, preorderPhaseFromFigure } from "../../lib/preorderS
 export function FigureGrid({ figures, scores, ownedIds, wishedIds, me, t }) {
   return (
     <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-      {figures.map((f, i) => (
+      {figures.map((f, i) => {
+        const cover = resolveFigureCoverSources(f);
+        return (
         <Reveal as="li" key={f.id} delay={Math.min(i, 7) * 0.05} y={24}>
           <FigureCard
             figureId={f.id}
@@ -25,7 +27,8 @@ export function FigureGrid({ figures, scores, ownedIds, wishedIds, me, t }) {
             name={f.name}
             type={f.figure_type}
             manufacturer={f.manufacturer_name ?? null}
-            imageUrl={resolveFigureCover(f)}
+            imageUrl={cover.primary}
+            imageFallback={cover.fallback}
             scale={f.scale}
             versionName={f.version_name}
             owned={ownedIds.has(f.id)}
@@ -44,7 +47,8 @@ export function FigureGrid({ figures, scores, ownedIds, wishedIds, me, t }) {
             })()}
           />
         </Reveal>
-      ))}
+        );
+      })}
     </ul>
   );
 }

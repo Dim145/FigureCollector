@@ -82,6 +82,30 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
+          // Catalog COVER photos (/api/figure-photos/) — the catalogue grid
+          // fans out dozens of these at once; previously NO rule matched them
+          // (the rule above is /api/photos/, without the `figure-`), so every
+          // cover hit the network every load and a transient failure (store-CDN
+          // rate-limit / pool pressure) left the <img> silently broken until a
+          // manual reload. StaleWhileRevalidate serves the cached copy INSTANTLY
+          // (already-loaded covers always reappear, no network dependency) and
+          // refreshes in the background, so edit-in-place changes still surface
+          // on the next view. statuses:[200] only — never cache an error/opaque
+          // response (that would re-introduce a stuck-broken cover).
+          {
+            urlPattern: ({ url, request }) =>
+              url.pathname.startsWith("/api/figure-photos/") && request.method === "GET",
+            handler: "StaleWhileRevalidate",
+            options: {
+              cacheName: "fc-figure-covers",
+              expiration: {
+                maxEntries: 400,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+                purgeOnQuotaError: true,
+              },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
           // Catalog reads — NetworkFirst so a freshly-mutated catalog
           // (new figure, new primary photo, deleted figure, NSFW flag
           // flip on /me) shows up on the very next navigation. The

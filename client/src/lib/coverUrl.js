@@ -31,10 +31,23 @@ export function resolveOwnedCover(item) {
  *   3. null → SPA renders the SVG placeholder
  */
 export function resolveFigureCover(figure) {
-  if (!figure) return null;
-  if (figure.primary_photo_id) {
-    return `/api/figure-photos/${figure.primary_photo_id}`;
-  }
-  if (figure.official_image_url) return figure.official_image_url;
-  return null;
+  return resolveFigureCoverSources(figure).primary;
+}
+
+/**
+ * Same chain as {@link resolveFigureCover}, but exposes BOTH the primary URL and
+ * the alternate source to fall back to when the primary fails to load. The
+ * uploaded catalog photo (`/api/figure-photos`) is preferred, with the external
+ * `official_image_url` as the fallback source — so a card whose proxied cover
+ * times out, or whose hotlinked store-CDN image gets rate-limited, can recover
+ * from the other source instead of staying silently broken. Consumed by
+ * `useCoverImage` (the <img> retry/fallback state machine).
+ */
+export function resolveFigureCoverSources(figure) {
+  if (!figure) return { primary: null, fallback: null };
+  const photo = figure.primary_photo_id
+    ? `/api/figure-photos/${figure.primary_photo_id}`
+    : null;
+  const official = figure.official_image_url || null;
+  return photo ? { primary: photo, fallback: official } : { primary: official, fallback: null };
 }

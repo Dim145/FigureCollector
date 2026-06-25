@@ -2,6 +2,7 @@ import { useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useI18n, useT } from "../i18n/index.jsx";
 import { useFigureTypes } from "../hooks/useAdmin.js";
+import { useCoverImage } from "../hooks/useCoverImage.js";
 import { typeHue } from "../lib/typeHue.js";
 import { Tooltip } from "./ui/index.js";
 
@@ -28,6 +29,9 @@ export default function FigureCard({
   type,
   manufacturer,
   imageUrl,
+  /** Alternate cover source tried if `imageUrl` fails to load (e.g. the
+   *  external official image when the proxied photo times out). */
+  imageFallback,
   scale,
   versionName,
   badge,
@@ -59,6 +63,14 @@ export default function FigureCard({
     return { kanji: kanjiFallback(id), label: t(`type.${id}`) };
   }, [figureTypes.data, type, locale, t]);
   const ref = useRef(null);
+  // Resilient cover src: on a failed load (CDN rate-limit / transient proxy
+  // error — no JS error fires) it retries with a cache-buster, then falls back
+  // to the alternate source, then null → placeholder. Fixes catalogue covers
+  // that intermittently stay broken until a manual reload.
+  const { src: coverSrc, onError: onCoverError } = useCoverImage({
+    primary: imageUrl,
+    fallback: imageFallback,
+  });
 
   const onMove = (e) => {
     const el = ref.current;
@@ -116,13 +128,14 @@ export default function FigureCard({
        * network request.
        */}
       <div className="specimen-well relative aspect-[4/5] overflow-hidden">
-        {imageUrl ? (
+        {coverSrc ? (
           <img
-            src={imageUrl}
+            src={coverSrc}
             alt=""
             aria-hidden
             loading="lazy"
             decoding="async"
+            onError={onCoverError}
             className={`absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-45 pointer-events-none z-0 ${blurImage ? "nsfw-blur" : ""}`}
           />
         ) : null}
@@ -135,12 +148,13 @@ export default function FigureCard({
           {typeMeta.kanji}
         </span>
 
-        {imageUrl ? (
+        {coverSrc ? (
           <img
-            src={imageUrl}
+            src={coverSrc}
             alt={name}
             loading="lazy"
             decoding="async"
+            onError={onCoverError}
             className={`absolute inset-0 w-full h-full object-contain p-3 transition-transform duration-700 ease-[var(--ease-curtain)] group-hover/card:scale-[1.04] z-[2] ${blurImage ? "nsfw-blur" : ""}`}
           />
         ) : (

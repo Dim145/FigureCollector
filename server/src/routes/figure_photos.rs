@@ -297,12 +297,18 @@ async fn fetch_photo(
         .await?
         .ok_or(AppError::NotFound)?;
 
-    // Catalog photos are mutable now (edit-in-place), so revalidate via an
-    // ETag keyed on the storage_key instead of promising `immutable`. An edit
-    // swaps the key → ETag changes → every surface (cover, cards, hero,
-    // gallery) picks up the new image. Unchanged → cheap 304, no storage read.
+    // Catalog photos are mutable (edit-in-place), so freshness rides on an
+    // ETag keyed on the storage_key rather than `immutable`: an edit swaps the
+    // key → ETag changes → every surface picks up the new image.
+    //
+    // But `max-age=0` forced a BLOCKING revalidation for every cover on every
+    // catalogue paint (dozens in parallel) — a contributor to intermittent
+    // broken covers under load. `max-age=60, stale-while-revalidate` lets the
+    // browser/SW serve instantly and revalidate in the background (cheap 304
+    // via the ETag, or new bytes when the key changed), so edits still surface
+    // within ~a minute without the synchronous burst.
     let etag = format!("\"{}\"", p.storage_key);
-    let cache = "public, max-age=0, must-revalidate";
+    let cache = "public, max-age=60, stale-while-revalidate=86400";
     if req_headers
         .get(header::IF_NONE_MATCH)
         .and_then(|v| v.to_str().ok())
