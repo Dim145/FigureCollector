@@ -199,7 +199,8 @@ export default function BrowsePage() {
   const trimmedQ = debouncedQ.trim();
   const active = !!trimmedQ || hasFacet; // FACETTES when true, else DISCOVERY
 
-  const ambiance = !!vsStatus?.enabled && !!vsStatus?.ambiances && viewMode === "ambiances" && !active;
+  const ambianceAvailable = !!vsStatus?.enabled && !!vsStatus?.ambiances;
+  const ambiance = ambianceAvailable && viewMode === "ambiances" && !active;
   const isSemantic = !ambiance && !hasFacet && searchMode === "semantic" && !!vsStatus?.text_search_enabled;
   const isLook = !ambiance && !hasFacet && searchMode === "look" && !!vsStatus?.clip_search_enabled;
 
@@ -213,7 +214,13 @@ export default function BrowsePage() {
     manufacturer: ambiance ? undefined : manufacturer || undefined,
     limit: CATALOGUE_LIMIT,
   });
-  const clusters = useVisualClusters({ enabled: ambiance });
+  // The discovery landing renders an ambiance PREVIEW too — not only the
+  // dedicated "ambiances" view — so enable the clusters query whenever ambiances
+  // are available and we're not in facet/search mode. Gating on `ambiance` (which
+  // also requires viewMode === "ambiances") left the preview's <AmbianceGallery>
+  // with a perpetually-disabled (isPending) query → skeleton forever, until the
+  // dedicated view happened to populate the shared ["visual-search","clusters"] cache.
+  const clusters = useVisualClusters({ enabled: ambianceAvailable && !active });
   const semantic = useSemanticSearch({ active: isSemantic, query: debouncedQ });
   const look = useLookSearch({ active: isLook, query: debouncedQ });
 
@@ -619,7 +626,6 @@ export default function BrowsePage() {
   );
   const lookScores = new Map((look.results ?? []).map((r) => [r.figure.id, clipMatchPct(r.distance)]));
 
-  const ambianceAvailable = !!vsStatus?.enabled && !!vsStatus?.ambiances;
   const viewTabs = [
     { value: "catalogue", label: t("browse.view.catalogue", { default: "Catalogue" }) },
     { value: "ambiances", label: t("browse.view.ambiances", { default: "Ambiances" }) },
