@@ -1,18 +1,20 @@
-# CodeQL — advanced setup.
+# CodeQL — advanced setup (replaces GitHub "default setup").
 #
-# Replaces the GitHub "default setup": that one analysed Rust in build-mode
-# none WITHOUT the toolchain or resolved dependencies, so the extractor could
-# not resolve types / call targets (only 44 % of calls, 137/191 files extracted
-# with errors → "Low Rust analysis quality" warning).
+# Scopes analysis to the languages that matter here — Rust, JS/TS, GitHub
+# Actions — dropping Python (no first-party Python) and the redundant
+# javascript / typescript duplicates the default setup had enabled.
 #
-# Here we install the pinned toolchain and `cargo fetch` the dependencies before
-# extraction, and extract dependency source, which lifts Rust database quality
-# above threshold. JS/TS and GitHub Actions are also analysed (Python dropped:
-# the repo has no first-party Python).
+# NOTE on Rust: CodeQL analyses Rust in build-mode none (buildless) — the only
+# supported / GA mode for Rust (GA since Oct 2025). On this macro-heavy codebase
+# (Axum, SeaORM, sqlx, serde derives) buildless extraction can't see
+# macro-generated code, so the "Low Rust analysis quality" status warning
+# (~44% calls resolved) is EXPECTED and informational — 0 real alerts. It is NOT
+# fixable by configuration; it improves only as CodeQL's upstream Rust
+# resolution improves. (cargo fetch + extract_dependencies_as_source were
+# measured and changed nothing, so they're intentionally absent.)
 #
-# IMPORTANT: the repo's "default setup" must be turned OFF for this workflow to
-# upload results (default + advanced cannot coexist).
-#   Settings → Code security → "CodeQL analysis" → ⋯ → Switch to advanced.
+# IMPORTANT: the repo's "default setup" must stay OFF — default + advanced
+# cannot coexist: Settings → Code security → "CodeQL analysis" → advanced.
 
 name: "CodeQL"
 
@@ -41,26 +43,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # --- Rust only: give the extractor a real toolchain + resolved deps ------
-      - name: Set up Rust toolchain
-        if: matrix.language == 'rust'
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: "1.95" # matches server/rust-toolchain.toml
-      - name: Fetch Rust dependencies
-        if: matrix.language == 'rust'
-        run: cargo fetch --manifest-path server/Cargo.toml
-
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
           build-mode: none
-        env:
-          # Extract the FULL source of dependencies (not just signatures) so the
-          # Rust extractor resolves cross-crate types and call targets. This is
-          # the main quality lever; it does lengthen the Rust run noticeably.
-          CODEQL_EXTRACTOR_RUST_OPTION_EXTRACT_DEPENDENCIES_AS_SOURCE: "true"
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
