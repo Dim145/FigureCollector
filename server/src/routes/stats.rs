@@ -45,6 +45,20 @@ async fn my_insights(State(state): State<AppState>, session: Session) -> AppResu
         .await
 }
 
+/// Collection-over-time (#10): monthly buckets of pieces added + outlay added
+/// (per currency), reconstructed from existing owned-item data. The SPA folds
+/// these into a cumulative items + cumulative spend curve and converts spend
+/// via the display-currency layer. Same per-user cache lifecycle as the stats.
+async fn my_timeline(State(state): State<AppState>, session: Session) -> AppResult<Response> {
+    let user_id = auth::require_user(&session).await?;
+    state
+        .cache
+        .json_cached(&cache::user_timeline_key(user_id), STATS_TTL, || {
+            stats::collection_timeline(&state.pool, user_id)
+        })
+        .await
+}
+
 /// Market-price history across every figure the user owns, oldest first and
 /// tagged by figure. One round-trip for the Cote page: per-row sparklines,
 /// expanded registres, and the reconstructed collection evolution curve.
@@ -64,5 +78,6 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/me/stats", get(my_stats))
         .route("/me/insights", get(my_insights))
+        .route("/me/timeline", get(my_timeline))
         .route("/me/price-history", get(my_price_history))
 }

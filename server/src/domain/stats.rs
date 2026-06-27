@@ -847,3 +847,78 @@ pub async fn insights(pool: &PgPool, user_id: Uuid) -> AppResult<Insights> {
         },
     })
 }
+
+// =============================================================================
+// Collection over time (#10) — the growth curve, reconstructed from existing
+// data (NO dedicated table). Each non-archived owned_item carries a date
+// (purchase_date, else created_at) and a paid amount (price_amount, else the
+// catalog MSRP fallback used everywhere else in this module) + shipping, in
+// `price_currency`. We bucket by calendar month and currency; the SPA turns the
+// per-month/per-currency deltas into a cumulative items + cumulative spend
+// curve, converting spend through the Money/DisplayCurrency layer. Spend stays
+// PER-CURRENCY here — never cross-converted server-side (no rate drift, and the
+// client owns the single display currency).
+// =============================================================================
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TimelineBucket {
+    /// Calendar month, `YYYY-MM` (e.g. "2026-06").
+    pub month: String,
+    /// ISO 4217 currency of `spend_added`.
+    pub currency: String,
+    /// Pieces whose effective date falls in this month + currency bucket.
+    pub items_added: i64,
+    /// Outlay added in this month + currency: SUM(price + shipping), MSRP
+    /// fallback when no personal price — mirrors `spend_by_currency.grand_total`.
+    pub spend_added: Decimal,
+}
+
+/// Monthly buckets of pieces + outlay over the user's NON-ARCHIVED collection,
+/// grouped by month and currency, oldest month first. Rows with no date at all
+/// (no purchase_date AND no created_at — impossible in practice, created_at is
+/// NOT NULL) are skipped via the WHERE guard. Items priced in a currency are
+/// counted in that bucket; an item with no recordable amount/currency at all
+/// still counts toward `items_added` but contributes 0 spend (so the item curve
+/// stays honest even when a piece has no price).
+pub async fn collection_timeline(pool: &PgPool, user_id: Uuid) -> AppResult<Vec<TimelineBucket>> {
+    // Two facets per month: the item count (every non-archived piece, regardless
+    // of price) and the per-currency outlay (priced pieces only). We compute the
+    // currency bucket once (COALESCE owned→catalog), then split the item count
+    // across two sources so an unpriced piece still increments items_added under
+    // a synthetic '∅' currency bucket the SPA folds into the item curve.
+    let rows: Vec<(String, String, i64, Decimal)> = sqlx::query_as(
+        "WITH dated AS (
+             SELECT to_char(date_trunc('month',
+                        COALESCE(o.purchase_date, o.created_at::date)), 'YYYY-MM') AS month,
+                    COALESCE(o.price_currency, f.msrp_currency)                    AS currency,
+                    COALESCE(o.price_amount, f.msrp_amount)                        AS amount,
+                    COALESCE(o.shipping_amount, 0)                                 AS shipping
+             FROM owned_items o
+             JOIN figures f ON f.id = o.figure_id
+             WHERE o.user_id = $1
+               AND o.archived_at IS NULL
+               AND COALESCE(o.purchase_date, o.created_at::date) IS NOT NULL
+         )
+         SELECT month,
+                COALESCE(currency, '')                                  AS currency,
+                COUNT(*)::bigint                                        AS items_added,
+                COALESCE(SUM(CASE WHEN amount IS NOT NULL
+                                  THEN amount + shipping END), 0)::numeric AS spend_added
+         FROM dated
+         GROUP BY month, COALESCE(currency, '')
+         ORDER BY month ASC, currency ASC",
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .map(|(month, currency, items_added, spend_added)| TimelineBucket {
+            month,
+            currency,
+            items_added,
+            spend_added,
+        })
+        .collect())
+}

@@ -26,6 +26,21 @@ export function useInsights() {
 }
 
 /**
+ * Collection over time (#10): monthly buckets of pieces added + outlay added
+ * (per currency), reconstructed from owned-item dates/prices. The page folds
+ * these into a cumulative items + cumulative spend curve. Same one-minute stale
+ * as the headline stats; LiveSyncProvider invalidates `["timeline"]` on
+ * collection mutations.
+ */
+export function useMyTimeline() {
+  return useQuery({
+    queryKey: ["timeline"],
+    queryFn: () => api.get("/me/timeline"),
+    staleTime: 60_000,
+  });
+}
+
+/**
  * Market-price history for every figure the user owns (oldest first, tagged by
  * figure). One round-trip feeding the Cote page graphs — per-row sparklines,
  * expanded registres, and the reconstructed collection curve. The data only

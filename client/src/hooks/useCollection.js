@@ -174,12 +174,21 @@ export function useArrangeOwned() {
 
 /** Archive an owned item (typically after a partial-refund cancellation).
  *  The row keeps existing on disk so the loss can be retraced, but it's
- *  hidden from default list views. */
+ *  hidden from default list views. Accepts either a bare id, or
+ *  `{ id, reason }` to capture WHY it was archived (sold|traded|lost|gifted|
+ *  other) — the server validates the enum and stores it on the row. */
 export function useArchiveOwnedItem() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id) => api.post(`/me/owned/${id}/archive`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["owned"] }),
+    mutationFn: (arg) => {
+      const { id, reason } = typeof arg === "object" && arg !== null ? arg : { id: arg };
+      return api.post(`/me/owned/${id}/archive`, reason ? { reason } : undefined);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["owned"] });
+      qc.invalidateQueries({ queryKey: ["stats"] });
+      qc.invalidateQueries({ queryKey: ["timeline"] });
+    },
   });
 }
 

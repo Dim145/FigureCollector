@@ -75,6 +75,7 @@ function handleEvent(msg, qc) {
       qc.invalidateQueries({ queryKey: ["photos"] });
       qc.invalidateQueries({ queryKey: ["me"] });
       qc.invalidateQueries({ queryKey: ["stats"] });
+      qc.invalidateQueries({ queryKey: ["timeline"] });
       return;
     case "owned_item_created":
     case "owned_item_updated":
@@ -82,6 +83,7 @@ function handleEvent(msg, qc) {
       qc.invalidateQueries({ queryKey: ["owned"] });
       qc.invalidateQueries({ queryKey: ["compare"] });
       qc.invalidateQueries({ queryKey: ["stats"] });
+      qc.invalidateQueries({ queryKey: ["timeline"] });
       return;
     case "owned_item_photos_changed":
       if (msg.owned_id) {
@@ -108,6 +110,7 @@ function handleEvent(msg, qc) {
     case "preorder_deleted":
       qc.invalidateQueries({ queryKey: ["preorders"] });
       qc.invalidateQueries({ queryKey: ["stats"] });
+      qc.invalidateQueries({ queryKey: ["timeline"] });
       if (msg.preorder_id) {
         qc.invalidateQueries({ queryKey: ["preorder-history", msg.preorder_id] });
       }

@@ -21,6 +21,10 @@ import StoreAutocomplete from "./StoreAutocomplete.jsx";
 /** Allowed condition values, mirrored from the server's allow-list. */
 const CONDITION_OPTIONS = ["mib_sealed", "opened_box", "displayed", "loose", "damaged"];
 
+/** Provenance values, mirrored from the server's `ALLOWED_ACQUISITION_SOURCES`.
+ *  An empty value means "unspecified" (the column stays null). */
+const ACQUISITION_SOURCES = ["purchased", "gift", "trade", "found", "inherited", "other"];
+
 /**
  * Inline editor for the per-user metadata on a figure that's already in the
  * collection. Surfaced on the figure detail page only when the viewer owns
@@ -107,6 +111,12 @@ export default function OwnedItemEditor({ owned, catalogMsrp, catalogCurrency })
           className="mb-4 text-[10px] uppercase tracking-[0.22em] text-[var(--color-laque-bright)] border-l-2 border-[var(--color-laque-bright)] pl-3 py-1"
         >
           {t("owned.editor.archived_note")}
+          {owned.archive_reason ? (
+            <span className="opacity-80">
+              {" · "}
+              {t(`archive.reason.${owned.archive_reason}`)}
+            </span>
+          ) : null}
         </p>
       ) : null}
 
@@ -180,6 +190,25 @@ function ReadMode({ owned, preorder, catalogMsrp, catalogCurrency, t }) {
             catalogCurrency={catalogCurrency}
             size="sm"
           />
+        ) : (
+          "—"
+        )}
+      </Row>
+      <Row label={t("owned.editor.field.source")}>
+        {owned.acquisition_source || owned.acquired_from ? (
+          <span className="flex flex-wrap items-baseline gap-x-2">
+            {owned.acquisition_source ? (
+              <span className="text-[var(--color-or-pale)]">
+                {t(`owned.editor.source.${owned.acquisition_source}`)}
+              </span>
+            ) : null}
+            {owned.acquired_from ? (
+              <span className="text-[var(--color-ivoire-soft)]">
+                {owned.acquisition_source ? "· " : ""}
+                {owned.acquired_from}
+              </span>
+            ) : null}
+          </span>
         ) : (
           "—"
         )}
@@ -307,6 +336,11 @@ function EditMode({ owned, preorder, catalogMsrp, catalogCurrency, onClose, t })
       purchase_date: form.purchase_date || null,
       location: nz(form.location),
       notes: nz(form.notes),
+      // Provenance — mirrors location/notes: empty → null. The server PATCH
+      // COALESCEs nulls (omitted = unchanged), so blanking a field leaves the
+      // stored value as-is, exactly like the other free-text owned fields.
+      acquisition_source: form.acquisition_source || null,
+      acquired_from: nz(form.acquired_from),
       // Booleans are always sent so toggling OFF persists (server COALESCEs
       // nulls, not falses). Asking price only when actually selling.
       for_sale: !!form.for_sale,
@@ -392,6 +426,30 @@ function EditMode({ owned, preorder, catalogMsrp, catalogCurrency, onClose, t })
           value={form.location}
           onChange={set("location")}
           placeholder={t("owned.editor.ph.location")}
+        />
+      </div>
+
+      {/* Provenance — how the piece entered the collection + from whom/where.
+          The source carries an empty "unspecified" option (the column is
+          nullable); manual entry of "acquired from" is always free text. */}
+      <div className="grid sm:grid-cols-[1fr_2fr] gap-4">
+        <Select
+          label={t("owned.editor.field.source")}
+          value={form.acquisition_source}
+          onChange={set("acquisition_source")}
+          options={[
+            { value: "", label: t("owned.editor.source.unset") },
+            ...ACQUISITION_SOURCES.map((s) => ({
+              value: s,
+              label: t(`owned.editor.source.${s}`),
+            })),
+          ]}
+        />
+        <FormField
+          label={t("owned.editor.field.acquired_from")}
+          value={form.acquired_from}
+          onChange={set("acquired_from")}
+          placeholder={t("owned.editor.ph.acquired_from")}
         />
       </div>
 
@@ -587,6 +645,8 @@ function seedFromOwned(owned, preorder, defaultCurrency = "JPY") {
       owned.purchase_date ?? (owned.created_at ? String(owned.created_at).slice(0, 10) : ""),
     location: owned.location ?? "",
     notes: owned.notes ?? "",
+    acquisition_source: owned.acquisition_source ?? "",
+    acquired_from: owned.acquired_from ?? "",
     for_sale: !!owned.for_sale,
     for_trade: !!owned.for_trade,
     asking_price_amount: owned.asking_price_amount != null ? String(owned.asking_price_amount) : "",

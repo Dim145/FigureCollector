@@ -380,6 +380,17 @@ export default {
   "owned.editor.deposit_hint":
     "Upfront payment at preorder time, deducted from the balance before shipping.",
   "owned.editor.field.notes": "Notes",
+  // Provenance — how the piece entered the collection + from whom/where.
+  "owned.editor.field.source": "Provenance",
+  "owned.editor.field.acquired_from": "Acquired from",
+  "owned.editor.ph.acquired_from": "A friend, a convention, a seller…",
+  "owned.editor.source.unset": "Unspecified",
+  "owned.editor.source.purchased": "Purchased",
+  "owned.editor.source.gift": "Gift",
+  "owned.editor.source.trade": "Trade",
+  "owned.editor.source.found": "Found",
+  "owned.editor.source.inherited": "Inherited",
+  "owned.editor.source.other": "Other",
   "owned.editor.ph.store": "AmiAmi, GSC Online, eBay…",
   "owned.editor.ph.location": "Living-room cabinet, attic box…",
   "owned.editor.ph.price": "Amount paid",
@@ -1633,6 +1644,15 @@ export default {
     "Your deposit was fully refunded. You can delete it from your collection or archive it to keep a record.",
   "cancel.fate.archive": "Archive",
   "cancel.fate.delete": "Delete",
+  // Archive reason — why a piece leaves the active collection. Asked when
+  // archiving (cancellation "fate" step + the auto-archive on partial refund).
+  "cancel.fate.reason_label": "Archive reason",
+  "archive.reason.unset": "Unspecified",
+  "archive.reason.sold": "Sold",
+  "archive.reason.traded": "Traded",
+  "archive.reason.lost": "Lost",
+  "archive.reason.gifted": "Gifted",
+  "archive.reason.other": "Other",
   "preorder.history.deposit_refund": "Refunded:",
   "preorder.history.deposit_lost": "Deposit lost:",
 
@@ -1664,6 +1684,18 @@ export default {
   "stats.share.of_total": "{pct}% of total",
   "stats.timeline.readout": "{count} piece(s) · {year}",
   "stats.interact.hint": "Hover to explore",
+  // Collection over time (#10) — cumulative pieces + cumulative outlay, by month.
+  "stats.ch.growth": "Growth",
+  "stats.growth.title": "The collection over time",
+  "stats.growth.kicker": "Cumulative pieces and spend, month by month",
+  "stats.growth.empty": "Not enough history yet to plot the curve.",
+  "stats.growth.legend.items": "Pieces (cumulative)",
+  "stats.growth.legend.spend": "Spend (cumulative)",
+  "stats.growth.axis.items": "pieces",
+  "stats.growth.chart_aria":
+    "Collection growth curve: cumulative pieces and cumulative spend by month.",
+  "stats.growth.readout.items": "{count} piece(s)",
+  "stats.growth.partial": "partial spend — a non-convertible currency is excluded",
 
   // ----- Admin -----
   "admin.title": "Administration",

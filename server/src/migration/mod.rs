@@ -74,6 +74,7 @@ mod m20260627_000002_service_heartbeats;
 mod m20260627_000003_jobrun_actor_and_backfill;
 mod m20260627_000004_figure_shop_stock;
 mod m20260627_000005_owned_photo_tags;
+mod m20260627_000006_owned_provenance;
 
 pub struct Migrator;
 
@@ -143,6 +144,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260627_000003_jobrun_actor_and_backfill::Migration),
             Box::new(m20260627_000004_figure_shop_stock::Migration),
             Box::new(m20260627_000005_owned_photo_tags::Migration),
+            Box::new(m20260627_000006_owned_provenance::Migration),
         ]
     }
 }

@@ -43,6 +43,14 @@ pub struct OwnedItem {
     pub purchase_date: Option<NaiveDate>,
     pub location: Option<String>,
     pub notes: Option<String>,
+    /// Provenance — how the piece entered the collection
+    /// (purchased|gift|trade|found|inherited|other). Null = unrecorded.
+    pub acquisition_source: Option<String>,
+    /// Free text "from whom / where" it was acquired. Null = unrecorded.
+    pub acquired_from: Option<String>,
+    /// Why the piece was archived (sold|traded|lost|gifted|other). Captured
+    /// when `archived_at` is set; null on active pieces.
+    pub archive_reason: Option<String>,
     pub cover_photo_id: Option<Uuid>,
     pub cover_scan_id: Option<Uuid>,
     /// Non-null when this item is archived (e.g. preorder cancelled with
@@ -80,6 +88,11 @@ pub struct OwnedItemWithFigure {
     pub purchase_date: Option<NaiveDate>,
     pub location: Option<String>,
     pub notes: Option<String>,
+    /// Provenance — see `OwnedItem`. Surfaced read-only on the owned-item view.
+    pub acquisition_source: Option<String>,
+    pub acquired_from: Option<String>,
+    /// Why the piece was archived (null on active pieces).
+    pub archive_reason: Option<String>,
     pub archived_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
 
@@ -143,6 +156,11 @@ pub struct NewOwnedItem {
     pub purchase_date: Option<NaiveDate>,
     pub location: Option<String>,
     pub notes: Option<String>,
+    /// Provenance — how the piece entered the collection. Validated against
+    /// `ALLOWED_ACQUISITION_SOURCES`; null/omitted = unrecorded.
+    pub acquisition_source: Option<String>,
+    /// Free text "from whom / where" it was acquired.
+    pub acquired_from: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -155,6 +173,10 @@ pub struct OwnedPatch {
     pub purchase_date: Option<NaiveDate>,
     pub location: Option<String>,
     pub notes: Option<String>,
+    /// Provenance — same COALESCE handling as `location`/`notes`: an omitted
+    /// field (None) leaves the column untouched. Validated when present.
+    pub acquisition_source: Option<String>,
+    pub acquired_from: Option<String>,
     // Marketplace flags. Omitted fields (None) leave the column untouched
     // (COALESCE), so toggling "for sale" never disturbs the price/condition.
     pub for_sale: Option<bool>,
@@ -170,12 +192,23 @@ fn default_condition() -> String {
 
 const ALLOWED_CONDITIONS: &[&str] = &["mib_sealed", "opened_box", "displayed", "loose", "damaged"];
 
+/// How a piece entered the collection (provenance). Mirrors the SPA's source
+/// select; validated server-side so stats/exports never see a bogus value.
+const ALLOWED_ACQUISITION_SOURCES: &[&str] =
+    &["purchased", "gift", "trade", "found", "inherited", "other"];
+
+/// Why a piece was archived. Distinct enum from the acquisition source — an
+/// exit reason, captured when `archived_at` is set.
+const ALLOWED_ARCHIVE_REASONS: &[&str] = &["sold", "traded", "lost", "gifted", "other"];
+
 const OWNED_RETURNING: &str =
     "id, user_id, figure_id, condition, price_amount, price_currency, shipping_amount, \
      value_amount, value_currency, \
      for_sale, for_trade, asking_price_amount, asking_price_currency, sale_note, \
      sort_order, \
-     store_id, purchase_date, location, notes, cover_photo_id, cover_scan_id, \
+     store_id, purchase_date, location, notes, \
+     acquisition_source, acquired_from, archive_reason, \
+     cover_photo_id, cover_scan_id, \
      archived_at, created_at, updated_at";
 
 pub async fn create(
@@ -197,6 +230,14 @@ pub async fn create(
     if input.notes.as_deref().is_some_and(|n| n.len() > 4096) {
         return Err(AppError::BadRequest("notes too long (max 4096)"));
     }
+    if let Some(s) = &input.acquisition_source {
+        if !ALLOWED_ACQUISITION_SOURCES.contains(&s.as_str()) {
+            return Err(AppError::BadRequest("invalid acquisition_source"));
+        }
+    }
+    if input.acquired_from.as_deref().is_some_and(|s| s.len() > 256) {
+        return Err(AppError::BadRequest("acquired_from too long (max 256)"));
+    }
 
     // Resolve the free-text store name into a stores.id. If the slug
     // collides with an existing row, we reuse that id; otherwise a fresh
@@ -211,8 +252,9 @@ pub async fn create(
     let sql = format!(
         "INSERT INTO owned_items (
             id, user_id, figure_id, condition, price_amount, price_currency, shipping_amount,
-            store_id, purchase_date, location, notes, price_fx_rate
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+            store_id, purchase_date, location, notes, acquisition_source, acquired_from,
+            price_fx_rate
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
          RETURNING {OWNED_RETURNING}"
     );
 
@@ -228,6 +270,8 @@ pub async fn create(
         .bind(input.purchase_date)
         .bind(&input.location)
         .bind(&input.notes)
+        .bind(&input.acquisition_source)
+        .bind(&input.acquired_from)
         .bind(price_fx_rate)
         .fetch_one(pool)
         .await
@@ -289,6 +333,15 @@ pub async fn patch(
             ));
         }
     }
+    // Same enum floor as create() — a PATCH must never sneak a bogus source in.
+    if let Some(s) = &input.acquisition_source {
+        if !ALLOWED_ACQUISITION_SOURCES.contains(&s.as_str()) {
+            return Err(AppError::BadRequest("invalid acquisition_source"));
+        }
+    }
+    if input.acquired_from.as_deref().is_some_and(|s| s.len() > 256) {
+        return Err(AppError::BadRequest("acquired_from too long (max 256)"));
+    }
 
     // Same find-or-create as in `create()`. Patch with `store: ""` is a
     // no-op (find_or_create returns None for empty input, and COALESCE
@@ -308,21 +361,23 @@ pub async fn patch(
             purchase_date    = COALESCE($6, purchase_date),
             location         = COALESCE($7, location),
             notes            = COALESCE($8, notes),
-            for_sale              = COALESCE($9, for_sale),
-            for_trade             = COALESCE($10, for_trade),
-            asking_price_amount   = COALESCE($11, asking_price_amount),
-            asking_price_currency = COALESCE($12, asking_price_currency),
-            sale_note             = COALESCE($13, sale_note),
+            acquisition_source = COALESCE($9, acquisition_source),
+            acquired_from      = COALESCE($10, acquired_from),
+            for_sale              = COALESCE($11, for_sale),
+            for_trade             = COALESCE($12, for_trade),
+            asking_price_amount   = COALESCE($13, asking_price_amount),
+            asking_price_currency = COALESCE($14, asking_price_currency),
+            sale_note             = COALESCE($15, sale_note),
             -- Re-freeze the cost→EUR rate only when the currency actually
             -- changes (or was never captured); editing any other field leaves
             -- the purchase-time rate untouched, even if the SPA resends the
             -- unchanged currency in a full-payload patch.
             price_fx_rate    = CASE
                 WHEN $3 IS NOT NULL AND ($3 <> price_currency OR price_fx_rate IS NULL)
-                    THEN COALESCE($14, price_fx_rate)
+                    THEN COALESCE($16, price_fx_rate)
                 ELSE price_fx_rate
               END
-         WHERE id = $15 AND user_id = $16
+         WHERE id = $17 AND user_id = $18
          RETURNING {OWNED_RETURNING}"
     );
 
@@ -335,6 +390,8 @@ pub async fn patch(
         .bind(input.purchase_date)
         .bind(&input.location)
         .bind(&input.notes)
+        .bind(&input.acquisition_source)
+        .bind(&input.acquired_from)
         .bind(input.for_sale)
         .bind(input.for_trade)
         .bind(input.asking_price_amount)
@@ -449,6 +506,7 @@ pub async fn list_for_user(
             st.name AS store_name,
             st.slug AS store_slug,
             o.purchase_date, o.location, o.notes,
+            o.acquisition_source, o.acquired_from, o.archive_reason,
             o.archived_at, o.created_at,
             f.name AS figure_name, f.slug AS figure_slug, f.figure_type,
             f.official_image_url AS figure_image,
@@ -507,19 +565,35 @@ pub async fn list_for_user(
     Ok(query.fetch_all(pool).await?)
 }
 
-/// Mark an owned item as archived (preorder cancelled with partial refund).
-/// Idempotent — re-archiving an already-archived item is a no-op but still
-/// returns the row.
-pub async fn archive(pool: &PgPool, user_id: Uuid, id: Uuid) -> AppResult<OwnedItem> {
+/// Mark an owned item as archived (e.g. preorder cancelled with a partial
+/// refund, or a piece sold/lost/gifted). Idempotent — re-archiving an
+/// already-archived item keeps the original `archived_at`.
+///
+/// `reason` (sold|traded|lost|gifted|other) is captured when given; passing
+/// `None` leaves any existing reason untouched (COALESCE), so an idempotent
+/// re-archive never wipes a reason recorded earlier.
+pub async fn archive(
+    pool: &PgPool,
+    user_id: Uuid,
+    id: Uuid,
+    reason: Option<&str>,
+) -> AppResult<OwnedItem> {
+    if let Some(r) = reason {
+        if !ALLOWED_ARCHIVE_REASONS.contains(&r) {
+            return Err(AppError::BadRequest("invalid archive_reason"));
+        }
+    }
     let sql = format!(
         "UPDATE owned_items
-         SET archived_at = COALESCE(archived_at, NOW())
+         SET archived_at = COALESCE(archived_at, NOW()),
+             archive_reason = COALESCE($3, archive_reason)
          WHERE id = $1 AND user_id = $2
          RETURNING {OWNED_RETURNING}"
     );
     let row: Option<OwnedItem> = sqlx::query_as(&sql)
         .bind(id)
         .bind(user_id)
+        .bind(reason)
         .fetch_optional(pool)
         .await?;
     row.ok_or(AppError::NotFound)
@@ -530,9 +604,11 @@ pub async fn archive(pool: &PgPool, user_id: Uuid, id: Uuid) -> AppResult<OwnedI
 /// — the user typically wants to set it back to "preordered" via the normal
 /// edit flow.
 pub async fn restore(pool: &PgPool, user_id: Uuid, id: Uuid) -> AppResult<OwnedItem> {
+    // Clearing `archive_reason` too: a restored piece is active again, so a
+    // stale exit reason (sold/lost/…) would be misleading on its record.
     let sql = format!(
         "UPDATE owned_items
-         SET archived_at = NULL
+         SET archived_at = NULL, archive_reason = NULL
          WHERE id = $1 AND user_id = $2
          RETURNING {OWNED_RETURNING}"
     );

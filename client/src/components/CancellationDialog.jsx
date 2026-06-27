@@ -8,6 +8,11 @@ import {
 } from "../hooks/useCollection.js";
 import { Modal, Button } from "./ui/index.js";
 import FormField from "./FormField.jsx";
+import Select from "./Select.jsx";
+
+/** Archive reasons, mirrored from the server's `ALLOWED_ARCHIVE_REASONS`. An
+ *  empty value keeps the reason unspecified (column stays null). */
+const ARCHIVE_REASONS = ["sold", "traded", "lost", "gifted", "other"];
 
 /**
  * Two-step modal for marking a preorder as cancelled.
@@ -53,6 +58,8 @@ export default function CancellationDialog({ preorder, ownedId, onClose }) {
       ? String(preorder.deposit_refund_amount)
       : "",
   );
+  // Optional archive reason captured at the "fate" step (full-refund path).
+  const [archiveReason, setArchiveReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -112,7 +119,10 @@ export default function CancellationDialog({ preorder, ownedId, onClose }) {
     setBusy(true);
     setError(null);
     try {
-      await archive.mutateAsync(ownedId);
+      // Pass the (optional) reason; empty → bare archive, unchanged behaviour.
+      await archive.mutateAsync(
+        archiveReason ? { id: ownedId, reason: archiveReason } : ownedId,
+      );
       onClose?.();
     } catch (err) {
       setError(err?.message ?? "Erreur");
@@ -239,6 +249,20 @@ export default function CancellationDialog({ preorder, ownedId, onClose }) {
           <p className="text-sm text-[var(--on-surface-muted)] leading-relaxed">
             {t("cancel.fate.body")}
           </p>
+          {/* Optional archive reason — only relevant when keeping the row
+              (Archive). Empty stays unspecified. */}
+          <Select
+            label={t("cancel.fate.reason_label")}
+            value={archiveReason}
+            onChange={setArchiveReason}
+            options={[
+              { value: "", label: t("archive.reason.unset") },
+              ...ARCHIVE_REASONS.map((r) => ({
+                value: r,
+                label: t(`archive.reason.${r}`),
+              })),
+            ]}
+          />
           {errorBlock}
         </div>
       )}

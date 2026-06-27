@@ -57,13 +57,25 @@ async fn list_my_photo_tags(
     Ok(Json(tags::owned_photo_facets(&state.pool, user_id, 80).await?))
 }
 
+/// Optional body for `POST /me/owned/{id}/archive`. `reason`
+/// (sold|traded|lost|gifted|other) is captured on the row; the whole body is
+/// optional so a bare archive (e.g. an auto-archive on partial-refund
+/// cancellation) still works with no payload.
+#[derive(Debug, Deserialize, Default)]
+struct ArchiveBody {
+    reason: Option<String>,
+}
+
 async fn archive_mine(
     State(state): State<AppState>,
     session: Session,
     Path(id): Path<Uuid>,
+    body: Option<Json<ArchiveBody>>,
 ) -> AppResult<Json<owned::OwnedItem>> {
     let user_id = auth::require_user(&session).await?;
-    let updated = owned::archive(&state.pool, user_id, id).await?;
+    let reason = body.and_then(|Json(b)| b.reason);
+    let updated = owned::archive(&state.pool, user_id, id, reason.as_deref()).await?;
+    state.cache.invalidate_user_collection(user_id).await;
     state
         .events
         .publish(user_id, Event::OwnedItemUpdated { owned_id: id });
@@ -77,6 +89,7 @@ async fn restore_mine(
 ) -> AppResult<Json<owned::OwnedItem>> {
     let user_id = auth::require_user(&session).await?;
     let updated = owned::restore(&state.pool, user_id, id).await?;
+    state.cache.invalidate_user_collection(user_id).await;
     state
         .events
         .publish(user_id, Event::OwnedItemUpdated { owned_id: id });

@@ -107,6 +107,7 @@ impl Cache {
         self.delete(&user_stats_key(user_id)).await;
         self.delete(&user_insights_key(user_id)).await;
         self.delete(&user_price_history_key(user_id)).await;
+        self.delete(&user_timeline_key(user_id)).await;
     }
 }
 
@@ -131,6 +132,9 @@ pub fn user_insights_key(user_id: Uuid) -> String {
 }
 pub fn user_price_history_key(user_id: Uuid) -> String {
     format!("price-history:{user_id}")
+}
+pub fn user_timeline_key(user_id: Uuid) -> String {
+    format!("timeline:{user_id}")
 }
 
 /// No-op backend (`CACHE_BACKEND=off`): every get misses, set/delete do nothing.

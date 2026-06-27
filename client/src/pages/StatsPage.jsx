@@ -17,6 +17,7 @@ import SpendChapter from "./insights/SpendChapter.jsx";
 import AllocationChapter from "./insights/AllocationChapter.jsx";
 import PalmaresChapter from "./insights/PalmaresChapter.jsx";
 import ChronicleChapter from "./insights/ChronicleChapter.jsx";
+import GrowthChapter from "./insights/GrowthChapter.jsx";
 import CrownPriceChapter from "./insights/CrownPriceChapter.jsx";
 import InsightsChapters from "./insights/InsightsChapters.jsx";
 
@@ -144,6 +145,12 @@ export default function StatsPage() {
                 <ChronicleChapter data={data} t={t} />
               </LazyChapter>
 
+              {/* V· — Collection over time (#10): cumulative pieces + spend,
+                  reconstructed from owned-item dates/prices (own data hook). */}
+              <LazyChapter minHeight={320}>
+                <GrowthChapter t={t} />
+              </LazyChapter>
+
               <LazyChapter minHeight={480}>
                 <CrownPriceChapter data={data} t={t} />
               </LazyChapter>
@@ -173,6 +180,9 @@ function buildChapterList(data, insights, t) {
     { id: "ch-allocation", roman: "III", label: t("stats.ch.allocation") },
     { id: "ch-palmares", roman: "IV", label: t("stats.ch.tops") },
     { id: "ch-chronicle", roman: "V", label: t("stats.ch.timeline") },
+    // V· — the growth curve always occupies a section on the non-empty page
+    // (it renders its own empty line when there are <2 monthly points).
+    { id: "ch-growth", roman: "V·", label: t("stats.ch.growth") },
     { id: "ch-crown", roman: "VI", label: t("stats.ch.crown") },
   ];
   if ((data.price_distribution ?? []).length > 0) {

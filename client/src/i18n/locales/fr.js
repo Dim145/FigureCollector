@@ -392,6 +392,17 @@ export default {
   "owned.editor.ph.deposit": "0",
   "owned.editor.deposit_hint": "Acompte versé à la pré-commande, déduit du solde avant livraison.",
   "owned.editor.field.notes": "Notes",
+  // Provenance — how the piece entered the collection + from whom/where.
+  "owned.editor.field.source": "Provenance",
+  "owned.editor.field.acquired_from": "Acquise auprès de",
+  "owned.editor.ph.acquired_from": "Un ami, une convention, un vendeur…",
+  "owned.editor.source.unset": "Non précisée",
+  "owned.editor.source.purchased": "Achetée",
+  "owned.editor.source.gift": "Cadeau",
+  "owned.editor.source.trade": "Échange",
+  "owned.editor.source.found": "Trouvaille",
+  "owned.editor.source.inherited": "Héritée",
+  "owned.editor.source.other": "Autre",
   "owned.editor.ph.store": "AmiAmi, GSC Online, AniList…",
   "owned.editor.ph.location": "Vitrine salon, carton grenier…",
   "owned.editor.ph.price": "Montant payé",
@@ -1684,6 +1695,15 @@ export default {
     "L'acompte est intégralement remboursé. Tu peux soit la supprimer de ta collection, soit l'archiver pour garder une trace.",
   "cancel.fate.archive": "Archiver",
   "cancel.fate.delete": "Supprimer",
+  // Archive reason — why a piece leaves the active collection. Asked when
+  // archiving (cancellation "fate" step + the auto-archive on partial refund).
+  "cancel.fate.reason_label": "Motif d'archivage",
+  "archive.reason.unset": "Non précisé",
+  "archive.reason.sold": "Vendue",
+  "archive.reason.traded": "Échangée",
+  "archive.reason.lost": "Perdue",
+  "archive.reason.gifted": "Offerte",
+  "archive.reason.other": "Autre",
   "preorder.history.deposit_refund": "Remboursé :",
   "preorder.history.deposit_lost": "Acompte perdu :",
 
@@ -1715,6 +1735,18 @@ export default {
   "stats.share.of_total": "{pct} % du total",
   "stats.timeline.readout": "{count} pièce(s) · {year}",
   "stats.interact.hint": "Survolez pour explorer",
+  // Collection over time (#10) — cumulative pieces + cumulative outlay, by month.
+  "stats.ch.growth": "Évolution",
+  "stats.growth.title": "La collection au fil du temps",
+  "stats.growth.kicker": "Pièces et dépense cumulées, mois après mois",
+  "stats.growth.empty": "Pas encore assez d'historique pour tracer la courbe.",
+  "stats.growth.legend.items": "Pièces (cumul)",
+  "stats.growth.legend.spend": "Dépense (cumul)",
+  "stats.growth.axis.items": "pièces",
+  "stats.growth.chart_aria":
+    "Courbe d'évolution de la collection : pièces cumulées et dépense cumulée par mois.",
+  "stats.growth.readout.items": "{count} pièce(s)",
+  "stats.growth.partial": "dépense partielle — une devise non convertie est exclue",
 
   // ----- Admin -----
   "admin.title": "Administration",
