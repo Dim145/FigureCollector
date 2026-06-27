@@ -223,7 +223,12 @@ export function deriveStats(sorted, t) {
     if (Number.isFinite(deposit) && deposit > 0) {
       depositsByCcy[ccy] = (depositsByCcy[ccy] ?? 0) + deposit;
     }
-    if (Number.isFinite(price) && price > 0) {
+    // A settled balance (balance_paid_at set) owes nothing further — exclude it
+    // from "Solde à régler" so the ribbon matches the per-entry view
+    // (PreorderTimeline already treats balance_paid_at as paid-off). Without
+    // this, marking a balance paid cleared the entry but left the aggregate
+    // still counting it as owed.
+    if (!p.balance_paid_at && Number.isFinite(price) && price > 0) {
       const paid = Number.isFinite(deposit) && deposit > 0 ? deposit : 0;
       const owed = Math.max(price - paid, 0);
       if (owed > 0) balanceByCcy[ccy] = (balanceByCcy[ccy] ?? 0) + owed;
