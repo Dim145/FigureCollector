@@ -368,6 +368,7 @@ export default function StorePage() {
                           : null
                       }
                       blurImage={f.is_nsfw && blurNsfw}
+                      stockStatus={f.stock_status}
                     />
                     {buyHref ? (
                       <a

@@ -1,9 +1,12 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ScanLine } from "lucide-react";
+import { ScanLine, PackageX, CalendarClock } from "lucide-react";
 import { useStoresForFigure } from "../../hooks/useStores.js";
 import { buildBuyUrl } from "../../lib/storeLink.js";
 import { displayTags } from "../../lib/tags.js";
+import { relativeAgo, absoluteTime, olderThan } from "../../lib/relativeTime.js";
+import { appLocale } from "../../lib/locale.js";
+import { STOCK_LABEL, StockGlyph } from "../../components/StockBadge.jsx";
 import Button from "../../components/Button.jsx";
 import TagRail from "../../components/TagRail.jsx";
 import LinkedStoresModal from "../../components/LinkedStoresModal.jsx";
@@ -145,12 +148,64 @@ function Row({ label, value, mono = false, href = null, action = null }) {
   );
 }
 
+// Per-shop stock → buy-control shape. The primary CTA is already laque-red, so
+// out-of-stock is DEMOTED to a quiet "Voir" plus an explicit icon+text status
+// line (state carried by text/icon, never by button colour alone — WCAG 1.4.1).
+// unknown/null falls through to the unchanged primary "Acheter" (no claim).
+// Inline sub-label colour per state (CSS-var tones for the figure-detail row;
+// the shop-card badge uses Badge tones instead — see StockBadge).
+const STOCK_TONE = {
+  in_stock: "var(--success)",
+  out_of_stock: "var(--danger)",
+  preorder: "var(--accent)",
+};
+
+/** The buy button's per-state variant / label / icon / aria. */
+function buyControl(status, t, name) {
+  if (status === "out_of_stock") {
+    return {
+      variant: "ghost",
+      label: t("figure.stores.stock_view"),
+      ariaLabel: t("figure.stores.stock_view_at", { name }),
+      iconStart: <PackageX size={13} aria-hidden />,
+      className: "",
+    };
+  }
+  if (status === "preorder") {
+    return {
+      variant: "ghost",
+      label: t("figure.stores.stock_preorder"),
+      ariaLabel: t("figure.stores.stock_preorder_at", { name }),
+      iconStart: <CalendarClock size={13} aria-hidden />,
+      className: "!text-[var(--accent)] !border-[var(--accent)]/45 hover:!border-[var(--accent)]",
+    };
+  }
+  // in_stock | unknown | null → unchanged primary "Acheter"
+  return {
+    variant: "primary",
+    label: t("figure.stores.buy"),
+    ariaLabel: t("figure.stores.buy_at", { name }),
+    iconStart: (
+      <span aria-hidden className="ja">
+        購
+      </span>
+    ),
+    className: "",
+  };
+}
+
 /** Inline "Acheter chez" buy-list — lifted verbatim from FigureCartouche. */
 function StoreBuyList({ stores, t }) {
   return (
     <ul className="flex flex-col gap-2">
       {stores.map((s) => {
         const buyHref = buildBuyUrl(s.url, s.link);
+        const status = s.stock_status; // in_stock | out_of_stock | preorder | null
+        // Only the DEMOTED states get an explanatory sub-label + freshness. Per
+        // spec, in_stock (and unknown) keep the plain "Acheter" with no extra
+        // chrome — the buy button already implies availability.
+        const demoted = status === "out_of_stock" || status === "preorder";
+        const ctl = buyControl(status, t, s.name);
         return (
           <li
             key={s.id}
@@ -183,26 +238,44 @@ function StoreBuyList({ stores, t }) {
                     ↗ {hostnameOf(s.url)}
                   </span>
                 ) : null}
+                {demoted ? (
+                  <span
+                    className="mt-0.5 flex w-fit items-center gap-1 text-[10px] uppercase tracking-[0.16em]"
+                    style={{ color: STOCK_TONE[status] }}
+                  >
+                    <StockGlyph status={status} />
+                    {t(STOCK_LABEL[status])}
+                  </span>
+                ) : null}
+                {demoted && s.stock_checked_at ? (
+                  <span
+                    className="block mt-0.5 leading-tight text-[9px] text-[var(--color-ivoire-soft)]/45"
+                    title={absoluteTime(s.stock_checked_at, appLocale())}
+                  >
+                    <span className="tabular-nums">
+                      {t("figure.stores.stock_checked", {
+                        ago: relativeAgo(s.stock_checked_at, t),
+                      })}
+                    </span>
+                    {olderThan(s.stock_checked_at) ? ` · ${t("figure.stores.stock_stale")}` : ""}
+                  </span>
+                ) : null}
               </span>
             </Link>
             {buyHref ? (
               <Button
                 as="a"
-                variant="primary"
+                variant={ctl.variant}
                 size="sm"
                 href={buyHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label={t("figure.stores.buy_at", { name: s.name })}
-                className="tap-target shrink-0 gap-1.5 px-3 text-[10px] uppercase tracking-[0.2em]"
-                iconStart={
-                  <span aria-hidden className="ja">
-                    購
-                  </span>
-                }
+                aria-label={ctl.ariaLabel}
+                className={`tap-target shrink-0 gap-1.5 px-3 text-[10px] uppercase tracking-[0.2em] ${ctl.className}`}
+                iconStart={ctl.iconStart}
                 iconEnd={<span aria-hidden>↗</span>}
               >
-                {t("figure.stores.buy")}
+                {ctl.label}
               </Button>
             ) : (
               <Link

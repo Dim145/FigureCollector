@@ -162,6 +162,12 @@ pub struct OrzgkDetail {
     /// currency per page.
     pub currency: Option<String>,
 
+    /// Aggregate stock signal, best-effort, from the WooCommerce variations JSON
+    /// (`is_in_stock` / `backorders_allowed`) or a simple-product `.stock` DOM
+    /// cue. WooCommerce vocab: `instock` | `outofstock` | `onbackorder`. `None`
+    /// ⇒ the page surfaced no signal (the caller treats that as "unknown").
+    pub stock_status: Option<String>,
+
     // ─── extracted from the long-form description block ──────────────────
     // Orzgk repeats most of the side-panel data inside the description as a
     // `Label: Value` text block. The duplication is genuinely useful: the

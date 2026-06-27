@@ -72,6 +72,7 @@ mod m20260625_000001_preorder_balance_paid;
 mod m20260627_000001_server_job_runs_changed;
 mod m20260627_000002_service_heartbeats;
 mod m20260627_000003_jobrun_actor_and_backfill;
+mod m20260627_000004_figure_shop_stock;
 
 pub struct Migrator;
 
@@ -139,6 +140,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260627_000001_server_job_runs_changed::Migration),
             Box::new(m20260627_000002_service_heartbeats::Migration),
             Box::new(m20260627_000003_jobrun_actor_and_backfill::Migration),
+            Box::new(m20260627_000004_figure_shop_stock::Migration),
         ]
     }
 }

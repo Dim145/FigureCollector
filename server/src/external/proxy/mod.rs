@@ -100,6 +100,12 @@ pub struct ProxyProduct {
     /// the picker instead of importing the default straight away.
     #[serde(default)]
     pub versions: Vec<ProxyVersion>,
+    /// Optional per-product stock signal (contract extension): the proxy MAY
+    /// return `"in_stock"` | `"out_of_stock"` | `"preorder"` (also tolerates
+    /// `"sold_out"` / `"onbackorder"`). Absent ⇒ the proxy doesn't report stock
+    /// for this product ⇒ the UI treats it as "unknown".
+    #[serde(default)]
+    pub status: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -5,6 +5,7 @@ import { useFigureTypes } from "../hooks/useAdmin.js";
 import { useCoverImage } from "../hooks/useCoverImage.js";
 import { typeHue } from "../lib/typeHue.js";
 import { Tooltip } from "./ui/index.js";
+import StockBadge from "./StockBadge.jsx";
 
 /**
  * Cabinet de curiosités — display-pedestal card.
@@ -42,6 +43,10 @@ export default function FigureCard({
   wished = false,
   /** When true, applies a CSS blur on the cover image (NSFW + viewer pref=blur). */
   blurImage = false,
+  /** Per-shop stock for this figure at the current store ("in_stock" |
+   *  "out_of_stock" | "preorder"). Only set on the shop page; unknown/absent
+   *  renders no badge. */
+  stockStatus,
 }) {
   const t = useT();
   const { locale } = useI18n();
@@ -219,6 +224,7 @@ export default function FigureCard({
           ) : null}
           {scale ? <Row label={t("figure.spec.scale")} value={scale} /> : null}
         </dl>
+        <StockBadge status={stockStatus} className="mt-2.5 self-start" />
       </div>
     </div>
   );

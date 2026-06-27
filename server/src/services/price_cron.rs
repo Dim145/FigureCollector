@@ -22,7 +22,11 @@
 //! reads go through the existing 24h `external_lookups` cache, so prices
 //! refresh at most once per cache-TTL however often the cron fires.
 
-use crate::domain::{figure_price, settings};
+use crate::domain::{
+    figure_price,
+    figure_stock::{self, StockStatus},
+    settings,
+};
 use crate::error::AppResult;
 use crate::external::orzgk;
 use crate::external::proxy::ProxyClient;
@@ -114,13 +118,13 @@ pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
     // Figures with at least one real store buy-link. The full buy URL is
     // origin(`stores.url`) + `figure_stores.link` (path+query); one row per
     // (figure, store-link).
-    let rows = sqlx::query_as::<_, (Uuid, Option<String>, Option<String>, String, String)>(
+    let rows = sqlx::query_as::<_, (Uuid, Option<String>, Option<String>, String, String, Uuid)>(
         // Order by staleness so the per-run cap rotates through the WHOLE
         // catalogue: never-priced figures (pp.fetched_at NULL) come first, then
         // the oldest refreshes. A static `ORDER BY f.id` re-processed the same
         // first MAX_FIGURES_PER_RUN figures every run, so any figure past the
         // cap (the newest ones) never got a price. f.id is the stable tiebreak.
-        "SELECT f.id, f.version_name, f.msrp_currency, s.url, fs.link
+        "SELECT f.id, f.version_name, f.msrp_currency, s.url, fs.link, fs.store_id
          FROM figures f
          JOIN figure_stores fs ON fs.figure_id = f.id
          JOIN stores s         ON s.id = fs.store_id
@@ -136,11 +140,14 @@ pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
     struct FigureJob {
         version_name: Option<String>,
         msrp_currency: Option<String>,
-        urls: Vec<String>,
+        // Each distinct buy URL → every store_id that resolves to it. Fetching
+        // once per URL still records per-shop stock for ALL stores sharing it
+        // (two store rows can map to the same product URL).
+        urls: Vec<(String, Vec<Uuid>)>,
     }
     let mut jobs: HashMap<Uuid, FigureJob> = HashMap::new();
     let mut order: Vec<Uuid> = Vec::new();
-    for (fid, version_name, msrp_currency, store_url, link) in rows {
+    for (fid, version_name, msrp_currency, store_url, link, store_id) in rows {
         let url = reconstruct_url(&store_url, &link);
         let job = jobs.entry(fid).or_insert_with(|| {
             order.push(fid);
@@ -150,8 +157,13 @@ pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
                 urls: Vec::new(),
             }
         });
-        if !job.urls.contains(&url) {
-            job.urls.push(url);
+        match job.urls.iter_mut().find(|(u, _)| u == &url) {
+            Some((_, ids)) => {
+                if !ids.contains(&store_id) {
+                    ids.push(store_id);
+                }
+            }
+            None => job.urls.push((url, vec![store_id])),
         }
     }
 
@@ -180,6 +192,7 @@ pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
     let mut processed = 0usize;
     let mut updated = 0usize;
     let mut skipped_unconvertible = 0usize;
+    let mut stock_updated = 0usize;
     for fid in order {
         if processed >= MAX_FIGURES_PER_RUN {
             tracing::info!(
@@ -192,9 +205,38 @@ pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
         let job = &jobs[&fid];
 
         let mut candidates: Vec<Candidate> = Vec::new();
-        for url in &job.urls {
+        for (url, store_ids) in &job.urls {
             match fetch_candidates(state, &proxy, proxy_hosts.as_ref(), url).await {
-                Ok(mut c) => candidates.append(&mut c),
+                Ok((mut c, stock)) => {
+                    candidates.append(&mut c);
+                    // Record per-shop stock for EVERY store sharing this URL: a
+                    // signal upserts; a successful fetch with NO signal clears any
+                    // prior row (→ "unknown"). A *failed* fetch touches nothing —
+                    // the read-side 7-day window (domain::store) then ages such a
+                    // row back to "unknown" so a stale badge can't linger.
+                    let source = match url::Url::parse(url)
+                        .ok()
+                        .and_then(|u| u.host_str().map(norm_host))
+                    {
+                        Some(h) if h == ORZGK_HOST => "orzgk",
+                        _ => "proxy",
+                    };
+                    for store_id in store_ids {
+                        match stock {
+                            Some(s) => {
+                                if figure_stock::upsert(&state.pool, fid, *store_id, s, source)
+                                    .await
+                                    .is_ok()
+                                {
+                                    stock_updated += 1;
+                                }
+                            }
+                            None => {
+                                let _ = figure_stock::clear(&state.pool, fid, *store_id).await;
+                            }
+                        }
+                    }
+                }
                 Err(e) => {
                     tracing::debug!(figure_id = %fid, url = %url, error = ?e, "price-cron: fetch failed")
                 }
@@ -275,12 +317,14 @@ pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
         processed,
         updated,
         skipped_unconvertible,
+        stock_updated,
         "price-cron: provider prices refreshed"
     );
     Ok(serde_json::json!({
         "processed": processed,
         "updated": updated,
         "skipped_unconvertible": skipped_unconvertible,
+        "stock_updated": stock_updated,
     }))
 }
 
@@ -408,10 +452,10 @@ async fn fetch_candidates(
     proxy: &ProxyClient<'_>,
     proxy_hosts: Option<&HashSet<String>>,
     url: &str,
-) -> AppResult<Vec<Candidate>> {
+) -> AppResult<(Vec<Candidate>, Option<StockStatus>)> {
     let host = match url::Url::parse(url).ok().and_then(|u| u.host_str().map(norm_host)) {
         Some(h) => h,
-        None => return Ok(Vec::new()),
+        None => return Ok((Vec::new(), None)),
     };
 
     // orzgk → native parser (per-version × per-payment prices).
@@ -442,7 +486,8 @@ async fn fetch_candidates(
                 }
             }
         }
-        return Ok(out);
+        let stock = detail.stock_status.as_deref().and_then(StockStatus::from_woocommerce);
+        return Ok((out, stock));
     }
 
     // Everything else → the operator proxy, when configured + handling this host.
@@ -450,18 +495,21 @@ async fn fetch_candidates(
         let host_ok = proxy_hosts.is_none_or(|set| set.contains(&host));
         if host_ok {
             let product = proxy.product(url).await?;
+            let stock = product.status.as_deref().and_then(StockStatus::from_woocommerce);
+            let mut out = Vec::new();
             if let Some(price) = product.price {
-                return Ok(vec![Candidate {
+                out.push(Candidate {
                     amount: price.amount,
                     currency: price.currency,
                     version_label: None,
                     source: "proxy".to_string(),
                     url: url.to_string(),
-                }]);
+                });
             }
+            return Ok((out, stock));
         }
     }
-    Ok(Vec::new())
+    Ok((Vec::new(), None))
 }
 
 /// Apply the version-match / highest-price rule to a figure's candidates.

@@ -177,6 +177,7 @@ pub fn parse_detail_html(url: &str, html: &str) -> OrzgkDetail {
         versions,
         prices,
         currency,
+        stock_status: parse_stock(&doc),
         product_ip: ds("Product IP:"),
         product_role: ds("Product Role:"),
         product_material: ds("Product Material:"),
@@ -471,6 +472,77 @@ fn parse_variations(
     }
 
     (Vec::new(), prices, currency)
+}
+
+/// Best-effort aggregate stock signal for the product. Reads the WooCommerce
+/// `data-product_variations` JSON — each variation carries `is_in_stock` (bool)
+/// and `backorders_allowed` (bool): any variation in stock ⇒ `instock`; else any
+/// backorderable ⇒ `onbackorder`; else `outofstock`. For simple (non-variable)
+/// products, falls back to the rendered `.stock` element's class. Returns
+/// WooCommerce vocab, or `None` when the page surfaced no signal.
+fn parse_stock(doc: &Html) -> Option<String> {
+    // Variable products: aggregate across the variations JSON (same source as
+    // parse_variations — re-read here to keep stock parsing self-contained).
+    if let Some(raw) = doc
+        .select(&Selector::parse("[data-product_variations]").unwrap())
+        .next()
+        .and_then(|n| n.value().attr("data-product_variations"))
+    {
+        let mut had_variations = false;
+        for attempt in [raw.to_string(), html_entity_decode(raw)] {
+            let Ok(arr) = serde_json::from_str::<Vec<serde_json::Value>>(&attempt) else {
+                continue;
+            };
+            if arr.is_empty() {
+                continue;
+            }
+            had_variations = true;
+            let mut saw = false;
+            let mut any_in_stock = false;
+            let mut any_backorder = false;
+            for v in &arr {
+                if let Some(b) = v.get("is_in_stock").and_then(|x| x.as_bool()) {
+                    saw = true;
+                    any_in_stock |= b;
+                }
+                if v.get("backorders_allowed").and_then(|x| x.as_bool()).unwrap_or(false) {
+                    any_backorder = true;
+                }
+            }
+            if saw {
+                let s = if any_in_stock {
+                    "instock"
+                } else if any_backorder {
+                    "onbackorder"
+                } else {
+                    "outofstock"
+                };
+                return Some(s.to_string());
+            }
+        }
+        // A variable product whose variations carried no stock flag: don't fall
+        // back to the simple-product `.stock` DOM cue (it reflects only the
+        // default variation, not the aggregate) — report "unknown" instead.
+        if had_variations {
+            return None;
+        }
+    }
+
+    // Simple products: WooCommerce renders
+    // `<p class="stock in-stock|out-of-stock|available-on-backorder">`. Read the
+    // class as a best-effort cue (None when absent → "unknown").
+    let stock_sel = Selector::parse("p.stock, .product-page-price .stock").ok()?;
+    let el = doc.select(&stock_sel).next()?;
+    let class = el.value().attr("class").unwrap_or("").to_lowercase();
+    if class.contains("out-of-stock") {
+        Some("outofstock".to_string())
+    } else if class.contains("backorder") {
+        Some("onbackorder".to_string())
+    } else if class.contains("in-stock") {
+        Some("instock".to_string())
+    } else {
+        None
+    }
 }
 
 /// Turn a parsed `data-product_variations` array into our versions+prices

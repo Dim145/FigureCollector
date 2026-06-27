@@ -158,7 +158,8 @@ canonicalise the URL itself — accept both:
   "release_date": "2026-Q3",
   "is_nsfw": false,
   "primary_image_url": "https://cdn.mozfigure.com/i/abc-large.jpg",
-  "description": "Long product description, plain text."
+  "description": "Long product description, plain text.",
+  "status": "in_stock"
 }
 ```
 
@@ -183,6 +184,7 @@ SPA only fills the form for fields that are actually present.
 | `primary_image_url` | string\|null | Hero image. Stored as `official_image_url` on the figure. |
 | `description` | string\|null | Plain text, no HTML. |
 | `versions` | array | Optional. Purchasable versions (e.g. Regular / EX). Empty/omitted for single-version products. See below. |
+| `status` | string\|null | **Optional** per-product stock signal: `"in_stock"`, `"out_of_stock"`, or `"preorder"` (also accepts `"sold_out"` / `"onbackorder"`). The price cron records it per shop; the figure page then shows the buy button as "Voir" (rupture) / "Précommander", and the store page shows a stock badge. Omit when the shop doesn't expose stock — the UI treats it as "unknown" and keeps the normal "Acheter" button. |
 
 ### Versions
 

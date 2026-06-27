@@ -102,7 +102,7 @@ fn changed_from(job_name: &str, result: &serde_json::Value) -> Option<i64> {
         ]),
         JOB_SCAN_CLEANUP => sum(&["purged"]),
         JOB_MANGA_SYNC => sum(&["filled"]),
-        JOB_PRICE_CRON => sum(&["updated"]),
+        JOB_PRICE_CRON => sum(&["updated", "stock_updated"]),
         name if name.starts_with("reindex") => sum(&["indexed", "queued"]),
         _ => return None,
     };

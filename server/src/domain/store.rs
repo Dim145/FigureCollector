@@ -357,6 +357,10 @@ pub struct StoreCatalogFigure {
     /// Buy link (path + query) for this figure at THIS store, if known — lets
     /// the storefront catalogue show a per-figure "Acheter" shortcut.
     pub link: Option<String>,
+    /// Per-shop stock at THIS store for this figure, when known. `None` ⇒
+    /// unknown (the card shows no stock badge).
+    pub stock_status: Option<String>,
+    pub stock_checked_at: Option<DateTime<Utc>>,
 }
 
 pub async fn catalog(
@@ -374,6 +378,7 @@ pub async fn catalog(
             m.name AS manufacturer_name, m.slug AS manufacturer_slug,
             f.release_date, f.msrp_amount, f.msrp_currency, f.is_nsfw,
             fs.link,
+            fss.status AS stock_status, fss.checked_at AS stock_checked_at,
             (
                 SELECT fp.id FROM figure_photos fp
                 WHERE fp.figure_id = f.id
@@ -382,6 +387,8 @@ pub async fn catalog(
             ) AS primary_photo_id
          FROM figures f
          JOIN figure_stores fs ON fs.figure_id = f.id
+         LEFT JOIN figure_shop_stock fss ON fss.figure_id = f.id AND fss.store_id = $1
+                AND fss.checked_at > now() - interval '7 days'
          LEFT JOIN manufacturers m ON m.id = f.manufacturer_id
          WHERE fs.store_id = $1",
     );
@@ -414,6 +421,13 @@ pub struct LinkedStore {
     /// link). NULL when the pair is linked but no product URL is known.
     /// Full buy URL = origin(`url`) + `link`, reassembled on the SPA.
     pub link: Option<String>,
+    /// Per-shop stock at this store for this figure, when known
+    /// (`in_stock` | `out_of_stock` | `preorder`). `None` ⇒ unknown ⇒ the SPA
+    /// keeps the normal "Acheter" button and makes no stock claim.
+    pub stock_status: Option<String>,
+    /// When the price cron last checked this shop's stock — drives the
+    /// "vérifié il y a …" freshness line. `None` when stock is unknown.
+    pub stock_checked_at: Option<DateTime<Utc>>,
 }
 
 /// Stores currently linked to a given figure. Used by the public "Boutiques"
@@ -421,9 +435,13 @@ pub struct LinkedStore {
 /// the FigureForm admin section.
 pub async fn stores_for_figure(pool: &PgPool, figure_id: Uuid) -> AppResult<Vec<LinkedStore>> {
     Ok(sqlx::query_as::<_, LinkedStore>(
-        "SELECT s.id, s.name, s.slug, s.url, s.image_storage_key, fs.link \
+        "SELECT s.id, s.name, s.slug, s.url, s.image_storage_key, fs.link, \
+                fss.status AS stock_status, fss.checked_at AS stock_checked_at \
          FROM stores s \
          JOIN figure_stores fs ON fs.store_id = s.id \
+         LEFT JOIN figure_shop_stock fss \
+                ON fss.figure_id = fs.figure_id AND fss.store_id = s.id \
+               AND fss.checked_at > now() - interval '7 days' \
          WHERE fs.figure_id = $1 \
          ORDER BY lower(s.name) ASC",
     )
