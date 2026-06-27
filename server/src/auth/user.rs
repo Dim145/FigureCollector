@@ -183,6 +183,23 @@ pub async fn find_by_gift_token(pool: &PgPool, token: &str) -> AppResult<Option<
     Ok(row)
 }
 
+/// Resolve a vitrine (display-cabinet) share token to its owner. Used by the
+/// anonymous `/v/{token}` surface — the token is the only credential. The token
+/// lives on `collection_locations.share_token`, so we join through to the owning
+/// user; the cabinet itself is fetched separately by `domain::location`.
+pub async fn find_by_vitrine_token(pool: &PgPool, token: &str) -> AppResult<Option<User>> {
+    let sql = format!(
+        "SELECT {USER_COLUMNS} FROM users u \
+         JOIN collection_locations cl ON cl.user_id = u.id \
+         WHERE cl.share_token = $1"
+    );
+    let row = sqlx::query_as::<_, User>(&sql)
+        .bind(token)
+        .fetch_optional(pool)
+        .await?;
+    Ok(row)
+}
+
 /// Resolve a calendar feed token to its owner. Used by the anonymous
 /// `/calendar/{token}/preorders.ics` surface — the token is the only credential.
 pub async fn find_by_calendar_token(pool: &PgPool, token: &str) -> AppResult<Option<User>> {

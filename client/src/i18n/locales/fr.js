@@ -286,6 +286,31 @@ export default {
   "gift.nsfw_hide": "Masquer le contenu sensible",
   "gift.nsfw_hidden_note": "{n} pièce(s) sensible(s) masquée(s) — selon ton réglage NSFW",
 
+  // Partage public d'une vitrine (meuble) — `/v/<token>`
+  "vshare.eyebrow": "Meuble · lien public",
+  "vshare.share_cabinet": "Partager cette vitrine",
+  "vshare.body":
+    "Donne à qui tu veux un lien public, en lecture seule, vers « {name} » — il pourra voir les pièces, sans compte. Aucune modification, aucune réservation.",
+  "vshare.enable": "Créer le lien",
+  "vshare.link_label": "Lien public de la vitrine",
+  "vshare.readonly_note":
+    "Lecture seule : les visiteurs voient les pièces (photos, état). Le contenu sensible et la valeur suivent les réglages de ton profil public.",
+  "vshare.disable": "Arrêter le partage",
+  "vshare.disable_confirm": "Désactiver ce lien ?",
+  "vshare.public_kicker": "COLLECTION · 棚 · VITRINE",
+  "vshare.public_eyebrow": "Une vitrine partagée",
+  "vshare.public_body":
+    "{name} partage cette vitrine avec toi. Parcours les pièces ci-dessous.",
+  "vshare.owner_banner":
+    "C'est le lien de ta propre vitrine — en lecture seule, exactement comme le voient les visiteurs.",
+  "vshare.tagline_jp": "飾 り 棚",
+  "vshare.for_sale": "À vendre",
+  "vshare.for_trade": "À échanger",
+  "vshare.empty_eyebrow": "Vitrine vide",
+  "vshare.empty": "Cette vitrine ne contient aucune pièce pour l'instant.",
+  "vshare.notfound_eyebrow": "Lien introuvable",
+  "vshare.not_found": "Ce lien de vitrine est invalide ou n'est plus partagé.",
+
   // Détection de doublons à la création — Lot 2
   "figdup.title": "{n} figurines similaires déjà au catalogue",
   "figdup.badge_jan": "Même JAN",

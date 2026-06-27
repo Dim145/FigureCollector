@@ -275,6 +275,30 @@ export default {
   "gift.nsfw_hide": "Hide sensitive content",
   "gift.nsfw_hidden_note": "{n} sensitive piece(s) hidden — per your NSFW setting",
 
+  // Public vitrine (display cabinet) sharing — `/v/<token>`
+  "vshare.eyebrow": "Cabinet · public link",
+  "vshare.share_cabinet": "Share this cabinet",
+  "vshare.body":
+    "Give anyone a public, read-only link to “{name}” — they can browse the pieces, no account needed. No editing, no reservations.",
+  "vshare.enable": "Create link",
+  "vshare.link_label": "Public cabinet link",
+  "vshare.readonly_note":
+    "Read-only: visitors see the pieces (photos, condition). Sensitive content and value follow your public-profile settings.",
+  "vshare.disable": "Stop sharing",
+  "vshare.disable_confirm": "Disable this link?",
+  "vshare.public_kicker": "COLLECTION · 棚 · CABINET",
+  "vshare.public_eyebrow": "A shared cabinet",
+  "vshare.public_body":
+    "{name} is sharing this display cabinet with you. Browse the pieces below.",
+  "vshare.owner_banner": "This is your own cabinet link — read-only, exactly as visitors see it.",
+  "vshare.tagline_jp": "飾 り 棚",
+  "vshare.for_sale": "For sale",
+  "vshare.for_trade": "For trade",
+  "vshare.empty_eyebrow": "Empty cabinet",
+  "vshare.empty": "There are no pieces in this cabinet yet.",
+  "vshare.notfound_eyebrow": "Link not found",
+  "vshare.not_found": "This cabinet link is invalid or is no longer shared.",
+
   // Duplicate detection at creation — Lot 2
   "figdup.title": "{n} similar figures already in the catalogue",
   "figdup.badge_jan": "Same JAN",

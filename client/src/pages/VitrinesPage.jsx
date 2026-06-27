@@ -92,10 +92,12 @@ export default function VitrinesPage() {
     // merges with items located in "Chambre" instead of showing two cabinets.
     const displayByKey = new Map(); // lowerKey → display name
     const registeredIds = new Map(); // display name → location id
+    const shareByName = new Map(); // display name → share_token (or null)
     for (const r of registry) {
       const key = r.name.trim().toLowerCase();
       if (!displayByKey.has(key)) displayByKey.set(key, r.name.trim());
       registeredIds.set(displayByKey.get(key), r.id);
+      shareByName.set(displayByKey.get(key), r.share_token ?? null);
     }
     const byKey = new Map(); // lowerKey → items[]
     const loose = [];
@@ -135,7 +137,7 @@ export default function VitrinesPage() {
     }
     board[LOOSE] = sortIds(loose);
     order.push(LOOSE);
-    return { order, board, registeredIds };
+    return { order, board, registeredIds, shareByName };
   }, [owned.data, locations.data]);
 
   const [board, setBoard] = useState(canonical.board);
@@ -442,6 +444,8 @@ export default function VitrinesPage() {
                         ids={board[key] ?? []}
                         itemMap={itemMap}
                         registered={canonical.registeredIds.has(key)}
+                        cabinetDbId={canonical.registeredIds.get(key) ?? null}
+                        shareToken={canonical.shareByName.get(key) ?? null}
                         onDelete={
                           canonical.registeredIds.has(key)
                             ? () =>

@@ -17,6 +17,7 @@ const VitrinesPage = lazy(() => import("./pages/VitrinesPage.jsx"));
 const WishlistPage = lazy(() => import("./pages/WishlistPage.jsx"));
 const WishlistImportPage = lazy(() => import("./pages/WishlistImportPage.jsx"));
 const SharedWishlistPage = lazy(() => import("./pages/SharedWishlistPage.jsx"));
+const PublicCabinet = lazy(() => import("./pages/vitrines/PublicCabinet.jsx"));
 const AddFigurePage = lazy(() => import("./pages/AddFigurePage.jsx"));
 const FigureDetailPage = lazy(() => import("./pages/FigureDetailPage.jsx"));
 const PreordersPage = lazy(() => import("./pages/PreordersPage.jsx"));
@@ -106,6 +107,8 @@ export default function App() {
               <Route path="/register" element={<RegisterPage />} />
               {/* Anonymous gift list — must render without a session/redirect */}
               <Route path="/g/:token" element={<SharedWishlistPage />} />
+              {/* Anonymous public vitrine (display cabinet) — same, read-only */}
+              <Route path="/v/:token" element={<PublicCabinet />} />
 
               {/* ── 蒐 Collection ── */}
               <Route path="/collection" element={<CollectionPage />} />

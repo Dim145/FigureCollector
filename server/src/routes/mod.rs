@@ -89,6 +89,23 @@ pub fn build_router(state: AppState) -> Router {
         gift::router()
     };
 
+    // Public vitrine (display-cabinet) view (`/api/v/{token}`) is anonymous and
+    // abuse-prone (token probing), so it gets the same IP-keyed limiter as the
+    // gift routes, gated by the same RATE_LIMIT_ENABLED toggle.
+    let vitrine_routes = if state.config.auth.rate_limit_enabled {
+        let conf = Arc::new(
+            GovernorConfigBuilder::default()
+                .per_second(state.config.auth.auth_rate_limit_per_second)
+                .burst_size(10)
+                .key_extractor(SmartIpKeyExtractor)
+                .finish()
+                .expect("valid governor configuration"),
+        );
+        location::public_router().layer(GovernorLayer::new(conf))
+    } else {
+        location::public_router()
+    };
+
     // Public pre-order calendar feed (`/api/calendar/{token}/preorders.ics`) is
     // anonymous (token-only) and polled by calendar apps, so it gets the same
     // IP-keyed limiter as the gift routes.
@@ -180,6 +197,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(catalogue::router())
         .merge(owned::router())
         .merge(location::router())
+        .merge(vitrine_routes)
         .merge(manga::router())
         .merge(wishlist::router())
         .merge(gift_routes)

@@ -247,6 +247,31 @@ export function useDeleteLocation() {
   });
 }
 
+/** Enable/disable the public `/v/<token>` share for ONE cabinet. The token
+ *  rides on the cabinet row (in `useLocations`), so we just refresh that on
+ *  success. Mirrors the gift-list share, scoped per cabinet. */
+export function useCabinetShare() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, enabled }) =>
+      api.patch(`/me/vitrines/${id}/share`, { enabled }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["locations"] }),
+  });
+}
+
+/** A shared cabinet by token — the anonymous `/v/<token>` view. Like the gift
+ *  list it's anonymous-friendly (no session). `revealNsfw` only matters for
+ *  anonymous viewers (signed-in ones are gated by their own NSFW setting
+ *  server-side); it appends `?nsfw=1`. */
+export function usePublicCabinet(token, revealNsfw = false) {
+  return useQuery({
+    queryKey: ["vitrine", token, revealNsfw],
+    queryFn: () => api.get(`/v/${token}${revealNsfw ? "?nsfw=1" : ""}`),
+    enabled: !!token,
+    retry: false,
+  });
+}
+
 // ----- Free-form planner layout (Vitrines "atelier" view) -------------------
 
 /** The user's free-form planner layout — absolute placements of pieces on the

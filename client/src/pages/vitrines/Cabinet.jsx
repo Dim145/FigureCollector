@@ -1,8 +1,10 @@
-import { Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Share2, Trash2 } from "lucide-react";
 import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import Card from "../../components/Card.jsx";
 import Money from "../../components/Money.jsx";
+import VitrineSharePanel from "../../components/VitrineSharePanel.jsx";
 import { effectiveValue } from "../../lib/money.js";
 import { SortableTile } from "./VitrineTile.jsx";
 
@@ -84,6 +86,8 @@ export default function Cabinet({
   ids,
   itemMap,
   registered,
+  cabinetDbId = null,
+  shareToken = null,
   onDelete,
   nsfwBlur,
   matchedIds,
@@ -94,6 +98,10 @@ export default function Cabinet({
   const items = ids.map((i) => itemMap.get(i)).filter(Boolean);
   // 棚 (shelf) for a registered cabinet, 飾 (display) for a free-text one.
   const marker = loose ? "" : registered ? "棚" : "飾";
+  // Public-share panel toggle. Only registered cabinets (with a DB id) can be
+  // shared — a free-text location has no row to hang a token on.
+  const [shareOpen, setShareOpen] = useState(false);
+  const canShare = !loose && !!cabinetDbId;
 
   if (loose) {
     return (
@@ -181,6 +189,24 @@ export default function Cabinet({
         </div>
         <div className="flex items-start gap-2 shrink-0">
           <CabinetValue items={items} t={t} />
+          {canShare ? (
+            <button
+              type="button"
+              onClick={() => setShareOpen((v) => !v)}
+              aria-expanded={shareOpen}
+              aria-pressed={!!shareToken}
+              title={t("vshare.share_cabinet")}
+              className="tap-target w-11 h-11 -mt-1 grid place-items-center transition-colors"
+              style={{
+                color: shareToken
+                  ? "var(--color-neon-magenta)"
+                  : "var(--color-ivoire-soft)",
+              }}
+            >
+              <Share2 size={16} />
+              <span className="sr-only">{t("vshare.share_cabinet")}</span>
+            </button>
+          ) : null}
           {onDelete ? (
             <button
               type="button"
@@ -194,6 +220,17 @@ export default function Cabinet({
           ) : null}
         </div>
       </header>
+
+      {canShare && shareOpen ? (
+        <div className="relative z-[2] px-4 pb-1">
+          <VitrineSharePanel
+            cabinetId={cabinetDbId}
+            name={name}
+            shareToken={shareToken}
+            onClose={() => setShareOpen(false)}
+          />
+        </div>
+      ) : null}
       {/* Front shelf edge — a gold hairline under the plaque. */}
       <div aria-hidden className="relative z-[2] gold-rule mx-4" />
 
