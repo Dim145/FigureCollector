@@ -133,9 +133,13 @@ function GridItem({
       as="li"
       delay={Math.min(index, 7) * 0.05}
       y={24}
-      // Skip layout/paint for off-screen cards in long collections; the size
-      // hint keeps the scrollbar honest before a card is first rendered.
-      style={{ contentVisibility: "auto", containIntrinsicSize: "auto 360px" }}
+      // NOTE: no `content-visibility: auto` here. It implies `contain: paint`,
+      // which clips descendants to the box — and the card's hover state lifts
+      // (translateY(-5px)) and casts an outer glow that then got clipped at the
+      // top edge (the border visibly vanished on hover). The catalogue grid has
+      // no containment and doesn't suffer this. If off-screen render perf ever
+      // matters for huge collections, use windowing (react-virtual), not paint
+      // containment, so each card can still overflow with its hover chrome.
     >
       {selectMode ? (
         <button
