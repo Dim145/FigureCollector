@@ -27,6 +27,7 @@ export default function DataTable({
   empty,
   stickyHeader = true,
   className = "",
+  tableClassName = "",
 }) {
   const selected = new Set(selectedIds);
   const allSelected = rows.length > 0 && rows.every((r, i) => selected.has(getRowId(r, i)));
@@ -52,7 +53,7 @@ export default function DataTable({
 
   return (
     <div className={`w-full overflow-x-auto ${className}`}>
-      <table className="w-full border-collapse text-sm">
+      <table className={`w-full border-collapse text-sm ${tableClassName}`}>
         <thead
           className={stickyHeader ? "sticky top-0 z-[1]" : ""}
           style={{ background: "var(--surface)" }}

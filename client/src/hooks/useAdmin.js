@@ -55,13 +55,14 @@ export function useReindexVisualSearch() {
 
 /** GET /admin/visual-search/queue — embed-queue progress for the Tasks view
  *  (per-state counts, index size, last activity, worker presence). Polled live,
- *  matching the scan/job feeds. */
-export function useAdminVisualSearchQueue() {
+ *  matching the scan/job feeds. Pass `{ poll: false }` to freeze the interval
+ *  (the Tasks console's auto-refresh toggle). */
+export function useAdminVisualSearchQueue({ poll = true } = {}) {
   return useQuery({
     queryKey: ["admin", "visual-search", "queue"],
     queryFn: () => api.get("/admin/visual-search/queue"),
     staleTime: 3_000,
-    refetchInterval: 6_000,
+    refetchInterval: poll ? 6_000 : false,
   });
 }
 
@@ -347,12 +348,12 @@ export function useDeleteWorker() {
 
 /** Live task list. Admins don't receive the per-user scan WebSocket events, so
  *  we poll on a short interval to track 'processing' progress + state changes. */
-export function useAdminScans() {
+export function useAdminScans({ poll = true } = {}) {
   return useQuery({
     queryKey: ["admin", "scans"],
     queryFn: () => api.get("/admin/scans"),
     staleTime: 3_000,
-    refetchInterval: 6_000,
+    refetchInterval: poll ? 6_000 : false,
   });
 }
 
@@ -382,23 +383,95 @@ export function useDeleteScan() {
 
 /** Server background-job runs (the in-process crons: release, cleanup, manga
  *  sync, price refresh) — merged into the Tasks page next to the worker scan
- *  queue. Same polling cadence as the scans so both halves stay in step. */
-export function useAdminJobs() {
+ *  queue. Same polling cadence as the scans so both halves stay in step.
+ *
+ *  The endpoint now returns a paged envelope `{ items, total }` (was a bare
+ *  array) and accepts server-side facets as query params; we still apply the
+ *  fine-grained filtering client-side, so we only forward the coarse,
+ *  cheap-to-honour params (`hide_noop`, `limit`) and read back `.items`.
+ *  `filters`: { hide_noop?, limit?, job_name?, state?, triggered_by?, offset?,
+ *  poll? } — `poll: false` freezes the live interval. */
+export function useAdminJobs(filters = {}) {
+  const poll = filters.poll !== false;
+  const qs = new URLSearchParams();
+  if (filters.job_name) qs.set("job_name", filters.job_name);
+  if (filters.state) qs.set("state", filters.state);
+  if (filters.triggered_by) qs.set("triggered_by", filters.triggered_by);
+  if (filters.hide_noop) qs.set("hide_noop", "true");
+  if (filters.limit != null) qs.set("limit", String(filters.limit));
+  if (filters.offset != null) qs.set("offset", String(filters.offset));
+  const s = qs.toString();
   return useQuery({
-    queryKey: ["admin", "jobs"],
-    queryFn: () => api.get("/admin/jobs"),
+    // Key on the URL-affecting params only (not `poll`, which just gates the
+    // interval) so flipping auto-refresh doesn't churn the cache.
+    queryKey: ["admin", "jobs", s],
+    // Tolerate the old bare-array shape too, so a stale server doesn't blank
+    // the page: prefer `.items`, fall back to the response itself if it's an
+    // array.
+    queryFn: async () => {
+      const res = await api.get(`/admin/jobs${s ? `?${s}` : ""}`);
+      const items = Array.isArray(res) ? res : (res?.items ?? []);
+      const total = Array.isArray(res) ? res.length : (res?.total ?? items.length);
+      return { items, total };
+    },
     staleTime: 3_000,
-    refetchInterval: 6_000,
+    refetchInterval: poll ? 6_000 : false,
   });
 }
 
-/** Relaunch a failed server-job run — books a fresh `manual` run of the same
- *  job; the failed row stays in the history. */
+/** Document-OCR queue rows (the invoice/justificatif OCR worker). Polled on the
+ *  same cadence as the scan queue so the Tasks console keeps both in step.
+ *  Returns a bare array; optional figure/owner labels are tolerated when
+ *  absent. */
+export function useAdminOcrJobs({ poll = true } = {}) {
+  return useQuery({
+    queryKey: ["admin", "ocr-jobs"],
+    queryFn: () => api.get("/admin/ocr-jobs"),
+    staleTime: 3_000,
+    refetchInterval: poll ? 6_000 : false,
+  });
+}
+
+/** Live service-health snapshot — one row per long-running server service
+ *  (crons, reindex driver, DB listeners, pollers, WS fan-out). Drives the
+ *  "Santé des services" strip. Polled ~10 s; heartbeats move slower than the
+ *  scan queue so we don't need the 6 s cadence. */
+export function useAdminServices({ poll = true } = {}) {
+  return useQuery({
+    queryKey: ["admin", "services"],
+    queryFn: () => api.get("/admin/services"),
+    staleTime: 5_000,
+    refetchInterval: poll ? 10_000 : false,
+  });
+}
+
+/** Relaunch a server-job run — books a fresh `manual` run of the same job; the
+ *  original row stays in the history. The endpoint now relaunches a run in ANY
+ *  terminal state (ready or failed), not just failures. */
 export function useRetryJob() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id) => api.post(`/admin/jobs/${id}/retry`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "jobs"] }),
+  });
+}
+
+/** DELETE a server-job run row (drops it from the history / aborts an in-flight
+ *  run). Mirrors useDeleteScan; busts the jobs list. */
+export function useDeleteJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => api.delete(`/admin/jobs/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "jobs"] }),
+  });
+}
+
+/** DELETE a document-OCR queue row (cancel/remove it). Busts the ocr list. */
+export function useDeleteOcrJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id) => api.delete(`/admin/ocr-jobs/${id}`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin", "ocr-jobs"] }),
   });
 }
 

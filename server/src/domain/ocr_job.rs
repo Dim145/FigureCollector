@@ -6,7 +6,9 @@
 //! `owned_item_documents.parsed_metadata`.
 
 use crate::error::AppResult;
-use sqlx::PgPool;
+use chrono::{DateTime, Utc};
+use serde::Serialize;
+use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
 /// Queue an OCR job for a document — a no-op when one is already
@@ -67,4 +69,71 @@ pub async fn result_text_for_job(pool: &PgPool, job_id: Uuid) -> AppResult<Optio
             .fetch_optional(pool)
             .await?;
     Ok(row.and_then(|r| r.0))
+}
+
+// =============================================================================
+// Admin queue view — the OCR job queue surfaced to admins on the Tasks page,
+// the same way `scan::admin_list` exposes the gsplat scan queue. Read-only:
+// the GPU worker owns the rows (claim / process / write-back).
+// =============================================================================
+
+/// One row of the admin "Tasks" OCR view: a `document_ocr_jobs` row enriched
+/// with the figurine it belongs to, its owner, and the worker that claimed it
+/// (same join shape as [`crate::domain::scan::AdminScan`]).
+#[derive(Debug, Clone, Serialize, FromRow)]
+pub struct AdminOcrJob {
+    pub id: Uuid,
+    pub document_id: Uuid,
+    pub owned_item_id: Uuid,
+    pub user_id: Uuid,
+    pub mime: String,
+    pub state: String,
+    pub error_message: Option<String>,
+    pub attempts: i32,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub claimed_at: Option<DateTime<Utc>>,
+    pub finished_at: Option<DateTime<Utc>>,
+    pub figure_id: Uuid,
+    pub figure_name: String,
+    pub figure_slug: String,
+    pub owner_username: String,
+    pub worker_id: Option<Uuid>,
+    /// display_name when set, else hostname; `None` if no worker has claimed it.
+    pub worker_name: Option<String>,
+}
+
+/// All OCR jobs, most-recent activity first, capped.
+pub async fn admin_list(pool: &PgPool, limit: i64) -> AppResult<Vec<AdminOcrJob>> {
+    let limit = limit.clamp(1, 500);
+    Ok(sqlx::query_as::<_, AdminOcrJob>(
+        "SELECT j.id, j.document_id, j.owned_item_id, j.user_id, j.mime, j.state,
+                j.error_message, j.attempts, j.created_at, j.updated_at,
+                j.claimed_at, j.finished_at,
+                f.id AS figure_id, f.name AS figure_name, f.slug AS figure_slug,
+                u.username AS owner_username,
+                j.worker_id,
+                COALESCE(w.display_name, w.hostname) AS worker_name
+         FROM document_ocr_jobs j
+         JOIN owned_items o ON o.id = j.owned_item_id
+         JOIN figures f      ON f.id = o.figure_id
+         JOIN users u        ON u.id = o.user_id
+         LEFT JOIN workers w ON w.id = j.worker_id
+         ORDER BY j.updated_at DESC
+         LIMIT $1",
+    )
+    .bind(limit)
+    .fetch_all(pool)
+    .await?)
+}
+
+/// Delete one OCR job row outright (any state). Cancelling a still-claimed job
+/// = deleting its row; if the GPU worker writes back later it just UPDATEs 0
+/// rows, harmlessly. Returns the number of rows removed (0 if already gone).
+pub async fn delete(pool: &PgPool, id: Uuid) -> AppResult<u64> {
+    let res = sqlx::query("DELETE FROM document_ocr_jobs WHERE id = $1")
+        .bind(id)
+        .execute(pool)
+        .await?;
+    Ok(res.rows_affected())
 }

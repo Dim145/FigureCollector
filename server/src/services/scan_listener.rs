@@ -6,17 +6,21 @@
 //! background task `LISTEN`s and republishes each change as a `ScanUpdated`
 //! event to the scan's owning user, so the SPA refreshes live.
 
+use crate::domain::service_health;
 use crate::events::Event;
 use crate::state::AppState;
 use sqlx::postgres::PgListener;
 use std::time::Duration;
 use uuid::Uuid;
 
+const SERVICE: &str = "scan_listener";
+
 pub fn spawn(state: AppState) {
     tokio::spawn(async move {
         loop {
             if let Err(e) = run(&state).await {
                 tracing::warn!(error = ?e, "scan_listener stopped; reconnecting in 5s");
+                let _ = service_health::record_error(&state.pool, SERVICE, &e.to_string()).await;
                 tokio::time::sleep(Duration::from_secs(5)).await;
             }
         }
@@ -27,8 +31,10 @@ async fn run(state: &AppState) -> anyhow::Result<()> {
     let mut listener = PgListener::connect_with(&state.pool).await?;
     listener.listen("scan_changed").await?;
     tracing::info!("scan_listener: listening on scan_changed");
+    let _ = service_health::beat(&state.pool, SERVICE, "listener", "ok", None).await;
     loop {
         let notif = listener.recv().await?;
+        let _ = service_health::beat(&state.pool, SERVICE, "listener", "ok", None).await;
         let payload: serde_json::Value =
             serde_json::from_str(notif.payload()).unwrap_or(serde_json::Value::Null);
         let parse = |k: &str| {

@@ -14,7 +14,7 @@ use serde::Serialize;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::domain::settings;
+use crate::domain::{service_health, settings};
 use crate::error::{AppError, AppResult};
 
 /// Model + version. The client (transformers.js), the worker, and the server
@@ -683,9 +683,37 @@ pub async fn reconcile_reindex_jobs(pool: &PgPool) -> AppResult<()> {
     .fetch_all(pool)
     .await?;
     if runs.is_empty() {
+        // Liveness beat even when idle (no queues fetched — keep the tick cheap).
+        let _ = service_health::beat(
+            pool,
+            "reindex_reconciler",
+            "poller",
+            "ok",
+            Some(serde_json::json!({ "active_jobs": 0 })),
+        )
+        .await;
         return Ok(());
     }
     let queues = all_index_queues(pool).await?;
+    // Heartbeat with the live per-index queue depths (already fetched above).
+    let counts: serde_json::Value = queues
+        .iter()
+        .map(|q| {
+            (
+                q.index.to_string(),
+                serde_json::json!({ "pending": q.pending, "processing": q.processing }),
+            )
+        })
+        .collect::<serde_json::Map<_, _>>()
+        .into();
+    let _ = service_health::beat(
+        pool,
+        "reindex_reconciler",
+        "poller",
+        "ok",
+        Some(serde_json::json!({ "active_jobs": runs.len(), "queues": counts })),
+    )
+    .await;
     let find = |idx: &str| queues.iter().find(|q| q.index == idx);
     for (id, name) in runs {
         let kinds: &[&str] = match name.as_str() {
@@ -701,11 +729,12 @@ pub async fn reconcile_reindex_jobs(pool: &PgPool) -> AppResult<()> {
             continue; // stats momentarily unavailable — try again next tick
         }
         if stats.iter().all(|s| s.pending + s.processing == 0) {
+            let indexed = stats.iter().map(|s| s.indexed).sum::<i64>();
             let result = serde_json::json!({
-                "indexed": stats.iter().map(|s| s.indexed).sum::<i64>(),
+                "indexed": indexed,
                 "failed": stats.iter().map(|s| s.failed).sum::<i64>(),
             });
-            crate::domain::server_job::finish_ok(pool, id, &result).await?;
+            crate::domain::server_job::finish_ok(pool, id, &result, Some(indexed)).await?;
         }
     }
     Ok(())

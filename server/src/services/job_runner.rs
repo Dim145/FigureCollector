@@ -6,7 +6,7 @@
 //! next to the worker scan queue. The admin "relaunch" route goes through
 //! [`spawn_manual`], which records the same way with `triggered_by = manual`.
 
-use crate::domain::server_job;
+use crate::domain::{server_job, service_health};
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use uuid::Uuid;
@@ -42,7 +42,7 @@ async fn execute(state: &AppState, job_name: &str) -> AppResult<serde_json::Valu
 /// loops must survive any tick. A tick is skipped (and logged) when the same
 /// job is already in flight.
 pub async fn run_recorded(state: &AppState, job_name: &str, triggered_by: &str) {
-    let run_id = match server_job::start(&state.pool, job_name, triggered_by).await {
+    let run_id = match server_job::start(&state.pool, job_name, triggered_by, None).await {
         Ok(Some(id)) => id,
         Ok(None) => {
             tracing::info!(job = job_name, "job already running — tick skipped");
@@ -58,11 +58,17 @@ pub async fn run_recorded(state: &AppState, job_name: &str, triggered_by: &str) 
 
 /// Start a manual run (admin relaunch): book the row, execute in the
 /// background, return the new run id immediately. `None` = already running.
-pub async fn spawn_manual(state: &AppState, job_name: &str) -> AppResult<Option<Uuid>> {
+/// `actor` is the admin who triggered it, recorded on the run.
+pub async fn spawn_manual(
+    state: &AppState,
+    job_name: &str,
+    actor: Option<Uuid>,
+) -> AppResult<Option<Uuid>> {
     if !is_known(job_name) {
         return Err(AppError::BadRequest("unknown job"));
     }
-    let Some(run_id) = server_job::start(&state.pool, job_name, TRIGGER_MANUAL).await? else {
+    let Some(run_id) = server_job::start(&state.pool, job_name, TRIGGER_MANUAL, actor).await?
+    else {
         return Ok(None);
     };
     let st = state.clone();
@@ -73,19 +79,53 @@ pub async fn spawn_manual(state: &AppState, job_name: &str) -> AppResult<Option<
     Ok(Some(run_id))
 }
 
+/// The generic "items changed" count for a finished run, used to flag no-op
+/// runs (`changed == 0`) so the admin console can hide them. Prefers an explicit
+/// `changed` key in the result JSON (the convention for newer jobs, incl. the
+/// instrumented plumbing); otherwise sums the known work-counters of each
+/// built-in job. `None` for an unknown job (such runs are never treated no-op).
+fn changed_from(job_name: &str, result: &serde_json::Value) -> Option<i64> {
+    if let Some(c) = result.get("changed").and_then(|v| v.as_i64()) {
+        return Some(c);
+    }
+    let sum = |keys: &[&str]| -> i64 {
+        keys.iter()
+            .filter_map(|k| result.get(*k).and_then(|v| v.as_i64()))
+            .sum()
+    };
+    let n = match job_name {
+        JOB_RELEASE_CRON => sum(&[
+            "release_today",
+            "release_j7",
+            "delivery_today",
+            "delivery_overdue",
+        ]),
+        JOB_SCAN_CLEANUP => sum(&["purged"]),
+        JOB_MANGA_SYNC => sum(&["filled"]),
+        JOB_PRICE_CRON => sum(&["updated"]),
+        name if name.starts_with("reindex") => sum(&["indexed", "queued"]),
+        _ => return None,
+    };
+    Some(n)
+}
+
 async fn execute_and_finish(state: &AppState, run_id: Uuid, job_name: &str) {
     match execute(state, job_name).await {
         Ok(result) => {
             tracing::info!(job = job_name, run = %run_id, %result, "job succeeded");
-            if let Err(e) = server_job::finish_ok(&state.pool, run_id, &result).await {
+            let changed = changed_from(job_name, &result);
+            if let Err(e) = server_job::finish_ok(&state.pool, run_id, &result, changed).await {
                 tracing::warn!(job = job_name, error = ?e, "could not record job result");
             }
+            let _ = service_health::beat(&state.pool, job_name, "cron", "ok", Some(result)).await;
         }
         Err(e) => {
             tracing::warn!(job = job_name, run = %run_id, error = ?e, "job failed");
-            if let Err(e2) = server_job::finish_failed(&state.pool, run_id, &e.to_string()).await {
+            let msg = e.to_string();
+            if let Err(e2) = server_job::finish_failed(&state.pool, run_id, &msg).await {
                 tracing::warn!(job = job_name, error = ?e2, "could not record job failure");
             }
+            let _ = service_health::record_error(&state.pool, job_name, &msg).await;
         }
     }
 }

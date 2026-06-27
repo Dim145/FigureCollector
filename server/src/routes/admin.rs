@@ -8,8 +8,10 @@ use crate::domain::figure;
 use crate::domain::figure_type::{self, FigureTypePatch, NewFigureType};
 use crate::domain::manga_servers::{self, MangaServer, MangaServerAdmin};
 use crate::domain::notification;
+use crate::domain::ocr_job::{self, AdminOcrJob};
 use crate::domain::scan::{self, AdminScan};
 use crate::domain::server_job;
+use crate::domain::service_health::{self, ServiceHealth};
 use crate::domain::settings;
 use crate::domain::store::{self, NewStore, StorePatch, StoreUsage};
 use crate::domain::visual_search;
@@ -850,6 +852,48 @@ async fn list_scans_admin(
     Ok(Json(scan::admin_list(&state.pool, 200).await?))
 }
 
+// ---------- /admin/ocr-jobs — invoice-OCR task queue ------------------------
+//
+// The `document_ocr_jobs` table is a Postgres queue drained by the GPU worker
+// (RapidOCR). Read-only mirror of the scan queue above so the Tasks console can
+// show OCR jobs next to gsplat scans.
+
+async fn list_ocr_jobs_admin(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<Vec<AdminOcrJob>>> {
+    auth::require_admin(&session, &state.pool).await?;
+    Ok(Json(ocr_job::admin_list(&state.pool, 200).await?))
+}
+
+/// Delete an OCR job row (any state). The GPU worker owns the row's lifecycle,
+/// but an admin may drop a wedged/stale job; a later worker write-back just
+/// UPDATEs 0 rows. 204 even if the id was already gone.
+async fn delete_ocr_job_admin(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+) -> AppResult<StatusCode> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    ocr_job::delete(&state.pool, id).await?;
+    tracing::info!(ocr_job = %id, by_admin = %actor.id, "admin deleted OCR job");
+    Ok(StatusCode::NO_CONTENT)
+}
+
+// ---------- /admin/services — background-service liveness --------------------
+//
+// Every long-lived service (crons, listeners, pollers, fan-out) beats into
+// `service_heartbeats`; this surfaces the current liveness so the Tasks console
+// can show services that have no per-run history.
+
+async fn list_services_admin(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<Vec<ServiceHealth>>> {
+    auth::require_admin(&session, &state.pool).await?;
+    Ok(Json(service_health::list(&state.pool).await?))
+}
+
 async fn retry_scan(
     State(state): State<AppState>,
     session: Session,
@@ -893,14 +937,17 @@ async fn delete_scan_admin(
 async fn list_jobs_admin(
     State(state): State<AppState>,
     session: Session,
-) -> AppResult<Json<Vec<server_job::ServerJobRun>>> {
+    Query(filter): Query<server_job::JobFilter>,
+) -> AppResult<Json<server_job::JobRunsPage>> {
     auth::require_admin(&session, &state.pool).await?;
-    Ok(Json(server_job::list(&state.pool, 200).await?))
+    Ok(Json(server_job::list_filtered(&state.pool, &filter).await?))
 }
 
-/// Relaunch a failed run's job: books a fresh `manual` run and executes it in
-/// the background. The failed row stays in the history (a run is an execution
-/// record, not a unit of work to mutate).
+/// Relaunch a run's job: books a fresh `manual` run (attributed to the admin)
+/// and executes it in the background. Any non-running run can be relaunched —
+/// `ready` or `failed` — since a run is an execution record, not a unit of work
+/// to mutate (the relaunched row stays in the history). `spawn_manual` still
+/// 409s if that job is currently `processing`, so we never double-run it.
 async fn retry_job(
     State(state): State<AppState>,
     session: Session,
@@ -910,10 +957,8 @@ async fn retry_job(
     let run = server_job::get(&state.pool, id)
         .await?
         .ok_or(AppError::NotFound)?;
-    if run.state != "failed" {
-        return Err(AppError::BadRequest("only failed runs can be relaunched"));
-    }
-    let Some(new_id) = crate::services::job_runner::spawn_manual(&state, &run.job_name).await?
+    let Some(new_id) =
+        crate::services::job_runner::spawn_manual(&state, &run.job_name, Some(actor.id)).await?
     else {
         return Err(AppError::Conflict("job already running"));
     };
@@ -922,6 +967,20 @@ async fn retry_job(
         .await?
         .ok_or(AppError::NotFound)?;
     Ok(Json(new_run))
+}
+
+/// Delete a server-job run row (any state). Cancelling a still-`processing`
+/// run = deleting its row; the in-process/worker task that finishes later just
+/// UPDATEs 0 rows, harmlessly. 204 even if the id was already gone.
+async fn delete_job_admin(
+    State(state): State<AppState>,
+    session: Session,
+    Path(id): Path<Uuid>,
+) -> AppResult<StatusCode> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    server_job::delete(&state.pool, id).await?;
+    tracing::info!(run = %id, by_admin = %actor.id, "admin deleted server job run");
+    Ok(StatusCode::NO_CONTENT)
 }
 
 // ---------- /admin/settings --------------------------------------------------
@@ -1024,8 +1083,19 @@ struct ReindexQuery {
 /// queue drains), then run the wipe/enqueue. A wipe/enqueue error marks the job
 /// failed. `start()` returns None when one is already in flight (single-flight) —
 /// we still (re)enqueue, riding the existing job's history row.
-async fn run_reindex(state: &AppState, kind: &str, force: bool) -> AppResult<serde_json::Value> {
-    let run = server_job::start(&state.pool, visual_search::reindex_job_name(kind), "manual").await?;
+async fn run_reindex(
+    state: &AppState,
+    kind: &str,
+    force: bool,
+    actor: Uuid,
+) -> AppResult<serde_json::Value> {
+    let run = server_job::start(
+        &state.pool,
+        visual_search::reindex_job_name(kind),
+        "manual",
+        Some(actor),
+    )
+    .await?;
     match visual_search::reindex(&state.pool, kind, force).await {
         Ok(queued) => Ok(json!({ "queued": queued })),
         Err(e) => {
@@ -1043,7 +1113,7 @@ async fn reindex_visual_search(
     Query(q): Query<ReindexQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
     let actor = auth::require_admin(&session, &state.pool).await?;
-    let out = run_reindex(&state, "image", q.force).await?;
+    let out = run_reindex(&state, "image", q.force, actor.id).await?;
     tracing::info!(by_admin = %actor.id, force = q.force, "admin queued visual-search reindex");
     Ok(Json(out))
 }
@@ -1055,7 +1125,7 @@ async fn reindex_text_search(
     Query(q): Query<ReindexQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
     let actor = auth::require_admin(&session, &state.pool).await?;
-    let out = run_reindex(&state, "text", q.force).await?;
+    let out = run_reindex(&state, "text", q.force, actor.id).await?;
     tracing::info!(by_admin = %actor.id, force = q.force, "admin queued text-search reindex");
     Ok(Json(out))
 }
@@ -1066,7 +1136,7 @@ async fn reindex_clip_search(
     Query(q): Query<ReindexQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
     let actor = auth::require_admin(&session, &state.pool).await?;
-    let out = run_reindex(&state, "look", q.force).await?;
+    let out = run_reindex(&state, "look", q.force, actor.id).await?;
     tracing::info!(by_admin = %actor.id, force = q.force, "admin queued clip-search reindex");
     Ok(Json(out))
 }
@@ -1077,7 +1147,7 @@ async fn reindex_tags(
     Query(q): Query<ReindexQuery>,
 ) -> AppResult<Json<serde_json::Value>> {
     let actor = auth::require_admin(&session, &state.pool).await?;
-    let out = run_reindex(&state, "tags", q.force).await?;
+    let out = run_reindex(&state, "tags", q.force, actor.id).await?;
     tracing::info!(by_admin = %actor.id, force = q.force, "admin queued appearance-tags reindex");
     Ok(Json(out))
 }
@@ -1089,7 +1159,13 @@ async fn reindex_all(
     session: Session,
 ) -> AppResult<Json<serde_json::Value>> {
     let actor = auth::require_admin(&session, &state.pool).await?;
-    let run = server_job::start(&state.pool, visual_search::JOB_REINDEX_ALL, "manual").await?;
+    let run = server_job::start(
+        &state.pool,
+        visual_search::JOB_REINDEX_ALL,
+        "manual",
+        Some(actor.id),
+    )
+    .await?;
     match visual_search::reindex_all(&state.pool).await {
         Ok(queued) => {
             tracing::info!(by_admin = %actor.id, queued, "admin force-reindexed ALL indexes from scratch");
@@ -1285,8 +1361,17 @@ pub fn router() -> Router<AppState> {
         .route("/admin/scans/{id}", axum::routing::delete(delete_scan_admin))
         .route("/admin/scans/{id}/retry", post(retry_scan))
         .route("/admin/scans/{id}/fail", post(fail_scan))
+        // ─── ocr-jobs — invoice-OCR task queue (list + delete) ──────────────
+        .route("/admin/ocr-jobs", get(list_ocr_jobs_admin))
+        .route(
+            "/admin/ocr-jobs/{id}",
+            axum::routing::delete(delete_ocr_job_admin),
+        )
+        // ─── services — background-service liveness register ────────────────
+        .route("/admin/services", get(list_services_admin))
         .route("/admin/jobs", get(list_jobs_admin))
         .route("/admin/jobs/{id}/retry", post(retry_job))
+        .route("/admin/jobs/{id}", axum::routing::delete(delete_job_admin))
 }
 
 /// Photo upload routes for catalog entities. Split out so `routes::mod` can

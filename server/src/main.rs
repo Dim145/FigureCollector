@@ -111,6 +111,7 @@ async fn main() -> anyhow::Result<()> {
     // GC stale event channels every 5 min.
     {
         let bus = events.clone();
+        let gc_pool = pool.clone();
         tokio::spawn(async move {
             let mut tick = tokio::time::interval(Duration::from_secs(300));
             tick.tick().await;
@@ -120,6 +121,14 @@ async fn main() -> anyhow::Result<()> {
                 if dropped > 0 {
                     tracing::debug!(dropped, "event bus GC");
                 }
+                let _ = domain::service_health::beat(
+                    &gc_pool,
+                    "events_gc",
+                    "poller",
+                    "ok",
+                    Some(serde_json::json!({ "collected": dropped })),
+                )
+                .await;
             }
         });
     }

@@ -8,7 +8,7 @@
 //! `parsed_metadata`, then publishes a `DocumentParsed` event so the SPA
 //! refetches and shows the review panel.
 
-use crate::domain::{ocr_job, owned_document};
+use crate::domain::{ocr_job, owned_document, service_health};
 use crate::events::Event;
 use crate::services::invoice;
 use crate::state::AppState;
@@ -16,11 +16,14 @@ use sqlx::postgres::PgListener;
 use std::time::Duration;
 use uuid::Uuid;
 
+const SERVICE: &str = "ocr_listener";
+
 pub fn spawn(state: AppState) {
     tokio::spawn(async move {
         loop {
             if let Err(e) = run(&state).await {
                 tracing::warn!(error = ?e, "ocr_listener stopped; reconnecting in 5s");
+                let _ = service_health::record_error(&state.pool, SERVICE, &e.to_string()).await;
                 tokio::time::sleep(Duration::from_secs(5)).await;
             }
         }
@@ -31,8 +34,10 @@ async fn run(state: &AppState) -> anyhow::Result<()> {
     let mut listener = PgListener::connect_with(&state.pool).await?;
     listener.listen("ocr_changed").await?;
     tracing::info!("ocr_listener: listening on ocr_changed");
+    let _ = service_health::beat(&state.pool, SERVICE, "listener", "ok", None).await;
     loop {
         let notif = listener.recv().await?;
+        let _ = service_health::beat(&state.pool, SERVICE, "listener", "ok", None).await;
         let payload: serde_json::Value =
             serde_json::from_str(notif.payload()).unwrap_or(serde_json::Value::Null);
         let uuid_field = |k: &str| {
@@ -76,7 +81,9 @@ async fn run(state: &AppState) -> anyhow::Result<()> {
                     }
                 }
                 Ok(None) => tracing::warn!(%job_id, "ocr_listener: ready job has no result_text"),
-                Err(e) => tracing::warn!(error = ?e, %job_id, "ocr_listener: result_text fetch failed"),
+                Err(e) => {
+                    tracing::warn!(error = ?e, %job_id, "ocr_listener: result_text fetch failed")
+                }
             }
         }
 
@@ -89,9 +96,13 @@ async fn run(state: &AppState) -> anyhow::Result<()> {
                 .ok()
                 .flatten();
         if let Some((user_id,)) = owner {
-            state
-                .events
-                .publish(user_id, Event::DocumentParsed { owned_id, document_id });
+            state.events.publish(
+                user_id,
+                Event::DocumentParsed {
+                    owned_id,
+                    document_id,
+                },
+            );
         }
     }
 }

@@ -120,18 +120,21 @@ pub async fn admin_mark_failed(pool: &PgPool, id: Uuid) -> AppResult<()> {
     Ok(())
 }
 
-/// Delete a TERMINAL task; returns `(storage_prefix, result_key)` so the caller
-/// can purge the Garage blobs. Refuses non-terminal tasks.
+/// Delete a task row outright; returns `(storage_prefix, result_key)` so the
+/// caller can purge the Garage blobs. Allowed in ANY state — the admin console
+/// uses this both to remove a terminal run and to "cancel" a running one:
+/// dropping the row is enough; if the worker later writes to the (now absent)
+/// row it simply updates 0 rows (harmless).
 pub async fn admin_delete(pool: &PgPool, id: Uuid) -> AppResult<(String, Option<String>)> {
     sqlx::query_as::<_, (String, Option<String>)>(
         "DELETE FROM scans
-          WHERE id=$1 AND kind='gsplat' AND state IN ('ready','failed')
+          WHERE id=$1 AND kind='gsplat'
         RETURNING storage_prefix, result_key",
     )
     .bind(id)
     .fetch_optional(pool)
     .await?
-    .ok_or(AppError::BadRequest("task is not in a terminal state"))
+    .ok_or(AppError::NotFound)
 }
 
 /// Auto-cleanup: keep the `keep` most-recent SUCCESSFUL gsplat scans PER

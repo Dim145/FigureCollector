@@ -23,6 +23,7 @@
 //!      the in-app row is the source of truth.
 
 use crate::domain::notification;
+use crate::domain::service_health;
 use crate::entity::achievements;
 use crate::events::Event;
 use crate::state::AppState;
@@ -159,10 +160,14 @@ async fn fan_out_external(
         Ok(r) => r,
         Err(e) => {
             tracing::warn!(error = ?e, "failed to resolve notification routes");
+            let _ =
+                service_health::record_error(&state.pool, "notify_fanout", &e.to_string()).await;
             return;
         }
     };
 
+    let total = routes.len();
+    let mut failed = 0usize;
     for route in routes {
         // Each adapter call is independent — wrap in catch so one bad
         // channel doesn't poison the loop.
@@ -177,11 +182,30 @@ async fn fan_out_external(
         )
         .await;
         if let Err(e) = result {
+            failed += 1;
             tracing::warn!(
                 channel = route.channel_type,
                 error = ?e,
                 "notification channel adapter failed"
             );
+            let _ = service_health::record_error(
+                &state.pool,
+                "notify_fanout",
+                &format!("{}: {e}", route.channel_type),
+            )
+            .await;
         }
     }
+    let _ = service_health::beat(
+        &state.pool,
+        "notify_fanout",
+        "fanout",
+        if failed > 0 { "error" } else { "ok" },
+        Some(serde_json::json!({
+            "event_type": event_type,
+            "routes": total,
+            "failed": failed,
+        })),
+    )
+    .await;
 }
