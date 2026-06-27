@@ -16,6 +16,9 @@ pub struct Photo {
     pub height: i32,
     pub size_bytes: i64,
     pub position: i32,
+    /// WD-Tagger appearance tags (comma-separated), worker-written. `None` until
+    /// the tagger has processed the photo; surfaced so the SPA can show chips.
+    pub visual_tags: Option<String>,
     pub created_at: DateTime<Utc>,
 }
 
@@ -41,7 +44,7 @@ pub async fn create(
     Ok(sqlx::query_as::<_, Photo>(
         "INSERT INTO photos (id, owned_item_id, storage_key, mime, width, height, size_bytes, position) \
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8) \
-         RETURNING id, owned_item_id, storage_key, mime, width, height, size_bytes, position, created_at",
+         RETURNING id, owned_item_id, storage_key, mime, width, height, size_bytes, position, visual_tags, created_at",
     )
     .bind(id)
     .bind(owned_item_id)
@@ -57,7 +60,7 @@ pub async fn create(
 
 pub async fn list_for_owned(pool: &PgPool, owned_item_id: Uuid) -> AppResult<Vec<Photo>> {
     Ok(sqlx::query_as::<_, Photo>(
-        "SELECT id, owned_item_id, storage_key, mime, width, height, size_bytes, position, created_at
+        "SELECT id, owned_item_id, storage_key, mime, width, height, size_bytes, position, visual_tags, created_at
          FROM photos WHERE owned_item_id = $1 ORDER BY position ASC, created_at ASC",
     )
     .bind(owned_item_id)
@@ -67,7 +70,7 @@ pub async fn list_for_owned(pool: &PgPool, owned_item_id: Uuid) -> AppResult<Vec
 
 pub async fn find_by_id(pool: &PgPool, id: Uuid) -> AppResult<Option<Photo>> {
     Ok(sqlx::query_as::<_, Photo>(
-        "SELECT id, owned_item_id, storage_key, mime, width, height, size_bytes, position, created_at
+        "SELECT id, owned_item_id, storage_key, mime, width, height, size_bytes, position, visual_tags, created_at
          FROM photos WHERE id = $1",
     )
     .bind(id)
@@ -111,9 +114,10 @@ pub async fn replace_image(
     let existing = find_by_id(pool, photo_id).await?.ok_or(AppError::NotFound)?;
     assert_owned_by(pool, user_id, existing.owned_item_id).await?;
     let updated = sqlx::query_as::<_, Photo>(
-        "UPDATE photos SET storage_key = $1, mime = $2, width = $3, height = $4, size_bytes = $5 \
+        "UPDATE photos SET storage_key = $1, mime = $2, width = $3, height = $4, size_bytes = $5, \
+            visual_tags = NULL \
          WHERE id = $6 \
-         RETURNING id, owned_item_id, storage_key, mime, width, height, size_bytes, position, created_at",
+         RETURNING id, owned_item_id, storage_key, mime, width, height, size_bytes, position, visual_tags, created_at",
     )
     .bind(storage_key)
     .bind(mime)

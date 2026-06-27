@@ -84,13 +84,29 @@ export function useFigureDuplicates(name, jan, { enabled = true } = {}) {
 
 // ----- Owned items (collection) ---------------------------------------------
 
-export function useOwnedItems({ enabled = true, includeArchived = false } = {}) {
-  // Cache key includes the flag so the active-only and include-archived
-  // views don't collide. Both fetch the same endpoint with different qs.
+export function useOwnedItems({ enabled = true, includeArchived = false, tag = null } = {}) {
+  // Cache key includes the flag + tag so the active-only / include-archived /
+  // tag-filtered views don't collide. All fetch the same endpoint with
+  // different query strings. `tag` filters to items having a photo carrying it.
+  const search = new URLSearchParams();
+  if (includeArchived) search.set("include_archived", "true");
+  if (tag) search.set("tag", tag);
+  const qs = search.toString();
   return useQuery({
-    queryKey: ["owned", { includeArchived }],
-    queryFn: () =>
-      api.get(`/me/owned${includeArchived ? "?include_archived=true" : ""}`),
+    queryKey: ["owned", { includeArchived, tag }],
+    queryFn: () => api.get(`/me/owned${qs ? `?${qs}` : ""}`),
+    enabled,
+  });
+}
+
+// Distinct appearance tags across the signed-in user's OWN photos (busiest
+// first), with per-item counts — feeds the collection page's tag facet. Mirrors
+// `useTagFacets` (catalogue) but scoped to the user's photos.
+export function useOwnedPhotoTags({ enabled = true } = {}) {
+  return useQuery({
+    queryKey: ["owned-photo-tags"],
+    queryFn: () => api.get("/me/owned/tags"),
+    staleTime: 60_000,
     enabled,
   });
 }

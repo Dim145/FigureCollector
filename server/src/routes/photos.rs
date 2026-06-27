@@ -9,7 +9,7 @@
 //!   4. PUT the cleaned bytes to Garage, INSERT a `photos` row.
 
 use crate::auth;
-use crate::domain::photo;
+use crate::domain::{photo, visual_search};
 use crate::error::{AppError, AppResult};
 use crate::events::Event;
 use crate::photo as photo_pipeline;
@@ -112,6 +112,10 @@ async fn upload_photo(
             return Err(e);
         }
     };
+
+    // Auto-tag the new photo (WD-Tagger) so the collection tag filter has data.
+    // Best-effort + feature-gated; never blocks the upload response.
+    visual_search::enqueue_owned_photo_tags_if_enabled(&state.pool, saved.id).await;
 
     // Fan out so other devices refresh their cached collection.
     state.events.publish(user_id, Event::OwnedItemPhotosChanged { owned_id });
@@ -225,6 +229,10 @@ async fn replace_photo(
         tracing::warn!(error = ?e, old_key, "failed to delete replaced photo blob");
     }
 
+    // The edited image invalidated the old tags (replace_image cleared them);
+    // re-tag the new bytes. Best-effort + feature-gated.
+    visual_search::enqueue_owned_photo_tags_if_enabled(&state.pool, saved.id).await;
+
     state.events.publish(user.id, Event::OwnedItemPhotosChanged { owned_id });
     Ok(Json(saved))
 }
@@ -326,6 +334,55 @@ async fn fetch_photo(
     Ok((headers, Body::from(bytes)).into_response())
 }
 
+/// Internal owned-photo proxy for the indexing worker (appearance tagging).
+///
+/// Owned photos are user-PRIVATE — the public `/photos/{id}` proxy gates them to
+/// the owner (or a published cover), so the worker (which has no session) can't
+/// use it. This route streams ANY owned photo's bytes, gated instead by a shared
+/// bearer token (`WORKER_INTERNAL_TOKEN`). When the token is unset the route is
+/// disabled (404), so owned-photo tagging stays off until an operator opts in.
+/// Never exposed to the SPA; the worker reaches it on the trusted internal
+/// network (server hostname), same as its DB connection.
+async fn fetch_owned_photo_internal(
+    State(state): State<AppState>,
+    req_headers: HeaderMap,
+    Path(photo_id): Path<Uuid>,
+) -> AppResult<Response> {
+    // Disabled unless a token is configured — fail closed (404, not 401, so the
+    // route is indistinguishable from "not mounted" to an unauthenticated probe).
+    let Some(expected) = state.config.worker_internal_token.as_deref() else {
+        return Err(AppError::NotFound);
+    };
+    let presented = req_headers
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .unwrap_or("");
+    // Length-independent constant-time compare so a wrong token leaks nothing
+    // through timing (high-entropy shared secret; no extra crate needed).
+    if !constant_time_eq(presented.as_bytes(), expected.as_bytes()) {
+        return Err(AppError::Forbidden);
+    }
+
+    let p = photo::find_by_id(&state.pool, photo_id)
+        .await?
+        .ok_or(AppError::NotFound)?;
+    let (bytes, mime) = state.storage.get(&p.storage_key).await?;
+    let content_type = mime.unwrap_or_else(|| p.mime.clone());
+
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_str(&content_type)
+            .unwrap_or_else(|_| HeaderValue::from_static("application/octet-stream")),
+    );
+    headers.insert(
+        header::X_CONTENT_TYPE_OPTIONS,
+        HeaderValue::from_static("nosniff"),
+    );
+    Ok((headers, Body::from(bytes)).into_response())
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route(
@@ -337,12 +394,39 @@ pub fn router() -> Router<AppState> {
             axum::routing::put(replace_photo).delete(delete_photo),
         )
         .route("/photos/{id}", get(fetch_photo))
+        .route(
+            "/internal/owned-photos/{id}",
+            get(fetch_owned_photo_internal),
+        )
+}
+
+/// Constant-time byte-slice equality. Folds a length difference into the
+/// accumulator so unequal lengths still take the same path (no early return on
+/// length), avoiding a timing side-channel on the worker token.
+fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
+    let mut diff = (a.len() ^ b.len()) as u8;
+    let n = a.len().max(b.len());
+    for i in 0..n {
+        let x = a.get(i).copied().unwrap_or(0);
+        let y = b.get(i).copied().unwrap_or(0);
+        diff |= x ^ y;
+    }
+    diff == 0
 }
 
 #[cfg(test)]
 mod tests {
-    use super::photo_visible;
+    use super::{constant_time_eq, photo_visible};
     use uuid::Uuid;
+
+    #[test]
+    fn constant_time_eq_matches_only_identical_slices() {
+        assert!(constant_time_eq(b"secret-token", b"secret-token"));
+        assert!(!constant_time_eq(b"secret-token", b"secret-toker"));
+        assert!(!constant_time_eq(b"secret-token", b"secret-token-longer"));
+        assert!(!constant_time_eq(b"", b"x"));
+        assert!(constant_time_eq(b"", b""));
+    }
 
     fn owner() -> Uuid {
         Uuid::from_u128(1)

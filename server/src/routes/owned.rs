@@ -2,7 +2,7 @@
 
 use crate::auth;
 use crate::domain::owned::{CoverPatch, NewOwnedItem, OwnedPatch};
-use crate::domain::{achievement, activity, owned, preorder, shelf_layout};
+use crate::domain::{achievement, activity, owned, preorder, shelf_layout, tags};
 use crate::error::AppResult;
 use crate::events::Event;
 use crate::state::AppState;
@@ -22,6 +22,9 @@ struct ListQuery {
     /// are returned alongside the active collection. Default `false`.
     #[serde(default)]
     include_archived: bool,
+    /// Appearance-tag facet: when set, return only owned items having at least
+    /// one photo whose `visual_tags` contains this exact tag (case-insensitive).
+    tag: Option<String>,
 }
 
 async fn list_mine(
@@ -32,8 +35,26 @@ async fn list_mine(
     let user = auth::require_user_full(&session, &state.pool).await?;
     let exclude = user.nsfw_visibility == "hide";
     Ok(Json(
-        owned::list_for_user(&state.pool, user.id, exclude, q.include_archived).await?,
+        owned::list_for_user(
+            &state.pool,
+            user.id,
+            exclude,
+            q.include_archived,
+            q.tag.as_deref(),
+        )
+        .await?,
     ))
+}
+
+/// Distinct appearance tags across the signed-in user's OWN photos, with
+/// per-item counts (busiest first) — feeds the collection page's tag facet.
+/// User-private (each user only sees their own photos' tags).
+async fn list_my_photo_tags(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<Vec<tags::TagFacet>>> {
+    let user_id = auth::require_user(&session).await?;
+    Ok(Json(tags::owned_photo_facets(&state.pool, user_id, 80).await?))
 }
 
 async fn archive_mine(
@@ -321,6 +342,7 @@ async fn put_shelf_layout(
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/me/owned", get(list_mine).post(add_mine))
+        .route("/me/owned/tags", get(list_my_photo_tags))
         .route(
             "/me/shelf-layout",
             get(get_shelf_layout).put(put_shelf_layout),

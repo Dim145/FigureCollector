@@ -164,3 +164,37 @@ pub async fn collection_dna(
         .collect();
     Ok((dna, pieces))
 }
+
+/// Distinct appearance tags across ONE user's OWN photos (the WD-Tagger output
+/// on `photos.visual_tags`), busiest-first, generic tags dropped, capped to
+/// `limit` — drives the collection page's tag filter. `count` is the number of
+/// the user's owned ITEMS carrying the tag on at least one photo (the unit the
+/// `?tag=` collection filter selects), so a piece with the tag on several photos
+/// counts once. NSFW is included — this is the owner viewing their own shelf.
+pub async fn owned_photo_facets(
+    pool: &PgPool,
+    user_id: Uuid,
+    limit: usize,
+) -> AppResult<Vec<TagFacet>> {
+    let rows: Vec<(String, i64)> = sqlx::query_as(
+        "SELECT lower(trim(tag)) AS tag, count(DISTINCT ph.owned_item_id)::bigint AS n
+         FROM photos ph
+         JOIN owned_items o ON o.id = ph.owned_item_id,
+              unnest(string_to_array(ph.visual_tags, ',')) AS tag
+         WHERE o.user_id = $1
+           AND ph.visual_tags IS NOT NULL
+           AND ph.visual_tags <> ''
+         GROUP BY lower(trim(tag))
+         ORDER BY n DESC, tag ASC",
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?;
+
+    Ok(rows
+        .into_iter()
+        .filter(|(tag, _)| !tag.is_empty() && !is_generic(tag))
+        .take(limit)
+        .map(|(tag, count)| TagFacet { tag, count })
+        .collect())
+}

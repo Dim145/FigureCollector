@@ -1152,6 +1152,20 @@ async fn reindex_tags(
     Ok(Json(out))
 }
 
+/// Queue every owned photo lacking appearance tags for WD-Tagger (owned-photo
+/// twin of `reindex_tags`). Lets the admin kick off tagging of the users'
+/// uploaded photos so the collection tag filter has data.
+async fn reindex_owned_tags(
+    State(state): State<AppState>,
+    session: Session,
+    Query(q): Query<ReindexQuery>,
+) -> AppResult<Json<serde_json::Value>> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    let out = run_reindex(&state, "owned-tags", q.force, actor.id).await?;
+    tracing::info!(by_admin = %actor.id, force = q.force, "admin queued owned-photo tags reindex");
+    Ok(Json(out))
+}
+
 /// Force a from-scratch rebuild of ALL four indexes at once — the admin "Tout
 /// réindexer de zéro" action.
 async fn reindex_all(
@@ -1273,6 +1287,10 @@ pub fn router() -> Router<AppState> {
         .route("/admin/visual-search/reindex-text", post(reindex_text_search))
         .route("/admin/visual-search/reindex-clip", post(reindex_clip_search))
         .route("/admin/visual-search/reindex-tags", post(reindex_tags))
+        .route(
+            "/admin/visual-search/reindex-owned-tags",
+            post(reindex_owned_tags),
+        )
         .route("/admin/visual-search/reindex-all", post(reindex_all))
         .route("/admin/visual-search/queue", get(visual_search_queue))
         .route(

@@ -913,6 +913,7 @@ export default {
   "photos.prev": "Photo précédente",
   "photos.next": "Photo suivante",
   "photos.go_to_slide": "Image {n}",
+  "photos.tags": "Étiquettes détectées",
 
   // ----- Catalog photos (shared) -----
   "figure.catalog_photos.eyebrow": "Photothèque catalogue",
@@ -1814,6 +1815,7 @@ export default {
   "admin.settings.visual.tags_hint":
     "Étiquette chaque image (personnage, cheveux, tenue, « elfe »…) et ajoute ces tags au texte « Sens » : la recherche par le sens trouve alors aussi par apparence. Tourne dans le worker, aucun modèle de plus dans le navigateur. Indexe ci-dessous.",
   "admin.settings.visual.tags_reindex": "Indexer l'apparence (tags)",
+  "admin.settings.visual.owned_tags_reindex": "Taguer les photos des collections",
   "admin.settings.visual.tags_indexed": "{n} taguées",
   "admin.settings.visual.ambiances_help_aria": "Qu'est-ce qu'une ambiance ?",
   "admin.settings.visual.ambiances_help_eyebrow": "Recherche par photo",
@@ -2592,10 +2594,26 @@ export default {
   "lookup.tab.search": "Recherche",
   "lookup.tab.link": "Lien",
   "lookup.tab.barcode": "Code-barres",
+  "lookup.tab.photo": "Photo",
   "lookup.tab.anilist": "AniList",
   "lookup.figure.modal_title": "Pré-remplir depuis une source",
   "lookup.figure.modal_desc":
     "Cherchez, collez un lien ou scannez un code-barres. Les champs trouvés se pré-remplissent — vous gardez la main sur tout.",
+  "lookup.figure.photo_note":
+    "Photographiez la figurine : l'empreinte est calculée sur votre appareil, seule une signature anonyme circule pour retrouver la pièce au catalogue.",
+  "lookup.figure.photo_disabled":
+    "La recherche par photo n'est pas activée sur cette instance. Renseignez la fiche à la main ou via une autre source.",
+  "lookup.figure.photo_capture": "Photographier la figurine",
+  "lookup.figure.photo_retake": "Reprendre une photo",
+  "lookup.figure.photo_capture_hint": "Appareil photo ou galerie — sur votre appareil uniquement",
+  "lookup.figure.photo_wasm_hint":
+    "Sans accélération GPU : la première analyse peut prendre quelques secondes.",
+  "lookup.figure.photo_preparing": "Préparation du modèle… {pct}%",
+  "lookup.figure.photo_analysing": "Reconnaissance…",
+  "lookup.figure.photo_candidates": "Candidats — choisissez la bonne",
+  "lookup.figure.photo_match_pct": "{pct}%",
+  "lookup.figure.photo_no_match":
+    "Aucune correspondance au catalogue. Essayez une autre source ou la saisie manuelle.",
   "lookup.figure.link_note":
     "Collez un lien produit orzgk ou d'une boutique prise en charge par le proxy. La fiche s'ouvre pour choisir version et prix.",
   "lookup.figure.link_open": "Ouvrir la fiche",
@@ -2621,6 +2639,9 @@ export default {
   "collection.pin.short": "À la une",
   "collection.filter.aria": "Filtrer par état",
   "collection.filter.cancelled": "Annulées",
+  "collection.tags.title": "Étiquettes",
+  "collection.tags.aria": "Filtrer par étiquette",
+  "collection.tags.filter": "Filtrer par cette étiquette",
   "collection.featured.kicker": "À la une",
   "collection.featured.state": "État",
   "collection.featured.view": "Voir la fiche",

@@ -189,6 +189,12 @@ services:
       OIDC_GENERIC_CLIENT_SECRET: ${OIDC_GENERIC_CLIENT_SECRET:-}
       OIDC_GENERIC_ISSUER_URL: ${OIDC_GENERIC_ISSUER_URL:-}
 
+      # Worker internal token — lets the embed/GPU worker fetch a user's PRIVATE
+      # owned-item photos to tag them (WD-Tagger). Same value as the worker's
+      # EMBED_WORKER_TOKEN; unset = owned-photo tagging stays off (the
+      # /api/internal route 404s — fail-closed).
+      WORKER_INTERNAL_TOKEN: ${WORKER_INTERNAL_TOKEN:-}
+
       # Shipping tracking API keys — optional. When unset the corresponding
       # /api/tracking/{carrier}/… route returns FeatureDisabled and the SPA
       # falls back to a plain "open carrier page" link.

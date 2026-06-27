@@ -7,6 +7,7 @@ import {
   useReindexTextSearch,
   useReindexClipSearch,
   useReindexTags,
+  useReindexOwnedTags,
   useReindexAll,
   useUpdateAdminSettings,
 } from "../hooks/useAdmin.js";
@@ -41,6 +42,7 @@ export default function AdminSettingsPage() {
   const reindexText = useReindexTextSearch();
   const reindexClip = useReindexClipSearch();
   const reindexTags = useReindexTags();
+  const reindexOwnedTags = useReindexOwnedTags();
   const reindexAll = useReindexAll();
   const vsStatus = useVisualSearchStatus();
   const overview = useAdminOverview();
@@ -829,6 +831,32 @@ export default function AdminSettingsPage() {
                 </span>
               ) : null}
               {reindexTags.isSuccess ? (
+                <span className="text-[11px] text-[var(--color-jade)]">
+                  {t("admin.settings.visual.text_reindex_done", { default: "File alimentée." })}
+                </span>
+              ) : null}
+            </div>
+            {/* Owned-photo tagging — tags the USERS' own uploaded photos so they
+                can filter their collection by look. Same WD-Tagger model + flag;
+                needs WORKER_INTERNAL_TOKEN set so the worker can fetch the
+                private photos. */}
+            <div className="mt-3 flex items-center gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={() => reindexOwnedTags.mutate()}
+                disabled={reindexOwnedTags.isPending}
+                className="px-3 py-1.5 border border-[var(--color-or)]/30 text-[11px] uppercase tracking-[0.18em] text-[var(--color-or)] hover:bg-[var(--color-or)]/10 transition-colors disabled:opacity-50"
+              >
+                {t("admin.settings.visual.owned_tags_reindex", {
+                  default: "Taguer les photos des collections",
+                })}
+              </button>
+              <ForceButton
+                t={t}
+                busy={reindexOwnedTags.isPending}
+                onForce={() => reindexOwnedTags.mutate({ force: true })}
+              />
+              {reindexOwnedTags.isSuccess ? (
                 <span className="text-[11px] text-[var(--color-jade)]">
                   {t("admin.settings.visual.text_reindex_done", { default: "File alimentée." })}
                 </span>

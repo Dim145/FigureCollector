@@ -5,6 +5,7 @@ import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import {
   useOwnedItems,
+  useOwnedPhotoTags,
   useRemoveOwnedItem,
   useUpdateOwnedItem,
   useArchiveOwnedItem,
@@ -21,6 +22,7 @@ import { preorderPhase } from "../lib/preorderStatus.js";
 import { effectiveValue, figurePaid } from "../lib/money.js";
 import CollectionHeader from "./collection/CollectionHeader.jsx";
 import ConditionFilterRail from "./collection/ConditionFilterRail.jsx";
+import TagFilterRail from "./collection/TagFilterRail.jsx";
 import FeaturedPiece from "./collection/FeaturedPiece.jsx";
 import CollectionGrid from "./collection/CollectionGrid.jsx";
 import RecommendedShelf from "./collection/RecommendedShelf.jsx";
@@ -48,6 +50,17 @@ export default function CollectionPage() {
   // active collection stays the focus; promoted into the filter rail as a facet.
   const [showArchived, setShowArchived] = useState(false);
   const owned = useOwnedItems({ includeArchived: showArchived });
+  // Appearance-tag facet (WD-Tagger on the user's own photos). The chip list is
+  // built from the unfiltered facets; selecting one narrows the grid via a
+  // server-side `?tag=` fetch (tags live on photos, not on the owned row, so the
+  // filtering can't be done client-side from `owned.data`).
+  const [tagFilter, setTagFilter] = useState(null);
+  const photoTags = useOwnedPhotoTags();
+  const tagged = useOwnedItems({
+    includeArchived: showArchived,
+    tag: tagFilter,
+    enabled: !!tagFilter,
+  });
   const remove = useRemoveOwnedItem();
   const update = useUpdateOwnedItem();
   const archive = useArchiveOwnedItem();
@@ -134,13 +147,16 @@ export default function CollectionPage() {
   );
 
   const filtered = useMemo(() => {
-    let list = owned.data ?? [];
+    // When a tag is selected the grid is sourced from the server-side
+    // `?tag=`-filtered fetch; otherwise the full collection. Condition + sale
+    // lenses still narrow client-side on top of either.
+    let list = (tagFilter ? tagged.data : owned.data) ?? [];
     if (saleOnly) list = list.filter((o) => o.for_sale || o.for_trade);
     if (conditionFilter !== "all") {
       list = list.filter((o) => o.condition === conditionFilter);
     }
     return list;
-  }, [owned.data, conditionFilter, saleOnly]);
+  }, [owned.data, tagged.data, tagFilter, conditionFilter, saleOnly]);
 
   // The pinned piece, resolved against the live collection (ignored if it was
   // since removed/archived).
@@ -272,6 +288,17 @@ export default function CollectionPage() {
                 showArchived={showArchived}
                 onToggleArchived={() => setShowArchived((v) => !v)}
                 archivedCount={archivedCount}
+              />
+            </div>
+
+            {/* Appearance-tag facet — self-hides until the user has tagged
+                photos (tagging worker has run + feature on). */}
+            <div className="mt-6">
+              <TagFilterRail
+                t={t}
+                facets={photoTags.data}
+                tagFilter={tagFilter}
+                onSelect={setTagFilter}
               />
             </div>
 

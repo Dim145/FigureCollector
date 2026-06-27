@@ -19,6 +19,11 @@ pub struct AppConfig {
     pub auth: AuthConfig,
     pub tracking: TrackingConfig,
     pub proxy: ProxyConfig,
+    /// Shared bearer token the indexing worker presents to fetch user-PRIVATE
+    /// owned photos for appearance tagging (`/api/internal/owned-photos/{id}`).
+    /// `None` → that internal route is disabled (404), so owned-photo tagging
+    /// stays off until an operator sets a token on both server and worker.
+    pub worker_internal_token: Option<String>,
 }
 
 /// External boutique-scraping proxy. When `base_url` is set, the
@@ -163,6 +168,7 @@ impl AppConfig {
             auth,
             tracking,
             proxy,
+            worker_internal_token: env_nonempty("WORKER_INTERNAL_TOKEN"),
         })
     }
 }

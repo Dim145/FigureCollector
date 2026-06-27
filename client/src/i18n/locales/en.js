@@ -889,6 +889,7 @@ export default {
   "photos.prev": "Previous photo",
   "photos.next": "Next photo",
   "photos.go_to_slide": "Image {n}",
+  "photos.tags": "Detected tags",
 
   // ----- Catalog photos (shared) -----
   "figure.catalog_photos.eyebrow": "Catalog gallery",
@@ -1754,6 +1755,7 @@ export default {
   "admin.settings.visual.tags_hint":
     'Tags each image (character, hair, outfit, "elf"…) and adds those tags to the "Meaning" text, so semantic search also finds figures by appearance. Runs in the worker, no extra in-browser model. Index below.',
   "admin.settings.visual.tags_reindex": "Index appearance (tags)",
+  "admin.settings.visual.owned_tags_reindex": "Tag collection photos",
   "admin.settings.visual.force": "From scratch",
   "admin.settings.visual.force_confirm": "Confirm — wipe",
   "admin.settings.visual.force_hint": "Wipes this index, then rebuilds it from scratch.",
@@ -2530,10 +2532,26 @@ export default {
   "lookup.tab.search": "Search",
   "lookup.tab.link": "Link",
   "lookup.tab.barcode": "Barcode",
+  "lookup.tab.photo": "Photo",
   "lookup.tab.anilist": "AniList",
   "lookup.figure.modal_title": "Prefill from a source",
   "lookup.figure.modal_desc":
     "Search, paste a link or scan a barcode. Found fields are prefilled — you stay in control of everything.",
+  "lookup.figure.photo_note":
+    "Photograph the figure: the fingerprint is computed on your device, only an anonymous signature travels to find the piece in the catalog.",
+  "lookup.figure.photo_disabled":
+    "Photo search isn't enabled on this instance. Fill the record in by hand or from another source.",
+  "lookup.figure.photo_capture": "Photograph the figure",
+  "lookup.figure.photo_retake": "Retake a photo",
+  "lookup.figure.photo_capture_hint": "Camera or gallery — on your device only",
+  "lookup.figure.photo_wasm_hint":
+    "Without GPU acceleration, the first analysis may take a few seconds.",
+  "lookup.figure.photo_preparing": "Preparing the model… {pct}%",
+  "lookup.figure.photo_analysing": "Recognising…",
+  "lookup.figure.photo_candidates": "Candidates — pick the right one",
+  "lookup.figure.photo_match_pct": "{pct}%",
+  "lookup.figure.photo_no_match":
+    "No match in the catalog. Try another source or manual entry.",
   "lookup.figure.link_note":
     "Paste an orzgk product link or one from a shop your proxy supports. The listing opens so you can pick version and price.",
   "lookup.figure.link_open": "Open the listing",
@@ -2559,6 +2577,9 @@ export default {
   "collection.pin.short": "Featured",
   "collection.filter.aria": "Filter by condition",
   "collection.filter.cancelled": "Cancelled",
+  "collection.tags.title": "Tags",
+  "collection.tags.aria": "Filter by tag",
+  "collection.tags.filter": "Filter by this tag",
   "collection.featured.kicker": "Featured",
   "collection.featured.state": "Condition",
   "collection.featured.view": "View the record",

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Search, Link2, ScanBarcode, Sparkles } from "lucide-react";
+import { Search, Link2, ScanBarcode, Sparkles, ScanLine } from "lucide-react";
 import { Modal, Tabs, Input, Button } from "../ui/index.js";
 import BarcodeScanner from "../BarcodeScanner.jsx";
 import { useProxyEnabled } from "../../hooks/useProxy.js";
 import LookupSearch from "./LookupSearch.jsx";
 import LookupAniList from "./LookupAniList.jsx";
+import LookupPhoto from "./LookupPhoto.jsx";
 import MfcPasteImport from "./MfcPasteImport.jsx";
 import LookupDetailModal from "./LookupDetailModal.jsx";
 import {
@@ -157,6 +158,7 @@ export default function FigureLookupModal({ open, onClose, onPick, initial = "",
       label: t("lookup.tab.barcode", { default: "Code-barres" }),
       icon: ScanBarcode,
     },
+    { value: "photo", label: t("lookup.tab.photo", { default: "Photo" }), icon: ScanLine },
     { value: "anilist", label: t("lookup.tab.anilist", { default: "AniList" }), icon: Sparkles },
   ];
 
@@ -229,6 +231,8 @@ export default function FigureLookupModal({ open, onClose, onPick, initial = "",
             </div>
           </form>
         ) : null}
+
+        {tab === "photo" ? <LookupPhoto onPick={apply} t={t} /> : null}
 
         {tab === "anilist" ? <LookupAniList onPick={apply} initial={query} t={t} /> : null}
 

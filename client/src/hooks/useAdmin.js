@@ -106,6 +106,20 @@ export function useReindexTags() {
   });
 }
 
+/** POST /admin/visual-search/reindex-owned-tags — queue the users' OWN uploaded
+ *  photos for WD-Tagger appearance tagging (feeds the collection tag filter). */
+export function useReindexOwnedTags() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ force } = {}) =>
+      api.post(`/admin/visual-search/reindex-owned-tags${force ? "?force=true" : ""}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin", "visual-search", "queue"] });
+      qc.invalidateQueries({ queryKey: ["visual-search", "status"] });
+    },
+  });
+}
+
 /** POST /admin/visual-search/reindex-all — wipe & rebuild ALL four indexes from
  *  scratch (destructive: clears every vector + the tags, then re-queues all). */
 export function useReindexAll() {

@@ -299,6 +299,9 @@ async def main() -> None:
     text_embed_task = asyncio.create_task(embed_index.run_text_embed_loop(pool, state))
     clip_embed_task = asyncio.create_task(embed_index.run_clip_embed_loop(pool, state))
     tagger_task = asyncio.create_task(embed_index.run_tagger_loop(pool, state))
+    # Owned-photo tagger — tags users' OWN uploaded photos (same WD model,
+    # disjoint queue rows). Idles when EMBED_WORKER_TOKEN is unset.
+    owned_tagger_task = asyncio.create_task(embed_index.run_owned_tagger_loop(pool, state))
     # OCR loop for justificatifs (Palier 2) — concurrent with gsplat + embeds.
     # Self-disables if RapidOCR/PyMuPDF aren't baked into this image.
     ocr_task = asyncio.create_task(run_ocr_loop(pool, state))
@@ -339,7 +342,7 @@ async def main() -> None:
                 )
                 await mark_failed(pool, scan_id, f"{type(e).__name__}: {e}\n{trace}")
     finally:
-        for task in (heartbeat_task, embed_task, text_embed_task, clip_embed_task, tagger_task, ocr_task):
+        for task in (heartbeat_task, embed_task, text_embed_task, clip_embed_task, tagger_task, owned_tagger_task, ocr_task):
             task.cancel()
             try:
                 await task

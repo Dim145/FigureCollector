@@ -111,6 +111,8 @@ export function useDeletePhoto(ownedId) {
       // the grid tile picks up the new cover without a manual refresh.
       qc.invalidateQueries({ queryKey: ["photos", ownedId] });
       qc.invalidateQueries({ queryKey: ["owned"] });
+      // The removed photo's tags may have been the only source of a facet tag.
+      qc.invalidateQueries({ queryKey: ["owned-photo-tags"] });
     },
   });
 }

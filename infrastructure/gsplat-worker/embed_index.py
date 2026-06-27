@@ -135,6 +135,15 @@ TAGGER_MAX_GENERAL = int(os.environ.get("EMBED_TAGGER_MAX_GENERAL", "25"))
 # detail. Caps the per-figure cost; raise/lower via env.
 TAGGER_MAX_IMAGES = int(os.environ.get("EMBED_TAGGER_MAX_IMAGES", "10"))
 
+# Owned-photo tagging rides the SAME WD-Tagger model + shared queue, but with a
+# distinct `source` so the two tagger loops drain disjoint rows. Owned photos
+# are user-PRIVATE (unlike catalogue images, served by a public proxy), so the
+# server exposes them to the worker via an internal route gated by a shared
+# bearer token. Set EMBED_WORKER_TOKEN here to the server's WORKER_INTERNAL_TOKEN
+# — when unset, the server route is disabled and owned-photo tagging just idles.
+OWNED_TAGS_SOURCE = "owned_tags"
+WORKER_INTERNAL_TOKEN = os.environ.get("EMBED_WORKER_TOKEN", "").strip()
+
 # Preprocessing — verbatim from Xenova/dinov2-small/preprocessor_config.json.
 SHORTEST_EDGE = 256
 CROP = 224
@@ -423,6 +432,30 @@ def fetch_image(source: str, image_ref: str) -> bytes:
         else image_ref
     )
     req = urllib.request.Request(url, headers={"User-Agent": "FigureCollector-embed-worker"})
+    with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:  # noqa: S310
+        data = resp.read(MAX_IMAGE_BYTES + 1)
+    if len(data) > MAX_IMAGE_BYTES:
+        raise ValueError("image exceeds EMBED_MAX_IMAGE_BYTES")
+    if not data:
+        raise ValueError("empty image")
+    return data
+
+
+def fetch_owned_photo(photo_id: str) -> bytes:
+    """Fetch a user's PRIVATE owned photo (for owned-photo tagging). Mirrors
+    `fetch_image`, but hits the server's internal owned-photo route with the
+    shared bearer token instead of the public catalogue proxy — owned photos are
+    owner-gated, so the worker can't use the public `/api/photos/{id}` route."""
+    if not WORKER_INTERNAL_TOKEN:
+        raise RuntimeError("EMBED_WORKER_TOKEN unset — cannot fetch private owned photos")
+    url = f"{SERVER_URL}/api/internal/owned-photos/{photo_id}"
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": "FigureCollector-embed-worker",
+            "Authorization": f"Bearer {WORKER_INTERNAL_TOKEN}",
+        },
+    )
     with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:  # noqa: S310
         data = resp.read(MAX_IMAGE_BYTES + 1)
     if len(data) > MAX_IMAGE_BYTES:
@@ -869,8 +902,10 @@ async def run_clip_embed_loop(pool: asyncpg.Pool, state: Any) -> None:
 
 # --- Appearance tagging lifecycle --------------------------------------------
 async def claim_next_tags(pool: asyncpg.Pool) -> asyncpg.Record | None:
-    """Claim a pending tagging job (model_version = wd-tagger-v3/1, one per
-    figure: source='tags', image_ref='tags:<id>')."""
+    """Claim a pending CATALOGUE tagging job (model_version = wd-tagger-v3/1, one
+    per figure: source='tags', image_ref='tags:<id>'). Scoped by source so it
+    never claims OWNED-photo tag rows ('owned_tags'), which share the model
+    version but are drained by `claim_next_owned_tags`."""
     async with pool.acquire() as conn:
         return await conn.fetchrow(
             """
@@ -878,7 +913,7 @@ async def claim_next_tags(pool: asyncpg.Pool) -> asyncpg.Record | None:
                SET state = 'processing', claimed_at = now(), attempts = attempts + 1
              WHERE id = (
                  SELECT id FROM figure_embedding_queue
-                  WHERE state = 'pending' AND model_version = $1
+                  WHERE state = 'pending' AND model_version = $1 AND source = 'tags'
                   ORDER BY enqueued_at ASC
                   FOR UPDATE SKIP LOCKED
                   LIMIT 1
@@ -993,6 +1028,107 @@ async def run_tagger_loop(pool: asyncpg.Pool, state: Any) -> None:
             tags = ", ".join(merged)
             await store_tags(pool, item, tags)
             log.info("tagged", figure_id=str(item["figure_id"]), images=len(imgs), tags=tags[:80])
+        except Exception as e:  # noqa: BLE001
+            trace = traceback.format_exc()[-2000:]
+            await mark_failure(pool, item, f"{type(e).__name__}: {e}\n{trace}")
+
+
+# --- Owned-photo appearance tagging ------------------------------------------
+# The user's OWN uploaded photos get the SAME WD-Tagger treatment as catalogue
+# images, so they can filter their collection by look. Rides the shared queue
+# with source='owned_tags' (image_ref='owned_photo:<photo_id>', figure_id NULL),
+# fetched over the server's internal owned-photo route (private images), and
+# written back to photos.visual_tags.
+async def claim_next_owned_tags(pool: asyncpg.Pool) -> asyncpg.Record | None:
+    """Claim a pending OWNED-photo tag job (model_version = wd-tagger-v3/1,
+    source='owned_tags', image_ref='owned_photo:<photo_id>'). The owned-photo
+    twin of `claim_next_tags`, draining its own disjoint queue rows."""
+    async with pool.acquire() as conn:
+        return await conn.fetchrow(
+            """
+            UPDATE figure_embedding_queue
+               SET state = 'processing', claimed_at = now(), attempts = attempts + 1
+             WHERE id = (
+                 SELECT id FROM figure_embedding_queue
+                  WHERE state = 'pending' AND model_version = $1 AND source = $2
+                  ORDER BY enqueued_at ASC
+                  FOR UPDATE SKIP LOCKED
+                  LIMIT 1
+             )
+         RETURNING id, figure_id, source, image_ref, model_version, attempts
+            """,
+            TAGGER_MODEL_VERSION,
+            OWNED_TAGS_SOURCE,
+        )
+
+
+async def store_owned_photo_tags(pool: asyncpg.Pool, item: asyncpg.Record, tags: str) -> None:
+    """Write the photo's appearance tags + mark the job done, atomically. Unlike
+    catalogue tags there's NO e5 re-embed (owned photos don't feed the catalogue
+    semantic index) — the tags exist only to surface + filter the collection."""
+    photo_id = item["image_ref"].split(":", 1)[1]
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute(
+                "UPDATE photos SET visual_tags = $2 WHERE id = $1::uuid", photo_id, tags
+            )
+            await conn.execute(
+                "UPDATE figure_embedding_queue SET state = 'done', error_message = NULL WHERE id = $1",
+                item["id"],
+            )
+
+
+async def run_owned_tagger_loop(pool: asyncpg.Pool, state: Any) -> None:
+    """Drain the OWNED-photo tag jobs: tag each user photo with WD-Tagger and
+    write photos.visual_tags. The owned-photo twin of `run_tagger_loop` — a FIFTH
+    concurrent worker loop sharing the SAME lazily-loaded WD-Tagger model class.
+    Best-effort load — skips if the WD model isn't baked into this image, without
+    taking the host worker down; also idles if EMBED_WORKER_TOKEN is unset (it
+    can't fetch the private photos)."""
+    model = LazyModel("wd-tagger-owned", TaggerEmbedder.load)
+    log.info("owned-tagger loop started", model_version=TAGGER_MODEL_VERSION, server_url=SERVER_URL)
+    while True:
+        if not getattr(state, "enabled", True):
+            model.unload_if_idle(MODEL_IDLE_GRACE)
+            await asyncio.sleep(POLL_INTERVAL)
+            continue
+        item = await claim_next_owned_tags(pool)
+        if item is None:
+            model.unload_if_idle(MODEL_IDLE_GRACE)
+            await asyncio.sleep(POLL_INTERVAL)
+            continue
+        try:
+            tagger = await model.acquire()
+        except Exception as e:  # noqa: BLE001
+            log.warning("tagger model load failed — releasing item, owned-tagger loop disabled", error=str(e))
+            await release_claim(pool, item)
+            return
+        try:
+            # image_ref is 'owned_photo:<photo_id>' → fetch that one private photo.
+            photo_id = item["image_ref"].split(":", 1)[1]
+            try:
+                data = await asyncio.to_thread(fetch_owned_photo, photo_id)
+            except urllib.error.HTTPError as e:
+                # 404 = the photo no longer exists → self-heal (drop the job row),
+                # not a failure. Anything else is a real error → retry/fail.
+                if e.code == 404:
+                    async with pool.acquire() as conn:
+                        await conn.execute(
+                            "DELETE FROM figure_embedding_queue WHERE id = $1", item["id"]
+                        )
+                    continue
+                raise
+            tag_str = await asyncio.to_thread(tagger.tag, data)
+            # Normalise like the catalogue merge (dedup, first-seen order).
+            seen: set = set()
+            merged: list = []
+            for tag in (t.strip() for t in tag_str.split(",")):
+                if tag and tag not in seen:
+                    seen.add(tag)
+                    merged.append(tag)
+            tags = ", ".join(merged)
+            await store_owned_photo_tags(pool, item, tags)
+            log.info("owned-photo tagged", photo_id=photo_id, tags=tags[:80])
         except Exception as e:  # noqa: BLE001
             trace = traceback.format_exc()[-2000:]
             await mark_failure(pool, item, f"{type(e).__name__}: {e}\n{trace}")

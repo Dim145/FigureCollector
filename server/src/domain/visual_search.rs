@@ -254,6 +254,40 @@ pub async fn tagged_count(pool: &PgPool) -> AppResult<i64> {
         .await?)
 }
 
+/// Queue marker (`source`) for owned-photo tag jobs. Distinct from the
+/// catalogue's `'tags'` so the two tagger loops drain disjoint rows even though
+/// they share `TAGGER_MODEL_VERSION` (same WD-Tagger model). The photo id rides
+/// in `image_ref` as `owned_photo:<id>` (the row's `figure_id` stays NULL —
+/// owned photos belong to no catalogue figure).
+pub const OWNED_TAGS_SOURCE: &str = "owned_tags";
+
+/// Enqueue one tagging job per OWNED photo still lacking `visual_tags`
+/// (`source = 'owned_tags'`, `image_ref = 'owned_photo:<photo_id>'`,
+/// `figure_id = NULL`). The owned-photo twin of `enqueue_missing_tags`; the
+/// worker tags the photo and writes `photos.visual_tags`. Idempotent.
+pub async fn enqueue_missing_owned_photo_tags(pool: &PgPool) -> AppResult<u64> {
+    let res = sqlx::query(
+        "INSERT INTO figure_embedding_queue (figure_id, source, image_ref, model_version)
+         SELECT NULL, $1, 'owned_photo:' || p.id::text, $2
+         FROM photos p
+         WHERE p.visual_tags IS NULL
+         ON CONFLICT (image_ref, model_version) DO NOTHING",
+    )
+    .bind(OWNED_TAGS_SOURCE)
+    .bind(TAGGER_MODEL_VERSION)
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected())
+}
+
+/// How many owned photos carry appearance tags — owned-photo twin of
+/// `tagged_count`, surfaced in the admin tasks view.
+pub async fn owned_photo_tagged_count(pool: &PgPool) -> AppResult<i64> {
+    Ok(sqlx::query_scalar("SELECT COUNT(*) FROM photos WHERE visual_tags IS NOT NULL")
+        .fetch_one(pool)
+        .await?)
+}
+
 /// Nearest catalog figures to a *source figure* — the "figurines proches" rail
 /// on a figure's page. Seeds the search from the source figure's OWN image
 /// embeddings (it may have several: photos + the official image), keeps each
@@ -455,6 +489,22 @@ pub async fn retry_failed(pool: &PgPool, model_version: &str) -> AppResult<u64> 
     Ok(res.rows_affected())
 }
 
+/// Re-arm only the failed OWNED-PHOTO tag rows. Scoped by `source` because they
+/// share `TAGGER_MODEL_VERSION` with the catalogue tag rows; `retry_failed`
+/// alone would also resurrect catalogue failures.
+pub async fn retry_failed_owned_tags(pool: &PgPool) -> AppResult<u64> {
+    let res = sqlx::query(
+        "UPDATE figure_embedding_queue
+            SET state = 'pending', error_message = NULL, attempts = 0, claimed_at = NULL
+          WHERE state = 'failed' AND model_version = $1 AND source = $2",
+    )
+    .bind(TAGGER_MODEL_VERSION)
+    .bind(OWNED_TAGS_SOURCE)
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected())
+}
+
 /// Wipe ONE index from scratch: delete its stored vectors/tags AND its queue
 /// rows so the caller's `enqueue_missing_*` re-adds everything. `kind` is one of
 /// "image" | "text" | "look" | "tags". Wrapped in a transaction so a half-wipe
@@ -522,10 +572,32 @@ pub async fn wipe_index(pool: &PgPool, kind: &str) -> AppResult<()> {
             .bind(TEXT_MODEL_VERSION)
             .execute(&mut *tx)
             .await?;
-            sqlx::query("DELETE FROM figure_embedding_queue WHERE model_version = $1")
-                .bind(TAGGER_MODEL_VERSION)
+            // Scope to the CATALOGUE tagger rows ('tags:…') — owned-photo tag
+            // rows ('owned_photo:…') share TAGGER_MODEL_VERSION and have their
+            // own "owned-tags" wipe.
+            sqlx::query(
+                "DELETE FROM figure_embedding_queue
+                 WHERE model_version = $1 AND image_ref LIKE 'tags:%'",
+            )
+            .bind(TAGGER_MODEL_VERSION)
+            .execute(&mut *tx)
+            .await?;
+        }
+        "owned-tags" => {
+            // Owned-photo tags + their tagging jobs. No tag-derived e5 vectors
+            // exist for owned photos (they don't feed the catalogue semantic
+            // index), so there's nothing in figure_embeddings to clear.
+            sqlx::query("UPDATE photos SET visual_tags = NULL WHERE visual_tags IS NOT NULL")
                 .execute(&mut *tx)
                 .await?;
+            sqlx::query(
+                "DELETE FROM figure_embedding_queue
+                 WHERE model_version = $1 AND source = $2",
+            )
+            .bind(TAGGER_MODEL_VERSION)
+            .bind(OWNED_TAGS_SOURCE)
+            .execute(&mut *tx)
+            .await?;
         }
         _ => return Err(AppError::BadRequest("unknown index kind")),
     }
@@ -605,11 +677,22 @@ pub async fn all_index_queues(pool: &PgPool) -> AppResult<Vec<IndexQueue>> {
             .fetch_one(pool)
             .await?;
     let tags: i64 = tagged_count(pool).await?;
+    let owned_tags: i64 = owned_photo_tagged_count(pool).await?;
     Ok(vec![
         index_queue_row(pool, "image", MODEL_VERSION, None, img).await?,
         index_queue_row(pool, "text", TEXT_MODEL_VERSION, Some("text:%"), txt).await?,
         index_queue_row(pool, "look", CLIP_MODEL_VERSION, None, look).await?,
-        index_queue_row(pool, "tags", TAGGER_MODEL_VERSION, None, tags).await?,
+        // Catalogue + owned-photo tags share TAGGER_MODEL_VERSION, so split the
+        // queue counts by image_ref prefix ('tags:…' vs 'owned_photo:…').
+        index_queue_row(pool, "tags", TAGGER_MODEL_VERSION, Some("tags:%"), tags).await?,
+        index_queue_row(
+            pool,
+            "owned-tags",
+            TAGGER_MODEL_VERSION,
+            Some("owned_photo:%"),
+            owned_tags,
+        )
+        .await?,
     ])
 }
 
@@ -622,6 +705,7 @@ pub const JOB_REINDEX_IMAGE: &str = "reindex_image";
 pub const JOB_REINDEX_TEXT: &str = "reindex_text";
 pub const JOB_REINDEX_LOOK: &str = "reindex_look";
 pub const JOB_REINDEX_TAGS: &str = "reindex_tags";
+pub const JOB_REINDEX_OWNED_TAGS: &str = "reindex_owned_tags";
 pub const JOB_REINDEX_ALL: &str = "reindex_all";
 
 /// The server_job name for a single-index reindex kind.
@@ -630,6 +714,7 @@ pub fn reindex_job_name(kind: &str) -> &'static str {
         "text" => JOB_REINDEX_TEXT,
         "look" => JOB_REINDEX_LOOK,
         "tags" => JOB_REINDEX_TAGS,
+        "owned-tags" => JOB_REINDEX_OWNED_TAGS,
         _ => JOB_REINDEX_IMAGE,
     }
 }
@@ -646,16 +731,24 @@ pub async fn reindex(pool: &PgPool, kind: &str, force: bool) -> AppResult<u64> {
         "text" => enqueue_missing_text(pool).await?,
         "look" => enqueue_missing_clip(pool).await?,
         "tags" => enqueue_missing_tags(pool).await?,
+        "owned-tags" => enqueue_missing_owned_photo_tags(pool).await?,
         _ => return Err(AppError::BadRequest("unknown index kind")),
     };
     if !force {
-        let mv = match kind {
-            "text" => TEXT_MODEL_VERSION,
-            "look" => CLIP_MODEL_VERSION,
-            "tags" => TAGGER_MODEL_VERSION,
-            _ => MODEL_VERSION,
-        };
-        retry_failed(pool, mv).await?;
+        // Owned-photo tag jobs share TAGGER_MODEL_VERSION with the catalogue
+        // tags, so re-arm only THEIR failed rows (by source) — otherwise a
+        // plain owned-tags re-trigger would also resurrect catalogue failures.
+        if kind == "owned-tags" {
+            retry_failed_owned_tags(pool).await?;
+        } else {
+            let mv = match kind {
+                "text" => TEXT_MODEL_VERSION,
+                "look" => CLIP_MODEL_VERSION,
+                "tags" => TAGGER_MODEL_VERSION,
+                _ => MODEL_VERSION,
+            };
+            retry_failed(pool, mv).await?;
+        }
     }
     Ok(queued)
 }
@@ -721,6 +814,7 @@ pub async fn reconcile_reindex_jobs(pool: &PgPool) -> AppResult<()> {
             JOB_REINDEX_TEXT => &["text"],
             JOB_REINDEX_LOOK => &["look"],
             JOB_REINDEX_TAGS => &["tags"],
+            JOB_REINDEX_OWNED_TAGS => &["owned-tags"],
             JOB_REINDEX_ALL => &["image", "text", "look", "tags"],
             _ => continue,
         };
@@ -871,6 +965,32 @@ pub async fn enqueue_figure_if_enabled(pool: &PgPool, figure_id: Uuid) {
         if let Err(e) = res {
             tracing::warn!(error = ?e, %figure_id, "appearance-tags auto-enqueue failed");
         }
+    }
+}
+
+/// Best-effort incremental enqueue of ONE owned photo for appearance tagging,
+/// called after a photo upload/replace so the collection tag filter stays
+/// current without an admin reindex. Gated on the same `appearance_tags` flag
+/// as the catalogue tagger and never fails the caller. `figure_id` is NULL —
+/// owned photos belong to no catalogue figure; the photo id rides `image_ref`.
+pub async fn enqueue_owned_photo_tags_if_enabled(pool: &PgPool, photo_id: Uuid) {
+    if !matches!(settings::appearance_tags_enabled(pool).await, Ok(true)) {
+        return;
+    }
+    let res = sqlx::query(
+        "INSERT INTO figure_embedding_queue (figure_id, source, image_ref, model_version)
+         SELECT NULL, $1, 'owned_photo:' || $2::text, $3
+         WHERE EXISTS (SELECT 1 FROM photos WHERE id = $2 AND visual_tags IS NULL)
+         ON CONFLICT (image_ref, model_version) DO UPDATE
+           SET state = 'pending', error_message = NULL, attempts = 0, claimed_at = NULL",
+    )
+    .bind(OWNED_TAGS_SOURCE)
+    .bind(photo_id)
+    .bind(TAGGER_MODEL_VERSION)
+    .execute(pool)
+    .await;
+    if let Err(e) = res {
+        tracing::warn!(error = ?e, %photo_id, "owned-photo tags auto-enqueue failed");
     }
 }
 

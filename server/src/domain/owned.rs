@@ -432,6 +432,7 @@ pub async fn list_for_user(
     user_id: Uuid,
     exclude_nsfw: bool,
     include_archived: bool,
+    tag: Option<&str>,
 ) -> AppResult<Vec<OwnedItemWithFigure>> {
     // `catalog_cover_photo_id` is resolved here so the SPA can build the
     // fallback `/api/figure-photos/{id}` URL without a second roundtrip per
@@ -482,13 +483,28 @@ pub async fn list_for_user(
     if !include_archived {
         sql.push_str(" AND o.archived_at IS NULL");
     }
+    // Appearance-tag facet: keep only items with at least one photo carrying the
+    // exact tag. Same normalisation as the catalogue's `?tag=` filter
+    // (domain::figure): collapse the ", " separator, lowercase, split to an
+    // array, test exact membership — never a substring match.
+    let tag_norm = tag.map(|t| t.trim().to_lowercase()).filter(|t| !t.is_empty());
+    if tag_norm.is_some() {
+        sql.push_str(
+            " AND EXISTS (
+                SELECT 1 FROM photos ph
+                WHERE ph.owned_item_id = o.id
+                  AND $2 = ANY(string_to_array(replace(lower(ph.visual_tags), ', ', ','), ','))
+            )",
+        );
+    }
     // Archived items, when included, sink to the bottom of the list so they
     // don't crowd the "active collection" experience.
     sql.push_str(" ORDER BY (o.archived_at IS NOT NULL) ASC, o.created_at DESC");
-    Ok(sqlx::query_as::<_, OwnedItemWithFigure>(&sql)
-        .bind(user_id)
-        .fetch_all(pool)
-        .await?)
+    let mut query = sqlx::query_as::<_, OwnedItemWithFigure>(&sql).bind(user_id);
+    if let Some(t) = tag_norm {
+        query = query.bind(t);
+    }
+    Ok(query.fetch_all(pool).await?)
 }
 
 /// Mark an owned item as archived (preorder cancelled with partial refund).

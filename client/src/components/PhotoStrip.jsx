@@ -7,6 +7,7 @@ import {
   useReplacePhoto,
   useUploadPhoto,
 } from "../hooks/useProfile.js";
+import { displayTags } from "../lib/tags.js";
 import PhotoEditor from "./PhotoEditor.jsx";
 
 /**
@@ -149,6 +150,7 @@ export default function PhotoStrip({ ownedId, figureName, uploadDisabled = false
               >
                 ×
               </button>
+              <PhotoTags raw={p.visual_tags} t={t} />
             </li>
           ))}
         </ul>
@@ -275,6 +277,33 @@ function PhotoLightbox({ photos, index, onChange, onClose }) {
       ) : null}
     </div>,
     document.body,
+  );
+}
+
+/**
+ * Auto-detected appearance tags for one photo (WD-Tagger, worker-written to
+ * `photos.visual_tags`). Generic tags are dropped via the shared `displayTags`
+ * helper and the list is capped so the thumbnail stays compact. Renders nothing
+ * until the tagger has produced tags (or when tagging is off) — same gold chip
+ * styling as the catalogue tag rail.
+ */
+function PhotoTags({ raw, t }) {
+  const tags = displayTags(raw, { max: 6 });
+  if (tags.length === 0) return null;
+  return (
+    <ul
+      aria-label={t("photos.tags", { default: "Étiquettes détectées" })}
+      className="mt-1.5 flex flex-wrap gap-1 max-w-[12rem]"
+    >
+      {tags.map((tag) => (
+        <li
+          key={tag}
+          className="inline-flex items-center px-1.5 py-0.5 text-[10px] capitalize border border-[var(--color-or)]/25 bg-[var(--color-or)]/5 text-[var(--color-ivoire-soft)]"
+        >
+          {tag}
+        </li>
+      ))}
+    </ul>
   );
 }
 

@@ -979,6 +979,7 @@ const REINDEX_KINDS = {
   reindex_text: ["text"],
   reindex_look: ["look"],
   reindex_tags: ["tags"],
+  reindex_owned_tags: ["owned-tags"],
   reindex_all: ["image", "text", "look", "tags"],
 };
 
