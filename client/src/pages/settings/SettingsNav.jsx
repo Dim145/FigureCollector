@@ -16,7 +16,12 @@ import Tabs from "../../components/ui/Tabs.jsx";
  */
 export default function SettingsNav({ sections, active, onSelect, heading }) {
   return (
-    <nav aria-label={heading}>
+    // lg:self-stretch — fill the grid column's full height. The settings grid
+    // uses `items-start`, which otherwise shrinks this <nav> to its content
+    // height (the short rail); the desktop rail's `position: sticky` then has no
+    // room inside its containing block and scrolls away. Stretching the <nav>
+    // gives the sticky child the full-height context it needs to stick.
+    <nav aria-label={heading} className="lg:self-stretch">
       {/* Mobile / tablet: sticky underlined Tabs (kanji + label). Pinned just
           below the compact app header (~3rem when scrolled) so the current
           section stays reachable while the panels scroll. */}
