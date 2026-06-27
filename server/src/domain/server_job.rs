@@ -233,3 +233,74 @@ pub async fn mark_interrupted(pool: &PgPool) -> AppResult<u64> {
     .await?;
     Ok(res.rows_affected())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    /// Run `job` straight through to a successful finish with the given
+    /// `changed` count, returning its run id. `actor = None` so no `users` row
+    /// is required.
+    async fn finished_run(pool: &PgPool, job: &str, changed: Option<i64>) -> Uuid {
+        let id = start(pool, job, "schedule", None).await.unwrap().unwrap();
+        finish_ok(pool, id, &json!({}), changed).await.unwrap();
+        id
+    }
+
+    #[sqlx::test]
+    async fn single_flight_guard_blocks_overlap(pool: PgPool) {
+        let first = start(&pool, "price_cron", "schedule", None).await.unwrap();
+        assert!(first.is_some(), "first start should book a run");
+
+        // A second start while the first is still processing is refused.
+        let second = start(&pool, "price_cron", "schedule", None).await.unwrap();
+        assert!(second.is_none(), "overlapping start must be refused");
+
+        // Once the first finishes, a fresh run may start again.
+        finish_ok(&pool, first.unwrap(), &json!({}), Some(0)).await.unwrap();
+        let third = start(&pool, "price_cron", "schedule", None).await.unwrap();
+        assert!(third.is_some(), "a new run is allowed after the previous finished");
+    }
+
+    #[sqlx::test]
+    async fn hide_noop_hides_only_successful_zero_change_runs(pool: PgPool) {
+        finished_run(&pool, "scan_cleanup", Some(0)).await; // no-op  -> hidden
+        finished_run(&pool, "manga_sync", Some(5)).await; //   worked -> shown
+        finished_run(&pool, "release_cron", None).await; //    legacy -> shown (NULL changed)
+        let failed = start(&pool, "price_cron", "schedule", None).await.unwrap().unwrap();
+        finish_failed(&pool, failed, "boom").await.unwrap(); //  failed -> shown
+
+        let all = list_filtered(&pool, &JobFilter { hide_noop: false, ..Default::default() })
+            .await
+            .unwrap();
+        assert_eq!(all.total, 4, "without the filter every run is listed");
+
+        let visible = list_filtered(&pool, &JobFilter { hide_noop: true, ..Default::default() })
+            .await
+            .unwrap();
+        assert_eq!(visible.total, 3, "only the successful zero-change run is hidden");
+        let names: Vec<&str> = visible.items.iter().map(|r| r.job_name.as_str()).collect();
+        assert!(!names.contains(&"scan_cleanup"), "the no-op run is hidden");
+        assert!(names.contains(&"manga_sync"), "a run that did work stays visible");
+        assert!(names.contains(&"release_cron"), "a NULL-changed legacy run is never hidden");
+        assert!(names.contains(&"price_cron"), "a failed run is never hidden");
+    }
+
+    #[sqlx::test]
+    async fn filter_by_state_then_delete(pool: PgPool) {
+        let ok = finished_run(&pool, "scan_cleanup", Some(3)).await;
+        let bad = start(&pool, "manga_sync", "schedule", None).await.unwrap().unwrap();
+        finish_failed(&pool, bad, "nope").await.unwrap();
+
+        let failed_only =
+            list_filtered(&pool, &JobFilter { state: Some("failed".into()), ..Default::default() })
+                .await
+                .unwrap();
+        assert_eq!(failed_only.total, 1);
+        assert_eq!(failed_only.items[0].job_name, "manga_sync");
+
+        assert_eq!(delete(&pool, ok).await.unwrap(), 1, "delete removes exactly one row");
+        assert!(get(&pool, ok).await.unwrap().is_none(), "the run is gone after delete");
+    }
+}

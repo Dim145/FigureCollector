@@ -3,7 +3,13 @@ use sea_orm_migration::prelude::*;
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
-const SQL_UP: &str = include_str!("../../migrations/20260620000001_owned_trading.sql");
+// NB: file renamed to a unique version prefix (was also 20260620000001, which
+// collided with owned_documents_parsed and broke sqlx-based tooling / tests —
+// sqlx keys its migration table on the numeric prefix). The sea-orm migration
+// NAME is the module name (DeriveMigrationName), unchanged, so already-applied
+// databases are unaffected. This migration only ALTERs owned_items, so its
+// position within the 2026-06-20 batch is irrelevant.
+const SQL_UP: &str = include_str!("../../migrations/20260620000004_owned_trading.sql");
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {

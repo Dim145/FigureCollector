@@ -129,3 +129,47 @@ async fn execute_and_finish(state: &AppState, run_id: Uuid, job_name: &str) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn explicit_changed_key_wins() {
+        // A result carrying its own `changed` is taken verbatim …
+        assert_eq!(changed_from("anything", &json!({ "changed": 7 })), Some(7));
+        // … even when per-job counters would sum to something else.
+        assert_eq!(
+            changed_from("release_cron", &json!({ "changed": 1, "release_today": 9 })),
+            Some(1)
+        );
+    }
+
+    #[test]
+    fn sums_the_known_counters_per_job() {
+        assert_eq!(
+            changed_from(
+                "release_cron",
+                &json!({ "release_today": 1, "release_j7": 2, "delivery_today": 0, "delivery_overdue": 3 })
+            ),
+            Some(6)
+        );
+        assert_eq!(changed_from("scan_cleanup", &json!({ "purged": 4 })), Some(4));
+        assert_eq!(changed_from("manga_sync", &json!({ "filled": 2 })), Some(2));
+        assert_eq!(changed_from("price_cron", &json!({ "updated": 9 })), Some(9));
+        assert_eq!(
+            changed_from("reindex_image", &json!({ "indexed": 3, "queued": 1 })),
+            Some(4)
+        );
+    }
+
+    #[test]
+    fn zero_for_a_noop_known_job_but_none_for_unknown() {
+        // A successful run that touched nothing → Some(0) → the console may hide it.
+        assert_eq!(changed_from("scan_cleanup", &json!({ "purged": 0 })), Some(0));
+        assert_eq!(changed_from("scan_cleanup", &json!({})), Some(0));
+        // An unknown job → None → never treated as a no-op.
+        assert_eq!(changed_from("mystery_job", &json!({ "foo": 1 })), None);
+    }
+}

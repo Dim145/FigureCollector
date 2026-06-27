@@ -1,0 +1,91 @@
+# =============================================================================
+# Ephemeral stack for Playwright E2E — NOT for production.
+#
+#   docker compose -f docker-compose.e2e.yml up -d --wait
+#   E2E_BASE_URL=http://localhost:5273 pnpm -C client exec playwright test
+#   docker compose -f docker-compose.e2e.yml down -v
+#
+# Differences from docker-compose.yml:
+#   - throwaway Postgres (no named volume — data dies with `down`), so every run
+#     starts from a clean, migrated schema and tests may create data freely;
+#   - NO Garage/S3 (the server boots with object storage disabled — photo
+#     uploads fail, which the smoke flows don't exercise);
+#   - ALLOW_LOCAL_SIGNUP=true + RATE_LIMIT_ENABLED=false so global-setup can
+#     register a disposable test user without being throttled;
+#   - client published on :5273 to avoid clashing with a running dev stack.
+#
+# The server keeps its production hardening (read-only rootfs, dropped caps,
+# non-root uid) so the E2E run also proves the app works under those limits.
+# =============================================================================
+name: fc-e2e
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: figurecollector
+      POSTGRES_PASSWORD: figurecollector
+      POSTGRES_DB: figurecollector
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U figurecollector"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks:
+      - e2e
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      FC_BIND_ADDR: 0.0.0.0:3000
+      RUST_LOG: warn,figurecollector_server=info
+      DATABASE_URL: postgres://figurecollector:figurecollector@postgres:5432/figurecollector
+      FRONTEND_URL: http://localhost:5273
+      # Enable open signup + disable the auth rate limiter for deterministic
+      # test setup. NEVER do this in production.
+      ALLOW_LOCAL_SIGNUP: "true"
+      RATE_LIMIT_ENABLED: "false"
+      # No S3_* on purpose → object storage disabled (see storage::from_env).
+    expose:
+      - "3000"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16M,mode=1777,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "65532:65532"
+    networks:
+      - e2e
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    depends_on:
+      - server
+    ports:
+      - "5273:8080"
+    read_only: true
+    tmpfs:
+      - /tmp:size=32M,mode=1777,noexec,nosuid,nodev
+      - /tmp/nginx:size=8M,mode=1777,noexec,nosuid,nodev
+      - /var/cache/nginx:size=16M,mode=1777,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - e2e
+
+networks:
+  e2e:
+    driver: bridge

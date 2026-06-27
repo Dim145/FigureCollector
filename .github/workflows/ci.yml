@@ -1,0 +1,149 @@
+# =============================================================================
+# Continuous integration — runs the test suites on every PR and on push to main.
+#
+#   client : pnpm (10.33.4) install + Vitest unit suite (lib/money, taskFormat,
+#            coverUrl). Pure-function tests, no browser — fast.
+#   server : cargo test against a throwaway Postgres 16 service. Covers the
+#            existing #[cfg(test)] units AND the #[sqlx::test] integration tests
+#            (which create an isolated DB per test from DATABASE_URL).
+#   e2e    : Playwright smoke flows against an ephemeral Docker stack — see the
+#            dedicated job below; only runs when the app or the E2E specs change.
+#
+# fmt/clippy are intentionally NOT gated here yet: turning them on as a blocking
+# check on a large pre-existing codebase would go red on day one. Add them as a
+# separate, non-blocking job once the tree is clean.
+#
+# NOTE: this workflow is validated on its first push — it cannot be exercised
+# locally. The test SUITES it runs, however, are all green locally.
+# =============================================================================
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same ref supersedes the in-flight run.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  client:
+    name: client · vitest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: client/pnpm-lock.yaml
+
+      # --frozen-lockfile: fail if pnpm-lock.yaml is out of sync rather than
+      # silently resolving a different tree than the one committed.
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm test
+
+  server:
+    name: server · cargo test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    services:
+      postgres:
+        # pgvector image (NOT plain postgres:16): the migrations CREATE EXTENSION
+        # vector / pg_trgm / pgcrypto, and #[sqlx::test] replays all of them on
+        # each per-test database.
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: figurecollector
+          POSTGRES_PASSWORD: figurecollector
+          POSTGRES_DB: figurecollector_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U figurecollector"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # #[sqlx::test] connects here and creates a fresh, isolated database per
+      # test (the figurecollector role is a superuser in the postgres image, so
+      # it may CREATE DATABASE).
+      DATABASE_URL: postgres://figurecollector:figurecollector@localhost:5432/figurecollector_test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      # aws-lc-rs (our TLS backend — never OpenSSL) builds its C core with CMake
+      # and uses NASM for the x86-64 assembly; both are needed on the runner.
+      - name: Install aws-lc-rs build deps
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake nasm
+
+      - name: Cache cargo + target
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: server
+
+      - run: cargo test --locked
+
+  e2e:
+    name: e2e · playwright
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Ephemeral stack: pgvector PG + server + client (no Garage; signup on,
+      # rate-limit off). --wait blocks until the server healthcheck passes.
+      - name: Bring up the test stack
+        run: docker compose -f docker-compose.e2e.yml up -d --wait
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: client/pnpm-lock.yaml
+
+      - name: Install deps + browser
+        working-directory: client
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+
+      - name: Run Playwright
+        working-directory: client
+        env:
+          E2E_BASE_URL: http://localhost:5273
+        run: pnpm exec playwright test
+
+      - name: Stack logs (on failure)
+        if: failure()
+        run: docker compose -f docker-compose.e2e.yml logs --no-color --tail 200
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: client/playwright-report/
+          retention-days: 7
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f docker-compose.e2e.yml down -v
