@@ -3,6 +3,63 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.45 — share a cabinet
+
+- **Public vitrine sharing** — share a single [display cabinet](features/vitrines.md#public-sharing)
+  via a public, read-only link (`/v/:token`), the same way the gift list is
+  shared. Visitors see the cabinet's pieces (photos, condition, for-sale / trade
+  flags) with no account — deliberately stricter than the public profile:
+  **prices, value and notes are never exposed**.
+  → [Vitrines](features/vitrines.md#public-sharing)
+
+## 0.44 — how it grew, where it came from
+
+- **Collection over time** — a new **Évolution** chart on Insights: a dual-line
+  growth curve of cumulative pieces and cumulative spend, reconstructed
+  month-by-month from purchase dates (spend in your display currency).
+  → [Stats & insights](features/achievements-stats.md#stats-insights)
+- **Provenance & archive reason** — record how each piece entered the collection
+  (purchased / gift / trade / found / inherited) and, when archiving, why (sold /
+  traded / lost / gifted). Shown in the owned-item editor and the archived banner.
+  → [Catalogue & collection](features/catalogue.md#collection-collection)
+- **« Solde à régler » fix** — paid pre-order balances were still counted in the
+  ribbon total; the aggregate now honours `balance_paid_at` like the per-entry
+  view.
+
+## 0.43 — add by photo, tag your own
+
+- **Add a figure by photo** — a new **Photo** tab in the add-figure lookup: snap
+  or upload a shot → on-device DINOv2 embedding → nearest-neighbour match against
+  the catalogue → pick a result and it prefills the form. The photo never leaves
+  the device. → [Photo search](features/visual-search.md#add-a-figure-by-photo)
+- **Tag your own photos** — owned-item photos can be auto-tagged (WD-Tagger v3)
+  and used to filter your collection by appearance. Opt-in — off until
+  `WORKER_INTERNAL_TOKEN` is set.
+  → [Photo search](features/visual-search.md#tag-your-own-photos)
+
+## 0.42 — stock at a glance
+
+- **Per-shop stock availability** — figure pages and shop pages show whether each
+  linked shop has the piece **in stock / out of stock / preorder**, parsed from
+  orzgk (`is_in_stock` / `backorders_allowed`) and the proxy's `/product`
+  `status`. The buy control adapts per shop (Acheter / Voir + *Rupture* /
+  Précommander), with a "Vérifié il y a …" freshness line; a status not refreshed
+  for 7 days ages back to *unknown*.
+  → [Catalogue & collection](features/catalogue.md#buy-links-stock-availability)
+
+## 0.41 — a real task console
+
+- **Admin task console** — `/admin/tasks` rebuilt into one filterable table over
+  every background task (server crons, 3D scans, OCR, indexing): persisted filters
+  (state / type / source / trigger / search / since), a result message per run, a
+  "hide no-op runs" toggle, a per-service health strip, and per-row cancel /
+  relaunch / delete showing who triggered manual runs.
+  → [Administration](features/admin.md#tasks)
+- **First automated tests + CI** — frontend unit tests (Vitest), backend
+  integration tests (`#[sqlx::test]` against an ephemeral pgvector DB), and
+  Playwright E2E smoke flows, all wired into a new `ci.yml`.
+  → [Running tests](getting-started/local-dev.md#running-tests)
+
 ## 0.38 — tags you can actually use
 
 - **Filter the catalogue by appearance tag** — the WD-Tagger tags (character,

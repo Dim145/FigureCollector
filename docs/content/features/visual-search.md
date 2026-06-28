@@ -37,6 +37,16 @@ When you open **Reconnaître par photo** and take (or pick) a photo:
 The catalog index is built from **catalog images** (uploaded photos + official
 images) — never from users' own photos.
 
+## Add a figure by photo
+
+The same recognition is wired into the **add-figure lookup**: alongside the
+*Recherche*, *Lien*, *Code-barres* and *AniList* tabs, a **Photo** tab lets you
+snap or upload a shot, runs the on-device embedding + nearest-neighbour match,
+and **prefills the create form** from the result you pick — so adding a piece
+you have in hand is one tab away from the figure you already match, without a
+detour to the standalone page. The photo never leaves the device; only the
+embedding is sent. As everywhere, manual entry stays available if nothing fits.
+
 ## Web fallback
 
 If nothing in the catalog matches, and the admin has enabled it, you'll see a
@@ -50,6 +60,23 @@ hand (the best guess pre-fills the name).
     The web fallback is the one path where your actual photo is uploaded (to
     Google). The button says so, and nothing is sent until you tap it. It's off
     unless an admin both enables it and configures an API key.
+
+## Tag your own photos
+
+Beyond the catalog, your **own uploaded photos** can be auto-tagged. The embed
+worker runs **WD-Tagger v3** over each owned-item photo and stores the tags
+(`photos.visual_tags`); they surface as **« Étiquettes détectées »** chips on the
+photo, and a tag is clickable to **filter your collection by appearance**
+("Filtrer par cette étiquette"). It reuses the same anime-aware tagger that powers
+the catalogue's *Apparence* / *Description* search.
+
+!!! warning "Opt-in — needs the internal token"
+    Owned-photo tagging stays **off** until `WORKER_INTERNAL_TOKEN` is set on the
+    server (matching `EMBED_WORKER_TOKEN` on the worker). The internal fetch route
+    the worker uses to read private photos **fails closed** when the token is
+    unset, and nginx `404`s `/api/internal/*` from outside. See
+    [Environment variables](../getting-started/env-vars.md#external-metadata).
+    Trigger a backfill with **Taguer les photos des collections** in admin.
 
 ## Admin
 

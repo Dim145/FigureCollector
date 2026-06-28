@@ -52,7 +52,8 @@
 
 | Layer | Choice |
 |---|---|
-| CI | GitHub Actions (`.github/workflows/release.yml`) — builds + pushes to GHCR on tags |
+| Tests | `.github/workflows/ci.yml` — three jobs: **client** (Vitest unit tests + lint + build), **server** (`cargo test` — unit + `#[sqlx::test]` integration against an ephemeral pgvector DB), **e2e** (Playwright smoke flows against an ephemeral Docker stack). See [Running tests](../getting-started/local-dev.md#running-tests) |
+| Release | GitHub Actions (`.github/workflows/release.yml`) — builds + pushes to GHCR on tags |
 | Docs deploy | `.github/workflows/docs.yml` — builds MkDocs, publishes to GitHub Pages on push to `main` |
 | Image registry | **ghcr.io/dim145/figurecollector-{server,client,docs}** |
-| Code quality | `pnpm lint` (eslint + react-hooks 7), `cargo clippy --workspace`, CodeQL SAST |
+| Code quality | `pnpm lint` (eslint + react-hooks 7), `cargo clippy --workspace`, CodeQL SAST (advanced setup in `.github/workflows/codeql.yml`) |

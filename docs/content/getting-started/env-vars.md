@@ -63,6 +63,20 @@ If unset, uploads fall back to the local filesystem under `./data/uploads`.
 | `FIGURE_PROXY_API_KEY` | Optional bearer token sent on every proxy call. |
 | `FIGURE_PROXY_TIMEOUT_SECS` | Default `60`. Wall-clock cap (seconds) on a single proxy call — raise it if a slow proxy (Cloudflare warm-ups, paginated scrapes) makes searches error out. |
 
+### Owned-photo tagging
+
+| Variable | What |
+|---|---|
+| `WORKER_INTERNAL_TOKEN` | Shared secret that lets the embed worker read **private (owned-item) photos** to tag them — gates [owned-photo tagging](../features/visual-search.md#tag-your-own-photos). Set it equal to the worker's `EMBED_WORKER_TOKEN`; generate with `openssl rand -hex 32`. **Unset = the feature stays off** — the internal fetch route (`/api/internal/*`) fail-closes, and nginx `404`s that path from outside. Catalogue-only search (which reads shared images) doesn't need it. |
+
+!!! note "AI search & tagging are admin-gated"
+    Semantic (*Description*), appearance (*Apparence*/SigLIP), photo recognition,
+    recommendations, and owned-photo tags are all **admin-toggle features, off by
+    default** — enable them in **Réglages admin** and run the embed worker to
+    index. See [Photo search](../features/visual-search.md#admin) for the worker;
+    the worker's own knobs (`EMBED_*`, `SERVER_URL`) are under
+    [Indexing worker](#indexing-worker-embed-worker) below.
+
 ### Circuit breaker
 
 After repeated failures from an external source (orzgk or the proxy — typically
@@ -155,6 +169,7 @@ variable below has a safe default — set them in the worker service's
 | Variable | Default | What |
 |---|---|---|
 | `SERVER_URL` | `http://server:3000` | Backend base URL the worker pulls figures/images from and reports status to. |
+| `EMBED_WORKER_TOKEN` | — | Bearer token the worker sends to read **private owned photos** for [owned-photo tagging](../features/visual-search.md#tag-your-own-photos). Must equal the server's [`WORKER_INTERNAL_TOKEN`](#owned-photo-tagging). Unset = the worker skips owned-photo tagging (the rest of the indexing still runs). |
 | `EMBED_DEVICE` | `cpu` | `cpu`, `cuda` (needs onnxruntime-gpu — bundled only in the gsplat image), or `auto`. CPU suits typical catalogs; CUDA indexes much faster on a worker with spare VRAM. |
 | `EMBED_MODEL_IDLE_GRACE` | `300` | Seconds a model stays in RAM after its last use before unloading (reloads on demand). `0` = unload as soon as the queue drains. |
 | `EMBED_POLL_INTERVAL` | `5` | Seconds between queue polls when idle. |

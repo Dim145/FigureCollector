@@ -15,6 +15,26 @@ The **catalogue** (`/browse`) is the shared figure database. Every user sees the
 
 Figures support kanji type tags (statue, nendoroid, figma, prize, trading, statue, plamo, bishoujo, dakimakura, …) and a primary photo selected from the catalogue-side photo library.
 
+### Buy links & stock availability
+
+A figure links to every shop that sells it, and each shop's buy control reflects
+its **current stock**. The status is parsed from orzgk (the WooCommerce
+`is_in_stock` / `backorders_allowed` data) and, when the [proxy](url-import.md)
+reports it, from the proxy's `/product` `status` field:
+
+| Stock | Buy control |
+|---|---|
+| **in stock** | the usual **Acheter** |
+| **out of stock** | demoted to a quiet **Voir** + a laque-red *Rupture* label |
+| **preorder** | **Précommander** |
+| **unknown / unscraped** | normal **Acheter** — the UI makes no claim |
+
+Each demoted state carries a **« Vérifié il y a … »** freshness line (flagged
+stale past 48 h). The [market-price sweep](cote.md#market-prices-auto-tracked)
+records stock per shop on its ~24 h pass; a status not refreshed for **7 days**
+ages back to *unknown*, so a stale badge never lingers. The shop's own page
+shows the same signal as a stock badge.
+
 ### Barcode scan
 
 The browse search bar carries a **⌗ scan** button. It opens the device camera and reads **JAN / EAN-13 / EAN-8 / UPC** barcodes with the browser's native `BarcodeDetector` — no extra library, no CDN, no WASM. A scanned code hits `GET /figures/by-jan`:
@@ -39,6 +59,9 @@ Your **collection** is the per-user layer on top: each row in `owned_items` refe
 - `price_amount` + `price_currency` — what you actually paid
 - `shipping_amount` — separate so the figurine cost stays comparable to MSRP
 - `store`, `purchase_date`, `location`, `notes`
+- `acquisition_source` + `acquired_from` — **how** the piece entered the
+  collection (purchased / gift / trade / found / inherited) and from whom or
+  where ("Provenance" + "Acquise auprès de" in the owned-item editor)
 - `cover_photo_id` / `cover_scan_id` — your pinned cover (overrides the catalogue primary)
 
 ### Filters
@@ -61,5 +84,11 @@ Each owned piece has a private **Justificatifs** section (証) for receipts, inv
 ### Archived items
 
 Pieces that came from a cancelled preorder with a partial refund are **archived** rather than deleted, so the loss can be remembered. They're hidden from the default view, surfaced via a "Voir aussi les pré-commandes annulées" toggle, and stamped with a laque-red "Annulée" badge that out-priorities the regular preorder badge.
+
+You can also archive a piece by hand (a piece you sold, traded, lost, or gifted)
+and record an **archive reason** (`archive_reason` — sold / traded / lost /
+gifted / other). The reason shows on the archived banner on the figure detail
+page, alongside the **↺ Restaurer** button that returns the piece to the active
+collection.
 
 See [Pre-orders](preorders.md#cancellations) for the full cancellation flow.

@@ -38,3 +38,16 @@ a figure across cabinets without scrolling.
 Create a cabinet from the header; rename or delete it from its menu. Deleting a
 cabinet **un-shelves** its pieces (they fall back to « Non rangées ») — it never
 deletes figures. Cabinet CRUD lives at `/me/locations`.
+
+## Public sharing
+
+A cabinet can be shared via a **public, read-only link** (`/v/:token`) — the same
+mechanism as the [gift list](wishlist.md). From a cabinet's menu, **Partager
+cette vitrine** mints a secret token (**Créer le lien**); visitors open it with
+**no account** and see only the cabinet's pieces — their photos, condition, and
+the for-sale / for-trade flags. **Arrêter le partage** revokes the link.
+
+It's deliberately **stricter than the public profile**: a shared vitrine never
+exposes **prices, value, or notes**. Sensitive (NSFW) content and value still
+follow your [public-profile settings](social.md). The token is unguessable and
+can be revoked and re-minted at any time if it leaks.

@@ -72,14 +72,23 @@ Useful when:
 ## Running tests
 
 ```bash
-# Backend
+# Backend — unit + integration (#[sqlx::test] against an ephemeral pgvector DB)
 cd server
 cargo test --workspace
 
-# Frontend
+# Frontend — unit tests (Vitest) + lint + build
 cd client
+pnpm test        # Vitest: money/currency math, cover-URL resolution, …
 pnpm lint
-pnpm build      # production build, verifies CSP + chunking
+pnpm build       # production build, verifies CSP + chunking
 ```
 
 Lint cleanliness is non-negotiable — the build pipeline rejects new warnings.
+
+**End-to-end** smoke flows (Playwright — auth, navigation, manual figure entry,
+add-preorder dialog) run against an ephemeral Docker stack; they live under
+`client/e2e/`.
+
+All three layers — client, server, e2e — are wired into CI
+(`.github/workflows/ci.yml`), so a push runs the same checks. See
+[CI / release](../architecture/stack.md#ci-release).

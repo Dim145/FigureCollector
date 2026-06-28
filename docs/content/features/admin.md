@@ -43,15 +43,27 @@ collections. Empty = disabled (the default). The scheduler re-reads the
 setting every minute, so changes apply without a restart; the settings page
 shows a live *next run* indicator.
 
-## Tâches (`/admin/tasks`)
+## Tâches (`/admin/tasks`) { #tasks }
 
-Two registers on one page:
+A single **task-management console** over every background task — server crons,
+3D scans, OCR jobs, and search indexing — newest-first.
 
-**Scan queue** — pending / processing / failed 360° and gsplat jobs, with
-retry & cancel controls.
+**Filters** narrow the table and **persist** across visits: by **state**
+(Toutes / Actives / Réussies / Échouées), **source** (Serveur / Scans 3D / OCR),
+**type**, **trigger** (planifié / manuel), a free-text **search**, and a
+**since** window (1 h / 24 h / 7 j / tout). A **« Masquer les runs sans effet »**
+toggle hides no-op runs (a cron that found nothing to do) so the meaningful ones
+stand out.
 
-**Server jobs** — every scheduled job run is historized (`server_job_runs`)
-and listed newest-first:
+A **« Santé des services »** strip across the top shows each worker/service at a
+glance (En marche / Au repos / OK / Erreur / Déconnecté) with a readable tooltip
+(active jobs, pending, processing, done, failed).
+
+Each row carries **per-row actions** — **cancel** a running job, **Relancer**
+(relaunch) any job, or **delete** a run — and shows **who triggered** manual
+runs.
+
+**Server jobs** are historized in `server_job_runs` and listed in the same table:
 
 | Job | What it does |
 |---|---|
@@ -60,16 +72,15 @@ and listed newest-first:
 | `scan_cleanup` | Prunes orphaned scan files. |
 | `manga_sync` | Refreshes MangaCollector cross-links. |
 
-Each run records its trigger (*schedule* or *manual*), state
-(*processing / ready / failed*), a job-specific **result summary** (e.g.
-`{"processed": 127, "updated": 42}`), an error message on failure, and
-timestamps. The last **30 runs per job** are retained.
+Each run records its trigger (*schedule* or *manual*, with the triggering admin
+on manual runs), state (*processing / ready / failed*), a **result message** for
+every run (e.g. `{"processed": 127, "updated": 42}`), an error message on
+failure, and timestamps. The last **30 runs per job** are retained.
 
-- **Relancer** — every job has a manual-trigger button; the run is recorded
-  with `triggered_by = manual` like any other.
-- **Crash-safe** — a run left `processing` by a server restart is marked
-  *failed (« interrupted by a server restart »)* on boot, so the register
-  never shows a phantom forever-running job.
+!!! note "Crash-safe"
+    A run left `processing` by a server restart is marked
+    *failed (« interrupted by a server restart »)* on boot, so the register
+    never shows a phantom forever-running job.
 
 !!! tip "Where do alerts come from?"
     If a user asks why they got (or didn't get) a price alert or a release

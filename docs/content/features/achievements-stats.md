@@ -46,6 +46,10 @@ purchase-time frozen rate, the same figure La Cote's *total payé* shows.
 
 **Insights** — the deeper cuts:
 
+- **Évolution** — a dual-line growth curve of **cumulative pieces** and
+  **cumulative spend**, reconstructed month-by-month from purchase dates (spend
+  converted to [your display currency](currency.md)). It shows how the shelf —
+  and the outlay — grew over time, not just the per-year totals.
 - **Dépense par année** — spending per year, per currency.
 - **Complétion de séries** — how complete each owned series is (owned vs catalogue).
 - **Coût des souhaits** — the estimated cost of your [wishlist](wishlist.md), per currency.
