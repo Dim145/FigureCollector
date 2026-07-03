@@ -498,12 +498,15 @@ pub async fn collection_stats(
         open: 0,
     };
     for (status, count) in preorder_rows {
-        preorders.placed += count;
         match status.as_str() {
             "received" => preorders.received = count,
             "cancelled" => preorders.cancelled = count,
-            // any non-terminal status counts as "open" (placed/confirmed/shipping/…)
-            _ => preorders.open += count,
+            // any non-terminal status is an active pre-order the user placed —
+            // counts toward both "placed" and "open" (placed/confirmed/shipping/…)
+            _ => {
+                preorders.placed += count;
+                preorders.open += count;
+            }
         }
     }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 
@@ -38,9 +38,24 @@ export default function GChordProvider() {
   const [pending, setPending] = useState(false);
   const [help, setHelp] = useState(false);
 
+  // Latest `pending`/`help` are read through refs so the listener effect can
+  // register ONCE. If the effect depended on `pending`, `setPending(true)`
+  // would re-run it and its cleanup would `clearTimeout(resetTimer)` — killing
+  // the reset timer just armed in the same closure, so the "g _" pill would
+  // linger forever. The reset timer likewise lives in a ref so re-renders
+  // don't cancel it.
+  const pendingRef = useRef(false);
+  const helpRef = useRef(false);
+  const resetTimer = useRef(null);
+  // Mirror latest state into refs from an effect (NOT during render — the
+  // react-hooks/refs rule forbids ref writes in render) so the single keydown
+  // listener below always reads current values.
   useEffect(() => {
-    let resetTimer = null;
+    pendingRef.current = pending;
+    helpRef.current = help;
+  });
 
+  useEffect(() => {
     const isTypingTarget = (el) =>
       el?.tagName === "INPUT" ||
       el?.tagName === "TEXTAREA" ||
@@ -54,9 +69,9 @@ export default function GChordProvider() {
       const k = e.key?.toLowerCase();
       if (!k) return;
 
-      if (pending) {
+      if (pendingRef.current) {
         // We're in the second-key window.
-        clearTimeout(resetTimer);
+        clearTimeout(resetTimer.current);
         setPending(false);
 
         if (k === "?") {
@@ -77,8 +92,8 @@ export default function GChordProvider() {
       if (k === "g") {
         e.preventDefault();
         setPending(true);
-        resetTimer = setTimeout(() => setPending(false), CHORD_TIMEOUT_MS);
-      } else if (k === "escape" && help) {
+        resetTimer.current = setTimeout(() => setPending(false), CHORD_TIMEOUT_MS);
+      } else if (k === "escape" && helpRef.current) {
         setHelp(false);
       }
     };
@@ -86,9 +101,9 @@ export default function GChordProvider() {
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
-      clearTimeout(resetTimer);
+      clearTimeout(resetTimer.current);
     };
-  }, [pending, help, navigate]);
+  }, [navigate]);
 
   return (
     <>

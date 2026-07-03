@@ -50,14 +50,17 @@ export default function AchievementCeremony() {
     }
     // Don't clear on each effect re-run — the timers belong to specific
     // entries that may still be mid-flight.
-    return () => {
-      // Only on unmount: drop everything in flight.
-      if (stack.length === 0) {
-        for (const handle of timeouts.values()) clearTimeout(handle);
-        timeouts.clear();
-      }
-    };
   }, [stack]);
+
+  // Unmount-only: clear every pending timer regardless of `stack` length, so
+  // handles for cards still on screen don't fire on an unmounted component.
+  useEffect(
+    () => () => {
+      for (const handle of timeoutsRef.current.values()) clearTimeout(handle);
+      timeoutsRef.current.clear();
+    },
+    [],
+  );
 
   if (stack.length === 0) return null;
 

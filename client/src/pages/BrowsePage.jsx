@@ -893,7 +893,20 @@ export default function BrowsePage() {
                 {t("browse.discover.all_ambiances", { default: "Toutes les ambiances" })} →
               </button>
             </div>
-            <AmbianceGallery query={clusters} typeMeta={typeMeta} onOpen={setOpenCluster} me={me} t={t} />
+            <AmbianceGallery
+              query={clusters}
+              typeMeta={typeMeta}
+              onOpen={(c) => {
+                // This preview lives in DISCOVERY mode, which never renders the
+                // drill-in (only the ambiances view reads `openCluster`, L757).
+                // So a click must ALSO switch to the ambiances view — otherwise
+                // it sets state nothing reads and appears to do nothing.
+                setViewMode("ambiances");
+                setOpenCluster(c);
+              }}
+              me={me}
+              t={t}
+            />
           </div>
         ) : null}
 

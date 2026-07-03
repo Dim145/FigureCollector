@@ -67,6 +67,8 @@ pub const ALL_EVENTS: &[&str] = &[
     EVENT_PREORDER_RELEASE_J7,
     EVENT_PREORDER_DELIVERY_TODAY,
     EVENT_PREORDER_DELIVERY_OVERDUE,
+    EVENT_MANGA_SERVER_APPROVED,
+    EVENT_MANGA_SERVER_REVOKED,
     EVENT_WISHLIST_PRICE_BELOW_TARGET,
 ];
 
@@ -313,7 +315,7 @@ pub async fn upsert_user_channel(
             (user_id, channel_type, enabled, destination)
          VALUES ($1, $2, COALESCE($3, FALSE), COALESCE($4, '{}'::jsonb))
          ON CONFLICT (user_id, channel_type) DO UPDATE SET
-            enabled     = COALESCE(EXCLUDED.enabled, user_notification_channels.enabled),
+            enabled     = COALESCE($3, user_notification_channels.enabled),
             destination = COALESCE($4, user_notification_channels.destination),
             updated_at  = now()
          RETURNING user_id, channel_type, enabled, destination, created_at, updated_at",

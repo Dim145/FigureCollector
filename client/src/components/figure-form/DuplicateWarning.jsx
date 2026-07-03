@@ -28,7 +28,11 @@ export default function DuplicateWarning({ name, jan, t }) {
   const { data } = useFigureDuplicates(dq.name, dq.jan);
   const matches = data ?? [];
   const enteredJan = dq.jan.trim();
-  if (dismissed || matches.length === 0) return null;
+  // Mirror `useFigureDuplicates`' enable threshold: once the input drops back
+  // below it the query goes `enabled:false`, but v5 keeps its last `data` — so
+  // gate the render too, else stale matches keep showing.
+  const active = dq.name.trim().length >= 3 || enteredJan.length >= 6;
+  if (!active || dismissed || matches.length === 0) return null;
 
   return (
     <div className="border border-[var(--border-strong)] bg-[var(--accent)]/5">

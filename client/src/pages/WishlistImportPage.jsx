@@ -260,7 +260,7 @@ export default function WishlistImportPage() {
           n++;
           return { ...c, selected: true };
         }
-        return { ...c, selected: on ? false : false };
+        return { ...c, selected: false };
       });
     });
 

@@ -20,35 +20,44 @@ export function startLiveSync(queryClient) {
 
   const connect = () => {
     if (stopped) return;
+
+    // Neutralise the previous socket's handlers before we reassign `socket`,
+    // so a late close/error from the old connection can't queue a second
+    // reconnect (which would race with this one and multiply the timers).
+    if (socket) {
+      socket.onopen = socket.onmessage = socket.onclose = socket.onerror = null;
+    }
     socket = new WebSocket(url());
 
-    socket.addEventListener("open", () => {
+    socket.onopen = () => {
       backoff = BACKOFF_INITIAL;
-    });
+    };
 
-    socket.addEventListener("message", (ev) => {
+    socket.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data);
         handleEvent(msg, queryClient);
       } catch {
         /* not JSON, ignore */
       }
-    });
+    };
 
-    socket.addEventListener("close", () => {
+    socket.onclose = () => {
       if (stopped) return;
+      // Re-arm from a clean slate so we never stack overlapping timers.
+      clearTimeout(reconnectTimer);
       reconnectTimer = setTimeout(connect, backoff);
       backoff = Math.min(BACKOFF_MAX, Math.floor(backoff * 1.7));
-    });
+    };
 
-    socket.addEventListener("error", () => {
+    socket.onerror = () => {
       // close handler will reconnect
       try {
         socket?.close();
       } catch {
         /* ignore */
       }
-    });
+    };
   };
 
   connect();

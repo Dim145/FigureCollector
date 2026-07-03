@@ -115,7 +115,7 @@ export default function TurntableWizard({ onUpload, onCancel, busy }) {
       </header>
 
       {/* Mobile-only toggle row — same capabilities gate as the desktop one. */}
-      {gsplatAvailable ? (
+      {canCreate3d ? (
         <div className="md:hidden flex items-center justify-end gap-2 px-6 py-2 border-b border-[var(--color-or)]/15 text-[10px] uppercase tracking-[0.18em]">
           <label className="flex items-center gap-2 cursor-pointer">
             <input

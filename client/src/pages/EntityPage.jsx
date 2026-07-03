@@ -700,7 +700,10 @@ function EntityHeroImage({ entity, figures, kind, t, accent }) {
   const [broken, setBroken] = useState(false);
   useEffect(() => {
     setBroken(false);
-  }, [src]);
+    // Also key on the entity: two entities can resolve to the SAME hero URL,
+    // and the route element isn't remounted on a slug change, so `src` alone
+    // wouldn't reset `broken`.
+  }, [src, entity.id]);
 
   if (!src || broken) {
     return (

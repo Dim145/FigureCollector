@@ -102,10 +102,16 @@ struct CountsRow {
 /// `(followers, following)` counts for `user_id` — the two numbers on a
 /// profile, in one round-trip.
 pub async fn counts(pool: &PgPool, user_id: Uuid) -> AppResult<(i64, i64)> {
+    // Count only publicly-visible relations, to match the list (`list_relations`
+    // filters the counterparty on `public_profile_enabled`) — so the badge
+    // equals what the list shows. Followers: the *follower* must be public;
+    // following: the *followee* must be public.
     let row: CountsRow = sqlx::query_as(
         "SELECT
-            (SELECT COUNT(*) FROM follows WHERE followee_id = $1)::bigint AS followers,
-            (SELECT COUNT(*) FROM follows WHERE follower_id = $1)::bigint AS following",
+            (SELECT COUNT(*) FROM follows f JOIN users u ON u.id = f.follower_id
+               WHERE f.followee_id = $1 AND u.public_profile_enabled = TRUE)::bigint AS followers,
+            (SELECT COUNT(*) FROM follows f JOIN users u ON u.id = f.followee_id
+               WHERE f.follower_id = $1 AND u.public_profile_enabled = TRUE)::bigint AS following",
     )
     .bind(user_id)
     .fetch_one(pool)
@@ -161,7 +167,9 @@ pub async fn discover(pool: &PgPool, viewer: Uuid, search: &str) -> AppResult<Ve
                 (SELECT COUNT(*) FROM owned_items o JOIN figures f ON f.id = o.figure_id
                    WHERE o.user_id = u.id
                      AND (u.public_profile_show_nsfw OR f.is_nsfw = FALSE))::bigint AS pieces,
-                (SELECT COUNT(*) FROM follows fo WHERE fo.followee_id = u.id)::bigint AS followers,
+                -- Count only publicly-visible followers, to match the list.
+                (SELECT COUNT(*) FROM follows fo JOIN users fu ON fu.id = fo.follower_id
+                   WHERE fo.followee_id = u.id AND fu.public_profile_enabled = TRUE)::bigint AS followers,
                 EXISTS(SELECT 1 FROM follows fo WHERE fo.follower_id = $1 AND fo.followee_id = u.id) AS is_following,
                 EXISTS(SELECT 1 FROM follows fo WHERE fo.follower_id = u.id AND fo.followee_id = $1) AS follows_viewer,
                 u.public_profile_show_value AS show_value
@@ -321,7 +329,9 @@ pub async fn list_relations(
                 (SELECT COUNT(*) FROM owned_items o JOIN figures f ON f.id = o.figure_id
                    WHERE o.user_id = u.id
                      AND (u.public_profile_show_nsfw OR f.is_nsfw = FALSE))::bigint AS pieces,
-                (SELECT COUNT(*) FROM follows fx WHERE fx.followee_id = u.id)::bigint AS followers,
+                -- Count only publicly-visible followers, to match the list.
+                (SELECT COUNT(*) FROM follows fx JOIN users fu ON fu.id = fx.follower_id
+                   WHERE fx.followee_id = u.id AND fu.public_profile_enabled = TRUE)::bigint AS followers,
                 EXISTS(SELECT 1 FROM follows fx WHERE fx.follower_id = $2 AND fx.followee_id = u.id) AS is_following,
                 EXISTS(SELECT 1 FROM follows fx WHERE fx.follower_id = u.id AND fx.followee_id = $2) AS follows_viewer,
                 u.public_profile_enabled AS is_public

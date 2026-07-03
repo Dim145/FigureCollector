@@ -557,7 +557,7 @@ pub async fn list_for_user(
     }
     // Archived items, when included, sink to the bottom of the list so they
     // don't crowd the "active collection" experience.
-    sql.push_str(" ORDER BY (o.archived_at IS NOT NULL) ASC, o.created_at DESC");
+    sql.push_str(" ORDER BY (o.archived_at IS NOT NULL) ASC, o.created_at DESC, o.id DESC");
     let mut query = sqlx::query_as::<_, OwnedItemWithFigure>(&sql).bind(user_id);
     if let Some(t) = tag_norm {
         query = query.bind(t);

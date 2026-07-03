@@ -55,13 +55,36 @@ export default function ShelfPlanner({ items, nsfwBlur, standeeWidthPx, t }) {
   // Debounced persist — only after hydration so we never overwrite the stored
   // layout with the empty default on first paint.
   const saveTimer = useRef(null);
+  const pendingSave = useRef(null); // latest payload awaiting the debounce
   useEffect(() => {
     if (!hydrated.current) return;
     clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => save.mutate({ shelves, placed }), 700);
+    const payload = { shelves, placed };
+    pendingSave.current = payload;
+    saveTimer.current = setTimeout(() => {
+      pendingSave.current = null;
+      save.mutate(payload);
+    }, 700);
+    // Re-render cleanup only cancels the pending timer — the next run re-arms
+    // with the newer payload. Do NOT flush here: that would fire a save on every
+    // edit and defeat the debounce.
     return () => clearTimeout(saveTimer.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [placed, shelves]);
+
+  // Unmount-only flush: leaving the page inside the 700ms debounce window would
+  // otherwise drop the last edit. The layout save is an idempotent PUT, so a
+  // flush that races a just-fired timer is harmless (pendingSave is nulled once
+  // the timer runs).
+  useEffect(() => {
+    return () => {
+      if (pendingSave.current) {
+        save.mutate(pendingSave.current);
+        pendingSave.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const itemMap = useMemo(() => {
     const m = new Map();

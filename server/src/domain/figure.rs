@@ -547,7 +547,7 @@ pub async fn list(pool: &PgPool, q: ListQuery) -> AppResult<Vec<Figure>> {
             binds.len()
         ));
     }
-    sql.push_str(" ORDER BY f.created_at DESC LIMIT ");
+    sql.push_str(" ORDER BY f.created_at DESC, f.id DESC LIMIT ");
     binds.push("limit".into());
     sql.push_str(&format!("${} OFFSET ", binds.len()));
     binds.push("offset".into());

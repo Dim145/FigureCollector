@@ -50,6 +50,7 @@ export function useSetMangaLink() {
       qc.invalidateQueries({ queryKey: KEY });
       qc.invalidateQueries({ queryKey: ["manga-crossings"] });
       qc.invalidateQueries({ queryKey: ["manga-figure"] });
+      qc.invalidateQueries({ queryKey: ["manga-series"] });
     },
   });
 }
@@ -66,6 +67,7 @@ export function useSyncMangaLink() {
       qc.invalidateQueries({ queryKey: KEY });
       qc.invalidateQueries({ queryKey: ["manga-crossings"] });
       qc.invalidateQueries({ queryKey: ["manga-figure"] });
+      qc.invalidateQueries({ queryKey: ["manga-series"] });
     },
   });
 }
@@ -79,6 +81,7 @@ export function useClearMangaLink() {
       qc.invalidateQueries({ queryKey: KEY });
       qc.invalidateQueries({ queryKey: ["manga-crossings"] });
       qc.invalidateQueries({ queryKey: ["manga-figure"] });
+      qc.invalidateQueries({ queryKey: ["manga-series"] });
     },
   });
 }

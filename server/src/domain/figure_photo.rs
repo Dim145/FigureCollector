@@ -5,7 +5,7 @@
 use crate::error::{AppError, AppResult};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use sqlx::{FromRow, PgPool};
+use sqlx::{Acquire, FromRow, PgPool};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, FromRow)]
@@ -76,26 +76,64 @@ pub async fn create(
     let position = next_position.map(|(p,)| p).unwrap_or(0);
 
     let id = Uuid::now_v7();
-    let row: FigurePhoto = sqlx::query_as(
-        "INSERT INTO figure_photos (
+    let insert_sql = "INSERT INTO figure_photos (
             id, figure_id, storage_key, mime, width, height, size_bytes,
             position, uploaded_by, is_primary
          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
          RETURNING id, figure_id, storage_key, mime, width, height, size_bytes,
-                   position, uploaded_by, is_primary, created_at",
-    )
-    .bind(id)
-    .bind(figure_id)
-    .bind(storage_key)
-    .bind(mime)
-    .bind(width)
-    .bind(height)
-    .bind(size_bytes)
-    .bind(position)
-    .bind(uploaded_by)
-    .bind(is_primary)
-    .fetch_one(&mut *tx)
-    .await?;
+                   position, uploaded_by, is_primary, created_at";
+
+    // First-upload race: two concurrent uploads to a figure with 0 photos both
+    // compute is_primary=TRUE and collide on the `figure_photos_primary_idx`
+    // partial-unique index. Attempt the insert inside a savepoint (nested tx) so
+    // a unique violation rolls back only this statement — leaving the outer tx
+    // usable — then retry once as a non-primary photo with a recomputed position.
+    let mut sp = tx.begin().await?;
+    let attempt = sqlx::query_as::<_, FigurePhoto>(insert_sql)
+        .bind(id)
+        .bind(figure_id)
+        .bind(storage_key)
+        .bind(mime)
+        .bind(width)
+        .bind(height)
+        .bind(size_bytes)
+        .bind(position)
+        .bind(uploaded_by)
+        .bind(is_primary)
+        .fetch_one(&mut *sp)
+        .await;
+    let row: FigurePhoto = match attempt {
+        Ok(row) => {
+            sp.commit().await?;
+            row
+        }
+        Err(sqlx::Error::Database(db)) if is_primary && db.is_unique_violation() => {
+            sp.rollback().await?;
+            let (position,): (i32,) = sqlx::query_as(
+                "SELECT COALESCE(MAX(position) + 1, 0) FROM figure_photos WHERE figure_id = $1",
+            )
+            .bind(figure_id)
+            .fetch_one(&mut *tx)
+            .await?;
+            sqlx::query_as::<_, FigurePhoto>(insert_sql)
+                .bind(id)
+                .bind(figure_id)
+                .bind(storage_key)
+                .bind(mime)
+                .bind(width)
+                .bind(height)
+                .bind(size_bytes)
+                .bind(position)
+                .bind(uploaded_by)
+                .bind(false)
+                .fetch_one(&mut *tx)
+                .await?
+        }
+        Err(e) => {
+            sp.rollback().await?;
+            return Err(e.into());
+        }
+    };
 
     tx.commit().await?;
     Ok(row)
