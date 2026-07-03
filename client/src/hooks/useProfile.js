@@ -26,9 +26,32 @@ export function useUpdateProfile() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (patch) => api.patch("/me/profile", patch),
-    onSuccess: () => {
+    onSuccess: (_data, patch) => {
+      // ["me"] is a prefix of ["me", "achievements", …] so this also refreshes
+      // the achievements seals (whose cover honours the NSFW preference).
       qc.invalidateQueries({ queryKey: ["me"] });
       qc.invalidateQueries({ queryKey: ["public-profile"] });
+
+      // Changing the NSFW visibility flips what the *server* returns for every
+      // NSFW-aware list/detail (it filters "hide" server-side and the SPA blurs
+      // "blur"). Those queries were cached under the OLD preference, so without
+      // an explicit invalidation the catalogue rails, ambiances, store catalogs,
+      // wishlist, compare and the figure detail keep showing stale figures
+      // (blurred instead of hidden, or exposed) until a manual reload. Refetch
+      // them so they reconcile with the new preference — what a reload does.
+      if (patch && "nsfw_visibility" in patch) {
+        for (const key of [
+          ["figures"], // catalogue grid + curated rails source
+          ["catalogue"], // /catalogue/discover rails + facets
+          ["visual-search"], // ambiances (clusters), similar, recommendations
+          ["store"], // per-shop catalog
+          ["compare"], // profile compare buckets
+          ["figure"], // single figure detail (re-gates the interstitial)
+          ["wishlist"],
+        ]) {
+          qc.invalidateQueries({ queryKey: key });
+        }
+      }
     },
   });
 }

@@ -167,6 +167,7 @@ pub async fn list_for_user(
             f.name                          AS trigger_figure_name,
             f.slug                          AS trigger_figure_slug,
             f.figure_type                   AS trigger_figure_type,
+            f.is_nsfw                       AS trigger_is_nsfw,
             -- Cover URL: prefer the user's own cover photo, then the
             -- catalog's primary figure photo, then the legacy
             -- official_image_url field. NULL when nothing's available.
@@ -220,6 +221,10 @@ pub struct UnlockedAchievement {
     pub trigger_figure_name: Option<String>,
     pub trigger_figure_slug: Option<String>,
     pub trigger_figure_type: Option<String>,
+    /// Whether the trigger figurine is flagged NSFW — the achievements page
+    /// respects the viewer's `nsfw_visibility` for the seal's cover (generic
+    /// placeholder when "hide", blurred when "blur"). NULL when no trigger.
+    pub trigger_is_nsfw: Option<bool>,
     pub trigger_image_url: Option<String>,
 }
 

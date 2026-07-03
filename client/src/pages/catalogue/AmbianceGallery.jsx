@@ -1,6 +1,7 @@
 import Reveal from "../../components/motion/Reveal.jsx";
 import { SectionSkeleton } from "../../components/Skeleton.jsx";
 import { resolveFigureCover } from "../../lib/coverUrl.js";
+import { nsfwMode } from "../../lib/nsfw.js";
 import { EmptyResults } from "./CatalogueResults.jsx";
 
 /**
@@ -47,17 +48,28 @@ function AmbianceTile({ cluster, typeMeta, onOpen, me, t }) {
       <div className="grid grid-cols-2 gap-px bg-[var(--color-or)]/10 aspect-[4/3]">
         {Array.from({ length: 4 }).map((_, idx) => {
           const f = reps[idx];
+          // Respect the viewer's NSFW preference on every mosaic cell: "hide"
+          // swaps the cover for a generic 禁 placeholder (never leak the image),
+          // "blur" applies the CSS blur, "show"/SFW render normally.
+          const mode = f ? nsfwMode(f.is_nsfw, nsfwPref) : "ok";
           return (
             <div key={idx} className="relative overflow-hidden bg-[var(--color-noir)]">
-              {f ? (
+              {f && mode !== "hide" ? (
                 <img
                   src={resolveFigureCover(f)}
                   alt=""
                   loading="lazy"
                   className={`absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${
-                    f.is_nsfw && nsfwPref === "blur" ? "nsfw-blur" : ""
+                    mode === "blur" ? "nsfw-blur" : ""
                   }`}
                 />
+              ) : f && mode === "hide" ? (
+                <span
+                  aria-hidden
+                  className="ja absolute inset-0 grid place-items-center text-3xl leading-none text-[var(--color-or)]/25 select-none"
+                >
+                  禁
+                </span>
               ) : null}
             </div>
           );

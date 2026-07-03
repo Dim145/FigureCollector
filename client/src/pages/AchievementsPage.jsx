@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { Lock } from "lucide-react";
 import { useT } from "../i18n/index.jsx";
 import { appLocale } from "../lib/locale.js";
+import { nsfwMode } from "../lib/nsfw.js";
 import { useMe } from "../hooks/useMe.js";
 import {
   useAchievementsCatalog,
@@ -143,6 +144,9 @@ export default function AchievementsPage() {
   const unlockedCount = mine.data?.length ?? 0;
   const totalCount = catalog.data?.length ?? 0;
   const pct = totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : 0;
+  // A seal's cover is the trigger figurine's photo — honour the viewer's NSFW
+  // preference on it (generic kanji when "hide", blurred when "blur").
+  const nsfwPref = me.data?.user?.nsfw_visibility ?? "hide";
 
   // No achievements defined at all → a polished empty cabinet rather than a
   // bare page (Lot 6).
@@ -165,12 +169,18 @@ export default function AchievementsPage() {
       <div className="ach-page max-w-6xl mx-auto px-6 pt-8 pb-20">
         <Hero unlocked={unlockedCount} total={totalCount} percent={pct} t={t} />
 
-        {recent.length > 0 ? <RecentStrip recent={recent} t={t} /> : null}
+        {recent.length > 0 ? <RecentStrip recent={recent} t={t} nsfwPref={nsfwPref} /> : null}
 
         {(next.data?.length ?? 0) > 0 ? <NextPalier milestones={next.data} t={t} /> : null}
 
         {Object.entries(grouped).map(([category, items]) => (
-          <CategorySection key={category} category={category} items={items} t={t} />
+          <CategorySection
+            key={category}
+            category={category}
+            items={items}
+            t={t}
+            nsfwPref={nsfwPref}
+          />
         ))}
       </div>
     </AppShell>
@@ -294,20 +304,20 @@ function Hero({ unlocked, total, percent, t }) {
   );
 }
 
-function RecentStrip({ recent, t }) {
+function RecentStrip({ recent, t, nsfwPref }) {
   return (
     <Reveal as="section" className="ach-recent" y={20}>
       <p className="ach-recent-heading">{t("achievements.recent")}</p>
       <div className="ach-recent-rail">
         {recent.map((a, i) => (
-          <RecentChip key={a.code} unlock={a} index={i} t={t} />
+          <RecentChip key={a.code} unlock={a} index={i} t={t} nsfwPref={nsfwPref} />
         ))}
       </div>
     </Reveal>
   );
 }
 
-function RecentChip({ unlock, index, t }) {
+function RecentChip({ unlock, index, t, nsfwPref }) {
   // Recent unlocks share the same accent rhythm as the grid so the rail and
   // the wall feel like the same chord. The chip's --ach-tone is consumed by
   // the inline halo below; CSS-var only, so it flips with the theme. (The rail
@@ -324,11 +334,12 @@ function RecentChip({ unlock, index, t }) {
       }}
     >
       <span className="ach-recent-chip-img">
-        {unlock.trigger_image_url ? (
+        {unlock.trigger_image_url && nsfwMode(unlock.trigger_is_nsfw, nsfwPref) !== "hide" ? (
           <img
             src={unlock.trigger_image_url}
             alt={unlock.trigger_figure_name ?? unlock.code}
             loading="lazy"
+            className={nsfwMode(unlock.trigger_is_nsfw, nsfwPref) === "blur" ? "nsfw-blur" : undefined}
           />
         ) : (
           <span className="ach-recent-chip-img-fallback" aria-hidden>
@@ -348,7 +359,7 @@ function RecentChip({ unlock, index, t }) {
   );
 }
 
-function CategorySection({ category, items, t }) {
+function CategorySection({ category, items, t, nsfwPref }) {
   const meta = CATEGORY_META[category] ?? CATEGORY_META.collection;
   const unlockedCount = items.filter((i) => i.unlock).length;
   return (
@@ -378,18 +389,21 @@ function CategorySection({ category, items, t }) {
 
       <ul className="ach-grid">
         {items.map((a, i) => (
-          <AchCard key={a.code} achievement={a} index={i} t={t} />
+          <AchCard key={a.code} achievement={a} index={i} t={t} nsfwPref={nsfwPref} />
         ))}
       </ul>
     </section>
   );
 }
 
-function AchCard({ achievement: a, index, t }) {
+function AchCard({ achievement: a, index, t, nsfwPref }) {
   const ref = useRef(null);
   const reduce = useReducedMotion();
   const unlocked = !!a.unlock;
   const u = a.unlock;
+  // Seal cover honours the NSFW preference: "hide" falls back to the tier-kanji
+  // silhouette (never shows the image), "blur" applies the CSS blur.
+  const coverMode = unlocked ? nsfwMode(u.trigger_is_nsfw, nsfwPref) : "ok";
 
   // Unlocked seals borrow a hue from the accent rhythm so the wall reads as a
   // chord; locked seals stay on a single muted gold so they recede.
@@ -409,8 +423,13 @@ function AchCard({ achievement: a, index, t }) {
     <>
       <div className="ach-card-photo">
         <span className="ach-card-foil" aria-hidden />
-        {unlocked && u.trigger_image_url ? (
-          <img src={u.trigger_image_url} alt={u.trigger_figure_name ?? a.code} loading="lazy" />
+        {unlocked && u.trigger_image_url && coverMode !== "hide" ? (
+          <img
+            src={u.trigger_image_url}
+            alt={u.trigger_figure_name ?? a.code}
+            loading="lazy"
+            className={coverMode === "blur" ? "nsfw-blur" : undefined}
+          />
         ) : (
           <span className="ach-card-photo-kanji" aria-hidden>
             {TIER_KANJI[a.tier]}

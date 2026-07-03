@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
 import { useChannels } from "../hooks/useNotifications.js";
@@ -61,6 +61,7 @@ const SECTIONS = [
 export default function SettingsPage() {
   const t = useT();
   const me = useMe();
+  const location = useLocation();
   const update = useUpdateProfile();
   const channels = useChannels();
   const currencies = useCurrencies();
@@ -89,6 +90,22 @@ export default function SettingsPage() {
   );
 
   useScrollSpy(SECTIONS, setActive, panelRefs);
+
+  // Deep-link support: arriving at /settings#privacy (e.g. from the NSFW
+  // interstitial's "Modifier ma préférence") selects + scrolls to that panel.
+  // Gated on auth because the panels — and thus their registered refs — only
+  // mount once signed in; a rAF defers the scroll until the target panel has
+  // registered its ref for this hash.
+  const deepLinkTarget = me.data?.authenticated ? location.hash.replace(/^#/, "") : "";
+  useEffect(() => {
+    if (!deepLinkTarget || !SECTIONS.some((s) => s.id === deepLinkTarget)) return;
+    setActive(deepLinkTarget);
+    // Panels register their refs during the commit that precedes this effect,
+    // so the target exists now — jump straight to it. No rAF: a backgrounded
+    // tab defers rAF indefinitely, and an anchor arrival is conventionally an
+    // instant jump rather than an animated scroll.
+    panelRefs.current[deepLinkTarget]?.scrollIntoView({ block: "start" });
+  }, [deepLinkTarget]);
 
   // Hooks must all run before any early return so ordering stays stable.
   if (me.isLoading) return null;

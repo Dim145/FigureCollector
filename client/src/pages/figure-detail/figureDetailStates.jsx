@@ -92,7 +92,7 @@ export function NsfwInterstitial({ t, figureId, onAcknowledge }) {
           {t("nsfw.gate.cta_show")}
         </button>
         <Link
-          to="/settings"
+          to="/settings#privacy"
           className="tap-target px-5 py-3 border border-[var(--color-or)]/40 text-[var(--color-ivoire)] text-[11px] uppercase tracking-[0.2em] hover:bg-[var(--color-or)]/10 transition-colors"
         >
           {t("nsfw.gate.cta_settings")}

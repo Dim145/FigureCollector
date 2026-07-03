@@ -182,11 +182,13 @@ async fn get_one(
     let f = figure::find_by_id(&state.pool, id)
         .await?
         .ok_or(AppError::NotFound)?;
-    // NSFW gate, consistent with the list / entity paths: a viewer whose pref
-    // is "hide" — the default for anonymous callers — can't pull an NSFW
-    // figure's detail by id. Signed-in "blur"/"show" users still get it (the
-    // SPA applies the blur), exactly as in their lists.
-    if f.is_nsfw && viewer_hides_nsfw(&session, &state.pool).await {
+    // NSFW gate. A *signed-in* viewer always gets the figure back regardless of
+    // their "hide"/"blur"/"show" preference — the SPA gates it locally: a "hide"
+    // viewer sees a consent interstitial (NOT a bogus 404) so a direct URL or a
+    // pré-commande link resolves to an explainer they can act on, and "blur"
+    // applies the CSS blur. Only *anonymous* callers are refused (the
+    // hide-by-default ceiling), so an NSFW detail never leaks without a session.
+    if f.is_nsfw && auth::require_user_full(&session, &state.pool).await.is_err() {
         return Err(AppError::NotFound);
     }
     Ok(Json(f))
