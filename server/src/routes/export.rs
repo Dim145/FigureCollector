@@ -281,8 +281,12 @@ async fn insurance_dossier(
     }
 
     // 4. Assemble off the async runtime (lopdf/printpdf are CPU-bound + blocking).
+    // Share the PDF-parse concurrency cap: each dossier merges + empty-password-
+    // decrypts every attached PDF, so a burst of large-collection exports could
+    // otherwise exhaust CPU / RSS on the memory-capped container.
     let kicker = manifest.labels.kicker.clone();
     let unreadable = manifest.labels.unreadable.clone();
+    let _parse_permit = crate::services::invoice::acquire_pdf_parse_permit().await;
     let pdf = tokio::task::spawn_blocking(move || dossier::build(&cover, sections, &kicker, &unreadable))
         .await
         .map_err(|e| AppError::Internal(anyhow::anyhow!("dossier task panicked: {e}")))?

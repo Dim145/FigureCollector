@@ -384,7 +384,12 @@ pub async fn create(pool: &PgPool, created_by: Uuid, input: NewFigure) -> AppRes
         .bind(&input.exclusivity)
         .bind(&input.edition)
         .bind(&input.version_name)
-        .bind(&input.official_image_url)
+        // official_image_url is later fetched by the embed/gsplat worker; a
+        // scheme-unrestricted value (file://, ftp://, an internal host) would be an
+        // SSRF / local-file-read sink there. Constrain it to http(s) here — like
+        // the other URL fields — so a non-http(s) value stores as NULL, never a
+        // raw sink. (Defence-in-depth alongside the worker-side opener hardening.)
+        .bind(safe_http_url(&input.official_image_url))
         .bind(&input.description)
         .bind(created_by)
         .bind(input.is_nsfw)
@@ -712,7 +717,7 @@ pub async fn patch(pool: &PgPool, id: Uuid, input: FigurePatch) -> AppResult<Fig
         .bind(&input.exclusivity)
         .bind(&input.edition)
         .bind(&input.version_name)
-        .bind(&input.official_image_url)
+        .bind(safe_http_url(&input.official_image_url)) // http(s)-only; see create() — closes the worker SSRF/file-read sink
         .bind(&input.description)
         .bind(input.is_nsfw)
         .bind(&input.visual_tags)

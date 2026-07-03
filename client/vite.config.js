@@ -72,14 +72,22 @@ export default defineConfig({
           {
             urlPattern: ({ url, request }) =>
               url.pathname.startsWith("/api/photos/") && request.method === "GET",
-            handler: "CacheFirst",
+            // NetworkFirst (not CacheFirst): these are PRIVATE per-user photos,
+            // served `Cache-Control: private, max-age=0, must-revalidate`. Online
+            // we always revalidate first, so once the session ends the network
+            // 401s and no stale private bytes are served — the cache is only an
+            // offline fallback while authenticated. statuses:[200] only (never
+            // store an opaque/error response). Paired with api.js purging these
+            // caches on any 401 (covers the offline copy + shared-device case).
+            handler: "NetworkFirst",
             options: {
               cacheName: "fc-photos",
+              networkTimeoutSeconds: 3,
               expiration: {
                 maxEntries: 400,
                 maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
               },
-              cacheableResponse: { statuses: [0, 200] },
+              cacheableResponse: { statuses: [200] },
             },
           },
           // Catalog COVER photos (/api/figure-photos/) — the catalogue grid
@@ -131,7 +139,9 @@ export default defineConfig({
                 maxEntries: 500,
                 maxAgeSeconds: 60 * 60 * 24, // 24h
               },
-              cacheableResponse: { statuses: [0, 200] },
+              // [200] only — the /api caches must never store an opaque (status 0)
+              // cross-origin/redirected response and serve it back as data.
+              cacheableResponse: { statuses: [200] },
             },
           },
           // External metadata proxies (AniList / MFC) — long cache, SWR.
@@ -145,7 +155,7 @@ export default defineConfig({
                 maxEntries: 200,
                 maxAgeSeconds: 60 * 60 * 24, // 24h (matches backend cache)
               },
-              cacheableResponse: { statuses: [0, 200] },
+              cacheableResponse: { statuses: [200] }, // [200] only — never store opaque
             },
           },
           // ONNX Runtime WASM + ML model weights — cache on first use, keep

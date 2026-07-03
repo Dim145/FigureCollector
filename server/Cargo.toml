@@ -1,6 +1,6 @@
 [package]
 name = "figurecollector-server"
-version = "0.45.1"
+version = "0.45.2"
 edition = "2024"
 rust-version = "1.95"
 license = "MIT"
@@ -115,17 +115,22 @@ scraper = { version = "0.27", default-features = false }
 # into the FROM-scratch static binary, memory-safe (no libpoppler CVE surface).
 # regex drives the label-anchored heuristic field extraction. Both pure Rust,
 # zero OpenSSL. NB: image/scanned receipts have no text layer → manual entry
-# (OCR is a deferred, opt-in palier).
-pdf-extract = "0.10"
+# (OCR is a deferred, opt-in palier). Pinned ≥0.12 to pull a lopdf ≥0.42 that
+# fixes RUSTSEC-2026-0187 (deeply-nested-object recursion → process abort on a
+# crafted invoice PDF, uncatchable). pdf-extract parses UNTRUSTED user uploads.
+pdf-extract = "0.12"
 regex = "1"
 
 # --- Insurance dossier: merge each item's invoices into ONE PDF ---
 # `lopdf` merges the existing invoice PDFs and decrypts empty-password store
 # invoices (pure-Rust RustCrypto — no OpenSSL); `printpdf` builds the per-figure
 # separator pages and wraps image receipts (jpg/png/webp) as PDF pages. printpdf
-# 0.9 pins lopdf ^0.39, so there's a single lopdf in our code path. Everything is
-# in-memory (no temp files → fine under the read-only FROM-scratch container).
-lopdf = "0.39"
+# We bump the DIRECT lopdf (used by the dossier merge, which loads user-uploaded
+# PDFs) to 0.42 for RUSTSEC-2026-0187 (nested-object recursion → uncatchable
+# process abort). printpdf 0.9 keeps its own lopdf ^0.39 internally, but that
+# path only builds OUR separator pages — it never parses untrusted input.
+# Everything is in-memory (no temp files → fine under the read-only container).
+lopdf = "0.42"
 # text_layout pulls azul-layout → ParsedFont (TTF embedding) so the separator
 # pages can render real UTF-8 (accents é · …) and we can measure glyph widths to
 # wrap long titles. Bundled font lives in assets/fonts/ (Go fonts, BSD-3).

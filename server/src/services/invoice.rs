@@ -31,6 +31,24 @@ pub fn extract_pdf_text(bytes: &[u8]) -> Result<String, String> {
     pdf_extract::extract_text_from_mem(bytes).map_err(|e| e.to_string())
 }
 
+/// Bounds how many PDF parses (invoice text-extraction + dossier merge) run at
+/// once. `pdf-extract`/`lopdf` are CPU- and memory-heavy on `spawn_blocking`
+/// threads; a crafted PDF can no longer abort the process (fixed by the lopdf
+/// 0.42 bump — RUSTSEC-2026-0187), but an expensive-but-valid PDF still burns a
+/// core, and a burst of `…/parse` or dossier-export requests could pin many
+/// cores / balloon RSS on the memory-capped container. Cap concurrency (not just
+/// queue depth) by holding a permit across the whole `spawn_blocking`.
+pub static PDF_PARSE_LIMIT: LazyLock<tokio::sync::Semaphore> =
+    LazyLock::new(|| tokio::sync::Semaphore::new(4));
+
+/// Acquire a slot before a `spawn_blocking` PDF parse/merge; held until dropped.
+pub async fn acquire_pdf_parse_permit() -> tokio::sync::SemaphorePermit<'static> {
+    PDF_PARSE_LIMIT
+        .acquire()
+        .await
+        .expect("PDF_PARSE_LIMIT semaphore is never closed")
+}
+
 // --- Heuristic field extractors (label-anchored regexes over the text) -------
 
 static RE_INVOICE_NO: LazyLock<Regex> = LazyLock::new(|| {

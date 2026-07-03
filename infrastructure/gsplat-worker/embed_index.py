@@ -32,10 +32,13 @@ from __future__ import annotations
 import asyncio
 import gc
 import io
+import ipaddress
 import os
+import socket
 import time
 import traceback
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from typing import Any, Callable
@@ -68,6 +71,12 @@ MODEL_IDLE_GRACE = int(os.environ.get("EMBED_MODEL_IDLE_GRACE", "300"))
 MAX_ATTEMPTS = int(os.environ.get("EMBED_MAX_ATTEMPTS", "3"))
 HTTP_TIMEOUT = int(os.environ.get("EMBED_HTTP_TIMEOUT", "30"))
 MAX_IMAGE_BYTES = int(os.environ.get("EMBED_MAX_IMAGE_BYTES", str(25 * 1024 * 1024)))
+# Allow the worker↔server INTERNAL channel (bearer token + PRIVATE photo bytes)
+# to run over plaintext http — ONLY for a trusted same-host/Docker network. When
+# a token is configured and SERVER_URL is not https, the private owned-photo
+# fetch refuses to run unless this is set (fail-closed against cleartext token
+# capture on an untrusted segment). Public catalogue image fetches are unaffected.
+WORKER_ALLOW_INSECURE = os.environ.get("WORKER_ALLOW_INSECURE", "").strip() == "1"
 # Inference device: "cpu" (default), "cuda" (use the GPU — needs onnxruntime-gpu,
 # which the gsplat worker bundles; the standalone CPU image does not), or "auto"
 # (GPU if available, else CPU). Default is CPU on purpose: folded into the gsplat
@@ -423,16 +432,69 @@ class TaggerEmbedder:
 
 
 # --- Image fetch -------------------------------------------------------------
+# SSRF / local-file-read guard for the `official` branch, whose image_ref is a
+# user-controlled catalogue URL. urllib's default opener honours file:// + ftp://
+# and follows redirects, so an unrestricted fetch is an arbitrary-file-read +
+# internal-SSRF sink. We (1) allow only http(s), (2) reject hosts resolving to a
+# private / loopback / link-local / reserved / metadata address, and (3) use an
+# opener with ONLY http(s) handlers (no FileHandler/FTPHandler) that re-validates
+# every redirect target. The server also constrains official_image_url to http(s)
+# on write; this is defence-in-depth for pre-existing rows / other sources.
+def _ip_is_blocked(ip) -> bool:
+    mapped = getattr(ip, "ipv4_mapped", None)
+    if mapped is not None:
+        return _ip_is_blocked(mapped)
+    return bool(
+        ip.is_private
+        or ip.is_loopback
+        or ip.is_link_local
+        or ip.is_reserved
+        or ip.is_multicast
+        or ip.is_unspecified
+    )
+
+
+def _validate_public_http_url(url: str) -> str:
+    parts = urllib.parse.urlsplit(url)
+    if parts.scheme not in ("http", "https"):
+        raise ValueError(f"refusing non-http(s) image URL scheme: {parts.scheme!r}")
+    host = parts.hostname
+    if not host:
+        raise ValueError("image URL has no host")
+    port = parts.port or (443 if parts.scheme == "https" else 80)
+    for info in socket.getaddrinfo(host, port, proto=socket.IPPROTO_TCP):
+        ip = ipaddress.ip_address(info[4][0])
+        if _ip_is_blocked(ip):
+            raise ValueError(f"refusing image URL resolving to non-public address {ip}")
+    return url
+
+
+class _RevalidatingRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _validate_public_http_url(newurl)  # re-guard the redirect target (no rebind to internal)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+# http(s)-only opener (NO file://, NO ftp://) for user-controlled URLs.
+_SAFE_OPENER = urllib.request.build_opener(
+    urllib.request.HTTPHandler,
+    urllib.request.HTTPSHandler,
+    _RevalidatingRedirectHandler,
+)
+
+
 def fetch_image(source: str, image_ref: str) -> bytes:
     """Catalog photos via the server's public proxy (storage-agnostic);
-    `official` images from their source URL."""
-    url = (
-        f"{SERVER_URL}/api/figure-photos/{image_ref}"
-        if source == "photo"
-        else image_ref
-    )
+    `official` images from their (user-controlled) source URL, SSRF-guarded."""
+    if source == "photo":
+        # Trusted server proxy (SERVER_URL) — the default opener is fine.
+        url, opener = f"{SERVER_URL}/api/figure-photos/{image_ref}", urllib.request.urlopen
+    else:
+        # User-controlled catalogue URL — validate scheme + resolved IP, and use
+        # the http(s)-only opener so file:// / ftp:// can never be opened.
+        url, opener = _validate_public_http_url(image_ref), _SAFE_OPENER.open
     req = urllib.request.Request(url, headers={"User-Agent": "FigureCollector-embed-worker"})
-    with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT) as resp:  # noqa: S310
+    with opener(req, timeout=HTTP_TIMEOUT) as resp:  # noqa: S310
         data = resp.read(MAX_IMAGE_BYTES + 1)
     if len(data) > MAX_IMAGE_BYTES:
         raise ValueError("image exceeds EMBED_MAX_IMAGE_BYTES")
@@ -448,6 +510,15 @@ def fetch_owned_photo(photo_id: str) -> bytes:
     owner-gated, so the worker can't use the public `/api/photos/{id}` route."""
     if not WORKER_INTERNAL_TOKEN:
         raise RuntimeError("EMBED_WORKER_TOKEN unset — cannot fetch private owned photos")
+    # Fail closed against sending the bearer token + PRIVATE photo bytes over
+    # cleartext on an untrusted network. Plaintext is allowed ONLY for a trusted
+    # same-host/Docker channel via WORKER_ALLOW_INSECURE=1 (see config note).
+    if not SERVER_URL.startswith("https://") and not WORKER_ALLOW_INSECURE:
+        raise RuntimeError(
+            f"refusing to send the worker token + private photo bytes over plaintext HTTP "
+            f"(SERVER_URL={SERVER_URL!r}); use an https SERVER_URL, or set "
+            f"WORKER_ALLOW_INSECURE=1 for a trusted same-host/Docker network"
+        )
     url = f"{SERVER_URL}/api/internal/owned-photos/{photo_id}"
     req = urllib.request.Request(
         url,

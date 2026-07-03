@@ -93,6 +93,15 @@ async fn main() -> anyhow::Result<()> {
         .user_agent(user_agent)
         .timeout(Duration::from_secs(15))
         .redirect(reqwest::redirect::Policy::none())
+        // Guarded DNS resolver: reqwest re-resolves at connect time, so filtering
+        // blocked IPs HERE (not only in validate_outbound_url's up-front check)
+        // closes the DNS-rebinding/TOCTOU window for the user/admin-controlled
+        // notification targets that use this client. Only this client is guarded —
+        // the main `http_client` also does OIDC discovery, which a self-hosted
+        // internal IdP (private IP) must still be able to reach.
+        .dns_resolver(std::sync::Arc::new(
+            crate::external::notify_channel::GuardedDnsResolver,
+        ))
         .build()?;
 
     let oidc = OidcRegistry::build(

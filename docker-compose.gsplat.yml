@@ -106,6 +106,23 @@ services:
               capabilities: [gpu]
     security_opt:
       - no-new-privileges:true
+    # Drop all Linux capabilities. CUDA compute + COLMAP + ffmpeg reach the GPU
+    # via the nvidia runtime (device files), not via a Linux capability, and the
+    # rest is filesystem I/O — so ALL can be dropped, matching the server/client
+    # hardening mandate. (This worker holds DB + S3 creds and parses untrusted
+    # video/PDF/images, so containment matters here.)
+    cap_drop:
+      - ALL
+    # FURTHER HARDENING — verify on your NVIDIA box before enabling (this worker
+    # writes COLMAP/gsplat scratch + training outputs, so read_only needs every
+    # write path mapped to a tmpfs/volume, and a non-root uid needs the image +
+    # those paths writable by it):
+    #   read_only: true
+    #   user: "65532:65532"
+    #   tmpfs:
+    #     - /tmp:size=2g,mode=1777,noexec,nosuid,nodev
+    # Also consider narrowing NVIDIA_DRIVER_CAPABILITIES above from `all` to
+    # `compute,utility,graphics,video` (the set COLMAP SIFT + NVDEC actually use).
     networks:
       - ip6net
 

@@ -143,6 +143,36 @@ pub(crate) async fn validate_outbound_url(url: &str) -> Result<(), ChannelError>
     Ok(())
 }
 
+/// DNS-rebinding guard for reqwest. `validate_outbound_url` resolves + checks a
+/// URL up front, but reqwest resolves AGAIN at connect time — a short-TTL
+/// attacker DNS could answer a public IP during the check and a private/metadata
+/// IP at connect (TOCTOU / rebinding). Attaching this resolver to the outbound
+/// notification client makes reqwest's OWN connect-time resolution run through
+/// the same `is_blocked_ip` denylist: a single guarded resolution, and reqwest
+/// connects only to allowed addresses. Wired to `http_no_redirect` in main.rs —
+/// NOT the main client, which must still reach a self-hosted internal OIDC IdP.
+pub struct GuardedDnsResolver;
+
+impl reqwest::dns::Resolve for GuardedDnsResolver {
+    fn resolve(&self, name: reqwest::dns::Name) -> reqwest::dns::Resolving {
+        Box::pin(async move {
+            let host = name.as_str().to_owned();
+            // Port 0 — reqwest overrides it with the real target port.
+            let addrs = tokio::net::lookup_host((host.as_str(), 0)).await?;
+            let allowed: Vec<std::net::SocketAddr> =
+                addrs.filter(|a| !is_blocked_ip(&a.ip())).collect();
+            if allowed.is_empty() {
+                return Err(format!(
+                    "all resolved addresses for '{host}' target a blocked \
+                     (private/loopback/link-local/metadata) range"
+                )
+                .into());
+            }
+            Ok(Box::new(allowed.into_iter()) as reqwest::dns::Addrs)
+        })
+    }
+}
+
 fn is_blocked_ip(ip: &IpAddr) -> bool {
     match ip {
         IpAddr::V4(v4) => {

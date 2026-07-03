@@ -227,7 +227,10 @@ async fn parse_document(
     let mut text: Option<String> = None;
     if mime == "application/pdf" {
         let (bytes, _) = state.storage.get(&storage_key).await?;
-        // pdf-extract is synchronous + CPU-bound → run it off the async runtime.
+        // pdf-extract is synchronous + CPU-bound → run it off the async runtime,
+        // and bound concurrent parses so a burst of crafted PDFs can't exhaust
+        // CPU / RSS on the memory-capped container.
+        let _parse_permit = invoice::acquire_pdf_parse_permit().await;
         let extracted_text = tokio::task::spawn_blocking(move || invoice::extract_pdf_text(&bytes))
             .await
             .map_err(|e| AppError::Internal(anyhow::anyhow!("parse task panicked: {e}")))?;

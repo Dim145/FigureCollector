@@ -47,11 +47,25 @@ async function request(
   const data = text ? safeJson(text) : null;
 
   if (!res.ok) {
+    // Any 401 means the session is gone (expiry, revocation, or a sign-out
+    // elsewhere) — drop the SW caches holding PRIVATE per-user bytes so they
+    // can't be served after auth ends (shared device / offline). Mirrors
+    // useLogout's purge, but fires on ANY 401, not only the logout button.
+    if (res.status === 401) purgePrivateCaches();
     const code = data?.error ?? `http_${res.status}`;
     const message = data?.message ?? res.statusText;
     throw new ApiError(res.status, code, message);
   }
   return data;
+}
+
+// Best-effort purge of the SW caches that hold private / authenticated bytes.
+// Safe when anonymous (no-op) and in non-browser test envs (guarded).
+function purgePrivateCaches() {
+  if (typeof caches === "undefined") return;
+  for (const name of ["fc-photos", "fc-figures", "fc-external"]) {
+    caches.delete(name).catch(() => {});
+  }
 }
 
 function safeJson(text) {
