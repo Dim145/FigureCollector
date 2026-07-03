@@ -70,7 +70,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # RapidOCR bakes its PP-OCR ONNX models inside the wheel → no runtime download,
 # so it works in the read-only container (uid 65532, no network).
 RUN --mount=type=cache,target=/root/.cache/pip \
-    python3 -m pip install pymupdf pyclipper shapely pyyaml six && \
+    python3 -m pip install "pymupdf>=1.26.7" pyclipper shapely pyyaml six && \
     python3 -m pip install --no-deps rapidocr-onnxruntime && \
     python3 -c "import fitz; from rapidocr_onnxruntime import RapidOCR; print('rapidocr + pymupdf import ok')"
 
