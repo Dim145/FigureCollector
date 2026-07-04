@@ -28,6 +28,14 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Least-privilege GITHUB_TOKEN. Every job here only checks out the repo and runs
+# tests — no repo writes, PR comments, releases or package pushes — so read-only
+# access covers all of them (e2e's upload-artifact uses the Actions artifact
+# service, not repo `contents`). Scoping this satisfies CodeQL
+# `actions/missing-workflow-permissions` and follows least privilege.
+permissions:
+  contents: read
+
 jobs:
   client:
     name: client · vitest
