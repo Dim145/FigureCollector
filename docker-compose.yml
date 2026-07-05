@@ -195,6 +195,15 @@ services:
       # /api/internal route 404s — fail-closed).
       WORKER_INTERNAL_TOKEN: ${WORKER_INTERNAL_TOKEN:-}
 
+      # FlareSolverr (or an API-compatible drop-in: Byparr / Solvearr / trawl) —
+      # a self-hosted Cloudflare-challenge solver. When set, the orzgk scraper
+      # routes its fetches through it (POST {url}/v1) so a "checking your browser"
+      # wall no longer 403s the lookup. Unset (default) = direct fetch. Bring up
+      # the solver with the docker-compose.flaresolverr.yml overlay, which points
+      # this at it automatically.
+      FLARESOLVERR_URL: ${FLARESOLVERR_URL:-}
+      # FLARESOLVERR_MAX_TIMEOUT_MS: ${FLARESOLVERR_MAX_TIMEOUT_MS:-60000}
+
       # Shipping tracking API keys — optional. When unset the corresponding
       # /api/tracking/{carrier}/… route returns FeatureDisabled and the SPA
       # falls back to a plain "open carrier page" link.

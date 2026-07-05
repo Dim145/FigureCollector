@@ -3,6 +3,18 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.46 — past the Cloudflare wall
+
+- **orzgk lookups get past Cloudflare** — when the orzgk store hides behind a
+  Cloudflare "checking your browser" challenge (which `403`s plain scraping),
+  FigureCollector can now route its search / detail / wishlist fetches through a
+  self-hosted [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr)-compatible
+  solver — Byparr, Solvearr and trawl share the same API. It is **opt-in**: set
+  `FLARESOLVERR_URL` (or bring up the `docker-compose.flaresolverr.yml` sidecar
+  overlay) and lookups route through the solver; leave it unset and nothing changes
+  — direct fetch stays the default and manual entry is always available.
+  → [URL import](features/url-import.md)
+
 ## 0.45 — share a cabinet
 
 - **Public vitrine sharing** — share a single [display cabinet](features/vitrines.md#public-sharing)

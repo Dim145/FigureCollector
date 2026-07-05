@@ -251,7 +251,7 @@ async fn orzgk_search(
     }
     Ok(Json(
         circuit_breaker::guard("orzgk", AppError::ServiceUnavailable(ORZGK_PAUSED), || {
-            orzgk::search(&state.pool, &state.http, &query)
+            orzgk::search(&state.pool, &state.http, &state.config.flaresolverr, &query)
         })
         .await?,
     ))
@@ -273,7 +273,7 @@ async fn orzgk_wishlist(
         .ok_or(AppError::BadRequest("missing url parameter"))?;
     Ok(Json(
         circuit_breaker::guard("orzgk", AppError::ServiceUnavailable(ORZGK_PAUSED), || {
-            orzgk::fetch_wishlist(&state.pool, &state.http, url)
+            orzgk::fetch_wishlist(&state.pool, &state.http, &state.config.flaresolverr, url)
         })
         .await?,
     ))
@@ -474,7 +474,7 @@ async fn orzgk_detail(
     let mut detail = circuit_breaker::guard(
         "orzgk",
         AppError::ServiceUnavailable(ORZGK_PAUSED),
-        || orzgk::detail(&state.pool, &state.http, url),
+        || orzgk::detail(&state.pool, &state.http, &state.config.flaresolverr, url),
     )
     .await?;
     normalize_orzgk_prices(&state, &mut detail.prices).await;

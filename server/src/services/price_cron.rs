@@ -460,7 +460,7 @@ async fn fetch_candidates(
 
     // orzgk → native parser (per-version × per-payment prices).
     if host == ORZGK_HOST {
-        let detail = orzgk::detail(&state.pool, &state.http, url).await?;
+        let detail = orzgk::detail(&state.pool, &state.http, &state.config.flaresolverr, url).await?;
         let top_ccy = detail.currency.clone();
         let mut out = Vec::new();
         if detail.versions.is_empty() {

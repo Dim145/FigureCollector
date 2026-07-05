@@ -5,7 +5,7 @@
 //! surfaces as `None`, never raises.
 
 use super::common::{collapse_ws, extract_scale};
-use super::{CACHE_TTL_HOURS, OrzgkItem, PROVIDER, REQUEST_TIMEOUT_SECS};
+use super::{CACHE_TTL_HOURS, OrzgkItem, PROVIDER};
 use crate::error::{AppError, AppResult};
 use crate::external::cache;
 use chrono::Duration;
@@ -20,6 +20,7 @@ const MAX_RESULTS: usize = 24;
 pub async fn search(
     pool: &PgPool,
     http: &reqwest::Client,
+    fs: &crate::config::FlareSolverrConfig,
     query: &str,
 ) -> AppResult<Vec<OrzgkItem>> {
     let q = query.trim();
@@ -28,6 +29,7 @@ pub async fn search(
     }
     let key = q.to_lowercase();
     let http = http.clone();
+    let fs = fs.clone();
     let q = q.to_string();
 
     cache::cached_fetch::<Vec<OrzgkItem>, _, _>(
@@ -42,37 +44,7 @@ pub async fn search(
             let mut url = reqwest::Url::parse("https://www.orzgk.com/")
                 .map_err(|e| AppError::Internal(anyhow::anyhow!("orzgk url: {e}")))?;
             url.query_pairs_mut().append_pair("s", &q);
-            let resp = http
-                .get(url.clone())
-                .header(
-                    reqwest::header::USER_AGENT,
-                    // Pretend to be a regular browser — orzgk is behind
-                    // Cloudflare, which sometimes refuses unknown UAs. We
-                    // identify FigureCollector inside the UA token so server
-                    // logs still see who's hitting them.
-                    "Mozilla/5.0 (compatible; FigureCollector/0.1; +https://github.com/Dim145/FigureCollector)",
-                )
-                .header(reqwest::header::ACCEPT, "text/html,application/xhtml+xml")
-                .header(reqwest::header::ACCEPT_LANGUAGE, "en-US,en;q=0.9,fr;q=0.8")
-                // Be explicit: only gzip; we don't have brotli compiled into
-                // reqwest, so let Cloudflare know it can't send br.
-                .header(reqwest::header::ACCEPT_ENCODING, "gzip, identity")
-                .timeout(std::time::Duration::from_secs(REQUEST_TIMEOUT_SECS))
-                .send()
-                .await
-                .map_err(|e| {
-                    AppError::Internal(anyhow::anyhow!("orzgk fetch failed: {e}"))
-                })?;
-
-            if !resp.status().is_success() {
-                return Err(AppError::Internal(anyhow::anyhow!(
-                    "orzgk returned HTTP {}",
-                    resp.status()
-                )));
-            }
-            let html = resp.text().await.map_err(|e| {
-                AppError::Internal(anyhow::anyhow!("orzgk body read failed: {e}"))
-            })?;
+            let html = super::common::fetch_html(&http, &fs, url.as_str()).await?;
             Ok(parse_search_html(&html))
         },
     )

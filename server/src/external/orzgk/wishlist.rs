@@ -8,7 +8,7 @@
 //! lists the user keeps private.
 
 use super::common::collapse_ws;
-use super::{CACHE_TTL_HOURS, OrzgkWishItem, PROVIDER, REQUEST_TIMEOUT_SECS};
+use super::{CACHE_TTL_HOURS, OrzgkWishItem, PROVIDER};
 use crate::error::{AppError, AppResult};
 use crate::external::cache;
 use chrono::Duration;
@@ -45,11 +45,13 @@ fn validate_wishlist_url(raw: &str) -> AppResult<reqwest::Url> {
 pub async fn fetch_wishlist(
     pool: &PgPool,
     http: &reqwest::Client,
+    fs: &crate::config::FlareSolverrConfig,
     url: &str,
 ) -> AppResult<Vec<OrzgkWishItem>> {
     let base = validate_wishlist_url(url)?;
     let key = base.as_str().trim_end_matches('/').to_lowercase();
     let http = http.clone();
+    let fs = fs.clone();
 
     cache::cached_fetch::<Vec<OrzgkWishItem>, _, _>(
         pool,
@@ -69,37 +71,13 @@ pub async fn fetch_wishlist(
                         .append_pair("pagenum", &page.to_string());
                 }
 
-                let resp = http
-                    .get(page_url)
-                    .header(
-                        reqwest::header::USER_AGENT,
-                        "Mozilla/5.0 (compatible; FigureCollector/0.1; +https://github.com/Dim145/FigureCollector)",
-                    )
-                    .header(reqwest::header::ACCEPT, "text/html,application/xhtml+xml")
-                    .header(reqwest::header::ACCEPT_LANGUAGE, "en-US,en;q=0.9,fr;q=0.8")
-                    .header(reqwest::header::ACCEPT_ENCODING, "gzip, identity")
-                    .timeout(std::time::Duration::from_secs(REQUEST_TIMEOUT_SECS))
-                    .send()
-                    .await
-                    .map_err(|e| {
-                        AppError::Internal(anyhow::anyhow!("orzgk wishlist fetch failed: {e}"))
-                    })?;
-
-                if !resp.status().is_success() {
-                    // Page 1 failing is a hard error; a later page failing just
-                    // ends the loop with whatever we already gathered.
-                    if page == 1 {
-                        return Err(AppError::Internal(anyhow::anyhow!(
-                            "orzgk wishlist returned HTTP {}",
-                            resp.status()
-                        )));
-                    }
-                    break;
-                }
-
-                let html = resp.text().await.map_err(|e| {
-                    AppError::Internal(anyhow::anyhow!("orzgk wishlist body read failed: {e}"))
-                })?;
+                // Page 1 failing is a hard error; a later page failing just
+                // ends the loop with whatever we already gathered.
+                let html = match super::common::fetch_html(&http, &fs, page_url.as_str()).await {
+                    Ok(html) => html,
+                    Err(_) if page > 1 => break,
+                    Err(e) => return Err(e),
+                };
 
                 let page_items = parse_wishlist_html(&html);
                 if page_items.is_empty() {

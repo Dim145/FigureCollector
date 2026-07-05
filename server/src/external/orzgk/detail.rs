@@ -20,9 +20,7 @@
 //! `collapse_ws` + `extract_scale` live in [`super::common`].
 
 use super::common::{collapse_ws, extract_scale};
-use super::{
-    CACHE_TTL_HOURS, OrzgkDetail, OrzgkPrice, OrzgkVersion, PROVIDER, REQUEST_TIMEOUT_SECS,
-};
+use super::{CACHE_TTL_HOURS, OrzgkDetail, OrzgkPrice, OrzgkVersion, PROVIDER};
 use crate::error::{AppError, AppResult};
 use crate::external::cache;
 use chrono::Duration;
@@ -51,11 +49,13 @@ const DETAIL_LABELS: &[&str] = &[
 pub async fn detail(
     pool: &PgPool,
     http: &reqwest::Client,
+    fs: &crate::config::FlareSolverrConfig,
     url: &str,
 ) -> AppResult<OrzgkDetail> {
     let canonical = canonical_product_url(url)?;
     let key = canonical.clone();
     let http = http.clone();
+    let fs = fs.clone();
 
     cache::cached_fetch::<OrzgkDetail, _, _>(
         pool,
@@ -64,31 +64,7 @@ pub async fn detail(
         &key,
         Duration::hours(CACHE_TTL_HOURS),
         move || async move {
-            let resp = http
-                .get(&canonical)
-                .header(
-                    reqwest::header::USER_AGENT,
-                    "Mozilla/5.0 (compatible; FigureCollector/0.1; +https://github.com/Dim145/FigureCollector)",
-                )
-                .header(reqwest::header::ACCEPT, "text/html,application/xhtml+xml")
-                .header(reqwest::header::ACCEPT_LANGUAGE, "en-US,en;q=0.9,fr;q=0.8")
-                .header(reqwest::header::ACCEPT_ENCODING, "gzip, identity")
-                .timeout(std::time::Duration::from_secs(REQUEST_TIMEOUT_SECS))
-                .send()
-                .await
-                .map_err(|e| {
-                    AppError::Internal(anyhow::anyhow!("orzgk detail fetch failed: {e}"))
-                })?;
-
-            if !resp.status().is_success() {
-                return Err(AppError::Internal(anyhow::anyhow!(
-                    "orzgk detail returned HTTP {}",
-                    resp.status()
-                )));
-            }
-            let html = resp.text().await.map_err(|e| {
-                AppError::Internal(anyhow::anyhow!("orzgk detail body read failed: {e}"))
-            })?;
+            let html = super::common::fetch_html(&http, &fs, &canonical).await?;
             Ok(parse_detail_html(&canonical, &html))
         },
     )

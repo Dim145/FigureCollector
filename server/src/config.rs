@@ -24,6 +24,8 @@ pub struct AppConfig {
     /// `None` → that internal route is disabled (404), so owned-photo tagging
     /// stays off until an operator sets a token on both server and worker.
     pub worker_internal_token: Option<String>,
+    /// FlareSolverr-compatible Cloudflare-challenge solver for the orzgk scraper.
+    pub flaresolverr: FlareSolverrConfig,
 }
 
 /// External boutique-scraping proxy. When `base_url` is set, the
@@ -48,6 +50,24 @@ pub struct ProxyConfig {
     /// on slow upstream sites (Cloudflare warm-ups, paginated scrapes), so this
     /// is generous and tunable via `FIGURE_PROXY_TIMEOUT_SECS`. Default 60.
     pub timeout_secs: u64,
+}
+
+/// FlareSolverr — a self-hosted Cloudflare-challenge solver run as a sidecar.
+/// When `url` is set, the orzgk scraper routes its page fetches through it
+/// (`POST {url}/v1` with `cmd: request.get`), so a Cloudflare "checking your
+/// browser" interstitial is solved by a real headless browser instead of
+/// 403-ing our direct HTTP client. `None` → direct fetch (unchanged). Any
+/// API-compatible drop-in works too (Byparr, Solvearr, trawl — same `/v1`
+/// contract). Manual figure entry always works regardless.
+#[derive(Debug, Clone, Default)]
+pub struct FlareSolverrConfig {
+    /// Solver base URL, no trailing slash (e.g. `http://flaresolverr:8191`).
+    /// `None` (env `FLARESOLVERR_URL` unset) disables solver routing.
+    pub url: Option<String>,
+    /// `maxTimeout` (ms) the solver may spend per request — Cloudflare warm-ups
+    /// plus a headless page load are slow, so this is generous. Env
+    /// `FLARESOLVERR_MAX_TIMEOUT_MS`, default 60000.
+    pub max_timeout_ms: u64,
 }
 
 /// Shipping-carrier API credentials. All optional — the corresponding
@@ -160,6 +180,15 @@ impl AppConfig {
                 .unwrap_or(60),
         };
 
+        let flaresolverr = FlareSolverrConfig {
+            url: env_nonempty("FLARESOLVERR_URL").map(|s| s.trim_end_matches('/').to_string()),
+            max_timeout_ms: env::var("FLARESOLVERR_MAX_TIMEOUT_MS")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .filter(|&n| n > 0)
+                .unwrap_or(60_000),
+        };
+
         Ok(Self {
             bind_addr,
             database_url,
@@ -169,6 +198,7 @@ impl AppConfig {
             tracking,
             proxy,
             worker_internal_token: env_nonempty("WORKER_INTERNAL_TOKEN"),
+            flaresolverr,
         })
     }
 }

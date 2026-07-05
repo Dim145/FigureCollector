@@ -14,6 +14,7 @@
 pub mod anilist;
 pub mod cache;
 pub mod circuit_breaker;
+pub mod flaresolverr;
 pub mod fx;
 pub mod mal;
 pub mod mfc;

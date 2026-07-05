@@ -1,0 +1,48 @@
+# =============================================================================
+# FigureCollector — FlareSolverr overlay: a Cloudflare-challenge solver sidecar
+# for the orzgk scraper (search / detail / wishlist). Opt-in.
+#
+# Run alongside the dev stack:
+#   docker compose -f docker-compose.yml -f docker-compose.flaresolverr.yml up -d
+# Or prod:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.flaresolverr.yml up -d
+#
+# When up, the server's FLARESOLVERR_URL is pointed at the sidecar and orzgk
+# lookups route through it. FlareSolverr runs a headless Chromium, so budget
+# ~700 MB RAM + a ~1 GB image; a challenge solve takes a few seconds.
+#
+# Drop-in alternatives (same /v1 API + port 8191, so ONLY the image line
+# changes): `ghcr.io/thephaseless/byparr` (Camoufox — better on Turnstile),
+# `nabil-ak/solvearr`, `germondai/trawl`.
+# =============================================================================
+
+services:
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    restart: unless-stopped
+    environment:
+      LOG_LEVEL: ${FLARESOLVERR_LOG_LEVEL:-info}
+      # Reap idle browser sessions to cap memory.
+      SESSION_TTL_MINUTES: ${FLARESOLVERR_SESSION_TTL:-10}
+      TZ: ${TZ:-UTC}
+    # No host port — only the server reaches it on the compose network.
+    expose:
+      - "8191"
+    # FlareSolverr launches Chromium (writes /tmp, spawns sandboxed children), so
+    # it can't run under the read_only / cap_drop:ALL profile the server/client
+    # use. no-new-privileges is still safe; it's on the internal network only and
+    # only ever fetches the (admin-managed) orzgk store URLs the backend hands it.
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - ip6net
+
+  server:
+    environment:
+      # Point the backend at the sidecar (overrides the empty base-compose default).
+      FLARESOLVERR_URL: http://flaresolverr:8191
+
+networks:
+  ip6net:
+    external: true
+    name: figurecollector_ip6net
