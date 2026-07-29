@@ -14,6 +14,11 @@ detail live in the [git history](https://github.com/Dim145/FigureCollector/commi
   overlay) and lookups route through the solver; leave it unset and nothing changes
   — direct fetch stays the default and manual entry is always available.
   → [URL import](features/url-import.md)
+- **Cloudflare clearance reuse** — the solver's `cf_clearance` cookie is now cached
+  and replayed on later requests to the same host, so a burst (wishlist pages, the
+  price cron) costs one challenge solve instead of one per request; it falls back to
+  re-solving automatically when the cookie expires. Works with Byparr too, which has
+  no server-side sessions.
 
 ## 0.45 — share a cabinet
 
