@@ -107,8 +107,8 @@ export function buildPick(detail, version, price) {
     feature.includes("r18");
 
   // The description block has cleaner alternates to several spec rows —
-  // prefer them when available. `From:` famously returns "Anime Figure - One
-  // Punch Man", `Product IP:` returns just "One Punch Man".
+  // prefer them when available. `From:` famously returns "Anime Figure -
+  // Persona 5", `Product IP:` returns just "Persona 5".
   const series = detail.product_ip ?? detail.origin;
   const character = detail.product_role ?? detail.character;
 

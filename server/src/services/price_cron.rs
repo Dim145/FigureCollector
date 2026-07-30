@@ -642,7 +642,7 @@ mod tests {
     #[test]
     fn version_match_is_fuzzy() {
         assert!(version_matches("Standard Ver.", "Standard Version"));
-        assert!(version_matches("pregnancy", "Pregnancy Version"));
+        assert!(version_matches("deluxe", "Deluxe Edition"));
         assert!(!version_matches("Deluxe", "Standard Version"));
     }
 

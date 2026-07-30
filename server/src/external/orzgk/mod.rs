@@ -72,7 +72,7 @@ pub struct OrzgkWishItem {
     pub title: String,
     /// Studio / brand parsed from the `<studio> - …` prefix when present.
     pub studio: Option<String>,
-    /// The variant the user wished (`"Pregnancy Version"`), from the row's
+    /// The variant the user wished (`"Deluxe Edition"`), from the row's
     /// `dl.variation`. Used to pre-select the version when creating the figure.
     pub version: Option<String>,
     /// Display price as shown in the wishlist row, e.g. `"€241.87"`.
@@ -105,8 +105,8 @@ pub struct OrzgkPrice {
     pub currency: Option<String>,
 }
 
-/// One named version of an orzgk product. For example *Standard Version* and
-/// *Pregnancy Version* of a single Tatsumaki listing.
+/// One named version of an orzgk product. For example *Standard Edition* and
+/// *Deluxe Edition* of a single Joker listing.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrzgkVersion {
     /// Lowercased slug used as the form key. Stable across renders so the
@@ -133,7 +133,7 @@ pub struct OrzgkDetail {
     pub title: String,
     /// `Brand:` row — typically the manufacturer / studio.
     pub brand: Option<String>,
-    /// `From:` row — usually the source franchise ("One Punch Man", "Anime Figure").
+    /// `From:` row — usually the source franchise ("Persona 5", "Anime Figure").
     pub origin: Option<String>,
     pub character: Option<String>,
     /// `Type:` row — orzgk's free-form category ("GK Statue", "PVC Figure"…).
@@ -171,8 +171,8 @@ pub struct OrzgkDetail {
     // ─── extracted from the long-form description block ──────────────────
     // Orzgk repeats most of the side-panel data inside the description as a
     // `Label: Value` text block. The duplication is genuinely useful: the
-    // description block is cleaner ("One Punch Man" vs `From:` returning
-    // "Anime Figure - One Punch Man"), and surfaces extra fields the
+    // description block is cleaner ("Persona 5" vs `From:` returning
+    // "Anime Figure - Persona 5"), and surfaces extra fields the
     // side-panel doesn't (size, material, edition count, etc).
     /// `Product IP:` — cleaner alternative to `From:` (just the franchise).
     pub product_ip: Option<String>,

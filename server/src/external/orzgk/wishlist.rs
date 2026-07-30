@@ -251,16 +251,16 @@ mod tests {
       <table>
         <tr class="wlfmc-table-item">
           <td class="first-column">
-            <a class="product-thumbnail" href="https://www.orzgk.com/product/crown-studio-tatsumaki/?attribute_version=Pregnancy+Version&amp;attribute_pa_payment=full-payment">
-              <img src="data:image/svg+xml,placeholder" data-src="https://img.orzgk.com/wp-content/uploads/t1.jpg" alt="CROWN" />
+            <a class="product-thumbnail" href="https://www.orzgk.com/product/bard-studio-x-dusk-studio-joker-ren-amamiya-persona-5/?attribute_version=Standard+Edition&amp;attribute_pa_payment=full-payment">
+              <img src="data:image/svg+xml,placeholder" data-src="https://img.orzgk.com/wp-content/uploads/t1.jpg" alt="Bard" />
             </a>
           </td>
           <td class="center-column">
-            <a class="product-name" href="https://www.orzgk.com/product/crown-studio-tatsumaki/?attribute_version=Pregnancy+Version">
-              <strong>CROWN Studio - Tatsumaki VS Tentacle One Punch Man - Pregnancy Version, Full Payment</strong>
+            <a class="product-name" href="https://www.orzgk.com/product/bard-studio-x-dusk-studio-joker-ren-amamiya-persona-5/?attribute_version=Standard+Edition">
+              <strong>Bard Studio - Joker/Ren Amamiya Persona 5 - Standard Edition, Full Payment</strong>
             </a>
             <div class="product-variation">
-              <dl class="variation"><dt>version:</dt><dd>Pregnancy Version</dd><dt>PAYMENT:</dt><dd>Full Payment</dd></dl>
+              <dl class="variation"><dt>version:</dt><dd>Standard Edition</dd><dt>PAYMENT:</dt><dd>Full Payment</dd></dl>
             </div>
             <div class="product-price price"><span class="woocommerce-Price-amount amount"><span>&euro;</span>241.87</span></div>
           </td>
@@ -282,12 +282,12 @@ mod tests {
         assert_eq!(items.len(), 2, "got {items:?}");
 
         let a = &items[0];
-        assert_eq!(a.studio.as_deref(), Some("CROWN Studio"));
-        assert_eq!(a.title, "Tatsumaki VS Tentacle One Punch Man");
-        assert_eq!(a.version.as_deref(), Some("Pregnancy Version"));
+        assert_eq!(a.studio.as_deref(), Some("Bard Studio"));
+        assert_eq!(a.title, "Joker/Ren Amamiya Persona 5");
+        assert_eq!(a.version.as_deref(), Some("Standard Edition"));
         assert_eq!(
             a.detail_url,
-            "https://www.orzgk.com/product/crown-studio-tatsumaki/"
+            "https://www.orzgk.com/product/bard-studio-x-dusk-studio-joker-ren-amamiya-persona-5/"
         );
         assert_eq!(a.image_url.as_deref(), Some("https://img.orzgk.com/wp-content/uploads/t1.jpg"));
         assert!(a.price.as_deref().unwrap().contains("241.87"));

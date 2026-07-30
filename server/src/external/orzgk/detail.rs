@@ -7,7 +7,7 @@
 //!      structure is stable: a single array of variant rows with
 //!      `attributes`, `display_price`, `price_html`, `image`.
 //!   2. **Side-panel spec rows** — short anchor / span pairs like
-//!      `Brand: CROWN Studio`. We walk every element and pick the
+//!      `Brand: Bard Studio`. We walk every element and pick the
 //!      *shortest* candidate so leaf cells beat the parent container's
 //!      concatenated text.
 //!   3. **Free-form description block** — orzgk repeats most of the
@@ -164,7 +164,7 @@ pub fn parse_detail_html(url: &str, html: &str) -> OrzgkDetail {
         special_description: ds("Special Description:"),
     };
     // Best-effort scale fallback: if the spec row didn't surface one, try the
-    // title (e.g. "Crown Studio Tatsumaki 1/6").
+    // title (e.g. "Bard Studio Joker 1/6").
     if detail.scale.is_none() {
         detail.scale = extract_scale(&detail.title);
     }
@@ -843,7 +843,7 @@ mod tests {
 
     /// Trimmed-down fixture mirroring an orzgk product page with both
     /// variations + spec rows + gallery + description block. Inspired by the
-    /// live Tatsumaki page.
+    /// live Joker page.
     const DETAIL_FIXTURE: &str = r##"
 <!doctype html>
 <html><body>
@@ -862,34 +862,34 @@ mod tests {
     </div>
 
     <div class="summary">
-      <h1 class="product_title">Crown Studio Tatsumaki vs Tentacle One Punch Man</h1>
+      <h1 class="product_title">Bard Studio X Dusk Studio - Joker/Ren Amamiya Persona 5</h1>
 
       <div class="product-meta">
-        <p>Brand: <a style="text-decoration: underline;" href="/brand/crown-studio">CROWN Studio (new)</a></p>
-        <p>From: <a href="/from/anime-figure">Anime Figure</a></p>
-        <p>Character: <a href="/character/tatsumaki">Tatsumaki</a></p>
+        <p>Brand: <a style="text-decoration: underline;" href="/brand/bard-studio">Bard Studio</a></p>
+        <p>From: <a href="/from/persona-5">Persona 5</a></p>
+        <p>Character: <a href="/character/joker">Joker/Ren Amamiya</a></p>
         <p>Type: <a href="/type/gk-statue">GK Statue</a></p>
         <p>Height Range: <a href="/h/16-25cm">16-25cm</a></p>
         <p>Scale: <a href="/scale/1-6">1/6</a></p>
-        <p>Feature: <a href="/feature/18-female">18+ Female</a></p>
+        <p>Feature: <a href="/feature/licensed">Licensed</a></p>
         <p>Pre-order Start Date: <span style="color: #FEB333;">2026/05/18</span></p>
         <p>Est Released Time: <span style="color: #FEB333;">2027/12</span></p>
       </div>
 
       <div id="tab-description">
-        <p>Studio: CROWN Studio Product Name: Tatsumaki Est. Completion: 2027 Q4
-           Size: (H)17 cm x (W)29 cm x (D)13.6 cm Limited No Of Unit: -
-           Product IP: One Punch Man Product Role: Tatsumaki
-           Product Features: 18+ Female Product Scale: 1/6
+        <p>Studio: Bard Studio Product Name: Joker/Ren Amamiya Est. Completion: 2027 Q4
+           Size: (H)30 cm x (W)20 cm x (D)20 cm Limited No Of Unit: -
+           Product IP: Persona 5 Product Role: Joker/Ren Amamiya
+           Product Features: Licensed Product Scale: 1/6
            Height Range: 16-25cm Product Material: Imported PU, high-grade resin
            Special Description: -</p>
       </div>
 
       <form class="variations_form cart" data-product_variations='[
-        {"attributes":{"attribute_version":"Standard Version","attribute_pa_payment":"deposit"},"display_price":53.28,"display_regular_price":53.28,"price_html":"<span class=\"woocommerce-Price-amount amount\"><bdi><span class=\"woocommerce-Price-currencySymbol\">€</span>53.28</bdi></span>","image":{"src":"https://img.orzgk.com/wp-content/uploads/std.jpg"}},
-        {"attributes":{"attribute_version":"Standard Version","attribute_pa_payment":"full"},"display_price":133.21,"display_regular_price":133.21,"price_html":"<span class=\"woocommerce-Price-amount amount\"><bdi><span class=\"woocommerce-Price-currencySymbol\">€</span>133.21</bdi></span>","image":{"src":"https://img.orzgk.com/wp-content/uploads/std.jpg"}},
-        {"attributes":{"attribute_version":"Pregnancy Version","attribute_pa_payment":"deposit"},"display_price":68.00,"display_regular_price":68.00,"price_html":"<span class=\"woocommerce-Price-amount amount\"><bdi><span class=\"woocommerce-Price-currencySymbol\">€</span>68.00</bdi></span>","image":{"src":"https://img.orzgk.com/wp-content/uploads/preg.jpg"}},
-        {"attributes":{"attribute_version":"Pregnancy Version","attribute_pa_payment":"full"},"display_price":170.00,"display_regular_price":170.00,"price_html":"<span class=\"woocommerce-Price-amount amount\"><bdi><span class=\"woocommerce-Price-currencySymbol\">€</span>170.00</bdi></span>","image":{"src":"https://img.orzgk.com/wp-content/uploads/preg.jpg"}}
+        {"attributes":{"attribute_version":"Standard Edition","attribute_pa_payment":"deposit"},"display_price":272.81,"display_regular_price":272.81,"price_html":"<span class=\"woocommerce-Price-amount amount\"><bdi><span class=\"woocommerce-Price-currencySymbol\">€</span>272.81</bdi></span>","image":{"src":"https://img.orzgk.com/wp-content/uploads/std.jpg"}},
+        {"attributes":{"attribute_version":"Standard Edition","attribute_pa_payment":"full"},"display_price":685.09,"display_regular_price":685.09,"price_html":"<span class=\"woocommerce-Price-amount amount\"><bdi><span class=\"woocommerce-Price-currencySymbol\">€</span>685.09</bdi></span>","image":{"src":"https://img.orzgk.com/wp-content/uploads/std.jpg"}},
+        {"attributes":{"attribute_version":"Deluxe Edition","attribute_pa_payment":"deposit"},"display_price":326.85,"display_regular_price":326.85,"price_html":"<span class=\"woocommerce-Price-amount amount\"><bdi><span class=\"woocommerce-Price-currencySymbol\">€</span>326.85</bdi></span>","image":{"src":"https://img.orzgk.com/wp-content/uploads/deluxe.jpg"}},
+        {"attributes":{"attribute_version":"Deluxe Edition","attribute_pa_payment":"full"},"display_price":828.03,"display_regular_price":828.03,"price_html":"<span class=\"woocommerce-Price-amount amount\"><bdi><span class=\"woocommerce-Price-currencySymbol\">€</span>828.03</bdi></span>","image":{"src":"https://img.orzgk.com/wp-content/uploads/deluxe.jpg"}}
       ]'>
         <table></table>
       </form>
@@ -901,32 +901,32 @@ mod tests {
     #[test]
     fn parses_detail_spec_rows() {
         let d = parse_detail_html(
-            "https://www.orzgk.com/product/crown-tatsumaki/",
+            "https://www.orzgk.com/product/joker-persona-5/",
             DETAIL_FIXTURE,
         );
-        assert_eq!(d.title, "Crown Studio Tatsumaki vs Tentacle One Punch Man");
-        assert_eq!(d.brand.as_deref(), Some("CROWN Studio (new)"));
-        assert_eq!(d.origin.as_deref(), Some("Anime Figure"));
-        assert_eq!(d.character.as_deref(), Some("Tatsumaki"));
+        assert_eq!(d.title, "Bard Studio X Dusk Studio - Joker/Ren Amamiya Persona 5");
+        assert_eq!(d.brand.as_deref(), Some("Bard Studio"));
+        assert_eq!(d.origin.as_deref(), Some("Persona 5"));
+        assert_eq!(d.character.as_deref(), Some("Joker/Ren Amamiya"));
         assert_eq!(d.kind.as_deref(), Some("GK Statue"));
         assert_eq!(d.height_range.as_deref(), Some("16-25cm"));
         assert_eq!(d.scale.as_deref(), Some("1/6"));
-        assert_eq!(d.feature.as_deref(), Some("18+ Female"));
+        assert_eq!(d.feature.as_deref(), Some("Licensed"));
         assert_eq!(d.preorder_start_date.as_deref(), Some("2026/05/18"));
         assert_eq!(d.est_released_time.as_deref(), Some("2027/12"));
 
         // ─── description-mined fields ────────────────────────────────────
-        assert_eq!(d.product_ip.as_deref(), Some("One Punch Man"));
-        assert_eq!(d.product_role.as_deref(), Some("Tatsumaki"));
+        assert_eq!(d.product_ip.as_deref(), Some("Persona 5"));
+        assert_eq!(d.product_role.as_deref(), Some("Joker/Ren Amamiya"));
         assert_eq!(
             d.product_material.as_deref(),
             Some("Imported PU, high-grade resin")
         );
         assert_eq!(
             d.size.as_deref(),
-            Some("(H)17 cm x (W)29 cm x (D)13.6 cm")
+            Some("(H)30 cm x (W)20 cm x (D)20 cm")
         );
-        assert_eq!(d.height_mm, Some(170));
+        assert_eq!(d.height_mm, Some(300));
         assert_eq!(d.est_completion.as_deref(), Some("2027 Q4"));
         // "-" placeholders are dropped, never surfaced as values.
         assert!(d.limited_units.is_none());
@@ -936,7 +936,7 @@ mod tests {
     #[test]
     fn parses_detail_versions_and_prices() {
         let d = parse_detail_html(
-            "https://www.orzgk.com/product/crown-tatsumaki/",
+            "https://www.orzgk.com/product/joker-persona-5/",
             DETAIL_FIXTURE,
         );
         assert_eq!(d.versions.len(), 2, "expected two versions, got {:?}", d.versions);
@@ -944,26 +944,26 @@ mod tests {
         assert_eq!(d.currency.as_deref(), Some("EUR"));
 
         let std = &d.versions[0];
-        assert_eq!(std.label, "Standard Version");
-        assert_eq!(std.key, "standard-version");
+        assert_eq!(std.label, "Standard Edition");
+        assert_eq!(std.key, "standard-edition");
         assert_eq!(std.prices.len(), 2);
         // sort order: deposit first, then full
         assert_eq!(std.prices[0].label, "deposit");
-        assert!((std.prices[0].amount - 53.28).abs() < 1e-6);
+        assert!((std.prices[0].amount - 272.81).abs() < 1e-6);
         assert_eq!(std.prices[0].currency.as_deref(), Some("EUR"));
         assert_eq!(std.prices[1].label, "full");
-        assert!((std.prices[1].amount - 133.21).abs() < 1e-6);
+        assert!((std.prices[1].amount - 685.09).abs() < 1e-6);
 
-        let preg = &d.versions[1];
-        assert_eq!(preg.label, "Pregnancy Version");
-        assert_eq!(preg.key, "pregnancy-version");
-        assert_eq!(preg.image_url.as_deref(), Some("https://img.orzgk.com/wp-content/uploads/preg.jpg"));
+        let deluxe = &d.versions[1];
+        assert_eq!(deluxe.label, "Deluxe Edition");
+        assert_eq!(deluxe.key, "deluxe-edition");
+        assert_eq!(deluxe.image_url.as_deref(), Some("https://img.orzgk.com/wp-content/uploads/deluxe.jpg"));
     }
 
     #[test]
     fn parses_detail_gallery() {
         let d = parse_detail_html(
-            "https://www.orzgk.com/product/crown-tatsumaki/",
+            "https://www.orzgk.com/product/joker-persona-5/",
             DETAIL_FIXTURE,
         );
         assert_eq!(d.images.len(), 2);
@@ -977,10 +977,10 @@ mod tests {
     #[test]
     fn canonical_url_strips_query_and_fragment() {
         let u = canonical_product_url(
-            "https://www.orzgk.com/product/crown-tatsumaki/?ref=foo#anchor",
+            "https://www.orzgk.com/product/joker-persona-5/?ref=foo#anchor",
         )
         .unwrap();
-        assert_eq!(u, "https://www.orzgk.com/product/crown-tatsumaki/");
+        assert_eq!(u, "https://www.orzgk.com/product/joker-persona-5/");
 
         // host normalisation: bare orzgk.com → www.orzgk.com
         let u2 = canonical_product_url("https://orzgk.com/product/x/").unwrap();
@@ -1028,7 +1028,7 @@ mod tests {
     #[test]
     fn slugify_handles_punctuation() {
         assert_eq!(slugify("Standard Version"), "standard-version");
-        assert_eq!(slugify("Pregnancy Version"), "pregnancy-version");
+        assert_eq!(slugify("Deluxe Edition"), "deluxe-edition");
         assert_eq!(slugify("  Mixed --- chars!"), "mixed-chars");
     }
 
@@ -1044,22 +1044,22 @@ mod tests {
     #[test]
     fn parses_description_specs_block() {
         // Real orzgk description (whitespace collapsed by upstream parser).
-        let desc = "Studio: CROWN Studio Product Name: Tatsumaki Est. Completion: 2027 Q4 \
-                    Size: (H)17 cm x (W)29 cm x (D)13.6 cm Limited No Of Unit: - \
-                    Product IP: One Punch Man Product Role: Tatsumaki \
-                    Product Features: 18+ Female Product Scale: 1/6 \
+        let desc = "Studio: Bard Studio Product Name: Joker/Ren Amamiya Est. Completion: 2027 Q4 \
+                    Size: (H)30 cm x (W)20 cm x (D)20 cm Limited No Of Unit: - \
+                    Product IP: Persona 5 Product Role: Joker/Ren Amamiya \
+                    Product Features: Licensed Product Scale: 1/6 \
                     Height Range: 16-25cm Product Material: Imported PU, high-grade resin \
                     Special Description: -";
         let m = parse_description_specs(desc);
-        assert_eq!(m.get("Studio:").map(|s| s.as_str()), Some("CROWN Studio"));
-        assert_eq!(m.get("Product Name:").map(|s| s.as_str()), Some("Tatsumaki"));
+        assert_eq!(m.get("Studio:").map(|s| s.as_str()), Some("Bard Studio"));
+        assert_eq!(m.get("Product Name:").map(|s| s.as_str()), Some("Joker/Ren Amamiya"));
         assert_eq!(m.get("Est. Completion:").map(|s| s.as_str()), Some("2027 Q4"));
         assert_eq!(
             m.get("Size:").map(|s| s.as_str()),
-            Some("(H)17 cm x (W)29 cm x (D)13.6 cm")
+            Some("(H)30 cm x (W)20 cm x (D)20 cm")
         );
-        assert_eq!(m.get("Product IP:").map(|s| s.as_str()), Some("One Punch Man"));
-        assert_eq!(m.get("Product Role:").map(|s| s.as_str()), Some("Tatsumaki"));
+        assert_eq!(m.get("Product IP:").map(|s| s.as_str()), Some("Persona 5"));
+        assert_eq!(m.get("Product Role:").map(|s| s.as_str()), Some("Joker/Ren Amamiya"));
         assert_eq!(
             m.get("Product Material:").map(|s| s.as_str()),
             Some("Imported PU, high-grade resin")
@@ -1085,13 +1085,13 @@ mod tests {
     #[test]
     #[ignore]
     fn detail_live_probe() {
-        let path = "/tmp/orzgk_tatsumaki.html";
+        let path = "/tmp/orzgk_probe.html";
         let Ok(html) = std::fs::read_to_string(path) else {
             eprintln!("(skipping — {path} not present)");
             return;
         };
         let d = parse_detail_html(
-            "https://www.orzgk.com/product/crown-studio-tatsumaki-vs-tentacle-one-punch-man/",
+            "https://www.orzgk.com/product/bard-studio-x-dusk-studio-joker-ren-amamiya-persona-5/",
             &html,
         );
         println!("{:#?}", d);

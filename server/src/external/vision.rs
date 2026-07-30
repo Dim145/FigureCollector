@@ -34,7 +34,7 @@ pub struct MatchingPage {
 /// Distilled Web Detection result — only the fields useful for identification.
 #[derive(Debug, Serialize, Default)]
 pub struct WebHints {
-    /// Google's single best textual guess (e.g. "tatsumaki figure").
+    /// Google's single best textual guess (e.g. "joker figure").
     pub best_guess: Option<String>,
     /// Recognised web entities, most-confident first (deduped, non-empty).
     pub entities: Vec<String>,

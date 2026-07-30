@@ -19,6 +19,9 @@ detail live in the [git history](https://github.com/Dim145/FigureCollector/commi
   price cron) costs one challenge solve instead of one per request; it falls back to
   re-solving automatically when the cookie expires. Works with Byparr too, which has
   no server-side sessions.
+- **Single-result searches no longer vanish** — when an orzgk search matches exactly
+  one figure, the store redirects straight to that product page; the importer now
+  detects this and still returns the lone result instead of showing nothing.
 
 ## 0.45 — share a cabinet
 
