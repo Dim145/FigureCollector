@@ -43,6 +43,7 @@ LABEL security.readonly-rootfs-expected="true"
 
 COPY --from=builder /build/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/nginx.conf
+COPY security-headers.conf /etc/nginx/security-headers.conf
 
 EXPOSE 8080
 USER 65532

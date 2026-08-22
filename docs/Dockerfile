@@ -54,6 +54,7 @@ COPY --from=builder /build/site/ /usr/share/nginx/html/
 # Replace the default nginx.conf with our hardened version (port 8080, no
 # directory listing, gzip on text assets, basic security headers).
 COPY nginx.conf /etc/nginx/nginx.conf
+COPY security-headers.conf /etc/nginx/security-headers.conf
 
 EXPOSE 8080
 
