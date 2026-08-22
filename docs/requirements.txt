@@ -4,5 +4,5 @@
 # Material release lands, audit the changelog, then commit.
 
 mkdocs>=1.6,<2.0
-mkdocs-material>=9.5,<10.0
-pymdown-extensions>=10.0,<11.0
+mkdocs-material>=9.7,<10.0
+pymdown-extensions>=11.0.1,<12.0
