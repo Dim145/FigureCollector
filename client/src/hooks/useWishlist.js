@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
+import { withOutbox } from "../lib/outbox.js";
 
 /** The signed-in user's wishlist (catalogue figures they covet). */
 export function useWishlistItems() {
@@ -31,7 +32,8 @@ export function useWishlistPriceHistory(enabled = true) {
 export function useAddWishlistItem() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload) => api.post("/me/wishlist", payload),
+    mutationFn: (payload) =>
+      withOutbox("wishlist.add", payload, () => api.post("/me/wishlist", payload)),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["wishlist"] }),
   });
 }

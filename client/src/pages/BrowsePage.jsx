@@ -18,6 +18,7 @@ import { PageLayout } from "../components/layout/index.js";
 import { Button, Tabs, Drawer } from "../components/ui/index.js";
 import { SectionSkeleton } from "../components/Skeleton.jsx";
 import BarcodeScanner from "../components/BarcodeScanner.jsx";
+import { findByBarcode } from "../lib/db.js";
 import SearchBar from "./catalogue/SearchBar.jsx";
 import SearchAutocomplete from "./catalogue/SearchAutocomplete.jsx";
 import BrowseFilters from "./catalogue/BrowseFilters.jsx";
@@ -258,7 +259,18 @@ export default function BrowsePage() {
           return;
         }
       } catch {
-        /* unknown / error → fall through to manual add */
+        // Offline (or the lookup failed): the on-device mirror still answers
+        // the only question that matters in a shop aisle — do I already have
+        // this? A cached figure page beats an add form we can't submit.
+        try {
+          const mine = await findByBarcode(jan);
+          if (mine?.figure_id) {
+            navigate(`/figures/${mine.figure_id}`);
+            return;
+          }
+        } catch {
+          /* no IndexedDB (private mode) — fall through to manual add */
+        }
       }
       navigate(`/figures/new?jan=${encodeURIComponent(jan)}`);
     },

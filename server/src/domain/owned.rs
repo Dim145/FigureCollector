@@ -127,6 +127,8 @@ pub struct OwnedItemWithFigure {
     /// to re-query per row. Used purely as a fallback when no per-user
     /// cover is set.
     pub catalog_cover_photo_id: Option<Uuid>,
+    /// Catalogue barcode (JAN/EAN) — mirrored offline for scan-to-check.
+    pub jan: Option<String>,
     /// True when at least one receipt / invoice is attached to this piece.
     /// Drives the insurance-coverage panel and the paperclip on the card.
     #[serde(default)]
@@ -531,6 +533,10 @@ pub async fn list_for_user(
             p.status                AS preorder_status,
             p.release_date_current  AS preorder_release_current,
             f.is_nsfw,
+            -- Barcode, so the offline mirror can answer the do-I-already-own-this
+            -- question from a scan with no network (a convention hall or a shop
+            -- aisle is exactly where it gets asked, and where there is no signal).
+            f.jan,
             -- Does this piece have a receipt/invoice attached? Surfaced so the
             -- SPA can show insurance coverage as a share of VALUE (not of
             -- count) without a second round-trip per row.

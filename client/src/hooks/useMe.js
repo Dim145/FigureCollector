@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
+import { purgeLocalData } from "../lib/db.js";
 
 /** Read the current session. Returns `{ authenticated: false }` when not signed in. */
 export function useMe() {
@@ -64,6 +65,9 @@ export function useLogout() {
       // responses — private photo bytes (fc-photos) especially. qc.clear()
       // only drops the in-memory TanStack cache; Cache Storage survives logout
       // and a later user on a shared device could otherwise read it. Best-effort.
+      // Same reasoning for the Dexie mirror + outbox: they hold what you own
+      // and what you were about to buy, on the device.
+      purgeLocalData();
       if (typeof caches !== "undefined") {
         for (const name of ["fc-photos", "fc-figures", "fc-external"]) {
           caches.delete(name).catch(() => {});

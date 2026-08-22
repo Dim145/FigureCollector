@@ -1240,6 +1240,11 @@ export default {
   "slip.unknown_maker": "Unknown maker",
   "slip.not_enough": "Not enough per-maker history yet ({n} slips minimum).",
 
+  "pwa.syncing": "syncing {n} pending change(s)…",
+  "pwa.queued": "{n} queued",
+  "restore.kicker": "復 · RESTORE",
+  "restore.title": "Re-import a backup",
+
   // Notification channels (settings page)
   "settings.nav.notif_chan": "Notifications",
   "notif.channels.title": "Notifications",

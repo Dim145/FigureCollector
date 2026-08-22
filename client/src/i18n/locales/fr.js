@@ -1272,6 +1272,11 @@ export default {
   "slip.unknown_maker": "Fabricant inconnu",
   "slip.not_enough": "Pas encore assez d'historique par fabricant ({n} glissements minimum).",
 
+  "pwa.syncing": "{n} modification(s) en cours de synchronisation…",
+  "pwa.queued": "{n} en attente",
+  "restore.kicker": "復 · RESTAURATION",
+  "restore.title": "Réimporter une sauvegarde",
+
   // Notification channels (settings page)
   "settings.nav.notif_chan": "Notifications",
   "notif.channels.title": "Notifications",

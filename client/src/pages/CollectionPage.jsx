@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { useT } from "../i18n/index.jsx";
@@ -14,6 +14,7 @@ import {
 import { useRowSelection } from "../hooks/useRowSelection.js";
 import useUrlState, { asBool } from "../hooks/useUrlState.js";
 import useScrollRestoration from "../hooks/useScrollRestoration.js";
+import { syncMirror } from "../lib/db.js";
 import useGridDensity from "../hooks/useGridDensity.js";
 import { useDisplayCurrency } from "../components/DisplayCurrencyProvider.jsx";
 import { toDisplay } from "../lib/money.js";
@@ -260,6 +261,12 @@ export default function CollectionPage() {
     setPage(1);
   }
   const visible = useMemo(() => filtered.slice(0, page * PAGE), [filtered, page]);
+
+  // Keep the on-device mirror in step with every successful fetch, so a later
+  // offline session can answer "do I already own this?" from a barcode scan.
+  useEffect(() => {
+    if (owned.data) syncMirror("owned", owned.data);
+  }, [owned.data]);
 
   // Come back to where you left off, once the plate has actually rendered.
   useScrollRestoration("collection", !owned.isLoading && filtered.length > 0);

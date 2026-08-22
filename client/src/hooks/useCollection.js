@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, api } from "../lib/api.js";
+import { withOutbox } from "../lib/outbox.js";
 
 // ----- Figures (catalog) -----------------------------------------------------
 
@@ -114,7 +115,11 @@ export function useOwnedPhotoTags({ enabled = true } = {}) {
 export function useAddOwnedItem() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload) => api.post("/me/owned", payload),
+    // "I just bought this" is the one write a collector makes with no signal
+    // (shop aisle, convention hall). Offline it parks in the outbox and
+    // replays on reconnect instead of failing once and vanishing.
+    mutationFn: (payload) =>
+      withOutbox("collection.add", payload, () => api.post("/me/owned", payload)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["owned"] });
       // Owning a figure clears any matching wish server-side (owned ≠

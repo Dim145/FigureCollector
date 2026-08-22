@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { Download, Search } from "lucide-react";
 import { useT } from "../i18n/index.jsx";
@@ -17,6 +17,7 @@ import { useDisplayCurrency } from "../components/DisplayCurrencyProvider.jsx";
 import { sumInDisplay } from "../lib/money.js";
 import { toSeries } from "../components/PriceHistory.jsx";
 import { floorStats } from "./wishlist/priceFloor.js";
+import { syncMirror } from "../lib/db.js";
 import useUrlState, { asBool } from "../hooks/useUrlState.js";
 import { dealIsMet } from "./wishlist/dealLogic.js";
 import WishlistKpiStrip from "./wishlist/WishlistKpiStrip.jsx";
@@ -65,6 +66,10 @@ export default function WishlistPage() {
     () => allItems.filter((it) => it.stock_status === "in_stock" || it.stock_status === "preorder").length,
     [allItems],
   );
+
+  useEffect(() => {
+    if (wishlist.data) syncMirror("wish", wishlist.data);
+  }, [wishlist.data]);
 
   // Price history for every wished figure — one round-trip, grouped per figure
   // so each row can draw its own floor read.
