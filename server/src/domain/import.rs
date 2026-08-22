@@ -108,6 +108,28 @@ async fn find_figure(
     Ok(hit.map(|(id,)| id))
 }
 
+/// Resolve a figure type from the file against the instance's `figure_types`
+/// table, which `figures.figure_type` references by foreign key.
+///
+/// A backup can name a type this instance doesn't have (an older export, a
+/// different deployment, a hand-written spreadsheet), and a bare INSERT then
+/// dies on the FK and takes the whole import with it. Fall back to `other` —
+/// the column's own default — so one unrecognised label costs a category, not
+/// the restore.
+async fn resolve_figure_type(tx: &mut Transaction<'_, Postgres>, requested: &str) -> AppResult<String> {
+    let want = requested.trim().to_lowercase();
+    if !want.is_empty() {
+        let hit: Option<(String,)> = sqlx::query_as("SELECT id FROM figure_types WHERE id = $1")
+            .bind(&want)
+            .fetch_optional(&mut **tx)
+            .await?;
+        if let Some((id,)) = hit {
+            return Ok(id);
+        }
+    }
+    Ok("other".to_string())
+}
+
 /// Create the minimum viable catalogue figure for an imported row. Marked
 /// `is_user_submitted` like any other non-admin contribution, so catalogue
 /// hygiene tooling can review it later.
@@ -140,6 +162,8 @@ async fn create_figure(
     // Slug collisions are real (two makers, one character name), so suffix with
     // a short id fragment rather than failing the whole import on a unique
     // violation.
+    let figure_type = resolve_figure_type(tx, figure_type).await?;
+
     let id = Uuid::new_v4();
     let slug = format!("{}-{}", slugify(name), &id.to_string()[..8]);
     let row = sqlx::query(
@@ -152,7 +176,7 @@ async fn create_figure(
     .bind(name)
     .bind(&slug)
     .bind(manufacturer_id)
-    .bind(figure_type)
+    .bind(&figure_type)
     .bind(scale)
     .bind(jan.map(str::trim).filter(|s| !s.is_empty()))
     .bind(user_id)
@@ -260,11 +284,7 @@ pub async fn apply(
         {
             Some(id) => id,
             None if create_missing => {
-                let ft = if row.figure_type.trim().is_empty() {
-                    "figure"
-                } else {
-                    row.figure_type.trim()
-                };
+                let ft = row.figure_type.trim();
                 out.figures_created += 1;
                 create_figure(
                     &mut tx,
@@ -338,7 +358,7 @@ pub async fn apply(
                     &mut tx,
                     user_id,
                     name,
-                    "figure",
+                    "",
                     row.manufacturer.as_deref(),
                     None,
                     None,

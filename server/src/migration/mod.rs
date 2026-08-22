@@ -76,6 +76,9 @@ mod m20260627_000004_figure_shop_stock;
 mod m20260627_000005_owned_photo_tags;
 mod m20260627_000006_owned_provenance;
 mod m20260627_000007_vitrine_share;
+mod m20260822_000001_monthly_budget;
+mod m20260822_000002_condition_grades;
+mod m20260822_000003_condition_reports;
 
 pub struct Migrator;
 
@@ -147,6 +150,9 @@ impl MigratorTrait for Migrator {
             Box::new(m20260627_000005_owned_photo_tags::Migration),
             Box::new(m20260627_000006_owned_provenance::Migration),
             Box::new(m20260627_000007_vitrine_share::Migration),
+            Box::new(m20260822_000001_monthly_budget::Migration),
+            Box::new(m20260822_000002_condition_grades::Migration),
+            Box::new(m20260822_000003_condition_reports::Migration),
         ]
     }
 }
