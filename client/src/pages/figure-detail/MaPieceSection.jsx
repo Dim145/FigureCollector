@@ -3,6 +3,7 @@ import OwnedItemEditor from "../../components/OwnedItemEditor.jsx";
 import CoverPicker from "../../components/CoverPicker.jsx";
 import PhotoStrip from "../../components/PhotoStrip.jsx";
 import DocumentsSection from "../../components/DocumentsSection.jsx";
+import ConditionReportSection from "../../components/ConditionReportSection.jsx";
 
 /**
  * #ma-piece — the owner layer of ⓪ La Fiche, visually SEPARATED from the
@@ -45,6 +46,12 @@ export default function MaPieceSection({ f, owned, nsfwPref, t }) {
 
       <Foldable size="minor" kanji="証" label={t("figure.owner.tab.documents")} defaultOpen={false}>
         <DocumentsSection ownedId={owned.id} />
+      </Foldable>
+
+      {/* 検 Arrival QC — sits next to the private documents on purpose: defect
+          evidence is owner-only data, never catalogue material. */}
+      <Foldable size="minor" kanji="検" label={t("figure.owner.tab.qc", { default: "Contrôle" })} defaultOpen={false}>
+        <ConditionReportSection ownedId={owned.id} />
       </Foldable>
     </div>
   );

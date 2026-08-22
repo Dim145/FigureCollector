@@ -6,6 +6,7 @@ pub mod admin;
 pub mod calendar;
 pub mod catalogue;
 pub mod clustering;
+pub mod condition_report;
 pub mod currency;
 pub mod entity;
 pub mod export;

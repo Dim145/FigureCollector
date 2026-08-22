@@ -11,6 +11,9 @@
 use crate::domain::notification;
 use crate::services::{job_runner, notify};
 use crate::state::AppState;
+/// How many days before a claim window shuts we start warning.
+const CLAIM_WARN_DAYS: i64 = 3;
+
 use chrono::NaiveDate;
 use serde_json::json;
 use sqlx::FromRow;
@@ -167,11 +170,44 @@ pub async fn run_once(state: &AppState) -> crate::error::AppResult<serde_json::V
         )
         .await;
     }
+    // Claim windows about to shut. Warned at 3 days out (and every day after,
+    // deduped per day) — a DOA window is short enough that one silent day is
+    // the difference between a refund and a shrug.
+    let closing = crate::domain::condition_report::closing_windows(&state.pool, CLAIM_WARN_DAYS)
+        .await
+        .unwrap_or_default();
+    let closing_count = closing.len();
+    for w in closing {
+        let days_left = (w.deadline - chrono::Utc::now().date_naive()).num_days();
+        let dedup = format!(
+            "claim:{}:{}:{}",
+            w.report_id,
+            w.which,
+            chrono::Utc::now().date_naive()
+        );
+        notify::dispatch(
+            state,
+            w.user_id,
+            notification::EVENT_CLAIM_WINDOW_CLOSING,
+            json!({
+                "report_id":     w.report_id,
+                "owned_item_id": w.owned_item_id,
+                "figure_name":   w.figure_name,
+                "which":         w.which,
+                "deadline":      w.deadline.to_string(),
+                "days_left":     days_left,
+            }),
+            Some(&dedup),
+        )
+        .await;
+    }
+
     Ok(json!({
         "release_today": counts.0,
         "release_j7": counts.1,
         "delivery_today": counts.2,
         "delivery_overdue": counts.3,
+        "claim_windows_closing": closing_count,
     }))
 }
 

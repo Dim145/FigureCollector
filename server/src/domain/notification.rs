@@ -64,6 +64,11 @@ pub const EVENT_WISHLIST_PRICE_BELOW_TARGET: &str = "wishlist_price_below_target
 /// deduped per (figure, store, day) so a flapping listing can't spam. Payload:
 /// `{ figure_id, figure_name, store_id, store_name, status }`.
 pub const EVENT_WISHLIST_BACK_IN_STOCK: &str = "wishlist_back_in_stock";
+/// A claim window on an arrival condition report is about to close (the shop's
+/// DOA window or the carrier's). Fires while there is still time to act —
+/// a notice the day after is just bad news. Once per (report, window, date).
+/// Payload: `{ report_id, owned_item_id, figure_name, which, deadline, days_left }`.
+pub const EVENT_CLAIM_WINDOW_CLOSING: &str = "claim_window_closing";
 
 /// All event types the system can fire. Keep in lockstep with the SPA's
 /// i18n message keys (`notifications.event.<event_type>.*`).
@@ -77,6 +82,7 @@ pub const ALL_EVENTS: &[&str] = &[
     EVENT_MANGA_SERVER_REVOKED,
     EVENT_WISHLIST_PRICE_BELOW_TARGET,
     EVENT_WISHLIST_BACK_IN_STOCK,
+    EVENT_CLAIM_WINDOW_CLOSING,
 ];
 
 // =============================================================================

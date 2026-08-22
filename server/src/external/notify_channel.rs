@@ -457,6 +457,27 @@ fn render_message(
             }
         }
 
+        notification::EVENT_CLAIM_WINDOW_CLOSING => {
+            let name = get_str("figure_name");
+            let deadline = get_str("deadline");
+            let days = payload.get("days_left").and_then(|v| v.as_i64()).unwrap_or(0);
+            let carrier = get_str("which") == "carrier";
+            let url = link("/collection");
+            RenderedMessage {
+                title: if fr {
+                    format!("FigureCollector — réclamation : {name}")
+                } else {
+                    format!("FigureCollector — claim window closing: {name}")
+                },
+                body: match (fr, carrier) {
+                    (true, false) => format!("La fenêtre de réclamation boutique (DOA) pour {name} ferme le {deadline} — dans {days} j.\n\n{url}"),
+                    (true, true) => format!("Le délai de réclamation transporteur pour {name} expire le {deadline} — dans {days} j.\n\n{url}"),
+                    (false, false) => format!("The shop's DOA window for {name} closes on {deadline} — {days} day(s) left.\n\n{url}"),
+                    (false, true) => format!("The carrier claim window for {name} expires on {deadline} — {days} day(s) left.\n\n{url}"),
+                },
+            }
+        }
+
         notification::EVENT_MANGA_SERVER_APPROVED => {
             let label = {
                 let l = get_str("label");

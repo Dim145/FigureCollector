@@ -14,6 +14,7 @@ const KANJI_BY_EVENT = {
   manga_server_revoked: "禁",
   wishlist_price_below_target: "値",
   wishlist_back_in_stock: "在",
+  claim_window_closing: "検",
 };
 
 /** Display name for a manga server: its label, else the bare host. */
@@ -108,6 +109,19 @@ export function formatNotification(n, t) {
           { shop: p.store_name ?? "—" },
         ),
         href: p.figure_id ? `/figures/${p.figure_id}` : "/collection/souhaits",
+        kanji,
+      };
+    }
+    case "claim_window_closing": {
+      return {
+        title: t("notifications.event.claim_window_closing.title", {
+          name: p.figure_name ?? "—",
+        }),
+        sub: t("notifications.event.claim_window_closing.sub", {
+          which: p.which ?? "",
+          deadline: p.deadline ?? "—",
+        }),
+        href: "/collection",
         kanji,
       };
     }
