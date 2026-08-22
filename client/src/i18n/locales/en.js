@@ -1256,6 +1256,15 @@ export default {
   "landed.estimate": "estimate",
   "landed.detail": "Duty {duty} · VAT {vat} · handling {handling}",
 
+  "owned.editor.field.grade_item": "Item grade",
+  "owned.editor.field.grade_box": "Box grade",
+  "owned.editor.field.completeness": "Completeness",
+  "owned.editor.grade.unset": "Ungraded",
+  "owned.editor.completeness.complete": "Complete",
+  "owned.editor.completeness.missing_parts": "Missing parts",
+  "owned.editor.completeness.box_only": "Box only",
+  "owned.editor.completeness.no_box": "No box",
+
   // Notification channels (settings page)
   "settings.nav.notif_chan": "Notifications",
   "notif.channels.title": "Notifications",

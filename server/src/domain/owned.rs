@@ -129,6 +129,13 @@ pub struct OwnedItemWithFigure {
     pub catalog_cover_photo_id: Option<Uuid>,
     /// Catalogue barcode (JAN/EAN) — mirrored offline for scan-to-check.
     pub jan: Option<String>,
+    /// Grade of the piece itself (A+ … J). `None` = ungraded.
+    pub condition_item: Option<String>,
+    /// Grade of the box (A+ … J), tracked separately — a crushed box costs
+    /// real money on an exclusive even when the figure is mint.
+    pub condition_box: Option<String>,
+    /// complete | missing_parts | box_only | no_box.
+    pub completeness: Option<String>,
     /// True when at least one receipt / invoice is attached to this piece.
     /// Drives the insurance-coverage panel and the paperclip on the card.
     #[serde(default)]
@@ -190,6 +197,11 @@ pub struct OwnedPatch {
     pub asking_price_amount: Option<Decimal>,
     pub asking_price_currency: Option<String>,
     pub sale_note: Option<String>,
+    /// Two-axis grading. Omitted (None) leaves the column untouched, like the
+    /// other optional fields; validated against the ladder when present.
+    pub condition_item: Option<String>,
+    pub condition_box: Option<String>,
+    pub completeness: Option<String>,
 }
 
 fn default_condition() -> String {
@@ -197,6 +209,14 @@ fn default_condition() -> String {
 }
 
 const ALLOWED_CONDITIONS: &[&str] = &["mib_sealed", "opened_box", "displayed", "loose", "damaged"];
+
+/// Two-axis grade ladder, as the Japanese used market writes it: A+ (mint)
+/// through J (junk). Applies independently to the piece and to its box —
+/// for a figure they are separate goods with separate value.
+const ALLOWED_GRADES: &[&str] = &["A+", "A", "A-", "B+", "B", "C", "J"];
+
+/// What is actually in the box.
+const ALLOWED_COMPLETENESS: &[&str] = &["complete", "missing_parts", "box_only", "no_box"];
 
 /// How a piece entered the collection (provenance). Mirrors the SPA's source
 /// select; validated server-side so stats/exports never see a bogus value.
@@ -348,6 +368,20 @@ pub async fn patch(
     if input.acquired_from.as_deref().is_some_and(|s| s.len() > 256) {
         return Err(AppError::BadRequest("acquired_from too long (max 256)"));
     }
+    // Same enum floor as every other user-set vocabulary — the DB carries CHECK
+    // constraints too, but a 400 is a better answer than a 500.
+    for g in [&input.condition_item, &input.condition_box] {
+        if let Some(g) = g {
+            if !ALLOWED_GRADES.contains(&g.as_str()) {
+                return Err(AppError::BadRequest("invalid condition grade"));
+            }
+        }
+    }
+    if let Some(c) = &input.completeness {
+        if !ALLOWED_COMPLETENESS.contains(&c.as_str()) {
+            return Err(AppError::BadRequest("invalid completeness"));
+        }
+    }
 
     // Same find-or-create as in `create()`. Patch with `store: ""` is a
     // no-op (find_or_create returns None for empty input, and COALESCE
@@ -382,7 +416,10 @@ pub async fn patch(
                 WHEN $3 IS NOT NULL AND ($3 <> price_currency OR price_fx_rate IS NULL)
                     THEN COALESCE($16, price_fx_rate)
                 ELSE price_fx_rate
-              END
+              END,
+            condition_item   = COALESCE($19, condition_item),
+            condition_box    = COALESCE($20, condition_box),
+            completeness     = COALESCE($21, completeness)
          WHERE id = $17 AND user_id = $18
          RETURNING {OWNED_RETURNING}"
     );
@@ -406,6 +443,9 @@ pub async fn patch(
         .bind(price_fx_rate)
         .bind(id)
         .bind(user_id)
+        .bind(&input.condition_item)
+        .bind(&input.condition_box)
+        .bind(&input.completeness)
         .fetch_optional(pool)
         .await?;
 
@@ -537,6 +577,7 @@ pub async fn list_for_user(
             -- question from a scan with no network (a convention hall or a shop
             -- aisle is exactly where it gets asked, and where there is no signal).
             f.jan,
+            o.condition_item, o.condition_box, o.completeness,
             -- Does this piece have a receipt/invoice attached? Surfaced so the
             -- SPA can show insurance coverage as a share of VALUE (not of
             -- count) without a second round-trip per row.

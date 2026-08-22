@@ -1288,6 +1288,15 @@ export default {
   "landed.estimate": "estimation",
   "landed.detail": "Droits {duty} · TVA {vat} · frais de dossier {handling}",
 
+  "owned.editor.field.grade_item": "Note pièce",
+  "owned.editor.field.grade_box": "Note boîte",
+  "owned.editor.field.completeness": "Complétude",
+  "owned.editor.grade.unset": "Non noté",
+  "owned.editor.completeness.complete": "Complet",
+  "owned.editor.completeness.missing_parts": "Pièces manquantes",
+  "owned.editor.completeness.box_only": "Boîte seule",
+  "owned.editor.completeness.no_box": "Sans boîte",
+
   // Notification channels (settings page)
   "settings.nav.notif_chan": "Notifications",
   "notif.channels.title": "Notifications",

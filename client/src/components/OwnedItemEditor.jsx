@@ -18,6 +18,13 @@ import PriceWithBreakdown from "./PriceWithBreakdown.jsx";
 import Select from "./Select.jsx";
 import StoreAutocomplete from "./StoreAutocomplete.jsx";
 
+/** Grade ladder (item + box), mirrored from the server's allow-list. The
+ *  Japanese used-market rungs the hobby already speaks: A+ mint → J junk. */
+const GRADES = ["A+", "A", "A-", "B+", "B", "C", "J"];
+
+/** What's actually in the box, mirrored from the server's allow-list. */
+const COMPLETENESS = ["complete", "missing_parts", "box_only", "no_box"];
+
 /** Allowed condition values, mirrored from the server's allow-list. */
 const CONDITION_OPTIONS = ["mib_sealed", "opened_box", "displayed", "loose", "damaged"];
 
@@ -341,6 +348,9 @@ function EditMode({ owned, preorder, catalogMsrp, catalogCurrency, onClose, t })
       // stored value as-is, exactly like the other free-text owned fields.
       acquisition_source: form.acquisition_source || null,
       acquired_from: nz(form.acquired_from),
+      condition_item: form.condition_item || null,
+      condition_box: form.condition_box || null,
+      completeness: form.completeness || null,
       // Booleans are always sent so toggling OFF persists (server COALESCEs
       // nulls, not falses). Asking price only when actually selling.
       for_sale: !!form.for_sale,
@@ -450,6 +460,44 @@ function EditMode({ owned, preorder, catalogMsrp, catalogCurrency, onClose, t })
           value={form.acquired_from}
           onChange={set("acquired_from")}
           placeholder={t("owned.editor.ph.acquired_from")}
+        />
+      </div>
+
+      {/* Grading — the piece and its box are separate goods: a JP exclusive
+          with a crushed box loses value even when the figure is mint, so they
+          get independent ladders (A+ … J) rather than one blended verdict.
+          Purely descriptive: no grade feeds La Cote, because any grade→price
+          coefficient would be invented. */}
+      <div className="grid sm:grid-cols-3 gap-4">
+        <Select
+          label={t("owned.editor.field.grade_item")}
+          value={form.condition_item}
+          onChange={set("condition_item")}
+          options={[
+            { value: "", label: t("owned.editor.grade.unset") },
+            ...GRADES.map((g) => ({ value: g, label: g })),
+          ]}
+        />
+        <Select
+          label={t("owned.editor.field.grade_box")}
+          value={form.condition_box}
+          onChange={set("condition_box")}
+          options={[
+            { value: "", label: t("owned.editor.grade.unset") },
+            ...GRADES.map((g) => ({ value: g, label: g })),
+          ]}
+        />
+        <Select
+          label={t("owned.editor.field.completeness")}
+          value={form.completeness}
+          onChange={set("completeness")}
+          options={[
+            { value: "", label: t("owned.editor.grade.unset") },
+            ...COMPLETENESS.map((c) => ({
+              value: c,
+              label: t(`owned.editor.completeness.${c}`),
+            })),
+          ]}
         />
       </div>
 
@@ -647,6 +695,10 @@ function seedFromOwned(owned, preorder, defaultCurrency = "JPY") {
     notes: owned.notes ?? "",
     acquisition_source: owned.acquisition_source ?? "",
     acquired_from: owned.acquired_from ?? "",
+    // Two-axis grading — independent of `condition`, which keeps its meaning.
+    condition_item: owned.condition_item ?? "",
+    condition_box: owned.condition_box ?? "",
+    completeness: owned.completeness ?? "",
     for_sale: !!owned.for_sale,
     for_trade: !!owned.for_trade,
     asking_price_amount: owned.asking_price_amount != null ? String(owned.asking_price_amount) : "",
