@@ -197,7 +197,9 @@ async fn mfc_get(
     Path(id): Path<i64>,
 ) -> AppResult<Json<mfc::MfcItem>> {
     auth::require_user(&session).await?;
-    Ok(Json(mfc::get_item(&state.pool, &state.http, id).await?))
+    Ok(Json(
+        mfc::get_item(&state.pool, &state.http, &state.config.flaresolverr, id).await?,
+    ))
 }
 
 /// Search MFC by name. Falls through to the same Cloudflare wall as

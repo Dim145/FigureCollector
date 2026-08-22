@@ -15,8 +15,18 @@
 //! [`fetch_item_html`] and the rest of the pipeline (parse → normalize →
 //! cache → import) lights up unchanged.
 //!
-//! Callers that try to use this today get a clean [`AppError::FeatureDisabled`]
-//! they can surface in the UI.
+//! **Since 0.46 there IS a viable fetch path.** The FlareSolverr-compatible
+//! solver added for orzgk is host-agnostic, so when `FLARESOLVERR_URL` is set
+//! we route MFC item pages through it exactly like orzgk product pages
+//! (challenge solved once, `cf_clearance` replayed afterwards). Without a
+//! solver configured the module still returns a clean
+//! [`AppError::FeatureDisabled`] the UI can surface.
+//!
+//! **Caveat worth knowing before trusting the output:** the selectors below
+//! were written *speculatively* against MFC's documented markup and have never
+//! been validated against a live page — nobody could fetch one. The fetch path
+//! is now real; the parser is not yet proven. Treat the first live lookups as
+//! verification, and expect this file to be the one to edit.
 
 use crate::error::{AppError, AppResult};
 use crate::external::cache;
@@ -52,31 +62,145 @@ pub struct MfcItem {
 /// [`fetch_item_html`]. See module docs.
 pub async fn get_item(
     pool: &PgPool,
-    _http: &reqwest::Client,
+    http: &reqwest::Client,
+    fs: &crate::config::FlareSolverrConfig,
     mfc_id: i64,
 ) -> AppResult<MfcItem> {
+    let http = http.clone();
+    let fs = fs.clone();
     cache::cached_fetch(
         pool,
         PROVIDER,
         "item",
         &mfc_id.to_string(),
         Duration::hours(CACHE_TTL_HOURS),
-        || async move {
-            let html = fetch_item_html(mfc_id).await?;
+        move || async move {
+            let html = fetch_item_html(&http, &fs, mfc_id).await?;
             parse_item_html(mfc_id, &html)
         },
     )
     .await
 }
 
-/// Single integration seam. Today: errors out cleanly. Tomorrow: swap with
-/// a Tenji client or a headless-browser sidecar without touching the parser.
-async fn fetch_item_html(_mfc_id: i64) -> AppResult<String> {
-    Err(AppError::FeatureDisabled(
-        "MFC scraping is currently disabled — Cloudflare blocks direct HTTP. \
-         Wire a working fetcher into external::mfc::fetch_item_html (Tenji \
-         proxy when it recovers, or a headless-browser sidecar).",
-    ))
+/// Single integration seam. With a FlareSolverr-compatible solver configured
+/// (`FLARESOLVERR_URL`) this goes through it — the same path proven live on
+/// orzgk, including the cached-clearance replay, so a burst of MFC lookups
+/// costs one challenge solve rather than one per item. Without a solver we
+/// refuse cleanly instead of hammering Cloudflare with requests it will 403.
+async fn fetch_item_html(
+    http: &reqwest::Client,
+    fs: &crate::config::FlareSolverrConfig,
+    mfc_id: i64,
+) -> AppResult<String> {
+    let Some(endpoint) = fs.url.as_deref() else {
+        return Err(AppError::FeatureDisabled(
+            "MFC lookups need a Cloudflare solver — set FLARESOLVERR_URL (FlareSolverr, \
+             Byparr, …). Manual entry and the paste-HTML path are unaffected.",
+        ));
+    };
+    let url = format!("https://myfigurecollection.net/item/{mfc_id}");
+    crate::external::flaresolverr::fetch_html(http, endpoint, &url, fs.max_timeout_ms).await
+}
+
+/// MFC renders an entity next to its role, separated by a non-breaking space:
+/// `"Kotobukiya\u{a0}as Manufacturer"`. Keep the entity, drop the role.
+fn strip_role(v: &str) -> &str {
+    let v = v.trim();
+    for sep in ["\u{a0}as ", " as "] {
+        if let Some(idx) = v.find(sep) {
+            return v[..idx].trim();
+        }
+    }
+    v
+}
+
+/// First `MM/DD/YYYY` in a Releases row → ISO `YYYY-MM-DD`. Returned as text:
+/// MFC also publishes partial dates, and inventing a day would be worse than
+/// handing the caller what was printed.
+fn parse_release_date(v: &str) -> Option<String> {
+    let bytes: Vec<char> = v.chars().collect();
+    for i in 0..bytes.len().saturating_sub(9) {
+        let w: String = bytes[i..i + 10].iter().collect();
+        let p: Vec<&str> = w.split('/').collect();
+        if p.len() == 3 && p[0].len() == 2 && p[1].len() == 2 && p[2].len() == 4 {
+            if p.iter().all(|s| s.chars().all(|c| c.is_ascii_digit())) {
+                return Some(format!("{}-{}-{}", p[2], p[0], p[1]));
+            }
+        }
+    }
+    None
+}
+
+/// `"… 12,800 JPY ( USD ) …"` → `12800`. Only a JPY-tagged amount counts: the
+/// row also shows a converted figure, and silently storing dollars as yen
+/// would poison every price surface downstream.
+fn parse_release_price_jpy(v: &str) -> Option<i64> {
+    let idx = v.find("JPY")?;
+    let head = &v[..idx];
+    let digits: String = head
+        .chars()
+        .rev()
+        .take_while(|c| c.is_ascii_digit() || *c == ',' || c.is_whitespace())
+        .filter(|c| c.is_ascii_digit())
+        .collect();
+    if digits.is_empty() {
+        return None;
+    }
+    digits.chars().rev().collect::<String>().parse().ok()
+}
+
+/// A bare 13- or 12-digit run is the JAN/EAN.
+fn parse_jan(v: &str) -> Option<String> {
+    let mut run = String::new();
+    for c in v.chars().chain(std::iter::once(' ')) {
+        if c.is_ascii_digit() {
+            run.push(c);
+        } else {
+            if run.len() == 13 || run.len() == 12 {
+                return Some(run);
+            }
+            run.clear();
+        }
+    }
+    None
+}
+
+/// `"1/ 10   H= 183 mm"` → `"1/10"`. MFC pads the fraction with spaces.
+fn parse_scale(v: &str) -> Option<String> {
+    let idx = v.find('/')?;
+    let before: String = v[..idx]
+        .chars()
+        .rev()
+        .take_while(|c| c.is_ascii_digit())
+        .collect::<Vec<_>>()
+        .into_iter()
+        .rev()
+        .collect();
+    let after: String = v[idx + 1..]
+        .chars()
+        .skip_while(|c| c.is_whitespace())
+        .take_while(|c| c.is_ascii_digit())
+        .collect();
+    if before.is_empty() || after.is_empty() {
+        return None;
+    }
+    Some(format!("{before}/{after}"))
+}
+
+/// `"H= 183 mm"` → `183`. Prefers the `H=` marker so the parenthesised inch /
+/// 1:1 conversions in the same string can't be mistaken for the height; falls
+/// back to the first `<n> mm` for a plain "Height" row.
+fn parse_height_mm(v: &str) -> Option<i32> {
+    let tail = match v.find("H=").or_else(|| v.find("H =")) {
+        Some(idx) => &v[idx..],
+        None => v,
+    };
+    let digits: String = tail
+        .chars()
+        .skip_while(|c| !c.is_ascii_digit())
+        .take_while(|c| c.is_ascii_digit())
+        .collect();
+    digits.parse().ok().filter(|&h: &i32| h > 0 && h < 5000)
 }
 
 /// Parse an MFC item-page HTML string into our normalised [`MfcItem`].
@@ -125,30 +249,49 @@ pub fn parse_item_html(mfc_id: i64, html: &str) -> AppResult<MfcItem> {
                 .filter(|s| !s.is_empty());
 
             match label.as_str() {
-                "company" | "companies" | "manufacturer" => item.manufacturer = value,
-                "sculptor" | "sculptors" => item.sculptor = value,
+                // MFC writes an entity plus its role, separated by a
+                // non-breaking space: "Kotobukiya\u{a0}as Manufacturer".
+                "company" | "companies" | "manufacturer" => {
+                    item.manufacturer = value.as_deref().map(strip_role).map(str::to_string)
+                }
+                "sculptor" | "sculptors" => {
+                    item.sculptor = value.as_deref().map(strip_role).map(str::to_string)
+                }
                 "origin" | "origins" => item.origin = value,
                 "character" | "characters" => item.character = value,
                 "category" | "categories" => item.category = value,
-                "release date" => item.release_date = value,
+                // One "Releases" row carries date, edition, price and barcode:
+                //   "09/27/2017 as Standard (Japan) 12,800 JPY ( USD ) • 4934054903269"
+                "releases" | "release" | "release date" => {
+                    if let Some(v) = value.as_deref() {
+                        item.release_date = parse_release_date(v);
+                        item.release_price_jpy = parse_release_price_jpy(v);
+                        item.jan = item.jan.take().or_else(|| parse_jan(v));
+                    }
+                }
                 "release price" => {
-                    item.release_price_jpy = value
-                        .as_deref()
-                        .and_then(|v| {
-                            v.chars()
-                                .filter(|c| c.is_ascii_digit())
-                                .collect::<String>()
-                                .parse::<i64>()
-                                .ok()
-                        });
+                    item.release_price_jpy =
+                        value.as_deref().and_then(parse_release_price_jpy);
                 }
                 "jan" | "barcode" => item.jan = value,
-                "scale" | "scaling" => item.scale = value,
+                // A numeric fraction gets normalised ("1/ 10" → "1/10"); a
+                // label like "Non-scale" is a legitimate value and passes
+                // through untouched.
+                "scale" | "scaling" => {
+                    item.scale = value
+                        .as_deref()
+                        .and_then(|v| parse_scale(v).or_else(|| {
+                            let v = v.trim();
+                            (!v.is_empty()).then(|| v.to_string())
+                        }))
+                }
+                // "1/ 10   H= 183 mm (7.14in, 1:1=1.83m)" — scale AND height.
                 "height" | "dimensions" => {
-                    if let Some(v) = &value {
-                        // "100mm" / "10cm" / "1/7 — 220 mm"
-                        let digits: String = v.chars().filter(|c| c.is_ascii_digit()).collect();
-                        item.height_mm = digits.parse::<i32>().ok();
+                    if let Some(v) = value.as_deref() {
+                        if item.scale.is_none() {
+                            item.scale = parse_scale(v);
+                        }
+                        item.height_mm = parse_height_mm(v);
                     }
                 }
                 "material" | "materials" => {
@@ -247,5 +390,71 @@ mod tests {
             item.official_image_url.as_deref(),
             Some("https://mfc.example/img.webp")
         );
+    }
+}
+
+#[cfg(test)]
+mod real_layout_tests {
+    use super::*;
+
+    /// Trimmed from a real item page fetched through the solver — MFC pads the
+    /// scale fraction, joins an entity to its role with a non-breaking space,
+    /// and crams date + edition + price + barcode into one "Releases" row.
+    const FIXTURE: &str = "\
+<html><body>\
+<h1><a>Star Wars: The Force Awakens - Han Solo - ARTFX+ - 1/10 - 2 Pack (Kotobukiya)</a></h1>\
+<div class=\"item-picture\"><img src=\"https://static.myfigurecollection.net/upload/items/1/500000-d78c4.jpg\"></div>\
+<div class=\"data-field\"><span class=\"data-label\">Category</span><div class=\"data-value\">Prepainted</div></div>\
+<div class=\"data-field\"><span class=\"data-label\">Origin</span><div class=\"data-value\">Star Wars: The Force Awakens</div></div>\
+<div class=\"data-field\"><span class=\"data-label\">Character</span><div class=\"data-value\">Han Solo</div></div>\
+<div class=\"data-field\"><span class=\"data-label\">Company</span><div class=\"data-value\">Kotobukiya\u{a0}as Manufacturer</div></div>\
+<div class=\"data-field\"><span class=\"data-label\">Releases</span><div class=\"data-value\">09/27/2017 as Standard (Japan) 12,800 JPY ( USD ) \u{2022} 4934054903269</div></div>\
+<div class=\"data-field\"><span class=\"data-label\">Materials</span><div class=\"data-value\">ABS , Magnet , PVC</div></div>\
+<div class=\"data-field\"><span class=\"data-label\">Dimensions</span><div class=\"data-value\">1/ 10 \u{a0} H= 183 mm (7.14in, 1:1=1.83m)</div></div>\
+</body></html>";
+
+    #[test]
+    fn parses_a_real_item_layout() {
+        let item = parse_item_html(500_000, FIXTURE).expect("parse");
+        assert_eq!(item.category.as_deref(), Some("Prepainted"));
+        assert_eq!(item.origin.as_deref(), Some("Star Wars: The Force Awakens"));
+        assert_eq!(item.character.as_deref(), Some("Han Solo"));
+        // The " as Manufacturer" role suffix must not leak into the name.
+        assert_eq!(item.manufacturer.as_deref(), Some("Kotobukiya"));
+        assert_eq!(item.release_date.as_deref(), Some("2017-09-27"));
+        assert_eq!(item.release_price_jpy, Some(12_800));
+        assert_eq!(item.jan.as_deref(), Some("4934054903269"));
+        assert_eq!(item.scale.as_deref(), Some("1/10"));
+        assert_eq!(item.height_mm, Some(183));
+        assert_eq!(item.materials, vec!["ABS", "Magnet", "PVC"]);
+        assert!(item.official_image_url.is_some());
+    }
+
+    #[test]
+    fn price_only_counts_a_jpy_amount() {
+        // The row also prints a converted figure; storing dollars as yen would
+        // poison every price surface downstream.
+        assert_eq!(parse_release_price_jpy("1,200 JPY ( 8 USD )"), Some(1200));
+        assert_eq!(parse_release_price_jpy("49.99 USD"), None);
+    }
+
+    #[test]
+    fn height_is_anchored_on_the_H_marker() {
+        // Not the 7.14in / 1:1 conversions in the same string.
+        assert_eq!(parse_height_mm("1/ 10 H= 183 mm (7.14in, 1:1=1.83m)"), Some(183));
+        assert_eq!(parse_height_mm("no marker"), None);
+    }
+
+    #[test]
+    fn scale_survives_mfc_padding() {
+        assert_eq!(parse_scale("1/ 10 \u{a0} H= 183 mm"), Some("1/10".into()));
+        assert_eq!(parse_scale("non-scale"), None);
+    }
+
+    #[test]
+    fn role_suffix_is_stripped_on_both_separators() {
+        assert_eq!(strip_role("Kotobukiya\u{a0}as Manufacturer"), "Kotobukiya");
+        assert_eq!(strip_role("Good Smile Company as Manufacturer"), "Good Smile Company");
+        assert_eq!(strip_role("Alter"), "Alter");
     }
 }
