@@ -17,6 +17,7 @@ pub mod figure_type;
 pub mod follow;
 pub mod gift;
 pub mod import;
+pub mod landed_cost;
 pub mod location;
 pub mod manga;
 pub mod manga_servers;

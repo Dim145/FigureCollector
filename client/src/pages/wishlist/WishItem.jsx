@@ -6,6 +6,7 @@ import { useDisplayCurrency } from "../../components/DisplayCurrencyProvider.jsx
 import { fmtMoney } from "../../lib/money.js";
 import { coverFor, dealIsMet, marketPrice } from "./dealLogic.js";
 import { StepSparkline } from "../../components/PriceHistory.jsx";
+import LandedCostHint from "../../components/LandedCostHint.jsx";
 
 /**
  * One coveted piece — the composed FigureCard with a wishlist action tray
@@ -177,6 +178,14 @@ export default function WishItem({
               </span>
             </div>
           ) : null}
+
+          {/* What it actually costs once customs is done with it — the number
+              that decides the purchase, not the sticker price. */}
+          <LandedCostHint
+            amount={marketPrice(it)?.amount}
+            currency={marketPrice(it)?.currency || prefCurrency}
+            className="mt-1.5 px-1"
+          />
 
           {/* Deal note + the user's reminder — quiet, value-toned. */}
           {deal ? (

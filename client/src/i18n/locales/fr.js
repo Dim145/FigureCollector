@@ -1284,6 +1284,10 @@ export default {
   "settings.budget.field": "Plafond mensuel de précommandes",
   "settings.budget.hint": "Laisser vide pour aucun plafond. Sert de repère sur le plan de trésorerie des précommandes.",
 
+  "landed.label": "≈ rendu",
+  "landed.estimate": "estimation",
+  "landed.detail": "Droits {duty} · TVA {vat} · frais de dossier {handling}",
+
   // Notification channels (settings page)
   "settings.nav.notif_chan": "Notifications",
   "notif.channels.title": "Notifications",

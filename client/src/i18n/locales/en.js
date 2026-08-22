@@ -1252,6 +1252,10 @@ export default {
   "settings.budget.field": "Monthly pre-order ceiling",
   "settings.budget.hint": "Leave empty for no ceiling. Used as the reference line on the pre-order cashflow plan.",
 
+  "landed.label": "≈ landed",
+  "landed.estimate": "estimate",
+  "landed.detail": "Duty {duty} · VAT {vat} · handling {handling}",
+
   // Notification channels (settings page)
   "settings.nav.notif_chan": "Notifications",
   "notif.channels.title": "Notifications",

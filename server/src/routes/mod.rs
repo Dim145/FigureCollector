@@ -22,6 +22,7 @@ pub mod export;
 pub mod external;
 pub mod figure_photos;
 pub mod follow;
+pub mod landed_cost;
 pub mod figures;
 pub mod gift;
 pub mod health;
@@ -190,6 +191,7 @@ pub fn build_router(state: AppState) -> Router {
 
     let api = Router::new()
         .merge(health::router())
+        .merge(landed_cost::router())
         .merge(me::router())
         .merge(ws::router())
         .merge(figures::router())
