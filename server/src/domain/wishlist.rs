@@ -35,6 +35,12 @@ pub struct WishlistItem {
     /// Catalogue primary photo id (cover fallback), so the SPA builds the
     /// `/api/figure-photos/{id}` URL without a second query per row.
     pub catalog_cover_photo_id: Option<Uuid>,
+    /// Best availability across every shop linked to this figure, using the
+    /// same 7-day freshness window as [`crate::domain::store`] (a row that
+    /// stopped refreshing ages back to "unknown" = `None`). "Best" means the
+    /// most buyable: in_stock > preorder > out_of_stock — the wishlist asks
+    /// "can I get it", not "what does shop X say".
+    pub stock_status: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -74,7 +80,18 @@ const SELECT: &str = "
                WHERE fp.figure_id = f.id
                ORDER BY fp.is_primary DESC, fp.position ASC, fp.created_at ASC
                LIMIT 1
-           ) AS catalog_cover_photo_id
+           ) AS catalog_cover_photo_id,
+           (
+               SELECT fss.status FROM figure_shop_stock fss
+               WHERE fss.figure_id = f.id
+                 AND fss.checked_at > now() - interval '7 days'
+               ORDER BY CASE fss.status
+                            WHEN 'in_stock'  THEN 0
+                            WHEN 'preorder'  THEN 1
+                            ELSE 2
+                        END
+               LIMIT 1
+           ) AS stock_status
     FROM wishlist_items w
     JOIN figures f          ON f.id = w.figure_id
     LEFT JOIN figure_provider_prices pp ON pp.figure_id = f.id

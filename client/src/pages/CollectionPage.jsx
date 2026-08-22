@@ -12,6 +12,11 @@ import {
   useLocations,
 } from "../hooks/useCollection.js";
 import { useRowSelection } from "../hooks/useRowSelection.js";
+import useUrlState, { asBool } from "../hooks/useUrlState.js";
+import useScrollRestoration from "../hooks/useScrollRestoration.js";
+import useGridDensity from "../hooks/useGridDensity.js";
+import { useDisplayCurrency } from "../components/DisplayCurrencyProvider.jsx";
+import { toDisplay } from "../lib/money.js";
 import AppShell from "../components/AppShell.jsx";
 import { PageLayout } from "../components/layout/index.js";
 import { Button, EmptyState } from "../components/ui/index.js";
@@ -25,6 +30,7 @@ import ConditionFilterRail from "./collection/ConditionFilterRail.jsx";
 import TagFilterRail from "./collection/TagFilterRail.jsx";
 import FeaturedPiece from "./collection/FeaturedPiece.jsx";
 import CollectionGrid from "./collection/CollectionGrid.jsx";
+import CollectionToolbar from "./collection/CollectionToolbar.jsx";
 import RecommendedShelf from "./collection/RecommendedShelf.jsx";
 
 /**
@@ -42,19 +48,43 @@ import RecommendedShelf from "./collection/RecommendedShelf.jsx";
  * Pairs intentionally with /catalogue (same artifact cards + kanji rail);
  * hero accent kanji 蒐 (gather) vs the catalogue's 目 (eye).
  */
+/**
+ * The collection's view state lives in the URL, so a filtered shelf is
+ * shareable and — crucially — survives the scroll → open a piece → back loop
+ * that the page is built around. Values equal to their default drop out of the
+ * query string, keeping an untouched /collection clean.
+ */
+const VIEW_DEFS = {
+  q: { default: "" },
+  sort: { default: "recent" },
+  condition: { default: "all" },
+  tag: { default: null, parse: (v) => v, serialize: (v) => v ?? "" },
+  sale: { default: false, ...asBool },
+  archived: { default: false, ...asBool },
+};
+
+/** Pieces revealed per page — the plate grows on demand rather than paying to
+ *  lay out 300 cards no one has scrolled to yet. */
+const PAGE = 48;
+
 export default function CollectionPage() {
   const t = useT();
   const me = useMe();
   // `showArchived` surfaces the optional "annulées" pass (preorder
   // cancellations kept with a partial / no refund). Off by default so the
   // active collection stays the focus; promoted into the filter rail as a facet.
-  const [showArchived, setShowArchived] = useState(false);
+  const [view, setView] = useUrlState(VIEW_DEFS);
+  const { q, sort } = view;
+  const showArchived = view.archived;
+  const setShowArchived = (v) =>
+    setView({ archived: typeof v === "function" ? v(showArchived) : v });
   const owned = useOwnedItems({ includeArchived: showArchived });
   // Appearance-tag facet (WD-Tagger on the user's own photos). The chip list is
   // built from the unfiltered facets; selecting one narrows the grid via a
   // server-side `?tag=` fetch (tags live on photos, not on the owned row, so the
   // filtering can't be done client-side from `owned.data`).
-  const [tagFilter, setTagFilter] = useState(null);
+  const tagFilter = view.tag;
+  const setTagFilter = (v) => setView({ tag: v });
   const photoTags = useOwnedPhotoTags();
   const tagged = useOwnedItems({
     includeArchived: showArchived,
@@ -65,10 +95,12 @@ export default function CollectionPage() {
   const update = useUpdateOwnedItem();
   const archive = useArchiveOwnedItem();
   const locations = useLocations();
-  const [conditionFilter, setConditionFilter] = useState("all");
+  const conditionFilter = view.condition;
+  const setConditionFilter = (v) => setView({ condition: v });
   // Optional "à vendre / à échanger" lens — narrows the grid to pieces the
   // owner has listed on their trade shelf.
-  const [saleOnly, setSaleOnly] = useState(false);
+  const saleOnly = view.sale;
+  const setSaleOnly = (v) => setView({ sale: typeof v === "function" ? v(saleOnly) : v });
   // "À la une" — one piece pinned to the top. Stored client-side (a per-device
   // display choice, no backend field); when nothing is pinned the featured
   // block simply doesn't render.
@@ -146,6 +178,8 @@ export default function CollectionPage() {
     [owned.data],
   );
 
+  const dc = useDisplayCurrency();
+
   const filtered = useMemo(() => {
     // When a tag is selected the grid is sourced from the server-side
     // `?tag=`-filtered fetch; otherwise the full collection. Condition + sale
@@ -155,8 +189,80 @@ export default function CollectionPage() {
     if (conditionFilter !== "all") {
       list = list.filter((o) => o.condition === conditionFilter);
     }
-    return list;
-  }, [owned.data, tagged.data, tagFilter, conditionFilter, saleOnly]);
+    const needle = q.trim().toLowerCase();
+    if (needle) {
+      // Match the fields a collector actually recalls a piece by. Plain
+      // substring, no fuzzy: on your own shelf you know what you're looking
+      // for, and a surprise match is worse than none.
+      list = list.filter((o) =>
+        [o.figure_name, o.manufacturer_name, o.version_name, o.location]
+          .filter(Boolean)
+          .some((s) => String(s).toLowerCase().includes(needle)),
+      );
+    }
+
+    // Amounts are stored per-currency, so every money sort converts through
+    // the display currency first — otherwise ¥30 000 sorts under €200.
+    const money = (v) =>
+      v == null ? null : toDisplay(dc.rates, dc.display, v.amount, v.currency);
+    const valueOf = (o) => money(effectiveValue(o));
+    const gainOf = (o) => {
+      const v = money(effectiveValue(o));
+      const p = money(figurePaid(o));
+      return v == null || p == null ? null : v - p;
+    };
+    // Nulls always sink, whichever direction the key sorts.
+    const desc = (pick) => (a, b) => {
+      const x = pick(a);
+      const y = pick(b);
+      if (x == null && y == null) return 0;
+      if (x == null) return 1;
+      if (y == null) return -1;
+      return y - x;
+    };
+    const sorted = [...list];
+    switch (sort) {
+      case "name":
+        sorted.sort((a, b) =>
+          String(a.figure_name ?? "").localeCompare(String(b.figure_name ?? ""), undefined, {
+            sensitivity: "base",
+          }),
+        );
+        break;
+      case "value":
+        sorted.sort(desc(valueOf));
+        break;
+      case "gain":
+        sorted.sort(desc(gainOf));
+        break;
+      case "purchase":
+        sorted.sort(desc((o) => (o.purchase_date ? Date.parse(o.purchase_date) : null)));
+        break;
+      default: // recent
+        sorted.sort(desc((o) => (o.created_at ? Date.parse(o.created_at) : null)));
+    }
+    return sorted;
+  }, [owned.data, tagged.data, tagFilter, conditionFilter, saleOnly, q, sort, dc.rates, dc.display]);
+
+  // Plate density — `auto` follows the size of the shelf; an explicit pick wins.
+  const { density, setDensity, resolved: resolvedDensity } = useGridDensity(
+    "fc.collection.density",
+    filtered.length,
+  );
+
+  // Grow-on-demand paging. Reset whenever the result set changes identity so a
+  // new filter never opens on page 7 of the previous one.
+  const [page, setPage] = useState(1);
+  const filterKey = `${q}|${sort}|${conditionFilter}|${tagFilter ?? ""}|${saleOnly}|${showArchived}`;
+  const [seenKey, setSeenKey] = useState(filterKey);
+  if (seenKey !== filterKey) {
+    setSeenKey(filterKey);
+    setPage(1);
+  }
+  const visible = useMemo(() => filtered.slice(0, page * PAGE), [filtered, page]);
+
+  // Come back to where you left off, once the plate has actually rendered.
+  useScrollRestoration("collection", !owned.isLoading && filtered.length > 0);
 
   // The pinned piece, resolved against the live collection (ignored if it was
   // since removed/archived).
@@ -303,9 +409,24 @@ export default function CollectionPage() {
             </div>
 
             <div className="mt-8">
+              <CollectionToolbar
+                t={t}
+                q={q}
+                onQ={(v) => setView({ q: v })}
+                sort={sort}
+                onSort={(v) => setView({ sort: v })}
+                density={density}
+                onDensity={setDensity}
+                shown={visible.length}
+                total={filtered.length}
+              />
+            </div>
+
+            <div className="mt-6">
               <CollectionGrid
                 t={t}
-                items={filtered}
+                items={visible}
+                density={resolvedDensity}
                 nsfwBlur={nsfwBlur}
                 pinnedId={pinnedId}
                 onPin={pin}
@@ -321,6 +442,14 @@ export default function CollectionPage() {
                 onBulkDelete={() => setPendingBulkDelete(true)}
                 onExitSelect={exitSelect}
               />
+
+              {visible.length < filtered.length ? (
+                <div className="mt-8 flex justify-center">
+                  <Button variant="subtle" onClick={() => setPage((p) => p + 1)}>
+                    {t("collection.loadmore")}
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </>
         )}

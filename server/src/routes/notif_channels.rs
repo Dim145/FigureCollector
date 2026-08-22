@@ -177,6 +177,14 @@ async fn test_user_channel(
     };
 
     let payload = serde_json::json!({ "kind": "test" });
+    // Render the test in the tester's own language — same rule as a real event.
+    let locale: String = sqlx::query_scalar("SELECT locale FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_optional(&state.pool)
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "en".to_string());
     let result = dispatch_to_channel(
         &state,
         user_id,
@@ -185,6 +193,7 @@ async fn test_user_channel(
         &mine.destination,
         "test",
         &payload,
+        &locale,
     )
     .await;
 

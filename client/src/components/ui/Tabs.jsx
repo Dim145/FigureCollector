@@ -1,4 +1,5 @@
 import { useId, useRef } from "react";
+import ScrollRail from "../ScrollRail.jsx";
 
 /**
  * Underlined tab bar. Controlled: pass `value` + `onChange`. The caller renders
@@ -59,10 +60,11 @@ export default function Tabs({ tabs = [], value, onChange, className = "" }) {
   };
 
   return (
-    <div
+    <ScrollRail
       role="tablist"
+      activeKey={value}
       onKeyDown={onKeyDown}
-      className={`flex items-center gap-1 overflow-x-auto border-b border-[var(--border-subtle)] ${className}`}
+      className={`flex items-center gap-1 border-b border-[var(--border-subtle)] ${className}`}
     >
       {tabs.map((t, i) => {
         const active = t.value === value;
@@ -75,6 +77,7 @@ export default function Tabs({ tabs = [], value, onChange, className = "" }) {
             }}
             type="button"
             role="tab"
+            data-rail-item={t.value}
             id={tabId(t.value)}
             aria-selected={active}
             aria-controls={panelId(t.value)}
@@ -100,6 +103,6 @@ export default function Tabs({ tabs = [], value, onChange, className = "" }) {
           </button>
         );
       })}
-    </div>
+    </ScrollRail>
   );
 }

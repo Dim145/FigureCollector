@@ -42,6 +42,9 @@ const EVENT_META = {
   preorder_delivery_today:    { kanji: "届" },
   preorder_delivery_overdue:  { kanji: "遅" },
   wishlist_price_below_target: { kanji: "値" },
+  wishlist_back_in_stock:     { kanji: "在" },
+  manga_server_approved:      { kanji: "認" },
+  manga_server_revoked:       { kanji: "禁" },
 };
 
 // The four "do not disturb" presets, in display order. Kanji + i18n keys

@@ -222,9 +222,35 @@ async fn by_owned(
     ))
 }
 
+/// Slip statistics over the user's own pre-order history: one overall row plus
+/// a per-maker breakdown (only makers with enough observations to mean
+/// anything). Read-only aggregate over `preorder_date_history`.
+#[derive(serde::Serialize)]
+struct SlipReport {
+    overall: crate::domain::preorder_slip::SlipStat,
+    by_manufacturer: Vec<crate::domain::preorder_slip::SlipStat>,
+    /// Minimum observations a maker needs before it gets its own row — sent so
+    /// the UI can explain an empty breakdown instead of looking broken.
+    min_samples: i64,
+}
+
+async fn slip_stats(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<SlipReport>> {
+    let user_id = auth::require_user(&session).await?;
+    Ok(Json(SlipReport {
+        overall: crate::domain::preorder_slip::overall(&state.pool, user_id).await?,
+        by_manufacturer: crate::domain::preorder_slip::per_manufacturer(&state.pool, user_id)
+            .await?,
+        min_samples: crate::domain::preorder_slip::MIN_SAMPLES,
+    }))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/me/preorders", get(list_mine).post(add_mine))
+        .route("/me/preorders/slip-stats", get(slip_stats))
         .route(
             "/me/preorders/{id}",
             patch_method(patch_mine).delete(delete_mine),

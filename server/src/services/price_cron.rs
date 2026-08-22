@@ -224,11 +224,29 @@ pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
                     for store_id in store_ids {
                         match stock {
                             Some(s) => {
-                                if figure_stock::upsert(&state.pool, fid, *store_id, s, source)
+                                match figure_stock::upsert(&state.pool, fid, *store_id, s, source)
                                     .await
-                                    .is_ok()
                                 {
-                                    stock_updated += 1;
+                                    Ok(prev) => {
+                                        stock_updated += 1;
+                                        // The one stock change worth waking
+                                        // someone for: a listing we had SEEN
+                                        // sold out is buyable again. A
+                                        // first-ever observation (prev None)
+                                        // is not a "return", and neither is
+                                        // preorder → in_stock.
+                                        if prev == Some(StockStatus::OutOfStock)
+                                            && matches!(
+                                                s,
+                                                StockStatus::InStock | StockStatus::Preorder
+                                            )
+                                        {
+                                            notify_back_in_stock(state, fid, *store_id, s).await;
+                                        }
+                                    }
+                                    Err(e) => {
+                                        tracing::debug!(figure_id = %fid, error = ?e, "price-cron: stock upsert failed")
+                                    }
                                 }
                             }
                             None => {
@@ -326,6 +344,68 @@ pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
         "skipped_unconvertible": skipped_unconvertible,
         "stock_updated": stock_updated,
     }))
+}
+
+/// Fire `wishlist_back_in_stock` for every user who wishes this figure, after
+/// a shop's signal flipped from a KNOWN out-of-stock to buyable. Best-effort —
+/// an error here never aborts the sweep. Dedup key =
+/// `{figure_id}:{store_id}:{today}`, so a listing that flaps in and out can
+/// wake you at most once a day per shop, while a genuine restock months later
+/// still fires.
+async fn notify_back_in_stock(
+    state: &AppState,
+    figure_id: Uuid,
+    store_id: Uuid,
+    status: StockStatus,
+) {
+    let rows: Vec<(Uuid, String)> = match sqlx::query_as(
+        "SELECT w.user_id, f.name
+         FROM wishlist_items w
+         JOIN figures f ON f.id = w.figure_id
+         WHERE w.figure_id = $1",
+    )
+    .bind(figure_id)
+    .fetch_all(&state.pool)
+    .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!(figure_id = %figure_id, error = ?e, "price-cron: wishlist lookup failed");
+            return;
+        }
+    };
+    if rows.is_empty() {
+        return;
+    }
+
+    let store_name: Option<String> =
+        sqlx::query_scalar("SELECT name FROM stores WHERE id = $1")
+            .bind(store_id)
+            .fetch_optional(&state.pool)
+            .await
+            .ok()
+            .flatten();
+
+    let dedup = format!(
+        "{figure_id}:{store_id}:{}",
+        chrono::Utc::now().date_naive()
+    );
+    for (user_id, figure_name) in rows {
+        crate::services::notify::dispatch(
+            state,
+            user_id,
+            crate::domain::notification::EVENT_WISHLIST_BACK_IN_STOCK,
+            serde_json::json!({
+                "figure_id": figure_id,
+                "figure_name": figure_name,
+                "store_id": store_id,
+                "store_name": store_name,
+                "status": status.as_db(),
+            }),
+            Some(&dedup),
+        )
+        .await;
+    }
 }
 
 /// Fire `wishlist_price_below_target` for every user whose wishlist target on

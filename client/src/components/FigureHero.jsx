@@ -182,7 +182,10 @@ export default function FigureHero({
                   loading={i === 0 ? "eager" : "lazy"}
                   decoding="async"
                   draggable={false}
-                  className={`absolute inset-0 w-full h-full object-contain p-8 transition-opacity duration-500 pointer-events-none ${nsfwBlurClass}`}
+                  // Only the visible slide carries the shared transition name —
+                  // `view-transition-name` must be unique in the document, and
+                  // this is the frame the grid cover morphs into.
+                  className={`absolute inset-0 w-full h-full object-contain p-8 transition-opacity duration-500 pointer-events-none ${i === active ? "vt-hero-cover" : ""} ${nsfwBlurClass}`}
                   style={{ opacity: i === active ? 1 : 0 }}
                 />
               ))}

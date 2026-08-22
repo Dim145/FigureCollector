@@ -41,6 +41,17 @@ impl StockStatus {
         }
     }
 
+    /// Parse the DB / API string back into the enum. Unknown strings → `None`
+    /// so a hand-edited row can never panic the cron.
+    pub fn from_db(s: &str) -> Option<Self> {
+        match s {
+            "in_stock" => Some(Self::InStock),
+            "out_of_stock" => Some(Self::OutOfStock),
+            "preorder" => Some(Self::Preorder),
+            _ => None,
+        }
+    }
+
     /// Map orzgk's WooCommerce `stock_status` vocab → our enum.
     /// `instock` → in stock, `onbackorder` → preorder (billed before shipping),
     /// `outofstock` → out of stock. Anything else → `None` (unknown).
@@ -58,26 +69,41 @@ impl StockStatus {
 }
 
 /// Upsert a known per-shop status, refreshing `checked_at` to now.
+///
+/// Returns the status this pair held **before** the write (`None` when the row
+/// is brand new), so the caller can detect a real transition — e.g. a
+/// back-in-stock alert. The previous value is read inside the same statement
+/// via a CTE, so a concurrent cron pass can't slip between a read and a write.
+///
+/// Note the returned value ignores `checked_at`: it is the last status we
+/// actually observed, however long ago. A caller announcing a *transition*
+/// must compare against that real prior status rather than treating a stale
+/// row as absent — the read-side 7-day freshness window (see
+/// [`crate::domain::store`]) is a display rule, not a "never happened" rule.
 pub async fn upsert(
     pool: &PgPool,
     figure_id: Uuid,
     store_id: Uuid,
     status: StockStatus,
     source: &str,
-) -> AppResult<()> {
-    sqlx::query(
-        "INSERT INTO figure_shop_stock (figure_id, store_id, status, source, checked_at)
+) -> AppResult<Option<StockStatus>> {
+    let prev: Option<String> = sqlx::query_scalar(
+        "WITH prev AS (
+             SELECT status FROM figure_shop_stock WHERE figure_id = $1 AND store_id = $2
+         )
+         INSERT INTO figure_shop_stock (figure_id, store_id, status, source, checked_at)
          VALUES ($1, $2, $3, $4, now())
          ON CONFLICT (figure_id, store_id) DO UPDATE
-             SET status = EXCLUDED.status, source = EXCLUDED.source, checked_at = now()",
+             SET status = EXCLUDED.status, source = EXCLUDED.source, checked_at = now()
+         RETURNING (SELECT status FROM prev)",
     )
     .bind(figure_id)
     .bind(store_id)
     .bind(status.as_db())
     .bind(source)
-    .execute(pool)
+    .fetch_one(pool)
     .await?;
-    Ok(())
+    Ok(prev.as_deref().and_then(StockStatus::from_db))
 }
 
 /// Drop a per-shop row — used when the latest check found no signal, so the

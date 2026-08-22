@@ -67,6 +67,14 @@ const MODELS = [
       "onnx/text_model_quantized.onnx",
     ],
   },
+  {
+    // Background removal (photo editor) — BiRefNet_lite, MIT. Replaces the
+    // AGPL @imgly library, whose weights came from a third-party CDN. fp16
+    // (~88 MB) is the only sensible export: there is no q8 graph upstream and
+    // fp32 doubles the download for no visible gain on figure photos.
+    id: "onnx-community/BiRefNet_lite-ONNX",
+    files: ["config.json", "preprocessor_config.json", "onnx/model_fp16.onnx"],
+  },
 ];
 
 function log(msg) {

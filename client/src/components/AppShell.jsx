@@ -10,6 +10,7 @@ import NotificationBell from "./NotificationBell.jsx";
 import AuroraBackground from "./AuroraBackground.jsx";
 import TypeAccentVars from "./TypeAccentVars.jsx";
 import MobileTabBar from "./MobileTabBar.jsx";
+import ScrollRail from "./ScrollRail.jsx";
 import MobileNavSheet from "./MobileNavSheet.jsx";
 import BackToTop from "./BackToTop.jsx";
 import Avatar from "./ui/Avatar.jsx";
@@ -340,6 +341,14 @@ function NavItem({ section, active, label }) {
 // settles into an inline row. Each entry is a NavLink with a kanji marker and
 // the hanko-red active treatment; `end` children match exactly.
 function SubNav({ items, t, scrolled }) {
+  const { pathname } = useLocation();
+  // Longest matching prefix wins, so /collection/souhaits/import still centres
+  // the "souhaits" entry rather than falling back to the section root.
+  const active = items.reduce((best, c) => {
+    const hit = c.end ? pathname === c.to : pathname === c.to || pathname.startsWith(`${c.to}/`);
+    if (!hit) return best;
+    return best && best.length >= c.to.length ? best : c.to;
+  }, null);
   return (
     <nav
       aria-label={t("nav.secondary", { default: "Sous-navigation" })}
@@ -347,9 +356,17 @@ function SubNav({ items, t, scrolled }) {
         scrolled ? "pb-1.5" : "pb-2"
       }`}
     >
-      <ul className="flex gap-1 overflow-x-auto lg:overflow-visible -mx-1 px-1 lg:mx-0 lg:px-0">
+      {/* Shared rail behaviour: the current sub-page is scrolled into the
+          middle on mount, and a clipped edge fades so it's visible that the
+          row continues — a phone otherwise shows a nav that appears not to
+          contain the page you're on. */}
+      <ScrollRail
+        as="ul"
+        activeKey={active}
+        className="flex gap-1 lg:overflow-visible -mx-1 px-1 lg:mx-0 lg:px-0"
+      >
         {items.map((child) => (
-          <li key={child.to} className="shrink-0">
+          <li key={child.to} className="shrink-0" data-rail-item={child.to}>
             <SubNavItem
               to={child.to}
               end={child.end}
@@ -358,7 +375,7 @@ function SubNav({ items, t, scrolled }) {
             />
           </li>
         ))}
-      </ul>
+      </ScrollRail>
     </nav>
   );
 }

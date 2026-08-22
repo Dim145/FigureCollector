@@ -10,7 +10,7 @@ const FilerobotImageEditor = lazy(() => import("react-filerobot-image-editor"));
  * Modal photo editor:
  *   - filerobot for crop / rotate / flip / finetune (brightness, contrast,
  *     saturation, blur, warmth, hue) / filters / annotations / resize
- *   - dedicated "Remove background" action that runs @imgly/background-removal
+ *   - dedicated "Remove background" action that runs BiRefNet (MIT) locally
  *     in the browser (no upload) and feeds the cutout back into filerobot
  *   - on save, calls `onUpload(blob)` with the rendered Blob.
  *
@@ -43,16 +43,19 @@ export default function PhotoEditor({ file, onUpload, onCancel }) {
   const onRemoveBg = async () => {
     setBgState({ running: true, progress: 0, error: null });
     try {
-      // @imgly/background-removal's progress callback takes three positional
-      // args, NOT a single object. Reading `p?.total` from a `key` string
-      // silently always fell through and kept the bar pinned at 0 % until
-      // the call resolved.
-      const cutout = await removeBackground(currentBlob, (_key, current, total) => {
-        if (total) {
-          setBgState((s) => ({
-            ...s,
-            progress: Math.round((current / total) * 100),
-          }));
+      // transformers.js reports a single object per file:
+      // `{ status, name, file, progress /* 0-100 */, loaded, total }`. Only the
+      // download phase carries a percentage — the load/inference phases just
+      // change `status`, so we hold the bar rather than snapping it back to 0.
+      const cutout = await removeBackground(currentBlob, (p) => {
+        const pct =
+          typeof p?.progress === "number"
+            ? Math.round(p.progress)
+            : p?.total
+              ? Math.round((p.loaded / p.total) * 100)
+              : null;
+        if (pct != null) {
+          setBgState((s) => ({ ...s, progress: Math.max(s.progress, Math.min(pct, 99)) }));
         }
       });
       swapBlob(cutout);

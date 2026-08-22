@@ -11,6 +11,23 @@ export function useWishlistItems() {
 
 /** Add a figure to the wishlist (idempotent — re-adding updates target/note).
  *  Payload: { figure_id, max_price_amount?, max_price_currency?, note? }. */
+/**
+ * Market-price history for every wished figure (one round-trip, tagged by
+ * figure id). Powers the per-row sparkline and the "how far above its observed
+ * floor is this?" read — the question a wishlist actually exists to answer.
+ *
+ * Cached longer than the list itself: the cron writes a point at most once a
+ * day, so re-fetching on every focus would be pure noise.
+ */
+export function useWishlistPriceHistory(enabled = true) {
+  return useQuery({
+    queryKey: ["wishlist", "price-history"],
+    queryFn: () => api.get("/me/wishlist/price-history"),
+    staleTime: 10 * 60 * 1000,
+    enabled,
+  });
+}
+
 export function useAddWishlistItem() {
   const qc = useQueryClient();
   return useMutation({

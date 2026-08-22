@@ -166,6 +166,17 @@ async fn fan_out_external(
         }
     };
 
+    // One locale lookup for the whole fan-out — every adapter renders the same
+    // copy, so hitting `users` once per channel would be pure waste. An
+    // unreadable row degrades to English rather than dropping the event.
+    let locale: String = sqlx::query_scalar("SELECT locale FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_optional(&state.pool)
+        .await
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| "en".to_string());
+
     let total = routes.len();
     let mut failed = 0usize;
     for route in routes {
@@ -179,6 +190,7 @@ async fn fan_out_external(
             &route.destination,
             event_type,
             &payload,
+            &locale,
         )
         .await;
         if let Err(e) = result {

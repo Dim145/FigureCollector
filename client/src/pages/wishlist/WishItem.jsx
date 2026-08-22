@@ -5,6 +5,7 @@ import Money from "../../components/Money.jsx";
 import { useDisplayCurrency } from "../../components/DisplayCurrencyProvider.jsx";
 import { fmtMoney } from "../../lib/money.js";
 import { coverFor, dealIsMet, marketPrice } from "./dealLogic.js";
+import { StepSparkline } from "../../components/PriceHistory.jsx";
 
 /**
  * One coveted piece — the composed FigureCard with a wishlist action tray
@@ -17,6 +18,9 @@ import { coverFor, dealIsMet, marketPrice } from "./dealLogic.js";
 export default function WishItem({
   it,
   t,
+  // Floor / ceiling read from the market-price history (see priceFloor.js).
+  // Undefined when the figure has fewer than two comparable relevés.
+  floor,
   locale,
   prefCurrency,
   blur,
@@ -49,6 +53,9 @@ export default function WishItem({
         imageUrl={coverFor(it)}
         scale={it.scale}
         wished
+        // Best availability across the figure's linked shops (7-day freshness
+        // window, server-side). Unknown ⇒ the badge renders nothing.
+        stockStatus={it.stock_status}
         blurImage={blur}
       />
 
@@ -143,6 +150,33 @@ export default function WishItem({
               <Pencil size={15} />
             </button>
           </div>
+
+          {/* Floor radar — where today's price sits in its own observed range.
+              A wishlist is a waiting game: "cheapest ever seen" and "hasn't
+              moved in N days" are what decide whether to strike now. */}
+          {floor ? (
+            <div className="mt-2 px-1 flex items-center gap-2">
+              <StepSparkline points={floor.points} width={72} height={18} />
+              <span className="text-[10px] tracking-[0.1em] text-[var(--on-surface-muted)]">
+                {floor.atFloor
+                  ? t("wishlist.floor.at", { default: "au plancher observé" })
+                  : t("wishlist.floor.above", {
+                      pct: floor.aboveFloorPct.toFixed(0),
+                      p: fmtMoney(floor.floor, floor.currency || prefCurrency, locale),
+                      default: `+${floor.aboveFloorPct.toFixed(0)} % au-dessus du plancher`,
+                    })}
+                {floor.stableDays >= 14 ? (
+                  <span className="opacity-60">
+                    {" · "}
+                    {t("wishlist.floor.stable", {
+                      d: floor.stableDays,
+                      default: `stable depuis ${floor.stableDays} j`,
+                    })}
+                  </span>
+                ) : null}
+              </span>
+            </div>
+          ) : null}
 
           {/* Deal note + the user's reminder — quiet, value-toned. */}
           {deal ? (

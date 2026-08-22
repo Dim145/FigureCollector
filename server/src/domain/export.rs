@@ -10,7 +10,7 @@
 use crate::error::AppResult;
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
 
@@ -78,7 +78,8 @@ fn json<T: Serialize>(v: &T) -> AppResult<String> {
 
 // --- collection --------------------------------------------------------------
 
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Default, Serialize, Deserialize, FromRow)]
+#[serde(default)]
 pub struct CollectionRow {
     pub figure_name: String,
     pub figure_type: String,
@@ -140,7 +141,8 @@ impl CollectionRow {
 
 // --- wishlist ----------------------------------------------------------------
 
-#[derive(Debug, Serialize, FromRow)]
+#[derive(Debug, Default, Serialize, Deserialize, FromRow)]
+#[serde(default)]
 pub struct WishlistRow {
     pub figure_name: String,
     pub manufacturer: Option<String>,

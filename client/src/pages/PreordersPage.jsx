@@ -11,6 +11,7 @@ import ErrorState from "../components/ErrorState.jsx";
 import { PageLayout } from "../components/layout/index.js";
 import CalendarSubscribe from "./preorders/CalendarSubscribe.jsx";
 import PreorderStatRibbon from "./preorders/PreorderStatRibbon.jsx";
+import SlipRadar from "./preorders/SlipRadar.jsx";
 import PreorderFilterRail from "./preorders/PreorderFilterRail.jsx";
 import PreorderMonthGroup from "./preorders/PreorderMonthGroup.jsx";
 import PreorderAddDialog from "./preorders/PreorderAddDialog.jsx";
@@ -96,6 +97,7 @@ export default function PreordersPage() {
           <div className="space-y-8">
             <CalendarSubscribe t={t} />
             <PreorderStatRibbon stats={stats} t={t} />
+            <SlipRadar t={t} />
             <PreorderFilterRail filter={filter} onChange={setFilter} counts={countByStatus} t={t} />
           </div>
         ) : null}

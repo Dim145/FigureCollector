@@ -58,6 +58,12 @@ pub const EVENT_MANGA_SERVER_REVOKED: &str = "manga_server_revoked";
 /// further drop re-fires. Payload: `{ figure_id, figure_name, amount,
 /// currency, target_amount, target_currency }`.
 pub const EVENT_WISHLIST_PRICE_BELOW_TARGET: &str = "wishlist_price_below_target";
+/// The price cron saw a shop's stock signal go from a KNOWN out-of-stock to
+/// in-stock / preorder for a figure the user wishes. Fires only on a real
+/// transition (never on a first-ever observation, which is not a "return"),
+/// deduped per (figure, store, day) so a flapping listing can't spam. Payload:
+/// `{ figure_id, figure_name, store_id, store_name, status }`.
+pub const EVENT_WISHLIST_BACK_IN_STOCK: &str = "wishlist_back_in_stock";
 
 /// All event types the system can fire. Keep in lockstep with the SPA's
 /// i18n message keys (`notifications.event.<event_type>.*`).
@@ -70,6 +76,7 @@ pub const ALL_EVENTS: &[&str] = &[
     EVENT_MANGA_SERVER_APPROVED,
     EVENT_MANGA_SERVER_REVOKED,
     EVENT_WISHLIST_PRICE_BELOW_TARGET,
+    EVENT_WISHLIST_BACK_IN_STOCK,
 ];
 
 // =============================================================================

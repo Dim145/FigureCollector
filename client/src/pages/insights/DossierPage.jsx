@@ -6,6 +6,7 @@ import { useMyStats } from "../../hooks/useStats.js";
 import { useOwnedItems } from "../../hooks/useCollection.js";
 import { useMe } from "../../hooks/useMe.js";
 import DossierExportButton from "../../components/DossierExportButton.jsx";
+import CoveragePanel from "./CoveragePanel.jsx";
 
 /**
  * 保 Dossier d'assurance — the insurance export surfaced as its own Insights
@@ -37,6 +38,8 @@ export default function DossierPage() {
               "Génère un PDF unique réunissant l'inventaire daté de ta collection et les justificatifs (factures) de chaque pièce — prêt à transmettre à ton assurance.",
           })}
         </p>
+        {hasOwned ? <CoveragePanel owned={owned.data} t={t} /> : null}
+
         {hasOwned ? (
           <div
             className="bg-[var(--surface)] border border-[var(--border)] p-6"

@@ -57,9 +57,23 @@ async fn delete_mine(
     Ok(StatusCode::NO_CONTENT)
 }
 
+/// Market-price history for every wished figure, oldest first and tagged by
+/// figure — one round-trip so the wishlist can draw a sparkline per row and
+/// say how far today's price sits above its observed floor.
+async fn my_wishlist_price_history(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<Vec<crate::domain::figure_price::OwnedPricePoint>>> {
+    let user_id = auth::require_user(&session).await?;
+    Ok(Json(
+        crate::domain::figure_price::history_for_user_wished(&state.pool, user_id).await?,
+    ))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/me/wishlist", get(list_mine).post(add_mine))
+        .route("/me/wishlist/price-history", get(my_wishlist_price_history))
         .route(
             "/me/wishlist/{figure_id}",
             patch_method(patch_mine).delete(delete_mine),

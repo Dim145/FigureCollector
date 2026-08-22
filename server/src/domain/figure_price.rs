@@ -71,6 +71,28 @@ pub async fn history_for_user_owned(
     .await?)
 }
 
+/// Chronological history for every figure the user WISHES, oldest first per
+/// figure — the wishlist's mirror of [`history_for_user_owned`].
+///
+/// The cron already scrapes every store-linked figure, wished or not, so this
+/// series exists for coveted pieces too; it was simply never read. It answers
+/// the only question a wishlist really asks — "is this actually a good moment,
+/// or has it been cheaper?" — which a single latest price cannot.
+pub async fn history_for_user_wished(
+    pool: &PgPool,
+    user_id: Uuid,
+) -> AppResult<Vec<OwnedPricePoint>> {
+    Ok(sqlx::query_as::<_, OwnedPricePoint>(
+        "SELECT h.figure_id, h.amount, h.currency, h.source, h.matched_version, h.recorded_at
+         FROM figure_price_history h
+         WHERE h.figure_id IN (SELECT figure_id FROM wishlist_items WHERE user_id = $1)
+         ORDER BY h.figure_id, h.recorded_at ASC",
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?)
+}
+
 /// Record one resolved provider price for a figure: upserts the "latest"
 /// row AND appends a history point when the price changed — both in one
 /// transaction, so an accepted price can never skip the history. Returns

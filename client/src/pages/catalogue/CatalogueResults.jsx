@@ -14,9 +14,9 @@ import { preorderBadgeLabel, preorderPhaseFromFigure } from "../../lib/preorderS
  * badge instead of its preorder badge — that's how semantic / look results read
  * like the discovery rails.
  */
-export function FigureGrid({ figures, scores, ownedIds, wishedIds, me, t }) {
+export function FigureGrid({ figures, scores, ownedIds, wishedIds, me, t, density = "comfort" }) {
   return (
-    <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    <ul className="fc-grid" data-density={density}>
       {figures.map((f, i) => {
         const cover = resolveFigureCoverSources(f);
         return (

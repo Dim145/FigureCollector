@@ -237,6 +237,7 @@ pub type ChannelResult = Result<(), ChannelError>;
 
 /// Dispatch an event to a single channel. Looks up the adapter by
 /// `channel_type` and delegates. Returns ChannelError on failure.
+#[allow(clippy::too_many_arguments)]
 pub async fn dispatch_to_channel(
     state: &AppState,
     user_id: Uuid,
@@ -245,8 +246,11 @@ pub async fn dispatch_to_channel(
     destination: &serde_json::Value,
     event_type: &str,
     payload: &serde_json::Value,
+    // The recipient's `users.locale`, resolved once by the caller so a
+    // six-channel fan-out doesn't hit the DB six times.
+    locale: &str,
 ) -> ChannelResult {
-    let msg = render_message(event_type, payload);
+    let msg = render_message(event_type, payload, &state.config.frontend_url, locale);
     match channel_type {
         notification::CHANNEL_EMAIL => send_email(system_config, destination, &msg).await,
         notification::CHANNEL_NTFY => send_ntfy(state, system_config, destination, &msg).await,
@@ -276,7 +280,21 @@ pub struct RenderedMessage {
     pub body: String,
 }
 
-fn render_message(event_type: &str, payload: &serde_json::Value) -> RenderedMessage {
+/// Render one event into a channel-agnostic title + plain-text body.
+///
+/// `base` is the canonical SPA origin (`FRONTEND_URL`) so every message can
+/// deep-link back to the thing it is about — a notification you can't act on
+/// is noise. `locale` is the recipient's `users.locale`; anything that isn't
+/// `fr*` falls back to English.
+///
+/// Plain text only: ntfy, webhooks and Apprise don't render HTML, and the
+/// email adapter sends this same body as text.
+fn render_message(
+    event_type: &str,
+    payload: &serde_json::Value,
+    base: &str,
+    locale: &str,
+) -> RenderedMessage {
     let get_str = |k: &str| {
         payload
             .get(k)
@@ -284,57 +302,213 @@ fn render_message(event_type: &str, payload: &serde_json::Value) -> RenderedMess
             .unwrap_or("")
             .to_string()
     };
+    let fr = locale.starts_with("fr");
+    let base = base.trim_end_matches('/');
+    let link = |path: &str| format!("{base}{path}");
+    // A figure deep-link, falling back to the catalogue when the payload
+    // carries no id (older rows, hand-fired events).
+    let figure_link = || {
+        let id = get_str("figure_id");
+        if id.is_empty() {
+            link("/catalogue")
+        } else {
+            link(&format!("/figures/{id}"))
+        }
+    };
+
     match event_type {
         "test" => RenderedMessage {
-            title: "FigureCollector — test de notification".to_string(),
-            body: "Si tu peux lire ce message, ton canal de notifications est correctement configuré. Tu peux fermer ce test.".to_string(),
+            title: "FigureCollector — test".to_string(),
+            body: if fr {
+                "Si tu peux lire ce message, ton canal de notifications est correctement configuré. Tu peux fermer ce test.".to_string()
+            } else {
+                "If you can read this, your notification channel is set up correctly. You can close this test.".to_string()
+            },
         },
+
         notification::EVENT_ACHIEVEMENT_UNLOCKED => {
             let code = get_str("code");
             let tier = get_str("tier");
+            let url = link("/achievements");
             RenderedMessage {
-                title: format!("FigureCollector — new seal pressed: {code}"),
-                body: format!(
-                    "You just unlocked the “{code}” achievement (tier: {tier}).\n\n\
-                     Open https://figurecollector to admire it."
-                ),
+                title: if fr {
+                    format!("FigureCollector — nouveau sceau : {code}")
+                } else {
+                    format!("FigureCollector — new seal pressed: {code}")
+                },
+                body: if fr {
+                    format!("Tu viens de débloquer le succès « {code} » (palier : {tier}).\n\n{url}")
+                } else {
+                    format!("You just unlocked the “{code}” achievement (tier: {tier}).\n\n{url}")
+                },
             }
         }
+
         notification::EVENT_PREORDER_RELEASE_TODAY => {
             let name = get_str("figure_name");
             let date = get_str("release_date");
+            let url = link("/collection/preorders");
             RenderedMessage {
-                title: format!("FigureCollector — released today: {name}"),
-                body: format!(
-                    "{name} is releasing today ({date}). Your pre-order is the next on the list.",
-                ),
+                title: if fr {
+                    format!("FigureCollector — sortie aujourd'hui : {name}")
+                } else {
+                    format!("FigureCollector — released today: {name}")
+                },
+                body: if fr {
+                    format!("{name} sort aujourd'hui ({date}). Ta précommande est la prochaine sur la liste.\n\n{url}")
+                } else {
+                    format!("{name} is releasing today ({date}). Your pre-order is next on the list.\n\n{url}")
+                },
             }
         }
+
         notification::EVENT_PREORDER_RELEASE_J7 => {
             let name = get_str("figure_name");
             let date = get_str("release_date");
+            let url = link("/collection/preorders");
             RenderedMessage {
-                title: format!("FigureCollector — releasing soon: {name}"),
-                body: format!(
-                    "Heads-up: {name} releases in 7 days ({date}). Make sure your payment + address are up to date with the seller.",
-                ),
+                title: if fr {
+                    format!("FigureCollector — sortie imminente : {name}")
+                } else {
+                    format!("FigureCollector — releasing soon: {name}")
+                },
+                body: if fr {
+                    format!("Dans 7 jours : {name} sort le {date}. Vérifie que ton paiement et ton adresse sont à jour chez le vendeur.\n\n{url}")
+                } else {
+                    format!("Heads-up: {name} releases in 7 days ({date}). Make sure your payment and address are up to date with the seller.\n\n{url}")
+                },
             }
         }
+
+        notification::EVENT_PREORDER_DELIVERY_TODAY => {
+            let name = get_str("figure_name");
+            let date = get_str("delivery_date");
+            let url = link("/collection/preorders");
+            RenderedMessage {
+                title: if fr {
+                    format!("FigureCollector — livraison prévue aujourd'hui : {name}")
+                } else {
+                    format!("FigureCollector — arriving today: {name}")
+                },
+                body: if fr {
+                    format!("{name} devrait arriver aujourd'hui ({date}). Pense à contrôler l'état du colis à la réception.\n\n{url}")
+                } else {
+                    format!("{name} should arrive today ({date}). Check the parcel's condition when you take delivery.\n\n{url}")
+                },
+            }
+        }
+
+        notification::EVENT_PREORDER_DELIVERY_OVERDUE => {
+            let name = get_str("figure_name");
+            let date = get_str("delivery_date");
+            let url = link("/collection/preorders");
+            RenderedMessage {
+                title: if fr {
+                    format!("FigureCollector — livraison en retard : {name}")
+                } else {
+                    format!("FigureCollector — delivery overdue: {name}")
+                },
+                body: if fr {
+                    format!("{name} était attendu le {date} et n'est pas marqué comme reçu. C'est le moment de relancer le transporteur ou la boutique — les délais de réclamation sont courts.\n\n{url}")
+                } else {
+                    format!("{name} was due on {date} and isn't marked as received yet. Time to chase the carrier or the shop — claim windows are short.\n\n{url}")
+                },
+            }
+        }
+
         notification::EVENT_WISHLIST_PRICE_BELOW_TARGET => {
             let name = get_str("figure_name");
             let amount = get_str("amount");
             let currency = get_str("currency");
             let target = get_str("target_amount");
+            let target_currency = get_str("target_currency");
+            let url = figure_link();
             RenderedMessage {
-                title: format!("FigureCollector — price target hit: {name}"),
-                body: format!(
-                    "{name} is now at {amount} {currency} — at or under your {target} target. Time to strike.",
-                ),
+                title: if fr {
+                    format!("FigureCollector — prix cible atteint : {name}")
+                } else {
+                    format!("FigureCollector — price target hit: {name}")
+                },
+                body: if fr {
+                    format!("{name} est à {amount} {currency} — au niveau ou sous ta cible de {target} {target_currency}.\n\n{url}")
+                } else {
+                    format!("{name} is now at {amount} {currency} — at or under your {target} {target_currency} target.\n\n{url}")
+                },
             }
         }
+
+        notification::EVENT_WISHLIST_BACK_IN_STOCK => {
+            let name = get_str("figure_name");
+            let shop = get_str("store_name");
+            let preorder = get_str("status") == "preorder";
+            let url = figure_link();
+            RenderedMessage {
+                title: if fr {
+                    format!("FigureCollector — de retour en stock : {name}")
+                } else {
+                    format!("FigureCollector — back in stock: {name}")
+                },
+                body: match (fr, preorder) {
+                    (true, false) => format!("{name} est de nouveau disponible chez {shop}. Un restock part vite.\n\n{url}"),
+                    (true, true) => format!("{name} est repassé en précommande chez {shop}.\n\n{url}"),
+                    (false, false) => format!("{name} is available again at {shop}. Restocks go fast.\n\n{url}"),
+                    (false, true) => format!("{name} reopened for pre-order at {shop}.\n\n{url}"),
+                },
+            }
+        }
+
+        notification::EVENT_MANGA_SERVER_APPROVED => {
+            let label = {
+                let l = get_str("label");
+                if l.is_empty() { get_str("base_url") } else { l }
+            };
+            let url = link("/settings");
+            RenderedMessage {
+                title: if fr {
+                    format!("FigureCollector — serveur manga approuvé : {label}")
+                } else {
+                    format!("FigureCollector — manga server approved: {label}")
+                },
+                body: if fr {
+                    format!("Un administrateur a approuvé {label} : ta synergie MangaCollector est active.\n\n{url}")
+                } else {
+                    format!("An admin approved {label}: your MangaCollector synergy is now active.\n\n{url}")
+                },
+            }
+        }
+
+        notification::EVENT_MANGA_SERVER_REVOKED => {
+            let label = {
+                let l = get_str("label");
+                if l.is_empty() { get_str("base_url") } else { l }
+            };
+            let reason = get_str("reason");
+            let url = link("/settings");
+            let why_fr = if reason.is_empty() { String::new() } else { format!("\nMotif : {reason}") };
+            let why_en = if reason.is_empty() { String::new() } else { format!("\nReason: {reason}") };
+            RenderedMessage {
+                title: if fr {
+                    format!("FigureCollector — serveur manga révoqué : {label}")
+                } else {
+                    format!("FigureCollector — manga server revoked: {label}")
+                },
+                body: if fr {
+                    format!("Un administrateur a révoqué {label} : la synergie est désactivée jusqu'à ce que tu en choisisses un autre.{why_fr}\n\n{url}")
+                } else {
+                    format!("An admin revoked {label}: the synergy is disabled until you pick another one.{why_en}\n\n{url}")
+                },
+            }
+        }
+
+        // Unknown event: still deliverable, but say so in words rather than
+        // dumping JSON at the user.
         other => RenderedMessage {
             title: format!("FigureCollector — {other}"),
-            body: format!("Event: {other}\nPayload: {payload}"),
+            body: if fr {
+                format!("Événement : {other}\n\n{base}")
+            } else {
+                format!("Event: {other}\n\n{base}")
+            },
         },
     }
 }

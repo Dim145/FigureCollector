@@ -1,0 +1,164 @@
+/* ============================================================================
+ * La planche — grid density, off-screen skipping, shared rails, cover morph.
+ *
+ * One grid serves three tasks: admiring a shelf (Confort), working through a
+ * few hundred pieces (Dense), and scanning covers for the duplicate or the
+ * missing photo (Planche-contact). Rather than three components, the plate is
+ * one `auto-fill` grid whose track size and chrome are swapped by
+ * `[data-density]` — no JS measuring, no layout thrash.
+ * ========================================================================= */
+
+.fc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--plate-min)), 1fr));
+  gap: var(--plate-gap);
+  /* Fallback so the grid is never unstyled if a density attr goes missing. */
+  --plate-min: 15rem;
+  --plate-gap: 1.5rem;
+  --plate-card-h: 26rem;
+}
+
+.fc-grid[data-density="comfort"] {
+  --plate-min: 15rem;
+  --plate-gap: 1.5rem;
+  --plate-card-h: 26rem;
+}
+
+.fc-grid[data-density="dense"] {
+  --plate-min: 9.5rem;
+  --plate-gap: 0.75rem;
+  --plate-card-h: 17rem;
+}
+
+.fc-grid[data-density="contact"] {
+  --plate-min: 5.5rem;
+  /* A gold hairline instead of a gutter: the covers read as one plate. */
+  --plate-gap: 1px;
+  --plate-card-h: 7rem;
+  background: color-mix(in oklab, var(--color-or) 22%, transparent);
+  padding: 1px;
+}
+
+/* ── Off-screen work skipping ───────────────────────────────────────────────
+ * The catalogue and collection render every result into the DOM (no windowing
+ * — it would break Ctrl+F, the a11y tree and the offline cache). Instead let
+ * the engine skip layout+paint for rows that aren't near the viewport.
+ * `contain-intrinsic-size: auto <h>` remembers each card's real height once
+ * seen, so scrollbar length and restored scroll offsets stay honest. */
+.fc-grid > li {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--plate-card-h);
+}
+
+/* Dense/contact trim the card down to what you're actually scanning. */
+.fc-grid[data-density="dense"] .fc-card-body {
+  padding: 0.6rem 0.7rem;
+}
+.fc-grid[data-density="dense"] .fc-card-body .gold-rule,
+.fc-grid[data-density="dense"] .fc-card-body dl {
+  display: none;
+}
+.fc-grid[data-density="dense"] .fc-card-body h3 {
+  font-size: 0.95rem;
+}
+
+.fc-grid[data-density="contact"] .fc-card-body,
+.fc-grid[data-density="contact"] .specimen-inscription,
+.fc-grid[data-density="contact"] .fc-kanji {
+  display: none;
+}
+/* Covers only: kill the per-card frame so the plate is an unbroken sheet. */
+.fc-grid[data-density="contact"] .fc-card {
+  border: 0;
+  background: var(--color-noir);
+}
+.fc-grid[data-density="contact"] .specimen-well {
+  aspect-ratio: 1 / 1;
+}
+.fc-grid[data-density="contact"] .specimen-well img {
+  padding: 0;
+}
+
+/* ── Density switch (segmented) ─────────────────────────────────────────── */
+.density-seg {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid color-mix(in oklab, var(--color-or) 30%, transparent);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: color-mix(in oklab, var(--color-or) 4%, transparent);
+}
+.density-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35em;
+  /* WCAG 2.5.8 floor — this is a real control, not a decoration. */
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 0.7rem;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-ivoire-soft);
+  background: transparent;
+  transition:
+    background-color 180ms var(--ease-curtain, ease),
+    color 180ms var(--ease-curtain, ease);
+}
+.density-seg-btn + .density-seg-btn {
+  border-left: 1px solid color-mix(in oklab, var(--color-or) 18%, transparent);
+}
+.density-seg-btn:hover {
+  color: var(--color-or-pale);
+  background: color-mix(in oklab, var(--color-or) 8%, transparent);
+}
+.density-seg-btn[aria-pressed="true"] {
+  color: var(--color-noir);
+  background: var(--color-or);
+}
+
+/* ── Shared rail affordance ─────────────────────────────────────────────────
+ * A rail with a hidden scrollbar looks identical to a rail that simply ends.
+ * Fade whichever edge is clipping content so "there is more" is visible. */
+[data-rail] {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+[data-rail]::-webkit-scrollbar {
+  display: none;
+}
+[data-rail][data-edge-start="true"][data-edge-end="true"] {
+  mask-image: linear-gradient(to right, transparent 0, #000 2rem, #000 calc(100% - 2rem), transparent 100%);
+}
+[data-rail][data-edge-start="true"][data-edge-end="false"] {
+  mask-image: linear-gradient(to right, transparent 0, #000 2rem);
+}
+[data-rail][data-edge-start="false"][data-edge-end="true"] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent 100%);
+}
+
+/* ── Cover morph (View Transitions) ─────────────────────────────────────────
+ * The clicked card's cover and the detail hero share one transition name, so
+ * the compositor tweens between them instead of hard-cutting. The name is
+ * applied to the card only for the duration of the navigation (see
+ * hooks/useViewTransition.js) — it must be unique per document. */
+.vt-cover,
+.vt-hero-cover {
+  view-transition-name: figure-cover;
+}
+
+::view-transition-old(figure-cover),
+::view-transition-new(figure-cover) {
+  /* Keep it under the 300ms the page is frozen for. */
+  animation-duration: 260ms;
+  animation-timing-function: var(--ease-curtain, cubic-bezier(0.2, 0.8, 0.2, 1));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}

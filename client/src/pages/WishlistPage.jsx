@@ -3,11 +3,7 @@ import { Link, Navigate } from "react-router-dom";
 import { Download, Search } from "lucide-react";
 import { useT } from "../i18n/index.jsx";
 import { useMe } from "../hooks/useMe.js";
-import {
-  useWishlistItems,
-  usePatchWishlistItem,
-  useRemoveWishlistItem,
-} from "../hooks/useWishlist.js";
+import { useWishlistItems, usePatchWishlistItem, useRemoveWishlistItem, useWishlistPriceHistory } from "../hooks/useWishlist.js";
 import { useAddOwnedItem } from "../hooks/useCollection.js";
 import AppShell from "../components/AppShell.jsx";
 import { PageLayout, Section } from "../components/layout/index.js";
@@ -19,6 +15,9 @@ import { SectionSkeleton } from "../components/Skeleton.jsx";
 import Reveal from "../components/motion/Reveal.jsx";
 import { useDisplayCurrency } from "../components/DisplayCurrencyProvider.jsx";
 import { sumInDisplay } from "../lib/money.js";
+import { toSeries } from "../components/PriceHistory.jsx";
+import { floorStats } from "./wishlist/priceFloor.js";
+import useUrlState, { asBool } from "../hooks/useUrlState.js";
 import { dealIsMet } from "./wishlist/dealLogic.js";
 import WishlistKpiStrip from "./wishlist/WishlistKpiStrip.jsx";
 import GiftShareSection from "./wishlist/GiftShareSection.jsx";
@@ -36,6 +35,11 @@ import WishItem from "./wishlist/WishItem.jsx";
  * + the coveted-pieces grid. Manual editing of the target price / note stays
  * inline on each card. All data hooks and mutations are unchanged.
  */
+/** Wishlist view state that belongs in the URL (shareable, back-restorable). */
+const WISH_VIEW_DEFS = {
+  instock: { default: false, ...asBool },
+};
+
 export default function WishlistPage() {
   const t = useT();
   const me = useMe();
@@ -48,7 +52,37 @@ export default function WishlistPage() {
   const nsfwBlur = (me.data?.user?.nsfw_visibility ?? "hide") === "blur";
   const prefCurrency = me.data?.user?.preferred_currency || "EUR";
 
-  const items = useMemo(() => wishlist.data ?? [], [wishlist.data]);
+  const allItems = useMemo(() => wishlist.data ?? [], [wishlist.data]);
+  // "En stock" lens — the price cron already knows which shops have the piece
+  // again; this narrows the list to what can actually be bought right now.
+  const [view, setView] = useUrlState(WISH_VIEW_DEFS);
+  const inStockOnly = view.instock;
+  const items = useMemo(
+    () => (inStockOnly ? allItems.filter((it) => it.stock_status === "in_stock" || it.stock_status === "preorder") : allItems),
+    [allItems, inStockOnly],
+  );
+  const inStockCount = useMemo(
+    () => allItems.filter((it) => it.stock_status === "in_stock" || it.stock_status === "preorder").length,
+    [allItems],
+  );
+
+  // Price history for every wished figure — one round-trip, grouped per figure
+  // so each row can draw its own floor read.
+  const history = useWishlistPriceHistory(allItems.length > 0);
+  const floorByFigure = useMemo(() => {
+    const byFig = new Map();
+    for (const row of history.data ?? []) {
+      const arr = byFig.get(row.figure_id);
+      if (arr) arr.push(row);
+      else byFig.set(row.figure_id, [row]);
+    }
+    const out = new Map();
+    for (const [fid, rows] of byFig) {
+      const stats = floorStats(toSeries(rows));
+      if (stats) out.set(fid, stats);
+    }
+    return out;
+  }, [history.data]);
 
   // Budget = sum of target prices. Kept per-currency (buckets) so it can be
   // shown converted into the display currency, with the dominant bucket as the
@@ -134,7 +168,9 @@ export default function WishlistPage() {
     );
   }
 
-  const hasItems = items.length > 0;
+  // Based on the unfiltered list: turning on a lens must not make the page
+  // look like an empty wishlist and re-offer onboarding.
+  const hasItems = allItems.length > 0;
 
   return (
     <AppShell>
@@ -187,7 +223,7 @@ export default function WishlistPage() {
           <>
             <WishlistKpiStrip
               t={t}
-              count={items.length}
+              count={allItems.length}
               targeted={targeted}
               dealsMet={dealsMet}
               budget={budget}
@@ -204,16 +240,29 @@ export default function WishlistPage() {
               className="mt-8"
               kicker={t("wishlist.section.pieces", { default: "Les pièces convoitées" })}
               actions={
-                <Button
-                  as={Link}
-                  to="/catalogue"
-                  variant="subtle"
-                  size="sm"
-                  iconStart={<Search size={15} />}
-                  className="uppercase"
-                >
-                  {t("nav.browse")}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {inStockCount > 0 ? (
+                    <button
+                      type="button"
+                      aria-pressed={inStockOnly}
+                      onClick={() => setView({ instock: !inStockOnly })}
+                      className={`chip tap-target ${inStockOnly ? "chip--solid" : ""}`}
+                    >
+                      {t("wishlist.lens.instock")}
+                      <span className="tabular-nums opacity-70">{inStockCount}</span>
+                    </button>
+                  ) : null}
+                  <Button
+                    as={Link}
+                    to="/catalogue"
+                    variant="subtle"
+                    size="sm"
+                    iconStart={<Search size={15} />}
+                    className="uppercase"
+                  >
+                    {t("nav.browse")}
+                  </Button>
+                </div>
               }
               divider
             >
@@ -223,6 +272,7 @@ export default function WishlistPage() {
                     <WishItem
                       it={it}
                       t={t}
+                      floor={floorByFigure.get(it.figure_id)}
                       locale={locale}
                       prefCurrency={prefCurrency}
                       blur={it.is_nsfw && nsfwBlur}

@@ -13,6 +13,7 @@ const KANJI_BY_EVENT = {
   manga_server_approved: "認",
   manga_server_revoked: "禁",
   wishlist_price_below_target: "値",
+  wishlist_back_in_stock: "在",
 };
 
 /** Display name for a manga server: its label, else the bare host. */
@@ -91,7 +92,22 @@ export function formatNotification(n, t) {
           currency: p.currency ?? "",
           target: p.target_amount ?? "—",
         }),
-        href: p.figure_id ? `/figures/${p.figure_id}` : "/souhaits",
+        href: p.figure_id ? `/figures/${p.figure_id}` : "/collection/souhaits",
+        kanji,
+      };
+    }
+    case "wishlist_back_in_stock": {
+      return {
+        title: t("notifications.event.wishlist_back_in_stock.title", {
+          name: p.figure_name ?? "—",
+        }),
+        sub: t(
+          p.status === "preorder"
+            ? "notifications.event.wishlist_back_in_stock.sub_preorder"
+            : "notifications.event.wishlist_back_in_stock.sub",
+          { shop: p.store_name ?? "—" },
+        ),
+        href: p.figure_id ? `/figures/${p.figure_id}` : "/collection/souhaits",
         kanji,
       };
     }
@@ -101,7 +117,7 @@ export function formatNotification(n, t) {
           server: serverName(p),
         }),
         sub: t("notifications.event.manga_server_approved.sub"),
-        href: "/croisements",
+        href: "/community/croisements",
         kanji,
       };
     }

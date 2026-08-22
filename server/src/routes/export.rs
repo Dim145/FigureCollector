@@ -11,7 +11,7 @@ use crate::error::{AppError, AppResult};
 use crate::services::{dossier, invoice};
 use crate::state::AppState;
 use axum::{
-    Router,
+    Json, Router,
     body::Body,
     extract::{Multipart, State},
     http::{HeaderValue, header},
@@ -307,8 +307,64 @@ async fn insurance_dossier(
         .into_response())
 }
 
+/// Import options + payload in one body: the SPA sends the parsed backup with
+/// `dry_run` first (preview), then again with `dry_run: false` once the user has
+/// seen what would happen.
+#[derive(serde::Deserialize)]
+struct ImportRequest {
+    #[serde(default = "default_true")]
+    dry_run: bool,
+    #[serde(default)]
+    policy: crate::domain::import::MergePolicy,
+    /// Allow seeding the SHARED catalogue with figures the file references but
+    /// this instance doesn't have. Off by default — see domain::import.
+    #[serde(default)]
+    create_missing: bool,
+    #[serde(default)]
+    backup: crate::domain::import::BackupFile,
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(serde::Serialize)]
+#[serde(untagged)]
+enum ImportResponse {
+    Preview(crate::domain::import::ImportPlan),
+    Applied(crate::domain::import::ImportResult),
+}
+
+/// Restore a backup into the SESSION user's collection. Never trusts the
+/// `user` block in the file — a backup can only ever write to whoever is
+/// signed in.
+async fn import_backup(
+    State(state): State<AppState>,
+    session: Session,
+    Json(req): Json<ImportRequest>,
+) -> AppResult<Json<ImportResponse>> {
+    let user_id = auth::require_user(&session).await?;
+    if req.dry_run {
+        Ok(Json(ImportResponse::Preview(
+            crate::domain::import::preview(&state.pool, user_id, &req.backup).await?,
+        )))
+    } else {
+        Ok(Json(ImportResponse::Applied(
+            crate::domain::import::apply(
+                &state.pool,
+                user_id,
+                &req.backup,
+                req.policy,
+                req.create_missing,
+            )
+            .await?,
+        )))
+    }
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
+        .route("/me/import/backup", post(import_backup))
         .route("/me/export/collection.csv", get(collection_csv))
         .route("/me/export/collection.json", get(collection_json))
         .route("/me/export/wishlist.csv", get(wishlist_csv))

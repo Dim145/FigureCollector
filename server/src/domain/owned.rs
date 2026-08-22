@@ -127,6 +127,10 @@ pub struct OwnedItemWithFigure {
     /// to re-query per row. Used purely as a fallback when no per-user
     /// cover is set.
     pub catalog_cover_photo_id: Option<Uuid>,
+    /// True when at least one receipt / invoice is attached to this piece.
+    /// Drives the insurance-coverage panel and the paperclip on the card.
+    #[serde(default)]
+    pub has_document: bool,
 
     /// Catalog-side release date — used to derive "pre-order" status when no
     /// linked preorder row exists yet (race between owned creation and the
@@ -526,7 +530,13 @@ pub async fn list_for_user(
             f.release_date          AS figure_release_date,
             p.status                AS preorder_status,
             p.release_date_current  AS preorder_release_current,
-            f.is_nsfw
+            f.is_nsfw,
+            -- Does this piece have a receipt/invoice attached? Surfaced so the
+            -- SPA can show insurance coverage as a share of VALUE (not of
+            -- count) without a second round-trip per row.
+            EXISTS (
+                SELECT 1 FROM owned_item_documents d WHERE d.owned_item_id = o.id
+            ) AS has_document
          FROM owned_items o
          JOIN figures f          ON f.id = o.figure_id
          LEFT JOIN figure_provider_prices pp ON pp.figure_id = o.figure_id

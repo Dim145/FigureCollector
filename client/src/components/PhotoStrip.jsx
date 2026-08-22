@@ -17,7 +17,7 @@ import PhotoEditor from "./PhotoEditor.jsx";
  *   3. instead of uploading right away, we mount <PhotoEditor> on the file
  *   4. when the user clicks "Save" inside the editor, we upload the edited blob
  *
- * The editor itself is lazy-loaded (filerobot + @imgly bg-removal) so this
+ * The editor itself is lazy-loaded (filerobot + BiRefNet bg-removal) so this
  * code path never inflates the initial bundle.
  */
 export default function PhotoStrip({ ownedId, figureName, uploadDisabled = false, blurImages = false }) {

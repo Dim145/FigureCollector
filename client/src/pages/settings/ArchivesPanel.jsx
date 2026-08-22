@@ -1,4 +1,5 @@
 import { Download, FileSpreadsheet, FileJson } from "lucide-react";
+import ImportPanel from "./ImportPanel.jsx";
 import { useT } from "../../i18n/index.jsx";
 import { useMyStats, useInsights } from "../../hooks/useStats.js";
 import { useOwnedItems } from "../../hooks/useCollection.js";
@@ -126,6 +127,7 @@ export default function ArchivesPanel({ registerRef }) {
           ownerName={me.data?.user?.display_name}
         />
       </div>
+      <ImportPanel />
     </SettingsPanel>
   );
 }

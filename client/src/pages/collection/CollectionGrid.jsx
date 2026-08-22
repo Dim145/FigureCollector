@@ -39,6 +39,8 @@ export default function CollectionGrid({
   onBulkArchive,
   onBulkDelete,
   onExitSelect,
+  // Resolved plate density (comfort | dense | contact) — see useGridDensity.
+  density = "comfort",
 }) {
   return (
     <>
@@ -61,7 +63,7 @@ export default function CollectionGrid({
           {t("collection.filter.empty")}
         </p>
       ) : (
-        <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <ul className="fc-grid" data-density={density}>
           {items.map((item, i) => (
             <GridItem
               key={item.id}

@@ -51,7 +51,7 @@ export default defineConfig({
       workbox: {
         // ---- Precache (hashed build outputs)
         // wasm + onnx artefacts can weigh tens of MB (ONNX Runtime for the
-        // @imgly bg-removal model is ~24 MB on its own). We exclude them from
+        // the BiRefNet bg-removal model is ~88 MB on its own). We exclude them from
         // the precache manifest and cache them at runtime when they're first
         // requested, so users who never invoke "Détourer" never pay for them.
         globPatterns: ["**/*.{js,css,html,svg,png,webp,woff2}"],
@@ -173,23 +173,6 @@ export default defineConfig({
               rangeRequests: true,
             },
           },
-          // @imgly/background-removal data CDN — pinned to a versioned URL
-          // (`/@imgly/background-removal-data/<X.Y.Z>/dist/…`) so CacheFirst
-          // is safe; the model + resources.json are ~80 MB total on first
-          // run, then served from the SW cache forever.
-          {
-            urlPattern: /^https:\/\/staticimgly\.com\/@imgly\/background-removal-data\//,
-            handler: "CacheFirst",
-            options: {
-              cacheName: "fc-imgly-bgrm",
-              expiration: {
-                maxEntries: 20,
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
-              },
-              cacheableResponse: { statuses: [0, 200] },
-              rangeRequests: true,
-            },
-          },
           // Google Fonts CSS & font files (Direction B typography).
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\//,
@@ -247,10 +230,7 @@ export default defineConfig({
             if (id.includes("@huggingface/transformers")) {
               return "vendor-transformers";
             }
-            if (
-              id.includes("@imgly/background-removal") ||
-              id.includes("onnxruntime-web")
-            ) {
+            if (id.includes("onnxruntime-web")) {
               return "vendor-bgremoval";
             }
             if (id.includes("gsplat")) {

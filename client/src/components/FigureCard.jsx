@@ -1,11 +1,12 @@
 import { useMemo, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useI18n, useT } from "../i18n/index.jsx";
 import { useFigureTypes } from "../hooks/useAdmin.js";
 import { useCoverImage } from "../hooks/useCoverImage.js";
 import { typeHue } from "../lib/typeHue.js";
 import { Tooltip } from "./ui/index.js";
 import StockBadge from "./StockBadge.jsx";
+import { withCoverTransition } from "../hooks/useViewTransition.js";
 
 /**
  * Cabinet de curiosités — display-pedestal card.
@@ -98,6 +99,11 @@ export default function FigureCard({
     </span>
   );
 
+  // The clicked cover is the morph source for the card → detail view
+  // transition; the name is applied to it only while the navigation runs.
+  const coverRef = useRef(null);
+  const navigate = useNavigate();
+
   const inner = (
     <div
       ref={ref}
@@ -155,6 +161,7 @@ export default function FigureCard({
 
         {coverSrc ? (
           <img
+            ref={coverRef}
             src={coverSrc}
             alt={name}
             loading="lazy"
@@ -206,7 +213,7 @@ export default function FigureCard({
       </div>
 
       {/* Caption */}
-      <div className="p-5 flex-1 flex flex-col">
+      <div className="fc-card-body p-5 flex-1 flex flex-col">
         <h3 className="display text-xl leading-tight text-[var(--color-ivoire)] line-clamp-2 group-hover/card:text-[var(--color-or-pale)] transition-colors">
           {name}
         </h3>
@@ -229,8 +236,20 @@ export default function FigureCard({
     </div>
   );
 
+  const to = href ?? `/figures/${figureId}`;
   return href ? (
-    <Link to={href ?? `/figures/${figureId}`} className="block group/card h-full">
+    <Link
+      to={to}
+      className="block group/card h-full"
+      onClick={(e) => {
+        // Leave every "open elsewhere" gesture to the browser: modifier or
+        // middle click, or a handler that already opted out.
+        if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)
+          return;
+        e.preventDefault();
+        withCoverTransition(coverRef.current, () => navigate(to));
+      }}
+    >
       {inner}
     </Link>
   ) : (
