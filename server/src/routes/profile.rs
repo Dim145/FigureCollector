@@ -269,6 +269,14 @@ struct ProfilePatch {
     /// `Some("EUR")` etc. enforces the supported-currency whitelist below.
     /// `None` leaves the existing value untouched.
     preferred_currency: Option<String>,
+    /// Monthly pre-order spending ceiling. Absent leaves it untouched; a value
+    /// sets it. Clearing needs the explicit flag below, because "no ceiling"
+    /// and "a ceiling of zero" are different states and JSON `null` alone
+    /// can't tell them apart from "not sent".
+    monthly_budget_amount: Option<rust_decimal::Decimal>,
+    #[serde(default)]
+    monthly_budget_clear: bool,
+    monthly_budget_currency: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -278,6 +286,8 @@ struct ProfileResponse {
     public_profile_show_value: bool,
     nsfw_visibility: String,
     preferred_currency: Option<String>,
+    monthly_budget_amount: Option<rust_decimal::Decimal>,
+    monthly_budget_currency: Option<String>,
 }
 
 async fn patch_my_profile(
@@ -315,16 +325,47 @@ async fn patch_my_profile(
         Some(v) => (true, v),
     };
 
-    let row: (bool, bool, bool, String, Option<String>) = sqlx::query_as(
+    // Absent = leave alone; `monthly_budget_clear` = drop the ceiling; a value
+    // = set it. The explicit clear flag keeps "no ceiling" distinguishable from
+    // "a ceiling of 0".
+    let (set_budget, budget_value): (bool, Option<rust_decimal::Decimal>) =
+        if input.monthly_budget_clear {
+            (true, None)
+        } else {
+            match input.monthly_budget_amount {
+                None => (false, None),
+                Some(v) => (true, Some(v)),
+            }
+        };
+    if let Some(c) = input.monthly_budget_currency.as_deref() {
+        if !c.is_empty() && !crate::domain::currency::is_supported(c) {
+            return Err(crate::error::AppError::BadRequest(
+                "monthly_budget_currency must be a supported currency code",
+            ));
+        }
+    }
+
+    let row: (
+        bool,
+        bool,
+        bool,
+        String,
+        Option<String>,
+        Option<rust_decimal::Decimal>,
+        Option<String>,
+    ) = sqlx::query_as(
         "UPDATE users SET
             public_profile_enabled    = COALESCE($1, public_profile_enabled),
             public_profile_show_nsfw  = COALESCE($2, public_profile_show_nsfw),
             public_profile_show_value = COALESCE($3, public_profile_show_value),
             nsfw_visibility           = COALESCE($4, nsfw_visibility),
-            preferred_currency        = CASE WHEN $5 THEN $6 ELSE preferred_currency END
+            preferred_currency        = CASE WHEN $5 THEN $6 ELSE preferred_currency END,
+            monthly_budget_amount     = CASE WHEN $8 THEN $9 ELSE monthly_budget_amount END,
+            monthly_budget_currency   = COALESCE(NULLIF($10, ''), monthly_budget_currency)
          WHERE id = $7
          RETURNING public_profile_enabled, public_profile_show_nsfw, public_profile_show_value,
-                   nsfw_visibility, preferred_currency",
+                   nsfw_visibility, preferred_currency,
+                   monthly_budget_amount, monthly_budget_currency",
     )
     .bind(input.public_profile_enabled)
     .bind(input.public_profile_show_nsfw)
@@ -333,6 +374,9 @@ async fn patch_my_profile(
     .bind(set_currency)
     .bind(currency_value.as_deref())
     .bind(user_id)
+    .bind(set_budget)
+    .bind(budget_value)
+    .bind(input.monthly_budget_currency.as_deref())
     .fetch_one(&state.pool)
     .await?;
 
@@ -344,6 +388,8 @@ async fn patch_my_profile(
         public_profile_show_value: row.2,
         nsfw_visibility: row.3,
         preferred_currency: row.4,
+        monthly_budget_amount: row.5,
+        monthly_budget_currency: row.6,
     }))
 }
 

@@ -1277,6 +1277,13 @@ export default {
   "restore.kicker": "復 · RESTAURATION",
   "restore.title": "Réimporter une sauvegarde",
 
+  "cashflow.kicker": "財 · TRÉSORERIE",
+  "cashflow.title": "Ce qu'il reste à débourser, mois par mois",
+  "cashflow.over": "{n} mois au-dessus de ton plafond.",
+  "cashflow.note": "Solde restant (prix − acompte) imputé au mois de sortie annoncé. Les acomptes déjà versés et les commandes soldées ou annulées sont exclus.",
+  "settings.budget.field": "Plafond mensuel de précommandes",
+  "settings.budget.hint": "Laisser vide pour aucun plafond. Sert de repère sur le plan de trésorerie des précommandes.",
+
   // Notification channels (settings page)
   "settings.nav.notif_chan": "Notifications",
   "notif.channels.title": "Notifications",

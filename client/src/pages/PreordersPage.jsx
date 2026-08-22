@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { Plus } from "lucide-react";
-import { useT } from "../i18n/index.jsx";
+import { useI18n, useT } from "../i18n/index.jsx";
 import { useDefaultCurrency, useMe } from "../hooks/useMe.js";
 import { usePreorders } from "../hooks/useCollection.js";
 import AppShell from "../components/AppShell.jsx";
@@ -12,6 +12,7 @@ import { PageLayout } from "../components/layout/index.js";
 import CalendarSubscribe from "./preorders/CalendarSubscribe.jsx";
 import PreorderStatRibbon from "./preorders/PreorderStatRibbon.jsx";
 import SlipRadar from "./preorders/SlipRadar.jsx";
+import CashflowPlan from "./preorders/CashflowPlan.jsx";
 import PreorderFilterRail from "./preorders/PreorderFilterRail.jsx";
 import PreorderMonthGroup from "./preorders/PreorderMonthGroup.jsx";
 import PreorderAddDialog from "./preorders/PreorderAddDialog.jsx";
@@ -34,6 +35,7 @@ import { deriveStats, groupByMonth } from "./preorders/preorderConstants.js";
  */
 export default function PreordersPage() {
   const t = useT();
+  const { locale } = useI18n();
   const me = useMe();
   const preferredCurrency = useDefaultCurrency();
   const preorders = usePreorders();
@@ -97,6 +99,7 @@ export default function PreordersPage() {
           <div className="space-y-8">
             <CalendarSubscribe t={t} />
             <PreorderStatRibbon stats={stats} t={t} />
+            <CashflowPlan preorders={preorders.data} t={t} locale={locale} />
             <SlipRadar t={t} />
             <PreorderFilterRail filter={filter} onChange={setFilter} counts={countByStatus} t={t} />
           </div>

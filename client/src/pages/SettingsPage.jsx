@@ -182,6 +182,49 @@ export default function SettingsPage() {
                   ]}
                 />
               </div>
+              {/* Monthly pre-order ceiling — the line the cashflow plan on
+                  /collection/preorders draws against. Empty = no ceiling,
+                  which is not the same as a ceiling of zero. */}
+              <div className="max-w-sm mt-6">
+                <label htmlFor="monthly-budget" className="micro block mb-2">
+                  {t("settings.budget.field", { default: "Plafond mensuel de précommandes" })}
+                </label>
+                <input
+                  id="monthly-budget"
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="decimal"
+                  defaultValue={user.monthly_budget_amount ?? ""}
+                  onBlur={(e) => {
+                    const raw = e.target.value.trim();
+                    if (raw === "") {
+                      update.mutate({ monthly_budget_clear: true });
+                    } else {
+                      const n = Number(raw);
+                      if (Number.isFinite(n) && n >= 0) {
+                        update.mutate({
+                          monthly_budget_amount: n,
+                          monthly_budget_currency:
+                            user.monthly_budget_currency ?? user.preferred_currency ?? "EUR",
+                        });
+                      }
+                    }
+                  }}
+                  className="w-full min-h-[44px] px-3 bg-[var(--surface-sunken)] text-[var(--color-ivoire)]"
+                  style={{
+                    border: "1px solid color-mix(in oklab, var(--color-or) 30%, transparent)",
+                    borderRadius: "var(--radius-sm)",
+                  }}
+                />
+                <p className="mt-2 text-[11px] text-[var(--on-surface-subtle)]">
+                  {t("settings.budget.hint", {
+                    default:
+                      "Laisser vide pour aucun plafond. Sert de repère sur le plan de trésorerie des précommandes.",
+                  })}
+                </p>
+              </div>
+
               <div className="mt-6">
                 <FxSettings />
               </div>

@@ -20,6 +20,10 @@ pub struct User {
     /// ISO 4217 default currency for every form that asks for a price.
     /// `None` ↦ SPA falls back to its built-in default (JPY).
     pub preferred_currency: Option<String>,
+    /// Optional monthly ceiling for pre-order outflow, with its currency.
+    /// `None` = no ceiling set (which is NOT the same as a ceiling of zero).
+    pub monthly_budget_amount: Option<rust_decimal::Decimal>,
+    pub monthly_budget_currency: Option<String>,
     /// Whether the user's collection is browsable at `/u/{username}`.
     pub public_profile_enabled: bool,
     /// Whether NSFW pieces are listed on the user's public profile.
@@ -79,6 +83,7 @@ impl From<User> for PublicUser {
 const USER_COLUMNS: &str =
     "id, username, email, display_name, avatar_url, locale, is_admin, \
      nsfw_visibility, preferred_currency, \
+     monthly_budget_amount, monthly_budget_currency, \
      public_profile_enabled, public_profile_show_nsfw, public_profile_show_value, \
      created_at, last_login_at";
 

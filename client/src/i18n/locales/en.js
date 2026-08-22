@@ -1245,6 +1245,13 @@ export default {
   "restore.kicker": "復 · RESTORE",
   "restore.title": "Re-import a backup",
 
+  "cashflow.kicker": "財 · CASHFLOW",
+  "cashflow.title": "What's still to pay, month by month",
+  "cashflow.over": "{n} month(s) above your ceiling.",
+  "cashflow.note": "Remaining balance (price − deposit) booked in the announced release month. Deposits already paid and settled or cancelled orders are excluded.",
+  "settings.budget.field": "Monthly pre-order ceiling",
+  "settings.budget.hint": "Leave empty for no ceiling. Used as the reference line on the pre-order cashflow plan.",
+
   // Notification channels (settings page)
   "settings.nav.notif_chan": "Notifications",
   "notif.channels.title": "Notifications",
