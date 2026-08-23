@@ -3,6 +3,60 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.47 — read what was already there
+
+- **Back-in-stock alerts** — a shop that quietly restocks a wished figure now
+  wakes you, not just a price drop. The wishlist also shows each piece's
+  availability and gains an *in stock* lens.
+  → [Wishlist](features/wishlist.md)
+- **Price-floor radar** — every wishlist row draws its own market history: how
+  far today sits above the cheapest price ever observed, and how long it has
+  held. A wishlist is a waiting game; this is the number that ends it.
+- **Search and sort your collection** — /collection finally has a text filter
+  and five sorts (name, acquisition, current value, gain, purchase date), plus
+  paging. Filters now live in the URL and your scroll position comes back when
+  you return from a piece.
+  → [Catalogue & collection](features/catalogue.md)
+- **Plate density** — *Auto · Comfort · Dense · Contact sheet*: the same grid
+  reads as a shelf at 30 pieces and as a working surface at 300. Covers morph
+  into the detail page instead of hard-cutting.
+- **Pre-order cashflow** — a 12-month projection of the balance still to pay,
+  month by month, against an optional monthly ceiling. Four orders placed months
+  apart can all settle in the same month; now you see it coming.
+  → [Pre-orders](features/preorders.md)
+- **Slip radar** — how late a maker's pre-orders actually run, computed from your
+  own history: median and P80, with the sample count shown (and nothing claimed
+  below three observations).
+- **Landed cost** — an estimate of what an import really costs once VAT, duty and
+  the carrier's clearance fee land, from an operator-maintained rule table. No
+  tax API; nothing about what you buy leaves the instance.
+- **Arrival QC** — dated condition reports with a defect log, and countdowns on
+  the shop's DOA window and the carrier's claim window that warn you *before*
+  they close. Defect photos stay in private storage, never in a shared cabinet.
+  → [Catalogue & collection](features/catalogue.md)
+- **Item and box graded separately** — A+ → J on each axis, plus completeness.
+  For a figure the box is its own asset.
+- **Insurance coverage** — the share of your collection's *value* backed by a
+  receipt, and the priciest pieces still missing one.
+  → [Data export](features/exports.md)
+- **Restore a backup** — `backup.json` can finally be re-imported, with a
+  dry-run preview first (matched / to create / already owned) and everything in
+  one transaction.
+  → [Data export](features/exports.md)
+- **Offline, for real** — the app keeps an on-device mirror of what you own and
+  covet: a barcode scan answers *do I already have this?* with no signal, and
+  additions made offline queue up and dispatch on reconnect.
+  → [PWA & offline](features/pwa.md)
+- **MyFigureCollection lookups** work again when a Cloudflare solver is
+  configured, and the importer now reads the fields it had always been silently
+  missing (release date, price, barcode, scale, height).
+  → [URL import](features/url-import.md)
+- **Background removal** now runs on BiRefNet, a stronger model on hair and
+  translucent parts, served from your own instance — the feature no longer
+  contacts a third-party CDN and works offline.
+- Notifications that used to arrive as raw JSON now read as sentences, link back
+  to the piece, and follow your language.
+
 ## 0.46 — past the Cloudflare wall
 
 - **orzgk lookups get past Cloudflare** — when the orzgk store hides behind a
