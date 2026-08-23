@@ -70,6 +70,12 @@ services:
     build:
       context: ./client
       dockerfile: Dockerfile
+      args:
+        # No ML weights in the test image: ~660 MB of ONNX that Vite would then
+        # copy again into dist/, for features no smoke flow touches. Skipping
+        # them took the CI client build from ~92 min back to a couple of
+        # minutes (the models are still fetched for real builds).
+        SKIP_ML_ASSETS: "1"
     depends_on:
       - server
     ports:

@@ -128,5 +128,17 @@ async function fetchModel(id, files) {
 }
 
 copyOrtRuntime();
-for (const m of MODELS) await fetchModel(m.id, m.files);
+
+// The models are ~660 MB and Vite copies `public/` verbatim into `dist/`, so a
+// build that fetches them carries them twice — into the image layer and into
+// the bundle. That is the right trade for a real deployment and pure waste for
+// the E2E stack, whose smoke flows never open visual search or the photo
+// editor. `SKIP_ML_ASSETS=1` keeps the (tiny) ORT runtime and skips the
+// downloads; the app still builds and renders, those two features just have no
+// weights to load.
+if (process.env.SKIP_ML_ASSETS === "1") {
+  log("SKIP_ML_ASSETS=1 → skipping model downloads (ORT runtime still copied)");
+} else {
+  for (const m of MODELS) await fetchModel(m.id, m.files);
+}
 log("done.");

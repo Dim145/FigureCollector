@@ -20,6 +20,10 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
 # prebuild hook re-runs this on `pnpm run build` but finds everything present
 # and skips the download.
 COPY scripts ./scripts
+# Opt-out for throwaway builds (see docker-compose.e2e.yml): the ~660 MB of ONNX
+# weights are pointless in an image whose only job is to answer smoke tests.
+ARG SKIP_ML_ASSETS=0
+ENV SKIP_ML_ASSETS=$SKIP_ML_ASSETS
 RUN node scripts/fetch-ml-assets.mjs
 
 COPY . ./
