@@ -54,7 +54,7 @@ the history drives the sparklines + evolution charts on
 
 | Table | Purpose | Key fields |
 |---|---|---|
-| `app_settings` | Live instance policies (no restart) | `key` (`gsplat.creation_policy`, `cote.price_cron`), `value` |
+| `app_settings` | Live instance policies (no restart) | `key` (`gsplat.creation_policy`, `cote.price_cron`, `mcp.enabled`), `value` |
 | `server_job_runs` | Historized scheduled-job runs (30 kept per job) | `job_name`, `triggered_by`, `state`, `result` (JSONB), `error_message`, `started_at`, `finished_at` |
 | `external_lookups` | TTL cache for external fetches (FX rates, scrapes) | `provider`, `lookup_key`, `payload`, `fetched_at` |
 | `stores` | Boutique registry (slug-deduped, user-created) | `name`, `slug` |
@@ -90,6 +90,8 @@ The link itself lives on `users` — `manga_server_id` (→ `manga_servers`) + `
 |---|---|
 | `oidc_identities` | Federated identity links (Google, generic) |
 | `tower_sessions` | Server-side session storage |
+| `api_keys` | Per-user credentials for the [MCP endpoint](../features/mcp.md). The 16-hex `prefix` is public and uniquely indexed (it's the lookup handle); `secret_hash` is a SHA-256 of the 256-bit secret, which is never stored. Revoked by stamping, never deleted, so the audit trail's foreign key stays resolvable |
+| `mcp_audit_log` | One row per MCP tool call, resource read or refusal. `args_digest` is a SHA-256 of the arguments, never the arguments themselves — they carry prices, private notes and shop names, and the trail is read back into the owner's own UI. Pruned past 90 days |
 
 ## Migrations
 

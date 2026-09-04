@@ -25,6 +25,8 @@ A short reference of what FigureCollector guarantees, what it doesn't, and where
 - **Local accounts** with Argon2id (`argon2` crate), default parameters m=19456,t=2,p=1.
 - **Session-fixation defense**: session id rotation on every login.
 - **Cookies**: `HttpOnly`, `SameSite=Lax`, and `Secure` derived from the public scheme (on for any HTTPS deployment).
+- **API keys** for the [MCP endpoint](../features/mcp.md): 256-bit random secrets, stored as SHA-256 and compared in constant time, behind a 64-bit public prefix that makes the lookup a single indexed query. Explicit scopes, no wildcard; revocation stamps rather than deletes. Source: `server/src/domain/api_key.rs`.
+- **`/mcp` accepts no cookie** — bearer only, which is what keeps it CSRF-immune while sitting outside the `/api` guard. It validates `Host` (anti-DNS-rebinding) and `Origin`, and administrative reach is absent by construction rather than by scope: `patch_figure` is called with `as_admin: false` unconditionally. Source: `server/src/routes/mcp/`.
 - **CSRF**: SameSite=Lax plus a Fetch-Metadata backstop that refuses cross-site state-changing requests; OIDC carries `state` + PKCE + nonce, and the login initiation itself refuses a cross-site navigation (login-CSRF guard). Source: `server/src/routes/mod.rs`, `server/src/routes/auth.rs`.
 
 ### Data handling

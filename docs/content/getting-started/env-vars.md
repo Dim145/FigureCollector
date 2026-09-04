@@ -90,6 +90,21 @@ source, shared across all its endpoints.
 | `EXTERNAL_BREAKER_THRESHOLD` | `5` | Consecutive errors from one source before it's paused. |
 | `EXTERNAL_BREAKER_PAUSE_SECS` | `300` | Seconds a paused source stays paused before the trial call. |
 
+## MCP endpoint
+
+The [MCP endpoint](../features/mcp.md) is **on by default** and needs no
+configuration to work — an admin can close it instance-wide from
+*Administration → Réglages*, and each user mints their own scoped API keys.
+These knobs only matter for unusual deployments.
+
+| Variable | Default | What |
+|---|---|---|
+| `MCP_ALLOWED_HOSTS` | derived from `FRONTEND_URL` | Extra `Host` authorities the endpoint accepts, comma-separated. The transport validates `Host` to block DNS rebinding and ships accepting loopback only; the public origin is added automatically. Serve the app on a **second** hostname (a separate API domain, a tunnel) and you must list it here, or those requests arrive as `403 Forbidden: Host header is not allowed`. An entry without a port matches any port. |
+| `MCP_RATE_LIMIT_PER_SECOND` | `5` | Sustained requests per second, **per API key** — not per IP, so several clients behind one NAT don't share a bucket. |
+| `MCP_RATE_LIMIT_BURST` | `20` | Burst allowance per key. |
+
+`RATE_LIMIT_ENABLED=false` removes this limiter along with the others.
+
 ## Parcel tracking
 
 Best-effort carrier lookups for shipped pre-orders — each key enables its
@@ -126,6 +141,10 @@ IP. It does **not** touch the rest of the API.
     frames with bounded concurrency + per-frame retry, and surfaces a
     "retry" button if frames still fail, so a transient 429 no longer
     leaves a hole in the rotation.
+
+The [MCP endpoint](../features/mcp.md) has its own limiter, keyed per API key
+rather than per IP — see [MCP endpoint](#mcp-endpoint) above. `RATE_LIMIT_ENABLED`
+governs both.
 
 ## Housekeeping & observability
 

@@ -43,6 +43,11 @@ It is the figurine companion to [MangaCollector](https://github.com/Dim145/Manga
     ---
     Multi-upload, fullscreen lightbox with pinch-zoom, per-user covers, optional 360° turntable scans.
 
+- :material-robot-outline:{ .lg .middle } **Ask an AI about your shelf**
+
+    ---
+    A per-user API key hands an assistant (Claude Code, Claude Desktop, Cursor…) scoped access over MCP — read-only by default, every call audited, and no administrative reach at any scope.
+
 - :material-finance:{ .lg .middle } **La Cote, auto-priced**
 
     ---

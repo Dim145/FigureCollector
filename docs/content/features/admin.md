@@ -43,6 +43,23 @@ collections. Empty = disabled (the default). The scheduler re-reads the
 setting every minute, so changes apply without a restart; the settings page
 shows a live *next run* indicator.
 
+### MCP endpoint
+
+Whether AI clients may reach the instance at all, over the
+[MCP endpoint](mcp.md). **On by default.**
+
+Closing it refuses every MCP request instance-wide with `403 feature_disabled`
+and removes the *Accès API* panel from user settings. Existing keys are not
+deleted — they work again the moment you reopen it, so this is a kill-switch
+rather than a purge. Revoking an individual key is the user's own business,
+from their settings page.
+
+Worth knowing before you reach for it: an MCP key never carries administrative
+reach in the first place. Instance administration, account and privacy
+settings, share-link minting and outbound scraping sit outside the endpoint,
+not behind a scope — and that holds for an administrator's own key. The switch
+is there for operators who'd rather not expose the surface at all.
+
 ## Tâches (`/admin/tasks`) { #tasks }
 
 A single **task-management console** over every background task — server crons,
