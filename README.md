@@ -26,6 +26,7 @@ It works **offline-first**, is **installable on iOS / Android / Desktop**, and p
 - 👥 **Collectors** — an opt-in public profile; follow other collectors, discover by collection size, and compare collections.
 - 📊 **Insights & year-in-review** — spend over time, series completion, wishlist cost, next-milestone palier, and an annual recap with losses on cancellations.
 - 🏆 **Achievements** — milestone seals (印) the user collects as their collection grows.
+- 🤖 **MCP endpoint** — hand an AI assistant a scoped, per-user API key and let it read the catalogue and curate your collection over the [Model Context Protocol](https://modelcontextprotocol.io) (`/mcp`). Read-only by default, every call audited, and **no administrative reach — not even with an admin's key**.
 - 💾 **Data export** — your collection / wishlist / pre-orders as CSV or JSON, plus a one-file backup.
 - 🔔 **Notifications** — in-app + email + ntfy + webhook + Apprise + Web Push, with per-channel routing per event (release J-day, J-7, delivery today, delivery overdue, price below target, achievement unlocked, …).
 - 🛠️ **Operator-friendly** — live admin settings (3D-creation policy, price-sweep cron), every scheduled job run historized with a manual re-trigger, worker fleet status.

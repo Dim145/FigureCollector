@@ -38,6 +38,7 @@ FigureCollector is built around a small set of overlapping mental models:
 
 - [Achievements, stats & insights](achievements-stats.md) — milestone seals, next palier, year-in-review, the full stats page
 - [Notifications](notifications.md) — 6 channels + per-event routing, price alerts included
+- [MCP — agent access](mcp.md) — per-user API keys, scoped tools, audit trail; **no admin reach, ever**
 - [Data export](exports.md) — CSV / JSON per dataset + full backup
 - [NSFW handling](nsfw.md) — show / blur / hide
 - [PWA & offline](pwa.md) — installable, mobile bottom bar, NetworkFirst on catalog reads

@@ -96,6 +96,7 @@ nav:
           - Achievements, stats & insights: features/achievements-stats.md
           - Notifications: features/notifications.md
           - Data export: features/exports.md
+          - MCP (agent access): features/mcp.md
           - NSFW handling: features/nsfw.md
           - PWA & offline: features/pwa.md
       - Administration: features/admin.md
