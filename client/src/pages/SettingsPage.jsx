@@ -5,6 +5,7 @@ import { useMe } from "../hooks/useMe.js";
 import { useChannels } from "../hooks/useNotifications.js";
 import { useUpdateProfile } from "../hooks/useProfile.js";
 import { useCurrencies } from "../hooks/useCurrencies.js";
+import { useMcpStatus } from "../hooks/useMcpKeys.js";
 import { CURRENCY_LABELS } from "../lib/money.js";
 import { BG_MODEL_SIZES, getPref, setPref } from "../lib/userPrefs.js";
 
@@ -20,6 +21,7 @@ import SettingsNav from "./settings/SettingsNav.jsx";
 import SettingsPanel from "./settings/SettingsPanel.jsx";
 import ProfilePanel from "./settings/ProfilePanel.jsx";
 import PrivacyPanel from "./settings/PrivacyPanel.jsx";
+import McpPanel from "./settings/McpPanel.jsx";
 import ArchivesPanel from "./settings/ArchivesPanel.jsx";
 
 /**
@@ -55,6 +57,10 @@ const SECTIONS = [
   { id: "bg_model", kanji: "影", labelKey: "settings.nav.bg_model" },
   { id: "notif", kanji: "鈴", labelKey: "settings.nav.notif_chan" },
   { id: "privacy", kanji: "禁", labelKey: "settings.nav.privacy", labelDefault: "Confidentialité" },
+  // 鍵 Accès API — only listed when an admin has left the MCP endpoint open;
+  // the panel itself renders nothing otherwise, and an index entry pointing at
+  // an absent panel would scroll nowhere.
+  { id: "mcp", kanji: "鍵", labelKey: "settings.nav.mcp", needsMcp: true },
   { id: "archives", kanji: "蔵", labelKey: "settings.nav.archives" },
 ];
 
@@ -65,6 +71,7 @@ export default function SettingsPage() {
   const update = useUpdateProfile();
   const channels = useChannels();
   const currencies = useCurrencies();
+  const mcpStatus = useMcpStatus();
 
   const [bgModel, setBgModel] = useState(() => getPref("bgModel"));
   const [active, setActive] = useState(SECTIONS[0].id);
@@ -80,13 +87,14 @@ export default function SettingsPage() {
     [],
   );
 
+  const mcpEnabled = mcpStatus.data?.enabled === true;
   const sections = useMemo(
     () =>
-      SECTIONS.map((s) => ({
+      SECTIONS.filter((s) => !s.needsMcp || mcpEnabled).map((s) => ({
         ...s,
         label: t(s.labelKey, s.labelDefault ? { default: s.labelDefault } : undefined),
       })),
-    [t],
+    [t, mcpEnabled],
   );
 
   useScrollSpy(SECTIONS, setActive, panelRefs);
@@ -296,6 +304,10 @@ export default function SettingsPage() {
 
             {/* 禁 Confidentialité — public profile + NSFW visibility. */}
             <PrivacyPanel user={user} registerRef={registerRef} />
+
+            {/* 鍵 Accès API — MCP keys + what agents did with them. Hides
+                itself when an admin has switched the endpoint off. */}
+            <McpPanel registerRef={registerRef} locale={user.locale} />
 
             {/* 蔵 Archives — exports + insurance dossier. */}
             <ArchivesPanel registerRef={registerRef} />

@@ -38,6 +38,7 @@ export default function AdminSettingsPage() {
   const update = useUpdateAdminSettings();
   const updateCron = useUpdateAdminSettings();
   const updateVs = useUpdateAdminSettings();
+  const updateMcp = useUpdateAdminSettings();
   const reindex = useReindexVisualSearch();
   const reindexText = useReindexTextSearch();
   const reindexClip = useReindexClipSearch();
@@ -64,6 +65,7 @@ export default function AdminSettingsPage() {
   const [clipSearchDraft, setClipSearchDraft] = useState(null);
   const [clipMinMatchDraft, setClipMinMatchDraft] = useState(null);
   const [appearanceTagsDraft, setAppearanceTagsDraft] = useState(null);
+  const [mcpDraft, setMcpDraft] = useState(null);
   const [helpOpen, setHelpOpen] = useState(false);
 
   if (settings.isLoading) {
@@ -108,6 +110,12 @@ export default function AdminSettingsPage() {
   const clipMinMatch = clipMinMatchDraft ?? savedClipMinMatch;
   const savedAppearanceTags = !!settings.data.appearance_tags;
   const appearanceTags = appearanceTagsDraft ?? savedAppearanceTags;
+
+  // ─── MCP endpoint ───
+  // Note the default: unlike every other flag on this page, `mcp` ships ON, so
+  // `?? true` is the right fallback for a server that predates the setting.
+  const savedMcp = settings.data.mcp ?? true;
+  const mcp = mcpDraft ?? savedMcp;
   const vsDirty =
     (vsDraft !== null && vsDraft !== savedVs) ||
     (vsExtDraft !== null && vsExtDraft !== savedVsExt) ||
@@ -901,6 +909,74 @@ export default function AdminSettingsPage() {
               onClick={saveVs}
               disabled={!vsDirty || updateVs.isPending}
               loading={updateVs.isPending}
+            >
+              {t("admin.settings.save")}
+            </Button>
+          </div>
+        </Card>
+      </div>
+
+      {/* ─── MCP endpoint (agent access) ─── */}
+      <div className="reveal" style={{ "--i": 6 }}>
+        <Card className="p-6 md:p-8">
+          <p className="micro flex items-center gap-2.5">
+            <span
+              aria-hidden
+              className="ja not-italic text-[var(--color-or)] text-base leading-none"
+            >
+              鍵
+            </span>
+            {t("admin.settings.mcp.kicker")}
+          </p>
+          <h3 className="display text-2xl md:text-3xl mt-2 text-[var(--color-ivoire)]">
+            {t("admin.settings.mcp.title")}
+          </h3>
+          <div className="gold-rule w-12 mt-4 mb-4" />
+          <p className="text-sm text-[var(--color-ivoire-soft)] leading-relaxed max-w-2xl">
+            {t("admin.settings.mcp.desc")}
+          </p>
+
+          <div className="atelier-toggle-row mt-6">
+            <div id="mcp-enable-label" className="atelier-toggle-row-text">
+              <span className={`atelier-toggle-row-state ${mcp ? "is-on" : ""}`}>
+                {mcp ? t("admin.settings.mcp.on") : t("admin.settings.mcp.off")}
+              </span>
+              <span className="atelier-toggle-row-hint">
+                {t("admin.settings.mcp.hint")}
+              </span>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={mcp}
+              aria-labelledby="mcp-enable-label"
+              onClick={() => setMcpDraft(!mcp)}
+              className={`atelier-toggle ${mcp ? "is-on" : ""}`}
+            />
+          </div>
+
+          {/* Switching this off refuses every MCP request instance-wide, so
+              say what that costs before it's saved. */}
+          {mcp === false ? (
+            <p className="mt-4 text-xs text-[var(--color-ivoire-soft)] leading-relaxed max-w-2xl">
+              {t("admin.settings.mcp.off_warning")}
+            </p>
+          ) : null}
+
+          <div className="mt-6 flex items-center justify-end gap-4">
+            {updateMcp.isSuccess && mcpDraft === null ? (
+              <p
+                role="status"
+                aria-live="polite"
+                className="text-xs tracking-wide text-[var(--color-or)]"
+              >
+                {t("admin.settings.saved")}
+              </p>
+            ) : null}
+            <Button
+              variant="primary"
+              onClick={() => updateMcp.mutate({ mcp }, { onSuccess: () => setMcpDraft(null) })}
+              disabled={mcpDraft === null || updateMcp.isPending}
             >
               {t("admin.settings.save")}
             </Button>
