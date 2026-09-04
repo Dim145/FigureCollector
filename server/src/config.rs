@@ -26,6 +26,8 @@ pub struct AppConfig {
     pub worker_internal_token: Option<String>,
     /// FlareSolverr-compatible Cloudflare-challenge solver for the orzgk scraper.
     pub flaresolverr: FlareSolverrConfig,
+    /// MCP endpoint (`/mcp`) transport tunables.
+    pub mcp: McpConfig,
 }
 
 /// External boutique-scraping proxy. When `base_url` is set, the
@@ -68,6 +70,28 @@ pub struct FlareSolverrConfig {
     /// plus a headless page load are slow, so this is generous. Env
     /// `FLARESOLVERR_MAX_TIMEOUT_MS`, default 60000.
     pub max_timeout_ms: u64,
+}
+
+/// MCP endpoint transport settings.
+///
+/// The host list matters more than it looks: rmcp validates the inbound `Host`
+/// header to block DNS-rebinding attacks and ships accepting **loopback only**.
+/// A public deployment whose host isn't listed refuses every MCP request, so we
+/// seed the list from `FRONTEND_URL` and let `MCP_ALLOWED_HOSTS` add more (a
+/// separate API hostname, a tunnel domain, …).
+#[derive(Debug, Clone, Default)]
+pub struct McpConfig {
+    /// Accepted `Host` authorities (`host` or `host:port`), on top of rmcp's
+    /// loopback defaults.
+    pub allowed_hosts: Vec<String>,
+    /// Browser origins allowed to call `/mcp`. Defence in depth only — the
+    /// real control is the bearer token, and requests without an `Origin`
+    /// (i.e. every non-browser MCP client) always pass.
+    pub allowed_origins: Vec<String>,
+    /// Sustained requests per second per API key.
+    pub rate_limit_per_second: u64,
+    /// Burst allowance per API key.
+    pub rate_limit_burst: u32,
 }
 
 /// Shipping-carrier API credentials. All optional — the corresponding
@@ -189,6 +213,39 @@ impl AppConfig {
                 .unwrap_or(60_000),
         };
 
+        // Seed the MCP host allow-list from the public origin, then add any
+        // extra authorities the operator lists. Without this, rmcp's
+        // loopback-only default silently refuses every request in production.
+        let mut mcp_allowed_hosts: Vec<String> = env_nonempty("MCP_ALLOWED_HOSTS")
+            .map(|v| {
+                v.split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect()
+            })
+            .unwrap_or_default();
+        if let Some(authority) = authority_of(&frontend_url) {
+            if !mcp_allowed_hosts.contains(&authority) {
+                mcp_allowed_hosts.push(authority);
+            }
+        }
+        let mcp = McpConfig {
+            allowed_hosts: mcp_allowed_hosts,
+            // Only the SPA's own origin; anything else browser-side is
+            // refused. Non-browser clients send no Origin and are unaffected.
+            allowed_origins: origin_of(&frontend_url).into_iter().collect(),
+            rate_limit_per_second: env::var("MCP_RATE_LIMIT_PER_SECOND")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .filter(|&n| n > 0)
+                .unwrap_or(5),
+            rate_limit_burst: env::var("MCP_RATE_LIMIT_BURST")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .filter(|&n| n > 0)
+                .unwrap_or(20),
+        };
+
         Ok(Self {
             bind_addr,
             database_url,
@@ -199,6 +256,7 @@ impl AppConfig {
             proxy,
             worker_internal_token: env_nonempty("WORKER_INTERNAL_TOKEN"),
             flaresolverr,
+            mcp,
         })
     }
 }
@@ -274,4 +332,57 @@ fn parse_scopes(env_var: &str, default: &str) -> Vec<String> {
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .collect()
+}
+
+/// `host[:port]` of a URL, or `None` when it isn't parseable as one. Used to
+/// seed the MCP `Host` allow-list from the public origin.
+fn authority_of(url: &str) -> Option<String> {
+    let parsed = url::Url::parse(url).ok()?;
+    let host = parsed.host_str()?;
+    Some(match parsed.port() {
+        Some(port) => format!("{host}:{port}"),
+        None => host.to_string(),
+    })
+}
+
+/// `scheme://host[:port]` of a URL — an RFC 6454 origin, which is what the
+/// MCP transport compares `Origin` against.
+fn origin_of(url: &str) -> Option<String> {
+    let parsed = url::Url::parse(url).ok()?;
+    let host = parsed.host_str()?;
+    let scheme = parsed.scheme();
+    Some(match parsed.port() {
+        Some(port) => format!("{scheme}://{host}:{port}"),
+        None => format!("{scheme}://{host}"),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{authority_of, origin_of};
+
+    #[test]
+    fn authority_keeps_an_explicit_port_and_drops_scheme_and_path() {
+        assert_eq!(
+            authority_of("http://localhost:5173"),
+            Some("localhost:5173".into())
+        );
+        assert_eq!(
+            authority_of("https://figures.example.com/collection"),
+            Some("figures.example.com".into())
+        );
+        assert_eq!(authority_of("not a url"), None);
+    }
+
+    #[test]
+    fn origin_is_scheme_host_port_only() {
+        assert_eq!(
+            origin_of("https://figures.example.com/x?y=1"),
+            Some("https://figures.example.com".into())
+        );
+        assert_eq!(
+            origin_of("http://localhost:5173/"),
+            Some("http://localhost:5173".into())
+        );
+    }
 }

@@ -29,6 +29,7 @@ pub mod gift;
 pub mod health;
 pub mod location;
 pub mod manga;
+pub mod mcp;
 pub mod me;
 pub mod notif_channels;
 pub mod notifications;
@@ -233,7 +234,15 @@ pub fn build_router(state: AppState) -> Router {
         // state-changing request a browser reports as cross-site.
         .layer(axum::middleware::from_fn(csrf_fetch_metadata_guard));
 
-    Router::new().nest("/api", api).with_state(state)
+    // The MCP endpoint sits OUTSIDE `/api` on purpose: it is not part of the
+    // SPA's API surface, and the CSRF guard layered on `/api` above has no
+    // business wrapping a bearer-only endpoint. `well_known_router` serves the
+    // discovery document a 401 points clients at.
+    Router::new()
+        .nest("/api", api)
+        .nest("/mcp", mcp::router(state.clone()))
+        .merge(mcp::well_known_router())
+        .with_state(state)
 }
 
 /// Fetch-Metadata CSRF guard. Refuses mutating requests (POST/PUT/PATCH/DELETE)

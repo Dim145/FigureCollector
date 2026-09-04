@@ -1062,6 +1062,10 @@ async fn patch_settings(
         settings::set_appearance_tags_enabled(&state.pool, enabled).await?;
         tracing::info!(by_admin = %actor.id, enabled, "admin toggled appearance tagging");
     }
+    if let Some(enabled) = input.mcp {
+        settings::set_mcp_enabled(&state.pool, enabled).await?;
+        tracing::info!(by_admin = %actor.id, enabled, "admin toggled the MCP endpoint");
+    }
     Ok(Json(settings::all(&state.pool).await?))
 }
 

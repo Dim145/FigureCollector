@@ -34,16 +34,16 @@ const TOP_K: i64 = 12;
 /// How many neighbours the "figurines proches" rail shows on a figure page —
 /// one tidy row on the widest grid (lg = 4 across). No skip there, so this is
 /// exactly what's displayed.
-const SIMILAR_K: i64 = 4;
+pub(crate) const SIMILAR_K: i64 = 4;
 
 /// Recommendation pool size — the collection rail shows 4 at a time but the
 /// client lets you "skip" through the rest, so we hand it a deeper pool.
-const RECO_K: i64 = 12;
+pub(crate) const RECO_K: i64 = 12;
 
 /// Convert the admin similarity-% floor into a max cosine distance: 75 % →
 /// 0.25 (only matches at least that similar surface). 0 % keeps everything,
 /// 100 % keeps only (near-)identical.
-async fn max_distance_for_threshold(pool: &PgPool) -> AppResult<f64> {
+pub(crate) async fn max_distance_for_threshold(pool: &PgPool) -> AppResult<f64> {
     let pct = settings::visual_search_similarity_threshold(pool).await?;
     Ok((1.0 - pct / 100.0).clamp(0.0, 2.0))
 }
@@ -60,7 +60,7 @@ struct SearchInput {
 }
 
 #[derive(Serialize)]
-struct ScoredFigure {
+pub(crate) struct ScoredFigure {
     /// Cosine distance (0 = identical) — lower is a closer match.
     distance: f32,
     figure: figure::Figure,
@@ -155,7 +155,7 @@ async fn clip_search(
 /// Hydrate distance-ranked candidates into full catalog cards, preserving the
 /// ANN ordering. `exclude_nsfw` drops adult figures for a hide-viewer (passive
 /// surfaces); when kept, they ride along and the client blurs per pref.
-async fn hydrate(
+pub(crate) async fn hydrate(
     pool: &PgPool,
     candidates: Vec<visual_search::Candidate>,
     exclude_nsfw: bool,

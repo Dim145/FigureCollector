@@ -154,6 +154,23 @@ p256 = { version = "0.13", default-features = false, features = [
 ] }
 base64 = "0.22"
 
+# --- MCP server (routes::mcp) ---
+# Official Rust SDK. `transport-streamable-http-server` pulls only http /
+# http-body / bytes / sse-stream / tower — no HTTP *client*, so no second
+# reqwest major and nothing that could drag in OpenSSL (verified with
+# `cargo tree -i openssl-sys`). The `auth` feature is deliberately NOT enabled:
+# we authenticate with per-user API keys, not OAuth, so its oauth2 + reqwest
+# dependency would be dead weight in a `FROM scratch` image.
+rmcp = { version = "3.2", default-features = false, features = [
+    "server",
+    "macros",
+    "transport-streamable-http-server",
+] }
+# Schema derives for the MCP tool input/output types. `uuid1` so an id
+# argument can be a real `Uuid` in the schema instead of a bare string the
+# tool would have to parse and re-validate.
+schemars = { version = "1", features = ["uuid1"] }
+
 # --- API-key hashing (domain::api_key) ---
 # SHA-256 over a 256-bit CSPRNG secret, not a password KDF: there is no
 # low-entropy guess to slow down, and an unsalted digest is what lets the key

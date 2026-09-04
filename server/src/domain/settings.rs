@@ -5,6 +5,8 @@
 //! - `cote.price_cron`: 5-field cron schedule (UTC) for the price-refresh job
 //!   that feeds the "cote" market value; empty disables it. See
 //!   [`crate::services::price_cron`].
+//! - `mcp.enabled`: master switch for the MCP endpoint (`/mcp`). Unlike every
+//!   other flag here it defaults to **on** — see [`mcp_enabled`].
 //!
 //! Values live in `app_settings`; an absent row means the coded default.
 
@@ -378,6 +380,37 @@ pub async fn set_appearance_tags_enabled(pool: &PgPool, enabled: bool) -> AppRes
     Ok(())
 }
 
+const MCP_ENABLED_KEY: &str = "mcp.enabled";
+
+/// Whether the MCP endpoint (`/mcp`) accepts requests.
+///
+/// **Defaults to `true`**, which inverts the convention every other flag in
+/// this module follows. The comparison is therefore against `"false"`, not
+/// `"true"`: an absent row means "never configured", and for this feature that
+/// must read as enabled. Copying the `== Some("true")` shape from the flags
+/// above would silently ship it off.
+pub async fn mcp_enabled(pool: &PgPool) -> AppResult<bool> {
+    let value: Option<String> = sqlx::query_scalar("SELECT value FROM app_settings WHERE key = $1")
+        .bind(MCP_ENABLED_KEY)
+        .fetch_optional(pool)
+        .await?;
+    Ok(value.as_deref() != Some("false"))
+}
+
+pub async fn set_mcp_enabled(pool: &PgPool, enabled: bool) -> AppResult<()> {
+    sqlx::query(
+        "INSERT INTO app_settings (key, value, updated_at)
+         VALUES ($1, $2, now())
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()",
+    )
+    .bind(MCP_ENABLED_KEY)
+    // Written literally, because `mcp_enabled` reads it literally.
+    .bind(if enabled { "true" } else { "false" })
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
 /// The admin-facing settings view (extend as more settings are added).
 #[derive(Debug, Serialize)]
 pub struct Settings {
@@ -402,6 +435,8 @@ pub struct Settings {
     pub clip_search_min_match: f64,
     /// Whether appearance tagging (WD-Tagger → e5) is enabled.
     pub appearance_tags: bool,
+    /// Whether the MCP endpoint is open (default on).
+    pub mcp: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -424,6 +459,7 @@ pub struct SettingsPatch {
     /// New "search by look" match floor (0–100 %); server clamps on write.
     pub clip_search_min_match: Option<f64>,
     pub appearance_tags: Option<bool>,
+    pub mcp: Option<bool>,
 }
 
 pub async fn all(pool: &PgPool) -> AppResult<Settings> {
@@ -440,5 +476,6 @@ pub async fn all(pool: &PgPool) -> AppResult<Settings> {
         clip_search: clip_search_enabled(pool).await?,
         clip_search_min_match: clip_search_min_match(pool).await?,
         appearance_tags: appearance_tags_enabled(pool).await?,
+        mcp: mcp_enabled(pool).await?,
     })
 }
