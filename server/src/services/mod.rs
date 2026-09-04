@@ -5,6 +5,7 @@
 //! notifications domain plus external channel fan-out. Putting that
 //! orchestration here keeps both domains self-contained.
 
+pub mod collection;
 pub mod dossier;
 pub mod invoice;
 pub mod job_runner;

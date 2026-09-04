@@ -2,9 +2,8 @@
 
 use crate::auth;
 use crate::domain::preorder::{HistoryEntryPatch, NewPreorder, PreorderPatch};
-use crate::domain::{achievement, activity, preorder};
+use crate::domain::preorder;
 use crate::error::AppResult;
-use crate::events::Event;
 use crate::state::AppState;
 use axum::{
     Json, Router,
@@ -29,53 +28,7 @@ async fn add_mine(
     Json(input): Json<NewPreorder>,
 ) -> AppResult<(StatusCode, Json<preorder::Preorder>)> {
     let user_id = auth::require_user(&session).await?;
-    // Freeze the cost→EUR rate at save time when a real price is recorded
-    // (covers price + deposit + refund, which share price_currency).
-    let price_fx_rate = match (&input.price_amount, input.price_currency.as_deref()) {
-        (Some(_), Some(cur)) => {
-            crate::external::fx::freeze_rate_to_eur(&state.pool, &state.http, cur).await
-        }
-        _ => None,
-    };
-    let po = preorder::create(&state.pool, user_id, input, price_fx_rate).await?;
-
-    let mut snap = activity::figure_snapshot(&state.pool, po.figure_id).await;
-    if let Some(obj) = snap.as_object_mut() {
-        obj.insert("preorder_id".into(), serde_json::Value::String(po.id.to_string()));
-        obj.insert("status".into(), serde_json::Value::String(po.status.clone()));
-        if let Some(d) = po.release_date_current {
-            obj.insert("release_date".into(), serde_json::Value::String(d.to_string()));
-        }
-        // `po.store` used to be the free-text store name; now it's
-        // `store_id` (UUID, less useful in activity snapshots). The
-        // store name can be recovered by following the preorder_id
-        // link, so we skip embedding it here.
-    }
-    activity::record(&state.pool, user_id, "preorder_created", snap).await;
-    state.cache.invalidate_user_collection(user_id).await;
-
-    state.events.publish(
-        user_id,
-        Event::PreorderCreated {
-            preorder_id: po.id,
-            figure_id: po.figure_id,
-        },
-    );
-
-    if let Ok(newly) =
-        achievement::check_and_grant(&state.db, &state.pool, user_id, Some(po.figure_id)).await
-    {
-        if !newly.is_empty() {
-            state.events.publish(
-                user_id,
-                Event::AchievementsUnlocked {
-                    codes: newly.iter().map(|a| a.code.clone()).collect(),
-                },
-            );
-            crate::services::notify::dispatch_achievements(&state, user_id, &newly).await;
-        }
-    }
-
+    let po = crate::services::collection::add_preorder(&state, user_id, input).await?;
     Ok((StatusCode::CREATED, Json(po)))
 }
 
@@ -86,92 +39,9 @@ async fn patch_mine(
     Json(input): Json<PreorderPatch>,
 ) -> AppResult<Json<preorder::Preorder>> {
     let user_id = auth::require_user(&session).await?;
-
-    // Capture the pre-patch state so we can emit accurate activity events.
-    let before: Option<(Uuid, String, Option<chrono::NaiveDate>)> = sqlx::query_as(
-        "SELECT figure_id, status, release_date_current FROM preorders WHERE id = $1 AND user_id = $2",
-    )
-    .bind(id)
-    .bind(user_id)
-    .fetch_optional(&state.pool)
-    .await
-    .ok()
-    .flatten();
-
-    // Re-freeze the cost rate for the patch's currency; the UPDATE only adopts
-    // it on a real currency change (or first capture).
-    let price_fx_rate = match input.price_currency.as_deref() {
-        Some(cur) => crate::external::fx::freeze_rate_to_eur(&state.pool, &state.http, cur).await,
-        None => None,
-    };
-    let updated = preorder::patch(&state.pool, user_id, id, input, price_fx_rate).await?;
-    state.cache.invalidate_user_collection(user_id).await;
-
-    if let Some((figure_id, prev_status, prev_date)) = before {
-        let mut snap = activity::figure_snapshot(&state.pool, figure_id).await;
-        if let Some(obj) = snap.as_object_mut() {
-            obj.insert("preorder_id".into(), serde_json::Value::String(id.to_string()));
-        }
-
-        // Status change
-        if prev_status != updated.status {
-            let mut s = snap.clone();
-            if let Some(obj) = s.as_object_mut() {
-                obj.insert("from_status".into(), serde_json::Value::String(prev_status));
-                obj.insert(
-                    "to_status".into(),
-                    serde_json::Value::String(updated.status.clone()),
-                );
-            }
-            let kind = if updated.status == "received" {
-                "preorder_received"
-            } else {
-                "preorder_status_changed"
-            };
-            activity::record(&state.pool, user_id, kind, s).await;
-        }
-
-        // Release-date slip
-        if prev_date != updated.release_date_current {
-            let mut s = snap.clone();
-            if let Some(obj) = s.as_object_mut() {
-                if let Some(d) = prev_date {
-                    obj.insert("from_date".into(), serde_json::Value::String(d.to_string()));
-                }
-                if let Some(d) = updated.release_date_current {
-                    obj.insert("to_date".into(), serde_json::Value::String(d.to_string()));
-                }
-            }
-            activity::record(&state.pool, user_id, "preorder_slipped", s).await;
-        }
-    }
-
-    state
-        .events
-        .publish(user_id, Event::PreorderUpdated { preorder_id: id });
-
-    // Status changes can flip "preorders_received" — re-evaluate.
-    // The patched preorder's figure is the natural trigger.
-    if let Ok(newly) = achievement::check_and_grant(
-        &state.db,
-        &state.pool,
-        user_id,
-        Some(updated.figure_id),
-    )
-    .await
-    {
-        if !newly.is_empty() {
-            state.events.publish(
-                user_id,
-                Event::AchievementsUnlocked {
-                    codes: newly.iter().map(|a| a.code.clone()).collect(),
-                },
-            );
-            crate::services::notify::dispatch_achievements(&state, user_id, &newly).await;
-        }
-    }
-
-    Ok(Json(updated))
+    Ok(Json(
+        crate::services::collection::patch_preorder(&state, user_id, id, input).await?,
+    ))
 }
 
 async fn delete_mine(
@@ -180,11 +50,7 @@ async fn delete_mine(
     Path(id): Path<Uuid>,
 ) -> AppResult<StatusCode> {
     let user_id = auth::require_user(&session).await?;
-    preorder::delete_for_user(&state.pool, user_id, id).await?;
-    state.cache.invalidate_user_collection(user_id).await;
-    state
-        .events
-        .publish(user_id, Event::PreorderDeleted { preorder_id: id });
+    crate::services::collection::delete_preorder(&state, user_id, id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

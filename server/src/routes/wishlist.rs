@@ -29,8 +29,7 @@ async fn add_mine(
     Json(input): Json<NewWishlistItem>,
 ) -> AppResult<(StatusCode, Json<wishlist::WishlistItem>)> {
     let user_id = auth::require_user(&session).await?;
-    let item = wishlist::add(&state.pool, user_id, input).await?;
-    state.cache.invalidate_user_collection(user_id).await;
+    let item = crate::services::collection::add_wishlist_item(&state, user_id, input).await?;
     Ok((StatusCode::CREATED, Json(item)))
 }
 
@@ -41,9 +40,9 @@ async fn patch_mine(
     Json(input): Json<WishlistPatch>,
 ) -> AppResult<Json<wishlist::WishlistItem>> {
     let user_id = auth::require_user(&session).await?;
-    let item = wishlist::patch(&state.pool, user_id, figure_id, input).await?;
-    state.cache.invalidate_user_collection(user_id).await;
-    Ok(Json(item))
+    Ok(Json(
+        crate::services::collection::patch_wishlist_item(&state, user_id, figure_id, input).await?,
+    ))
 }
 
 async fn delete_mine(
@@ -52,8 +51,7 @@ async fn delete_mine(
     Path(figure_id): Path<Uuid>,
 ) -> AppResult<StatusCode> {
     let user_id = auth::require_user(&session).await?;
-    wishlist::remove(&state.pool, user_id, figure_id).await?;
-    state.cache.invalidate_user_collection(user_id).await;
+    crate::services::collection::remove_wishlist_item(&state, user_id, figure_id).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 

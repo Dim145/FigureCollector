@@ -5,7 +5,6 @@ use crate::domain::figure::{self, FigurePatch, NewFigure};
 use crate::domain::figure_price;
 use crate::domain::figure_type;
 use crate::domain::tags;
-use crate::domain::visual_search;
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use axum::{
@@ -166,11 +165,7 @@ async fn create(
     Json(input): Json<NewFigure>,
 ) -> AppResult<(StatusCode, Json<figure::Figure>)> {
     let user_id = auth::require_user(&session).await?;
-    let figure = figure::create(&state.pool, user_id, input).await?;
-    tracing::info!(figure_id = %figure.id, created_by = %user_id, "figure created");
-    // Keep the visual-search index current: queue this figure's images (its
-    // official image now; any photos as they're uploaded). Best-effort + gated.
-    visual_search::enqueue_figure_if_enabled(&state.pool, figure.id).await;
+    let figure = crate::services::collection::create_figure(&state, user_id, input).await?;
     Ok((StatusCode::CREATED, Json(figure)))
 }
 
@@ -213,36 +208,11 @@ async fn patch_one(
     Json(input): Json<FigurePatch>,
 ) -> AppResult<Json<figure::Figure>> {
     let user = auth::require_user_full(&session, &state.pool).await?;
-    let existing = figure::find_by_id(&state.pool, id)
-        .await?
-        .ok_or(AppError::NotFound)?;
-    // Admins can edit anything; non-admins can only edit figures they created.
-    let owner = existing.created_by == Some(user.id);
-    if !user.is_admin && !owner {
-        return Err(AppError::Forbidden);
-    }
-    let updated = figure::patch(&state.pool, id, input).await?;
-    tracing::info!(
-        figure_id = %updated.id,
-        by_user = %user.id,
-        as_admin = user.is_admin && !owner,
-        "figure updated",
-    );
-    // If the official image URL changed, forget the OLD one's index + queue entry
-    // (image_ref is the URL itself — no FK to cascade), then enqueue the new one.
-    // Otherwise a stale embedding for the replaced URL would linger.
-    if let Some(old) = existing.official_image_url.as_deref() {
-        if !old.is_empty() && updated.official_image_url.as_deref() != Some(old) {
-            visual_search::forget_image(&state.pool, old).await;
-        }
-    }
-    // A by-hand appearance-tags edit → re-embed the figure's tagvec so the
-    // "Description" search reflects it (gated; the auto-tagger won't overwrite it).
-    if updated.visual_tags != existing.visual_tags {
-        visual_search::requeue_tagvec_if_enabled(&state.pool, updated.id).await;
-    }
-    visual_search::enqueue_figure_if_enabled(&state.pool, updated.id).await;
-    Ok(Json(updated))
+    // Admins may edit any entry here; the MCP endpoint passes `false` for the
+    // same call, so an admin's API key gets no extra reach.
+    Ok(Json(
+        crate::services::collection::patch_figure(&state, &user, user.is_admin, id, input).await?,
+    ))
 }
 
 async fn delete_one(
