@@ -3,6 +3,36 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.48 — hand your shelf to an assistant
+
+- **Ask an AI about your collection.** FigureCollector now speaks the
+  [Model Context Protocol](https://modelcontextprotocol.io) at `/mcp`, so an
+  assistant — Claude Code, Claude Desktop, Cursor, VS Code — can read the
+  catalogue and curate your collection directly. *Which series am I closest to
+  finishing? What's slipping? What should I buy with 200 €?* Six ready-made
+  prompts ship with it, along with your collection as readable documents an
+  assistant can attach to a conversation.
+  → [MCP — agent access](features/mcp.md)
+- **Keys you can actually reason about.** Mint one per client under
+  *Réglages → Accès API*, with scopes you tick: read-only is the default, and
+  widening it is a deliberate click. Named, revocable one at a time, optionally
+  expiring. The secret is shown once, next to a ready-to-paste
+  `claude mcp add` command.
+- **You can see what it did.** Every tool call, resource read and refusal is
+  logged and shown back to you in the same panel — when, which tool, the
+  outcome, which key. Arguments are stored as a digest, never verbatim.
+- **Deletion is not the default answer.** Removing a piece for good needs its
+  own scope *and* an explicit confirmation on the call, and the refusal points
+  at archiving, which is reversible. Reversible operations need neither.
+- **Administration is out of reach, not merely gated.** No scope opens instance
+  administration, account and privacy settings, share-link minting or outbound
+  scraping — and that holds for an administrator's own key: it can edit exactly
+  the catalogue entries any other user's could. An admin can also close the
+  endpoint instance-wide, though it ships open.
+- **Catalogue text is fenced as untrusted.** Much of it was scraped or entered
+  by other users; results mark it as data to report on rather than instructions
+  to follow, so a figure description can't quietly redirect an agent.
+
 ## 0.47 — read what was already there
 
 - **Back-in-stock alerts** — a shop that quietly restocks a wished figure now
