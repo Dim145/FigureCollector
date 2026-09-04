@@ -30,6 +30,7 @@ pub mod health;
 pub mod location;
 pub mod manga;
 pub mod mcp;
+pub mod mcp_keys;
 pub mod me;
 pub mod notif_channels;
 pub mod notifications;
@@ -126,6 +127,24 @@ pub fn build_router(state: AppState) -> Router {
         calendar::feed_router()
     };
 
+    // API-key management (`/api/me/api-keys`) is session-gated but mints
+    // credentials, so it gets the same IP-keyed limiter as the other
+    // secret-handling surfaces — a stolen session shouldn't be able to spray
+    // keys, and the settings panel only ever needs a handful of requests.
+    let mcp_key_routes = if state.config.auth.rate_limit_enabled {
+        let conf = Arc::new(
+            GovernorConfigBuilder::default()
+                .per_second(state.config.auth.auth_rate_limit_per_second)
+                .burst_size(10)
+                .key_extractor(SmartIpKeyExtractor)
+                .finish()
+                .expect("valid governor configuration"),
+        );
+        mcp_keys::router().layer(GovernorLayer::new(conf))
+    } else {
+        mcp_keys::router()
+    };
+
     // Multipart photo uploads — 5 MB per file + multipart framing.
     // Both layers are needed: `DefaultBodyLimit::disable()` removes the
     // 2-MB default that axum applies to every route (otherwise the Multipart
@@ -195,6 +214,7 @@ pub fn build_router(state: AppState) -> Router {
         .merge(health::router())
         .merge(landed_cost::router())
         .merge(condition_reports::router())
+        .merge(mcp_key_routes)
         .merge(me::router())
         .merge(ws::router())
         .merge(figures::router())
