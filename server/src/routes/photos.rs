@@ -360,7 +360,7 @@ async fn fetch_owned_photo_internal(
         .unwrap_or("");
     // Length-independent constant-time compare so a wrong token leaks nothing
     // through timing (high-entropy shared secret; no extra crate needed).
-    if !constant_time_eq(presented.as_bytes(), expected.as_bytes()) {
+    if !crate::auth::constant_time_eq(presented.as_bytes(), expected.as_bytes()) {
         return Err(AppError::Forbidden);
     }
 
@@ -400,33 +400,10 @@ pub fn router() -> Router<AppState> {
         )
 }
 
-/// Constant-time byte-slice equality. Folds a length difference into the
-/// accumulator so unequal lengths still take the same path (no early return on
-/// length), avoiding a timing side-channel on the worker token.
-fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-    let mut diff = (a.len() ^ b.len()) as u8;
-    let n = a.len().max(b.len());
-    for i in 0..n {
-        let x = a.get(i).copied().unwrap_or(0);
-        let y = b.get(i).copied().unwrap_or(0);
-        diff |= x ^ y;
-    }
-    diff == 0
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{constant_time_eq, photo_visible};
+    use super::photo_visible;
     use uuid::Uuid;
-
-    #[test]
-    fn constant_time_eq_matches_only_identical_slices() {
-        assert!(constant_time_eq(b"secret-token", b"secret-token"));
-        assert!(!constant_time_eq(b"secret-token", b"secret-toker"));
-        assert!(!constant_time_eq(b"secret-token", b"secret-token-longer"));
-        assert!(!constant_time_eq(b"", b"x"));
-        assert!(constant_time_eq(b"", b""));
-    }
 
     fn owner() -> Uuid {
         Uuid::from_u128(1)

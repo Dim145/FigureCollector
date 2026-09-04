@@ -3,6 +3,7 @@
 pub mod achievement;
 pub mod activity;
 pub mod admin;
+pub mod api_key;
 pub mod calendar;
 pub mod catalogue;
 pub mod clustering;

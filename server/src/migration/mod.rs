@@ -79,6 +79,8 @@ mod m20260627_000007_vitrine_share;
 mod m20260822_000001_monthly_budget;
 mod m20260822_000002_condition_grades;
 mod m20260822_000003_condition_reports;
+mod m20260904_000001_api_keys;
+mod m20260904_000002_mcp_audit_log;
 
 pub struct Migrator;
 
@@ -153,6 +155,8 @@ impl MigratorTrait for Migrator {
             Box::new(m20260822_000001_monthly_budget::Migration),
             Box::new(m20260822_000002_condition_grades::Migration),
             Box::new(m20260822_000003_condition_reports::Migration),
+            Box::new(m20260904_000001_api_keys::Migration),
+            Box::new(m20260904_000002_mcp_audit_log::Migration),
         ]
     }
 }

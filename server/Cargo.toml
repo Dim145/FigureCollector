@@ -154,6 +154,13 @@ p256 = { version = "0.13", default-features = false, features = [
 ] }
 base64 = "0.22"
 
+# --- API-key hashing (domain::api_key) ---
+# SHA-256 over a 256-bit CSPRNG secret, not a password KDF: there is no
+# low-entropy guess to slow down, and an unsalted digest is what lets the key
+# lookup stay a single indexed query. Already in the tree transitively via
+# `web-push-native`; pure Rust, no OpenSSL.
+sha2 = { version = "0.10", default-features = false, features = ["std"] }
+
 # --- Notifications: Web Push.
 #
 # Pure-Rust stack — no OpenSSL anywhere in the tree (verified with
