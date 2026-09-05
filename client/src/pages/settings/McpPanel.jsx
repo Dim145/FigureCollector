@@ -278,6 +278,7 @@ export default function McpPanel({ registerRef, locale = "fr" }) {
           <label className="flex flex-col gap-1.5 text-sm">
             {t("mcp.field_name")}
             <Input
+              data-autofocus
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={t("mcp.name_placeholder")}

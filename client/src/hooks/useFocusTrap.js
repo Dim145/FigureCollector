@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 /**
  * Focus-trap helper for modal-style dialogs.
@@ -13,6 +13,9 @@ import { useEffect } from "react";
  *   4. On unmount, focus returns to whatever element held it before the
  *      dialog opened.
  *
+ * Focus is placed once per open, not once per render: a dialog containing a
+ * text field must not reclaim focus between keystrokes.
+ *
  * Usage:
  *   const ref = useRef(null);
  *   useFocusTrap(ref, { active: open, onClose: () => setOpen(false) });
@@ -23,6 +26,20 @@ import { useEffect } from "react";
  * descendants.
  */
 export function useFocusTrap(containerRef, { active = true, onClose } = {}) {
+  // Every caller passes an inline arrow, so `onClose` is a new function on
+  // each parent render. Depending on its identity would tear this effect down
+  // and set it up again on every keystroke in a field inside the dialog —
+  // re-running `focusFirst()` and stealing focus to the first tab stop (the
+  // close button) between characters. The ref keeps the Esc handler pointed at
+  // the latest callback while the effect stays tied to `active` alone.
+  const onCloseRef = useRef(onClose);
+  // Synced in its own effect rather than during render — a ref written while
+  // rendering is a React-rules violation, and this one only has to be current
+  // by the time a key is actually pressed.
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!active) return undefined;
     const container = containerRef.current;
@@ -66,9 +83,9 @@ export function useFocusTrap(containerRef, { active = true, onClose } = {}) {
     focusFirst();
 
     const onKey = (e) => {
-      if (e.key === "Escape" && onClose) {
+      if (e.key === "Escape" && onCloseRef.current) {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (e.key !== "Tab") return;
@@ -98,5 +115,5 @@ export function useFocusTrap(containerRef, { active = true, onClose } = {}) {
         previouslyFocused.focus({ preventScroll: true });
       }
     };
-  }, [active, containerRef, onClose]);
+  }, [active, containerRef]);
 }
