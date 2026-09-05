@@ -21,9 +21,81 @@ claude mcp add --transport http figurecollector https://your-host/mcp \
   --header "Authorization: Bearer fck_…"
 ```
 
-Any MCP client that can send a custom header works the same way — Claude Code,
-Claude Desktop, Cursor, VS Code. `X-Api-Key: fck_…` is accepted as a fallback
-for clients that can't set `Authorization`.
+Any MCP client that can send a custom header works the same way. `X-Api-Key:
+fck_…` is accepted as a fallback for clients that can't set `Authorization`.
+
+### Configuring it by hand
+
+Most clients keep their servers in a JSON file. The shape below is the common
+one — Claude Desktop, Cursor, Windsurf, Cline, OpenCode and others all read it,
+under `~/.cursor/mcp.json`, `claude_desktop_config.json`, or whatever the client
+calls its config:
+
+```json
+{
+  "mcpServers": {
+    "figurecollector": {
+      "type": "http",
+      "url": "https://your-host/mcp",
+      "headers": {
+        "Authorization": "Bearer fck_your_key_here"
+      }
+    }
+  }
+}
+```
+
+**VS Code** uses the same fields under `servers` rather than `mcpServers`, in
+`.vscode/mcp.json` (per project) or your user `mcp.json`:
+
+```json
+{
+  "servers": {
+    "figurecollector": {
+      "type": "http",
+      "url": "https://your-host/mcp",
+      "headers": {
+        "Authorization": "Bearer fck_your_key_here"
+      }
+    }
+  }
+}
+```
+
+!!! warning "Don't commit the key"
+    A project-local `.vscode/mcp.json` gets committed by reflex. Several
+    clients (Cursor and VS Code among them) resolve `${env:VAR}` inside `url`
+    and `headers`, so prefer `"Authorization": "Bearer ${env:FIGURECOLLECTOR_KEY}"`
+    and keep the value in your environment. If a key does leak, revoke it from
+    *Réglages → Accès API* — that's what per-client keys are for.
+
+### Clients that only speak stdio
+
+Some clients still launch servers as a subprocess rather than calling an HTTP
+endpoint. [`mcp-remote`](https://www.npmjs.com/package/mcp-remote) bridges the
+two:
+
+```json
+{
+  "mcpServers": {
+    "figurecollector": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://your-host/mcp",
+        "--header",
+        "Authorization:Bearer fck_your_key_here"
+      ]
+    }
+  }
+}
+```
+
+Note the missing space after the colon in `Authorization:Bearer …`. That isn't
+a typo: some clients split `args` on whitespace, which would break the header
+in two. Use this only when the client genuinely can't do HTTP — a direct
+connection has fewer moving parts and no Node dependency.
 
 !!! warning "claude.ai web connectors won't work"
     The MCP spec's authorization profile is OAuth 2.1, and claude.ai's web
