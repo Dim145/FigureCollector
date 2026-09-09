@@ -101,7 +101,7 @@ impl FcMcp {
     }
 
     #[tool(
-        description = "Look up a catalogue entry by its JAN/EAN barcode — an exact match is proof of identity. Use this before creating anything: the barcode is the one field that reliably says 'this figure already exists'.",
+        description = "Look up a catalogue entry by its JAN/EAN barcode — an exact match is proof of identity. Use this before creating anything: the barcode is the one field that reliably says 'this figure already exists'. Returns `{found, figure}`, so a miss is an answer rather than an empty result.",
         annotations(
             title = "Find by barcode",
             read_only_hint = true,
@@ -121,9 +121,14 @@ impl FcMcp {
             &input,
         )
         .await?;
+        // Answer the question that was asked. A bare `null` for "no match"
+        // forces the caller to distinguish "not found" from "tool returned
+        // nothing useful", and it isn't a valid `structuredContent` object on
+        // its own either.
         let found =
             crate::domain::figure::find_by_jan(&self.state.pool, &input.jan, call.hide_nsfw())
-                .await;
+                .await
+                .map(|figure| serde_json::json!({ "found": figure.is_some(), "figure": figure }));
         call.finish(found).await
     }
 
