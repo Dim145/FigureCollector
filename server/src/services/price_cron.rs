@@ -287,6 +287,19 @@ pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
                     .await
                     {
                         Some(norm) => {
+                            // Read what we last saw BEFORE the upsert
+                            // overwrites it — the alert needs the previous
+                            // price to tell a crossing from a price that was
+                            // already below target.
+                            let previous: Option<(Decimal, Option<String>)> = sqlx::query_as(
+                                "SELECT amount, currency FROM figure_provider_prices \
+                                 WHERE figure_id = $1",
+                            )
+                            .bind(fid)
+                            .fetch_optional(&state.pool)
+                            .await
+                            .ok()
+                            .flatten();
                             match figure_price::upsert(
                                 &state.pool,
                                 fid,
@@ -300,15 +313,15 @@ pub async fn run_once(state: &AppState) -> AppResult<serde_json::Value> {
                             {
                                 Ok(changed) => {
                                     updated += 1;
-                                    // Wishlist target alerts — only on a price MOVE so a
-                                    // stable price re-observed daily can't spam (the
-                                    // notification dedup on (figure, amount) backstops it).
+                                    // Only on a price MOVE, and then only on a
+                                    // crossing (see notify_wishlist_targets).
                                     if changed {
                                         notify_wishlist_targets(
                                             state,
                                             fid,
                                             norm.amount,
                                             Some(norm.currency.as_str()),
+                                            previous,
                                         )
                                         .await;
                                     }
@@ -409,17 +422,28 @@ async fn notify_back_in_stock(
 }
 
 /// Fire `wishlist_price_below_target` for every user whose wishlist target on
-/// this figure is met by the freshly observed market price. The comparison is
-/// **cross-currency**: same currency compares directly, otherwise both sides
-/// convert through the EUR table (today's rate) — so a €50 target catches a
-/// $45 price. Best-effort — an error here never aborts the sweep. Dedup key =
-/// `{figure_id}:{amount}`, so each price LEVEL notifies once and a further
-/// drop re-fires.
+/// this figure is newly met by the freshly observed market price.
+///
+/// **Edge-triggered, not level-triggered.** Keying dedup on
+/// `{figure_id}:{amount}` meant every price *move* below the target counted as
+/// a new event, so a shop wobbling 161.19 → 160.85 → 161.19 alerted three
+/// times, and one figure produced ten notifications over 25 days for a target
+/// it had crossed once. An alert now fires only on the crossing: `previous`
+/// must have been above the target (or absent, the first observation we can
+/// judge) while the new price is at or below it. While it stays below, silence.
+///
+/// The comparison is **cross-currency**: same currency compares directly,
+/// otherwise both sides convert through the EUR table — so a €50 target
+/// catches a $45 price — and the payload now carries that basis so the reader
+/// can audit it.
+///
+/// Best-effort throughout: an error here never aborts the sweep.
 async fn notify_wishlist_targets(
     state: &AppState,
     figure_id: Uuid,
     amount: Decimal,
     currency: Option<&str>,
+    previous: Option<(Decimal, Option<String>)>,
 ) {
     let rows: Vec<(Uuid, Decimal, Option<String>, String)> = match sqlx::query_as(
         "SELECT w.user_id, w.max_price_amount, w.max_price_currency, f.name
@@ -441,6 +465,34 @@ async fn notify_wishlist_targets(
         return;
     }
 
+    // A price drop on something no shop will sell is noise: there is nothing
+    // to act on, and the back-in-stock alert already covers the moment it
+    // becomes buyable again. Mirrors the wishlist view's own reading of the
+    // signal — best status across shops inside the freshness window.
+    let best_stock: Option<String> = sqlx::query_scalar(
+        "SELECT fss.status FROM figure_shop_stock fss
+          WHERE fss.figure_id = $1
+            AND fss.checked_at > now() - interval '7 days'
+          ORDER BY CASE fss.status
+                       WHEN 'in_stock' THEN 0
+                       WHEN 'preorder' THEN 1
+                       ELSE 2
+                   END
+          LIMIT 1",
+    )
+    .bind(figure_id)
+    .fetch_optional(&state.pool)
+    .await
+    .ok()
+    .flatten();
+    if best_stock.as_deref() == Some("out_of_stock") {
+        tracing::debug!(
+            figure_id = %figure_id,
+            "price-cron: target met but every shop is out of stock — no alert"
+        );
+        return;
+    }
+
     // One EUR table for every cross-currency comparison this figure needs
     // (cached 12h). On a fetch failure we degrade to same-currency-only —
     // never worse than the old behaviour — via `target_met`'s None arm.
@@ -449,15 +501,40 @@ async fn notify_wishlist_targets(
         .ok();
 
     for (user_id, target, target_currency, figure_name) in rows {
-        if !target_met(
+        let Some(now_cmp) = compare_to_target(
             rates.as_ref(),
             amount,
             currency,
             target,
             target_currency.as_deref(),
-        ) {
+        ) else {
+            // Not comparable — never alert on a verdict we couldn't reach.
+            continue;
+        };
+        if !now_cmp.met {
             continue;
         }
+        // The edge. Each user has their own target, so the crossing is
+        // per-user: at 170 → 161, a target of 165 crosses while a target of
+        // 200 was already met and must stay quiet.
+        let was_met = previous
+            .as_ref()
+            .is_some_and(|(prev_amount, prev_currency)| {
+                target_met(
+                    rates.as_ref(),
+                    *prev_amount,
+                    prev_currency.as_deref(),
+                    target,
+                    target_currency.as_deref(),
+                )
+            });
+        if was_met {
+            continue;
+        }
+
+        // Still keyed on the level as a backstop against a concurrent sweep
+        // double-firing the same crossing; the edge check above is what stops
+        // the repeats.
         let dedup = format!("{figure_id}:{amount}");
         crate::services::notify::dispatch(
             state,
@@ -470,6 +547,14 @@ async fn notify_wishlist_targets(
                 "currency": currency,
                 "target_amount": target.to_string(),
                 "target_currency": target_currency,
+                // How the two were actually compared, so a reader facing
+                // "161.19 USD vs 150.00 EUR" can see the conversion.
+                "comparison_basis": now_cmp.basis,
+                "amount_eur": now_cmp.amount_eur.map(|d| d.to_string()),
+                "target_eur": now_cmp.target_eur.map(|d| d.to_string()),
+                "fx_date": now_cmp.fx_date,
+                "previous_amount": previous.as_ref().map(|(a, _)| a.to_string()),
+                "stock_status": best_stock,
             }),
             Some(&dedup),
         )
@@ -492,17 +577,64 @@ fn target_met(
     target: Decimal,
     target_currency: Option<&str>,
 ) -> bool {
+    compare_to_target(rates, amount, currency, target, target_currency).is_some_and(|c| c.met)
+}
+
+/// How an observed price compared with a target, and on what basis.
+///
+/// The comparison is often cross-currency, and the alert payload used to carry
+/// only the two raw amounts — `161.19 USD` against `150.00 EUR` — leaving the
+/// reader to guess whether the conversion had been done at all, let alone at
+/// which rate. The EUR pair and the rate table's date travel with the verdict
+/// now, the same way `CollectionStats.eur` reports its `fx_date`.
+#[derive(Debug, Clone)]
+struct TargetComparison {
+    met: bool,
+    /// `"same_currency"`, `"target_adopts_observed"`, or `"converted_via_eur"`.
+    basis: &'static str,
+    amount_eur: Option<Decimal>,
+    target_eur: Option<Decimal>,
+    fx_date: Option<String>,
+}
+
+/// `None` when the two sides cannot be compared at all (a currency missing
+/// from the rate table, no table, or an uncurrencied price against an explicit
+/// target) — the caller must not alert on a comparison it could not make.
+fn compare_to_target(
+    rates: Option<&crate::external::fx::FxRates>,
+    amount: Decimal,
+    currency: Option<&str>,
+    target: Decimal,
+    target_currency: Option<&str>,
+) -> Option<TargetComparison> {
+    let plain = |met: bool, basis: &'static str| {
+        Some(TargetComparison {
+            met,
+            basis,
+            amount_eur: None,
+            target_eur: None,
+            fx_date: None,
+        })
+    };
     match (currency, target_currency) {
-        (_, None) => amount <= target,
-        (None, Some(_)) => false,
-        (Some(a), Some(b)) if a.trim().eq_ignore_ascii_case(b.trim()) => amount <= target,
-        (Some(a), Some(b)) => match rates {
-            Some(r) => match (r.convert_to_base(amount, a), r.convert_to_base(target, b)) {
-                (Some(price_eur), Some(target_eur)) => price_eur <= target_eur,
-                _ => false,
-            },
-            None => false,
-        },
+        // The SPA's fallback: a target with no currency adopts the observed one.
+        (_, None) => plain(amount <= target, "target_adopts_observed"),
+        (None, Some(_)) => None,
+        (Some(a), Some(b)) if a.trim().eq_ignore_ascii_case(b.trim()) => {
+            plain(amount <= target, "same_currency")
+        }
+        (Some(a), Some(b)) => {
+            let r = rates?;
+            let price_eur = r.convert_to_base(amount, a)?;
+            let target_eur = r.convert_to_base(target, b)?;
+            Some(TargetComparison {
+                met: price_eur <= target_eur,
+                basis: "converted_via_eur",
+                amount_eur: Some(price_eur),
+                target_eur: Some(target_eur),
+                fx_date: Some(r.date.clone()),
+            })
+        }
     }
 }
 
@@ -708,6 +840,102 @@ fn reconstruct_url(store_url: &str, link: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The crossing rule, expressed the way the bug was reported: one target
+    /// crossed once should notify once, however much the shop price then
+    /// wobbles underneath it.
+    #[test]
+    fn a_price_wobbling_below_target_crosses_only_once() {
+        let target = Decimal::from(150);
+        let met = |amount: i64| {
+            target_met(
+                None,
+                Decimal::from(amount),
+                Some("EUR"),
+                target,
+                Some("EUR"),
+            )
+        };
+        // The observed sequence that produced ten notifications: a crossing,
+        // then noise that never goes back above the target.
+        let observations = [170, 161, 160, 161, 149, 161];
+        let mut previous: Option<i64> = None;
+        let mut alerts = 0;
+        for now in observations {
+            let crossed = met(now) && !previous.is_some_and(met);
+            if crossed {
+                alerts += 1;
+            }
+            previous = Some(now);
+        }
+        assert_eq!(alerts, 1, "one crossing must produce exactly one alert");
+    }
+
+    #[test]
+    fn a_price_going_back_above_target_can_cross_again() {
+        let target = Decimal::from(150);
+        let met = |a: i64| target_met(None, Decimal::from(a), Some("EUR"), target, Some("EUR"));
+        let mut previous: Option<i64> = None;
+        let mut alerts = 0;
+        for now in [170, 140, 180, 130] {
+            if met(now) && !previous.is_some_and(met) {
+                alerts += 1;
+            }
+            previous = Some(now);
+        }
+        assert_eq!(alerts, 2, "each fresh crossing is its own event");
+    }
+
+    #[test]
+    fn the_first_observation_below_target_still_alerts() {
+        // No previous price means this is the first verdict we could reach —
+        // treat it as a crossing rather than swallowing it.
+        let target = Decimal::from(150);
+        let now = Decimal::from(120);
+        assert!(target_met(None, now, Some("EUR"), target, Some("EUR")));
+        let previous: Option<(Decimal, Option<String>)> = None;
+        let was_met = previous
+            .as_ref()
+            .is_some_and(|(p, c)| target_met(None, *p, c.as_deref(), target, Some("EUR")));
+        assert!(!was_met);
+    }
+
+    #[test]
+    fn the_comparison_reports_its_basis() {
+        let same = compare_to_target(
+            None,
+            Decimal::from(100),
+            Some("EUR"),
+            Decimal::from(150),
+            Some("EUR"),
+        )
+        .expect("same currency is always comparable");
+        assert!(same.met);
+        assert_eq!(same.basis, "same_currency");
+        assert!(same.amount_eur.is_none(), "no conversion, nothing to audit");
+
+        let adopted = compare_to_target(
+            None,
+            Decimal::from(100),
+            Some("JPY"),
+            Decimal::from(150),
+            None,
+        )
+        .expect("a currency-less target adopts the observed one");
+        assert_eq!(adopted.basis, "target_adopts_observed");
+
+        // Cross-currency with no rate table: not comparable, so no alert.
+        assert!(
+            compare_to_target(
+                None,
+                Decimal::from(100),
+                Some("USD"),
+                Decimal::from(150),
+                Some("EUR")
+            )
+            .is_none()
+        );
+    }
 
     fn cand(amount: f64, ccy: &str, version: Option<&str>) -> Candidate {
         Candidate {
