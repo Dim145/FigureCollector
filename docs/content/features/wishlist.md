@@ -19,9 +19,43 @@ email, ntfy, push… The comparison is **cross-currency** — a €50 target cat
 a $45 price, both converted through today's ECB rate (the same conversion
 behind [the deal badge](#target-price-budget) on the cards).
 
-Each **price level** notifies once — you won't be re-pinged every sweep at the
-same price, but a further drop fires again. No cron scheduled by the admin →
-no alerts (the wishlist still flags deals against the catalogue MSRP).
+An alert fires on the **crossing**, not on the level: once a price drops
+through your target you are told once, and then it goes quiet for as long as
+it stays below. If it climbs back above and drops again, that is a new
+crossing and you hear about it again.
+
+!!! note "It used to fire on the level"
+    Alerts used to key on the price *level*, so any movement below your target
+    counted as a fresh event — a shop wobbling €161.19 → €160.85 → €161.19
+    pinged you three times, and one figure could produce ten notifications
+    over a few weeks for a target it had crossed once.
+
+The payload carries how the comparison was made — `comparison_basis`, plus
+`amount_eur`, `target_eur` and the rate table's `fx_date` when the two sides
+were in different currencies — so a "$161.19 against a €150.00 target" alert
+can be checked rather than taken on trust.
+
+Figures that **every shop reports out of stock** don't alert: a price drop you
+cannot act on is noise, and [the restock alert](#back-in-stock) already covers
+the moment it becomes buyable. No cron scheduled by the admin → no alerts (the
+wishlist still flags deals against the catalogue MSRP).
+
+## Back in stock { #back-in-stock }
+
+The same sweep reads each shop's **availability**, so a boutique that quietly
+restocks a wished figure wakes you rather than waiting to be noticed. A
+`wishlist_back_in_stock` notification fires when a shop's signal flips from a
+**known** out-of-stock to buyable — `in_stock`, or `preorder` reopening.
+
+"Known" is the load-bearing word: a figure the sweep has never priced has no
+previous state to have flipped, so a first observation never alerts. And a
+listing that flaps in and out is deduplicated per figure, per shop, per day —
+at most one ping a day from a flickering shop, while a genuine restock months
+later still fires.
+
+Each wishlist card also shows its current availability, and the list gains an
+*in stock* lens; a row whose shop stopped refreshing ages back to *unknown*
+after seven days rather than lying about being in stock.
 
 ## Acquérir
 

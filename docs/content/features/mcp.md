@@ -144,6 +144,37 @@ Not "needs a bigger scope" — **outside the endpoint**, by design:
 - **Photo, document and scan uploads or deletions**, and the insurance-dossier
   PDF export.
 
+## What a tool returns
+
+Every tool answers with a JSON **object**, never a bare array. Tools that
+return a list wrap it:
+
+```json
+{ "count": 12, "items": [ … ] }
+```
+
+That is not decoration. Protocol revisions `2025-06-18` through `2025-11-25`
+type `structuredContent` as an object, so a top-level array fails the client's
+schema check and the call surfaces as an unexplained "tool execution failed" —
+with no hint that the *server* produced something invalid. The `count` is also
+what a caller needs: fifty rows and no total leaves an agent unable to tell a
+complete answer from a truncated one.
+
+Paged tools additionally carry `limit`, `offset` and **`has_more`** — so page
+on with `offset` until `has_more` is false, and never read `count` as a total:
+
+| Tool | `total` |
+|---|---|
+| `list_owned_items`, `list_wishlist`, `list_preorders` | Exact — the query returns every match and the page is sliced from it. |
+| `search_catalogue`, `get_activity` | `null`. These are limited in SQL, so the rows past the page were never fetched; `has_more` is derived from asking for one row more than the page. Their page tops out at 199. |
+
+`total: null` is deliberate rather than lazy: counting would mean a second
+query mirroring every filter, and what a caller needs in order not to
+mis-report is *whether there is more*, which is exact.
+
+Lookups answer the question rather than returning nothing:
+`find_figure_by_barcode` gives `{"found": false, "figure": null}` on a miss.
+
 ## Money and dates
 
 Amounts are always reported as a value plus **its own** ISO-4217 currency, never
@@ -154,7 +185,28 @@ each purchase was recorded**, with the rate's date and a `partial` flag.
 
 Writes take amounts as decimal **strings** (`"1299.00"`) because a JSON number
 is an IEEE-754 double and `1299.10` doesn't survive the round trip. Dates are
-`YYYY-MM-DD`.
+`YYYY-MM-DD`. The one exception is `estimate_landed_cost`, whose `goods` and
+`shipping` are plain numbers: nothing is stored and the answer is an estimate
+of duties, so there is no value to preserve exactly.
+
+## Numbers that carry their own caveat
+
+An assistant will quote a statistic as fact, so the statistics say how solid
+they are rather than leaving that in the documentation:
+
+- `get_collection_stats` → `eur.valuation` names the tier backing the value
+  (`manual`, `market`, `msrp_fallback`, `none`) and the share of pieces the
+  owner valued themselves. At `manual_coverage: 0.0` the "plus-value" is a
+  list-price comparison, not a gain — see
+  [La Cote](cote.md#valuation-basis).
+- `get_insights` → each `series_completion` row carries
+  `total_is_catalogue_only`, so 100 % is reported as catalogue coverage rather
+  than "the series is complete".
+- `get_preorder_slip_stats` → each row carries `reliable`, false when the maker
+  has fewer than three observed pre-orders. The average is still returned
+  (refusing to answer is worse), but it should be quoted with the sample size.
+- `get_collection_stats` → `preorders.placed` is every pre-order ever, and
+  `preorders.open` only the non-terminal ones.
 
 ## Untrusted content
 
@@ -182,6 +234,13 @@ confirmation is still what stands between a bad suggestion and a bad write.
 - **The shared catalogue is shared.** `create_figure` says so in its own
   description and points at `find_figure_by_barcode` / `find_duplicate_figures`
   first: other people's collections point at the same rows.
+- **A near-identical manufacturer name is refused.** Makers are matched on a
+  slug derived from free text, so "CROWN Studio (new)" forks "Crown Studio"
+  into a second row and splits every per-maker statistic between the two.
+  `create_figure` now names the existing spelling and asks you to reuse it, or
+  to pass `allow_new_manufacturer: true` if it really is another company. An
+  admin can fold two that already exist together — see
+  [Administration](admin.md#merging-a-duplicate-manufacturer).
 - Trading fields (`for_sale`, asking price) are not writable here — offering a
   piece to other people is a decision with an audience.
 

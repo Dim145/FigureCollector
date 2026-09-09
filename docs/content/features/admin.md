@@ -60,6 +60,23 @@ settings, share-link minting and outbound scraping sit outside the endpoint,
 not behind a scope — and that holds for an administrator's own key. The switch
 is there for operators who'd rather not expose the surface at all.
 
+### Merging a duplicate manufacturer { #merging-a-duplicate-manufacturer }
+
+Manufacturers are created from a free-text name on the figure form, matched by
+slug — so two spellings of one company become two rows, and every per-maker
+statistic, facet and completion figure splits between them. Series and
+characters have had a move/merge path since their screens existed;
+manufacturers had none, so a duplicate pair could only be looked at.
+
+`POST /api/admin/manufacturers/{id}/merge` with `{"into_id": "<uuid>"}` folds
+`{id}` into the survivor: every figure is re-pointed and the emptied row is
+deleted, in one transaction. It answers `{"affected": n}` with the number of
+figures moved, `400` if the two ids are the same and `404` if the target
+doesn't exist.
+
+The [MCP endpoint](mcp.md) refuses to create a near-identical maker in the
+first place, so this is for cleaning up pairs that predate that guard.
+
 ## Tâches (`/admin/tasks`) { #tasks }
 
 A single **task-management console** over every background task — server crons,

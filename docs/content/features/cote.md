@@ -16,6 +16,28 @@ Each piece's value is resolved, in order:
 The *pièces évaluées* counter breaks those tiers down (manual / market / MSRP),
 so you always know how much of the total rests on real numbers.
 
+### Reading the plus-value honestly { #valuation-basis }
+
+Tiers 2 and 3 are *someone else's* number: a shop's asking price, or the
+manufacturer's list price. When a collection has no manual values at all, the
+"plus-value" it shows is not a resale estimate — it is the gap between what you
+paid and what the piece lists for, which for a full-price MSRP purchase is
+mechanically ~0.
+
+So the totals carry the basis with them. `GET /api/me/stats` answers with a
+`valuation` block beside the EUR totals:
+
+| Field | Meaning |
+|---|---|
+| `basis` | Whichever tier backs the most pieces: `manual`, `market`, `msrp_fallback`, or `none`. |
+| `manual_coverage` | Share of pieces you valued yourself, 0.0–1.0. At `0.0`, read `plus_value` as a list-price comparison, not a gain. |
+| `pieces_total` / `pieces_valued` | How much of the collection is counted at all. |
+| `pieces_auto` / `pieces_msrp` | The market and MSRP tiers, split out. |
+
+The page has always shown the *pièces évaluées* tiers; this is the same
+statement in a form a client — the SPA, an export, an
+[assistant over MCP](mcp.md) — can act on without parsing prose.
+
 ## What it shows
 
 - **Valeur estimée** — the collection's effective value in large type, in

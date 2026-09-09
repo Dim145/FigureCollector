@@ -51,9 +51,19 @@ purchase-time frozen rate, the same figure La Cote's *total payé* shows.
   converted to [your display currency](currency.md)). It shows how the shelf —
   and the outlay — grew over time, not just the per-year totals.
 - **Dépense par année** — spending per year, per currency.
-- **Complétion de séries** — how complete each owned series is (owned vs catalogue).
+- **Complétion de séries** — how complete each owned series is, **owned vs
+  what this instance's catalogue holds** — not vs everything the maker ever
+  released. On an instance whose catalogue is mostly user-submitted those two
+  converge, so 100 % means "I've entered every figure of this series that I
+  own". The API says so in the payload (`total_is_catalogue_only`) rather than
+  leaving a client to infer it.
 - **Coût des souhaits** — the estimated cost of your [wishlist](wishlist.md), per currency.
-- **Santé des pré-commandes** — open deposits, average slip days, open vs cancelled counts.
+- **Santé des pré-commandes** — open deposits, average slip days, open vs
+  cancelled counts. **Total** counts every pre-order you have ever placed
+  (matching the `preorders_placed` seal above and the pre-order export);
+  **En cours** only the non-terminal ones. Those two used to be computed
+  identically, so a collector with cancelled or received pre-orders saw this
+  screen contradict their own achievements.
 
 **Distribution des prix** — min / median / average / max paid per currency,
 with a histogram; plus the **most expensive piece** per currency.
