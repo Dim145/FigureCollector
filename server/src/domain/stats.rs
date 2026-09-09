@@ -62,9 +62,18 @@ pub struct CollectionStats {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct PreorderSummary {
+    /// Pre-orders **ever** placed, whatever their status today — the same
+    /// number the `preorders_placed` achievement counter reports.
+    ///
+    /// This used to be computed identically to `open`, so the two were always
+    /// equal while the name promised a lifetime total; anyone comparing this
+    /// screen with their achievements saw a contradiction that was really one
+    /// field wearing two meanings.
     pub placed: i64,
     pub received: i64,
     pub cancelled: i64,
+    /// Pre-orders in a non-terminal status right now (awaiting release,
+    /// in production, shipped…).
     pub open: i64,
 }
 
@@ -101,6 +110,56 @@ pub struct ValueBucket {
     pub pieces_msrp: i64,
     /// Total pieces contributing to this currency bucket.
     pub pieces_total: i64,
+}
+
+/// Where a collection's estimated value comes from.
+#[derive(Debug, Clone, Serialize)]
+pub struct ValuationBasis {
+    /// Whichever source backs the most pieces: `"manual"`, `"market"`,
+    /// `"msrp_fallback"`, or `"none"` when nothing is valued at all.
+    pub basis: &'static str,
+    /// Share of pieces carrying a valuation the owner entered themselves,
+    /// 0.0–1.0. At 0.0, treat `plus_value` as a list-price comparison.
+    pub manual_coverage: f64,
+    pub pieces_total: i64,
+    pub pieces_valued: i64,
+    pub pieces_auto: i64,
+    pub pieces_msrp: i64,
+}
+
+impl ValuationBasis {
+    /// Fold the per-currency buckets, which already carry these counts, into
+    /// one statement about the collection as a whole.
+    fn from_buckets(buckets: &[ValueBucket]) -> Self {
+        let (mut pieces_total, mut pieces_valued, mut pieces_auto, mut pieces_msrp) = (0, 0, 0, 0);
+        for b in buckets {
+            pieces_total += b.pieces_total;
+            pieces_valued += b.pieces_valued;
+            pieces_auto += b.pieces_auto;
+            pieces_msrp += b.pieces_msrp;
+        }
+        let basis = if pieces_total == 0 {
+            "none"
+        } else if pieces_valued >= pieces_auto && pieces_valued >= pieces_msrp {
+            "manual"
+        } else if pieces_auto >= pieces_msrp {
+            "market"
+        } else {
+            "msrp_fallback"
+        };
+        Self {
+            basis,
+            manual_coverage: if pieces_total == 0 {
+                0.0
+            } else {
+                pieces_valued as f64 / pieces_total as f64
+            },
+            pieces_total,
+            pieces_valued,
+            pieces_auto,
+            pieces_msrp,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -163,6 +222,15 @@ pub struct EurTotals {
     pub plus_value: Decimal,
     /// Date of the rate table used for the today's-rate conversions.
     pub fx_date: String,
+    /// What the `value` above is actually made of — and therefore how much
+    /// `plus_value` is worth as a claim.
+    ///
+    /// A collection with no manual valuations has its `value` built from
+    /// catalogue MSRP, so `plus_value` compares a price paid against a *list*
+    /// price. That is not a market gain, and the number carried no reservation
+    /// until now. The counts were already in `value_by_currency`; this
+    /// surfaces them where the single headline figure is read.
+    pub valuation: ValuationBasis,
     /// True when some amount couldn't be converted (its currency was absent
     /// from the rate table) and was left out — the SPA marks the total approx.
     pub partial: bool,
@@ -498,15 +566,13 @@ pub async fn collection_stats(
         open: 0,
     };
     for (status, count) in preorder_rows {
+        // Every row was placed at some point, terminal or not.
+        preorders.placed += count;
         match status.as_str() {
             "received" => preorders.received = count,
             "cancelled" => preorders.cancelled = count,
-            // any non-terminal status is an active pre-order the user placed —
-            // counts toward both "placed" and "open" (placed/confirmed/shipping/…)
-            _ => {
-                preorders.placed += count;
-                preorders.open += count;
-            }
+            // Anything non-terminal is still outstanding.
+            _ => preorders.open += count,
         }
     }
 
@@ -626,6 +692,7 @@ pub async fn collection_stats(
                 value,
                 plus_value: value - cost,
                 fx_date: rates.date,
+                valuation: ValuationBasis::from_buckets(&value_by_currency),
                 partial,
             })
         }
@@ -693,8 +760,19 @@ pub struct SeriesCompletion {
     pub series_id: Uuid,
     pub name: String,
     pub owned: i64,
+    /// Entries for this series **in this instance's catalogue** — not the
+    /// number of figures the maker ever released.
+    ///
+    /// On an instance whose catalogue is mostly user-submitted this trends
+    /// toward `owned`, so `pct` reaching 100 means "I have entered every
+    /// figure of this series that I own", not "the series is complete". Read
+    /// it as catalogue coverage; `total_is_catalogue_only` is there so a
+    /// client doesn't have to know that from prose.
     pub total: i64,
     pub pct: i32,
+    /// Always true today. Present so the meaning of `pct` travels with the
+    /// data, and so a future real upstream count can flip it.
+    pub total_is_catalogue_only: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -774,6 +852,8 @@ pub async fn insights(pool: &PgPool, user_id: Uuid) -> AppResult<Insights> {
             owned,
             total,
             pct,
+            // `total` is a COUNT over this instance's own `figures` rows.
+            total_is_catalogue_only: true,
         })
         .collect();
 

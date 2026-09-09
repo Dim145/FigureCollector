@@ -578,7 +578,7 @@ impl FcMcp {
     }
 
     #[tool(
-        description = "How badly this caller's pre-orders slip, overall and per manufacturer: sample size and average delay in days. Useful for judging whether a maker's announced date is worth trusting.",
+        description = "How badly this caller's pre-orders slip, overall and per manufacturer: sample size, median, 80th percentile and worst case in days. Check `reliable` on each row before drawing a conclusion — below `min_samples` observations the figures are arithmetic rather than evidence, and on a single slip the median, p80 and max are necessarily the same number. `by_manufacturer` already drops makers under the threshold; `overall` is the all-makers fallback and does not, which is why it can come back unreliable while the per-maker list is empty.",
         annotations(
             title = "Pre-order slip statistics",
             read_only_hint = true,
@@ -616,7 +616,7 @@ impl FcMcp {
     // ------------------------------------------------------ stats & data
 
     #[tool(
-        description = "Aggregate statistics for the caller's collection: piece counts, spend and value per currency, EUR totals computed at the exchange rate frozen at each purchase, pre-order summary, top manufacturers/series/sculptors and price distribution.",
+        description = "Aggregate statistics for the caller's collection: piece counts, spend and value per currency, EUR totals computed at the exchange rate frozen at each purchase, pre-order summary, top manufacturers/series/sculptors and price distribution. Check `eur.valuation` before quoting `eur.plus_value`: with `basis: \"msrp_fallback\"` the value side is catalogue list prices, so the difference is not a market gain. `preorders.placed` counts every pre-order ever placed; `preorders.open` counts those still outstanding.",
         annotations(
             title = "Collection statistics",
             read_only_hint = true,
@@ -645,7 +645,7 @@ impl FcMcp {
     }
 
     #[tool(
-        description = "Deeper analysis of the caller's collection: spend per year, series completion, wishlist value, pre-order health (deposits at risk, average slip, cancellations) and the collection's tag 'DNA'.",
+        description = "Deeper analysis of the caller's collection: spend per year, series completion, wishlist value, pre-order health (deposits at risk, average slip, cancellations) and the collection's tag 'DNA'. In `series_completion`, `total` counts entries in THIS instance's catalogue, not everything the maker released — on a mostly user-submitted catalogue it trends toward `owned`, so 100% means \"I have entered every piece of this series that I own\", not \"the series is complete\".",
         annotations(title = "Insights", read_only_hint = true, idempotent_hint = true)
     )]
     async fn get_insights(

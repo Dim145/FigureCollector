@@ -8,10 +8,16 @@
 //!
 //! **On sample size.** A single-user instance holds tens of pre-orders, not
 //! thousands, so a per-(maker × shop) split would routinely compute a "median"
-//! from one observation. We therefore aggregate per **maker only**, refuse to
-//! report below [`MIN_SAMPLES`], and always return the sample count so the UI
-//! can show *n* next to the figure. An honest "not enough data yet" beats a
-//! confident number drawn from one slip.
+//! from one observation. We therefore aggregate per **maker only** and drop
+//! any maker below [`MIN_SAMPLES`].
+//!
+//! [`overall`] is the deliberate exception — it is the all-makers fallback a
+//! young instance still has — so it *does* return a figure below the
+//! threshold. That made the two look mutually inconsistent: an empty
+//! `by_manufacturer` next to an `overall` median computed from a single slip,
+//! where median, p80 and max were necessarily the same number. Every row now
+//! carries `reliable`, so the threshold travels with the data instead of
+//! living in prose the caller has to have read.
 
 use crate::error::AppResult;
 use serde::Serialize;
@@ -34,6 +40,11 @@ pub struct SlipStat {
     pub p80_days: Option<f64>,
     /// Worst single slip observed, in days.
     pub max_days: Option<f64>,
+    /// Whether `samples` reaches [`MIN_SAMPLES`]. When false the figures are
+    /// arithmetic, not evidence — on one observation median, p80 and max are
+    /// the same number and carry no information about what the next
+    /// pre-order will do.
+    pub reliable: bool,
 }
 
 /// Per-maker slip stats for one user's pre-order history, worst P80 first.
@@ -50,7 +61,8 @@ pub async fn per_manufacturer(pool: &PgPool, user_id: Uuid) -> AppResult<Vec<Sli
                 percentile_cont(0.8) WITHIN GROUP (
                     ORDER BY (h.new_date - h.previous_date)::double precision
                 ) AS p80_days,
-                max(h.new_date - h.previous_date)::double precision AS max_days
+                max(h.new_date - h.previous_date)::double precision AS max_days,
+                (count(*) >= $2) AS reliable
          FROM preorder_date_history h
          JOIN preorders   p ON p.id = h.preorder_id
          JOIN owned_items o ON o.id = p.owned_item_id
@@ -83,7 +95,8 @@ pub async fn overall(pool: &PgPool, user_id: Uuid) -> AppResult<SlipStat> {
                 percentile_cont(0.8) WITHIN GROUP (
                     ORDER BY (h.new_date - h.previous_date)::double precision
                 ) AS p80_days,
-                max(h.new_date - h.previous_date)::double precision AS max_days
+                max(h.new_date - h.previous_date)::double precision AS max_days,
+                (count(*) >= $2) AS reliable
          FROM preorder_date_history h
          JOIN preorders   p ON p.id = h.preorder_id
          JOIN owned_items o ON o.id = p.owned_item_id
@@ -93,6 +106,7 @@ pub async fn overall(pool: &PgPool, user_id: Uuid) -> AppResult<SlipStat> {
            AND h.new_date > h.previous_date",
     )
     .bind(user_id)
+    .bind(MIN_SAMPLES)
     .fetch_optional(pool)
     .await?;
     Ok(row.unwrap_or(SlipStat {
@@ -102,5 +116,32 @@ pub async fn overall(pool: &PgPool, user_id: Uuid) -> AppResult<SlipStat> {
         median_days: None,
         p80_days: None,
         max_days: None,
+        reliable: false,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Both queries are hand-written strings, so a typo in one is invisible
+    /// until a user opens the page — nothing compiles them. Run them against a
+    /// real database on an empty collection: Postgres parses the whole
+    /// statement whether or not any row matches, which is exactly the check
+    /// that was missing.
+    #[sqlx::test]
+    async fn both_queries_parse_and_answer_on_an_empty_collection(pool: PgPool) {
+        let user = Uuid::now_v7();
+
+        let overall = overall(&pool, user).await.expect("overall must parse");
+        assert_eq!(overall.samples, 0);
+        assert_eq!(overall.median_days, None);
+        // No slips observed is not "reliable data saying zero".
+        assert!(!overall.reliable);
+
+        let per_maker = per_manufacturer(&pool, user)
+            .await
+            .expect("per_manufacturer must parse");
+        assert!(per_maker.is_empty());
+    }
 }
