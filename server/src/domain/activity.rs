@@ -165,16 +165,29 @@ pub struct MilestoneRef {
     pub figure_name: String,
 }
 
+/// When a piece counts as acquired, for every metric in the year in review.
+///
+/// `purchase_date` is what the owner actually recorded; `created_at` is only a
+/// fallback for rows entered without one. Half of this function used to count
+/// from `activity_events.created_at` instead — the moment the row was typed
+/// into the app — which made a year's piece count read 0 while its spend for
+/// the same year was correct: a piece bought in 2025 and entered in 2026
+/// landed in two different years, and anything predating the activity feed (or
+/// arriving by import) had no event at all. Every query below shares this
+/// predicate so the figures cannot disagree again.
+const ACQUIRED_AT: &str = "COALESCE(o.purchase_date, o.created_at::date)";
+
 pub async fn year_in_review(pool: &PgPool, user_id: Uuid, year: i32) -> AppResult<YearInReview> {
     let start = NaiveDate::from_ymd_opt(year, 1, 1).unwrap();
     let end = NaiveDate::from_ymd_opt(year + 1, 1, 1).unwrap();
 
-    // Pieces acquired (counted from activity_events: owned_added)
-    let pieces: (Option<i64>,) = sqlx::query_as(
-        "SELECT COUNT(*)::bigint FROM activity_events
-         WHERE user_id = $1 AND kind = 'owned_added'
-           AND created_at >= $2 AND created_at < $3",
-    )
+    // Pieces acquired — from the collection itself, on the same date predicate
+    // as the spend below.
+    let pieces: (Option<i64>,) = sqlx::query_as(&format!(
+        "SELECT COUNT(*)::bigint FROM owned_items o
+         WHERE o.user_id = $1
+           AND {ACQUIRED_AT} >= $2 AND {ACQUIRED_AT} < $3"
+    ))
     .bind(user_id)
     .bind(start)
     .bind(end)
@@ -204,17 +217,20 @@ pub async fn year_in_review(pool: &PgPool, user_id: Uuid, year: i32) -> AppResul
         .map(|(currency, total)| SpendRow { currency, total })
         .collect();
 
-    // Top manufacturer
-    let top_mfr: Option<(String, i64)> = sqlx::query_as(
-        "SELECT payload->>'manufacturer_name' AS name, COUNT(*)::bigint
-         FROM activity_events
-         WHERE user_id = $1 AND kind = 'owned_added'
-           AND created_at >= $2 AND created_at < $3
-           AND payload->>'manufacturer_name' IS NOT NULL
-         GROUP BY name
+    // Top manufacturer — joined live rather than read out of the event
+    // payload's snapshot, so a maker renamed since stays correct and pieces
+    // that never produced an event still count.
+    let top_mfr: Option<(String, i64)> = sqlx::query_as(&format!(
+        "SELECT m.name, COUNT(*)::bigint
+         FROM owned_items o
+         JOIN figures f       ON f.id = o.figure_id
+         JOIN manufacturers m ON m.id = f.manufacturer_id
+         WHERE o.user_id = $1
+           AND {ACQUIRED_AT} >= $2 AND {ACQUIRED_AT} < $3
+         GROUP BY m.name
          ORDER BY 2 DESC
-         LIMIT 1",
-    )
+         LIMIT 1"
+    ))
     .bind(user_id)
     .bind(start)
     .bind(end)
@@ -273,14 +289,14 @@ pub async fn year_in_review(pool: &PgPool, user_id: Uuid, year: i32) -> AppResul
     );
 
     // Monthly timeline
-    let monthly: Vec<(i32, i64)> = sqlx::query_as(
-        "SELECT EXTRACT(MONTH FROM created_at)::int, COUNT(*)::bigint
-         FROM activity_events
-         WHERE user_id = $1 AND kind = 'owned_added'
-           AND created_at >= $2 AND created_at < $3
+    let monthly: Vec<(i32, i64)> = sqlx::query_as(&format!(
+        "SELECT EXTRACT(MONTH FROM {ACQUIRED_AT})::int, COUNT(*)::bigint
+         FROM owned_items o
+         WHERE o.user_id = $1
+           AND {ACQUIRED_AT} >= $2 AND {ACQUIRED_AT} < $3
          GROUP BY 1
-         ORDER BY 1",
-    )
+         ORDER BY 1"
+    ))
     .bind(user_id)
     .bind(start)
     .bind(end)
@@ -291,28 +307,33 @@ pub async fn year_in_review(pool: &PgPool, user_id: Uuid, year: i32) -> AppResul
         .map(|(month, count)| MonthCount { month, count })
         .collect();
 
-    // First / last acquisition this year
-    let first: Option<(DateTime<Utc>, String)> = sqlx::query_as(
-        "SELECT created_at, COALESCE(payload->>'figure_name', '—')
-         FROM activity_events
-         WHERE user_id = $1 AND kind = 'owned_added'
-           AND created_at >= $2 AND created_at < $3
-         ORDER BY created_at ASC
-         LIMIT 1",
-    )
+    // First / last acquisition this year. The reported instant is the
+    // acquisition date at UTC midnight, not the row's `created_at`: ordering
+    // and the value shown have to be the same thing, or the "first" piece can
+    // carry a later timestamp than the "last". The SPA renders it as a date.
+    let first: Option<(DateTime<Utc>, String)> = sqlx::query_as(&format!(
+        "SELECT ({ACQUIRED_AT})::timestamp AT TIME ZONE 'UTC', f.name
+         FROM owned_items o
+         JOIN figures f ON f.id = o.figure_id
+         WHERE o.user_id = $1
+           AND {ACQUIRED_AT} >= $2 AND {ACQUIRED_AT} < $3
+         ORDER BY {ACQUIRED_AT} ASC, o.created_at ASC
+         LIMIT 1"
+    ))
     .bind(user_id)
     .bind(start)
     .bind(end)
     .fetch_optional(pool)
     .await?;
-    let last: Option<(DateTime<Utc>, String)> = sqlx::query_as(
-        "SELECT created_at, COALESCE(payload->>'figure_name', '—')
-         FROM activity_events
-         WHERE user_id = $1 AND kind = 'owned_added'
-           AND created_at >= $2 AND created_at < $3
-         ORDER BY created_at DESC
-         LIMIT 1",
-    )
+    let last: Option<(DateTime<Utc>, String)> = sqlx::query_as(&format!(
+        "SELECT ({ACQUIRED_AT})::timestamp AT TIME ZONE 'UTC', f.name
+         FROM owned_items o
+         JOIN figures f ON f.id = o.figure_id
+         WHERE o.user_id = $1
+           AND {ACQUIRED_AT} >= $2 AND {ACQUIRED_AT} < $3
+         ORDER BY {ACQUIRED_AT} DESC, o.created_at DESC
+         LIMIT 1"
+    ))
     .bind(user_id)
     .bind(start)
     .bind(end)
@@ -356,11 +377,11 @@ pub async fn year_in_review(pool: &PgPool, user_id: Uuid, year: i32) -> AppResul
 
     // Previous year, same headline metrics, for an N vs N-1 comparison.
     let prev_start = NaiveDate::from_ymd_opt(year - 1, 1, 1).unwrap();
-    let (prev_pieces,): (Option<i64>,) = sqlx::query_as(
-        "SELECT COUNT(*)::bigint FROM activity_events
-         WHERE user_id = $1 AND kind = 'owned_added'
-           AND created_at >= $2 AND created_at < $3",
-    )
+    let (prev_pieces,): (Option<i64>,) = sqlx::query_as(&format!(
+        "SELECT COUNT(*)::bigint FROM owned_items o
+         WHERE o.user_id = $1
+           AND {ACQUIRED_AT} >= $2 AND {ACQUIRED_AT} < $3"
+    ))
     .bind(user_id)
     .bind(prev_start)
     .bind(start)
