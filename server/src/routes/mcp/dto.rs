@@ -24,14 +24,31 @@ pub fn clamp_offset(offset: Option<i64>) -> i64 {
     offset.unwrap_or(0).max(0)
 }
 
+/// Page size for a tool that detects "there are more" by asking SQL for one
+/// row past the page ([`Page::window`]).
+///
+/// It has to stay strictly under [`MAX_LIMIT`] because the domain list
+/// functions clamp to the same ceiling: at exactly 200, `limit + 1` would be
+/// clamped back to 200, the probe row would never arrive, and a truncated
+/// page would confidently report `has_more: false`. One row of page size buys
+/// a `has_more` that is right at every limit.
+pub fn clamp_window_limit(limit: Option<i64>) -> i64 {
+    limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT - 1)
+}
+
 /// A page of results plus what it was a page *of* — an agent that only sees 50
 /// of 500 rows and no total will happily conclude the collection has 50 pieces.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct Page<T> {
+    /// Rows in this page — the same number as `items.len()`, stated so every
+    /// list-bearing result carries a `count` whether it is paged or not.
+    pub count: usize,
     /// Rows in this page.
     pub items: Vec<T>,
-    /// How many rows match in total, ignoring `limit`/`offset`.
-    pub total: usize,
+    /// How many rows match in total, ignoring `limit`/`offset`. `None` when
+    /// the total isn't known without a second query — `has_more` still says
+    /// whether to keep paging, and an agent must not read `count` as a total.
+    pub total: Option<usize>,
     pub limit: i64,
     pub offset: i64,
     /// True when rows remain past this page.
@@ -39,18 +56,42 @@ pub struct Page<T> {
 }
 
 impl<T> Page<T> {
-    /// Slice an unbounded domain result into one page.
+    /// Slice an unbounded domain result into one page. The domain handed us
+    /// every match, so the total is exact.
     pub fn of(all: Vec<T>, limit: i64, offset: i64) -> Self {
         let total = all.len();
         let start = (offset as usize).min(total);
         let end = (start + limit as usize).min(total);
         let items: Vec<T> = all.into_iter().skip(start).take(end - start).collect();
         Self {
+            count: items.len(),
             has_more: end < total,
             items,
-            total,
+            total: Some(total),
             limit,
             offset,
+        }
+    }
+
+    /// One page of a query that was itself limited in SQL, so we never saw the
+    /// rows past it. Ask the domain for `limit + 1` and pass the result here:
+    /// the extra row is dropped and becomes `has_more`.
+    ///
+    /// Without this a full page is indistinguishable from a complete answer,
+    /// and an agent asked "how many Kotobukiya scales are there?" reports the
+    /// page size as the count. Counting properly would mean a second query
+    /// mirroring every filter; knowing *that there are more* is what a caller
+    /// actually needs, so `total` stays honestly absent.
+    pub fn window(mut rows: Vec<T>, limit: i64, offset: i64) -> Self {
+        let has_more = rows.len() as i64 > limit;
+        rows.truncate(limit.max(0) as usize);
+        Self {
+            count: rows.len(),
+            items: rows,
+            total: None,
+            limit,
+            offset,
+            has_more,
         }
     }
 }
@@ -226,7 +267,7 @@ mod tests {
     fn page_reports_the_full_total_not_the_slice() {
         let page = Page::of((0..120).collect::<Vec<i32>>(), 50, 0);
         assert_eq!(page.items.len(), 50);
-        assert_eq!(page.total, 120);
+        assert_eq!(page.total, Some(120));
         assert!(page.has_more);
 
         let last = Page::of((0..120).collect::<Vec<i32>>(), 50, 100);
@@ -238,7 +279,8 @@ mod tests {
     fn an_offset_past_the_end_is_an_empty_page_not_a_panic() {
         let page = Page::of(vec![1, 2, 3], 50, 99);
         assert!(page.items.is_empty());
-        assert_eq!(page.total, 3);
+        assert_eq!(page.count, 0);
+        assert_eq!(page.total, Some(3));
         assert!(!page.has_more);
     }
 }
@@ -485,4 +527,69 @@ pub struct ConfirmedDelete {
 pub struct SearchCollectors {
     /// Name fragment. Omitted or empty lists the public collectors.
     pub q: Option<String>,
+}
+
+#[cfg(test)]
+mod paging_tests {
+    use super::*;
+
+    #[test]
+    fn a_full_window_says_there_is_more() {
+        // The tool asked SQL for limit + 1 and got it: rows remain.
+        let page = Page::window(vec![1, 2, 3, 4], 3, 0);
+        assert_eq!(page.items, vec![1, 2, 3]);
+        assert_eq!(page.count, 3);
+        assert!(page.has_more);
+        // Not "0 more" and not a guess — the query never saw the rest.
+        assert_eq!(page.total, None);
+    }
+
+    #[test]
+    fn a_short_window_is_the_end_of_the_list() {
+        let page = Page::window(vec![1, 2], 3, 0);
+        assert_eq!(page.count, 2);
+        assert!(!page.has_more);
+    }
+
+    #[test]
+    fn an_exactly_filled_window_is_the_end_of_the_list() {
+        // limit + 1 was asked for and only `limit` came back.
+        let page = Page::window(vec![1, 2, 3], 3, 0);
+        assert_eq!(page.count, 3);
+        assert!(!page.has_more);
+    }
+
+    #[test]
+    fn an_empty_window_still_reports_its_count() {
+        let page: Page<i32> = Page::window(vec![], 10, 0);
+        assert_eq!(page.count, 0);
+        assert!(!page.has_more);
+    }
+
+    #[test]
+    fn the_window_limit_leaves_room_for_the_probe_row() {
+        // The domain list functions clamp to MAX_LIMIT too. If a windowed tool
+        // were allowed to page at exactly MAX_LIMIT, `limit + 1` would clamp
+        // back down, the probe row would never arrive, and a truncated page
+        // would report has_more: false. Keep that impossible.
+        for asked in [None, Some(1), Some(50), Some(MAX_LIMIT), Some(10_000)] {
+            let limit = clamp_window_limit(asked);
+            let probe = limit + 1;
+            assert!(limit >= 1, "{asked:?} clamped to {limit}");
+            assert!(
+                probe <= MAX_LIMIT,
+                "{asked:?} → page of {limit}, whose probe row {probe} would be clamped away"
+            );
+        }
+    }
+
+    #[test]
+    fn a_counted_page_knows_its_total() {
+        // `Page::of` got every match, so unlike `window` it can say how many.
+        let page = Page::of((1..=10).collect(), 3, 3);
+        assert_eq!(page.items, vec![4, 5, 6]);
+        assert_eq!(page.count, 3);
+        assert_eq!(page.total, Some(10));
+        assert!(page.has_more);
+    }
 }

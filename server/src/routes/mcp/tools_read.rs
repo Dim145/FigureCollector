@@ -21,7 +21,7 @@ impl FcMcp {
     // ---------------------------------------------------------- catalogue
 
     #[tool(
-        description = "Search the shared figure catalogue by name fragment, figure type, manufacturer or appearance tag. Returns a page of catalogue entries with total count. This is the catalogue every user shares, not the caller's own collection.",
+        description = "Search the shared figure catalogue by name fragment, figure type, manufacturer or appearance tag. Returns one page of catalogue entries with `count` and `has_more` — page on with `offset` rather than reporting a full page as the whole catalogue. This is the catalogue every user shares, not the caller's own collection.",
         annotations(
             title = "Search the catalogue",
             read_only_hint = true,
@@ -42,14 +42,19 @@ impl FcMcp {
         )
         .await?;
 
-        let limit = dto::clamp_limit(input.limit);
+        let limit = dto::clamp_window_limit(input.limit);
+        let offset = dto::clamp_offset(input.offset);
         let mut query = crate::domain::figure::ListQuery {
             q: input.q,
             figure_type: input.figure_type,
             manufacturer: input.manufacturer,
             tag: input.tag,
-            limit: Some(limit),
-            offset: Some(dto::clamp_offset(input.offset)),
+            // One row past the page: `Page::window` turns it into `has_more`.
+            // The catalogue has no count query — every filter would have to be
+            // mirrored — and a full page that can't say "there are more" gets
+            // read as the whole answer.
+            limit: Some(limit + 1),
+            offset: Some(offset),
             ..Default::default()
         };
         // Never taken from the caller: the domain marks this field
@@ -57,8 +62,10 @@ impl FcMcp {
         // account holder's own NSFW preference.
         query.exclude_nsfw = call.hide_nsfw();
 
-        let figures = crate::domain::figure::list(&self.state.pool, query).await;
-        call.finish(figures).await
+        let page = crate::domain::figure::list(&self.state.pool, query)
+            .await
+            .map(|rows| Page::window(rows, limit, offset));
+        call.finish(page).await
     }
 
     #[tool(
@@ -681,16 +688,20 @@ impl FcMcp {
     ) -> Result<CallToolResult, ErrorData> {
         let call =
             ctx::authorize(&self.state, &ctx, "get_activity", Scope::StatsRead, &input).await?;
-        let events = crate::domain::activity::list_for_user(
+        let limit = dto::clamp_window_limit(input.limit);
+        let offset = dto::clamp_offset(input.offset);
+        let page = crate::domain::activity::list_for_user(
             &self.state.pool,
             call.user_id(),
             crate::domain::activity::ListParams {
-                limit: dto::clamp_limit(input.limit),
-                offset: dto::clamp_offset(input.offset),
+                // See `search_catalogue`: the extra row becomes `has_more`.
+                limit: limit + 1,
+                offset,
             },
         )
-        .await;
-        call.finish(events).await
+        .await
+        .map(|rows| Page::window(rows, limit, offset));
+        call.finish(page).await
     }
 
     #[tool(
