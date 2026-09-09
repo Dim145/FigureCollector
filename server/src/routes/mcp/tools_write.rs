@@ -319,7 +319,7 @@ impl FcMcp {
     // -------------------------------------------------- shared catalogue
 
     #[tool(
-        description = "Create a catalogue entry. This writes to the catalogue EVERY user of this instance shares, and other people's collections will point at the row — so check find_figure_by_barcode and find_duplicate_figures first, and include the JAN/EAN barcode when you have it. Prefer leaving a field out to guessing it.",
+        description = "Create a catalogue entry. This writes to the catalogue EVERY user of this instance shares, and other people's collections will point at the row — so check find_figure_by_barcode and find_duplicate_figures first, and include the JAN/EAN barcode when you have it. Prefer leaving a field out to guessing it. A `manufacturer_name` that nearly matches an existing maker is refused with the candidates named, because a spelling variant forks that maker into two rows and splits its statistics; reuse the existing spelling, or pass `allow_new_manufacturer: true` if it genuinely is another company.",
         annotations(
             title = "Create a catalogue entry",
             read_only_hint = false,
@@ -340,6 +340,43 @@ impl FcMcp {
             &input,
         )
         .await?;
+        // Manufacturers are upserted from this free-text name on a slug
+        // conflict, so a spelling variant silently forks the company into a
+        // second row and splits every per-maker statistic between them. Two
+        // such pairs already exist in the wild. Refuse rather than create,
+        // and name the candidates: the caller can reuse the existing spelling
+        // or say it really is a different company.
+        if let Some(name) = input.manufacturer_name.as_deref() {
+            match crate::domain::entity::similar_manufacturers(&self.state.pool, name).await {
+                Ok(similar)
+                    if !similar.is_empty() && !input.allow_new_manufacturer.unwrap_or(false) =>
+                {
+                    let names = similar
+                        .iter()
+                        .map(|m| m.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    let subject = if similar.len() == 1 {
+                        "this maker"
+                    } else {
+                        "these makers"
+                    };
+                    // One unbroken literal on purpose: a `\`-continued string
+                    // inside a multi-argument `format!` gets rewrapped by
+                    // rustfmt, and the continuation's indentation then lands
+                    // in the message the caller reads.
+                    let message = format!(
+                        "refused: the catalogue already has {subject} under a slightly different spelling — {names}. Re-run with `manufacturer_name` set to the existing spelling verbatim so the figure joins that maker, or pass `allow_new_manufacturer: true` if this really is a different company. Creating it as written would split that maker across two rows for every user of this instance."
+                    );
+                    return call.refuse(message).await;
+                }
+                Ok(_) => {}
+                // The check is advisory; a lookup failure must not block a
+                // legitimate write.
+                Err(e) => tracing::warn!(error = %e, "manufacturer duplicate check failed"),
+            }
+        }
+
         let new = parsed!(call, build_new_figure(&input));
         let created = collection::create_figure(&self.state, call.user_id(), new).await;
         call.finish(created).await

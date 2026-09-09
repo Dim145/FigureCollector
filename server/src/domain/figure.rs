@@ -1087,7 +1087,9 @@ async fn make_unique_slug(
     }
 }
 
-fn slugify(s: &str) -> String {
+/// `pub(crate)` so the manufacturer de-duplication check can ask "would this
+/// name land on an existing slug?" without reimplementing the rule.
+pub(crate) fn slugify(s: &str) -> String {
     let mut prev_dash = false;
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {

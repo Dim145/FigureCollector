@@ -483,6 +483,10 @@ pub struct CreateFigure {
     pub description: Option<String>,
     /// Mark explicit figures so other users' hide/blur preferences apply.
     pub is_nsfw: Option<bool>,
+    /// Set only after a refusal naming a near-identical existing
+    /// manufacturer, to confirm this really is a different company. Leaving
+    /// it unset is what keeps one maker from ending up as two catalogue rows.
+    pub allow_new_manufacturer: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]

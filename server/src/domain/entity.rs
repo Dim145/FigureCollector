@@ -835,3 +835,143 @@ fn resolve_image(
     }
     fallback_url.map(|s| s.to_string())
 }
+
+// ─── Manufacturer de-duplication ────────────────────────────────────────────
+//
+// Manufacturers are upserted `ON CONFLICT (slug)` from a free-text name, so
+// two spellings of one company become two rows and every per-maker statistic,
+// facet and completion figure splits between them. Observed in the wild:
+// "Crown Studio" alongside "CROWN Studio (new)" (7 figures across two rows),
+// and "Fish Head Studio" alongside "Fishhead Studio" (3 across two).
+//
+// `slugify` already folds case and punctuation, which is why the *casing*
+// variants never duplicated. What it cannot fold is a trailing qualifier or a
+// moved space — those need a looser key, and a looser key is too blunt to
+// merge on automatically. So it is used to *warn*, and merging stays an
+// explicit act.
+
+/// A deliberately lossy key for spotting the same company written two ways:
+/// case folded, every non-alphanumeric dropped, and one trailing parenthesised
+/// or bracketed qualifier removed.
+///
+/// Lossy on purpose — `"Fish Head Studio"` and `"Fishhead Studio"` collide,
+/// which is the point, and so would two genuinely different companies whose
+/// names differ only by spacing. That is why nothing merges on this key by
+/// itself; it only raises a question.
+pub fn dedup_key(name: &str) -> String {
+    // Drop one trailing "(...)" / "[...]" qualifier: "(new)", "(R18)", "[JP]".
+    let trimmed = name.trim();
+    let base = match trimmed.rfind(['(', '[']) {
+        Some(open) if trimmed.ends_with(')') || trimmed.ends_with(']') => &trimmed[..open],
+        _ => trimmed,
+    };
+    base.chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .map(|c| c.to_ascii_lowercase())
+        .collect()
+}
+
+/// Existing manufacturers that look like `name` written differently, excluding
+/// an exact match (which needs no warning — it will simply be reused).
+///
+/// Reads the whole lookup table and filters in Rust rather than pushing the
+/// normalisation into SQL: the table is bounded by the same 1000-row cap the
+/// autocomplete already fetches, and a pure key function can be tested.
+pub async fn similar_manufacturers(
+    pool: &PgPool,
+    name: &str,
+) -> AppResult<Vec<ManufacturerLookup>> {
+    let key = dedup_key(name);
+    if key.is_empty() {
+        return Ok(Vec::new());
+    }
+    let exact = crate::domain::figure::slugify(name);
+    Ok(list_manufacturers_lookup(pool)
+        .await?
+        .into_iter()
+        .filter(|m| m.slug != exact && dedup_key(&m.name) == key)
+        .collect())
+}
+
+/// Fold `from` into `into`: every figure is re-pointed at the surviving
+/// manufacturer and the emptied row is deleted.
+///
+/// Series and characters have had a move/merge path since their admin screens
+/// existed; manufacturers never did, which is why a duplicate pair could only
+/// be looked at, not fixed.
+pub async fn merge_manufacturers(pool: &PgPool, from: Uuid, into: Uuid) -> AppResult<u64> {
+    if from == into {
+        return Err(AppError::BadRequest(
+            "source and target manufacturer are the same",
+        ));
+    }
+    let (target_exists,): (bool,) =
+        sqlx::query_as("SELECT EXISTS(SELECT 1 FROM manufacturers WHERE id = $1)")
+            .bind(into)
+            .fetch_one(pool)
+            .await?;
+    if !target_exists {
+        return Err(AppError::NotFound);
+    }
+
+    let mut tx = pool.begin().await?;
+    let moved = sqlx::query("UPDATE figures SET manufacturer_id = $2 WHERE manufacturer_id = $1")
+        .bind(from)
+        .bind(into)
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+    // The source row is only dropped once nothing references it, so a
+    // concurrent insert against the old id fails the FK rather than orphaning.
+    let removed = sqlx::query("DELETE FROM manufacturers WHERE id = $1")
+        .bind(from)
+        .execute(&mut *tx)
+        .await?
+        .rows_affected();
+    if removed == 0 {
+        tx.rollback().await?;
+        return Err(AppError::NotFound);
+    }
+    tx.commit().await?;
+    Ok(moved)
+}
+
+#[cfg(test)]
+mod dedup_tests {
+    use super::dedup_key;
+
+    #[test]
+    fn the_two_duplicate_pairs_seen_in_production_collide() {
+        assert_eq!(dedup_key("Crown Studio"), dedup_key("CROWN Studio (new)"));
+        assert_eq!(dedup_key("Fish Head Studio"), dedup_key("Fishhead Studio"));
+    }
+
+    #[test]
+    fn qualifiers_and_punctuation_fold_away() {
+        assert_eq!(dedup_key("Good Smile Company"), "goodsmilecompany");
+        assert_eq!(dedup_key("  Alter  "), "alter");
+        assert_eq!(dedup_key("Max Factory [JP]"), "maxfactory");
+        assert_eq!(dedup_key("F:NEX (R18)"), "fnex");
+        assert_eq!(dedup_key("Ques Q."), "quesq");
+    }
+
+    #[test]
+    fn different_companies_stay_different() {
+        assert_ne!(dedup_key("Alter"), dedup_key("Alter Ego"));
+        assert_ne!(dedup_key("Kotobukiya"), dedup_key("Kotobuki"));
+    }
+
+    #[test]
+    fn a_leading_parenthesis_is_not_a_trailing_qualifier() {
+        // Only a *trailing* qualifier is dropped; an opening bracket with no
+        // closing one at the end must leave the name alone.
+        assert_eq!(dedup_key("(Studio) Ghibli"), "studioghibli");
+        assert_eq!(dedup_key("Studio (unclosed"), "studiounclosed");
+    }
+
+    #[test]
+    fn an_unnameable_name_yields_an_empty_key_rather_than_matching_everything() {
+        assert_eq!(dedup_key("---"), "");
+        assert_eq!(dedup_key("(all)"), "");
+    }
+}

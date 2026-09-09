@@ -332,6 +332,37 @@ async fn move_series_figures(
     Ok(Json(AffectedRows { affected: n }))
 }
 
+/// Body for `POST /admin/manufacturers/{id}/merge`.
+#[derive(Debug, Deserialize)]
+struct MergeManufacturerInput {
+    /// The manufacturer that survives; `{id}` is folded into it.
+    into_id: Uuid,
+}
+
+/// Fold one manufacturer into another, re-pointing its figures.
+///
+/// Series and characters have had a move path since their admin screens
+/// existed; manufacturers had none, so an instance that ended up with
+/// "Crown Studio" *and* "CROWN Studio (new)" had no way to reunite them and
+/// every per-maker statistic stayed split between the two rows.
+async fn merge_manufacturer(
+    State(state): State<AppState>,
+    session: Session,
+    Path(from_id): Path<Uuid>,
+    Json(input): Json<MergeManufacturerInput>,
+) -> AppResult<Json<AffectedRows>> {
+    let actor = auth::require_admin(&session, &state.pool).await?;
+    let n = ent::merge_manufacturers(&state.pool, from_id, input.into_id).await?;
+    tracing::info!(
+        by_admin = %actor.id,
+        from = %from_id,
+        into = %input.into_id,
+        figures_moved = n,
+        "merged manufacturers"
+    );
+    Ok(Json(AffectedRows { affected: n }))
+}
+
 async fn delete_series(
     State(state): State<AppState>,
     session: Session,
@@ -1319,6 +1350,7 @@ pub fn router() -> Router<AppState> {
         // ─── catalog entities — JSON CRUD ────────────────────────────────
         .route("/admin/manufacturers", get(list_manufacturers))
         .route("/admin/manufacturers/{id}", patch(patch_manufacturer))
+        .route("/admin/manufacturers/{id}/merge", post(merge_manufacturer))
         .route("/admin/series", get(list_series))
         .route(
             "/admin/series/{id}",
