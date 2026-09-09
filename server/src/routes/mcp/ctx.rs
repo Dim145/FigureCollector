@@ -199,11 +199,13 @@ impl Call {
                     tracing::error!(error = %e, tool = self.tool, "could not serialise a tool result");
                     ErrorData::internal_error("could not serialise the result", None)
                 })?;
+                let json = as_structured_content(json);
                 self.record(Outcome::Ok, None).await;
                 // Structured content is what a capable client reads; the text
                 // block is the spec's backwards-compatible mirror of it, and
                 // it's the one that lands in a model's prompt — so that's the
-                // copy we fence and cap.
+                // copy we fence and cap. Both derive from the same value, so
+                // they can never disagree.
                 let mut result =
                     CallToolResult::success(vec![ContentBlock::text(fence(&json.to_string()))]);
                 result.structured_content = Some(json);
@@ -283,6 +285,36 @@ fn user_facing(e: &AppError) -> String {
     }
 }
 
+/// Force a tool result into the shape `structuredContent` is allowed to take.
+///
+/// This is not cosmetic. Protocol revisions `2025-06-18` through `2025-11-25`
+/// type `CallToolResult.structuredContent` as a JSON **object**; a bare array
+/// or scalar makes the whole response fail the client's schema check, and the
+/// client reports it as an opaque "tool execution failed" with no hint that
+/// the *server* produced something invalid. Every tool returning a `Vec` was
+/// broken this way — ten of them — while the ones wrapping their rows in a
+/// struct worked, which is exactly the sort of split that looks like a
+/// database problem and isn't.
+///
+/// Arrays gain a `count` on the way through, which a caller wanted anyway: an
+/// agent that receives 50 rows and no total has no way to know whether it saw
+/// everything.
+///
+/// The draft revision relaxes this to any JSON value, but normalising costs
+/// nothing and keeps older clients working.
+fn as_structured_content(value: serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::Object(_) => value,
+        serde_json::Value::Array(items) => serde_json::json!({
+            "count": items.len(),
+            "items": items,
+        }),
+        // `null` reaches here from a lookup that found nothing, scalars from
+        // a tool returning a bare count or flag.
+        other => serde_json::json!({ "value": other }),
+    }
+}
+
 /// Fence a payload this server did not author.
 ///
 /// Figure names, descriptions and notes come from catalogue scraping (MFC,
@@ -356,6 +388,40 @@ mod tests {
         let out = fence(&hostile);
         assert_eq!(out.matches(FENCE_CLOSE).count(), 1, "only the real closer");
         assert!(out.contains("<</untrusted-data(escaped)>>"));
+    }
+
+    #[test]
+    fn structured_content_is_always_an_object() {
+        // The protocol revisions this server negotiates type
+        // `structuredContent` as an object. Anything else fails the client's
+        // schema check and surfaces as an unexplained tool failure.
+        let obj = serde_json::json!({"total": 3});
+        assert_eq!(
+            as_structured_content(obj.clone()),
+            obj,
+            "objects pass through"
+        );
+
+        let wrapped = as_structured_content(serde_json::json!([{"id": 1}, {"id": 2}]));
+        assert_eq!(wrapped["count"], 2);
+        assert_eq!(wrapped["items"][1]["id"], 2);
+
+        // A lookup that found nothing must not emit a bare `null`.
+        assert_eq!(
+            as_structured_content(serde_json::Value::Null),
+            serde_json::json!({"value": null})
+        );
+        assert_eq!(
+            as_structured_content(serde_json::json!(7)),
+            serde_json::json!({"value": 7})
+        );
+    }
+
+    #[test]
+    fn an_empty_list_still_reports_its_count() {
+        let wrapped = as_structured_content(serde_json::json!([]));
+        assert_eq!(wrapped["count"], 0);
+        assert_eq!(wrapped["items"], serde_json::json!([]));
     }
 
     #[test]
