@@ -200,6 +200,27 @@ pub(crate) const FIGURE_NAME_PROJECTION: &str =
        s.name  AS series_name,       s.slug  AS series_slug, \
        c.name  AS character_name,    c.slug  AS character_slug";
 
+/// The canonical catalogue-figure SELECT: every column, the joined
+/// human-readable names, and the primary catalogue photo — up to `FROM figures
+/// f <joins>`, so a caller appends only its own `JOIN` / `WHERE` / `ORDER BY`.
+///
+/// Use this for **any** query returning `Figure` rows. `domain::entity`'s three
+/// per-entity listers each hand-rolled their own column list and omitted the
+/// name joins entirely, so the same figure came back with `manufacturer_name`,
+/// `series_name`, `character_name` and `visual_tags` all NULL depending on
+/// which endpoint you asked — a caller rendering a series page had to re-fetch
+/// every row one by one to learn its maker.
+pub(crate) fn figure_select_with_photo() -> String {
+    format!(
+        "SELECT {FIGURE_COLUMNS_PREFIXED}{FIGURE_NAME_PROJECTION},
+                (SELECT fp.id FROM figure_photos fp
+                 WHERE fp.figure_id = f.id
+                 ORDER BY fp.is_primary DESC, fp.position ASC, fp.created_at ASC
+                 LIMIT 1) AS primary_photo_id
+         FROM figures f {FIGURE_NAME_JOINS}"
+    )
+}
+
 /// Find catalogue figures that look like a duplicate of one being created: an
 /// exact JAN match (strong signal) and/or name ILIKE matches (soft). Returns at
 /// most 6 rows, the JAN match first. The caller marks each row's "reason" by
@@ -506,15 +527,7 @@ pub async fn list(pool: &PgPool, q: ListQuery) -> AppResult<Vec<Figure>> {
     // falls back to position order. The name projection + joins mirror
     // `find_by_id()` so list rows carry the same enriched fields the detail
     // page expects.
-    let mut sql = format!(
-        "SELECT {FIGURE_COLUMNS_PREFIXED}{FIGURE_NAME_PROJECTION},
-                (SELECT fp.id FROM figure_photos fp
-                 WHERE fp.figure_id = f.id
-                 ORDER BY fp.is_primary DESC, fp.position ASC, fp.created_at ASC
-                 LIMIT 1) AS primary_photo_id
-         FROM figures f {FIGURE_NAME_JOINS}
-         WHERE TRUE"
-    );
+    let mut sql = format!("{} WHERE TRUE", figure_select_with_photo());
     if q.exclude_nsfw {
         sql.push_str(" AND NOT f.is_nsfw");
     }
@@ -576,15 +589,7 @@ pub async fn by_ids(pool: &PgPool, ids: &[Uuid], exclude_nsfw: bool) -> AppResul
     if ids.is_empty() {
         return Ok(Vec::new());
     }
-    let mut sql = format!(
-        "SELECT {FIGURE_COLUMNS_PREFIXED}{FIGURE_NAME_PROJECTION},
-                (SELECT fp.id FROM figure_photos fp
-                 WHERE fp.figure_id = f.id
-                 ORDER BY fp.is_primary DESC, fp.position ASC, fp.created_at ASC
-                 LIMIT 1) AS primary_photo_id
-         FROM figures f {FIGURE_NAME_JOINS}
-         WHERE f.id = ANY($1)"
-    );
+    let mut sql = format!("{} WHERE f.id = ANY($1)", figure_select_with_photo());
     if exclude_nsfw {
         sql.push_str(" AND NOT f.is_nsfw");
     }
@@ -1130,3 +1135,46 @@ fn safe_http_url(s: &Option<String>) -> Option<String> {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The projection is the single point where a figure's joined names are
+    /// resolved. `domain::entity`'s three per-entity listers each used to
+    /// hand-roll their own column list without the joins, so the same figure
+    /// came back enriched from one endpoint and half-NULL from another. They
+    /// all build from this now; if it stops carrying a column, they all lose
+    /// it together and this test says so.
+    #[test]
+    fn the_shared_projection_carries_the_joined_names() {
+        let sql = figure_select_with_photo();
+        for column in [
+            "manufacturer_name",
+            "manufacturer_slug",
+            "sculptor_name",
+            "series_name",
+            "series_slug",
+            "character_name",
+            "character_slug",
+            "visual_tags",
+            "primary_photo_id",
+        ] {
+            assert!(
+                sql.contains(column),
+                "the figure projection lost `{column}`"
+            );
+        }
+        // The names come from joins, not from the figures table.
+        assert!(sql.contains("LEFT JOIN manufacturers"));
+        assert!(sql.contains("LEFT JOIN LATERAL"));
+        // Callers append their own JOIN / WHERE / ORDER BY, so it has to stop
+        // at the joins. (It does contain `WHERE`s — inside the correlated
+        // photo subselect and the LATERALs — so checking for the keyword
+        // would prove nothing.)
+        assert!(
+            sql.trim_end().ends_with("ON TRUE"),
+            "the projection must end at its joins, got: …{}",
+            &sql[sql.len().saturating_sub(60)..]
+        );
+    }
+}

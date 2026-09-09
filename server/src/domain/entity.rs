@@ -165,17 +165,9 @@ pub async fn figures_for_manufacturer(
     id: Uuid,
     exclude_nsfw: bool,
 ) -> AppResult<Vec<Figure>> {
-    let mut sql = String::from(
-        "SELECT f.id, f.name, f.slug, f.manufacturer_id, f.sculptor_id, f.figure_type, f.scale, \
-                f.height_mm, f.materials, f.release_date, f.msrp_amount, f.msrp_currency, f.jan, \
-                f.exclusivity, f.edition, f.version_name, f.official_image_url, f.description, \
-                f.mfc_id, f.created_by, f.is_user_submitted, f.is_nsfw, f.created_at, f.updated_at, \
-                (SELECT fp.id FROM figure_photos fp \
-                 WHERE fp.figure_id = f.id \
-                 ORDER BY fp.is_primary DESC, fp.position ASC, fp.created_at ASC \
-                 LIMIT 1) AS primary_photo_id \
-         FROM figures f \
-         WHERE f.manufacturer_id = $1",
+    let mut sql = format!(
+        "{} WHERE f.manufacturer_id = $1",
+        crate::domain::figure::figure_select_with_photo()
     );
     if exclude_nsfw {
         sql.push_str(" AND NOT f.is_nsfw");
@@ -327,18 +319,11 @@ pub async fn figures_for_series(
     id: Uuid,
     exclude_nsfw: bool,
 ) -> AppResult<Vec<Figure>> {
-    let mut sql = String::from(
-        "SELECT f.id, f.name, f.slug, f.manufacturer_id, f.sculptor_id, f.figure_type, f.scale, \
-                f.height_mm, f.materials, f.release_date, f.msrp_amount, f.msrp_currency, f.jan, \
-                f.exclusivity, f.edition, f.version_name, f.official_image_url, f.description, \
-                f.mfc_id, f.created_by, f.is_user_submitted, f.is_nsfw, f.created_at, f.updated_at, \
-                (SELECT fp.id FROM figure_photos fp \
-                 WHERE fp.figure_id = f.id \
-                 ORDER BY fp.is_primary DESC, fp.position ASC, fp.created_at ASC \
-                 LIMIT 1) AS primary_photo_id \
-         FROM figures f \
-         JOIN figure_series fs ON fs.figure_id = f.id \
-         WHERE fs.series_id = $1",
+    // `link` rather than `fs`: the shared projection's LATERAL subqueries use
+    // `fs`/`fc` internally, and shadowing them here reads like a bug.
+    let mut sql = format!(
+        "{} JOIN figure_series link ON link.figure_id = f.id WHERE link.series_id = $1",
+        crate::domain::figure::figure_select_with_photo()
     );
     if exclude_nsfw {
         sql.push_str(" AND NOT f.is_nsfw");
@@ -515,18 +500,9 @@ pub async fn figures_for_character(
     id: Uuid,
     exclude_nsfw: bool,
 ) -> AppResult<Vec<Figure>> {
-    let mut sql = String::from(
-        "SELECT f.id, f.name, f.slug, f.manufacturer_id, f.sculptor_id, f.figure_type, f.scale, \
-                f.height_mm, f.materials, f.release_date, f.msrp_amount, f.msrp_currency, f.jan, \
-                f.exclusivity, f.edition, f.version_name, f.official_image_url, f.description, \
-                f.mfc_id, f.created_by, f.is_user_submitted, f.is_nsfw, f.created_at, f.updated_at, \
-                (SELECT fp.id FROM figure_photos fp \
-                 WHERE fp.figure_id = f.id \
-                 ORDER BY fp.is_primary DESC, fp.position ASC, fp.created_at ASC \
-                 LIMIT 1) AS primary_photo_id \
-         FROM figures f \
-         JOIN figure_characters fc ON fc.figure_id = f.id \
-         WHERE fc.character_id = $1",
+    let mut sql = format!(
+        "{} JOIN figure_characters link ON link.figure_id = f.id WHERE link.character_id = $1",
+        crate::domain::figure::figure_select_with_photo()
     );
     if exclude_nsfw {
         sql.push_str(" AND NOT f.is_nsfw");
