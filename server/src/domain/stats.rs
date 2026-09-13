@@ -941,14 +941,24 @@ pub async fn insights(pool: &PgPool, user_id: Uuid) -> AppResult<Insights> {
             .await?;
 
     // ----- preorder health ---------------------------------------------------
+    // A pre-order routinely records only the deposit — the full price isn't
+    // known until the shop invoices the balance — and `price_currency` is the
+    // *price's* currency, so requiring it dropped exactly those rows: an open
+    // pre-order with 108.00 committed reported "no deposits at risk". Fall
+    // back the way the cancellation-loss query does, to the linked owned item
+    // and then the catalogue MSRP. A deposit whose currency is unknowable
+    // everywhere is still left out rather than labelled with a guess.
     let deposit_rows: Vec<(String, Decimal)> = sqlx::query_as(
-        "SELECT price_currency AS currency, COALESCE(SUM(deposit_amount), 0)::numeric AS amount
-         FROM preorders
-         WHERE user_id = $1
-           AND status NOT IN ('received', 'cancelled')
-           AND deposit_amount IS NOT NULL
-           AND price_currency IS NOT NULL
-         GROUP BY price_currency
+        "SELECT COALESCE(p.price_currency, o.price_currency, f.msrp_currency) AS currency,
+                COALESCE(SUM(p.deposit_amount), 0)::numeric                    AS amount
+         FROM preorders p
+         LEFT JOIN owned_items o ON o.id = p.owned_item_id
+         LEFT JOIN figures     f ON f.id = p.figure_id
+         WHERE p.user_id = $1
+           AND p.status NOT IN ('received', 'cancelled')
+           AND p.deposit_amount IS NOT NULL
+           AND COALESCE(p.price_currency, o.price_currency, f.msrp_currency) IS NOT NULL
+         GROUP BY currency
          ORDER BY amount DESC",
     )
     .bind(user_id)
