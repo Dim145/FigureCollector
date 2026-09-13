@@ -533,10 +533,13 @@ async fn notify_wishlist_targets(
             continue;
         }
 
-        // Still keyed on the level as a backstop against a concurrent sweep
-        // double-firing the same crossing; the edge check above is what stops
-        // the repeats.
-        let dedup = format!("{figure_id}:{amount}");
+        // The edge check above is what stops the repeats; this is only a
+        // backstop against two sweeps racing on the same crossing. Scoped to
+        // the day for that reason — a permanent `{figure}:{amount}` key
+        // outlives its job and silently swallows a *genuine* re-crossing at
+        // the same price months later, which is real news. Same shape as the
+        // back-in-stock key.
+        let dedup = format!("{figure_id}:{amount}:{}", chrono::Utc::now().date_naive());
         crate::services::notify::dispatch(
             state,
             user_id,
