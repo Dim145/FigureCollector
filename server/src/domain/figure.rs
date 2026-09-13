@@ -236,21 +236,44 @@ pub async fn find_duplicates(
     if name.chars().count() < 3 && jan.is_none() {
         return Ok(vec![]);
     }
+    // Word *sets*, not a substring. Shop titles put the same three tokens in
+    // any order — "Crown Studio 1:6 Tifa" and "Crown Studio Tifa 1:6" are one
+    // figure — and `ILIKE '%name%'` matched only the first, so moving two
+    // tokens defeated the check this tool exists to perform. Ranking is by
+    // how much of the *candidate name* the query accounts for, so a short
+    // query can't drag in every long title that happens to contain it.
+    let needles: Vec<String> = tokenize(name);
     let sql = format!(
-        "SELECT {FIGURE_COLUMNS_PREFIXED}{FIGURE_NAME_PROJECTION}
+        "SELECT {FIGURE_COLUMNS_PREFIXED}{FIGURE_NAME_PROJECTION},
+                (SELECT count(*) FROM unnest($3::text[]) t
+                  WHERE f.name ILIKE '%' || t || '%')::float8
+                / GREATEST(array_length($3::text[], 1), 1)   AS query_cover
          FROM figures f {FIGURE_NAME_JOINS}
          WHERE (
              ($2::text IS NOT NULL AND f.jan = $2)
+             OR (
+                 array_length($3::text[], 1) > 0
+                 AND NOT EXISTS (
+                     SELECT 1 FROM unnest($3::text[]) t
+                      WHERE f.name NOT ILIKE '%' || t || '%'
+                 )
+             )
              OR (length($1) >= 3 AND f.name ILIKE '%' || $1 || '%')
          ){nsfw}
          ORDER BY (CASE WHEN $2::text IS NOT NULL AND f.jan = $2 THEN 0 ELSE 1 END),
+                  query_cover DESC,
                   f.created_at DESC
          LIMIT 6",
-        nsfw = if exclude_nsfw { " AND NOT f.is_nsfw" } else { "" },
+        nsfw = if exclude_nsfw {
+            " AND NOT f.is_nsfw"
+        } else {
+            ""
+        },
     );
     Ok(sqlx::query_as::<_, Figure>(&sql)
         .bind(name)
         .bind(jan)
+        .bind(&needles)
         .fetch_all(pool)
         .await?)
 }
@@ -1089,6 +1112,29 @@ async fn make_unique_slug(
 
 /// `pub(crate)` so the manufacturer de-duplication check can ask "would this
 /// name land on an existing slug?" without reimplementing the rule.
+/// Split a figure name into the words worth matching on.
+///
+/// Shop titles carry a lot that identifies nothing — `【PRE-ORDER】`, `1/6`,
+/// `(Licensed)`, `-` — and a token that appears in half the catalogue ("studio",
+/// "ver") narrows nothing either. What is left is the part two listings of the
+/// same figure agree on, whatever order they wrote it in.
+fn tokenize(name: &str) -> Vec<String> {
+    /// Words too common in this catalogue to discriminate. Deliberately short:
+    /// dropping a real word costs a missed duplicate, which is the failure
+    /// this whole tool exists to prevent.
+    const NOISE: &[&str] = &[
+        "pre", "order", "preorder", "the", "and", "ver", "version", "edition", "scale", "figure",
+        "statue", "licensed", "limited", "resin",
+    ];
+    name.split(|c: char| !c.is_alphanumeric())
+        .map(str::trim)
+        .filter(|t| t.chars().count() >= 2)
+        .map(|t| t.to_lowercase())
+        .filter(|t| !NOISE.contains(&t.as_str()))
+        .take(12)
+        .collect()
+}
+
 pub(crate) fn slugify(s: &str) -> String {
     let mut prev_dash = false;
     let mut out = String::with_capacity(s.len());
@@ -1134,6 +1180,49 @@ fn safe_http_url(s: &Option<String>) -> Option<String> {
     match url.scheme() {
         "http" | "https" => Some(raw.to_string()),
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod dedup_matching_tests {
+    use super::tokenize;
+
+    #[test]
+    fn word_order_does_not_decide_a_match() {
+        // The pair from the report: the same figure, two shop orderings.
+        let a = tokenize("Crown Studio 1:6 Tifa");
+        let b = tokenize("Crown Studio Tifa 1:6");
+        let mut a_sorted = a.clone();
+        let mut b_sorted = b.clone();
+        a_sorted.sort();
+        b_sorted.sort();
+        assert_eq!(a_sorted, b_sorted, "same words, so the same token set");
+        // And every token of one is contained in the other's name, which is
+        // what the SQL predicate checks.
+        let other = "Crown Studio 1:6 Tifa".to_lowercase();
+        assert!(b.iter().all(|t| other.contains(t)), "{b:?} vs {other}");
+    }
+
+    #[test]
+    fn shop_furniture_is_not_matched_on() {
+        let t =
+            tokenize("【PRE-ORDER】 Fish Head Studio - Rem 03 Fear (Licensed) 1/6 Resin Statue");
+        for noise in ["pre", "order", "licensed", "resin", "statue"] {
+            assert!(
+                !t.contains(&noise.to_string()),
+                "{noise} should be dropped: {t:?}"
+            );
+        }
+        for kept in ["fish", "head", "rem", "fear"] {
+            assert!(t.contains(&kept.to_string()), "{kept} identifies the figure: {t:?}");
+        }
+    }
+
+    #[test]
+    fn a_name_of_nothing_but_furniture_yields_no_tokens() {
+        // An all-noise query must not become "match everything": the SQL
+        // guards on array_length > 0 precisely for this.
+        assert!(tokenize("【PRE-ORDER】 1/6 ver.").is_empty());
     }
 }
 
