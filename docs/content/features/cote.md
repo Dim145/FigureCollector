@@ -9,9 +9,20 @@ Each piece's value is resolved, in order:
 
 1. a **manual value** you set (`value_amount` — the *cote*), else
 2. the latest **market price** auto-fetched by the price sweep (badge
-   *marché*), else
+   *marché*), **if it is less than 30 days old**, else
 3. the figure's catalogue **MSRP** as a fallback, else
 4. nothing (the piece isn't counted).
+
+!!! note "Why an observed price expires"
+    The sweep revisits a figure every couple of days, so a price it hasn't
+    refreshed in a month means the listing stopped resolving — delisted, sold
+    out, renamed. The last thing that shop asked is then a historical fact,
+    not what the piece is worth today, and a single stale observation can
+    carry a large share of a reported plus-value on its own. Stale prices fall
+    through to the MSRP and are counted in `valuation.pieces_stale`, so a
+    value that drops is explainable rather than mysterious. A collection whose
+    `pieces_stale` is large is telling you the sweep has stopped reaching
+    those shops — not that the shelf lost value.
 
 The *pièces évaluées* counter breaks those tiers down (manual / market / MSRP),
 so you always know how much of the total rests on real numbers.
@@ -33,6 +44,7 @@ So the totals carry the basis with them. `GET /api/me/stats` answers with a
 | `manual_coverage` | Share of pieces you valued yourself, 0.0–1.0. At `0.0`, read `plus_value` as a list-price comparison, not a gain. |
 | `pieces_total` / `pieces_valued` | How much of the collection is counted at all. |
 | `pieces_auto` / `pieces_msrp` | The market and MSRP tiers, split out. |
+| `pieces_stale` | Pieces that have an observed price too old to use, valued at MSRP instead. |
 
 The page has always shown the *pièces évaluées* tiers; this is the same
 statement in a form a client — the SPA, an export, an
@@ -51,7 +63,10 @@ statement in a form a client — the SPA, an export, an
   loss. (Your full outlay incl. shipping lives in the
   [stats spend ledger](achievements-stats.md).)
 - **Plus-value** — value − price, with a % badge: jade for a gain, laque-red
-  for a loss.
+  for a loss. Measured against the **price**, never the total outlay; the API
+  states which with `eur.plus_value_basis: "cost_ex_shipping"`, because the
+  same response also carries `spend` and `spend − value` is a different number
+  that looks just as plausible.
 - A **ranked table** of every valued piece (highest first); each row shows
   price vs estimated vs the per-piece delta, plus a market sparkline.
 

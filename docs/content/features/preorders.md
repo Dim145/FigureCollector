@@ -152,3 +152,17 @@ If the refund equals or exceeds the deposit, the popup hides the ACOMPTE PERDU l
 Each `release_date_current` change creates a `preorder_date_history` row with the previous date, the new date, the source (`user`, `mfc`, `anilist`), and an optional user note. The figure detail page renders this as a timeline.
 
 The yearly recap surfaces the **longest slip** as a separate stat card.
+
+**Slip statistics measure the endpoints, not the steps.** A maker's median and
+80th-percentile slip come from `release_date_current - release_date_original`,
+one number per pre-order — the same measure the recap's longest-slip card
+reports, so the two screens agree.
+
+They used to sum the forward jumps in the history and drop the backward ones,
+on the reasoning that a date pulled earlier is good news rather than slip.
+That holds for a real reschedule and breaks on a **correction**: type a
+purchase date into the release-date field, fix it seconds later, and the
+repair is a forward jump. One pre-order whose real slip was 62 days reported
+335 — and since only half of the round trip counted, every corrected typo
+inflated that maker's statistic permanently. The timeline above still shows
+every step; the statistic just stops mistaking a repair for a delay.

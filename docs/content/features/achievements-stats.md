@@ -59,7 +59,9 @@ purchase-time frozen rate, the same figure La Cote's *total payé* shows.
   leaving a client to infer it.
 - **Coût des souhaits** — the estimated cost of your [wishlist](wishlist.md), per currency.
 - **Santé des pré-commandes** — open deposits, average slip days, open vs
-  cancelled counts. **Total** counts every pre-order you have ever placed
+  cancelled counts. A deposit counts even when the full price was never
+  entered (the shop invoices the balance later), taking its currency from the
+  pre-order, then the linked piece, then the catalogue. **Total** counts every pre-order you have ever placed
   (matching the `preorders_placed` seal above and the pre-order export);
   **En cours** only the non-terminal ones. Those two used to be computed
   identically, so a collector with cancelled or received pre-orders saw this

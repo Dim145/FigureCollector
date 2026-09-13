@@ -205,6 +205,16 @@ they are rather than leaving that in the documentation:
 - `get_preorder_slip_stats` → each row carries `reliable`, false when the maker
   has fewer than three observed pre-orders. The average is still returned
   (refusing to answer is worse), but it should be quoted with the sample size.
+  A slip is the **net** move of one pre-order — announced date to current date
+  — so `samples` counts pre-orders, matching the `slip_count` a single
+  pre-order reports, and a corrected typo in a date isn't a slip.
+- `get_collection_stats` → `eur.plus_value_basis` names the total the
+  plus-value was measured against (`cost_ex_shipping`); `spend` in the same
+  response includes shipping and is *not* that total.
+- `get_collection_stats` → `eur.valuation.pieces_stale` counts pieces whose
+  observed shop price was too old to use (30 days) and fell back to the
+  catalogue MSRP. A big number there means the price sweep stopped reaching
+  those listings.
 - `get_collection_stats` → `preorders.placed` is every pre-order ever, and
   `preorders.open` only the non-terminal ones.
 - `list_wishlist` → each row carries `target_comparison`: whether the target is
