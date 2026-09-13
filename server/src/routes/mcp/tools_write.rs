@@ -99,7 +99,7 @@ impl FcMcp {
     }
 
     #[tool(
-        description = "Archive an owned piece — sold, traded, lost or gifted. The row and its photos are kept, it just leaves the active collection, and restore_owned_item brings it back. This is what 'I got rid of it' should use; delete_owned_item is for a mistaken entry.",
+        description = "Archive an owned piece — sold, traded, lost or gifted. The row and its photos are kept, it just leaves the active collection, and restore_owned_item brings it back. This is what 'I got rid of it' should use. Permanent deletion is a separate tool, delete_owned_item, for a mistaken entry — it needs the collection:delete scope, so it is absent from tools/list on a key without it.",
         annotations(
             title = "Archive an owned piece",
             read_only_hint = false,

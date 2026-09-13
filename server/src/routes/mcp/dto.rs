@@ -243,7 +243,9 @@ pub struct LandedCost {
     /// ISO-3166 alpha-2 destination. An unknown one yields no estimate rather
     /// than a guess.
     pub destination: String,
-    /// Carrier slug, from `get_landed_cost_rules`. Unknown → no handling fee.
+    /// Carrier slug. There is no tool to list these — the call answers with
+    /// the `carriers` it accepts, so make one call and read them off it.
+    /// Unknown → no handling fee.
     pub carrier: Option<String>,
     /// Number of items in the consignment; some duties are charged per item.
     /// Default 1.
