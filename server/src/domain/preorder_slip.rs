@@ -6,6 +6,20 @@
 //! question that decides whether to pre-order at all: *this maker has slipped
 //! a median of ten weeks across your last six pre-orders.*
 //!
+//! **What counts as a slip.** The *net* move of one pre-order:
+//! `release_date_current - release_date_original`, one number per pre-order,
+//! the same measure `year_in_review`'s "longest slip" reports.
+//!
+//! It used to sum the forward jumps in `preorder_date_history` and drop the
+//! backward ones, on the reasoning that a date pulled earlier is good news
+//! rather than slip. That reasoning holds for a real reschedule and breaks on
+//! a **correction**: type a purchase date into the release-date field, fix it
+//! seconds later, and the repair is a forward jump. One pre-order whose real
+//! slip was 62 days reported 335 — and because only the forward half of the
+//! round trip counted, every corrected typo inflated the maker's statistic
+//! permanently. Measuring the endpoints ignores whatever happened between
+//! them.
+//!
 //! **On sample size.** A single-user instance holds tens of pre-orders, not
 //! thousands, so a per-(maker × shop) split would routinely compute a "median"
 //! from one observation. We therefore aggregate per **maker only** and drop
@@ -32,13 +46,15 @@ pub const MIN_SAMPLES: i64 = 3;
 pub struct SlipStat {
     pub manufacturer_id: Option<Uuid>,
     pub manufacturer_name: Option<String>,
-    /// Number of observed forward slips backing the figures below.
+    /// Pre-orders that slipped, backing the figures below — one per
+    /// pre-order, not one per date change, so it lines up with the
+    /// `slip_count` a single pre-order reports.
     pub samples: i64,
     /// Median slip, in days.
     pub median_days: Option<f64>,
     /// 80th-percentile slip, in days — the "plan for this" number.
     pub p80_days: Option<f64>,
-    /// Worst single slip observed, in days.
+    /// Worst net slip observed on any one pre-order, in days.
     pub max_days: Option<f64>,
     /// Whether `samples` reaches [`MIN_SAMPLES`]. When false the figures are
     /// arithmetic, not evidence — on one observation median, p80 and max are
@@ -48,30 +64,26 @@ pub struct SlipStat {
 }
 
 /// Per-maker slip stats for one user's pre-order history, worst P80 first.
-/// Only *forward* moves count: a date pulled earlier is good news, not slip,
-/// and averaging the two would cancel out exactly the risk we're measuring.
+/// A pre-order that ended up no later than announced isn't slip and is left
+/// out — pulling it earlier is good news, and averaging it in would cancel
+/// exactly the risk being measured.
 pub async fn per_manufacturer(pool: &PgPool, user_id: Uuid) -> AppResult<Vec<SlipStat>> {
     Ok(sqlx::query_as::<_, SlipStat>(
         "SELECT m.id   AS manufacturer_id,
                 m.name AS manufacturer_name,
                 count(*) AS samples,
-                percentile_cont(0.5) WITHIN GROUP (
-                    ORDER BY (h.new_date - h.previous_date)::double precision
-                ) AS median_days,
-                percentile_cont(0.8) WITHIN GROUP (
-                    ORDER BY (h.new_date - h.previous_date)::double precision
-                ) AS p80_days,
-                max(h.new_date - h.previous_date)::double precision AS max_days,
+                percentile_cont(0.5) WITHIN GROUP (ORDER BY (p.release_date_current - p.release_date_original)::double precision) AS median_days,
+                percentile_cont(0.8) WITHIN GROUP (ORDER BY (p.release_date_current - p.release_date_original)::double precision) AS p80_days,
+                max((p.release_date_current - p.release_date_original)::double precision) AS max_days,
                 (count(*) >= $2) AS reliable
-         FROM preorder_date_history h
-         JOIN preorders   p ON p.id = h.preorder_id
+         FROM preorders   p
          JOIN owned_items o ON o.id = p.owned_item_id
          JOIN figures     f ON f.id = o.figure_id
          LEFT JOIN manufacturers m ON m.id = f.manufacturer_id
          WHERE o.user_id = $1
-           AND h.previous_date IS NOT NULL
-           AND h.new_date IS NOT NULL
-           AND h.new_date > h.previous_date
+           AND p.release_date_original IS NOT NULL
+           AND p.release_date_current  IS NOT NULL
+           AND p.release_date_current > p.release_date_original
          GROUP BY m.id, m.name
          HAVING count(*) >= $2
          ORDER BY p80_days DESC NULLS LAST, samples DESC",
@@ -89,21 +101,16 @@ pub async fn overall(pool: &PgPool, user_id: Uuid) -> AppResult<SlipStat> {
         "SELECT NULL::uuid AS manufacturer_id,
                 NULL::text AS manufacturer_name,
                 count(*) AS samples,
-                percentile_cont(0.5) WITHIN GROUP (
-                    ORDER BY (h.new_date - h.previous_date)::double precision
-                ) AS median_days,
-                percentile_cont(0.8) WITHIN GROUP (
-                    ORDER BY (h.new_date - h.previous_date)::double precision
-                ) AS p80_days,
-                max(h.new_date - h.previous_date)::double precision AS max_days,
+                percentile_cont(0.5) WITHIN GROUP (ORDER BY (p.release_date_current - p.release_date_original)::double precision) AS median_days,
+                percentile_cont(0.8) WITHIN GROUP (ORDER BY (p.release_date_current - p.release_date_original)::double precision) AS p80_days,
+                max((p.release_date_current - p.release_date_original)::double precision) AS max_days,
                 (count(*) >= $2) AS reliable
-         FROM preorder_date_history h
-         JOIN preorders   p ON p.id = h.preorder_id
+         FROM preorders   p
          JOIN owned_items o ON o.id = p.owned_item_id
          WHERE o.user_id = $1
-           AND h.previous_date IS NOT NULL
-           AND h.new_date IS NOT NULL
-           AND h.new_date > h.previous_date",
+           AND p.release_date_original IS NOT NULL
+           AND p.release_date_current  IS NOT NULL
+           AND p.release_date_current > p.release_date_original",
     )
     .bind(user_id)
     .bind(MIN_SAMPLES)
@@ -129,6 +136,97 @@ mod tests {
     /// real database on an empty collection: Postgres parses the whole
     /// statement whether or not any row matches, which is exactly the check
     /// that was missing.
+    /// The case from the report: a release date typed wrong, corrected 43
+    /// seconds later. The history holds -274 then +335 days; the real slip is
+    /// the 62 days between the announced date and the current one.
+    #[sqlx::test]
+    async fn a_corrected_typo_is_not_a_slip(pool: PgPool) {
+        let user = seed_user(&pool).await;
+        let figure = seed_figure(&pool).await;
+        let owned = seed_owned(&pool, user, figure).await;
+        // original 2026-07-01, current 2026-09-01 — 62 days.
+        sqlx::query(
+            "INSERT INTO preorders
+                 (id, user_id, figure_id, owned_item_id, status,
+                  release_date_original, release_date_current)
+             VALUES ($1, $2, $3, $4, 'preordered', DATE '2026-07-01', DATE '2026-09-01')",
+        )
+        .bind(Uuid::now_v7())
+        .bind(user)
+        .bind(figure)
+        .bind(owned)
+        .execute(&pool)
+        .await
+        .unwrap();
+
+        let overall = overall(&pool, user).await.unwrap();
+        assert_eq!(overall.samples, 1, "one pre-order slipped, not two events");
+        assert_eq!(
+            overall.max_days,
+            Some(62.0),
+            "the +335 jump was a correction of the -274 one, not slip"
+        );
+        assert!(!overall.reliable, "one pre-order is not evidence");
+    }
+
+    /// A pre-order that landed on time, or early, is not slip.
+    #[sqlx::test]
+    async fn an_on_time_preorder_is_not_counted(pool: PgPool) {
+        let user = seed_user(&pool).await;
+        let figure = seed_figure(&pool).await;
+        let owned = seed_owned(&pool, user, figure).await;
+        sqlx::query(
+            "INSERT INTO preorders
+                 (id, user_id, figure_id, owned_item_id, status,
+                  release_date_original, release_date_current)
+             VALUES ($1, $2, $3, $4, 'preordered', DATE '2026-07-01', DATE '2026-06-01')",
+        )
+        .bind(Uuid::now_v7())
+        .bind(user)
+        .bind(figure)
+        .bind(owned)
+        .execute(&pool)
+        .await
+        .unwrap();
+        assert_eq!(overall(&pool, user).await.unwrap().samples, 0);
+    }
+
+    async fn seed_user(pool: &PgPool) -> Uuid {
+        let id = Uuid::now_v7();
+        sqlx::query("INSERT INTO users (id, username, display_name) VALUES ($1, $2, 'T')")
+            .bind(id)
+            .bind(id.to_string())
+            .execute(pool)
+            .await
+            .unwrap();
+        id
+    }
+
+    async fn seed_figure(pool: &PgPool) -> Uuid {
+        let id = Uuid::now_v7();
+        sqlx::query(
+            "INSERT INTO figures (id, name, slug, figure_type) VALUES ($1, 'F', $2, 'statue')",
+        )
+        .bind(id)
+        .bind(id.to_string())
+        .execute(pool)
+        .await
+        .unwrap();
+        id
+    }
+
+    async fn seed_owned(pool: &PgPool, user: Uuid, figure: Uuid) -> Uuid {
+        let id = Uuid::now_v7();
+        sqlx::query("INSERT INTO owned_items (id, user_id, figure_id) VALUES ($1, $2, $3)")
+            .bind(id)
+            .bind(user)
+            .bind(figure)
+            .execute(pool)
+            .await
+            .unwrap();
+        id
+    }
+
     #[sqlx::test]
     async fn both_queries_parse_and_answer_on_an_empty_collection(pool: PgPool) {
         let user = Uuid::now_v7();
