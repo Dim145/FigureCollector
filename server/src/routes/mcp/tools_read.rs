@@ -486,7 +486,7 @@ impl FcMcp {
     }
 
     #[tool(
-        description = "The caller's wishlist: target price, note, catalogue MSRP and the latest observed shop price per figure.",
+        description = "The caller's wishlist: target price, note, catalogue MSRP and the latest observed shop price per figure. Each row carries `target_comparison` — whether the target is met, both sides in EUR when the two currencies differ, and the rate date — because a 200 EUR target beside a 239 USD shop price cannot be judged on the bare numbers. Use it rather than comparing `max_price_amount` with `provider_price_amount` yourself.",
         annotations(title = "Wishlist", read_only_hint = true, idempotent_hint = true)
     )]
     async fn list_wishlist(
@@ -502,8 +502,14 @@ impl FcMcp {
             &input,
         )
         .await?;
-        let items =
+        let mut items =
             crate::domain::wishlist::list(&self.state.pool, call.user_id(), call.hide_nsfw()).await;
+        // An agent has no rate table of its own, so a €200 target beside a $239
+        // shop price is unanswerable unless the server answers it.
+        if let Ok(rows) = items.as_mut() {
+            crate::domain::wishlist::annotate_targets(&self.state.pool, &self.state.http, rows)
+                .await;
+        }
         let paged = items.map(|all| {
             Page::of(
                 all,

@@ -501,8 +501,9 @@ async fn notify_wishlist_targets(
         .ok();
 
     for (user_id, target, target_currency, figure_name) in rows {
-        let Some(now_cmp) = compare_to_target(
+        let Some(now_cmp) = crate::domain::wishlist::compare_to_target(
             rates.as_ref(),
+            "provider",
             amount,
             currency,
             target,
@@ -577,65 +578,15 @@ fn target_met(
     target: Decimal,
     target_currency: Option<&str>,
 ) -> bool {
-    compare_to_target(rates, amount, currency, target, target_currency).is_some_and(|c| c.met)
-}
-
-/// How an observed price compared with a target, and on what basis.
-///
-/// The comparison is often cross-currency, and the alert payload used to carry
-/// only the two raw amounts — `161.19 USD` against `150.00 EUR` — leaving the
-/// reader to guess whether the conversion had been done at all, let alone at
-/// which rate. The EUR pair and the rate table's date travel with the verdict
-/// now, the same way `CollectionStats.eur` reports its `fx_date`.
-#[derive(Debug, Clone)]
-struct TargetComparison {
-    met: bool,
-    /// `"same_currency"`, `"target_adopts_observed"`, or `"converted_via_eur"`.
-    basis: &'static str,
-    amount_eur: Option<Decimal>,
-    target_eur: Option<Decimal>,
-    fx_date: Option<String>,
-}
-
-/// `None` when the two sides cannot be compared at all (a currency missing
-/// from the rate table, no table, or an uncurrencied price against an explicit
-/// target) — the caller must not alert on a comparison it could not make.
-fn compare_to_target(
-    rates: Option<&crate::external::fx::FxRates>,
-    amount: Decimal,
-    currency: Option<&str>,
-    target: Decimal,
-    target_currency: Option<&str>,
-) -> Option<TargetComparison> {
-    let plain = |met: bool, basis: &'static str| {
-        Some(TargetComparison {
-            met,
-            basis,
-            amount_eur: None,
-            target_eur: None,
-            fx_date: None,
-        })
-    };
-    match (currency, target_currency) {
-        // The SPA's fallback: a target with no currency adopts the observed one.
-        (_, None) => plain(amount <= target, "target_adopts_observed"),
-        (None, Some(_)) => None,
-        (Some(a), Some(b)) if a.trim().eq_ignore_ascii_case(b.trim()) => {
-            plain(amount <= target, "same_currency")
-        }
-        (Some(a), Some(b)) => {
-            let r = rates?;
-            let price_eur = r.convert_to_base(amount, a)?;
-            let target_eur = r.convert_to_base(target, b)?;
-            Some(TargetComparison {
-                met: price_eur <= target_eur,
-                basis: "converted_via_eur",
-                amount_eur: Some(price_eur),
-                target_eur: Some(target_eur),
-                fx_date: Some(r.date.clone()),
-            })
-        }
-    }
+    crate::domain::wishlist::compare_to_target(
+        rates,
+        "provider",
+        amount,
+        currency,
+        target,
+        target_currency,
+    )
+    .is_some_and(|c| c.met)
 }
 
 /// One scraped price line. `version_label` is the provider's version name (orzgk
@@ -898,43 +849,6 @@ mod tests {
             .as_ref()
             .is_some_and(|(p, c)| target_met(None, *p, c.as_deref(), target, Some("EUR")));
         assert!(!was_met);
-    }
-
-    #[test]
-    fn the_comparison_reports_its_basis() {
-        let same = compare_to_target(
-            None,
-            Decimal::from(100),
-            Some("EUR"),
-            Decimal::from(150),
-            Some("EUR"),
-        )
-        .expect("same currency is always comparable");
-        assert!(same.met);
-        assert_eq!(same.basis, "same_currency");
-        assert!(same.amount_eur.is_none(), "no conversion, nothing to audit");
-
-        let adopted = compare_to_target(
-            None,
-            Decimal::from(100),
-            Some("JPY"),
-            Decimal::from(150),
-            None,
-        )
-        .expect("a currency-less target adopts the observed one");
-        assert_eq!(adopted.basis, "target_adopts_observed");
-
-        // Cross-currency with no rate table: not comparable, so no alert.
-        assert!(
-            compare_to_target(
-                None,
-                Decimal::from(100),
-                Some("USD"),
-                Decimal::from(150),
-                Some("EUR")
-            )
-            .is_none()
-        );
     }
 
     fn cand(amount: f64, ccy: &str, version: Option<&str>) -> Candidate {

@@ -122,7 +122,10 @@ async fn public_list(
     };
     let show_nsfw = owner_allows_nsfw && viewer_wants_nsfw;
 
-    let all = wishlist::list(&state.pool, owner.id, false).await?;
+    let mut all = wishlist::list(&state.pool, owner.id, false).await?;
+    // A giver's question is the same one the owner's list answers — is this
+    // within the stated budget — and the target price is already shared here.
+    wishlist::annotate_targets(&state.pool, &state.http, &mut all).await;
     // Only ever reveal that NSFW exists when the owner actually shares it.
     let hidden_nsfw = if owner_allows_nsfw && !show_nsfw {
         all.iter().filter(|i| i.is_nsfw).count() as i64

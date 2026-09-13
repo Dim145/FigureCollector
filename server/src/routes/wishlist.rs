@@ -20,7 +20,9 @@ async fn list_mine(
 ) -> AppResult<Json<Vec<wishlist::WishlistItem>>> {
     let user = auth::require_user_full(&session, &state.pool).await?;
     let exclude = user.nsfw_visibility == "hide";
-    Ok(Json(wishlist::list(&state.pool, user.id, exclude).await?))
+    let mut items = wishlist::list(&state.pool, user.id, exclude).await?;
+    wishlist::annotate_targets(&state.pool, &state.http, &mut items).await;
+    Ok(Json(items))
 }
 
 async fn add_mine(
