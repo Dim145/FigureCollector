@@ -243,6 +243,15 @@ pub struct EurTotals {
     /// figure cost (shipping excluded — a sunk cost the resale never recovers),
     /// and free of FX drift on the frozen cost side.
     pub plus_value: Decimal,
+    /// Which of the two totals above `plus_value` was measured against.
+    ///
+    /// Always `"cost_ex_shipping"` today. It is stated rather than implied
+    /// because the response hands back `spend` as well, and `spend - value`
+    /// is a different, equally plausible-looking number: a reader who sees
+    /// `spend: 2463` beside `plus_value: 832` concludes the collection is
+    /// worth 3295, and it isn't. The same response already qualifies its
+    /// `valuation`; this qualifies the other half of the subtraction.
+    pub plus_value_basis: &'static str,
     /// Date of the rate table used for the today's-rate conversions.
     pub fx_date: String,
     /// What the `value` above is actually made of — and therefore how much
@@ -739,6 +748,7 @@ pub async fn collection_stats(
                 spend,
                 value,
                 plus_value: value - cost,
+                plus_value_basis: "cost_ex_shipping",
                 fx_date: rates.date,
                 valuation: ValuationBasis::from_buckets(&value_by_currency),
                 partial,
