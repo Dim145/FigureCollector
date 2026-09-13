@@ -207,6 +207,13 @@ they are rather than leaving that in the documentation:
   (refusing to answer is worse), but it should be quoted with the sample size.
 - `get_collection_stats` → `preorders.placed` is every pre-order ever, and
   `preorders.open` only the non-terminal ones.
+- `list_wishlist` → each row carries `target_comparison`: whether the target is
+  met, which price was measured, both sides in EUR when the currencies differ,
+  and the rate date. Use it instead of comparing `max_price_amount` against
+  `provider_price_amount` — those are routinely in different currencies, and a
+  `149.99 USD` shop price under a `150.00 EUR` target looks like a one-cent
+  deal when the real margin is about twenty euros. See
+  [the wishlist](wishlist.md#target-comparison).
 
 ## Untrusted content
 

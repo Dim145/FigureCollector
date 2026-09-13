@@ -9,6 +9,31 @@ Set a target per piece; the header sums them into a **targets budget**, shown
 in [your display currency](currency.md) with the ≈ marker. When a figure's
 market price or MSRP sits at or below your target, its card flags the deal.
 
+## Is it a deal? { #target-comparison }
+
+The comparison is routinely cross-currency — a €200 target beside a $239 shop
+price — so the answer is computed **server-side** and travels with each row as
+`target_comparison`:
+
+| Field | Meaning |
+|---|---|
+| `met` | Whether the target is met. |
+| `priced_from` | Which price was measured: `provider` (latest observed shop price) or `msrp` (the catalogue list price, when no shop price exists). |
+| `basis` | `same_currency`, `converted_via_eur`, or `target_adopts_observed` for a target you entered without a currency. |
+| `amount_eur` / `target_eur` | Both sides in euros, to the cent — present only when a conversion actually happened. |
+| `fx_date` | The rate table's date, so the verdict can be checked later. |
+
+It is absent when there is no target, no price to measure, or no rate bridging
+the two currencies — an honest "can't tell" rather than a wrong verdict.
+
+This matters most for an [assistant over MCP](mcp.md), which has no rate table
+of its own: without it, `149.99 USD` against a `150.00 EUR` target reads as a
+deal by one cent, when the real margin is about twenty euros.
+
+The euro figures are rounded for reading; the verdict is decided on the
+unrounded values, so a price a hair over your target never rounds its way onto
+it.
+
 ## Price alerts
 
 Targets aren't just decorative — the [market-price sweep](cote.md#market-prices-auto-tracked)
