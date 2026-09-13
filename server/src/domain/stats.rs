@@ -106,11 +106,26 @@ pub struct ValueBucket {
     pub pieces_valued: i64,
     /// Pieces valued via the auto-fetched provider price (no manual value yet).
     pub pieces_auto: i64,
-    /// Pieces valued via the MSRP fallback (no manual value, no provider price).
+    /// Pieces valued via the MSRP fallback (no manual value, no *fresh*
+    /// provider price).
     pub pieces_msrp: i64,
+    /// Of those, the ones whose observed price exists but has gone stale.
+    pub pieces_stale: i64,
     /// Total pieces contributing to this currency bucket.
     pub pieces_total: i64,
 }
+
+/// How long an observed shop price still counts as *current market value*.
+///
+/// The sweep revisits a figure every couple of days, so a price it hasn't
+/// refreshed in a month means the listing stopped resolving — delisted, sold
+/// out, renamed — and the last thing that shop asked is not what the piece is
+/// worth today. It used to be used regardless of age: two isolated
+/// observations three months old, from a source that matched no version,
+/// carried ~497 EUR of a 832 EUR reported plus-value. A stale price now falls
+/// through to the catalogue MSRP, the same as a figure that was never priced,
+/// and `pieces_stale` says how many did.
+pub const PRICE_FRESH_DAYS: i64 = 30;
 
 /// Where a collection's estimated value comes from.
 #[derive(Debug, Clone, Serialize)]
@@ -125,6 +140,11 @@ pub struct ValuationBasis {
     pub pieces_valued: i64,
     pub pieces_auto: i64,
     pub pieces_msrp: i64,
+    /// Pieces that *have* an observed shop price but one too old to count
+    /// (see [`PRICE_FRESH_DAYS`]); they are valued at MSRP instead. A large
+    /// number here means the price sweep has stopped reaching these listings,
+    /// not that the collection lost value.
+    pub pieces_stale: i64,
 }
 
 impl ValuationBasis {
@@ -132,11 +152,13 @@ impl ValuationBasis {
     /// one statement about the collection as a whole.
     fn from_buckets(buckets: &[ValueBucket]) -> Self {
         let (mut pieces_total, mut pieces_valued, mut pieces_auto, mut pieces_msrp) = (0, 0, 0, 0);
+        let mut pieces_stale = 0;
         for b in buckets {
             pieces_total += b.pieces_total;
             pieces_valued += b.pieces_valued;
             pieces_auto += b.pieces_auto;
             pieces_msrp += b.pieces_msrp;
+            pieces_stale += b.pieces_stale;
         }
         let basis = if pieces_total == 0 {
             "none"
@@ -158,6 +180,7 @@ impl ValuationBasis {
             pieces_valued,
             pieces_auto,
             pieces_msrp,
+            pieces_stale,
         }
     }
 }
@@ -342,35 +365,51 @@ pub async fn collection_stats(
     // isn't mislabelled with the user's price currency. `pieces_auto` counts
     // pieces resolved via the provider price. Pairs with `spend_by_currency`
     // for the latent plus-value delta.
-    let value_rows_fut = sqlx::query_as::<_, (String, Decimal, i64, i64, i64, i64)>(
-        "WITH valued AS (
+    let value_sql = format!(
+        "WITH priced AS (
+             SELECT o.*,
+                    -- A price the sweep stopped refreshing is not a market
+                    -- price; see PRICE_FRESH_DAYS.
+                    CASE WHEN pp.fetched_at > now() - interval '{PRICE_FRESH_DAYS} days'
+                         THEN pp.amount END   AS pp_amount,
+                    CASE WHEN pp.fetched_at > now() - interval '{PRICE_FRESH_DAYS} days'
+                         THEN pp.currency END AS pp_currency,
+                    (pp.amount IS NOT NULL
+                     AND pp.fetched_at <= now() - interval '{PRICE_FRESH_DAYS} days') AS pp_stale
+             FROM owned_items o
+             LEFT JOIN figure_provider_prices pp ON pp.figure_id = o.figure_id
+             WHERE o.user_id = $1
+         ),
+         valued AS (
              SELECT CASE
                         WHEN o.value_amount IS NOT NULL
                             THEN COALESCE(o.value_currency, o.price_currency, f.msrp_currency)
-                        WHEN pp.amount IS NOT NULL
-                            THEN COALESCE(pp.currency, f.msrp_currency)
-                        ELSE f.msrp_currency END                       AS currency,
-                    COALESCE(o.value_amount, pp.amount, f.msrp_amount)  AS amount,
-                    (o.value_amount IS NOT NULL)                        AS is_manual,
-                    (o.value_amount IS NULL AND pp.amount IS NOT NULL)  AS is_auto
-             FROM owned_items o
+                        WHEN o.pp_amount IS NOT NULL
+                            THEN COALESCE(o.pp_currency, f.msrp_currency)
+                        ELSE f.msrp_currency END                          AS currency,
+                    COALESCE(o.value_amount, o.pp_amount, f.msrp_amount)   AS amount,
+                    (o.value_amount IS NOT NULL)                           AS is_manual,
+                    (o.value_amount IS NULL AND o.pp_amount IS NOT NULL)   AS is_auto,
+                    (o.value_amount IS NULL AND o.pp_stale)                AS is_stale
+             FROM priced o
              JOIN figures f ON f.id = o.figure_id
-             LEFT JOIN figure_provider_prices pp ON pp.figure_id = o.figure_id
-             WHERE o.user_id = $1
          )
          SELECT currency,
                 COALESCE(SUM(amount), 0)::numeric                              AS estimated_total,
                 COUNT(*) FILTER (WHERE is_manual)::bigint                      AS pieces_valued,
                 COUNT(*) FILTER (WHERE is_auto)::bigint                        AS pieces_auto,
                 COUNT(*) FILTER (WHERE NOT is_manual AND NOT is_auto)::bigint  AS pieces_msrp,
-                COUNT(*)::bigint                                               AS pieces_total
+                COUNT(*)::bigint                                               AS pieces_total,
+                COUNT(*) FILTER (WHERE is_stale)::bigint                       AS pieces_stale
          FROM valued
          WHERE amount IS NOT NULL AND currency IS NOT NULL
          GROUP BY currency
-         ORDER BY 2 DESC",
-    )
-    .bind(user_id)
-    .fetch_all(pool);
+         ORDER BY 2 DESC"
+    );
+    let value_rows_fut =
+        sqlx::query_as::<_, (String, Decimal, i64, i64, i64, i64, i64)>(&value_sql)
+            .bind(user_id)
+            .fetch_all(pool);
 
     // ----- Cost rows for EUR normalisation -----------------------------------
     // One row per owned item with a recorded cost (price, else MSRP) + shipping,
@@ -594,7 +633,15 @@ pub async fn collection_stats(
     let value_by_currency: Vec<ValueBucket> = value_rows
         .into_iter()
         .map(
-            |(currency, estimated_total, pieces_valued, pieces_auto, pieces_msrp, pieces_total)| {
+            |(
+                currency,
+                estimated_total,
+                pieces_valued,
+                pieces_auto,
+                pieces_msrp,
+                pieces_total,
+                pieces_stale,
+            )| {
                 ValueBucket {
                     currency,
                     estimated_total,
@@ -602,6 +649,7 @@ pub async fn collection_stats(
                     pieces_auto,
                     pieces_msrp,
                     pieces_total,
+                    pieces_stale,
                 }
             },
         )
