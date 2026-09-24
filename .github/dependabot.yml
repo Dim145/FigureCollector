@@ -1,0 +1,22 @@
+# Keeps the SHA-pinned GitHub Actions current.
+#
+# Every `uses:` in .github/workflows is pinned to a full commit SHA with its
+# release in a trailing comment (`@<sha> # v4.4.0`), because a tag like `@v4`
+# can be re-pointed by whoever controls the action — and release.yml publishes
+# images with `packages: write`. A pin that never moves stops receiving fixes,
+# so Dependabot proposes the bump, one grouped PR a week.
+#
+# Deliberately ONLY github-actions. Cargo version updates would be actively
+# harmful here: a broad bump moves sqlx past what pgvector 0.4.2 was built
+# against and breaks the `--release --locked` build (host `cargo check` does
+# not catch it). Security updates for cargo/npm/pip don't need this file — they
+# come from Dependabot alerts, handled surgically.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
