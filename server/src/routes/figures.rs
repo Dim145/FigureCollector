@@ -100,10 +100,13 @@ async fn match_figures(
         .map(|u| u.nsfw_visibility.as_str())
         .unwrap_or("hide")
         == "hide";
-    if body.queries.len() > 60 {
+    if body.queries.len() > figure::MAX_MATCH_QUERIES {
         return Err(AppError::BadRequest("too many queries (max 60)"));
     }
-    let mut out = Vec::with_capacity(body.queries.len());
+    // Already bounded by the check above; `min` restates it where the
+    // allocation happens, so the bound doesn't depend on a reader (or a static
+    // analyser) connecting the two lines.
+    let mut out = Vec::with_capacity(body.queries.len().min(figure::MAX_MATCH_QUERIES));
     for q in &body.queries {
         let mut list =
             figure::match_one(&state.pool, &q.name, q.manufacturer.as_deref(), exclude).await?;

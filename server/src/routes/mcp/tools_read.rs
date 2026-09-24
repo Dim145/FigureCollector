@@ -185,11 +185,16 @@ impl FcMcp {
         )
         .await?;
         // Same ceiling the HTTP route enforces — the query fans out per name.
-        if input.queries.len() > 60 {
+        if input.queries.len() > crate::domain::figure::MAX_MATCH_QUERIES {
             return call.refuse("at most 60 queries per call").await;
         }
         let hide_nsfw = call.hide_nsfw();
-        let mut out = Vec::with_capacity(input.queries.len());
+        let mut out = Vec::with_capacity(
+            input
+                .queries
+                .len()
+                .min(crate::domain::figure::MAX_MATCH_QUERIES),
+        );
         for q in &input.queries {
             match crate::domain::figure::match_one(
                 &self.state.pool,

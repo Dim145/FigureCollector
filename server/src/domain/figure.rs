@@ -294,6 +294,11 @@ pub struct FigureMatch {
 /// A close `manufacturer` match nudges the score so same-studio figures
 /// outrank coincidental name collisions. Requires the pg_trgm extension
 /// (migration 20260530000007); the `%` operator rides the trigram GIN index.
+/// Most names one bulk-match call may resolve. Each name is its own trigram
+/// query, so this caps the database work a single request can demand — shared
+/// by the HTTP route and the MCP tool so the two can't drift apart.
+pub const MAX_MATCH_QUERIES: usize = 60;
+
 pub async fn match_one(
     pool: &PgPool,
     name: &str,
