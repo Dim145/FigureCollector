@@ -37,7 +37,17 @@ fn validate_wishlist_url(raw: &str) -> AppResult<reqwest::Url> {
             "not a wishlist URL (expected …/wishlist-2/view/<token>/)",
         ));
     }
-    Ok(url)
+    // Rebuild rather than return the caller's URL, the way
+    // `canonical_product_url` already does for product pages. Checking the
+    // host alone left the scheme, port and userinfo in the caller's hands, so
+    // `http://www.orzgk.com:6379/…` had this server probe arbitrary ports on a
+    // third party, or fetch the shop over plain HTTP. (Redirects were never
+    // the gap: the main client refuses any cross-host hop.) Only the path and
+    // query survive.
+    let mut canonical = reqwest::Url::parse("https://www.orzgk.com/").expect("static URL parses");
+    canonical.set_path(path);
+    canonical.set_query(url.query());
+    Ok(canonical)
 }
 
 /// Fetch a public orzgk wishlist by its share URL, following `?pagenum=N`
@@ -244,6 +254,38 @@ fn strip_variant_suffix(title: &str, version: Option<&str>) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_wishlist_url_is_rebuilt_not_trusted() {
+        // Scheme, port and userinfo are the caller's to choose only until the
+        // URL is canonicalised; afterwards only the path and query remain.
+        for raw in [
+            "http://www.orzgk.com:6379/wishlist-2/view/abc/",
+            "https://user:pw@orzgk.com/wishlist-2/view/abc/",
+            "https://www.orzgk.com:8443/wishlist-2/view/abc/",
+        ] {
+            let u = validate_wishlist_url(raw).unwrap();
+            assert_eq!(u.scheme(), "https", "{raw}");
+            assert_eq!(u.host_str(), Some("www.orzgk.com"), "{raw}");
+            assert_eq!(u.port(), None, "{raw}");
+            assert_eq!(u.username(), "", "{raw}");
+            assert_eq!(u.path(), "/wishlist-2/view/abc/", "{raw}");
+        }
+        let with_query =
+            validate_wishlist_url("https://orzgk.com/wishlist-2/view/abc/?wlid=7").unwrap();
+        assert_eq!(with_query.query(), Some("wlid=7"));
+    }
+
+    #[test]
+    fn a_lookalike_host_is_still_refused() {
+        for raw in [
+            "https://www.orzgk.com.evil.test/wishlist-2/view/abc/",
+            "https://evil.test/www.orzgk.com/wishlist-2/",
+            "https://orzgk.co/wishlist-2/view/abc/",
+        ] {
+            assert!(validate_wishlist_url(raw).is_err(), "{raw}");
+        }
+    }
+
     use super::*;
 
     // Two rows mirroring the real wlfmc markup: one with a version, one without.
