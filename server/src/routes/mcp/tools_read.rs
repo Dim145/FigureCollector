@@ -189,12 +189,9 @@ impl FcMcp {
             return call.refuse("at most 60 queries per call").await;
         }
         let hide_nsfw = call.hide_nsfw();
-        let mut out = Vec::with_capacity(
-            input
-                .queries
-                .len()
-                .min(crate::domain::figure::MAX_MATCH_QUERIES),
-        );
+        // Same shape as the HTTP route: grown on demand, not pre-sized from
+        // the request (see `routes::figures::match_figures`).
+        let mut out = Vec::new();
         for q in &input.queries {
             match crate::domain::figure::match_one(
                 &self.state.pool,

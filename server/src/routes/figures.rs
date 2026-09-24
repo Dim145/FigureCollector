@@ -103,10 +103,11 @@ async fn match_figures(
     if body.queries.len() > figure::MAX_MATCH_QUERIES {
         return Err(AppError::BadRequest("too many queries (max 60)"));
     }
-    // Already bounded by the check above; `min` restates it where the
-    // allocation happens, so the bound doesn't depend on a reader (or a static
-    // analyser) connecting the two lines.
-    let mut out = Vec::with_capacity(body.queries.len().min(figure::MAX_MATCH_QUERIES));
+    // No `with_capacity` sized from the request. It was bounded by the check
+    // above, but CodeQL's buildless Rust extraction can't see that guard (nor
+    // a `.min(MAX)`) and flags the pre-sized allocation; at most 60 rows,
+    // growing on demand costs nothing next to the one query per row below.
+    let mut out = Vec::new();
     for q in &body.queries {
         let mut list =
             figure::match_one(&state.pool, &q.name, q.manufacturer.as_deref(), exclude).await?;
