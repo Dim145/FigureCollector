@@ -164,7 +164,7 @@ async fn create_scan(
 
     // Reserve a scan row first, then upload each frame under the prefix.
     let scan_id = Uuid::now_v7();
-    let storage_prefix = format!("scans/{scan_id}/");
+    let storage_prefix = scan::storage_prefix_for(scan_id);
     // Create gsplat scans as 'processing' (a transient "uploading" marker), NOT
     // 'pending' — otherwise the worker, which polls for pending gsplat scans,
     // can claim one before its frames/video have finished uploading to Garage
@@ -331,16 +331,13 @@ async fn delete_scan(
 ) -> AppResult<StatusCode> {
     let user_id = auth::require_user(&session).await?;
     scan::assert_owned_by(&state.pool, user_id, owned_id).await?;
-    let storage_prefix = scan::delete_for_user(&state.pool, user_id, scan_id).await?;
+    scan::delete_for_user(&state.pool, user_id, scan_id).await?;
 
-    // Best-effort blob cleanup. We don't know exact frame_count post-delete;
-    // probe up to MAX_FRAMES — Garage shrugs at missing keys.
-    for idx in 0..MAX_FRAMES {
-        let _ = state
-            .storage
-            .delete(&format!("{storage_prefix}frame_{idx:03}.webp"))
-            .await;
-    }
+    // Best-effort blob cleanup — frames, model and source video, all keyed off
+    // the id (see `scan::storage_prefix_for`). The old loop here removed only
+    // the frames, leaving a deleted gsplat scan's `result.ply` and capture
+    // video behind in the bucket.
+    crate::services::scan_cleanup::purge_scan_blobs(&state, scan_id).await;
 
     state
         .events
@@ -365,7 +362,11 @@ async fn fetch_frame(
         return Err(AppError::NotFound);
     }
 
-    let key = format!("{}frame_{:03}.webp", scan_row.storage_prefix, idx);
+    let key = format!(
+        "{}frame_{:03}.webp",
+        scan::storage_prefix_for(scan_row.id),
+        idx
+    );
     let (bytes, mime) = state.storage.get(&key).await?;
 
     let mut headers = HeaderMap::new();
@@ -406,6 +407,20 @@ async fn fetch_splat(
         .result_key
         .as_deref()
         .ok_or(AppError::NotFound)?;
+    // `result_key` is written by the splat worker, straight into Postgres with
+    // its own credentials, and this handler then serves whatever it names to
+    // anyone allowed to see the scan. Unchecked, anything able to write that
+    // column could point it at another user's private invoice or scan and have
+    // it streamed back. Both workers write exactly `{prefix}result.ply`; accept
+    // that and nothing else, with the prefix derived from the row's id.
+    if result_key != format!("{}result.ply", scan::storage_prefix_for(scan_row.id)) {
+        tracing::warn!(
+            scan_id = %scan_row.id,
+            result_key,
+            "refusing to serve a splat outside its own scan prefix"
+        );
+        return Err(AppError::NotFound);
+    }
 
     let (bytes, mime) = state.storage.get(result_key).await?;
     let mut headers = HeaderMap::new();

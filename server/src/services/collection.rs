@@ -209,8 +209,8 @@ pub async fn delete_owned_item(state: &AppState, user_id: Uuid, id: Uuid) -> App
             tracing::warn!(error = ?e, storage_key = %key, "orphan photo blob delete failed after owned-item delete");
         }
     }
-    for (prefix, result_key) in &orphaned.scan_blobs {
-        crate::services::scan_cleanup::purge_scan_blobs(state, prefix, result_key.as_deref()).await;
+    for scan_id in &orphaned.scan_ids {
+        crate::services::scan_cleanup::purge_scan_blobs(state, *scan_id).await;
     }
 
     if let Some((figure_id, figure_name, manufacturer_name)) = snapshot {

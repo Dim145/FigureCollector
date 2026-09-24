@@ -120,16 +120,30 @@ pub async fn admin_mark_failed(pool: &PgPool, id: Uuid) -> AppResult<()> {
     Ok(())
 }
 
-/// Delete a task row outright; returns `(storage_prefix, result_key)` so the
-/// caller can purge the Garage blobs. Allowed in ANY state — the admin console
-/// uses this both to remove a terminal run and to "cancel" a running one:
-/// dropping the row is enough; if the worker later writes to the (now absent)
-/// row it simply updates 0 rows (harmless).
-pub async fn admin_delete(pool: &PgPool, id: Uuid) -> AppResult<(String, Option<String>)> {
-    sqlx::query_as::<_, (String, Option<String>)>(
+/// Where a scan's objects live: every frame, the source video and the trained
+/// `result.ply` sit under this prefix. Derived from the primary key, and the
+/// **only** thing read and delete paths may build a key from.
+///
+/// Creation also stores it in `scans.storage_prefix`, and the splat workers
+/// write `scans.result_key` — but they do so straight into Postgres with their
+/// own credentials, so neither column can be trusted to name what the server
+/// then reads or deletes. Taken at face value, a rewritten `result_key` made
+/// the server stream (or delete!) any object in the bucket, and a rewritten
+/// prefix pointed one scan's reads and purges at another user's scan.
+pub fn storage_prefix_for(scan_id: Uuid) -> String {
+    format!("scans/{scan_id}/")
+}
+
+/// Delete a task row outright; returns its id so the caller can purge the
+/// Garage blobs. Allowed in ANY state — the admin console uses this both to
+/// remove a terminal run and to "cancel" a running one: dropping the row is
+/// enough; if the worker later writes to the (now absent) row it simply
+/// updates 0 rows (harmless).
+pub async fn admin_delete(pool: &PgPool, id: Uuid) -> AppResult<Uuid> {
+    sqlx::query_scalar::<_, Uuid>(
         "DELETE FROM scans
           WHERE id=$1 AND kind='gsplat'
-        RETURNING storage_prefix, result_key",
+        RETURNING id",
     )
     .bind(id)
     .fetch_optional(pool)
@@ -138,14 +152,14 @@ pub async fn admin_delete(pool: &PgPool, id: Uuid) -> AppResult<(String, Option<
 }
 
 /// Auto-cleanup: keep the `keep` most-recent SUCCESSFUL gsplat scans PER
-/// owned_item, delete the rest. Returns their `(storage_prefix, result_key)`
-/// for Garage purge. Never touches turntables, failures, or in-flight jobs —
-/// so a figurine never loses its only model, just stale re-scans.
-pub async fn cleanup_completed(pool: &PgPool, keep: i64) -> AppResult<Vec<(String, Option<String>)>> {
+/// owned_item, delete the rest. Returns their ids for Garage purge. Never
+/// touches turntables, failures, or in-flight jobs — so a figurine never loses
+/// its only model, just stale re-scans.
+pub async fn cleanup_completed(pool: &PgPool, keep: i64) -> AppResult<Vec<Uuid>> {
     let keep = keep.max(1);
-    Ok(sqlx::query_as::<_, (String, Option<String>)>(
+    Ok(sqlx::query_scalar::<_, Uuid>(
         "WITH ranked AS (
-            SELECT id, storage_prefix, result_key,
+            SELECT id,
                    ROW_NUMBER() OVER (
                        PARTITION BY owned_item_id
                        ORDER BY finished_at DESC NULLS LAST, created_at DESC
@@ -155,7 +169,7 @@ pub async fn cleanup_completed(pool: &PgPool, keep: i64) -> AppResult<Vec<(Strin
          )
          DELETE FROM scans
           WHERE id IN (SELECT id FROM ranked WHERE rn > $1)
-        RETURNING storage_prefix, result_key",
+        RETURNING id",
     )
     .bind(keep)
     .fetch_all(pool)
@@ -252,18 +266,20 @@ pub async fn find_by_id(pool: &PgPool, id: Uuid) -> AppResult<Option<Scan>> {
     .await?)
 }
 
-pub async fn delete_for_user(pool: &PgPool, user_id: Uuid, scan_id: Uuid) -> AppResult<String> {
-    let row: Option<(String,)> = sqlx::query_as(
+/// Delete one of the caller's scans. The caller purges its blobs by id — see
+/// [`storage_prefix_for`] for why the row's own prefix isn't used.
+pub async fn delete_for_user(pool: &PgPool, user_id: Uuid, scan_id: Uuid) -> AppResult<()> {
+    let deleted: Option<Uuid> = sqlx::query_scalar(
         "DELETE FROM scans
          WHERE id = $1
            AND owned_item_id IN (SELECT id FROM owned_items WHERE user_id = $2)
-         RETURNING storage_prefix",
+         RETURNING id",
     )
     .bind(scan_id)
     .bind(user_id)
     .fetch_optional(pool)
     .await?;
-    row.map(|(p,)| p).ok_or(AppError::NotFound)
+    deleted.map(|_| ()).ok_or(AppError::NotFound)
 }
 
 /// Authorise the viewer: owner OR (owner has public profile + scan is ready).
@@ -307,4 +323,30 @@ pub async fn assert_owned_by(pool: &PgPool, user_id: Uuid, owned_item_id: Uuid) 
         return Err(AppError::NotFound);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The splat workers read `scans.storage_prefix` and upload to
+    /// `{prefix}result.ply`; the server now derives both from the id instead.
+    /// If this layout ever changes, the workers break silently — so pin it.
+    #[test]
+    fn the_layout_the_workers_depend_on() {
+        let id = Uuid::nil();
+        assert_eq!(
+            storage_prefix_for(id),
+            "scans/00000000-0000-0000-0000-000000000000/"
+        );
+    }
+
+    /// Two different scans never share a prefix, so a purge or read keyed off
+    /// one id cannot reach the other's objects.
+    #[test]
+    fn distinct_scans_never_share_a_prefix() {
+        let (a, b) = (Uuid::now_v7(), Uuid::now_v7());
+        assert_ne!(storage_prefix_for(a), storage_prefix_for(b));
+        assert!(!storage_prefix_for(a).starts_with(&storage_prefix_for(b)));
+    }
 }

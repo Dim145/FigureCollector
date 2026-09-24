@@ -772,9 +772,10 @@ pub async fn set_cover(
 pub struct OrphanedBlobs {
     /// `photos.storage_key` values (single objects).
     pub photo_keys: Vec<String>,
-    /// `(scans.storage_prefix, scans.result_key)` — prefixes hold the frame
-    /// set + source video; the caller fans these out via `purge_scan_blobs`.
-    pub scan_blobs: Vec<(String, Option<String>)>,
+    /// Ids of the scans going with the item; the caller purges each via
+    /// `purge_scan_blobs`, which derives the keys from the id rather than
+    /// trusting the worker-writable path columns.
+    pub scan_ids: Vec<Uuid>,
 }
 
 pub async fn delete_for_user(
@@ -796,8 +797,8 @@ pub async fn delete_for_user(
     .bind(user_id)
     .fetch_all(pool)
     .await?;
-    let scan_blobs: Vec<(String, Option<String>)> = sqlx::query_as(
-        "SELECT s.storage_prefix, s.result_key FROM scans s
+    let scan_ids: Vec<Uuid> = sqlx::query_scalar(
+        "SELECT s.id FROM scans s
          JOIN owned_items o ON o.id = s.owned_item_id
          WHERE o.id = $1 AND o.user_id = $2",
     )
@@ -816,6 +817,6 @@ pub async fn delete_for_user(
     }
     Ok(OrphanedBlobs {
         photo_keys,
-        scan_blobs,
+        scan_ids,
     })
 }

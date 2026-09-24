@@ -53,8 +53,8 @@ pub async fn run_once(state: &AppState) -> crate::error::AppResult<serde_json::V
             keep,
             "scan-cleanup: purged stale completed gsplat scans"
         );
-        for (prefix, result_key) in &purged {
-            purge_scan_blobs(state, prefix, result_key.as_deref()).await;
+        for scan_id in &purged {
+            purge_scan_blobs(state, *scan_id).await;
         }
     }
     Ok(serde_json::json!({ "purged": purged.len(), "keep": keep }))
@@ -62,18 +62,28 @@ pub async fn run_once(state: &AppState) -> crate::error::AppResult<serde_json::V
 
 /// Best-effort delete of a scan's Garage blobs: every frame, the result `.ply`,
 /// and the source video. Garage shrugs at missing keys, so over-probing is fine.
-/// Shared by the admin "delete task" route and the cleanup sweep.
-pub async fn purge_scan_blobs(state: &AppState, storage_prefix: &str, result_key: Option<&str>) {
+/// Shared by the user and admin delete routes, the owned-item delete and the
+/// cleanup sweep.
+///
+/// Takes the scan's **id**, never a stored path. It used to delete whatever
+/// `scans.result_key` named, verbatim — and that column is written by the
+/// splat workers straight into Postgres — so a rewritten value turned an
+/// ordinary scan delete into deleting an arbitrary object: another user's
+/// invoice, their photos. Every key is now derived from the id.
+pub async fn purge_scan_blobs(state: &AppState, scan_id: uuid::Uuid) {
+    let storage_prefix = crate::domain::scan::storage_prefix_for(scan_id);
     for idx in 0..MAX_FRAMES {
         let _ = state
             .storage
             .delete(&format!("{storage_prefix}frame_{idx:03}.webp"))
             .await;
     }
-    if let Some(rk) = result_key {
-        let _ = state.storage.delete(rk).await;
-    }
-    for ext in ["mp4", "mov", "webm", "mkv", "avi"] {
+    // Both workers upload the model to exactly this key.
+    let _ = state
+        .storage
+        .delete(&format!("{storage_prefix}result.ply"))
+        .await;
+    for ext in ["mp4", "mov", "m4v", "webm", "mkv", "avi"] {
         let _ = state
             .storage
             .delete(&format!("{storage_prefix}source.{ext}"))

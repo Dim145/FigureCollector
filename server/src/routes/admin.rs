@@ -953,8 +953,8 @@ async fn delete_scan_admin(
     Path(id): Path<Uuid>,
 ) -> AppResult<StatusCode> {
     let actor = auth::require_admin(&session, &state.pool).await?;
-    let (prefix, result_key) = scan::admin_delete(&state.pool, id).await?;
-    crate::services::scan_cleanup::purge_scan_blobs(&state, &prefix, result_key.as_deref()).await;
+    let scan_id = scan::admin_delete(&state.pool, id).await?;
+    crate::services::scan_cleanup::purge_scan_blobs(&state, scan_id).await;
     tracing::info!(scan = %id, by_admin = %actor.id, "admin deleted scan");
     Ok(StatusCode::NO_CONTENT)
 }
