@@ -183,6 +183,9 @@ fn is_blocked_ip(ip: &IpAddr) -> bool {
                 || v4.is_multicast()
                 || v4.is_unspecified()
                 || v4.is_documentation()
+                // "This network", 0.0.0.0/8 — `is_unspecified` covers only
+                // the exact 0.0.0.0, which Linux routes to the local host.
+                || v4.octets()[0] == 0
                 // Carrier-grade NAT: 100.64.0.0/10
                 || (v4.octets()[0] == 100 && (v4.octets()[1] & 0xc0) == 0x40)
         }
@@ -198,6 +201,19 @@ fn is_blocked_ip(ip: &IpAddr) -> bool {
                 || v6
                     .to_ipv4_mapped()
                     .is_some_and(|v4| is_blocked_ip(&IpAddr::V4(v4)))
+                // NAT64 well-known prefix (64:ff9b::/96, RFC 6052): on a
+                // NAT64 network `64:ff9b::a9fe:a9fe` *is* 169.254.169.254, so
+                // it needs the same recursion as the mapped form above.
+                || (v6.segments()[..6] == [0x64, 0xff9b, 0, 0, 0, 0] && {
+                    let [.., a, b] = v6.segments();
+                    let v4 = std::net::Ipv4Addr::new(
+                        (a >> 8) as u8,
+                        a as u8,
+                        (b >> 8) as u8,
+                        b as u8,
+                    );
+                    is_blocked_ip(&IpAddr::V4(v4))
+                })
         }
     }
 }
@@ -1010,6 +1026,34 @@ mod tests {
     async fn ssrf_guard_blocks_unspecified_and_multicast() {
         assert!(validate_outbound_url("http://0.0.0.0/").await.is_err());
         assert!(validate_outbound_url("http://224.0.0.1/").await.is_err());
+    }
+
+    #[tokio::test]
+    async fn ssrf_guard_blocks_this_network_range() {
+        assert!(validate_outbound_url("http://0.0.0.0/").await.is_err());
+        assert!(validate_outbound_url("http://0.1.2.3/").await.is_err());
+    }
+
+    #[tokio::test]
+    async fn ssrf_guard_blocks_nat64_embedded_internal_v4() {
+        // 64:ff9b::a9fe:a9fe = NAT64(169.254.169.254) — the metadata service.
+        assert!(
+            validate_outbound_url("http://[64:ff9b::a9fe:a9fe]/")
+                .await
+                .is_err()
+        );
+        // NAT64(10.0.0.1)
+        assert!(
+            validate_outbound_url("http://[64:ff9b::a00:1]/")
+                .await
+                .is_err()
+        );
+        // NAT64 of a public address is an ordinary destination.
+        assert!(
+            validate_outbound_url("http://[64:ff9b::808:808]/")
+                .await
+                .is_ok()
+        );
     }
 
     #[tokio::test]
