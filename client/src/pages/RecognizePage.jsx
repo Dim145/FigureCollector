@@ -11,6 +11,7 @@ import AppShell from "../components/AppShell.jsx";
 import AccentTitle from "../components/AccentTitle.jsx";
 import FigureCard from "../components/FigureCard.jsx";
 import { PageLayout } from "../components/layout/index.js";
+import { safeHref } from "../lib/safeUrl.js";
 
 /**
  * Downscale a photo to a modest JPEG and return its bare base64 (no data: URL
@@ -444,7 +445,7 @@ export default function RecognizePage() {
                                   {externalHints.similar_images.map((u) => (
                                     <a
                                       key={u}
-                                      href={u}
+                                      href={safeHref(u)}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="block aspect-square overflow-hidden border border-[var(--color-or)]/20 hover:border-[var(--color-or)]/55 transition-colors"
@@ -471,7 +472,7 @@ export default function RecognizePage() {
                                   {externalHints.pages.map((p) => (
                                     <li key={p.url}>
                                       <a
-                                        href={p.url}
+                                        href={safeHref(p.url)}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="group flex items-baseline gap-2 text-sm text-[var(--color-ivoire-soft)] hover:text-[var(--color-or-pale)] transition-colors"

@@ -85,7 +85,7 @@ export default function TrackingChip({ url, size = "full" }) {
 
   return (
     <a
-      href={parsed.canonicalUrl}
+      href={safeHref(parsed.canonicalUrl)}
       target="_blank"
       rel="noopener noreferrer"
       className={`group/track block border bg-[var(--color-noir)]/40 hover:bg-[var(--color-or)]/5 transition-all p-3 ${

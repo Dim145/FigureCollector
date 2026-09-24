@@ -213,18 +213,26 @@ export function parseTrackingUrl(input) {
       id: carrier.id,
       name: carrier.name,
       number,
-      canonicalUrl: number ? carrier.track(number) : raw,
+      canonicalUrl: number ? carrier.track(number) : url.href,
       originalUrl: raw,
       knownCarrier: true,
     };
   }
 
   // Unknown carrier — at least show the host.
+  //
+  // `canonicalUrl` is the PARSED url, never `raw`. The parse above only
+  // prepends `https://` when the input lacks a scheme, so `javascript://%0a…`
+  // parses as `https://javascript://…` (host "javascript") — and returning
+  // `raw` then handed the original `javascript:` string to an <a href>. React
+  // 19 happens to neutralise that at render time, but a link target shouldn't
+  // depend on it. `url.href` is http(s) by construction; it also turns a bare
+  // `ups.com/…` into an absolute link instead of a relative one.
   return {
     id: "unknown",
     name: host,
     number: null,
-    canonicalUrl: raw,
+    canonicalUrl: url.href,
     originalUrl: raw,
     knownCarrier: false,
   };

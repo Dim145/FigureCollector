@@ -4,6 +4,7 @@ import { Search, ArrowUpRight } from "lucide-react";
 import { Input } from "../ui/index.js";
 import { useProxyEnabled } from "../../hooks/useProxy.js";
 import { isUrl, runSearch, searchSources } from "./lookupSources.js";
+import { safeHref } from "../../lib/safeUrl.js";
 
 /**
  * The "Recherche" tab body: a debounced name-search field over orzgk (always)
@@ -237,7 +238,9 @@ function ResultRow({ row, onPick, onPreview, t }) {
   const isProxy = row.source === "proxy";
   const sourceLabel = isOrzgk ? "ORZGK" : isProxy ? row.studio || "BOUTIQUE" : "MFC";
   const showStudio = row.studio && !isProxy;
-  const shopUrl = row.detail_url ?? null;
+  // Scraped from the shop's own HTML — third-party data, so it goes through
+  // the same scheme check as every other outbound link.
+  const shopUrl = safeHref(row.detail_url) ?? null;
 
   return (
     <div className="relative">

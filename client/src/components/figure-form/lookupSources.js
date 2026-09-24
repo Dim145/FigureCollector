@@ -14,6 +14,7 @@
 import { api, ApiError } from "../../lib/api.js";
 import { fetchProxyProduct } from "../../hooks/useProxy.js";
 import { ORZGK_URL_RE, buildPick, pickImage } from "../../lib/orzgkMap.js";
+import { safeHref } from "../../lib/safeUrl.js";
 import {
   buildProxyPick,
   defaultProxyPick,
@@ -146,7 +147,9 @@ export function searchSources(proxyStores) {
   const proxied = (proxyStores ?? []).map((s) => ({
     id: s.id,
     name: s.name,
-    href: s.url || (s.hosts?.[0] ? `https://${s.hosts[0]}` : null),
+    // The store list comes from the operator's scraping proxy — keep its
+    // `url` to http(s) like every other external link.
+    href: safeHref(s.url) || (s.hosts?.[0] ? `https://${s.hosts[0]}` : null),
   }));
   return [orzgk, ...proxied];
 }
