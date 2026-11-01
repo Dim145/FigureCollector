@@ -23,16 +23,28 @@ const DAY = 86_400_000;
  * The cron stores price CHANGES only, so a single point is not a single
  * observation: a shop that has charged the same price for two months has
  * exactly one row, re-confirmed on every sweep since. That is a flat history
- * (`flat`), not a missing one. Only a lone point younger than a day is still
- * just a price — `null` then, as for an empty series.
+ * (`flat`), not a missing one.
+ *
+ * What the history vouches for ends at `fetchedAt` — the sweep's last
+ * successful read, bumped whether the price moved or not — not at `now`: a
+ * listing that stopped resolving would otherwise sit at its last price looking
+ * stabler every day. So the plateau is counted up to that read, and once the
+ * server calls the price `stale` (no read in PRICE_FRESH_DAYS) the reading is
+ * "lost N days ago", not "stable". A lone point the sweep hasn't re-read a day
+ * later is still just a price — `null` then, as for an empty series.
+ *
+ * `fetchedAt` (ms) and `stale` come from the wishlist row; without a read time
+ * the plateau runs to `now`.
  */
-export function floorStats(series, now = Date.now()) {
+export function floorStats(series, { now = Date.now(), fetchedAt = null, stale = false } = {}) {
   if (!series?.length) return null;
   const currency = series[series.length - 1].currency ?? null;
   const same = series.filter((p) => (p.currency ?? null) === currency);
 
   const last = same[same.length - 1];
-  if (same.length < 2 && now - last.t < DAY) return null;
+  // The last moment the price is known to have held.
+  const seenAt = Number.isFinite(fetchedAt) ? Math.max(last.t, Math.min(now, fetchedAt)) : now;
+  if (same.length < 2 && !stale && seenAt - last.t < DAY) return null;
   let floor = same[0].v;
   let ceiling = same[0].v;
   for (const p of same) {
@@ -50,8 +62,13 @@ export function floorStats(series, now = Date.now()) {
     atFloor: last.v <= floor + 1e-9,
     /** Never moved — "at its floor" would be technically true and misleading. */
     flat: ceiling - floor <= 1e-9,
-    /** Days since the price last moved — a long plateau means "no rush". */
-    stableDays: Math.max(0, Math.floor((now - last.t) / DAY)),
+    /** Days the price held, from its last move to the sweep's last read —
+     *  a long plateau means "no rush". */
+    stableDays: Math.max(0, Math.floor((seenAt - last.t) / DAY)),
+    /** The sweep lost the listing: `current` is the last price seen, not today's. */
+    stale,
+    /** Days since the sweep last read the price at all. */
+    seenDaysAgo: Math.max(0, Math.floor((now - seenAt) / DAY)),
     points: same,
   };
 }

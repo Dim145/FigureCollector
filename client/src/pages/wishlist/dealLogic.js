@@ -8,17 +8,21 @@ export const coverFor = (it) =>
 
 /**
  * A piece's market price: the cron's latest relevé (provider price) when known,
- * else the catalogue MSRP. Returned as `{ amount, currency }` or null.
+ * else the catalogue MSRP. Returned as `{ amount, currency, source }` (source:
+ * "provider" | "msrp") or null. The server leaves out a relevé the sweep hasn't
+ * confirmed in PRICE_FRESH_DAYS (`provider_price_stale`), so a lost listing is
+ * never "sous la cible" — its MSRP is measured instead.
  */
 export const marketPrice = (it) => {
   if (it.provider_price_amount != null) {
     return {
       amount: Number(it.provider_price_amount),
       currency: it.provider_price_currency || it.msrp_currency || null,
+      source: "provider",
     };
   }
   if (it.msrp_amount != null) {
-    return { amount: Number(it.msrp_amount), currency: it.msrp_currency || null };
+    return { amount: Number(it.msrp_amount), currency: it.msrp_currency || null, source: "msrp" };
   }
   return null;
 };

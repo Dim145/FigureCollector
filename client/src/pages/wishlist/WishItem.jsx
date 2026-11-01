@@ -41,6 +41,7 @@ export default function WishItem({
   const dc = useDisplayCurrency();
   const priced = it.max_price_amount != null;
   const deal = dealIsMet(it, prefCurrency, dc.rates);
+  const market = marketPrice(it);
   const currency = it.max_price_currency || prefCurrency;
 
   return (
@@ -154,12 +155,21 @@ export default function WishItem({
 
           {/* Floor radar — where today's price sits in its own observed range.
               A wishlist is a waiting game: "cheapest ever seen" and "hasn't
-              moved in N days" are what decide whether to strike now. */}
+              moved in N days" are what decide whether to strike now. Once the
+              sweep has lost the listing there is no today's price to place:
+              the history stays, dimmed, and the line says since when. */}
           {floor ? (
             <div className="mt-2 px-1 flex items-center gap-2">
-              <StepSparkline points={floor.points} width={72} height={18} />
+              <span className={`shrink-0 flex${floor.stale ? " opacity-50" : ""}`}>
+                <StepSparkline points={floor.points} width={72} height={18} />
+              </span>
               <span className="text-[10px] tracking-[0.1em] text-[var(--on-surface-muted)]">
-                {floor.flat
+                {floor.stale
+                  ? t("wishlist.floor.lost", {
+                      d: floor.seenDaysAgo,
+                      default: `plus relevé depuis ${floor.seenDaysAgo} j`,
+                    })
+                  : floor.flat
                   ? t("wishlist.floor.stable", {
                       d: floor.stableDays,
                       default: `stable depuis ${floor.stableDays} j`,
@@ -171,7 +181,7 @@ export default function WishItem({
                       p: fmtMoney(floor.floor, floor.currency || prefCurrency, locale),
                       default: `+${floor.aboveFloorPct.toFixed(0)} % au-dessus du plancher`,
                     })}
-                {!floor.flat && floor.stableDays >= 14 ? (
+                {!floor.stale && !floor.flat && floor.stableDays >= 14 ? (
                   <span className="opacity-60">
                     {" · "}
                     {t("wishlist.floor.stable", {
@@ -187,21 +197,19 @@ export default function WishItem({
           {/* What it actually costs once customs is done with it — the number
               that decides the purchase, not the sticker price. */}
           <LandedCostHint
-            amount={marketPrice(it)?.amount}
-            currency={marketPrice(it)?.currency || prefCurrency}
+            amount={market?.amount}
+            currency={market?.currency || prefCurrency}
             className="mt-1.5 px-1"
           />
 
-          {/* Deal note + the user's reminder — quiet, value-toned. */}
+          {/* Deal note + the user's reminder — quiet, value-toned. The note
+              names the price it measured: the shop's, or the catalogue's when
+              there is no current shop price. */}
           {deal ? (
             <p className="mt-2 px-1 text-[10px] uppercase tracking-[0.12em] text-[var(--success)]">
               ◆{" "}
-              {t("wishlist.under_target", {
-                p: fmtMoney(
-                  marketPrice(it)?.amount,
-                  marketPrice(it)?.currency || prefCurrency,
-                  locale,
-                ),
+              {t(market?.source === "provider" ? "wishlist.under_target_market" : "wishlist.under_target", {
+                p: fmtMoney(market?.amount, market?.currency || prefCurrency, locale),
               })}
             </p>
           ) : null}

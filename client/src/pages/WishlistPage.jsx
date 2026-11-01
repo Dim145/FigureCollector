@@ -75,6 +75,14 @@ export default function WishlistPage() {
   // so each row can draw its own floor read.
   const history = useWishlistPriceHistory(allItems.length > 0);
   const floorByFigure = useMemo(() => {
+    // When the sweep last read each price, and whether it has lost the
+    // listing — the floor read must not claim a plateau past either.
+    const seen = new Map(
+      allItems.map((it) => [
+        it.figure_id,
+        { fetchedAt: Date.parse(it.provider_price_fetched_at), stale: !!it.provider_price_stale },
+      ]),
+    );
     const byFig = new Map();
     for (const row of history.data ?? []) {
       const arr = byFig.get(row.figure_id);
@@ -83,11 +91,11 @@ export default function WishlistPage() {
     }
     const out = new Map();
     for (const [fid, rows] of byFig) {
-      const stats = floorStats(toSeries(rows));
+      const stats = floorStats(toSeries(rows), seen.get(fid));
       if (stats) out.set(fid, stats);
     }
     return out;
-  }, [history.data]);
+  }, [history.data, allItems]);
 
   // Budget = sum of target prices. Kept per-currency (buckets) so it can be
   // shown converted into the display currency, with the dominant bucket as the
