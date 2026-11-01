@@ -1,4 +1,8 @@
 @import "tailwindcss";
+/* public/ holds the ~640 MB of ONNX weights and runtime fetch-ml-assets drops
+   there. Tailwind skips them only through .gitignore, which the Docker build
+   context leaves out — scanning them stalled the image build for 40+ minutes. */
+@source not "../public";
 @import "./styles/tokens.css";
 @import "./styles/themes.css";
 @import "./styles/base.css";
