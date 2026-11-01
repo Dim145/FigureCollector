@@ -109,7 +109,7 @@ export default {
   "cote.evo.range.1y": "1 Y",
   "cote.evo.range.all": "All",
   "cote.evo.legend":
-    "Rebuilt from per-piece price points · {cur} (dominant currency) · manual values and MSRP counted as constants",
+    "Rebuilt from per-piece price points · {cur} (dominant currency) · manual values and MSRP counted as constants · a price not seen for 30 days falls back to the MSRP",
   "cote.history.kicker": "PRICE POINTS",
   "cote.history.kicker_label": "MARKET",
   "cote.history.title_suffix": "price evolution",

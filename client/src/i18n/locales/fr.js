@@ -118,7 +118,7 @@ export default {
   "cote.evo.range.1y": "1 An",
   "cote.evo.range.all": "Tout",
   "cote.evo.legend":
-    "Reconstituée depuis les relevés par pièce · {cur} (devise dominante) · valeurs manuelles et MSRP comptées constantes",
+    "Reconstituée depuis les relevés par pièce · {cur} (devise dominante) · valeurs manuelles et MSRP comptées constantes · un prix plus relevé depuis 30 j retombe au MSRP",
   "cote.history.kicker": "RELEVÉS",
   "cote.history.kicker_label": "MARCHÉ",
   "cote.history.title_suffix": "évolution du prix",

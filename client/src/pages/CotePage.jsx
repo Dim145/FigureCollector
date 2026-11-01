@@ -14,9 +14,7 @@ import CoteHeader from "./cote/CoteHeader.jsx";
 import CoteEvolution from "./cote/CoteEvolution.jsx";
 import CoteRanking from "./cote/CoteRanking.jsx";
 import { CoteEmpty, CoteLoading, coteRow } from "./cote/coteShared.jsx";
-
-// Range chips for the evolution chart (days of look-back; "all" = full history).
-const RANGE_DAYS = { "3m": 91, "6m": 183, "1y": 365 };
+import { collectionCurve } from "./cote/coteCurve.js";
 
 /** `/insights/cote#figure-<uuid>` (the figure-page dialog's deep link). */
 function hashFigureId() {
@@ -162,58 +160,12 @@ export default function CotePage() {
     return out;
   }, [history.data]);
 
-  // Collection evolution — "what the headline figure would have read at date T",
-  // reconstructed per the cote chain (manual > auto > MSRP): manual values and
-  // MSRP aren't historized so they contribute constants; provider prices
-  // contribute their step series (MSRP fallback before a piece's 1st relevé).
-  // Dominant currency only, mirroring the headline.
-  const evo = useMemo(() => {
-    const cur = primary?.currency;
-    const items = owned.data ?? [];
-    if (!cur || !items.length || historyByFigure.size === 0) return null;
-    const eq = (c) => (c || "").toUpperCase() === cur.toUpperCase();
-    let constant = 0;
-    const stepped = [];
-    for (const o of items) {
-      if (o.value_amount != null) {
-        if (eq(o.value_currency || o.price_currency)) constant += Number(o.value_amount) || 0;
-        continue;
-      }
-      const series = (historyByFigure.get(o.figure_id) ?? []).filter((p) => eq(p.currency));
-      const msrp = o.msrp_amount != null && eq(o.msrp_currency) ? Number(o.msrp_amount) : null;
-      if (series.length) stepped.push({ series, msrp });
-      else if (msrp != null) constant += msrp;
-    }
-    if (!stepped.length) return null;
-    // Ranges are anchored on the LAST relevé (no clock during render): the
-    // chart's right edge is the latest observation, which the step visually
-    // extends as "holds today".
-    let endT = 0;
-    for (const s of stepped) for (const p of s.series) if (p.t > endT) endT = p.t;
-    if (!endT) return null;
-    const cutoff = range === "all" ? 0 : endT - RANGE_DAYS[range] * 86_400_000;
-    const changeTs = new Set();
-    for (const s of stepped) for (const p of s.series) if (p.t >= cutoff) changeTs.add(p.t);
-    const sorted = [...changeTs].sort((a, b) => a - b);
-    if (!sorted.length) return null;
-    const start = cutoff > 0 ? cutoff : sorted[0];
-    const ts = [...new Set([start, ...sorted.filter((x) => x > start)])].sort((a, b) => a - b);
-    if (ts.length < 2) return null;
-    const valAt = (T) => {
-      let total = constant;
-      for (const s of stepped) {
-        let v = null;
-        for (const p of s.series) {
-          if (p.t <= T) v = p.v;
-          else break;
-        }
-        if (v == null) v = s.msrp;
-        if (v != null) total += v;
-      }
-      return total;
-    };
-    return ts.map((T) => ({ t: T, v: valAt(T), currency: cur }));
-  }, [owned.data, historyByFigure, primary?.currency, range]);
+  // Collection evolution in the dominant currency, mirroring the headline —
+  // `collectionCurve` says how each piece contributes over time.
+  const evo = useMemo(
+    () => collectionCurve(owned.data ?? [], historyByFigure, primary?.currency, range),
+    [owned.data, historyByFigure, primary?.currency, range],
+  );
 
   // Deep link from the figure-page dialog: once the rows exist in the DOM,
   // bring the hash-targeted card into view (the dialog opens via initial state).

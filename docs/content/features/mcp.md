@@ -226,8 +226,8 @@ they are rather than leaving that in the documentation:
   [the wishlist](wishlist.md#target-comparison).
 - `list_wishlist`, `list_owned_items` → `provider_price_amount` is `null` once
   the sweep hasn't confirmed the shop price in 30 days, the same rule as the
-  valuation: the listing stopped resolving, so that price is history. Wishlist
-  rows say so with `provider_price_stale` and `provider_price_fetched_at`.
+  valuation: the listing stopped resolving, so that price is history. Both
+  say so with `provider_price_stale` and `provider_price_fetched_at`.
 
 ## Untrusted content
 

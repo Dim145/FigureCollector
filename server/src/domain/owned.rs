@@ -116,6 +116,13 @@ pub struct OwnedItemWithFigure {
     /// piece's value agrees with the collection totals.
     pub provider_price_amount: Option<Decimal>,
     pub provider_price_currency: Option<String>,
+    /// When the sweep last confirmed the shop price, moved or not. Kept when
+    /// the price went stale: the Cote's reconstructed curve needs it to place
+    /// the moment the price stopped counting.
+    pub provider_price_fetched_at: Option<DateTime<Utc>>,
+    /// A shop price exists but is too old to count (see
+    /// `provider_price_amount`), so the piece is valued at its MSRP.
+    pub provider_price_stale: bool,
 
     /// Per-user cover preference. Either `cover_photo_id` (a `photos` row),
     /// `cover_scan_id` (a `scans` row), or both null — in the latter case
@@ -569,6 +576,9 @@ pub async fn list_for_user(
                  THEN pp.amount END   AS provider_price_amount,
             CASE WHEN pp.fetched_at > now() - interval '{fresh} days'
                  THEN pp.currency END AS provider_price_currency,
+            pp.fetched_at             AS provider_price_fetched_at,
+            COALESCE(pp.fetched_at <= now() - interval '{fresh} days', false)
+                                      AS provider_price_stale,
             o.cover_photo_id, o.cover_scan_id,
             (SELECT ph.storage_key FROM photos ph WHERE ph.id = o.cover_photo_id) AS cover_photo_key,
             (
@@ -855,8 +865,14 @@ mod tests {
 
         assert_eq!(row(fresh).provider_price_amount, Some(Decimal::from(100)));
         assert_eq!(row(fresh).provider_price_currency.as_deref(), Some("EUR"));
+        assert!(!row(fresh).provider_price_stale);
         assert_eq!(row(lost).provider_price_amount, None);
         assert_eq!(row(lost).provider_price_currency, None);
+        assert!(row(lost).provider_price_stale);
+        // When it was last seen survives — the curve places the drop from it.
+        let seen = row(lost).provider_price_fetched_at.expect("last read kept");
+        let days = (Utc::now() - seen).num_days();
+        assert!((44..=45).contains(&days), "last read {days} days ago");
     }
 
     /// An owned figure whose shop price was last confirmed `fetched_days_ago`.

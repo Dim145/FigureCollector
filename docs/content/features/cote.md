@@ -23,9 +23,9 @@ Each piece's value is resolved, in order:
     value that drops is explainable rather than mysterious. A collection whose
     `pieces_stale` is large is telling you the sweep has stopped reaching
     those shops — not that the shelf lost value. The rule holds wherever a
-    piece is valued — the totals, the ranked table, the figure page's *cote
-    actuelle*, the [wishlist](wishlist.md#price-floor) — so a piece is never
-    worth two things at once.
+    piece is valued — the totals, the ranked table, the *Évolution* curve, the
+    figure page's *cote actuelle*, the [wishlist](wishlist.md#price-floor) — so
+    a piece is never worth two things at once.
 
 The *pièces évaluées* counter breaks those tiers down (manual / market / MSRP),
 so you always know how much of the total rests on real numbers.
@@ -92,7 +92,7 @@ That history powers three reads on the page:
 |---|---|
 | **Per-row sparkline** | The figure's price trend at a glance, with a ▲/▼ % delta. |
 | **Registre** (click a sparkline) | The full step-curve + dated ledger of every recorded price. |
-| **Évolution** chart | The whole collection's value reconstructed over time (manual values and MSRPs contribute as constants, market prices as their step series), with 3m / 6m / 1y / all ranges. |
+| **Évolution** chart | The whole collection's value reconstructed over time (manual values and MSRPs contribute as constants, market prices as their step series), with 3m / 6m / 1y / all ranges. A market price the sweep has lost drops to the MSRP 30 days after its last read — when the total stopped counting it — so the curve ends where the headline stands. |
 
 A market price at or below a wishlist target also fires a
 [price alert](wishlist.md#price-alerts) — same sweep, same data.
