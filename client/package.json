@@ -1,6 +1,6 @@
 {
   "name": "figurecollector-client",
-  "version": "0.48.6",
+  "version": "0.48.7",
   "private": true,
   "type": "module",
   "description": "FigureCollector — self-hosted PWA frontend for figurine collection tracking",
