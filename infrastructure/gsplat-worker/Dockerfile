@@ -57,6 +57,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # targets CUDA 12 / cuDNN 9 — matches this base, so no version pin (unlike the old
 # CUDA 11.8 image, which needed 1.18.x). It also carries the CPU provider, so the
 # worker degrades to CPU if the CUDA EP can't bind (it logs which one bound).
+# rembg also brings opencv-python-headless, which the embed loop decodes official
+# images with while this image is held on Pillow 12 (embed_index.PILLOW_PATCHED).
 RUN --mount=type=cache,target=/root/.cache/pip \
     python3 -m pip install \
       asyncpg==0.30.0 "boto3==1.35.*" "structlog==24.4.*" \

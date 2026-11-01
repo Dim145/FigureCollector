@@ -48,6 +48,7 @@ import numpy as np
 import onnxruntime as ort
 import structlog
 from PIL import Image
+from PIL import __version__ as PILLOW_VERSION
 
 # --- Config (env, all embed-specific so it can't clash with a host worker) ----
 SERVER_URL = os.environ.get("SERVER_URL", "http://server:3000").rstrip("/")
@@ -163,9 +164,20 @@ IMAGE_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 # official_image_url points wherever a user or scraper said — while the server
 # itself only accepts JPEG / PNG / WebP photos (server/src/photo.rs). Every
 # other decoder (TIFF, FlashPix, PSD, EPS…), where most Pillow advisories land,
-# stays out of reach; that matters most in the gsplat image, which Python 3.10
-# keeps on Pillow 12 (13.0 needs 3.11).
+# stays out of reach.
 DECODE_FORMATS = ("JPEG", "PNG", "WEBP")
+
+# Pillow only patches its latest release, and the gsplat image is held on 12
+# (gsplat ships cp310 wheels only; 13.0 needs Python 3.11), so it gets neither
+# the October 2026 decoder fixes nor any later one. Under it, an official image
+# is decoded by OpenCV instead — its bundled libjpeg-turbo / libpng / libwebp,
+# in wheels that do stay current on 3.10 — and reaches Pillow only as the PNG
+# OpenCV re-encodes it to. OpenCV checks the pixel cap (the server's 4096² photo
+# cap) against the header, before it allocates.
+PILLOW_PATCHED = int(PILLOW_VERSION.split(".")[0]) >= 13
+OFFICIAL_MAX_PIXELS = 4096 * 4096
+if not PILLOW_PATCHED:
+    os.environ.setdefault("OPENCV_IO_MAX_IMAGE_PIXELS", str(OFFICIAL_MAX_PIXELS))
 
 log = structlog.get_logger()
 
@@ -491,9 +503,37 @@ _SAFE_OPENER = urllib.request.build_opener(
 )
 
 
+def _redecode_untrusted(data: bytes) -> bytes:
+    """Decode third-party image bytes with OpenCV and return OpenCV's own PNG of
+    the pixels, so an unpatched Pillow never parses bytes from the internet (see
+    PILLOW_PATCHED). Alpha is kept — the tagger composites it onto white — and
+    EXIF orientation is ignored, as Pillow ignores it here too."""
+    import cv2  # in the gsplat image via rembg; only reached under Pillow < 13
+
+    if not (
+        data.startswith(b"\xff\xd8\xff")
+        or data.startswith(b"\x89PNG\r\n\x1a\n")
+        or (data[:4] == b"RIFF" and data[8:12] == b"WEBP")
+    ):
+        raise ValueError("official image is not JPEG, PNG or WebP")
+    try:
+        pixels = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_UNCHANGED)
+    except cv2.error:  # OpenCV 5 raises past the pixel cap; 4.x returns None
+        pixels = None
+    if pixels is None:
+        raise ValueError("official image failed to decode or exceeds the pixel cap")
+    if pixels.dtype != np.uint8:  # 16-bit PNG
+        pixels = (pixels >> 8).astype(np.uint8)
+    ok, png = cv2.imencode(".png", pixels)
+    if not ok:
+        raise ValueError("official image failed to re-encode")
+    return png.tobytes()
+
+
 def fetch_image(source: str, image_ref: str) -> bytes:
     """Catalog photos via the server's public proxy (storage-agnostic);
-    `official` images from their (user-controlled) source URL, SSRF-guarded."""
+    `official` images from their (user-controlled) source URL, SSRF-guarded, and
+    re-decoded through OpenCV under an unpatched Pillow."""
     if source == "photo":
         # Trusted server proxy (SERVER_URL) — the default opener is fine.
         url, opener = f"{SERVER_URL}/api/figure-photos/{image_ref}", urllib.request.urlopen
@@ -508,6 +548,8 @@ def fetch_image(source: str, image_ref: str) -> bytes:
         raise ValueError("image exceeds EMBED_MAX_IMAGE_BYTES")
     if not data:
         raise ValueError("empty image")
+    if source != "photo" and not PILLOW_PATCHED:
+        data = _redecode_untrusted(data)
     return data
 
 
