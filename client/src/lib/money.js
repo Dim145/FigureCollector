@@ -137,7 +137,8 @@ export function effectiveValue(item) {
     };
   }
   // Auto-fetched provider/market price — sits between the manual value and the
-  // MSRP fallback (an empty/absent value means the cron hasn't priced it).
+  // MSRP fallback (an empty/absent value means the cron hasn't priced it, or
+  // hasn't confirmed the price in PRICE_FRESH_DAYS — the server drops it then).
   if (item?.provider_price_amount != null) {
     const amount = Number(item.provider_price_amount);
     if (Number.isFinite(amount)) {

@@ -22,7 +22,10 @@ Each piece's value is resolved, in order:
     through to the MSRP and are counted in `valuation.pieces_stale`, so a
     value that drops is explainable rather than mysterious. A collection whose
     `pieces_stale` is large is telling you the sweep has stopped reaching
-    those shops — not that the shelf lost value.
+    those shops — not that the shelf lost value. The rule holds wherever a
+    piece is valued — the totals, the ranked table, the figure page's *cote
+    actuelle*, the [wishlist](wishlist.md#price-floor) — so a piece is never
+    worth two things at once.
 
 The *pièces évaluées* counter breaks those tiers down (manual / market / MSRP),
 so you always know how much of the total rests on real numbers.

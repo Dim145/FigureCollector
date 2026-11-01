@@ -4,11 +4,13 @@
 //! joined from `figures` / `manufacturers`. `max_price_amount` is the user's
 //! target price (the "cible"); `note` a free-text reminder.
 
+use crate::domain::stats::PRICE_FRESH_DAYS;
 use crate::error::{AppError, AppResult};
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, PgPool};
+use std::sync::LazyLock;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, FromRow)]
@@ -27,10 +29,19 @@ pub struct WishlistItem {
     pub scale: Option<String>,
     pub msrp_amount: Option<Decimal>,
     pub msrp_currency: Option<String>,
-    /// Latest market price observed by the price cron (None when never
-    /// priced) — the SPA's "deal met" check prefers it over the MSRP.
+    /// Latest market price observed by the price cron — the SPA's "deal met"
+    /// check prefers it over the MSRP. `None` when never priced, and also once
+    /// the sweep hasn't confirmed it in [`PRICE_FRESH_DAYS`]: the listing
+    /// stopped resolving, so the last thing that shop asked is history, not a
+    /// price anyone can pay. Same rule as the collection's valuation.
     pub provider_price_amount: Option<Decimal>,
     pub provider_price_currency: Option<String>,
+    /// When the sweep last confirmed the shop price, moved or not — the end of
+    /// what the price history can vouch for. Kept when the price went stale.
+    pub provider_price_fetched_at: Option<DateTime<Utc>>,
+    /// A shop price exists but is too old to count (see
+    /// `provider_price_amount`), so a target is measured against the MSRP.
+    pub provider_price_stale: bool,
     pub is_nsfw: bool,
     /// Catalogue primary photo id (cover fallback), so the SPA builds the
     /// `/api/figure-photos/{id}` URL without a second query per row.
@@ -73,14 +84,23 @@ pub struct WishlistPatch {
     pub note: Option<String>,
 }
 
-const SELECT: &str = "
+static SELECT: LazyLock<String> = LazyLock::new(|| {
+    format!(
+        "
     SELECT w.figure_id, w.max_price_amount, w.max_price_currency, w.note, w.created_at,
            f.name AS figure_name, f.slug AS figure_slug, f.figure_type,
            f.official_image_url AS figure_image,
            m.name AS manufacturer_name, f.scale,
            f.msrp_amount, f.msrp_currency,
-           pp.amount   AS provider_price_amount,
-           pp.currency AS provider_price_currency,
+           -- A price the sweep stopped refreshing is not a market price; see
+           -- PRICE_FRESH_DAYS.
+           CASE WHEN pp.fetched_at > now() - interval '{PRICE_FRESH_DAYS} days'
+                THEN pp.amount END   AS provider_price_amount,
+           CASE WHEN pp.fetched_at > now() - interval '{PRICE_FRESH_DAYS} days'
+                THEN pp.currency END AS provider_price_currency,
+           pp.fetched_at             AS provider_price_fetched_at,
+           COALESCE(pp.fetched_at <= now() - interval '{PRICE_FRESH_DAYS} days', false)
+                                     AS provider_price_stale,
            f.is_nsfw,
            (
                SELECT fp.id FROM figure_photos fp
@@ -102,7 +122,9 @@ const SELECT: &str = "
     FROM wishlist_items w
     JOIN figures f          ON f.id = w.figure_id
     LEFT JOIN figure_provider_prices pp ON pp.figure_id = f.id
-    LEFT JOIN manufacturers m ON m.id = f.manufacturer_id";
+    LEFT JOIN manufacturers m ON m.id = f.manufacturer_id"
+    )
+});
 
 /// How a price was measured against a wishlist target.
 ///
@@ -192,7 +214,7 @@ pub async fn annotate_targets(pool: &PgPool, http: &reqwest::Client, items: &mut
             continue;
         };
         // The shop price wins over the catalogue MSRP — same precedence the
-        // deal badge has always used.
+        // deal badge has always used. A stale one is already `None` here.
         let priced = match (item.provider_price_amount, item.msrp_amount) {
             (Some(a), _) => Some(("provider", a, item.provider_price_currency.as_deref())),
             (None, Some(a)) => Some(("msrp", a, item.msrp_currency.as_deref())),
@@ -224,7 +246,7 @@ fn check_currency(c: &Option<String>) -> AppResult<()> {
 }
 
 pub async fn list(pool: &PgPool, user_id: Uuid, exclude_nsfw: bool) -> AppResult<Vec<WishlistItem>> {
-    let mut sql = format!("{SELECT} WHERE w.user_id = $1");
+    let mut sql = format!("{} WHERE w.user_id = $1", *SELECT);
     if exclude_nsfw {
         sql.push_str(" AND NOT f.is_nsfw");
     }
@@ -236,7 +258,7 @@ pub async fn list(pool: &PgPool, user_id: Uuid, exclude_nsfw: bool) -> AppResult
 }
 
 async fn find_one(pool: &PgPool, user_id: Uuid, figure_id: Uuid) -> AppResult<WishlistItem> {
-    let sql = format!("{SELECT} WHERE w.user_id = $1 AND w.figure_id = $2");
+    let sql = format!("{} WHERE w.user_id = $1 AND w.figure_id = $2", *SELECT);
     sqlx::query_as::<_, WishlistItem>(&sql)
         .bind(user_id)
         .bind(figure_id)
@@ -349,6 +371,8 @@ mod tests {
             msrp_currency: None,
             provider_price_amount: provider.map(|(a, _)| Decimal::from(a)),
             provider_price_currency: provider.map(|(_, c)| c.to_string()),
+            provider_price_fetched_at: provider.map(|_| Utc::now()),
+            provider_price_stale: false,
             is_nsfw: false,
             catalog_cover_photo_id: None,
             target_comparison: None,
@@ -510,5 +534,76 @@ mod tests {
     fn a_row_with_no_target_gets_no_verdict() {
         let rows = [item(None, Some((99, "EUR")))];
         assert!(rows[0].target_comparison.is_none());
+    }
+
+    /// A shop price the sweep stopped confirming is not one anyone can pay:
+    /// the row reads as never priced, so its target is measured against the
+    /// MSRP, and it says why — while keeping when the price was last seen.
+    #[sqlx::test]
+    async fn a_price_the_sweep_lost_is_not_a_market_price(pool: PgPool) {
+        let user = seed_user(&pool).await;
+        let fresh = seed_wish(&pool, user, Some(2)).await;
+        let lost = seed_wish(&pool, user, Some(45)).await;
+        let never = seed_wish(&pool, user, None).await;
+
+        let rows = list(&pool, user, false).await.expect("the list must parse");
+        let row = |id: Uuid| rows.iter().find(|r| r.figure_id == id).unwrap();
+
+        assert_eq!(row(fresh).provider_price_amount, Some(Decimal::from(100)));
+        assert_eq!(row(fresh).provider_price_currency.as_deref(), Some("EUR"));
+        assert!(!row(fresh).provider_price_stale);
+
+        assert_eq!(row(lost).provider_price_amount, None);
+        assert_eq!(row(lost).provider_price_currency, None);
+        assert!(row(lost).provider_price_stale);
+        assert!(row(lost).provider_price_fetched_at.is_some());
+
+        assert_eq!(row(never).provider_price_fetched_at, None);
+        assert!(
+            !row(never).provider_price_stale,
+            "never priced is not stale"
+        );
+    }
+
+    async fn seed_user(pool: &PgPool) -> Uuid {
+        let id = Uuid::now_v7();
+        sqlx::query("INSERT INTO users (id, username, display_name) VALUES ($1, $2, 'T')")
+            .bind(id)
+            .bind(id.to_string())
+            .execute(pool)
+            .await
+            .unwrap();
+        id
+    }
+
+    /// A wished figure, priced `fetched_days_ago` days ago (unpriced on `None`).
+    async fn seed_wish(pool: &PgPool, user: Uuid, fetched_days_ago: Option<i32>) -> Uuid {
+        let figure = Uuid::now_v7();
+        sqlx::query(
+            "INSERT INTO figures (id, name, slug, figure_type) VALUES ($1, 'F', $2, 'statue')",
+        )
+        .bind(figure)
+        .bind(figure.to_string())
+        .execute(pool)
+        .await
+        .unwrap();
+        sqlx::query("INSERT INTO wishlist_items (user_id, figure_id) VALUES ($1, $2)")
+            .bind(user)
+            .bind(figure)
+            .execute(pool)
+            .await
+            .unwrap();
+        if let Some(days) = fetched_days_ago {
+            sqlx::query(
+                "INSERT INTO figure_provider_prices (figure_id, amount, currency, source, fetched_at)
+                 VALUES ($1, 100, 'EUR', 'proxy', now() - make_interval(days => $2))",
+            )
+            .bind(figure)
+            .bind(days)
+            .execute(pool)
+            .await
+            .unwrap();
+        }
+        figure
     }
 }

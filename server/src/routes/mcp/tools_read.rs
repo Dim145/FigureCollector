@@ -488,7 +488,7 @@ impl FcMcp {
     }
 
     #[tool(
-        description = "The caller's wishlist: target price, note, catalogue MSRP and the latest observed shop price per figure. Each row carries `target_comparison` — whether the target is met, both sides in EUR when the two currencies differ, and the rate date — because a 200 EUR target beside a 239 USD shop price cannot be judged on the bare numbers. Use it rather than comparing `max_price_amount` with `provider_price_amount` yourself.",
+        description = "The caller's wishlist: target price, note, catalogue MSRP and the latest observed shop price per figure. Each row carries `target_comparison` — whether the target is met, both sides in EUR when the two currencies differ, and the rate date — because a 200 EUR target beside a 239 USD shop price cannot be judged on the bare numbers. Use it rather than comparing `max_price_amount` with `provider_price_amount` yourself. `provider_price_amount` is null once the price sweep hasn't confirmed the shop price in 30 days (`provider_price_stale`, with `provider_price_fetched_at` the last time it did): the listing stopped resolving, so that price is history and the target is measured against the MSRP.",
         annotations(title = "Wishlist", read_only_hint = true, idempotent_hint = true)
     )]
     async fn list_wishlist(

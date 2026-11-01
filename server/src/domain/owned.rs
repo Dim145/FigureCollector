@@ -111,6 +111,9 @@ pub struct OwnedItemWithFigure {
     /// Auto-fetched provider/market price (populated by the price cron) + its
     /// currency. Sits between the manual `value_amount` and the MSRP in the
     /// cote fallback chain — lets the SPA render the auto cote without a 2nd query.
+    /// `None` once the sweep hasn't confirmed it in
+    /// [`PRICE_FRESH_DAYS`](crate::domain::stats::PRICE_FRESH_DAYS), so each
+    /// piece's value agrees with the collection totals.
     pub provider_price_amount: Option<Decimal>,
     pub provider_price_currency: Option<String>,
 
@@ -541,7 +544,8 @@ pub async fn list_for_user(
     // fallback `/api/figure-photos/{id}` URL without a second roundtrip per
     // row. `is_primary DESC` puts the primary first when one exists, then
     // falls back to position order.
-    let mut sql = String::from(
+    let fresh = crate::domain::stats::PRICE_FRESH_DAYS;
+    let mut sql = format!(
         "SELECT
             o.id, o.figure_id, o.condition, o.price_amount, o.price_currency,
             o.shipping_amount,
@@ -559,8 +563,12 @@ pub async fn list_for_user(
             m.name AS manufacturer_name,
             f.scale, f.height_mm, f.version_name,
             f.msrp_amount, f.msrp_currency,
-            pp.amount   AS provider_price_amount,
-            pp.currency AS provider_price_currency,
+            -- A price the sweep stopped refreshing is not a market price; see
+            -- PRICE_FRESH_DAYS.
+            CASE WHEN pp.fetched_at > now() - interval '{fresh} days'
+                 THEN pp.amount END   AS provider_price_amount,
+            CASE WHEN pp.fetched_at > now() - interval '{fresh} days'
+                 THEN pp.currency END AS provider_price_currency,
             o.cover_photo_id, o.cover_scan_id,
             (SELECT ph.storage_key FROM photos ph WHERE ph.id = o.cover_photo_id) AS cover_photo_key,
             (
@@ -819,4 +827,65 @@ pub async fn delete_for_user(
         photo_keys,
         scan_ids,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The collection totals stopped counting a shop price the sweep lost; the
+    /// Cote ranking and the figure page value each piece from this row, so it
+    /// must apply the same rule or a piece is worth two things at once.
+    #[sqlx::test]
+    async fn a_price_the_sweep_lost_does_not_value_a_piece(pool: PgPool) {
+        let user = Uuid::now_v7();
+        sqlx::query("INSERT INTO users (id, username, display_name) VALUES ($1, $2, 'T')")
+            .bind(user)
+            .bind(user.to_string())
+            .execute(&pool)
+            .await
+            .unwrap();
+        let fresh = seed_owned(&pool, user, 2).await;
+        let lost = seed_owned(&pool, user, 45).await;
+
+        let rows = list_for_user(&pool, user, false, false, None)
+            .await
+            .expect("the list must parse");
+        let row = |figure: Uuid| rows.iter().find(|r| r.figure_id == figure).unwrap();
+
+        assert_eq!(row(fresh).provider_price_amount, Some(Decimal::from(100)));
+        assert_eq!(row(fresh).provider_price_currency.as_deref(), Some("EUR"));
+        assert_eq!(row(lost).provider_price_amount, None);
+        assert_eq!(row(lost).provider_price_currency, None);
+    }
+
+    /// An owned figure whose shop price was last confirmed `fetched_days_ago`.
+    async fn seed_owned(pool: &PgPool, user: Uuid, fetched_days_ago: i32) -> Uuid {
+        let figure = Uuid::now_v7();
+        sqlx::query(
+            "INSERT INTO figures (id, name, slug, figure_type) VALUES ($1, 'F', $2, 'statue')",
+        )
+        .bind(figure)
+        .bind(figure.to_string())
+        .execute(pool)
+        .await
+        .unwrap();
+        sqlx::query("INSERT INTO owned_items (id, user_id, figure_id) VALUES ($1, $2, $3)")
+            .bind(Uuid::now_v7())
+            .bind(user)
+            .bind(figure)
+            .execute(pool)
+            .await
+            .unwrap();
+        sqlx::query(
+            "INSERT INTO figure_provider_prices (figure_id, amount, currency, source, fetched_at)
+             VALUES ($1, 100, 'EUR', 'proxy', now() - make_interval(days => $2))",
+        )
+        .bind(figure)
+        .bind(fetched_days_ago)
+        .execute(pool)
+        .await
+        .unwrap();
+        figure
+    }
 }
