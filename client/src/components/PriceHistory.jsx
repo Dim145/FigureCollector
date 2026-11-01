@@ -11,10 +11,13 @@ import { fmtMoney } from "../lib/money.js";
  *
  * The data is `figure_price_history`: append-only CHANGE points written by the
  * price cron. Step curves (value holds until the next relevé) are therefore
- * the honest representation — no interpolation. Everything is hand-rolled
- * SVG: gold hairlines, a gold step path, rotated-square markers (jade = rise,
- * laque = drop), mono labels. GPU-light by construction — flat fills, no
- * gradients/blur/animation, hover handled with a single positioned div.
+ * the honest representation — no interpolation. It also means a price that
+ * never moved has ONE point, so every chart here draws a lone point as a flat
+ * line rather than hiding it (most shops behind the proxy price that way).
+ * Everything is hand-rolled SVG: gold hairlines, a gold step path,
+ * rotated-square markers (jade = rise, laque = drop), mono labels. GPU-light by
+ * construction — flat fills, no gradients/blur/animation, hover handled with a
+ * single positioned div.
  */
 
 const OR = "var(--color-or)";
@@ -65,9 +68,12 @@ function valueBounds(points) {
   return [min, max];
 }
 
-/** Tiny inline step curve — the ranked-list / CoteGlance trend glyph. */
+/**
+ * Tiny inline step curve — the ranked-list / CoteGlance trend glyph. A single
+ * point draws flat to the right edge: the price has held since that relevé.
+ */
 export function StepSparkline({ points, width = 96, height = 22 }) {
-  if (!points || points.length < 2) return null;
+  if (!points?.length) return null;
   const t0 = points[0].t;
   // Time domain ends at the last relevé; the trailing H-segment to the right
   // edge conveys "holds today" without reading the clock during render.
@@ -94,7 +100,7 @@ export function StepSparkline({ points, width = 96, height = 22 }) {
         width="5.2"
         height="5.2"
         transform={`rotate(45 ${cx} ${cy})`}
-        fill={last.v >= prev.v ? JADE : LAQUE}
+        fill={!prev ? OR : last.v >= prev.v ? JADE : LAQUE}
       />
     </svg>
   );

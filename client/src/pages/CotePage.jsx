@@ -343,7 +343,7 @@ export default function CotePage() {
 
       {/* Relevés dialog — shared domain component; deep-link opens it directly. */}
       <PriceHistoryDialog
-        open={!!histRow && histPoints.length >= 2}
+        open={!!histRow && histPoints.length > 0}
         onClose={() => setHistFigureId(null)}
         figureId={histFigureId}
         figureName={histRow?.figure_name}

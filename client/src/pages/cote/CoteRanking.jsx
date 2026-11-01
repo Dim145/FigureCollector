@@ -67,7 +67,7 @@ export default function CoteRanking({
       align: "center",
       render: (row) => {
         const series = historyByFigure.get(row.o.figure_id) ?? [];
-        if (series.length < 2) return <span className="text-[var(--on-surface-subtle)]">—</span>;
+        if (!series.length) return <span className="text-[var(--on-surface-subtle)]">—</span>;
         const sd = seriesDelta(series);
         return (
           <button
@@ -216,7 +216,7 @@ function MobileRow({ row, t, series, cellProps, onOpenHistory }) {
     >
       <div className="flex items-start justify-between gap-3">
         <PieceCell row={row} t={t} />
-        {series.length >= 2 ? (
+        {series.length ? (
           <button
             type="button"
             onClick={() => onOpenHistory(o)}

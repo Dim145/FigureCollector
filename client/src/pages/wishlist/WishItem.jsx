@@ -20,7 +20,7 @@ export default function WishItem({
   it,
   t,
   // Floor / ceiling read from the market-price history (see priceFloor.js).
-  // Undefined when the figure has fewer than two comparable relevés.
+  // Undefined when the figure has no history, or only today's first relevé.
   floor,
   locale,
   prefCurrency,
@@ -159,14 +159,19 @@ export default function WishItem({
             <div className="mt-2 px-1 flex items-center gap-2">
               <StepSparkline points={floor.points} width={72} height={18} />
               <span className="text-[10px] tracking-[0.1em] text-[var(--on-surface-muted)]">
-                {floor.atFloor
+                {floor.flat
+                  ? t("wishlist.floor.stable", {
+                      d: floor.stableDays,
+                      default: `stable depuis ${floor.stableDays} j`,
+                    })
+                  : floor.atFloor
                   ? t("wishlist.floor.at", { default: "au plancher observé" })
                   : t("wishlist.floor.above", {
                       pct: floor.aboveFloorPct.toFixed(0),
                       p: fmtMoney(floor.floor, floor.currency || prefCurrency, locale),
                       default: `+${floor.aboveFloorPct.toFixed(0)} % au-dessus du plancher`,
                     })}
-                {floor.stableDays >= 14 ? (
+                {!floor.flat && floor.stableDays >= 14 ? (
                   <span className="opacity-60">
                     {" · "}
                     {t("wishlist.floor.stable", {

@@ -109,10 +109,11 @@ export default function ValueSection({ f, owned, t }) {
           ) : null}
         </div>
 
-        {/* ≥2 relevés → the full step-chart + ledger; otherwise a quiet,
-         *  on-skin empty state. The "Voir dans la Cote" link is always present
-         *  so the full cote page is one tap away. */}
-        {series.length >= 2 ? (
+        {/* Any relevé → the full step-chart + ledger (a lone one is a price
+         *  that never moved, drawn flat); none → a quiet, on-skin empty state.
+         *  The "Voir dans la Cote" link is always present so the full cote
+         *  page is one tap away. */}
+        {series.length ? (
           <>
             <StepChart points={series} currency={currency} locale={locale} height={170} t={t} />
             <div className="fig-chart-ledger">
