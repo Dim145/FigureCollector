@@ -57,13 +57,15 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # targets CUDA 12 / cuDNN 9 — matches this base, so no version pin (unlike the old
 # CUDA 11.8 image, which needed 1.18.x). It also carries the CPU provider, so the
 # worker degrades to CPU if the CUDA EP can't bind (it logs which one bound).
+# rembg also brings opencv-python-headless, which the embed loop decodes official
+# images with while this image is held on Pillow 12 (embed_index.PILLOW_PATCHED).
 RUN --mount=type=cache,target=/root/.cache/pip \
     python3 -m pip install \
       asyncpg==0.30.0 "boto3==1.35.*" "structlog==24.4.*" \
       "rembg==2.0.*" onnxruntime-gpu "tokenizers==0.23.1"
 
-# RapidOCR (PP-OCR ONNX) + PyMuPDF for the OCR loop (Palier 2 — image / scanned
-# justificatif OCR). RapidOCR is installed with --no-deps so it CANNOT pull the
+# RapidOCR (PP-OCR ONNX) + PyMuPDF for the OCR loop (Palier 2 — scanned PDF
+# justificatifs). RapidOCR is installed with --no-deps so it CANNOT pull the
 # CPU `onnxruntime` wheel, which would shadow the onnxruntime-gpu above that the
 # embed + OCR CUDA execution providers rely on. Its remaining runtime deps
 # (numpy / opencv / Pillow come from rembg already) are added explicitly.

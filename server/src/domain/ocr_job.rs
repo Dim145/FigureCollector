@@ -5,11 +5,19 @@
 //! `parse_invoice` on the text and stores the suggestion as
 //! `owned_item_documents.parsed_metadata`.
 
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use sqlx::{FromRow, PgPool};
 use uuid::Uuid;
+
+/// The only document type that is ever queued. The worker hands a PDF to
+/// MuPDF and OCRs the pages it renders, so its Pillow — held at 12 by the
+/// gsplat image's Python 3.10 — never decodes bytes a user uploaded. A receipt
+/// image would reach Pillow as-is, so images aren't OCR'd (the worker fails
+/// such a job unread); bringing them back means queueing a copy re-encoded by
+/// [`crate::photo`], never the stored original.
+pub const OCR_MIME: &str = "application/pdf";
 
 /// Queue an OCR job for a document — a no-op when one is already
 /// pending/processing (a second "Extraire" click must not pile up jobs).
@@ -22,6 +30,9 @@ pub async fn enqueue(
     storage_key: &str,
     mime: &str,
 ) -> AppResult<bool> {
+    if mime != OCR_MIME {
+        return Err(AppError::BadRequest("only PDFs can be OCR'd"));
+    }
     let row: Option<(Uuid,)> = sqlx::query_as(
         "INSERT INTO document_ocr_jobs (document_id, owned_item_id, user_id, storage_key, mime)
          SELECT $1, $2, $3, $4, $5
@@ -136,4 +147,28 @@ pub async fn delete(pool: &PgPool, id: Uuid) -> AppResult<u64> {
         .execute(pool)
         .await?;
     Ok(res.rows_affected())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn enqueue_refuses_anything_but_a_pdf() {
+        // The guard runs before any query, so a pool that never connects will do.
+        let pool = PgPool::connect_lazy("postgres://localhost/unused").unwrap();
+        let id = Uuid::nil();
+        for mime in [
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+            "application/octet-stream",
+        ] {
+            let res = enqueue(&pool, id, id, id, "documents/x", mime).await;
+            assert!(
+                matches!(res, Err(AppError::BadRequest(_))),
+                "{mime} was queued"
+            );
+        }
+    }
 }
