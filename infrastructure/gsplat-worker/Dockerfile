@@ -62,8 +62,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
       asyncpg==0.30.0 "boto3==1.35.*" "structlog==24.4.*" \
       "rembg==2.0.*" onnxruntime-gpu "tokenizers==0.23.1"
 
-# RapidOCR (PP-OCR ONNX) + PyMuPDF for the OCR loop (Palier 2 — image / scanned
-# justificatif OCR). RapidOCR is installed with --no-deps so it CANNOT pull the
+# RapidOCR (PP-OCR ONNX) + PyMuPDF for the OCR loop (Palier 2 — scanned PDF
+# justificatifs). RapidOCR is installed with --no-deps so it CANNOT pull the
 # CPU `onnxruntime` wheel, which would shadow the onnxruntime-gpu above that the
 # embed + OCR CUDA execution providers rely on. Its remaining runtime deps
 # (numpy / opencv / Pillow come from rembg already) are added explicitly.

@@ -550,7 +550,7 @@ async def set_progress(pool: asyncpg.Pool, scan_id: Any, pct: int) -> None:
 # -----------------------------------------------------------------------------
 # OCR for justificatifs (Palier 2) — drains `document_ocr_jobs`.
 #
-# Image / scanned-PDF receipts (no text layer) are OCR'd here with RapidOCR
+# Scanned receipts — PDFs with no text layer — are OCR'd here with RapidOCR
 # (PP-OCR ONNX on onnxruntime — the SAME runtime the embed loops use). The
 # server then runs the text through its `parse_invoice` heuristics. Runs as a
 # concurrent asyncio loop beside gsplat + the embed loops; self-disables if
@@ -562,6 +562,12 @@ async def set_progress(pool: asyncpg.Pool, scan_id: Any, pct: int) -> None:
 OCR_DEVICE = os.environ.get("OCR_DEVICE", "cuda").strip().lower()  # "cuda" | "cpu"
 OCR_PDF_MAX_PAGES = int(os.environ.get("OCR_PDF_MAX_PAGES", "8"))
 OCR_RASTER_DPI = int(os.environ.get("OCR_RASTER_DPI", "200"))
+# The only document type the loop opens. MuPDF rasterises a PDF, so the Pillow
+# that RapidOCR decodes with only ever sees MuPDF's own PNGs. An image receipt
+# would reach Pillow exactly as the user uploaded it, and this image is held on
+# Pillow 12 (gsplat ships cp310 wheels only; Pillow 13 needs Python 3.11) — so
+# any other job is failed without being fetched. The server only queues PDFs.
+OCR_MIME = "application/pdf"
 
 
 def _build_ocr_engine():
@@ -592,38 +598,32 @@ def _reading_order_text(result) -> str:
     return "\n".join(t for (_box, t, _score) in sorted(result, key=key))
 
 
-def _ocr_images_to_paths(blob: bytes, mime: str, tmpdir: str) -> list[str]:
-    """Rasterise a PDF (PyMuPDF) to one PNG per page, or drop the image bytes to
-    a file. We pass file PATHS to RapidOCR (the exact, validated spike path)."""
-    paths: list[str] = []
-    if mime == "application/pdf":
-        import fitz  # PyMuPDF
+def _rasterise_pdf(blob: bytes, tmpdir: str) -> list[str]:
+    """Rasterise a PDF (PyMuPDF) to one PNG per page. We pass file PATHS to
+    RapidOCR (the exact, validated spike path)."""
+    import fitz  # PyMuPDF
 
-        doc = fitz.open(stream=blob, filetype="pdf")
-        try:
-            for i, page in enumerate(doc):
-                if i >= OCR_PDF_MAX_PAGES:
-                    break
-                p = os.path.join(tmpdir, f"page_{i}.png")
-                page.get_pixmap(dpi=OCR_RASTER_DPI).save(p)
-                paths.append(p)
-        finally:
-            doc.close()
-    else:
-        p = os.path.join(tmpdir, "image.bin")
-        with open(p, "wb") as f:
-            f.write(blob)
-        paths.append(p)
+    paths: list[str] = []
+    doc = fitz.open(stream=blob, filetype="pdf")
+    try:
+        for i, page in enumerate(doc):
+            if i >= OCR_PDF_MAX_PAGES:
+                break
+            p = os.path.join(tmpdir, f"page_{i}.png")
+            page.get_pixmap(dpi=OCR_RASTER_DPI).save(p)
+            paths.append(p)
+    finally:
+        doc.close()
     return paths
 
 
-def _run_ocr(engine, blob: bytes, mime: str) -> str:
-    """Blocking OCR of one document → reading-ordered text. Via asyncio.to_thread."""
+def _run_ocr(engine, blob: bytes) -> str:
+    """Blocking OCR of one PDF → reading-ordered text. Via asyncio.to_thread."""
     import tempfile
 
     with tempfile.TemporaryDirectory() as td:
         chunks = []
-        for path in _ocr_images_to_paths(blob, mime, td):
+        for path in _rasterise_pdf(blob, td):
             result, _elapse = engine(path)
             chunks.append(_reading_order_text(result))
     return "\n".join(c for c in chunks if c)
@@ -701,13 +701,18 @@ async def run_ocr_loop(pool: asyncpg.Pool, state: "WorkerState") -> None:
             continue
         job_id = job["id"]
         log.info("ocr job claimed", job_id=str(job_id), mime=job["mime"])
+        if job["mime"] != OCR_MIME:
+            # Never fetched, never decoded — see OCR_MIME.
+            log.error("ocr job refused — not a PDF", job_id=str(job_id), mime=job["mime"])
+            await mark_ocr_failed(pool, job_id, f"OCR reads PDFs only, not {job['mime']}")
+            continue
         try:
             blob = await asyncio.to_thread(
                 lambda key=job["storage_key"]: s3.get_object(Bucket=S3_BUCKET, Key=key)[
                     "Body"
                 ].read()
             )
-            text = await asyncio.to_thread(_run_ocr, engine, blob, job["mime"])
+            text = await asyncio.to_thread(_run_ocr, engine, blob)
             await mark_ocr_ready(pool, job_id, text)
             log.info("ocr ready", job_id=str(job_id), chars=len(text))
         except Exception as e:  # noqa: BLE001

@@ -249,8 +249,9 @@ async fn parse_document(
     } else if note.is_none() {
         // No text layer. OCR (Palier 2) is reserved for a PDF that turned out to
         // be an image (a scanned invoice). Plain image uploads (JPG/PNG/WebP) are
-        // NOT OCR'd — the parse feature is hidden for them client-side.
-        if mime != "application/pdf" {
+        // NOT OCR'd — the parse feature is hidden for them client-side, and the
+        // worker must never decode them (see `ocr_job::OCR_MIME`).
+        if mime != ocr_job::OCR_MIME {
             note = Some("ocr_pdf_only");
         } else if let Some(meta) = parsed_metadata {
             // OCR already ran; the listener stored the suggestion.
