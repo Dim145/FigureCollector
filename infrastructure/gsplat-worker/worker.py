@@ -918,10 +918,18 @@ def _select_sharpest(raw: Path, images: Path, target: int, scan_id: Any) -> int:
     sharp = None
     try:
         import cv2  # type: ignore
+        import numpy as np
 
         def sharp(p: Path) -> float:  # noqa: F811
-            g = cv2.imread(str(p), cv2.IMREAD_GRAYSCALE)
-            return float(cv2.Laplacian(g, cv2.CV_64F).var()) if g is not None else -1.0
+            # Pillow decodes the frame (ffmpeg's own PNG), not cv2.imread: every
+            # cv2 decode here carries embed_index's official-image pixel cap,
+            # which a raised VIDEO_MAX_DIM can pass — and cv2 5 raises past it.
+            try:
+                with Image.open(p) as im:
+                    g = np.asarray(im.convert("L"))
+            except Exception:  # noqa: BLE001 — an unreadable frame ranks last
+                return -1.0
+            return float(cv2.Laplacian(g, cv2.CV_64F).var())
     except Exception:  # noqa: BLE001
         log.warning("cv2 unavailable; bucket-midpoint sampling (no sharpness)",
                     scan_id=str(scan_id))
