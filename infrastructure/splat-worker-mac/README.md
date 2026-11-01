@@ -51,7 +51,8 @@ cd ~/.cache/fc-brush
 CARGO_NET_GIT_FETCH_WITH_CLI=true cargo build --release --bin brush
 #    -> binary at ~/.cache/fc-brush/target/release/brush  (the default BRUSH_BIN)
 
-# 3. Python venv for this worker
+# 3. Python venv for this worker — Python >= 3.11 (Pillow 13 dropped 3.10;
+#    check `python3 --version`, or name one explicitly, e.g. python3.12)
 cd <repo>/infrastructure/splat-worker-mac
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt

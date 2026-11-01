@@ -159,6 +159,14 @@ CROP = 224
 IMAGE_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 IMAGE_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
 
+# The only decoders Pillow may use. Fetched bytes are untrusted — an
+# official_image_url points wherever a user or scraper said — while the server
+# itself only accepts JPEG / PNG / WebP photos (server/src/photo.rs). Every
+# other decoder (TIFF, FlashPix, PSD, EPS…), where most Pillow advisories land,
+# stays out of reach; that matters most in the gsplat image, which Python 3.10
+# keeps on Pillow 12 (13.0 needs 3.11).
+DECODE_FORMATS = ("JPEG", "PNG", "WEBP")
+
 log = structlog.get_logger()
 
 
@@ -249,7 +257,7 @@ class Embedder:
         return cls(session=session, input_name=input_name, output_name=output_name)
 
     def embed(self, image_bytes: bytes) -> list[float]:
-        with Image.open(io.BytesIO(image_bytes)) as im:
+        with Image.open(io.BytesIO(image_bytes), formats=DECODE_FORMATS) as im:
             pixels = _preprocess(im)
         out = self.session.run([self.output_name], {self.input_name: pixels})[0]
         arr = np.asarray(out, dtype=np.float32)
@@ -363,7 +371,7 @@ class ClipVisionEmbedder:
 
     def embed(self, image_bytes: bytes) -> list[float]:
         # SigLIP preprocessing: plain resize to 224² (no crop), /255, normalise 0.5.
-        with Image.open(io.BytesIO(image_bytes)) as im:
+        with Image.open(io.BytesIO(image_bytes), formats=DECODE_FORMATS) as im:
             im = im.convert("RGB").resize((CLIP_IMAGE_SIZE, CLIP_IMAGE_SIZE), Image.BILINEAR)
             arr = (np.asarray(im, dtype=np.float32) / 255.0 - 0.5) / 0.5
         arr = np.transpose(arr, (2, 0, 1))[np.newaxis]  # 1, C, H, W
@@ -409,7 +417,7 @@ class TaggerEmbedder:
         return cls(session=session, input_name=session.get_inputs()[0].name, names=names, cats=cats)
 
     def tag(self, image_bytes: bytes) -> str:
-        with Image.open(io.BytesIO(image_bytes)) as im:
+        with Image.open(io.BytesIO(image_bytes), formats=DECODE_FORMATS) as im:
             im = im.convert("RGBA")
             bg = Image.new("RGBA", im.size, (255, 255, 255, 255))
             bg.alpha_composite(im)

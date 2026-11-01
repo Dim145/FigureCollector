@@ -1,10 +1,11 @@
 asyncpg==0.30.0
 boto3==1.35.*
 structlog==24.4.*
-# >=12.2: the <12 cap kept it on 11.x, still in range for CVE-2026-25990 (PSD OOB
-# write) + CVE-2026-40192 (FITS decompression bomb), fixed in 12.x. This worker
-# parses user-uploaded images, so keep it on the patched line.
-Pillow>=12.2
+# >=13.0: every 12.x is in range for the October 2026 batch (heap overflows in
+# the JPEG, TIFF and FlashPix decoders among them), fixed only in 13.0 — which
+# needs Python >= 3.11. This worker parses user-uploaded images, so keep it on
+# the patched line. (12.2 was the floor for CVE-2026-25990 / CVE-2026-40192.)
+Pillow>=13.0
 
 # Optional — foreground masking for turntable captures (ENABLE_MASKING=true).
 # Heavy (pulls onnxruntime); uncomment and reinstall to enable.
