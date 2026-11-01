@@ -35,6 +35,7 @@ import io
 import ipaddress
 import os
 import socket
+import sys
 import time
 import traceback
 import urllib.error
@@ -174,8 +175,14 @@ DECODE_FORMATS = ("JPEG", "PNG", "WEBP")
 # in wheels that do stay current on 3.10 — and reaches Pillow only as the PNG
 # OpenCV re-encodes it to. OpenCV checks the pixel cap (the server's 4096² photo
 # cap) against the header, before it allocates.
+#
+# OpenCV reads that cap once, when cv2 loads: set here, at import, it binds only
+# if nothing loaded cv2 first — so official images are refused outright when
+# something did. It also binds every cv2 decode in the process, which is why
+# worker.py scores scan frames from Pillow-decoded arrays, not cv2.imread.
 PILLOW_PATCHED = int(PILLOW_VERSION.split(".")[0]) >= 13
 OFFICIAL_MAX_PIXELS = 4096 * 4096
+CV2_LOADED_BEFORE_CAP = "cv2" in sys.modules
 if not PILLOW_PATCHED:
     os.environ.setdefault("OPENCV_IO_MAX_IMAGE_PIXELS", str(OFFICIAL_MAX_PIXELS))
 
@@ -508,6 +515,8 @@ def _redecode_untrusted(data: bytes) -> bytes:
     the pixels, so an unpatched Pillow never parses bytes from the internet (see
     PILLOW_PATCHED). Alpha is kept — the tagger composites it onto white — and
     EXIF orientation is ignored, as Pillow ignores it here too."""
+    if CV2_LOADED_BEFORE_CAP:
+        raise ValueError("cv2 loaded before embed_index set its pixel cap; refusing official images")
     import cv2  # in the gsplat image via rembg; only reached under Pillow < 13
 
     if not (
