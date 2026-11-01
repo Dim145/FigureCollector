@@ -77,7 +77,7 @@ your cote current on its own:
 
 - The sweep visits each owned figure's **buy links** — orzgk natively, any
   other boutique through the [proxy](url-import.md) — and records the best
-  match (preferring your figure's exact *version*).
+  match (preferring your figure's exact *version*, from either source).
 - The latest price feeds the value chain above; **every change is historized**
   (`figure_price_history`), never overwritten. Only changes are stored, so a
   price that has never moved is a single relevé — drawn as a flat line from

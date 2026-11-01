@@ -194,6 +194,13 @@ more than one entry the SPA opens a **version picker** (the same UI as the
 orzgk variation modal) instead of importing a default. The flat `price` above
 should stay the default version's price for clients that ignore `versions`.
 
+The [market-price sweep](cote.md#market-prices-auto-tracked) reads `versions`
+too. A figure whose version matches a `label` (an import stores the picked
+label as the figure's version) is priced at that version's highest tariff.
+Every other figure keeps the flat `price`; only when it is `null` do the
+versions compete, highest first. A tariff labelled `deposit` is never taken
+as a price.
+
 ```json
 {
   "...": "...other ProxyProduct fields...",

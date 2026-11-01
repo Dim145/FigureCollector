@@ -1,17 +1,20 @@
 //! Admin-scheduled price-refresh cron — feeds the "cote" market value.
 //!
 //! For every figure linked to at least one store with an HTTP buy-link, this
-//! scrapes the buy-link's product page — orzgk hosts via the native parser
-//! (which exposes per-version prices), every other host via the operator proxy
-//! (`FIGURE_PROXY_URL`) — and records ONE resolved price per figure in
+//! scrapes the buy-link's product page — orzgk hosts via the native parser,
+//! every other host via the operator proxy (`FIGURE_PROXY_URL`); both expose
+//! per-version prices — and records ONE resolved price per figure in
 //! `figure_provider_prices`. That price feeds the cote as a fallback *under*
 //! the user's manual valuation and *above* the catalog MSRP (see
 //! `domain::stats` / `domain::owned`).
 //!
 //! Version handling, per the product spec:
 //!   - when a figure has a `version_name`, prefer the scraped price whose
-//!     version label matches it;
-//!   - with no version (or no match), take the highest reported price.
+//!     version label matches it (an exact label beats a fuzzy one);
+//!   - with no version (or no match), take the highest reported price — except
+//!     that a proxy's per-version prices never override its flat `price`, which
+//!     the proxy contract defines as the default version's.
+//!
 //! "Highest" is compared within a single currency (the figure's MSRP currency
 //! when available, else the dominant currency among candidates) so a large
 //! JPY figure never spuriously outranks a EUR one.
@@ -29,7 +32,7 @@ use crate::domain::{
 };
 use crate::error::AppResult;
 use crate::external::orzgk;
-use crate::external::proxy::ProxyClient;
+use crate::external::proxy::{ProxyClient, ProxyProduct};
 use crate::services::job_runner;
 use crate::state::AppState;
 use chrono::Utc;
@@ -593,13 +596,17 @@ fn target_met(
 }
 
 /// One scraped price line. `version_label` is the provider's version name (orzgk
-/// variants); `None` for non-versioned sources (proxy / simple products).
+/// variants, proxy `versions`); `None` for a product's flat / simple price.
 struct Candidate {
     amount: f64,
     currency: Option<String>,
     version_label: Option<String>,
     source: String,
     url: String,
+    /// Competes only for a figure of this version: a proxy version's price
+    /// sitting next to the product's flat price, which already answers the
+    /// no-version case (see [`proxy_candidates`]).
+    matched_only: bool,
 }
 
 /// The single price chosen for a figure, ready to persist.
@@ -637,6 +644,7 @@ async fn fetch_candidates(
                     version_label: None,
                     source: "orzgk".to_string(),
                     url: url.to_string(),
+                    matched_only: false,
                 });
             }
         } else {
@@ -648,6 +656,7 @@ async fn fetch_candidates(
                         version_label: Some(v.label.clone()),
                         source: "orzgk".to_string(),
                         url: url.to_string(),
+                        matched_only: false,
                     });
                 }
             }
@@ -662,20 +671,55 @@ async fn fetch_candidates(
         if host_ok {
             let product = proxy.product(url).await?;
             let stock = product.status.as_deref().and_then(StockStatus::from_woocommerce);
-            let mut out = Vec::new();
-            if let Some(price) = product.price {
-                out.push(Candidate {
-                    amount: price.amount,
-                    currency: price.currency,
-                    version_label: None,
-                    source: "proxy".to_string(),
-                    url: url.to_string(),
-                });
-            }
-            return Ok((out, stock));
+            return Ok((proxy_candidates(&product, url), stock));
         }
     }
     Ok((Vec::new(), None))
+}
+
+/// Candidate prices from one proxy product.
+///
+/// The proxy contract makes the flat `price` the DEFAULT version's price, so
+/// it stays the answer whenever the figure's version matches none of
+/// `versions`: each version's tariffs then compete only for a figure of that
+/// version (`matched_only`). Reading versions refines the price; it must never
+/// swap a version-less figure over to the dearest edition. With no flat price
+/// the versions are all there is, and they compete on the usual rule.
+///
+/// Deposit tariffs are skipped — the contract reserves "no price" for a
+/// listing that only takes a deposit, and a deposit is not what the figure
+/// costs.
+fn proxy_candidates(product: &ProxyProduct, url: &str) -> Vec<Candidate> {
+    let flat_ccy = product.price.as_ref().and_then(|p| p.currency.clone());
+    let mut out: Vec<Candidate> = product
+        .price
+        .iter()
+        .map(|p| Candidate {
+            amount: p.amount,
+            currency: p.currency.clone(),
+            version_label: None,
+            source: "proxy".to_string(),
+            url: url.to_string(),
+            matched_only: false,
+        })
+        .collect();
+    let matched_only = !out.is_empty();
+    for v in &product.versions {
+        for p in &v.prices {
+            if p.label.to_ascii_lowercase().contains("deposit") {
+                continue;
+            }
+            out.push(Candidate {
+                amount: p.amount,
+                currency: p.currency.clone().or_else(|| flat_ccy.clone()),
+                version_label: Some(v.label.clone()),
+                source: "proxy".to_string(),
+                url: url.to_string(),
+                matched_only,
+            });
+        }
+    }
+    out
 }
 
 /// Apply the version-match / highest-price rule to a figure's candidates.
@@ -691,18 +735,14 @@ fn resolve(
 
     // Candidates whose version label matches the figure's version_name.
     let matched: Vec<&Candidate> = match want {
-        Some(w) => candidates
-            .iter()
-            .filter(|c| {
-                c.version_label
-                    .as_deref()
-                    .is_some_and(|l| version_matches(w, l))
-            })
-            .collect(),
+        Some(w) => matching(candidates, w),
         None => Vec::new(),
     };
     let (pool, is_match): (Vec<&Candidate>, bool) = if matched.is_empty() {
-        (candidates.iter().collect(), false)
+        (
+            candidates.iter().filter(|c| !c.matched_only).collect(),
+            false,
+        )
     } else {
         (matched, true)
     };
@@ -759,6 +799,34 @@ fn eq_ccy(a: Option<&str>, b: Option<&str>) -> bool {
         (None, None) => true,
         _ => false,
     }
+}
+
+/// The candidates whose version label matches `want`. An exact (normalised)
+/// label wins outright: imports copy the shop's label verbatim, and fuzzy
+/// containment alone would let `"Regular"` also sweep in a pricier
+/// `"Regular + Bonus"`. The fuzzy pass stays for hand-typed version names.
+fn matching<'a>(candidates: &'a [Candidate], want: &str) -> Vec<&'a Candidate> {
+    let w = normalize(want);
+    let exact: Vec<&Candidate> = candidates
+        .iter()
+        .filter(|c| {
+            !w.is_empty()
+                && c.version_label
+                    .as_deref()
+                    .is_some_and(|l| normalize(l) == w)
+        })
+        .collect();
+    if !exact.is_empty() {
+        return exact;
+    }
+    candidates
+        .iter()
+        .filter(|c| {
+            c.version_label
+                .as_deref()
+                .is_some_and(|l| version_matches(want, l))
+        })
+        .collect()
 }
 
 /// Fuzzy version match: alphanumeric-normalised equality or containment, so
@@ -861,6 +929,7 @@ mod tests {
             version_label: version.map(|s| s.to_string()),
             source: "orzgk".to_string(),
             url: "https://www.orzgk.com/product/x/".to_string(),
+            matched_only: false,
         }
     }
 
@@ -912,6 +981,104 @@ mod tests {
         let r = resolve(None, Some("EUR"), &cands).unwrap();
         assert_eq!(r.amount, 150.0);
         assert_eq!(r.currency.as_deref(), Some("EUR"));
+    }
+
+    #[test]
+    fn an_exact_version_label_beats_fuzzy_containment() {
+        // An import copies the shop's label verbatim; "Regular" must not also
+        // sweep in the pricier "Regular + Bonus" through containment.
+        let cands = vec![
+            cand(100.0, "EUR", Some("Regular")),
+            cand(140.0, "EUR", Some("Regular + Bonus")),
+        ];
+        let r = resolve(Some("Regular"), Some("EUR"), &cands).unwrap();
+        assert_eq!(r.amount, 100.0);
+        assert_eq!(r.matched_version.as_deref(), Some("Regular"));
+    }
+
+    /// A proxy product shaped like the contract's own example: a flat `price`
+    /// (the default version's) beside deposit-first Regular / EX tariffs.
+    fn proxy_product(flat: Option<f64>, versions: serde_json::Value) -> ProxyProduct {
+        serde_json::from_value(serde_json::json!({
+            "store_id": "shop",
+            "url": "https://shop.example/product/ban-king",
+            "title": "Ban & King",
+            "price": flat.map(|a| serde_json::json!({ "amount": a, "currency": "USD" })),
+            "versions": versions
+        }))
+        .unwrap()
+    }
+
+    fn regular_and_ex() -> serde_json::Value {
+        serde_json::json!([
+            { "key": "regular", "label": "Regular", "prices": [
+                { "label": "deposit", "amount": 75.0, "currency": "USD", "display": "$75.00" },
+                { "label": "full", "amount": 255.0, "currency": "USD", "display": "$255.00" }
+            ] },
+            { "key": "ex", "label": "EX", "prices": [
+                { "label": "deposit", "amount": 155.0, "currency": "USD", "display": "$155.00" },
+                { "label": "full", "amount": 435.0, "currency": "USD", "display": "$435.00" }
+            ] }
+        ])
+    }
+
+    #[test]
+    fn proxy_version_picks_its_own_full_price() {
+        let p = proxy_product(Some(255.0), regular_and_ex());
+        let cands = proxy_candidates(&p, &p.url);
+        let r = resolve(Some("EX"), Some("USD"), &cands).unwrap();
+        assert_eq!(r.amount, 435.0);
+        assert_eq!(r.matched_version.as_deref(), Some("EX"));
+        assert_eq!(r.source, "proxy");
+    }
+
+    #[test]
+    fn proxy_flat_price_stays_the_answer_without_a_version_match() {
+        // Versions refine the price; they must not move a version-less figure
+        // (or one whose version the shop doesn't list) to the dearest edition.
+        let p = proxy_product(Some(255.0), regular_and_ex());
+        let cands = proxy_candidates(&p, &p.url);
+        for version in [None, Some("Standard")] {
+            let r = resolve(version, Some("USD"), &cands).unwrap();
+            assert_eq!(r.amount, 255.0);
+            assert!(r.matched_version.is_none());
+        }
+    }
+
+    #[test]
+    fn proxy_versions_alone_compete_without_their_deposits() {
+        // No flat price: the versions are all there is.
+        let p = proxy_product(None, regular_and_ex());
+        let cands = proxy_candidates(&p, &p.url);
+        assert!(cands.iter().all(|c| c.amount != 75.0 && c.amount != 155.0));
+        assert_eq!(resolve(None, Some("USD"), &cands).unwrap().amount, 435.0);
+        let r = resolve(Some("Regular"), Some("USD"), &cands).unwrap();
+        assert_eq!(r.amount, 255.0);
+        assert_eq!(r.matched_version.as_deref(), Some("Regular"));
+    }
+
+    #[test]
+    fn proxy_deposit_only_listing_has_no_price() {
+        let p = proxy_product(
+            None,
+            serde_json::json!([{ "key": "regular", "label": "Regular", "prices": [
+                { "label": "Deposit", "amount": 75.0, "currency": "USD", "display": "$75.00" }
+            ] }]),
+        );
+        assert!(resolve(None, Some("USD"), &proxy_candidates(&p, &p.url)).is_none());
+    }
+
+    #[test]
+    fn proxy_version_tariff_inherits_the_flat_currency() {
+        let p = proxy_product(
+            Some(255.0),
+            serde_json::json!([{ "key": "ex", "label": "EX", "prices": [
+                { "label": "full", "amount": 435.0, "display": "435" }
+            ] }]),
+        );
+        let r = resolve(Some("EX"), None, &proxy_candidates(&p, &p.url)).unwrap();
+        assert_eq!(r.amount, 435.0);
+        assert_eq!(r.currency.as_deref(), Some("USD"));
     }
 
     #[test]
