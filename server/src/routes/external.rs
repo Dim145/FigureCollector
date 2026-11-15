@@ -555,7 +555,19 @@ async fn tracking_get(
     session: Session,
     Path((carrier, number)): Path<(String, String)>,
 ) -> AppResult<Json<tracking::TrackingStatus>> {
-    auth::require_user(&session).await?;
+    let user_id = auth::require_user(&session).await?;
+    // Parcels bills every new unique number: only spend the instance's quota
+    // on a number the caller actually tracks on one of their preorders, so a
+    // logged-in user can't burn it on arbitrary numbers. Free official APIs
+    // stay open as before.
+    let trimmed = number.trim();
+    if !trimmed.is_empty()
+        && tracking::provider_for(&state.config.tracking, &carrier.to_lowercase())
+            == Some(tracking::Provider::Parcels)
+        && !crate::domain::preorder::tracks_number(&state.pool, user_id, trimmed).await?
+    {
+        return Err(AppError::NotFound);
+    }
     Ok(Json(
         tracking::fetch(
             &state.pool,
@@ -568,8 +580,21 @@ async fn tracking_get(
     ))
 }
 
+/// Carrier ids with a live-status source on this server, so the SPA only asks
+/// for statuses it can get (and shows a plain link for the rest).
+async fn tracking_providers(
+    State(state): State<AppState>,
+    session: Session,
+) -> AppResult<Json<serde_json::Value>> {
+    auth::require_user(&session).await?;
+    Ok(Json(serde_json::json!({
+        "carriers": tracking::live_carriers(&state.config.tracking),
+    })))
+}
+
 pub fn router() -> Router<AppState> {
     Router::new()
+        .route("/tracking/providers", get(tracking_providers))
         .route(
             "/tracking/{carrier}/{number}",
             get(tracking_get),

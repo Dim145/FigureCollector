@@ -133,7 +133,7 @@ export default function PreorderEditForm({ preorder: p, onClose, t }) {
       <div>
         <FormField
           label={t("preorders.field.tracking_url")}
-          type="url"
+          type="text"
           value={form.tracking_url}
           onChange={set("tracking_url")}
           placeholder={t("preorders.field.tracking_url_ph")}

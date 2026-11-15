@@ -6,19 +6,18 @@ import { appLocale } from "../lib/locale.js";
 import { useT } from "../i18n/index.jsx";
 import { api, ApiError } from "../lib/api.js";
 
-/** Carriers we know how to live-fetch via /api/tracking/* on the server. */
-const LIVE_TRACKING_CARRIERS = new Set(["colissimo", "dhl", "ups"]);
+/** While the server's Parcels lookup is still querying the carrier. */
+const PENDING_REFETCH_MS = 8_000;
 
 /**
- * Pretty-render a pasted tracking URL.
+ * Pretty-render a pasted tracking link or bare tracking number.
  *
- * When the carrier is one of the live-tracking providers (UPS / DHL /
- * Colissimo) **and** the URL contained a recognisable tracking number, we
- * fetch the latest status from our server-side proxy and surface the most
- * recent event description + timestamp + location. The proxy degrades
- * silently (HTTP 403 feature_disabled) when the server doesn't have an
- * API key configured, so the chip falls back to "just a link" without
- * shouting at the user.
+ * When the server has a live source for the carrier (its own API key, or the
+ * Parcels fallback — listed by `/api/tracking/providers`) **and** we found a
+ * tracking number, we fetch the latest status from the server-side proxy
+ * and surface the most recent event description + timestamp + location.
+ * Otherwise — or when the carrier doesn't know the number yet — the chip is
+ * just a link, without shouting at the user.
  *
  * @param {object} props
  * @param {string|null|undefined} props.url
@@ -28,8 +27,18 @@ export default function TrackingChip({ url, size = "full" }) {
   const t = useT();
   const parsed = useMemo(() => parseTrackingUrl(url), [url]);
 
+  // Which carriers this server can live-track — fixed for the server's
+  // lifetime (env config), so fetched once per session.
+  const providers = useQuery({
+    queryKey: ["tracking", "providers"],
+    queryFn: () => api.get("/tracking/providers"),
+    enabled: !!parsed?.number && size !== "compact",
+    staleTime: Infinity,
+    retry: false,
+  });
   const canLive =
-    !!parsed?.number && LIVE_TRACKING_CARRIERS.has(parsed.id);
+    !!parsed?.number &&
+    (providers.data?.carriers ?? []).includes(parsed.id);
 
   const live = useQuery({
     queryKey: ["tracking", parsed?.id, parsed?.number],
@@ -42,6 +51,10 @@ export default function TrackingChip({ url, size = "full" }) {
     // 10 minutes minimum on top. Carriers rarely move statuses faster than
     // that anyway.
     staleTime: 5 * 60 * 1000,
+    // The aggregator answers "still searching" on a first lookup — ask
+    // again shortly instead of waiting out the stale time.
+    refetchInterval: (query) =>
+      query.state.data?.pending ? PENDING_REFETCH_MS : false,
     retry: (count, err) => {
       // FeatureDisabled (no API key) → don't retry, it won't change.
       // NotFound (carrier doesn't recognise the number yet — recent label) →
@@ -60,6 +73,13 @@ export default function TrackingChip({ url, size = "full" }) {
 
   if (!parsed) return null;
 
+  // A known carrier keeps its name (it matches the link we open); a bare
+  // number's carrier is unnamed until the server detects it.
+  const carrierName =
+    parsed.name ||
+    live.data?.carrier_name ||
+    t("preorders.tracking.carrier_auto");
+
   if (size === "compact") {
     return (
       <a
@@ -69,7 +89,7 @@ export default function TrackingChip({ url, size = "full" }) {
         className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] text-[var(--color-or-pale)] hover:text-[var(--color-or)] transition-colors border border-[var(--color-or)]/30 hover:border-[var(--color-or)] px-2.5 py-1"
       >
         <CarrierGlyph id={parsed.id} />
-        <span>{parsed.name}</span>
+        <span>{carrierName}</span>
         {parsed.number ? (
           <span className="font-mono normal-case tracking-normal text-[var(--color-ivoire)]/80">
             {truncate(parsed.number, 14)}
@@ -104,7 +124,7 @@ export default function TrackingChip({ url, size = "full" }) {
                 : t("preorders.tracking.carrier_unknown")}
             </p>
             <p className="display text-base text-[var(--color-ivoire)] leading-tight truncate">
-              {parsed.name}
+              {carrierName}
             </p>
           </div>
         </div>
@@ -173,6 +193,13 @@ function LiveStatus({ query, status, t }) {
     );
   }
   if (!status) return null;
+  if (status.pending) {
+    return (
+      <p className="mt-3 pt-3 border-t border-[var(--color-or)]/15 text-[10px] uppercase tracking-[0.18em] text-[var(--color-ivoire-soft)]/60 italic">
+        {t("preorders.tracking.searching")} …
+      </p>
+    );
+  }
 
   const dt = status.timestamp ? new Date(status.timestamp) : null;
   return (

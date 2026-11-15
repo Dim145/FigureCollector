@@ -217,6 +217,9 @@ pub(super) async fn fetch(
         is_delivered,
         events,
         fetched_at: Utc::now(),
+        carrier_name: None,
+        provider: None,
+        pending: false,
     })
 }
 

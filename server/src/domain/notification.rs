@@ -46,6 +46,11 @@ pub const EVENT_PREORDER_DELIVERY_TODAY: &str = "preorder_delivery_today";
 /// Fires the day AFTER the projected delivery date when the preorder
 /// isn't already marked received. Fires ONCE per preorder.
 pub const EVENT_PREORDER_DELIVERY_OVERDUE: &str = "preorder_delivery_overdue";
+/// The carrier reports a shipped preorder's parcel as delivered (live
+/// tracking, polled by the delivered-parcel watcher). Fires ONCE per
+/// preorder. Payload: `{ preorder_id, figure_id, figure_name, carrier,
+/// location?, delivered_at? }`.
+pub const EVENT_PREORDER_PARCEL_DELIVERED: &str = "preorder_parcel_delivered";
 /// An admin approved a MangaCollector server the user was linked to (was
 /// pending) — their integration is now active. Payload: `{ base_url, label? }`.
 pub const EVENT_MANGA_SERVER_APPROVED: &str = "manga_server_approved";
@@ -78,6 +83,7 @@ pub const ALL_EVENTS: &[&str] = &[
     EVENT_PREORDER_RELEASE_J7,
     EVENT_PREORDER_DELIVERY_TODAY,
     EVENT_PREORDER_DELIVERY_OVERDUE,
+    EVENT_PREORDER_PARCEL_DELIVERED,
     EVENT_MANGA_SERVER_APPROVED,
     EVENT_MANGA_SERVER_REVOKED,
     EVENT_WISHLIST_PRICE_BELOW_TARGET,
@@ -496,6 +502,7 @@ pub const CRITICAL_EVENTS: &[&str] = &[
     EVENT_PREORDER_RELEASE_TODAY,
     EVENT_PREORDER_DELIVERY_TODAY,
     EVENT_PREORDER_DELIVERY_OVERDUE,
+    EVENT_PREORDER_PARCEL_DELIVERED,
 ];
 
 #[derive(Debug, Clone, Serialize, FromRow)]

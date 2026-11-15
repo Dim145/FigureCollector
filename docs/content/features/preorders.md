@@ -94,6 +94,37 @@ Both dispatch through the same channel-routing system as the existing release-da
 
 ---
 
+## Parcel tracking
+
+The **Parcel tracking** field takes either the carrier's tracking link or just
+the tracking number (`EX123456789JP`). The carrier comes from the link's host
+or from the number's format: UPU `…JP` → Japan Post, `…FR` / `6A…` →
+Colissimo, `1Z…` → UPS. Any other number is left for the server to detect.
+
+When the server has a source for that carrier (see
+[env vars](../getting-started/env-vars.md#parcel-tracking)), the pre-order card
+and the figure's history show the latest event, its place and its time. A
+manual ↻ button forces a refresh. The first time Parcels sees a number it can
+take a few seconds to ask the carrier. The chip shows "Asking the carrier…"
+and checks again by itself.
+
+Statuses are cached for 15 minutes while in transit and for 24 hours once
+delivered.
+
+### Delivered-parcel alert
+
+Every hour (`TRACKING_WATCH_INTERVAL_MINUTES`), the `tracking_watch` job checks
+pre-orders that are `shipped`, have a tracking link or number, and shipped less
+than 120 days ago. When the carrier reports one delivered, it fires
+`preorder_parcel_delivered` once per pre-order. The alert names the carrier and
+the delivery place.
+
+It does **not** mark the pre-order `received`. That step, along with the
+arrival condition report, stays yours. The job appears on the admin Tasks page
+and stays idle when no tracking key is configured.
+
+---
+
 ## Cancellations
 
 A pre-order can be cancelled by either party — bankruptcy, recall, the user changing their mind, the shop refusing the import. The cancellation is **not terminal**: you can restore the item later and optionally pair it with a fresh preorder.

@@ -91,6 +91,8 @@ export const RESULT_LABELLED = new Set([
   "release_j7",
   "delivery_today",
   "delivery_overdue",
+  "checked",
+  "delivered",
   "indexed",
   "failed",
   "queued",

@@ -11,12 +11,15 @@
 //! 15 min for in-transit shipments and 24h once delivered (delivered
 //! status doesn't change). Every miss makes exactly one upstream call.
 //!
-//! Carriers currently wired:
-//!   - Colissimo / La Poste (single Okapi key)   — `colissimo` submodule
-//!   - DHL Express          (single DHL-API-Key) — `dhl` submodule
-//!   - UPS                  (OAuth2 → bearer)    — `ups` submodule
+//! Upstreams, in order of preference (see [`provider_for`]):
+//!   - the carrier's own free API when its key is set —
+//!       Colissimo / La Poste (Okapi key)  — `colissimo` submodule
+//!       DHL Express (DHL-API-Key)         — `dhl` submodule
+//!       UPS (OAuth2 → bearer)             — `ups` submodule
+//!   - otherwise Parcels (`PARCELS_API_KEY`), a paid aggregator covering
+//!     every other carrier and bare numbers — `parcels` submodule.
 //!
-//! Adding a carrier = one new submodule + one match arm in [`fetch`].
+//! Adding an official carrier = one new submodule + one [`Provider`] arm.
 
 use crate::config::TrackingConfig;
 use crate::error::{AppError, AppResult};
@@ -27,9 +30,16 @@ use sqlx::PgPool;
 
 mod colissimo;
 mod dhl;
+mod parcels;
+pub mod parse;
 mod ups;
 
 const PROVIDER: &str = "tracking";
+/// Cache slot holding the `request_id` of a Parcels lookup still running, so
+/// the next call resumes it instead of starting a new one. Outlives the
+/// ~30-min retention of the request on Parcels' side only marginally.
+const PENDING_PROVIDER: &str = "tracking-pending";
+const PENDING_TTL_SECS: i64 = 25 * 60;
 /// Wall-clock cap for any single upstream call. Shared by every carrier
 /// client so a slow carrier can't pin the connection pool open.
 pub(super) const FETCH_TIMEOUT_SECS: u64 = 20;
@@ -65,6 +75,17 @@ pub struct TrackingStatus {
     /// When we last fetched from the carrier — surfaced so the UI can show
     /// "refreshed N minutes ago".
     pub fetched_at: DateTime<Utc>,
+    /// Carrier display name when the upstream detected it (Parcels' auto
+    /// detection) — names the carrier of a bare tracking number.
+    #[serde(default)]
+    pub carrier_name: Option<String>,
+    /// Which upstream answered: "colissimo" | "dhl" | "ups" | "parcels".
+    #[serde(default)]
+    pub provider: Option<String>,
+    /// `true` while Parcels is still querying the carrier: no status yet, ask
+    /// again in a few seconds. Never cached.
+    #[serde(default)]
+    pub pending: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,7 +99,56 @@ pub struct TrackingEvent {
 // Dispatch
 // =============================================================================
 
-/// Top-level entry — picks the right carrier client, runs the cache check.
+/// The upstream that serves a carrier on this server.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Provider {
+    Colissimo,
+    Dhl,
+    Ups,
+    Parcels,
+}
+
+impl Provider {
+    fn id(self) -> &'static str {
+        match self {
+            Provider::Colissimo => "colissimo",
+            Provider::Dhl => "dhl",
+            Provider::Ups => "ups",
+            Provider::Parcels => "parcels",
+        }
+    }
+}
+
+/// Which upstream serves `carrier`: its own free API when the key is set,
+/// else Parcels when configured, else none (the SPA shows a plain link).
+pub fn provider_for(config: &TrackingConfig, carrier: &str) -> Option<Provider> {
+    let official = match carrier {
+        "colissimo" if config.colissimo_key.is_some() => Some(Provider::Colissimo),
+        "dhl" if config.dhl_key.is_some() => Some(Provider::Dhl),
+        "ups" if config.ups_client_id.is_some() && config.ups_client_secret.is_some() => {
+            Some(Provider::Ups)
+        }
+        _ => None,
+    };
+    official.or_else(|| {
+        (config.parcels_key.is_some() && parse::is_known_carrier(carrier))
+            .then_some(Provider::Parcels)
+    })
+}
+
+/// Carrier ids with a live source on this server (`GET /tracking/providers`).
+pub fn live_carriers(config: &TrackingConfig) -> Vec<&'static str> {
+    parse::carrier_ids()
+        .filter(|c| provider_for(config, c).is_some())
+        .collect()
+}
+
+/// Whether any carrier can be tracked live at all.
+pub fn any_provider(config: &TrackingConfig) -> bool {
+    parse::carrier_ids().any(|c| provider_for(config, c).is_some())
+}
+
+/// Top-level entry — picks the upstream, runs the cache check.
 pub async fn fetch(
     pool: &PgPool,
     http: &reqwest::Client,
@@ -95,6 +165,12 @@ pub async fn fetch(
     }
 
     let carrier = carrier.to_lowercase();
+    if !parse::is_known_carrier(&carrier) {
+        return Err(AppError::BadRequest("unsupported carrier"));
+    }
+    let provider = provider_for(config, &carrier).ok_or(AppError::FeatureDisabled(
+        "no live-tracking source configured for this carrier",
+    ))?;
 
     // Cache lookup — but with carrier-specific TTL we can't lean on the
     // generic `cached_fetch` helper (it stores TTL on write, not on read).
@@ -105,16 +181,16 @@ pub async fn fetch(
         return Ok(cached);
     }
 
-    let fresh = match carrier.as_str() {
-        "colissimo" => colissimo::fetch(http, config, number).await?,
-        "dhl" => dhl::fetch(http, config, number).await?,
-        "ups" => ups::fetch(http, config, number).await?,
-        _ => {
-            return Err(AppError::BadRequest(
-                "unsupported carrier (try: colissimo, dhl, ups)",
-            ));
-        }
+    let mut fresh = match provider {
+        Provider::Colissimo => colissimo::fetch(http, config, number).await?,
+        Provider::Dhl => dhl::fetch(http, config, number).await?,
+        Provider::Ups => ups::fetch(http, config, number).await?,
+        Provider::Parcels => match fetch_parcels(pool, http, config, &carrier, number).await? {
+            Some(status) => status,
+            None => return Ok(pending_status(&carrier, number)),
+        },
     };
+    fresh.provider = Some(provider.id().to_string());
 
     let ttl = if fresh.is_delivered {
         Duration::seconds(TTL_DELIVERED_SECS)
@@ -123,6 +199,61 @@ pub async fn fetch(
     };
     cache::put(pool, PROVIDER, &carrier, number, &fresh, ttl).await?;
     Ok(fresh)
+}
+
+/// A Parcels lookup, resuming the parked one when a previous call left it
+/// running. `None` = still running (its id is parked for the next call).
+async fn fetch_parcels(
+    pool: &PgPool,
+    http: &reqwest::Client,
+    config: &TrackingConfig,
+    carrier: &str,
+    number: &str,
+) -> AppResult<Option<TrackingStatus>> {
+    let parked = cache::get::<String>(pool, PENDING_PROVIDER, carrier, number).await?;
+    let resumed = match parked {
+        Some(request_id) => parcels::poll(http, config, carrier, number, &request_id).await?,
+        None => None,
+    };
+    let outcome = match resumed {
+        Some(outcome) => outcome,
+        None => parcels::create(http, config, carrier, number).await?,
+    };
+    match outcome {
+        parcels::Outcome::Done(status) => {
+            cache::invalidate(pool, PENDING_PROVIDER, carrier, number).await?;
+            Ok(Some(status))
+        }
+        parcels::Outcome::Pending { request_id } => {
+            cache::put(
+                pool,
+                PENDING_PROVIDER,
+                carrier,
+                number,
+                &request_id,
+                Duration::seconds(PENDING_TTL_SECS),
+            )
+            .await?;
+            Ok(None)
+        }
+    }
+}
+
+fn pending_status(carrier: &str, number: &str) -> TrackingStatus {
+    TrackingStatus {
+        carrier: carrier.to_string(),
+        number: number.to_string(),
+        status: String::new(),
+        status_code: None,
+        timestamp: None,
+        location: None,
+        is_delivered: false,
+        events: Vec::new(),
+        fetched_at: Utc::now(),
+        carrier_name: None,
+        provider: Some(Provider::Parcels.id().to_string()),
+        pending: true,
+    }
 }
 
 // =============================================================================

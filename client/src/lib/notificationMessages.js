@@ -10,6 +10,7 @@ const KANJI_BY_EVENT = {
   preorder_release_j7: "近",
   preorder_delivery_today: "届",
   preorder_delivery_overdue: "遅",
+  preorder_parcel_delivered: "着",
   manga_server_approved: "認",
   manga_server_revoked: "禁",
   wishlist_price_below_target: "値",
@@ -79,6 +80,25 @@ export function formatNotification(n, t) {
         sub: t("notifications.event.preorder_delivery_overdue.sub", {
           date: p.delivery_date ?? "—",
         }),
+        href: p.figure_id ? `/figures/${p.figure_id}` : "/preorders",
+        kanji,
+      };
+    }
+    case "preorder_parcel_delivered": {
+      return {
+        title: t("notifications.event.preorder_parcel_delivered.title", {
+          name: p.figure_name ?? "—",
+        }),
+        sub: [
+          p.carrier
+            ? t("notifications.event.preorder_parcel_delivered.sub", {
+                carrier: p.carrier,
+              })
+            : null,
+          p.location,
+        ]
+          .filter(Boolean)
+          .join(" · "),
         href: p.figure_id ? `/figures/${p.figure_id}` : "/preorders",
         kanji,
       };

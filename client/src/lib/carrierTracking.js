@@ -8,9 +8,17 @@
  * predictable shape the UI can render: a friendly carrier name, the
  * tracking number when we can find it, and a clean canonical tracking URL.
  *
- * No network call is made — pure URL parsing. Carrier-side live status
- * (in transit / delivered / …) would require per-carrier API credentials,
- * which is out of scope for a self-hosted PWA.
+ * A bare tracking number is accepted too (`EX123456789JP`): attributed to a
+ * carrier when its format is unambiguous, else to `auto` — the server's
+ * Parcels fallback detects the carrier.
+ *
+ * No network call is made — pure parsing. Live status comes from the
+ * server proxy (`/api/tracking/{id}/{number}`) for the carriers listed by
+ * `/api/tracking/providers`.
+ *
+ * Mirrored server-side in `server/src/external/tracking/parse.rs` (the
+ * delivered-parcel watcher parses stored links without a browser): keep the
+ * ids, hosts, params and bare-number rules in lockstep.
  *
  * Adding a carrier = one entry in `CARRIERS`. Each entry lists:
  *   - `name`     : how it should be displayed in the UI
@@ -172,6 +180,23 @@ export function parseTrackingUrl(input) {
   const raw = String(input).trim();
   if (!raw) return null;
 
+  const bare = bareNumber(raw);
+  if (bare) {
+    const id = guessCarrier(bare);
+    const carrier = CARRIERS.find((c) => c.id === id);
+    return {
+      id,
+      // `auto` has no name until the server names the detected carrier.
+      name: carrier?.name ?? "",
+      number: bare,
+      canonicalUrl: carrier
+        ? carrier.track(bare)
+        : `https://parcelsapp.com/en/tracking/${encodeURIComponent(bare)}`,
+      originalUrl: raw,
+      knownCarrier: true,
+    };
+  }
+
   // Accept bare hosts ("ups.com/...") by prepending https://
   let url;
   try {
@@ -236,6 +261,32 @@ export function parseTrackingUrl(input) {
     originalUrl: raw,
     knownCarrier: false,
   };
+}
+
+/** Carrier id for a bare number we can't attribute — detected server-side. */
+export const AUTO_CARRIER = "auto";
+
+/**
+ * A pasted bare tracking number: no dot, slash or colon (so not a link),
+ * 8–40 letters/digits/hyphens once inner spaces are dropped, at least one
+ * digit. Upper-cased. `null` otherwise.
+ */
+function bareNumber(raw) {
+  if (/[./:]/.test(raw)) return null;
+  const compact = raw.replace(/\s+/g, "");
+  if (!/^[A-Za-z0-9-]{8,40}$/.test(compact) || !/\d/.test(compact)) return null;
+  return compact.toUpperCase();
+}
+
+/** Carrier of a bare number when its format is unambiguous, else `auto`. */
+function guessCarrier(n) {
+  // UPU S10: 2 letters, 9 digits, ISO-2 origin country.
+  if (/^[A-Z]{2}\d{9}JP$/.test(n)) return "japanpost";
+  if (/^[A-Z]{2}\d{9}FR$/.test(n)) return "colissimo";
+  // Colissimo domestic: digit, letter, 11 digits.
+  if (/^\d[A-Z]\d{11}$/.test(n)) return "colissimo";
+  if (/^1Z[0-9A-Z]{16}$/.test(n)) return "ups";
+  return AUTO_CARRIER;
 }
 
 /** Convenience: returns just the recognised carrier id, or null. */

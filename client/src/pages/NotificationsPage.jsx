@@ -30,6 +30,7 @@ const TONE_BY_EVENT = {
   preorder_release_j7: "var(--color-jade)",
   preorder_delivery_today: "var(--color-indigo)",
   preorder_delivery_overdue: "var(--color-laque-bright)",
+  preorder_parcel_delivered: "var(--color-jade)",
   manga_server_approved: "var(--color-jade)",
   manga_server_revoked: "var(--color-laque-bright)",
   wishlist_price_below_target: "var(--color-jade)",

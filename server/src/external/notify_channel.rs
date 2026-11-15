@@ -432,6 +432,35 @@ fn render_message(
             }
         }
 
+        notification::EVENT_PREORDER_PARCEL_DELIVERED => {
+            let name = get_str("figure_name");
+            let carrier = get_str("carrier");
+            let location = get_str("location");
+            let url = figure_link();
+            let by = if carrier.is_empty() {
+                String::new()
+            } else {
+                format!(" ({carrier})")
+            };
+            let at = if location.is_empty() {
+                String::new()
+            } else {
+                format!(" — {location}")
+            };
+            RenderedMessage {
+                title: if fr {
+                    format!("FigureCollector — colis livré : {name}")
+                } else {
+                    format!("FigureCollector — parcel delivered: {name}")
+                },
+                body: if fr {
+                    format!("Le transporteur{by} indique que le colis de {name} a été livré{at}. Ouvre-le vite et vérifie l'état de la boîte : les délais de réclamation sont courts.\n\n{url}")
+                } else {
+                    format!("The carrier{by} reports {name}'s parcel as delivered{at}. Open it soon and check the box's condition — claim windows are short.\n\n{url}")
+                },
+            }
+        }
+
         notification::EVENT_WISHLIST_PRICE_BELOW_TARGET => {
             let name = get_str("figure_name");
             let amount = get_str("amount");
@@ -1146,5 +1175,35 @@ mod tests {
     fn ntfy_topic_rejects_oversized() {
         let too_long = "a".repeat(65);
         assert!(validate_ntfy_topic(&too_long).is_err());
+    }
+
+    #[test]
+    fn parcel_delivered_message_names_carrier_place_and_figure() {
+        let full = serde_json::json!({
+            "figure_id": "f1",
+            "figure_name": "Joker",
+            "carrier": "Japan Post",
+            "location": "Lyon",
+        });
+        let fr = render_message(
+            notification::EVENT_PREORDER_PARCEL_DELIVERED,
+            &full,
+            "https://fc.example/",
+            "fr-FR",
+        );
+        assert_eq!(fr.title, "FigureCollector — colis livré : Joker");
+        assert!(fr.body.contains("transporteur (Japan Post)"));
+        assert!(fr.body.contains("livré — Lyon."));
+        assert!(fr.body.ends_with("https://fc.example/figures/f1"));
+
+        // Carrier and place are optional — no dangling "()" or "—".
+        let bare = serde_json::json!({ "figure_name": "Joker" });
+        let en = render_message(
+            notification::EVENT_PREORDER_PARCEL_DELIVERED,
+            &bare,
+            "https://fc.example",
+            "en",
+        );
+        assert!(en.body.starts_with("The carrier reports Joker's parcel as delivered. "));
     }
 }

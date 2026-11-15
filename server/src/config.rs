@@ -108,6 +108,24 @@ pub struct TrackingConfig {
     /// exchange that precedes every tracking call.
     pub ups_client_id: Option<String>,
     pub ups_client_secret: Option<String>,
+    /// Parcels (parcelsapp.com) aggregator key — the fallback for every
+    /// carrier without its own key above (Japan Post, Yamato, Sagawa,
+    /// Chronopost, Mondial Relay, …) and for bare tracking numbers. Paid
+    /// beyond a few free shipments; quota counts each unique number once per
+    /// billing cycle.
+    pub parcels_key: Option<String>,
+    /// Parcels API base URL (default `https://parcelsapp.com/api/v5`). Point
+    /// it at `https://parcelsapp.com/api-docs/mock/v5` to exercise the flow
+    /// without spending quota.
+    pub parcels_api_url: Option<String>,
+    /// ISO-2 country Parcels needs to auto-detect the carrier of a number we
+    /// can't attribute ourselves (default `FR`).
+    pub parcels_destination_country: Option<String>,
+    /// Language Parcels writes event descriptions in (default `en`).
+    pub parcels_language: Option<String>,
+    /// Minutes between two sweeps of the delivered-parcel watcher (default
+    /// 60, `0` disables it).
+    pub watch_interval_minutes: u64,
 }
 
 #[derive(Debug, Clone)]
@@ -189,6 +207,16 @@ impl AppConfig {
             dhl_key: env_nonempty("DHL_API_KEY"),
             ups_client_id: env_nonempty("UPS_CLIENT_ID"),
             ups_client_secret: env_nonempty("UPS_CLIENT_SECRET"),
+            parcels_key: env_nonempty("PARCELS_API_KEY"),
+            parcels_api_url: env_nonempty("PARCELS_API_URL")
+                .map(|s| s.trim().trim_end_matches('/').to_string()),
+            parcels_destination_country: env_nonempty("PARCELS_DESTINATION_COUNTRY")
+                .map(|s| s.trim().to_uppercase()),
+            parcels_language: env_nonempty("PARCELS_LANGUAGE").map(|s| s.trim().to_lowercase()),
+            watch_interval_minutes: env::var("TRACKING_WATCH_INTERVAL_MINUTES")
+                .ok()
+                .and_then(|v| v.trim().parse().ok())
+                .unwrap_or(60),
         };
 
         // Strip a trailing slash so endpoint joining (`base + "/stores"`)

@@ -15,6 +15,7 @@ pub const JOB_PRICE_CRON: &str = "price_cron";
 pub const JOB_RELEASE_CRON: &str = "release_cron";
 pub const JOB_SCAN_CLEANUP: &str = "scan_cleanup";
 pub const JOB_MANGA_SYNC: &str = "manga_sync";
+pub const JOB_TRACKING_WATCH: &str = "tracking_watch";
 
 pub const TRIGGER_SCHEDULE: &str = "schedule";
 pub const TRIGGER_MANUAL: &str = "manual";
@@ -22,7 +23,11 @@ pub const TRIGGER_MANUAL: &str = "manual";
 fn is_known(job_name: &str) -> bool {
     matches!(
         job_name,
-        JOB_PRICE_CRON | JOB_RELEASE_CRON | JOB_SCAN_CLEANUP | JOB_MANGA_SYNC
+        JOB_PRICE_CRON
+            | JOB_RELEASE_CRON
+            | JOB_SCAN_CLEANUP
+            | JOB_MANGA_SYNC
+            | JOB_TRACKING_WATCH
     )
 }
 
@@ -34,6 +39,7 @@ async fn execute(state: &AppState, job_name: &str) -> AppResult<serde_json::Valu
         JOB_RELEASE_CRON => crate::services::release_cron::run_once(state).await,
         JOB_SCAN_CLEANUP => crate::services::scan_cleanup::run_once(state).await,
         JOB_MANGA_SYNC => crate::services::manga_sync::run_once(state).await,
+        JOB_TRACKING_WATCH => crate::services::tracking_watch::run_once(state).await,
         _ => Err(AppError::BadRequest("unknown job")),
     }
 }
@@ -103,6 +109,8 @@ fn changed_from(job_name: &str, result: &serde_json::Value) -> Option<i64> {
         JOB_SCAN_CLEANUP => sum(&["purged"]),
         JOB_MANGA_SYNC => sum(&["filled"]),
         JOB_PRICE_CRON => sum(&["updated", "stock_updated"]),
+        // Only a delivery notice is a change; checking statuses isn't.
+        JOB_TRACKING_WATCH => sum(&["delivered"]),
         name if name.starts_with("reindex") => sum(&["indexed", "queued"]),
         _ => return None,
     };
@@ -158,6 +166,10 @@ mod tests {
         assert_eq!(changed_from("scan_cleanup", &json!({ "purged": 4 })), Some(4));
         assert_eq!(changed_from("manga_sync", &json!({ "filled": 2 })), Some(2));
         assert_eq!(changed_from("price_cron", &json!({ "updated": 9 })), Some(9));
+        assert_eq!(
+            changed_from("tracking_watch", &json!({ "checked": 12, "delivered": 1 })),
+            Some(1)
+        );
         assert_eq!(
             changed_from("reindex_image", &json!({ "indexed": 3, "queued": 1 })),
             Some(4)

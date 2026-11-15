@@ -407,6 +407,28 @@ pub async fn delete_for_user(pool: &PgPool, user_id: Uuid, id: Uuid) -> AppResul
     Ok(())
 }
 
+/// Whether one of the user's preorders carries `number` in its tracking field
+/// — inside a carrier link or as the bare number (whitespace and case
+/// ignored). Gates the paid tracking fallback to numbers the user tracks.
+pub async fn tracks_number(pool: &PgPool, user_id: Uuid, number: &str) -> AppResult<bool> {
+    let needle: String = number.split_whitespace().collect();
+    if needle.is_empty() {
+        return Ok(false);
+    }
+    Ok(sqlx::query_scalar(
+        "SELECT EXISTS (
+            SELECT 1 FROM preorders
+             WHERE user_id = $1
+               AND tracking_url IS NOT NULL
+               AND strpos(upper(regexp_replace(tracking_url, '\\s', '', 'g')), upper($2)) > 0
+         )",
+    )
+    .bind(user_id)
+    .bind(needle)
+    .fetch_one(pool)
+    .await?)
+}
+
 #[derive(Debug, Clone, Serialize, FromRow)]
 pub struct DateHistoryEntry {
     pub id: Uuid,

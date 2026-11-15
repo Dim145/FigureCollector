@@ -107,14 +107,32 @@ These knobs only matter for unusual deployments.
 
 ## Parcel tracking
 
-Best-effort carrier lookups for shipped pre-orders — each key enables its
-carrier, missing keys simply hide it.
+Best-effort live status for shipped pre-orders. Without any key, the tracking
+chip is a plain link to the carrier's page.
+
+A carrier's own key always wins for that carrier (they're free). Parcels covers
+every other carrier, and bare tracking numbers whose carrier the app can't tell.
 
 | Variable | Carrier |
 |---|---|
-| `COLISSIMO_API_KEY` | La Poste / Colissimo |
-| `DHL_API_KEY` | DHL |
-| `UPS_CLIENT_ID`, `UPS_CLIENT_SECRET` | UPS (OAuth2) |
+| `COLISSIMO_API_KEY` | La Poste / Colissimo — free Okapi key at [developer.laposte.fr](https://developer.laposte.fr) |
+| `DHL_API_KEY` | DHL — [developer.dhl.com](https://developer.dhl.com) |
+| `UPS_CLIENT_ID`, `UPS_CLIENT_SECRET` | UPS (OAuth2) — [developer.ups.com](https://developer.ups.com) |
+| `PARCELS_API_KEY` | Everything else, through the [Parcels](https://parcelsapp.com/developers) aggregator: Japan Post / EMS, Yamato, Sagawa, Chronopost, Mondial Relay, DPD, GLS, FedEx, USPS… |
+
+!!! warning "Parcels is a paid API"
+    The key is free and includes a few free shipments. After that, plans start
+    at about $19/month for 300 shipments. Quota counts each **unique** tracking
+    number once per billing cycle, so refreshes and the hourly delivery watcher
+    don't use any more quota. To protect it, the server only queries Parcels for
+    numbers saved on one of the requesting user's pre-orders.
+
+| Variable | Default | What |
+|---|---|---|
+| `PARCELS_DESTINATION_COUNTRY` | `FR` | ISO-2 country Parcels needs to auto-detect the carrier of a number with no known carrier. |
+| `PARCELS_LANGUAGE` | `en` | Language of the event descriptions Parcels returns. |
+| `PARCELS_API_URL` | `https://parcelsapp.com/api/v5` | Set it to `https://parcelsapp.com/api-docs/mock/v5` to try the flow against the public mock, which uses no quota. |
+| `TRACKING_WATCH_INTERVAL_MINUTES` | `60` | How often the [delivered-parcel watcher](../features/preorders.md#delivered-parcel-alert) checks shipped pre-orders. `0` disables it. |
 
 !!! note "Notifications are configured in the app, not here"
     SMTP credentials, the Web-Push VAPID keypair, and ntfy defaults are all

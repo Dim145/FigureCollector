@@ -24,6 +24,7 @@ Each external channel can be **enabled/disabled by the admin** at the system lev
 | `preorder_release_j7` | A preorder's `release_date_current` == today + 7 | `(preorder_id, release_date)` |
 | `preorder_delivery_today` | A shipped preorder's projected delivery == today | `(preorder_id, delivery_date)` |
 | `preorder_delivery_overdue` | A shipped preorder's projected delivery was yesterday and the item isn't `received` | `preorder_id` (fires only once) |
+| `preorder_parcel_delivered` | Live tracking reports a shipped preorder's parcel delivered ([watcher](preorders.md#delivered-parcel-alert)) | `preorder_id` (fires only once) |
 | `wishlist_price_below_target` | The [market-price sweep](cote.md#market-prices-auto-tracked) finds a price at or below a wishlist [target](wishlist.md#price-alerts) | `(figure_id, amount)` — each price level fires once; a further drop re-fires |
 | `manga_server_approved` | An admin approves a submitted [MangaCollector server](manga.md) | per decision |
 | `manga_server_revoked` | An admin revokes one | per decision |

@@ -41,6 +41,7 @@ const EVENT_META = {
   preorder_release_j7:        { kanji: "近" },
   preorder_delivery_today:    { kanji: "届" },
   preorder_delivery_overdue:  { kanji: "遅" },
+  preorder_parcel_delivered:  { kanji: "着" },
   wishlist_price_below_target: { kanji: "値" },
   wishlist_back_in_stock:     { kanji: "在" },
   manga_server_approved:      { kanji: "認" },

@@ -210,10 +210,19 @@ services:
       #   - Colissimo: free okapi key at https://developer.laposte.fr
       #   - DHL Express: register at https://developer.dhl.com
       #   - UPS: OAuth2 credentials at https://developer.ups.com
+      #   - Parcels (https://parcelsapp.com/developers): paid aggregator used
+      #     for every other carrier (Japan Post, Yamato, Sagawa, Chronopost,
+      #     Mondial Relay…) and for bare tracking numbers. The keys above
+      #     take precedence for their carrier, so they never spend its quota.
       COLISSIMO_API_KEY: ${COLISSIMO_API_KEY:-}
       DHL_API_KEY: ${DHL_API_KEY:-}
       UPS_CLIENT_ID: ${UPS_CLIENT_ID:-}
       UPS_CLIENT_SECRET: ${UPS_CLIENT_SECRET:-}
+      PARCELS_API_KEY: ${PARCELS_API_KEY:-}
+      # PARCELS_DESTINATION_COUNTRY: ${PARCELS_DESTINATION_COUNTRY:-FR}
+      # PARCELS_LANGUAGE: ${PARCELS_LANGUAGE:-en}
+      # Delivered-parcel watcher cadence (0 disables it).
+      # TRACKING_WATCH_INTERVAL_MINUTES: ${TRACKING_WATCH_INTERVAL_MINUTES:-60}
     expose:
       - "3000"
     read_only: true

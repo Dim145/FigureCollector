@@ -720,10 +720,10 @@ export default {
   "preorders.save": "Save",
   "preorders.field.store_ph": "AmiAmi, GSC Online, HLJ, Solaris Japan…",
   "preorders.field.order_ref_ph": "Reference or order number",
-  "preorders.field.tracking_url": "Tracking link (optional)",
-  "preorders.field.tracking_url_ph": "https://tracking.dhl.com/?tracking-id=…",
+  "preorders.field.tracking_url": "Parcel tracking (optional)",
+  "preorders.field.tracking_url_ph": "Tracking link or number (EX123456789JP)",
   "preorders.field.tracking_url_hint":
-    "Paste the URL as is — the carrier and tracking number are detected automatically.",
+    "Paste the carrier's link or just the tracking number — the carrier is detected automatically.",
   "preorders.field.deposit": "Deposit",
   "preorders.field.deposit_ph": "30",
   "preorders.field.deposit_hint":
@@ -747,6 +747,8 @@ export default {
   "preorders.tracking.fetching": "Fetching status",
   "preorders.tracking.refresh": "Refresh status",
   "preorders.tracking.refresh_failed": "Live status unavailable",
+  "preorders.tracking.searching": "Asking the carrier",
+  "preorders.tracking.carrier_auto": "Tracking number",
 
   // ----- Pre-order badges (cards + figure detail) -----
   "preorder.badge.preorder": "Pre-order",
@@ -1252,6 +1254,8 @@ export default {
   "notifications.event.preorder_delivery_today.title": "Arriving today: {name}",
   "notifications.event.preorder_delivery_overdue.title": "Delivery overdue: {name}",
   "notifications.event.preorder_delivery_overdue.sub": "Estimated date was yesterday ({date})",
+  "notifications.event.preorder_parcel_delivered.title": "Parcel delivered: {name}",
+  "notifications.event.preorder_parcel_delivered.sub": "Delivered by {carrier}",
   "notifications.event.manga_server_approved.title": "MangaCollector server approved: {server}",
   "notifications.event.manga_server_approved.sub":
     "Your manga integration is live — explore your crossings.",
@@ -2081,6 +2085,7 @@ export default {
   "admin.tasks.job.price_cron": "Cote · market prices",
   "admin.tasks.job.release_cron": "Release notifications",
   "admin.tasks.job.scan_cleanup": "3D-scan cleanup",
+  "admin.tasks.job.tracking_watch": "Parcel tracking",
   "admin.tasks.job.manga_sync": "Manga sync",
   "admin.tasks.job.reindex_image": "Reindex · image",
   "admin.tasks.job.reindex_text": "Reindex · description",
@@ -2104,6 +2109,10 @@ export default {
   "admin.tasks.result.k.delivery_today.one": "{n} delivery today",
   "admin.tasks.result.k.delivery_overdue": "{n} overdue deliveries",
   "admin.tasks.result.k.delivery_overdue.one": "{n} overdue delivery",
+  "admin.tasks.result.k.checked": "{n} parcels checked",
+  "admin.tasks.result.k.checked.one": "{n} parcel checked",
+  "admin.tasks.result.k.delivered": "{n} deliveries announced",
+  "admin.tasks.result.k.delivered.one": "{n} delivery announced",
   "admin.tasks.result.k.indexed": "{n} encoded",
   "admin.tasks.result.k.indexed.one": "{n} encoded",
   "admin.tasks.result.k.failed": "{n} failed",

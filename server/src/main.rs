@@ -195,6 +195,9 @@ async fn main() -> anyhow::Result<()> {
     // Admin-scheduled price refresh: scrapes store buy-links to feed the cote
     // market value. Idle until an admin sets the `cote.price_cron` schedule.
     services::price_cron::spawn(state.clone());
+    // Delivered-parcel watcher: polls live tracking of shipped preorders and
+    // notifies once the carrier reports delivery. Idle without a tracking key.
+    services::tracking_watch::spawn(state.clone());
 
     let app = routes::build_router(state).layer(session_layer);
 
