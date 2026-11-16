@@ -40,7 +40,7 @@ services:
       - ip6net
 
   garage:
-    image: dxflrs/garage:v1.0.1
+    image: dxflrs/garage:v1.3.1
     restart: unless-stopped
     volumes:
       - ./infrastructure/garage/garage.toml:/etc/garage.toml:ro
@@ -77,7 +77,7 @@ services:
   # Idempotent — safe to re-run; everything ignores 409s.
   # ------------------------------------------------------------------
   garage-init:
-    image: alpine:3.23
+    image: alpine:3.24
     depends_on:
       garage:
         condition: service_started

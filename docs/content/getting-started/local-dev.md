@@ -13,7 +13,7 @@ cargo run
 
 # Frontend (terminal B)
 cd client
-corepack enable
+npm install -g pnpm@11   # Node 26 no longer ships corepack
 pnpm install
 pnpm dev
 ```

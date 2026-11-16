@@ -17,8 +17,8 @@ If you want to *deploy* it for your collection long-term, read [production](prod
 | Tool | Minimum | Why |
 |---|---|---|
 | Docker (with BuildKit) | recent | All runtime services + container builds |
-| Rust (`rustup`) | ≥ 1.95 | Backend dev mode |
-| Node + pnpm (via corepack) | Node 24 / pnpm 9+ | Frontend dev mode |
+| Rust (`rustup`) | ≥ 1.100 | Backend dev mode |
+| Node + pnpm | Node 26 / pnpm 11 | Frontend dev mode |
 
 Postgres, Garage (S3), the Rust backend image and the nginx frontend image are all produced from the repo — no external services required.
 

@@ -61,8 +61,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # images with while this image is held on Pillow 12 (embed_index.PILLOW_PATCHED).
 RUN --mount=type=cache,target=/root/.cache/pip \
     python3 -m pip install \
-      asyncpg==0.30.0 "boto3==1.35.*" "structlog==24.4.*" \
-      "rembg==2.0.*" onnxruntime-gpu "tokenizers==0.23.1"
+      asyncpg==0.32.0 "boto3==1.44.*" "structlog==26.1.*" \
+      "rembg==2.0.*" onnxruntime-gpu "tokenizers==0.23.3"
 
 # RapidOCR (PP-OCR ONNX) + PyMuPDF for the OCR loop (Palier 2 — scanned PDF
 # justificatifs). RapidOCR is installed with --no-deps so it CANNOT pull the
@@ -71,8 +71,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # (numpy / opencv / Pillow come from rembg already) are added explicitly.
 # RapidOCR bakes its PP-OCR ONNX models inside the wheel → no runtime download,
 # so it works in the read-only container (uid 65532, no network).
+# pymupdf <2: 1.28.x is the last line with a cp310 wheel, and 2.x hard-depends on
+# the CPU `onnxruntime` (via pymupdf4llm/-layout) — the same shadowing hazard.
 RUN --mount=type=cache,target=/root/.cache/pip \
-    python3 -m pip install "pymupdf>=1.26.7" pyclipper shapely pyyaml six && \
+    python3 -m pip install "pymupdf>=1.28.2,<2" pyclipper shapely pyyaml six && \
     python3 -m pip install --no-deps rapidocr-onnxruntime && \
     python3 -c "import fitz; from rapidocr_onnxruntime import RapidOCR; print('rapidocr + pymupdf import ok')"
 

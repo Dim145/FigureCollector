@@ -38,7 +38,7 @@ It works **offline-first**, is **installable on iOS / Android / Desktop**, and p
 
 ### Backend (`server/`)
 
-- Rust 2024 (rustc ≥ 1.95), Axum 0.8, Tokio
+- Rust 2024 (rustc ≥ 1.100), Axum 0.8, Tokio
 - SeaORM + PostgreSQL 16
 - Rustls with aws-lc-rs — **zero OpenSSL** anywhere in the dependency tree
 - Static musl binary shipped in `FROM scratch`
@@ -118,7 +118,7 @@ FigureCollector/
 
 ### Local dev (hot reload)
 
-Prerequisites: Docker (with BuildKit), Rust ≥ 1.95 (via rustup), Node 24 with corepack/pnpm.
+Prerequisites: Docker (with BuildKit), Rust ≥ 1.100 (via rustup), Node 26 with pnpm 11.
 
 ```bash
 # Spin up PostgreSQL (+ Garage) for local dev
@@ -131,7 +131,7 @@ cargo run
 
 # Frontend (terminal B)
 cd client
-corepack enable
+npm install -g pnpm@11   # Node 26 no longer ships corepack
 pnpm install
 pnpm dev
 ```

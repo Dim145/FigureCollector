@@ -4,7 +4,7 @@
 
 | Layer | Choice | Why |
 |---|---|---|
-| Language | **Rust 2024** (rustc ≥ 1.95) | Memory safety + statically linkable musl binary |
+| Language | **Rust 2024** (rustc ≥ 1.100) | Memory safety + statically linkable musl binary |
 | HTTP | **Axum 0.8** | Tower middleware ecosystem, mature |
 | Async runtime | **Tokio** | Default Rust async runtime |
 | ORM | **SeaORM** (entity layer) + **sqlx** (hot-path queries) | Mature, type-safe, supports both query styles |

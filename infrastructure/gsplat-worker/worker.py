@@ -203,8 +203,16 @@ s3 = boto3.client(
     aws_access_key_id=S3_ACCESS_KEY,
     aws_secret_access_key=S3_SECRET_KEY,
     region_name=S3_REGION,
-    # Garage only speaks path-style.
-    config=BotoConfig(s3={"addressing_style": "path"}, signature_version="s3v4"),
+    # Garage only speaks path-style. Checksums "when_required" = boto3's pre-1.36
+    # behaviour: the newer default (CRC32 on every upload, validated on download)
+    # breaks multipart downloads from older Garage (FlexibleChecksumError on
+    # v1.0.1; v1.3.1 is fine), and the deployed Garage version isn't ours to pin.
+    config=BotoConfig(
+        s3={"addressing_style": "path"},
+        signature_version="s3v4",
+        request_checksum_calculation="when_required",
+        response_checksum_validation="when_required",
+    ),
 )
 
 # -----------------------------------------------------------------------------

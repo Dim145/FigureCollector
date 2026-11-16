@@ -5,7 +5,7 @@
 # q8, run on CPU via onnxruntime — so it's a small, plain python image that can
 # run anywhere (a NAS, a spare box, or beside the server).
 
-FROM python:3.12-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 WORKDIR /app
 
