@@ -1,0 +1,37 @@
+# pnpm settings. pnpm 11 no longer reads the package.json "pnpm" field, nor
+# anything but registry/auth keys from .npmrc, so they all live here (pnpm 10
+# reads this file too).
+engineStrict: true
+autoInstallPeers: true
+# Supply-chain cooldown: only resolve versions published at least 7 days ago
+# (10080 min) — the same rule as the maintainer's npm `min-release-age=7`,
+# which pnpm doesn't read from .npmrc.
+minimumReleaseAge: 10080
+
+overrides:
+  # Security floor: workbox-build 7.4.1 (latest) still asks for glob ^11, whose
+  # glob/minimatch carry GHSA-3g3m-2fjr-6pw4 + GHSA-g3hv-75wg-m249 (fixed only in
+  # glob 14 / minimatch 11). workbox-build only calls globSync(), unchanged in
+  # glob 14 — the generated precache manifest is byte-identical. Drop once
+  # workbox-build moves to glob >=14.0.2.
+  workbox-build>glob: ^14.0.4
+  # Same advisory (GHSA-g3hv-75wg-m249) via ESLint: under the 7-day cooldown
+  # eslint resolves to 10.14, whose config-array still asks for minimatch 10
+  # (10.15 moved to 11). Dev-only tooling; drop once eslint >=10.15 is mature.
+  eslint>minimatch: ^11.0.1
+  "@eslint/config-array>minimatch": ^11.0.1
+
+peerDependencyRules:
+  allowedVersions:
+    # eslint-plugin-react 7.37.5 (latest) predates ESLint 10; it runs through the
+    # @eslint/compat shim (see eslint.config.js).
+    eslint-plugin-react>eslint: "10"
+
+# pnpm 11 fails the install on unreviewed dependency build scripts. None of
+# these is needed for a browser bundle: core-js only prints a banner,
+# onnxruntime-node fetches native Node binaries (transformers.js runs on
+# onnxruntime-web here), protobufjs' postinstall is a version check.
+allowBuilds:
+  core-js: false
+  onnxruntime-node: false
+  protobufjs: false

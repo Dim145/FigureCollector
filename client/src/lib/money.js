@@ -31,7 +31,7 @@ export const CURRENCY_LABELS = {
 const FRACTION_CACHE = {};
 function maxFractionDigits(cur) {
   if (cur in FRACTION_CACHE) return FRACTION_CACHE[cur];
-  let d = 2;
+  let d;
   try {
     d = new Intl.NumberFormat(undefined, { style: "currency", currency: cur })
       .resolvedOptions().maximumFractionDigits;

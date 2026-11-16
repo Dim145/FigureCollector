@@ -38,7 +38,7 @@ export default function Tabs({ tabs = [], value, onChange, className = "" }) {
     if (count === 0) return;
     const current = tabs.findIndex((t) => t.value === value);
     const from = current === -1 ? 0 : current;
-    let next = null;
+    let next;
     switch (e.key) {
       case "ArrowRight":
         next = (from + 1) % count;

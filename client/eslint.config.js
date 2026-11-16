@@ -1,7 +1,16 @@
 import js from "@eslint/js";
+import { fixupPluginRules } from "@eslint/compat";
 import globals from "globals";
 import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
+
+// eslint-plugin-react 7.37.x (latest, no ESLint 10 release yet) still calls
+// the `context.getFilename()` / `sourceCode.getJSDocComment()` APIs that
+// ESLint 10 removed — version detection crashes on every file without this.
+// The official @eslint/compat shim restores them; drop it (and the
+// `peerDependencyRules` entry in pnpm-workspace.yaml) once the plugin ships
+// ESLint 10 support.
+const reactCompat = fixupPluginRules(react);
 
 export default [
   js.configs.recommended,
@@ -25,7 +34,7 @@ export default [
       },
     },
     plugins: {
-      react,
+      react: reactCompat,
       "react-hooks": reactHooks,
     },
     rules: {

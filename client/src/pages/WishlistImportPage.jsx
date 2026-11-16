@@ -115,7 +115,7 @@ export default function WishlistImportPage() {
     const text = raw.trim();
     if (!text) return;
 
-    let items = [];
+    let items;
     try {
       if (looksLikeHtml(text)) {
         items = (await resolve.mutateAsync({ html: text })).map((it) => ({
@@ -164,7 +164,7 @@ export default function WishlistImportPage() {
   const onCsvFile = async (file) => {
     setError(null);
     if (!file) return;
-    let items = [];
+    let items;
     try {
       items = parseMfcCsv(await file.text());
     } catch {

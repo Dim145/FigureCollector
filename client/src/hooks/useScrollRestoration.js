@@ -23,7 +23,7 @@ export default function useScrollRestoration(key, ready = true) {
   useEffect(() => {
     if (!ready || restored.current) return;
     restored.current = true;
-    let y = 0;
+    let y;
     try {
       y = parseInt(sessionStorage.getItem(storageKey) ?? "0", 10) || 0;
     } catch {

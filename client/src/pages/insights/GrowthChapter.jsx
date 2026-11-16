@@ -104,7 +104,7 @@ function buildCurve(rows, dc) {
 
   // Decide the spend target + how to convert a (amount, currency) bucket.
   let target = null;
-  let convert = null; // (amount, currency) -> number | null  (null ⇒ skip, mark partial)
+  let convert; // (amount, currency) -> number | null  (null ⇒ skip, mark partial)
   if (dc.active && dc.ready && dc.display) {
     target = dc.display;
     convert = (amount, cur) => {

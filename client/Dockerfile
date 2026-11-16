@@ -3,14 +3,17 @@
 # -----------------------------------------------------------------------------
 # Build stage
 # -----------------------------------------------------------------------------
-FROM node:24-alpine AS builder
+FROM node:26-alpine AS builder
 
 WORKDIR /build
 
-# Enable pnpm via corepack (shipped with Node 24+).
-RUN corepack enable && corepack prepare pnpm@10.33.4 --activate
+# Node 25+ no longer bundles corepack, so install pnpm straight from npm,
+# pinned to the `packageManager` version in package.json.
+RUN npm install -g pnpm@11.28.11
 
-COPY package.json pnpm-lock.yaml* .npmrc ./
+# pnpm-workspace.yaml carries the pnpm settings (overrides, allowBuilds, …):
+# without it a frozen install would see a different overrides set and fail.
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile || pnpm install
 

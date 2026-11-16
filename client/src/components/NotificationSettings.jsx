@@ -427,7 +427,7 @@ function destinationFilled(channelType, dest) {
 }
 
 function DestinationSummary({ channelType, destination, onEdit, t }) {
-  let preview = "";
+  let preview;
   switch (channelType) {
     case "email":
       preview = destination.to ?? "";

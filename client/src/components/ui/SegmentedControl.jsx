@@ -35,7 +35,7 @@ export default function SegmentedControl({
     if (count === 0) return;
     const current = options.findIndex((o) => o.value === value);
     const from = current === -1 ? 0 : current;
-    let next = null;
+    let next;
     switch (e.key) {
       case "ArrowRight":
       case "ArrowDown":
