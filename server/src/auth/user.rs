@@ -106,7 +106,7 @@ pub async fn create_local(
          VALUES ($1, $2, $3, $4, 'fr', $5) \
          RETURNING {USER_COLUMNS}"
     );
-    let row: User = match sqlx::query_as(&insert_sql)
+    let row: User = match sqlx::query_as(sqlx::AssertSqlSafe(insert_sql))
         .bind(user_id)
         .bind(username)
         .bind(email)
@@ -161,7 +161,7 @@ async fn should_bootstrap_admin(
 
 pub async fn find_by_username(pool: &PgPool, username: &str) -> AppResult<Option<User>> {
     let sql = format!("SELECT {USER_COLUMNS} FROM users WHERE username = $1");
-    let row = sqlx::query_as::<_, User>(&sql)
+    let row = sqlx::query_as::<_, User>(sqlx::AssertSqlSafe(sql))
         .bind(username)
         .fetch_optional(pool)
         .await?;
@@ -170,7 +170,7 @@ pub async fn find_by_username(pool: &PgPool, username: &str) -> AppResult<Option
 
 pub async fn find_by_id(pool: &PgPool, id: Uuid) -> AppResult<Option<User>> {
     let sql = format!("SELECT {USER_COLUMNS} FROM users WHERE id = $1");
-    let row = sqlx::query_as::<_, User>(&sql)
+    let row = sqlx::query_as::<_, User>(sqlx::AssertSqlSafe(sql))
         .bind(id)
         .fetch_optional(pool)
         .await?;
@@ -181,7 +181,7 @@ pub async fn find_by_id(pool: &PgPool, id: Uuid) -> AppResult<Option<User>> {
 /// `/g/{token}` surface — the token is the only credential.
 pub async fn find_by_gift_token(pool: &PgPool, token: &str) -> AppResult<Option<User>> {
     let sql = format!("SELECT {USER_COLUMNS} FROM users WHERE gift_share_token = $1");
-    let row = sqlx::query_as::<_, User>(&sql)
+    let row = sqlx::query_as::<_, User>(sqlx::AssertSqlSafe(sql))
         .bind(token)
         .fetch_optional(pool)
         .await?;
@@ -198,7 +198,7 @@ pub async fn find_by_vitrine_token(pool: &PgPool, token: &str) -> AppResult<Opti
          JOIN collection_locations cl ON cl.user_id = u.id \
          WHERE cl.share_token = $1"
     );
-    let row = sqlx::query_as::<_, User>(&sql)
+    let row = sqlx::query_as::<_, User>(sqlx::AssertSqlSafe(sql))
         .bind(token)
         .fetch_optional(pool)
         .await?;
@@ -209,7 +209,7 @@ pub async fn find_by_vitrine_token(pool: &PgPool, token: &str) -> AppResult<Opti
 /// `/calendar/{token}/preorders.ics` surface — the token is the only credential.
 pub async fn find_by_calendar_token(pool: &PgPool, token: &str) -> AppResult<Option<User>> {
     let sql = format!("SELECT {USER_COLUMNS} FROM users WHERE calendar_token = $1");
-    let row = sqlx::query_as::<_, User>(&sql)
+    let row = sqlx::query_as::<_, User>(sqlx::AssertSqlSafe(sql))
         .bind(token)
         .fetch_optional(pool)
         .await?;
@@ -272,7 +272,7 @@ pub async fn upsert_oauth_user(
         }
 
         let sql = format!("SELECT {USER_COLUMNS} FROM users WHERE id = $1");
-        let user: User = sqlx::query_as(&sql)
+        let user: User = sqlx::query_as(sqlx::AssertSqlSafe(sql))
             .bind(user_id)
             .fetch_one(&mut *tx)
             .await?;
@@ -332,7 +332,7 @@ pub async fn upsert_oauth_user(
              VALUES ($1, $2, $3, $4, $5, 'fr', $6) \
              RETURNING {USER_COLUMNS}"
         );
-        let result = sqlx::query_as::<_, User>(&insert_sql)
+        let result = sqlx::query_as::<_, User>(sqlx::AssertSqlSafe(insert_sql))
             .bind(user_id)
             .bind(&attempted)
             .bind(email)

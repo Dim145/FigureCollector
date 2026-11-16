@@ -294,7 +294,7 @@ pub async fn create(
          RETURNING {OWNED_RETURNING}"
     );
 
-    let item: OwnedItem = sqlx::query_as(&sql)
+    let item: OwnedItem = sqlx::query_as(sqlx::AssertSqlSafe(sql))
         .bind(id)
         .bind(user_id)
         .bind(input.figure_id)
@@ -434,7 +434,7 @@ pub async fn patch(
          RETURNING {OWNED_RETURNING}"
     );
 
-    let row: Option<OwnedItem> = sqlx::query_as(&sql)
+    let row: Option<OwnedItem> = sqlx::query_as(sqlx::AssertSqlSafe(sql))
         .bind(&input.condition)
         .bind(input.price_amount)
         .bind(&input.price_currency)
@@ -494,7 +494,7 @@ pub async fn set_value(
          WHERE id = $3 AND user_id = $4
          RETURNING {OWNED_RETURNING}"
     );
-    let row: Option<OwnedItem> = sqlx::query_as(&sql)
+    let row: Option<OwnedItem> = sqlx::query_as(sqlx::AssertSqlSafe(sql))
         .bind(amount)
         .bind(&currency)
         .bind(id)
@@ -633,7 +633,7 @@ pub async fn list_for_user(
     // Archived items, when included, sink to the bottom of the list so they
     // don't crowd the "active collection" experience.
     sql.push_str(" ORDER BY (o.archived_at IS NOT NULL) ASC, o.created_at DESC, o.id DESC");
-    let mut query = sqlx::query_as::<_, OwnedItemWithFigure>(&sql).bind(user_id);
+    let mut query = sqlx::query_as::<_, OwnedItemWithFigure>(sqlx::AssertSqlSafe(sql)).bind(user_id);
     if let Some(t) = tag_norm {
         query = query.bind(t);
     }
@@ -665,7 +665,7 @@ pub async fn archive(
          WHERE id = $1 AND user_id = $2
          RETURNING {OWNED_RETURNING}"
     );
-    let row: Option<OwnedItem> = sqlx::query_as(&sql)
+    let row: Option<OwnedItem> = sqlx::query_as(sqlx::AssertSqlSafe(sql))
         .bind(id)
         .bind(user_id)
         .bind(reason)
@@ -687,7 +687,7 @@ pub async fn restore(pool: &PgPool, user_id: Uuid, id: Uuid) -> AppResult<OwnedI
          WHERE id = $1 AND user_id = $2
          RETURNING {OWNED_RETURNING}"
     );
-    let row: Option<OwnedItem> = sqlx::query_as(&sql)
+    let row: Option<OwnedItem> = sqlx::query_as(sqlx::AssertSqlSafe(sql))
         .bind(id)
         .bind(user_id)
         .fetch_optional(pool)
@@ -774,7 +774,7 @@ pub async fn set_cover(
          WHERE id = $3 AND user_id = $4
          RETURNING {OWNED_RETURNING}"
     );
-    let row: Option<OwnedItem> = sqlx::query_as(&sql)
+    let row: Option<OwnedItem> = sqlx::query_as(sqlx::AssertSqlSafe(sql))
         .bind(photo_id)
         .bind(scan_id)
         .bind(owned_id)

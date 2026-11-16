@@ -50,10 +50,10 @@ fn clean_name(name: &str) -> AppResult<String> {
 }
 
 pub async fn list(pool: &PgPool, user_id: Uuid) -> AppResult<Vec<CollectionLocation>> {
-    Ok(sqlx::query_as::<_, CollectionLocation>(&format!(
+    Ok(sqlx::query_as::<_, CollectionLocation>(sqlx::AssertSqlSafe(format!(
         "SELECT {RETURNING} FROM collection_locations
          WHERE user_id = $1 ORDER BY position ASC, name ASC"
-    ))
+    )))
     .bind(user_id)
     .fetch_all(pool)
     .await?)
@@ -69,7 +69,7 @@ pub async fn create(
 ) -> AppResult<CollectionLocation> {
     let name = clean_name(&input.name)?;
     let id = Uuid::now_v7();
-    Ok(sqlx::query_as::<_, CollectionLocation>(&format!(
+    Ok(sqlx::query_as::<_, CollectionLocation>(sqlx::AssertSqlSafe(format!(
         "INSERT INTO collection_locations (id, user_id, name, position)
          VALUES (
              $1, $2, $3,
@@ -77,7 +77,7 @@ pub async fn create(
          )
          ON CONFLICT (user_id, lower(name)) DO UPDATE SET name = EXCLUDED.name
          RETURNING {RETURNING}"
-    ))
+    )))
     .bind(id)
     .bind(user_id)
     .bind(&name)
@@ -95,9 +95,9 @@ pub async fn patch(
 ) -> AppResult<CollectionLocation> {
     let Some(name) = input.name else {
         // Nothing to change — return the current row (or 404).
-        return sqlx::query_as::<_, CollectionLocation>(&format!(
+        return sqlx::query_as::<_, CollectionLocation>(sqlx::AssertSqlSafe(format!(
             "SELECT {RETURNING} FROM collection_locations WHERE id = $1 AND user_id = $2"
-        ))
+        )))
         .bind(id)
         .bind(user_id)
         .fetch_optional(pool)
@@ -116,9 +116,9 @@ pub async fn patch(
     let Some((old_name,)) = old else {
         return Err(AppError::NotFound);
     };
-    let row = sqlx::query_as::<_, CollectionLocation>(&format!(
+    let row = sqlx::query_as::<_, CollectionLocation>(sqlx::AssertSqlSafe(format!(
         "UPDATE collection_locations SET name = $1 WHERE id = $2 AND user_id = $3 RETURNING {RETURNING}"
-    ))
+    )))
     .bind(&name)
     .bind(id)
     .bind(user_id)

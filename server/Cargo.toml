@@ -2,7 +2,7 @@
 name = "figurecollector-server"
 version = "0.48.7"
 edition = "2024"
-rust-version = "1.95"
+rust-version = "1.100"
 license = "MIT"
 description = "FigureCollector backend — hardened Rust/Axum API for self-hosted figurine collection management"
 repository = "https://github.com/Dim145/FigureCollector"
@@ -17,7 +17,7 @@ path = "src/main.rs"
 axum = { version = "0.8", features = ["macros", "ws", "multipart"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal", "net", "sync", "time"] }
 tower = "0.5"
-tower-http = { version = "0.6", features = ["trace", "cors", "compression-gzip", "limit", "request-id"] }
+tower-http = { version = "0.7", features = ["trace", "cors", "compression-gzip", "limit", "request-id"] }
 tower_governor = "0.8"
 
 # --- Observability ---
@@ -45,7 +45,7 @@ futures = "0.3"
 # Cron-expression parser for the admin-scheduled price-refresh job
 # (services::price_cron). Pure Rust, chrono-native — no OpenSSL. An empty
 # schedule disables the feature.
-croner = "3"
+croner = "4"
 
 # --- In-process cache (moka, pure-Rust, no OpenSSL) ---
 # Backs the `cache` module's default in-memory backend (per-entry TTL via moka's
@@ -54,7 +54,7 @@ croner = "3"
 moka = { version = "0.12", features = ["future"] }
 
 # --- Database (sqlx with rustls / aws-lc-rs — NO OpenSSL) ---
-sqlx = { version = "0.8", default-features = false, features = [
+sqlx = { version = "0.9", default-features = false, features = [
     "postgres", "runtime-tokio", "tls-rustls-aws-lc-rs",
     "chrono", "uuid", "json", "macros", "migrate", "rust_decimal",
 ] }
@@ -66,49 +66,54 @@ sqlx = { version = "0.8", default-features = false, features = [
 pgvector = { version = "0.4", default-features = false, features = ["sqlx"] }
 
 # --- Sessions (Postgres-backed) ---
-# Pinned to 0.14 because `tower-sessions-sqlx-store` 0.15 (the latest released
-# at this writing) was published against tower-sessions 0.14 — there is no
-# sqlx-store release that satisfies SessionStore for tower-sessions 0.15 yet.
-# Revisit when tower-sessions-sqlx-store ships a matching bump.
-tower-sessions = "0.14"
-tower-sessions-sqlx-store = { version = "0.15", default-features = false, features = ["postgres"] }
+# tower-sessions-sqlx-store 0.16 is the release built on sqlx 0.9 and
+# tower-sessions 0.15 — the three move together.
+tower-sessions = "0.15"
+tower-sessions-sqlx-store = { version = "0.16", default-features = false, features = ["postgres"] }
 
 # --- Sea-ORM migrations + entities ---
-sea-orm = { version = "1.1", default-features = false, features = [
+# `runtime-tokio`, not `runtime-tokio-rustls`: in sea-orm 2 the latter turns on
+# sqlx's ring-based rustls. TLS comes from our own sqlx dependency above
+# (`tls-rustls-aws-lc-rs`), which feature-unifies into the same sqlx.
+sea-orm = { version = "2.0", default-features = false, features = [
     "sqlx-postgres",
-    "runtime-tokio-rustls",
+    "runtime-tokio",
     "macros",
     "with-chrono",
     "with-uuid",
     "with-json",
     "with-rust_decimal",
 ] }
-sea-orm-migration = { version = "1.1", default-features = false, features = [
-    "runtime-tokio-rustls",
+sea-orm-migration = { version = "2.0", default-features = false, features = [
+    "runtime-tokio",
     "sqlx-postgres",
 ] }
 
 # --- Password hashing (local auth) ---
-argon2 = { version = "0.5", features = ["std"] }
-password-hash = { version = "0.5", features = ["alloc", "std", "rand_core"] }
+# 0.6: the salt comes from `getrandom` (default feature), no RNG plumbing.
+argon2 = "0.6"
+password-hash = { version = "0.6", features = ["alloc", "getrandom"] }
 rand = "0.10"
 
 # --- OIDC ---
-openidconnect = { version = "4", default-features = false, features = ["reqwest", "rustls-tls"] }
-# Pinned to 0.12 because `openidconnect` 4 transitively depends on
-# reqwest ^0.12 (its `AsyncHttpClient` impl). Bumping to 0.13 here would
-# create two reqwest majors in the graph and break OIDC discovery/token
-# exchange. Revisit when openidconnect releases against reqwest 0.13.
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-no-provider", "json", "gzip", "stream"] }
+# No `reqwest` feature: openidconnect 4 only has an adapter for reqwest 0.12.
+# `http_tls::OidcHttpClient` is the same adapter for our reqwest 0.13 client.
+openidconnect = { version = "4", default-features = false }
+# `rustls-no-provider`: TLS through rustls with the aws-lc-rs provider that
+# `main` installs as the process default. Roots come from `webpki-root-certs`
+# (see `http_tls`) — the `FROM scratch` image has no system certificate store
+# for reqwest's platform verifier to read.
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider", "json", "query", "gzip", "stream"] }
+webpki-root-certs = "1"
 
 # --- S3 / Garage storage ---
-rust-s3 = { version = "0.37", default-features = false, features = ["tokio-rustls-tls"] }
+rust-s3 = { version = "0.38", default-features = false, features = ["tokio-rustls-tls"] }
 
 # --- Image decoding / EXIF-strip via re-encode ---
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 
 # --- HTML scraping (MFC parser; the live fetcher is gated behind Cloudflare) ---
-scraper = { version = "0.27", default-features = false }
+scraper = { version = "0.29", default-features = false }
 
 # --- Justificatif (invoice) parsing — Palier 1: pure-Rust, in-binary, offline ---
 # pdf-extract pulls the PDF text layer (built on lopdf): no native deps, links
@@ -124,17 +129,17 @@ regex = "1"
 # --- Insurance dossier: merge each item's invoices into ONE PDF ---
 # `lopdf` merges the existing invoice PDFs and decrypts empty-password store
 # invoices (pure-Rust RustCrypto — no OpenSSL); `printpdf` builds the per-figure
-# separator pages and wraps image receipts (jpg/png/webp) as PDF pages. printpdf
-# We bump the DIRECT lopdf (used by the dossier merge, which loads user-uploaded
-# PDFs) to 0.42 for RUSTSEC-2026-0187 (nested-object recursion → uncatchable
-# process abort). printpdf 0.9 keeps its own lopdf ^0.39 internally, but that
-# path only builds OUR separator pages — it never parses untrusted input.
+# separator pages and wraps image receipts (jpg/png/webp) as PDF pages.
+# The DIRECT lopdf parses user-uploaded PDFs, so it tracks the latest release
+# (≥0.42 for RUSTSEC-2026-0187; 0.47 adds bounded decompression, used by the
+# dossier's page-size probe). printpdf 0.12 carries its own lopdf ^0.44, which
+# only builds OUR separator pages — it never parses untrusted input.
 # Everything is in-memory (no temp files → fine under the read-only container).
-lopdf = "0.42"
+lopdf = "0.47"
 # text_layout pulls azul-layout → ParsedFont (TTF embedding) so the separator
 # pages can render real UTF-8 (accents é · …) and we can measure glyph widths to
 # wrap long titles. Bundled font lives in assets/fonts/ (Go fonts, BSD-3).
-printpdf = { version = "0.9", default-features = false, features = ["jpeg", "png", "webp", "text_layout"] }
+printpdf = { version = "0.12", default-features = false, features = ["jpeg", "png", "webp", "text_layout"] }
 
 # --- TLS provider (installed as rustls default at startup) ---
 rustls = { version = "0.23", default-features = false, features = ["aws-lc-rs", "tls12"] }
@@ -149,10 +154,10 @@ lettre = { version = "0.11", default-features = false, features = [
 #     Pure-rust ECDSA P-256 from RustCrypto — no OpenSSL pulled in. The
 #     admin endpoint POST /admin/notification-channels/browser_push/generate-vapid
 #     uses this to mint a fresh keypair without external tools. ---
-p256 = { version = "0.13", default-features = false, features = [
+p256 = { version = "0.14", default-features = false, features = [
     "std", "pem", "ecdsa", "pkcs8",
 ] }
-base64 = "0.22"
+base64 = "0.23"
 
 # --- MCP server (routes::mcp) ---
 # Official Rust SDK. `transport-streamable-http-server` pulls only http /
@@ -161,7 +166,7 @@ base64 = "0.22"
 # `cargo tree -i openssl-sys`). The `auth` feature is deliberately NOT enabled:
 # we authenticate with per-user API keys, not OAuth, so its oauth2 + reqwest
 # dependency would be dead weight in a `FROM scratch` image.
-rmcp = { version = "3.2", default-features = false, features = [
+rmcp = { version = "3.10", default-features = false, features = [
     "server",
     "macros",
     "transport-streamable-http-server",
@@ -176,7 +181,7 @@ schemars = { version = "1", features = ["uuid1"] }
 # low-entropy guess to slow down, and an unsalted digest is what lets the key
 # lookup stay a single indexed query. Already in the tree transitively via
 # `web-push-native`; pure Rust, no OpenSSL.
-sha2 = { version = "0.10", default-features = false, features = ["std"] }
+sha2 = { version = "0.11", default-features = false }
 
 # --- Notifications: Web Push.
 #
@@ -189,7 +194,7 @@ sha2 = { version = "0.10", default-features = false, features = ["std"] }
 #     subscriber's keys.
 # The crate produces an `http::Request<Vec<u8>>` we hand off to our
 # existing reqwest client (rustls + aws-lc-rs).
-web-push-native = "0.4"
+web-push-native = "0.5"
 http = "1"
 
 [profile.release]

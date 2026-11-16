@@ -397,7 +397,7 @@ pub async fn catalog(
     }
     sql.push_str(" ORDER BY f.release_date DESC NULLS LAST, lower(f.name) ASC");
 
-    Ok(sqlx::query_as::<_, StoreCatalogFigure>(&sql)
+    Ok(sqlx::query_as::<_, StoreCatalogFigure>(sqlx::AssertSqlSafe(sql))
         .bind(store_id)
         .fetch_all(pool)
         .await?)

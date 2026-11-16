@@ -342,7 +342,7 @@ pub async fn list_relations(
          ORDER BY fo.created_at DESC"
     );
 
-    let rows: Vec<Row> = sqlx::query_as(&sql)
+    let rows: Vec<Row> = sqlx::query_as(sqlx::AssertSqlSafe(sql))
         .bind(target)
         .bind(viewer_id)
         .fetch_all(pool)

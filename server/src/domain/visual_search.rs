@@ -1051,7 +1051,7 @@ pub async fn requeue_image_if_enabled(pool: &PgPool, image_ref: &str) {
 pub async fn forget_image(pool: &PgPool, image_ref: &str) {
     for table in ["figure_embeddings", "figure_embedding_queue"] {
         let sql = format!("DELETE FROM {table} WHERE image_ref = $1");
-        if let Err(e) = sqlx::query(&sql).bind(image_ref).execute(pool).await {
+        if let Err(e) = sqlx::query(sqlx::AssertSqlSafe(sql)).bind(image_ref).execute(pool).await {
             tracing::warn!(error = ?e, image_ref, table, "visual-search forget_image failed");
         }
     }

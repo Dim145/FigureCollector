@@ -303,24 +303,22 @@ async fn admin_generate_vapid(
     session: Session,
 ) -> AppResult<Json<VapidKeypair>> {
     use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
-    use p256::elliptic_curve::sec1::ToEncodedPoint;
+    use p256::elliptic_curve::Generate;
+    use p256::elliptic_curve::sec1::ToSec1Point;
     use p256::pkcs8::EncodePrivateKey;
     use p256::pkcs8::LineEnding;
 
     auth::require_admin(&session, &state.pool).await?;
 
-    // Use the rand_core 0.6 OsRng re-exported by p256 — the crate's
-    // SecretKey::random bound is `CryptoRngCore` from rand_core 0.6, which the
-    // top-level rand 0.10 ThreadRng (rand_core 0.9) does not satisfy yet.
-    // OsRng is the right choice for keypair generation anyway.
-    let secret = p256::SecretKey::random(&mut p256::elliptic_curve::rand_core::OsRng);
+    // Drawn from the OS RNG (`getrandom`) — the right source for a keypair.
+    let secret = p256::SecretKey::generate();
     let pem = secret
         .to_pkcs8_pem(LineEnding::LF)
         .map_err(|e| crate::error::AppError::Internal(anyhow::anyhow!("pem encode: {e}")))?
         .to_string();
     // Uncompressed SEC1 encoding: 0x04 || X (32) || Y (32) = 65 bytes.
     // That's exactly what `applicationServerKey` expects.
-    let public_point = secret.public_key().to_encoded_point(false);
+    let public_point = secret.public_key().to_sec1_point(false);
     let public_b64 = URL_SAFE_NO_PAD.encode(public_point.as_bytes());
 
     Ok(Json(VapidKeypair {

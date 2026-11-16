@@ -251,7 +251,7 @@ pub async fn list(pool: &PgPool, user_id: Uuid, exclude_nsfw: bool) -> AppResult
         sql.push_str(" AND NOT f.is_nsfw");
     }
     sql.push_str(" ORDER BY w.created_at DESC, w.figure_id DESC");
-    Ok(sqlx::query_as::<_, WishlistItem>(&sql)
+    Ok(sqlx::query_as::<_, WishlistItem>(sqlx::AssertSqlSafe(sql))
         .bind(user_id)
         .fetch_all(pool)
         .await?)
@@ -259,7 +259,7 @@ pub async fn list(pool: &PgPool, user_id: Uuid, exclude_nsfw: bool) -> AppResult
 
 async fn find_one(pool: &PgPool, user_id: Uuid, figure_id: Uuid) -> AppResult<WishlistItem> {
     let sql = format!("{} WHERE w.user_id = $1 AND w.figure_id = $2", *SELECT);
-    sqlx::query_as::<_, WishlistItem>(&sql)
+    sqlx::query_as::<_, WishlistItem>(sqlx::AssertSqlSafe(sql))
         .bind(user_id)
         .bind(figure_id)
         .fetch_optional(pool)

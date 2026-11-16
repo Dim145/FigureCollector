@@ -191,7 +191,9 @@ fn image_page(image_bytes: &[u8]) -> Result<Vec<u8>, String> {
     let margin_pt = 36.0; // ~0.5in
     let avail_w = A4_W_PT - 2.0 * margin_pt;
     let avail_h = A4_H_PT - 2.0 * margin_pt;
-    // dpi:None ⇒ 1px renders as 1pt, so fit by points.
+    // Placed at 72 dpi so 1px renders as 1pt and the fit below is in points.
+    // (printpdf's default when `dpi` is None is 300 dpi, which drew receipts
+    // at ~24% of this size, off-centre.)
     let scale = (avail_w / img_w).min(avail_h / img_h).min(1.0);
     let draw_w = img_w * scale;
     let draw_h = img_h * scale;
@@ -206,7 +208,8 @@ fn image_page(image_bytes: &[u8]) -> Result<Vec<u8>, String> {
             rotate: None,
             scale_x: Some(scale),
             scale_y: Some(scale),
-            dpi: None,
+            dpi: Some(72.0),
+            no_auto_scale: false,
         },
     }];
     let page = PdfPage::new(Mm(210.0), Mm(297.0), ops);
@@ -360,8 +363,14 @@ fn drop_near_empty_pages(doc: &mut Document) {
     }
     let mut drop: Vec<u32> = Vec::new();
     for (&num, &pid) in &pages {
-        let len = doc.get_page_content(pid).map(|c| c.len()).unwrap_or(usize::MAX);
-        if len < MIN_CONTENT_BYTES && !page_has_xobject(doc, pid) {
+        // Only "is it under MIN_CONTENT_BYTES?" matters, so never inflate past
+        // that: a crafted stream in an uploaded invoice can't balloon here. Over
+        // the limit (or undecodable) → treated as a real page and kept.
+        let small = matches!(
+            doc.get_page_content_with_limit(pid, MIN_CONTENT_BYTES),
+            Ok(c) if c.len() < MIN_CONTENT_BYTES
+        );
+        if small && !page_has_xobject(doc, pid) {
             drop.push(num);
         }
     }
@@ -529,6 +538,55 @@ mod tests {
         let mut buf = Vec::new();
         doc.save_to(&mut buf).unwrap();
         buf
+    }
+
+    /// Where the single image of a page lands: the unit square mapped by the
+    /// composed `cm` operators before its `Do`, as (x, y, width, height) in pt.
+    fn drawn_image_box(pdf: &[u8]) -> (f32, f32, f32, f32) {
+        let doc = Document::load_mem(pdf).unwrap();
+        let (_, &pid) = doc.get_pages().iter().next().unwrap();
+        let content = lopdf::content::Content::decode(&doc.get_page_content(pid)).unwrap();
+        let num = |o: &Object| o.as_float().or_else(|_| o.as_i64().map(|i| i as f32)).unwrap();
+        // PDF: `cm` pre-multiplies the current matrix.
+        let mut ctm = [1.0f32, 0.0, 0.0, 1.0, 0.0, 0.0];
+        for op in content.operations {
+            match op.operator.as_str() {
+                "cm" => {
+                    let m: Vec<f32> = op.operands.iter().map(num).collect();
+                    let n = ctm;
+                    ctm = [
+                        m[0] * n[0] + m[1] * n[2],
+                        m[0] * n[1] + m[1] * n[3],
+                        m[2] * n[0] + m[3] * n[2],
+                        m[2] * n[1] + m[3] * n[3],
+                        m[4] * n[0] + m[5] * n[2] + n[4],
+                        m[4] * n[1] + m[5] * n[3] + n[5],
+                    ];
+                }
+                "Do" => return (ctm[4], ctm[5], ctm[0], ctm[3]),
+                _ => {}
+            }
+        }
+        panic!("no image drawn");
+    }
+
+    #[test]
+    fn a_receipt_photo_fills_the_page_inside_the_margins() {
+        // A portrait phone-photo shape: height-bound on A4.
+        let img = ::image::RgbImage::from_pixel(1000, 1500, ::image::Rgb([90, 90, 90]));
+        let mut buf = std::io::Cursor::new(Vec::new());
+        ::image::DynamicImage::ImageRgb8(img)
+            .write_to(&mut buf, ::image::ImageFormat::Png)
+            .unwrap();
+        let (x, y, w, h) = drawn_image_box(&image_page(&buf.into_inner()).unwrap());
+
+        let margin = 36.0;
+        let scale = ((A4_W_PT - 2.0 * margin) / 1000.0).min((A4_H_PT - 2.0 * margin) / 1500.0);
+        assert!((w - 1000.0 * scale).abs() < 0.5, "width {w}");
+        assert!((h - 1500.0 * scale).abs() < 0.5, "height {h}");
+        // Height-bound: sits on the bottom margin, centred across.
+        assert!((y - margin).abs() < 0.5, "y {y}");
+        assert!((x - (A4_W_PT - w) / 2.0).abs() < 0.5, "x {x}");
     }
 
     #[test]

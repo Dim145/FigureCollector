@@ -416,7 +416,7 @@ pub async fn collection_stats(
          ORDER BY 2 DESC"
     );
     let value_rows_fut =
-        sqlx::query_as::<_, (String, Decimal, i64, i64, i64, i64, i64)>(&value_sql)
+        sqlx::query_as::<_, (String, Decimal, i64, i64, i64, i64, i64)>(sqlx::AssertSqlSafe(value_sql))
             .bind(user_id)
             .fetch_all(pool);
 

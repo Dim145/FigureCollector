@@ -166,10 +166,10 @@ pub async fn list_filtered(pool: &PgPool, f: &JobFilter) -> AppResult<JobRunsPag
     let limit = f.limit.unwrap_or(50).clamp(1, 200);
     let offset = f.offset.unwrap_or(0).max(0);
 
-    let items = sqlx::query_as::<_, ServerJobRun>(&format!(
+    let items = sqlx::query_as::<_, ServerJobRun>(sqlx::AssertSqlSafe(format!(
         "SELECT {SELECT_COLS} {JOB_FROM} {JOB_WHERE}
          ORDER BY sjr.started_at DESC LIMIT $5 OFFSET $6"
-    ))
+    )))
     .bind(&f.job_name)
     .bind(&f.state)
     .bind(&f.triggered_by)
@@ -179,9 +179,9 @@ pub async fn list_filtered(pool: &PgPool, f: &JobFilter) -> AppResult<JobRunsPag
     .fetch_all(pool)
     .await?;
 
-    let total: i64 = sqlx::query_scalar(&format!(
+    let total: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
         "SELECT count(*) {JOB_FROM} {JOB_WHERE}"
-    ))
+    )))
     .bind(&f.job_name)
     .bind(&f.state)
     .bind(&f.triggered_by)
@@ -193,9 +193,9 @@ pub async fn list_filtered(pool: &PgPool, f: &JobFilter) -> AppResult<JobRunsPag
 }
 
 pub async fn get(pool: &PgPool, id: Uuid) -> AppResult<Option<ServerJobRun>> {
-    Ok(sqlx::query_as::<_, ServerJobRun>(&format!(
+    Ok(sqlx::query_as::<_, ServerJobRun>(sqlx::AssertSqlSafe(format!(
         "SELECT {SELECT_COLS} {JOB_FROM} WHERE sjr.id = $1"
-    ))
+    )))
     .bind(id)
     .fetch_optional(pool)
     .await?)

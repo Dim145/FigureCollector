@@ -236,19 +236,19 @@ pub async fn discover(pool: &PgPool, user_id: Uuid, exclude_nsfw: bool) -> AppRe
     let nsfw = if exclude_nsfw { " AND NOT f.is_nsfw" } else { "" };
 
     // Recently added: newest catalogue rows first.
-    let recently_added: Vec<Figure> = sqlx::query_as::<_, Figure>(&figure_select(&format!(
+    let recently_added: Vec<Figure> = sqlx::query_as::<_, Figure>(sqlx::AssertSqlSafe(figure_select(&format!(
         "{nsfw} ORDER BY f.created_at DESC LIMIT $1"
-    )))
+    ))))
     .bind(RAIL_LIMIT)
     .fetch_all(pool)
     .await?;
 
     // Upcoming pre-orders: figures whose release is still in the future, soonest
     // first. `current_date` is the DB's date — matches the figure page's logic.
-    let upcoming_preorders: Vec<Figure> = sqlx::query_as::<_, Figure>(&figure_select(&format!(
+    let upcoming_preorders: Vec<Figure> = sqlx::query_as::<_, Figure>(sqlx::AssertSqlSafe(figure_select(&format!(
         "{nsfw} AND f.release_date IS NOT NULL AND f.release_date > current_date \
          ORDER BY f.release_date ASC LIMIT $1"
-    )))
+    ))))
     .bind(RAIL_LIMIT)
     .fetch_all(pool)
     .await?;
@@ -279,14 +279,14 @@ pub async fn discover(pool: &PgPool, user_id: Uuid, exclude_nsfw: bool) -> AppRe
     let fave_figures: Vec<Figure> = if makers.is_empty() {
         Vec::new()
     } else {
-        sqlx::query_as::<_, Figure>(&figure_select(&format!(
+        sqlx::query_as::<_, Figure>(sqlx::AssertSqlSafe(figure_select(&format!(
             "{nsfw} AND f.manufacturer_id IN (
                  SELECT f2.manufacturer_id
                  FROM owned_items o2
                  JOIN figures f2 ON f2.id = o2.figure_id
                  WHERE o2.user_id = $1 AND f2.manufacturer_id IS NOT NULL
              ) ORDER BY f.created_at DESC LIMIT $2"
-        )))
+        ))))
         .bind(user_id)
         .bind(RAIL_LIMIT)
         .fetch_all(pool)

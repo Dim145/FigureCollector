@@ -6,11 +6,10 @@
 # crates like clap_derive). The final scratch image carries no libc, no shell,
 # and no package manager.
 # -----------------------------------------------------------------------------
-# NOTE: 1.95 pins us to the latest stable. 1.87+ is the floor (web-push-native's
-# transitive `aes-keywrap` 0.9.0 uses `unsigned_is_multiple_of`), and several
-# updated deps (image 0.25.10, time 0.3.47, serde_with 3.20, home 0.5.12) need
-# 1.88+, so we move the whole tree to the current stable in one go.
-FROM rust:1.95-alpine AS builder
+# NOTE: pinned to the latest stable (kept in step with rust-toolchain.toml and
+# Cargo.toml's rust-version). The tree's own floor is 1.94 (sqlx 0.9 /
+# sea-orm 2), so this only has to move forward with the toolchain.
+FROM rust:1.100-alpine AS builder
 
 # Tooling needed by aws-lc-rs (used by rustls via sqlx's tls-rustls-aws-lc-rs):
 #   - musl-dev / build-base : C runtime + compiler for the FFI shim

@@ -83,7 +83,8 @@ impl OidcRegistry {
         let issuer = IssuerUrl::new(cfg.issuer_url.clone())
             .with_context(|| format!("invalid issuer URL: {}", cfg.issuer_url))?;
 
-        let metadata = CoreProviderMetadata::discover_async(issuer, http_client)
+        let http = crate::http_tls::OidcHttpClient(http_client.clone());
+        let metadata = CoreProviderMetadata::discover_async(issuer, &http)
             .await
             .with_context(|| format!("OIDC discovery failed for {}", cfg.id))?;
 
@@ -177,7 +178,7 @@ pub async fn complete_login(
         .exchange_code(AuthorizationCode::new(code.to_string()))
         .map_err(|e| AppError::Internal(anyhow!("OIDC token request build failed: {e}")))?
         .set_pkce_verifier(pkce_verifier)
-        .request_async(http_client)
+        .request_async(&crate::http_tls::OidcHttpClient(http_client.clone()))
         .await
         .map_err(|e| AppError::Internal(anyhow!("OIDC token exchange failed: {e}")))?;
 

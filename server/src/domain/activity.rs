@@ -183,11 +183,11 @@ pub async fn year_in_review(pool: &PgPool, user_id: Uuid, year: i32) -> AppResul
 
     // Pieces acquired — from the collection itself, on the same date predicate
     // as the spend below.
-    let pieces: (Option<i64>,) = sqlx::query_as(&format!(
+    let pieces: (Option<i64>,) = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT COUNT(*)::bigint FROM owned_items o
          WHERE o.user_id = $1
            AND {ACQUIRED_AT} >= $2 AND {ACQUIRED_AT} < $3"
-    ))
+    )))
     .bind(user_id)
     .bind(start)
     .bind(end)
@@ -220,7 +220,7 @@ pub async fn year_in_review(pool: &PgPool, user_id: Uuid, year: i32) -> AppResul
     // Top manufacturer — joined live rather than read out of the event
     // payload's snapshot, so a maker renamed since stays correct and pieces
     // that never produced an event still count.
-    let top_mfr: Option<(String, i64)> = sqlx::query_as(&format!(
+    let top_mfr: Option<(String, i64)> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT m.name, COUNT(*)::bigint
          FROM owned_items o
          JOIN figures f       ON f.id = o.figure_id
@@ -230,7 +230,7 @@ pub async fn year_in_review(pool: &PgPool, user_id: Uuid, year: i32) -> AppResul
          GROUP BY m.name
          ORDER BY 2 DESC
          LIMIT 1"
-    ))
+    )))
     .bind(user_id)
     .bind(start)
     .bind(end)
@@ -289,14 +289,14 @@ pub async fn year_in_review(pool: &PgPool, user_id: Uuid, year: i32) -> AppResul
     );
 
     // Monthly timeline
-    let monthly: Vec<(i32, i64)> = sqlx::query_as(&format!(
+    let monthly: Vec<(i32, i64)> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT EXTRACT(MONTH FROM {ACQUIRED_AT})::int, COUNT(*)::bigint
          FROM owned_items o
          WHERE o.user_id = $1
            AND {ACQUIRED_AT} >= $2 AND {ACQUIRED_AT} < $3
          GROUP BY 1
          ORDER BY 1"
-    ))
+    )))
     .bind(user_id)
     .bind(start)
     .bind(end)
@@ -311,7 +311,7 @@ pub async fn year_in_review(pool: &PgPool, user_id: Uuid, year: i32) -> AppResul
     // acquisition date at UTC midnight, not the row's `created_at`: ordering
     // and the value shown have to be the same thing, or the "first" piece can
     // carry a later timestamp than the "last". The SPA renders it as a date.
-    let first: Option<(DateTime<Utc>, String)> = sqlx::query_as(&format!(
+    let first: Option<(DateTime<Utc>, String)> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT ({ACQUIRED_AT})::timestamp AT TIME ZONE 'UTC', f.name
          FROM owned_items o
          JOIN figures f ON f.id = o.figure_id
@@ -319,13 +319,13 @@ pub async fn year_in_review(pool: &PgPool, user_id: Uuid, year: i32) -> AppResul
            AND {ACQUIRED_AT} >= $2 AND {ACQUIRED_AT} < $3
          ORDER BY {ACQUIRED_AT} ASC, o.created_at ASC
          LIMIT 1"
-    ))
+    )))
     .bind(user_id)
     .bind(start)
     .bind(end)
     .fetch_optional(pool)
     .await?;
-    let last: Option<(DateTime<Utc>, String)> = sqlx::query_as(&format!(
+    let last: Option<(DateTime<Utc>, String)> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT ({ACQUIRED_AT})::timestamp AT TIME ZONE 'UTC', f.name
          FROM owned_items o
          JOIN figures f ON f.id = o.figure_id
@@ -333,7 +333,7 @@ pub async fn year_in_review(pool: &PgPool, user_id: Uuid, year: i32) -> AppResul
            AND {ACQUIRED_AT} >= $2 AND {ACQUIRED_AT} < $3
          ORDER BY {ACQUIRED_AT} DESC, o.created_at DESC
          LIMIT 1"
-    ))
+    )))
     .bind(user_id)
     .bind(start)
     .bind(end)
@@ -377,11 +377,11 @@ pub async fn year_in_review(pool: &PgPool, user_id: Uuid, year: i32) -> AppResul
 
     // Previous year, same headline metrics, for an N vs N-1 comparison.
     let prev_start = NaiveDate::from_ymd_opt(year - 1, 1, 1).unwrap();
-    let (prev_pieces,): (Option<i64>,) = sqlx::query_as(&format!(
+    let (prev_pieces,): (Option<i64>,) = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT COUNT(*)::bigint FROM owned_items o
          WHERE o.user_id = $1
            AND {ACQUIRED_AT} >= $2 AND {ACQUIRED_AT} < $3"
-    ))
+    )))
     .bind(user_id)
     .bind(prev_start)
     .bind(start)

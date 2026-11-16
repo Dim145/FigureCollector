@@ -143,9 +143,9 @@ const SERVER_COLS: &str = "id, base_url, label, status, submitted_by, reviewed_b
 
 pub async fn find_by_id(pool: &PgPool, id: Uuid) -> AppResult<Option<MangaServer>> {
     Ok(
-        sqlx::query_as::<_, MangaServer>(&format!(
+        sqlx::query_as::<_, MangaServer>(sqlx::AssertSqlSafe(format!(
             "SELECT {SERVER_COLS} FROM manga_servers WHERE id = $1"
-        ))
+        )))
         .bind(id)
         .fetch_optional(pool)
         .await?,
@@ -231,11 +231,11 @@ pub async fn submit(pool: &PgPool, user_id: Uuid, raw_url: &str) -> AppResult<Ma
         ));
     }
 
-    Ok(sqlx::query_as::<_, MangaServer>(&format!(
+    Ok(sqlx::query_as::<_, MangaServer>(sqlx::AssertSqlSafe(format!(
         "INSERT INTO manga_servers (base_url, status, submitted_by)
          VALUES ($1, 'pending', $2)
          RETURNING {SERVER_COLS}"
-    ))
+    )))
     .bind(&base_url)
     .bind(user_id)
     .fetch_one(pool)
@@ -244,9 +244,9 @@ pub async fn submit(pool: &PgPool, user_id: Uuid, raw_url: &str) -> AppResult<Ma
 
 async fn find_by_base_url(pool: &PgPool, base_url: &str) -> AppResult<Option<MangaServer>> {
     Ok(
-        sqlx::query_as::<_, MangaServer>(&format!(
+        sqlx::query_as::<_, MangaServer>(sqlx::AssertSqlSafe(format!(
             "SELECT {SERVER_COLS} FROM manga_servers WHERE base_url = $1"
-        ))
+        )))
         .bind(base_url)
         .fetch_optional(pool)
         .await?,
@@ -258,12 +258,12 @@ async fn find_by_base_url(pool: &PgPool, base_url: &str) -> AppResult<Option<Man
 /// Approve a `pending` (or re-approve a `revoked`) server. Clears any stale
 /// revocation note. Returns `NotFound` if the id doesn't exist.
 pub async fn approve(pool: &PgPool, id: Uuid, admin_id: Uuid) -> AppResult<MangaServer> {
-    sqlx::query_as::<_, MangaServer>(&format!(
+    sqlx::query_as::<_, MangaServer>(sqlx::AssertSqlSafe(format!(
         "UPDATE manga_servers
          SET status = 'approved', reviewed_by = $2, reviewed_at = now(), note = NULL
          WHERE id = $1
          RETURNING {SERVER_COLS}"
-    ))
+    )))
     .bind(id)
     .bind(admin_id)
     .fetch_optional(pool)
@@ -282,12 +282,12 @@ pub async fn revoke(
     note: Option<&str>,
 ) -> AppResult<(MangaServer, Vec<Uuid>)> {
     let note = note.map(str::trim).filter(|s| !s.is_empty());
-    let server = sqlx::query_as::<_, MangaServer>(&format!(
+    let server = sqlx::query_as::<_, MangaServer>(sqlx::AssertSqlSafe(format!(
         "UPDATE manga_servers
          SET status = 'revoked', reviewed_by = $2, reviewed_at = now(), note = $3
          WHERE id = $1
          RETURNING {SERVER_COLS}"
-    ))
+    )))
     .bind(id)
     .bind(admin_id)
     .bind(note)
@@ -302,9 +302,9 @@ pub async fn revoke(
 /// Set / clear the friendly label. Empty trims to `NULL`.
 pub async fn set_label(pool: &PgPool, id: Uuid, label: Option<&str>) -> AppResult<MangaServer> {
     let label = label.map(str::trim).filter(|s| !s.is_empty());
-    sqlx::query_as::<_, MangaServer>(&format!(
+    sqlx::query_as::<_, MangaServer>(sqlx::AssertSqlSafe(format!(
         "UPDATE manga_servers SET label = $2 WHERE id = $1 RETURNING {SERVER_COLS}"
-    ))
+    )))
     .bind(id)
     .bind(label)
     .fetch_optional(pool)

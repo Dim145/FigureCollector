@@ -11,6 +11,7 @@ mod entity;
 mod error;
 mod events;
 mod external;
+mod http_tls;
 mod migration;
 mod photo;
 mod routes;
@@ -65,6 +66,7 @@ async fn main() -> anyhow::Result<()> {
     // host (covers the benign trailing-slash / http→https-upgrade cases) and
     // stop on any cross-host hop, capped at 5 in case of a same-host loop.
     let http_client = reqwest::Client::builder()
+        .tls_certs_only(http_tls::webpki_roots())
         .user_agent(user_agent)
         .timeout(Duration::from_secs(15))
         .redirect(reqwest::redirect::Policy::custom(|attempt| {
@@ -90,6 +92,7 @@ async fn main() -> anyhow::Result<()> {
     // ranges on the initial URL — disabling redirects here means a hostile
     // upstream can't 302 us to an internal IP.
     let http_no_redirect = reqwest::Client::builder()
+        .tls_certs_only(http_tls::webpki_roots())
         .user_agent(user_agent)
         .timeout(Duration::from_secs(15))
         .redirect(reqwest::redirect::Policy::none())

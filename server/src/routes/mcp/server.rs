@@ -7,7 +7,7 @@
 use rmcp::{
     ErrorData, ServerHandler,
     model::{
-        Implementation, ListToolsResult, PaginatedRequestParams, ServerCapabilities, ServerInfo,
+        Implementation, ListToolsResult, PaginatedRequestParams, ServerCapabilities, ServerConfig,
     },
     prompt_handler,
     service::RequestContext,
@@ -165,14 +165,14 @@ impl FcMcp {
 #[tool_handler]
 #[prompt_handler]
 impl ServerHandler for FcMcp {
-    fn get_info(&self) -> ServerInfo {
+    fn get_info(&self) -> ServerConfig {
         let mut implementation = Implementation::new("figurecollector", env!("CARGO_PKG_VERSION"))
             .with_title("FigureCollector");
         implementation.description =
             Some("Read and curate a self-hosted figurine collection.".to_string());
         implementation.website_url = Some(self.state.config.frontend_url.clone());
 
-        ServerInfo::new(
+        ServerConfig::new(
             ServerCapabilities::builder()
                 .enable_tools()
                 .enable_prompts()

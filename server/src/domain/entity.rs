@@ -173,7 +173,7 @@ pub async fn figures_for_manufacturer(
         sql.push_str(" AND NOT f.is_nsfw");
     }
     sql.push_str(" ORDER BY f.created_at DESC LIMIT 200");
-    Ok(sqlx::query_as::<_, Figure>(&sql).bind(id).fetch_all(pool).await?)
+    Ok(sqlx::query_as::<_, Figure>(sqlx::AssertSqlSafe(sql)).bind(id).fetch_all(pool).await?)
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -329,7 +329,7 @@ pub async fn figures_for_series(
         sql.push_str(" AND NOT f.is_nsfw");
     }
     sql.push_str(" ORDER BY f.release_date DESC NULLS LAST, f.created_at DESC LIMIT 200");
-    Ok(sqlx::query_as::<_, Figure>(&sql).bind(id).fetch_all(pool).await?)
+    Ok(sqlx::query_as::<_, Figure>(sqlx::AssertSqlSafe(sql)).bind(id).fetch_all(pool).await?)
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -508,7 +508,7 @@ pub async fn figures_for_character(
         sql.push_str(" AND NOT f.is_nsfw");
     }
     sql.push_str(" ORDER BY f.release_date DESC NULLS LAST, f.created_at DESC LIMIT 200");
-    Ok(sqlx::query_as::<_, Figure>(&sql).bind(id).fetch_all(pool).await?)
+    Ok(sqlx::query_as::<_, Figure>(sqlx::AssertSqlSafe(sql)).bind(id).fetch_all(pool).await?)
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

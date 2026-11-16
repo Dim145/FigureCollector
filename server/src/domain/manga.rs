@@ -216,7 +216,7 @@ pub async fn figures_by_mal(
          ORDER BY f.name",
         nsfw = if exclude_nsfw { " AND NOT f.is_nsfw" } else { "" },
     );
-    Ok(sqlx::query_as::<_, FigureRef>(&sql)
+    Ok(sqlx::query_as::<_, FigureRef>(sqlx::AssertSqlSafe(sql))
         .bind(mal_id)
         .fetch_all(pool)
         .await?)
@@ -348,7 +348,7 @@ pub async fn crossings(
          GROUP BY s.id, s.mal_id, s.manga_mal_id, s.name
          ORDER BY figure_count DESC, s.name"
     );
-    let dual_rows: Vec<DualRow> = sqlx::query_as(&dual_sql)
+    let dual_rows: Vec<DualRow> = sqlx::query_as(sqlx::AssertSqlSafe(dual_sql))
         .bind(user_id)
         .bind(&mal_ids)
         .fetch_all(pool)
@@ -393,7 +393,7 @@ pub async fn crossings(
         nsfw = if exclude_nsfw { " AND NOT f.is_nsfw" } else { "" },
         limit = READING_LIMIT,
     );
-    let reading_rows: Vec<ReadingRow> = sqlx::query_as(&reading_sql)
+    let reading_rows: Vec<ReadingRow> = sqlx::query_as(sqlx::AssertSqlSafe(reading_sql))
         .bind(user_id)
         .bind(&mal_ids)
         .fetch_all(pool)

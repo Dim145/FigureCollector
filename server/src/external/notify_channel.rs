@@ -1177,6 +1177,21 @@ mod tests {
         assert!(validate_ntfy_topic(&too_long).is_err());
     }
 
+    /// The admin VAPID generator (routes::notif_channels) mints keys with our
+    /// own p256; web push signs with jwt-simple, which carries its own p256.
+    /// The PKCS#8 PEM is the hand-off — it must load on the other side.
+    #[test]
+    fn vapid_pem_from_our_p256_loads_in_web_push() {
+        use p256::elliptic_curve::Generate;
+        use p256::pkcs8::{EncodePrivateKey, LineEnding};
+        use web_push_native::jwt_simple::algorithms::ES256KeyPair;
+
+        let pem = p256::SecretKey::generate()
+            .to_pkcs8_pem(LineEnding::LF)
+            .expect("pem encode");
+        ES256KeyPair::from_pem(&pem).expect("jwt-simple reads the generated PEM");
+    }
+
     #[test]
     fn parcel_delivered_message_names_carrier_place_and_figure() {
         let full = serde_json::json!({

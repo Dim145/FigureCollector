@@ -190,7 +190,7 @@ pub async fn list_for_user(
         sql.push_str(" AND read_at IS NULL");
     }
     sql.push_str(" ORDER BY created_at DESC LIMIT $2 OFFSET $3");
-    Ok(sqlx::query_as::<_, Notification>(&sql)
+    Ok(sqlx::query_as::<_, Notification>(sqlx::AssertSqlSafe(sql))
         .bind(user_id)
         .bind(limit)
         .bind(offset)

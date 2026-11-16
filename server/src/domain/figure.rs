@@ -270,7 +270,7 @@ pub async fn find_duplicates(
             ""
         },
     );
-    Ok(sqlx::query_as::<_, Figure>(&sql)
+    Ok(sqlx::query_as::<_, Figure>(sqlx::AssertSqlSafe(sql))
         .bind(name)
         .bind(jan)
         .bind(&needles)
@@ -323,7 +323,7 @@ pub async fn match_one(
          LIMIT 3",
         nsfw = if exclude_nsfw { " AND NOT f.is_nsfw" } else { "" },
     );
-    Ok(sqlx::query_as::<_, FigureMatch>(&sql)
+    Ok(sqlx::query_as::<_, FigureMatch>(sqlx::AssertSqlSafe(sql))
         .bind(name)
         .bind(mfr)
         .fetch_all(pool)
@@ -349,7 +349,7 @@ pub async fn find_by_jan(
            AND ($2 = FALSE OR f.is_nsfw = FALSE)
          LIMIT 1"
     );
-    Ok(sqlx::query_as::<_, Figure>(&sql)
+    Ok(sqlx::query_as::<_, Figure>(sqlx::AssertSqlSafe(sql))
         .bind(jan)
         .bind(exclude_nsfw)
         .fetch_optional(pool)
@@ -416,7 +416,7 @@ pub async fn create(pool: &PgPool, created_by: Uuid, input: NewFigure) -> AppRes
          RETURNING {FIGURE_COLUMNS}"
     );
 
-    let figure: Figure = sqlx::query_as(&insert_sql)
+    let figure: Figure = sqlx::query_as(sqlx::AssertSqlSafe(insert_sql))
         .bind(id)
         .bind(&input.name)
         .bind(&slug)
@@ -594,7 +594,7 @@ pub async fn list(pool: &PgPool, q: ListQuery) -> AppResult<Vec<Figure>> {
     binds.push("offset".into());
     sql.push_str(&format!("${}", binds.len()));
 
-    let mut query = sqlx::query_as::<_, Figure>(&sql);
+    let mut query = sqlx::query_as::<_, Figure>(sqlx::AssertSqlSafe(sql));
     for tag in &binds {
         query = match tag.as_str() {
             "name_ilike" => query.bind(format!("%{}%", q.q.as_deref().unwrap())),
@@ -621,7 +621,7 @@ pub async fn by_ids(pool: &PgPool, ids: &[Uuid], exclude_nsfw: bool) -> AppResul
     if exclude_nsfw {
         sql.push_str(" AND NOT f.is_nsfw");
     }
-    Ok(sqlx::query_as::<_, Figure>(&sql)
+    Ok(sqlx::query_as::<_, Figure>(sqlx::AssertSqlSafe(sql))
         .bind(ids)
         .fetch_all(pool)
         .await?)
@@ -633,7 +633,7 @@ pub async fn find_by_id(pool: &PgPool, id: Uuid) -> AppResult<Option<Figure>> {
          FROM figures f {FIGURE_NAME_JOINS} \
          WHERE f.id = $1"
     );
-    Ok(sqlx::query_as::<_, Figure>(&sql)
+    Ok(sqlx::query_as::<_, Figure>(sqlx::AssertSqlSafe(sql))
         .bind(id)
         .fetch_optional(pool)
         .await?)
@@ -735,7 +735,7 @@ pub async fn patch(pool: &PgPool, id: Uuid, input: FigurePatch) -> AppResult<Fig
          RETURNING {FIGURE_COLUMNS}"
     );
 
-    let updated: Option<Figure> = sqlx::query_as(&update_sql)
+    let updated: Option<Figure> = sqlx::query_as(sqlx::AssertSqlSafe(update_sql))
         .bind(&input.name)
         .bind(manufacturer_id)
         .bind(sculptor_id)
