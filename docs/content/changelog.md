@@ -3,6 +3,36 @@
 The notable user-facing changes per minor version. Patch releases and the full
 detail live in the [git history](https://github.com/Dim145/FigureCollector/commits/main).
 
+## 0.49 — follow it to the door
+
+- **Live tracking for the carriers figures actually ship with.** Japan Post /
+  EMS, Yamato, Sagawa, Chronopost, Mondial Relay, DPD, GLS, FedEx… now show
+  their latest scan, place and time on the pre-order card and the figure's
+  history, not just a link. Colissimo, DHL and UPS keep their own free keys,
+  which still take precedence; every other carrier goes through the optional
+  [Parcels](https://parcelsapp.com/developers) aggregator (`PARCELS_API_KEY`).
+  → [Parcel tracking](features/preorders.md#parcel-tracking)
+- **Paste just the number.** The tracking field takes a bare tracking number
+  as well as the carrier's link. The carrier is read from the number when its
+  format says so (`…JP` → Japan Post, `1Z…` → UPS); otherwise it is detected
+  for you and named once found.
+- **"Colis livré".** An hourly check notices when the carrier marks a shipped
+  pre-order delivered and tells you once, on every channel you route it to —
+  so you can open the box while the claim window is still wide open. It never
+  marks the pre-order received for you.
+  → [Delivered-parcel alert](features/preorders.md#delivered-parcel-alert)
+- **Quota you can't be made to burn.** Parcels is paid beyond a few free
+  shipments, so the server only looks up numbers saved on the asking user's own
+  pre-orders. Re-checking a parcel costs nothing more; it bills each number once
+  per cycle.
+- **Receipts at full size.** Photographed receipts in the insurance dossier
+  were drawn at about a quarter of the page; they now fill it, within margins.
+- **Under the hood, everything moved.** Every dependency is on its latest
+  release, majors included — Rust 1.100, sqlx 0.9, SeaORM 2, reqwest 0.13,
+  Node 26, pnpm 11, Python 3.14 for the embed worker, Garage 1.3.1 in the
+  compose stack. An existing instance upgrades in place: migrations, sessions
+  and passwords carry over as they are.
+
 ## 0.48 — hand your shelf to an assistant
 
 - **Ask an AI about your collection.** FigureCollector now speaks the
