@@ -8,6 +8,7 @@ import {
 } from "../../lib/deliveryCountdown.js";
 import Money from "../../components/Money.jsx";
 import TrackingChip from "../../components/TrackingChip.jsx";
+import { showsParcelTracking } from "../../lib/carrierTracking.js";
 
 /**
  * Horizontal pré-commande timeline — the ④ L'Estampe design ported into the
@@ -143,7 +144,9 @@ export default function PreorderTimeline({ f, owned, t }) {
 
   // Carrier tracking — the live chip the owner pings, relocated here from the
   // owner zone so all pre-order tracking lives in #preco.
-  const trackingUrl = po?.tracking_url ?? null;
+  // Once received or cancelled no parcel is on its way: no chip, and no live
+  // lookup spending the tracking quota.
+  const trackingUrl = showsParcelTracking(status) ? (po?.tracking_url ?? null) : null;
 
   // Nothing worth drawing? bail (parent hides the section).
   if (!current && currentStep == null) return null;

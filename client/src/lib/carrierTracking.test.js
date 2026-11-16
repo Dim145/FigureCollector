@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { AUTO_CARRIER, parseTrackingUrl } from "./carrierTracking.js";
+import {
+  AUTO_CARRIER,
+  parseTrackingUrl,
+  showsParcelTracking,
+} from "./carrierTracking.js";
 
 // Same cases as the server twin (server/src/external/tracking/parse.rs) —
 // the two parsers must agree, or the watcher and the chip track different
@@ -57,5 +61,19 @@ describe("parseTrackingUrl — bare numbers", () => {
     expect(parseTrackingUrl("1234567")?.number ?? null).toBeNull();
     expect(parseTrackingUrl("ups.com")?.id).not.toBe(AUTO_CARRIER);
     expect(parseTrackingUrl("12345678_9")?.number ?? null).toBeNull();
+  });
+});
+
+describe("showsParcelTracking", () => {
+  it("keeps tracking while the parcel can still be on its way", () => {
+    for (const s of ["preordered", "in_production", "released", "shipped"]) {
+      expect(showsParcelTracking(s)).toBe(true);
+    }
+  });
+
+  it("drops it once the pre-order is closed", () => {
+    // Received: the parcel is in hand. Cancelled: none is coming.
+    expect(showsParcelTracking("received")).toBe(false);
+    expect(showsParcelTracking("cancelled")).toBe(false);
   });
 });

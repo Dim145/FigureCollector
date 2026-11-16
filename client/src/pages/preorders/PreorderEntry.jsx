@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import Money from "../../components/Money.jsx";
 import TrackingChip from "../../components/TrackingChip.jsx";
+import { showsParcelTracking } from "../../lib/carrierTracking.js";
 import Reveal from "../../components/motion/Reveal.jsx";
 import {
   countdownTone,
@@ -231,7 +232,9 @@ export default function PreorderEntry({ preorder: p, index = 0, t }) {
         </p>
       ) : null}
 
-      {p.tracking_url ? (
+      {/* Received / cancelled: the parcel is no longer on its way — no chip,
+       *  no live lookup spending the tracking quota. */}
+      {p.tracking_url && showsParcelTracking(p.status) ? (
         <div className="horarium-entry-tracking">
           <TrackingChip url={p.tracking_url} />
         </div>

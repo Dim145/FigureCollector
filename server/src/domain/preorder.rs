@@ -407,9 +407,12 @@ pub async fn delete_for_user(pool: &PgPool, user_id: Uuid, id: Uuid) -> AppResul
     Ok(())
 }
 
-/// Whether one of the user's preorders carries `number` in its tracking field
-/// — inside a carrier link or as the bare number (whitespace and case
-/// ignored). Gates the paid tracking fallback to numbers the user tracks.
+/// Whether one of the user's still-open preorders carries `number` in its
+/// tracking field — inside a carrier link or as the bare number (whitespace
+/// and case ignored). Gates the paid tracking fallback to parcels the user is
+/// actually waiting for: a received or cancelled preorder's number is never
+/// looked up again (the SPA hides its chip by the same rule —
+/// `showsParcelTracking` in client/src/lib/carrierTracking.js).
 pub async fn tracks_number(pool: &PgPool, user_id: Uuid, number: &str) -> AppResult<bool> {
     let needle: String = number.split_whitespace().collect();
     if needle.is_empty() {
@@ -419,6 +422,7 @@ pub async fn tracks_number(pool: &PgPool, user_id: Uuid, number: &str) -> AppRes
         "SELECT EXISTS (
             SELECT 1 FROM preorders
              WHERE user_id = $1
+               AND status NOT IN ('received', 'cancelled')
                AND tracking_url IS NOT NULL
                AND strpos(upper(regexp_replace(tracking_url, '\\s', '', 'g')), upper($2)) > 0
          )",
@@ -561,4 +565,75 @@ pub async fn find_by_owned_item(
     .bind(user_id)
     .fetch_optional(pool)
     .await?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    async fn seed_user(pool: &PgPool) -> Uuid {
+        let id = Uuid::now_v7();
+        sqlx::query("INSERT INTO users (id, username, display_name) VALUES ($1, $2, 'T')")
+            .bind(id)
+            .bind(id.to_string())
+            .execute(pool)
+            .await
+            .unwrap();
+        id
+    }
+
+    async fn seed_preorder(pool: &PgPool, user: Uuid, status: &str, tracking: &str) {
+        let figure = Uuid::now_v7();
+        sqlx::query(
+            "INSERT INTO figures (id, name, slug, figure_type) VALUES ($1, 'F', $2, 'statue')",
+        )
+        .bind(figure)
+        .bind(figure.to_string())
+        .execute(pool)
+        .await
+        .unwrap();
+        sqlx::query(
+            "INSERT INTO preorders (user_id, figure_id, status, tracking_url)
+             VALUES ($1, $2, $3, $4)",
+        )
+        .bind(user)
+        .bind(figure)
+        .bind(status)
+        .bind(tracking)
+        .execute(pool)
+        .await
+        .unwrap();
+    }
+
+    /// The paid tracking fallback only spends quota on a parcel the user is
+    /// still waiting for.
+    #[sqlx::test]
+    async fn only_an_open_preorders_number_is_tracked(pool: PgPool) {
+        let user = seed_user(&pool).await;
+        seed_preorder(&pool, user, "shipped", "EX 123 456 789 JP").await;
+        seed_preorder(&pool, user, "received", "RR111111111JP").await;
+        seed_preorder(&pool, user, "cancelled", "https://www.dpd.com/tracking/01475251796393").await;
+
+        // Open: matched whatever the spacing and case.
+        assert!(tracks_number(&pool, user, "EX123456789JP").await.unwrap());
+        assert!(tracks_number(&pool, user, "ex123456789jp").await.unwrap());
+        // Closed: in hand, or never coming — no lookup.
+        assert!(!tracks_number(&pool, user, "RR111111111JP").await.unwrap());
+        assert!(!tracks_number(&pool, user, "01475251796393").await.unwrap());
+        // Someone else's open parcel isn't ours to look up.
+        let other = seed_user(&pool).await;
+        assert!(!tracks_number(&pool, other, "EX123456789JP").await.unwrap());
+        // Nothing to match.
+        assert!(!tracks_number(&pool, user, "   ").await.unwrap());
+    }
+
+    /// Two figures in one parcel: the number stays tracked while either
+    /// preorder is still open.
+    #[sqlx::test]
+    async fn a_shared_parcel_stays_tracked_while_one_preorder_is_open(pool: PgPool) {
+        let user = seed_user(&pool).await;
+        seed_preorder(&pool, user, "received", "CP222222222JP").await;
+        seed_preorder(&pool, user, "shipped", "CP222222222JP").await;
+        assert!(tracks_number(&pool, user, "CP222222222JP").await.unwrap());
+    }
 }

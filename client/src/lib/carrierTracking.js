@@ -263,6 +263,20 @@ export function parseTrackingUrl(input) {
   };
 }
 
+/**
+ * Pre-order statuses past which no parcel is on its way. Their tracking is
+ * neither shown nor looked up: a live lookup would only spend the server's
+ * tracking quota (Parcels bills a number again every billing cycle) on a
+ * parcel that is already in hand — or will never come. The server applies
+ * the same rule (`domain::preorder::tracks_number`).
+ */
+const CLOSED_PREORDER_STATUSES = new Set(["received", "cancelled"]);
+
+/** Whether a pre-order in `status` still shows its parcel tracking. */
+export function showsParcelTracking(status) {
+  return !CLOSED_PREORDER_STATUSES.has(status);
+}
+
 /** Carrier id for a bare number we can't attribute — detected server-side. */
 export const AUTO_CARRIER = "auto";
 

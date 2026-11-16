@@ -109,7 +109,10 @@ take a few seconds to ask the carrier. The chip shows "Asking the carrier…"
 and checks again by itself.
 
 Statuses are cached for 15 minutes while in transit and for 24 hours once
-delivered.
+delivered. Once a pre-order is marked **received** (or **cancelled**), its
+tracking is no longer shown and never looked up again: the parcel is in hand
+(or never coming), and a lookup would only spend the tracking quota. The
+server enforces this too, so an old open tab can't trigger a lookup either.
 
 ### Delivered-parcel alert
 
